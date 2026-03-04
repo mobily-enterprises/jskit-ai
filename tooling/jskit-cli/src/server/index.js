@@ -815,6 +815,52 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   };
 }
 
+function createPackageEntry({
+  packageId,
+  version,
+  descriptor,
+  rootDir = "",
+  relativeDir = "",
+  descriptorRelativePath = "",
+  packageJson = {},
+  sourceType = "",
+  source = {}
+}) {
+  const normalizedSourceType = String(sourceType || "").trim() || "package";
+  const normalizedDescriptorPath = String(descriptorRelativePath || "").trim();
+  const normalizedSource = {
+    type: normalizedSourceType,
+    ...ensureObject(source)
+  };
+  if (!normalizedSource.descriptorPath && normalizedDescriptorPath) {
+    normalizedSource.descriptorPath = normalizedDescriptorPath;
+  }
+  return {
+    packageId: String(packageId || "").trim(),
+    version: String(version || "").trim(),
+    descriptor: ensureObject(descriptor),
+    rootDir: String(rootDir || "").trim(),
+    relativeDir: String(relativeDir || "").trim(),
+    descriptorRelativePath: normalizedDescriptorPath,
+    packageJson: ensureObject(packageJson),
+    sourceType: normalizedSourceType,
+    source: normalizedSource
+  };
+}
+
+function mergePackageRegistries(...registries) {
+  const merged = new Map();
+  for (const registry of registries) {
+    if (!(registry instanceof Map)) {
+      continue;
+    }
+    for (const [packageId, packageEntry] of registry.entries()) {
+      merged.set(packageId, packageEntry);
+    }
+  }
+  return merged;
+}
+
 function validateBundleDescriptorShape(descriptor, descriptorPath) {
   const normalized = ensureObject(descriptor);
   const bundleId = String(normalized.bundleId || "").trim();
@@ -890,16 +936,24 @@ async function loadWorkspacePackageRegistry() {
       );
     }
 
-    registry.set(descriptor.packageId, {
-      packageId: descriptor.packageId,
-      version: descriptor.version,
-      descriptor,
-      rootDir: packageRoot,
-      relativeDir: normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, packageRoot),
-      descriptorRelativePath: normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, descriptorPath),
-      packageJson,
-      sourceType: "packages-directory"
-    });
+    const relativeDir = normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, packageRoot);
+    const descriptorRelativePath = normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, descriptorPath);
+    registry.set(
+      descriptor.packageId,
+      createPackageEntry({
+        packageId: descriptor.packageId,
+        version: descriptor.version,
+        descriptor,
+        rootDir: packageRoot,
+        relativeDir,
+        descriptorRelativePath,
+        packageJson,
+        sourceType: "packages-directory",
+        source: {
+          descriptorPath: descriptorRelativePath
+        }
+      })
+    );
   }
 
   return registry;
@@ -937,16 +991,25 @@ async function loadAppLocalPackageRegistry(appRoot) {
       fallbackVersion: String(packageJson?.version || "").trim()
     });
 
-    registry.set(packageId, {
-      packageId: descriptor.packageId,
-      version: descriptor.version,
-      descriptor,
-      rootDir: packageRoot,
-      relativeDir: normalizeRelativePath(appRoot, packageRoot),
-      descriptorRelativePath: normalizeRelativePath(appRoot, descriptorPath),
-      packageJson,
-      sourceType: "app-local-package"
-    });
+    const relativeDir = normalizeRelativePath(appRoot, packageRoot);
+    const descriptorRelativePath = normalizeRelativePath(appRoot, descriptorPath);
+    registry.set(
+      packageId,
+      createPackageEntry({
+        packageId: descriptor.packageId,
+        version: descriptor.version,
+        descriptor,
+        rootDir: packageRoot,
+        relativeDir,
+        descriptorRelativePath,
+        packageJson,
+        sourceType: "app-local-package",
+        source: {
+          packagePath: normalizeRelativePosixPath(relativeDir),
+          descriptorPath: descriptorRelativePath
+        }
+      })
+    );
   }
 
   return registry;
@@ -980,22 +1043,28 @@ async function loadCatalogPackageRegistry() {
       throw createCliError(`Invalid catalog package entry at ${descriptorPath}: missing version.`);
     }
 
-    registry.set(packageId, {
+    registry.set(
       packageId,
-      version,
-      descriptor: {
-        ...descriptor,
-        version
-      },
-      rootDir: "",
-      relativeDir: "",
-      descriptorRelativePath: descriptorPath,
-      packageJson: {
-        name: packageId,
-        version
-      },
-      sourceType: "catalog"
-    });
+      createPackageEntry({
+        packageId,
+        version,
+        descriptor: {
+          ...descriptor,
+          version
+        },
+        rootDir: "",
+        relativeDir: "",
+        descriptorRelativePath: descriptorPath,
+        packageJson: {
+          name: packageId,
+          version
+        },
+        sourceType: "catalog",
+        source: {
+          descriptorPath
+        }
+      })
+    );
   }
 
   return registry;
@@ -1004,10 +1073,7 @@ async function loadCatalogPackageRegistry() {
 async function loadPackageRegistry() {
   const workspaceRegistry = await loadWorkspacePackageRegistry();
   const catalogRegistry = await loadCatalogPackageRegistry();
-  const merged = new Map(catalogRegistry);
-  for (const [packageId, packageEntry] of workspaceRegistry.entries()) {
-    merged.set(packageId, packageEntry);
-  }
+  const merged = mergePackageRegistries(catalogRegistry, workspaceRegistry);
 
   if (merged.size === 0) {
     throw createCliError(
@@ -1016,6 +1082,125 @@ async function loadPackageRegistry() {
   }
 
   return merged;
+}
+
+async function loadInstalledNodeModulePackageEntry({ appRoot, packageId }) {
+  const normalizedPackageId = String(packageId || "").trim();
+  if (!normalizedPackageId) {
+    return null;
+  }
+
+  const packageRoot = path.resolve(appRoot, "node_modules", ...normalizedPackageId.split("/"));
+  const packageJsonPath = path.join(packageRoot, "package.json");
+  if (!(await fileExists(packageJsonPath))) {
+    return null;
+  }
+
+  const packageJson = await readJsonFile(packageJsonPath);
+  const resolvedPackageId = String(packageJson?.name || "").trim() || normalizedPackageId;
+  const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+  if (!(await fileExists(descriptorPath))) {
+    return null;
+  }
+
+  const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+  const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
+    expectedPackageId: resolvedPackageId,
+    fallbackVersion: String(packageJson?.version || "").trim()
+  });
+  const relativeDir = normalizeRelativePath(appRoot, packageRoot);
+  const descriptorRelativePath = normalizeRelativePath(appRoot, descriptorPath);
+
+  return createPackageEntry({
+    packageId: descriptor.packageId,
+    version: descriptor.version,
+    descriptor,
+    rootDir: packageRoot,
+    relativeDir,
+    descriptorRelativePath,
+    packageJson,
+    sourceType: "npm-installed-package",
+    source: {
+      packagePath: normalizeRelativePosixPath(relativeDir),
+      descriptorPath: descriptorRelativePath
+    }
+  });
+}
+
+async function resolveInstalledNodeModulePackageEntry({ appRoot, packageId }) {
+  const raw = String(packageId || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const candidates = [];
+  const seen = new Set();
+  const appendCandidate = (value) => {
+    const candidate = String(value || "").trim();
+    if (!candidate || seen.has(candidate)) {
+      return;
+    }
+    seen.add(candidate);
+    candidates.push(candidate);
+  };
+
+  appendCandidate(raw);
+  appendCandidate(toScopedPackageId(raw));
+
+  for (const candidateId of candidates) {
+    const entry = await loadInstalledNodeModulePackageEntry({
+      appRoot,
+      packageId: candidateId
+    });
+    if (entry) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
+async function hydratePackageRegistryFromInstalledNodeModules({
+  appRoot,
+  packageRegistry,
+  seedPackageIds = []
+}) {
+  const queue = ensureArray(seedPackageIds)
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const visited = new Set();
+
+  while (queue.length > 0) {
+    const packageId = queue.shift();
+    if (!packageId || visited.has(packageId)) {
+      continue;
+    }
+    visited.add(packageId);
+
+    let packageEntry = packageRegistry.get(packageId);
+    if (!packageEntry) {
+      const resolvedEntry = await resolveInstalledNodeModulePackageEntry({
+        appRoot,
+        packageId
+      });
+      if (!resolvedEntry) {
+        continue;
+      }
+
+      packageRegistry.set(resolvedEntry.packageId, resolvedEntry);
+      packageEntry = resolvedEntry;
+      if (resolvedEntry.packageId !== packageId && !visited.has(resolvedEntry.packageId)) {
+        queue.push(resolvedEntry.packageId);
+      }
+    }
+
+    const dependsOn = ensureArray(packageEntry?.descriptor?.dependsOn).map((value) => String(value || "").trim()).filter(Boolean);
+    for (const dependencyId of dependsOn) {
+      if (!visited.has(dependencyId)) {
+        queue.push(dependencyId);
+      }
+    }
+  }
 }
 
 async function loadBundleRegistry() {
@@ -1043,7 +1228,23 @@ async function loadBundleRegistry() {
   return bundles;
 }
 
-function createLocalPackageSpecifier(packageEntry) {
+function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } = {}) {
+  const source = ensureObject(packageEntry?.source);
+  const sourceType = String(source.type || packageEntry?.sourceType || "").trim();
+  if (sourceType === "app-local-package" || sourceType === "local-package") {
+    const packagePath = normalizeRelativePosixPath(String(source.packagePath || packageEntry?.relativeDir || "").trim());
+    if (!packagePath) {
+      throw createCliError(`Unable to resolve local package path for ${String(packageEntry?.packageId || "unknown package")}.`);
+    }
+    return toFileDependencySpecifier(packagePath);
+  }
+  if (sourceType === "npm-installed-package") {
+    const normalizedExisting = String(existingValue || "").trim();
+    if (normalizedExisting) {
+      return normalizedExisting;
+    }
+  }
+
   const descriptorVersion = String(packageEntry?.version || "").trim();
   if (descriptorVersion) {
     return descriptorVersion;
@@ -1052,7 +1253,7 @@ function createLocalPackageSpecifier(packageEntry) {
   if (packageJsonVersion) {
     return packageJsonVersion;
   }
-  throw createCliError(`Unable to resolve version for ${String(packageEntry?.packageId || "unknown package")}.`);
+  throw createCliError(`Unable to resolve dependency specifier for ${String(packageEntry?.packageId || "unknown package")}.`);
 }
 
 function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
@@ -1569,13 +1770,18 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
 }
 
 function createManagedRecordBase(packageEntry, options) {
+  const sourceRecord = {
+    type: String(packageEntry?.sourceType || "packages-directory"),
+    ...ensureObject(packageEntry?.source)
+  };
+  if (!sourceRecord.descriptorPath && String(packageEntry?.descriptorRelativePath || "").trim()) {
+    sourceRecord.descriptorPath = String(packageEntry.descriptorRelativePath).trim();
+  }
+
   return {
     packageId: packageEntry.packageId,
     version: packageEntry.version,
-    source: {
-      type: String(packageEntry?.sourceType || "packages-directory"),
-      descriptorPath: packageEntry.descriptorRelativePath
-    },
+    source: sourceRecord,
     managed: {
       packageJson: {
         dependencies: {},
@@ -1779,7 +1985,10 @@ async function applyPackageInstall({
 
   for (const [dependencyId, dependencyVersion] of Object.entries(runtimeDependencies)) {
     const localPackage = packageRegistry.get(dependencyId);
-    const resolvedValue = localPackage ? createLocalPackageSpecifier(localPackage) : String(dependencyVersion);
+    const existingRuntimeDependencyValue = String(ensureObject(appPackageJson.dependencies)[dependencyId] || "").trim();
+    const resolvedValue = localPackage
+      ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingRuntimeDependencyValue })
+      : String(dependencyVersion);
     const applied = applyPackageJsonField(appPackageJson, "dependencies", dependencyId, resolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.dependencies[dependencyId] = applied.managed;
@@ -1789,7 +1998,10 @@ async function applyPackageInstall({
 
   for (const [dependencyId, dependencyVersion] of Object.entries(devDependencies)) {
     const localPackage = packageRegistry.get(dependencyId);
-    const resolvedValue = localPackage ? createLocalPackageSpecifier(localPackage) : String(dependencyVersion);
+    const existingDevDependencyValue = String(ensureObject(appPackageJson.devDependencies)[dependencyId] || "").trim();
+    const resolvedValue = localPackage
+      ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingDevDependencyValue })
+      : String(dependencyVersion);
     const applied = applyPackageJsonField(appPackageJson, "devDependencies", dependencyId, resolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.devDependencies[dependencyId] = applied.managed;
@@ -1797,7 +2009,10 @@ async function applyPackageInstall({
     }
   }
 
-  const selfDependencyValue = createLocalPackageSpecifier(packageEntry);
+  const existingSelfDependencyValue = String(ensureObject(appPackageJson.dependencies)[packageEntry.packageId] || "").trim();
+  const selfDependencyValue = resolvePackageDependencySpecifier(packageEntry, {
+    existingValue: existingSelfDependencyValue
+  });
   const selfApplied = applyPackageJsonField(appPackageJson, "dependencies", packageEntry.packageId, selfDependencyValue);
   if (selfApplied.changed) {
     managedRecord.managed.packageJson.dependencies[packageEntry.packageId] = selfApplied.managed;
@@ -1907,8 +2122,18 @@ async function commandList({ positional, options, cwd, stdout }) {
   const { lock } = await loadLockFile(appRoot);
   const installedPackageEntries = ensureObject(lock.installedPackages);
   const installedPackages = new Set(Object.keys(installedPackageEntries));
-  const installedLocalPackageIds = sortStrings(
+  const installedUnknownPackageIds = sortStrings(
     [...installedPackages].filter((packageId) => !packageRegistry.has(packageId))
+  );
+  const installedLocalPackageIds = sortStrings(
+    installedUnknownPackageIds.filter((packageId) => {
+      const lockEntry = ensureObject(installedPackageEntries[packageId]);
+      const sourceType = String(ensureObject(lockEntry.source).type || "").trim();
+      return sourceType === "local-package" || sourceType === "app-local-package" || appLocalRegistry.has(packageId);
+    })
+  );
+  const installedExternalPackageIds = sortStrings(
+    installedUnknownPackageIds.filter((packageId) => !installedLocalPackageIds.includes(packageId))
   );
   const availableLocalPackageIds = sortStrings(
     [...appLocalRegistry.keys()].filter((packageId) => !installedPackages.has(packageId))
@@ -1969,6 +2194,17 @@ async function commandList({ positional, options, cwd, stdout }) {
       }
     }
 
+    if (installedExternalPackageIds.length > 0) {
+      lines.push("");
+      lines.push(color.heading("Installed external packages:"));
+      for (const packageId of installedExternalPackageIds) {
+        const lockEntry = ensureObject(installedPackageEntries[packageId]);
+        const version = String(lockEntry.version || "").trim();
+        const versionLabel = version ? ` ${color.version(`(${version})`)}` : "";
+        lines.push(`- ${color.item(packageId)}${versionLabel}${color.installed(" (installed)")}`);
+      }
+    }
+
     if (availableLocalPackageIds.length > 0) {
       lines.push("");
       lines.push(color.heading("Available local packages (not installed):"));
@@ -2013,6 +2249,16 @@ async function commandList({ positional, options, cwd, stdout }) {
           return {
             packageId,
             version: String(lockEntry.version || "").trim()
+          };
+        })
+        : [],
+      installedExternalPackages: shouldListPackages
+        ? installedExternalPackageIds.map((packageId) => {
+          const lockEntry = ensureObject(installedPackageEntries[packageId]);
+          return {
+            packageId,
+            version: String(lockEntry.version || "").trim(),
+            source: ensureObject(lockEntry.source)
           };
         })
         : [],
@@ -2526,15 +2772,20 @@ async function commandAdd({ positional, options, cwd, io }) {
   const packageRegistry = await loadPackageRegistry();
   const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
   const bundleRegistry = await loadBundleRegistry();
-  const combinedPackageRegistry = new Map(packageRegistry);
-  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
-    if (!combinedPackageRegistry.has(packageId)) {
-      combinedPackageRegistry.set(packageId, packageEntry);
-    }
-  }
+  const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
-  const resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, combinedPackageRegistry) : "";
+  let resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, combinedPackageRegistry) : "";
+  if (targetType === "package" && !resolvedTargetPackageId) {
+    const installedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
+      appRoot,
+      packageId: targetId
+    });
+    if (installedNodeModuleEntry) {
+      combinedPackageRegistry.set(installedNodeModuleEntry.packageId, installedNodeModuleEntry);
+      resolvedTargetPackageId = installedNodeModuleEntry.packageId;
+    }
+  }
 
   const targetPackageIds = targetType === "bundle"
     ? ensureArray(bundleRegistry.get(targetId)?.packages).map((value) => String(value))
@@ -2543,8 +2794,16 @@ async function commandAdd({ positional, options, cwd, io }) {
     throw createCliError(`Unknown bundle: ${targetId}`);
   }
   if (targetType === "package" && !resolvedTargetPackageId) {
-    throw createCliError(`Unknown package: ${targetId}`);
+    throw createCliError(
+      `Unknown package: ${targetId}. Install an external module first (npm install ${targetId}) if you want to adopt it into lock.`
+    );
   }
+
+  await hydratePackageRegistryFromInstalledNodeModules({
+    appRoot,
+    packageRegistry: combinedPackageRegistry,
+    seedPackageIds: targetPackageIds
+  });
 
   const { ordered: resolvedPackageIds, externalDependencies } = resolveLocalDependencyOrder(
     targetPackageIds,
