@@ -20,5 +20,5 @@ Surface configuration lives in `config/surfaces.js`.
 ## Add Capabilities
 
 ```bash
-npx jskit add bundle auth-base --no-install
+npx jskit add auth-base --no-install
 ```

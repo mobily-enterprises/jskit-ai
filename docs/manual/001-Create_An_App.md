@@ -1,4 +1,4 @@
-# Create An App
+# JSKIT: Quickstart guide
 
 ## Developers only (ignore for now)
 
@@ -9,20 +9,24 @@ cd manual-app
 npx @jskit-ai/create-app manual-app --target .
 npm install
 npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
-npx jskit add bundle auth-base --no-install
+npx jskit add auth-base --no-install
+cp ~/Development/DOTENV_DEV ./.env
 npm install
 scripts/link-local-jskit-packages.sh
-cp ~/Development/DOTENV_DEV ./.env
+
 ```
 
-## Prepare target directory
+## Get it ready
+
+
+### Prepare target directory
 
 ```bash
 mkdir -p manual-app
 cd manual-app
 ```
 
-## Scaffold into current directory
+### Scaffold into current directory
 
 ```bash
 npx @jskit-ai/create-app manual-app --target .
@@ -35,7 +39,7 @@ Notes:
 - If target contains only `.git`, it is allowed.
 - If target contains other files, use `--force`.
 
-## Install and run
+### Install and run
 
 ```bash
 npm install
@@ -69,7 +73,7 @@ Expected:
 - Additional API routes are added as you install or build JSKIT modules/providers.
 
 
-## Overview on what is included
+### Overview on what is included
 
 You now have a minimal full-stack app shell:
 
@@ -124,7 +128,7 @@ What each area does:
   - Your app-local JSKIT module (`@local/main`).
   - This is where backend provider logic and app-specific runtime extensions belong.
 
-### What happens when the server runs
+#### What happens when the server runs
 
 When you run `npm run server`, the flow is:
 
@@ -137,7 +141,7 @@ When you run `npm run server`, the flow is:
 
 In short: `server.js` is the shell bootstrap, while providers (including your local main provider) are where feature runtime wiring belongs.
 
-### What happens when the client runs
+#### What happens when the client runs
 
 When you run `npm run dev`, the flow is:
 
@@ -191,110 +195,33 @@ runtime: {
 
 That means you can grow your backend feature-by-feature inside `packages/main/src/server/**`, and JSKIT will wire it at runtime.
 
-### Add a complete example route (service + controller + schema + route + provider wiring)
+### Add a complete first route by editing the existing MainServiceProvider
+
+The first backend example should start from the blank template as-is: one provider file, then one incremental edit.
 
 The example below adds:
 
 - `GET /api/v1/main/hello?name=alice`
 
-and demonstrates each layer clearly.
-
-Before the steps, here is the validation model used across legacy modules and current route packages.
-
-Validation is handled at three levels:
+Validation is still handled at three levels:
 
 1. Transport-level validation:
-  - Fastify validates incoming `params`, `querystring`, and `body` against TypeBox schemas before your controller runs.
+  - Fastify validates incoming `querystring` before your handler runs.
 2. Response contract validation:
-  - Route `response` schemas describe exactly what each status code returns (`200`, `400`, `422`, etc.), which prevents response drift.
+  - Route `response` schemas define exactly what each status code returns (`200`, `400`, `422`).
 3. Domain/business validation:
-  - Your service enforces business rules that are not just data-shape rules (for example, reserved names, state transitions, permission-sensitive checks).
+  - Handler logic enforces business rules that are not just shape checks (for example, reserved names).
 
-Because base-shell now configures TypeBox validation in `server.js`, you can apply this pattern immediately in `@local/main`.
+Because base-shell already configures TypeBox validation in `server.js`, you can apply this immediately.
 
-### Create folders
+### Create shared schema contracts
 
-```bash
-mkdir -p packages/main/src/server/services
-mkdir -p packages/main/src/server/controllers
-mkdir -p packages/main/src/server/schemas
-mkdir -p packages/main/src/server/routes
-```
-
-### Create a service
-
-Create `packages/main/src/server/services/MainHelloService.js`:
-
-```js
-class MainHelloService {
-  constructor({ appName = "manual-app" } = {}) {
-    this.appName = appName;
-  }
-
-  createGreeting({ name = "world" } = {}) {
-    const normalizedName = String(name || "").trim() || "world";
-    const lowered = normalizedName.toLowerCase();
-
-    if (["root", "system", "admin"].includes(lowered)) {
-      const error = new Error(`Name "${normalizedName}" is reserved.`);
-      error.code = "name_reserved";
-      throw error;
-    }
-
-    return {
-      ok: true,
-      app: this.appName,
-      message: `Hello, ${normalizedName}!`,
-      timestamp: new Date().toISOString()
-    };
-  }
-}
-
-export { MainHelloService };
-```
-
-### Create a controller
-
-Create `packages/main/src/server/controllers/MainHelloController.js`:
-
-```js
-class MainHelloController {
-  constructor({ service } = {}) {
-    if (!service || typeof service.createGreeting !== "function") {
-      throw new Error("MainHelloController requires a MainHelloService instance.");
-    }
-    this.service = service;
-  }
-
-  async getHello(request, reply) {
-    try {
-      const name = request?.query?.name;
-      const payload = this.service.createGreeting({ name });
-      reply.code(200).send(payload);
-    } catch (error) {
-      if (error && error.code === "name_reserved") {
-        reply.code(422).send({
-          error: "Validation failed.",
-          code: error.code
-        });
-        return;
-      }
-      throw error;
-    }
-  }
-}
-
-export { MainHelloController };
-```
-
-### Create schemas
-
-Create `packages/main/src/server/schemas/mainHelloSchema.js`:
+Create `packages/main/src/shared/schemas/mainHelloSchema.js`:
 
 ```js
 import { Type } from "@fastify/type-provider-typebox";
 
-const query = Type.Object(
+const mainHelloQuery = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 80 }))
   },
@@ -303,7 +230,7 @@ const query = Type.Object(
   }
 );
 
-const successResponse = Type.Object(
+const mainHelloSuccessResponse = Type.Object(
   {
     ok: Type.Boolean(),
     app: Type.String({ minLength: 1 }),
@@ -315,7 +242,7 @@ const successResponse = Type.Object(
   }
 );
 
-const domainValidationErrorResponse = Type.Object(
+const mainHelloDomainValidationErrorResponse = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     code: Type.String({ minLength: 1 })
@@ -326,95 +253,75 @@ const domainValidationErrorResponse = Type.Object(
 );
 
 const mainHelloSchema = Object.freeze({
-  query,
+  query: mainHelloQuery,
   response: {
-    success: successResponse,
-    domainValidationError: domainValidationErrorResponse
+    200: mainHelloSuccessResponse,
+    422: mainHelloDomainValidationErrorResponse
   }
 });
 
 export { mainHelloSchema };
 ```
 
-### Create route definitions
-
-Create `packages/main/src/server/routes/mainHelloRoutes.js`:
-
-```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { mainHelloSchema } from "../schemas/mainHelloSchema.js";
-
-function buildMainHelloRoutes(controller) {
-  if (!controller || typeof controller.getHello !== "function") {
-    throw new Error("buildMainHelloRoutes requires a controller with getHello().");
-  }
-
-  return [
-    {
-      method: "GET",
-      path: "/api/v1/main/hello",
-      schema: {
-        tags: ["main"],
-        summary: "Example hello endpoint from @local/main",
-        querystring: mainHelloSchema.query,
-        response: withStandardErrorResponses(
-          {
-            200: mainHelloSchema.response.success,
-            422: mainHelloSchema.response.domainValidationError
-          },
-          { includeValidation400: true }
-        )
-      },
-      handler: controller.getHello.bind(controller)
-    }
-  ];
-}
-
-export { buildMainHelloRoutes };
-```
-
-### Wire everything in the provider
+### Update the provider to use shared contracts
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
 ```js
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { MainHelloService } from "../services/MainHelloService.js";
-import { MainHelloController } from "../controllers/MainHelloController.js";
-import { buildMainHelloRoutes } from "../routes/mainHelloRoutes.js";
+import { mainHelloSchema } from "../../shared/schemas/mainHelloSchema.js";
 
 class MainServiceProvider {
   static id = "local.main";
 
-  register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("MainServiceProvider requires application singleton().");
-    }
-
-    app.singleton("local.main.helloService", (scope) => {
-      const env = scope && typeof scope.has === "function" && scope.has(TOKENS.Env) ? scope.make(TOKENS.Env) : {};
-      const appName = String(env.APP_NAME || "manual-app").trim() || "manual-app";
-      return new MainHelloService({ appName });
-    });
-  }
+  register() {}
 
   boot(app) {
-    if (!app || typeof app.make !== "function") {
-      throw new Error("MainServiceProvider requires application make().");
-    }
-
     const router = app.make(TOKENS.HttpRouter);
-    const service = app.make("local.main.helloService");
-    const controller = new MainHelloController({ service });
+    const env = app.has(TOKENS.Env) ? app.make(TOKENS.Env) : {};
+    const appName = String(env.APP_NAME || "manual-app").trim() || "manual-app";
 
-    for (const route of buildMainHelloRoutes(controller)) {
-      router.register(route.method, route.path, route, route.handler);
-    }
+    router.register(
+      "GET",
+      "/api/v1/main/hello",
+      {
+        method: "GET",
+        path: "/api/v1/main/hello",
+        schema: {
+          tags: ["main"],
+          summary: "Example hello endpoint from @local/main",
+          querystring: mainHelloSchema.query,
+          response: withStandardErrorResponses(mainHelloSchema.response, { includeValidation400: true })
+        }
+      },
+      async (request, reply) => {
+        const normalizedName = String(request?.query?.name || "").trim() || "world";
+        const lowered = normalizedName.toLowerCase();
+
+        if (["root", "system", "admin"].includes(lowered)) {
+          reply.code(422).send({
+            error: "Validation failed.",
+            code: "name_reserved"
+          });
+          return;
+        }
+
+        reply.code(200).send({
+          ok: true,
+          app: appName,
+          message: `Hello, ${normalizedName}!`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    );
   }
 }
 
 export { MainServiceProvider };
 ```
+
+With this shape, the server and client can both import the same transport contract from `shared/schemas`. As your module grows, you can then split runtime code into `services`, `controllers`, and `routes`.
 
 ### (Recommended) document the route in descriptor metadata
 
@@ -478,5 +385,5 @@ This pattern scales well:
 ## To be done later
 
 npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
-npx jskit add bundle auth-base --no-install
+npx jskit add auth-base --no-install
 npm install

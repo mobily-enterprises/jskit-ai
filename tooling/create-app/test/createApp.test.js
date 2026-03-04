@@ -51,6 +51,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
     assert.match(readme, /npm run dev/);
+    assert.match(readme, /npx jskit add auth-base --no-install/);
     assert.doesNotMatch(readme, /-w apps/);
 
     const gitignore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
@@ -116,6 +117,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
+    assert.match(localMainServiceProvider, /register\(\)\s*\{\}/);
+    assert.match(localMainServiceProvider, /boot\(\)\s*\{\}/);
+    assert.match(localMainServiceProvider, /src\/shared\/schemas/);
 
     const localMainControllersIndex = await readFile(
       path.join(appRoot, "packages/main/src/server/controllers/index.js"),
