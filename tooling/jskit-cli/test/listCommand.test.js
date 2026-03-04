@@ -82,7 +82,12 @@ test("list packages --json includes installedLocalPackages payload", async () =>
       installedPackages: {
         "@demo-app/local-feature": {
           packageId: "@demo-app/local-feature",
-          version: "0.3.2"
+          version: "0.3.2",
+          source: {
+            type: "local-package",
+            packagePath: "packages/local-feature",
+            descriptorPath: "packages/local-feature/package.descriptor.mjs"
+          }
         }
       }
     });

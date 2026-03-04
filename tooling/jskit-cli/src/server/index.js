@@ -497,7 +497,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  list [bundles [all]|packages] List available bundles/packages and installed status\n");
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
-  stream.write("  add package <packageId>      Add one package to current app\n");
+  stream.write("  add package <packageId>      Add one package to current app (catalog/app-local/installed external)\n");
   stream.write("  show <id>                    Show details for bundle id or package id\n");
   stream.write("  view <id>                    Alias of show <id>\n");
   stream.write("  update package <packageId>   Re-apply one installed package\n");
@@ -2927,15 +2927,15 @@ async function commandRemove({ positional, options, cwd, io }) {
   const appRoot = await resolveAppRootFromCwd(cwd);
   const packageRegistry = await loadPackageRegistry();
   const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-  const combinedPackageRegistry = new Map(packageRegistry);
-  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
-    if (!combinedPackageRegistry.has(packageId)) {
-      combinedPackageRegistry.set(packageId, packageEntry);
-    }
-  }
+  const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
   const installed = ensureObject(lock.installedPackages);
+  await hydratePackageRegistryFromInstalledNodeModules({
+    appRoot,
+    packageRegistry: combinedPackageRegistry,
+    seedPackageIds: Object.keys(installed)
+  });
   const resolvedTargetId = resolveInstalledPackageIdInput(targetId, installed);
 
   if (!resolvedTargetId) {
@@ -3062,14 +3062,14 @@ async function commandDoctor({ cwd, options, stdout }) {
   const { lock } = await loadLockFile(appRoot);
   const packageRegistry = await loadPackageRegistry();
   const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-  const combinedPackageRegistry = new Map(packageRegistry);
-  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
-    if (!combinedPackageRegistry.has(packageId)) {
-      combinedPackageRegistry.set(packageId, packageEntry);
-    }
-  }
+  const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
   const issues = [];
   const installed = ensureObject(lock.installedPackages);
+  await hydratePackageRegistryFromInstalledNodeModules({
+    appRoot,
+    packageRegistry: combinedPackageRegistry,
+    seedPackageIds: Object.keys(installed)
+  });
 
   for (const [packageId, lockEntryValue] of Object.entries(installed)) {
     const lockEntry = ensureObject(lockEntryValue);

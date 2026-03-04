@@ -64,6 +64,8 @@ test("local package can be removed (disabled) and added back from app packages d
     const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
     assert.ok(lock.installedPackages[packageId]);
     assert.equal(lock.installedPackages[packageId].packageId, packageId);
+    const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies[packageId], "file:packages/local-feature");
 
     const listAfterAdd = runCli({
       cwd: appRoot,
