@@ -6,7 +6,9 @@
 ~/Development/current/jskit-ai/tooling/create-app/templates/base-shell/scripts/verdaccio-reset-and-publish-packages.sh
 mkdir -p manual-app
 cd manual-app
-npx @jskit-ai/create-app manual-app --target .
+npm_config_registry=http://127.0.0.1:4873 \
+  npm_config_cache=/tmp/jskit-npm-cache-$(date +%s) \
+  npx @jskit-ai/create-app manual-app --target .
 npm install
 npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
 npx jskit add auth-base --no-install
@@ -127,6 +129,23 @@ What each area does:
 - `packages/main/`
   - Your app-local JSKIT module (`@local/main`).
   - This is where backend provider logic and app-specific runtime extensions belong.
+
+#### Note to expand later: surfaces, profiles, and security boundaries
+
+This guide currently uses surfaces but does not yet fully unpack the model.
+
+Working mental model for now:
+
+- `config/surfaces.js` defines named surfaces (for example `app`, `admin`, `console`), including path prefixes and access expectations.
+- At runtime, JSKIT resolves a runtime profile from the selected surface mode, and applies routing constraints accordingly.
+- A surface is not just a UI menu context; it is a boundary that controls which route branches are active and reachable.
+- Security implication: if surface boundaries are defined loosely, privileged routes can become reachable from broader/public branches.
+
+This section will be expanded in a later revision with a full explanation of:
+
+- how surfaces map to runtime profile identity
+- how path constraints are enforced on server and client
+- how to review surface configuration for security risk
 
 #### What happens when the server runs
 
