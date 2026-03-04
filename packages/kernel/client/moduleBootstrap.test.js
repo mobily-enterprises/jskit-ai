@@ -87,46 +87,56 @@ test("registerClientModuleRoutes filters surface routes by mode", () => {
   assert.equal(router.routes[0].path, "/admin/dashboard");
 });
 
-test("bootClientModules boots provider-only modules and bootClient modules", async () => {
+test("bootClientModules registers clientRoutes and bootClient manual routes", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
-
-  class ExampleClientProvider {
-    static id = "example.client";
-
-    register(app) {
-      app.instance("example.value", 42);
-      events.push("register");
-    }
-
-    boot() {
-      events.push("boot");
-    }
-  }
+  const loginComponent = {};
+  const manualComponent = {};
 
   const result = await bootClientModules({
     clientModules: [
       {
-        packageId: "@example/provider-only",
+        packageId: "@example/alpha",
         module: {
-          ExampleClientProvider
+          ExampleClientProvider: class {
+            static id = "example.client";
+            register(app) {
+              events.push("register");
+              app.instance("example.value", 42);
+            }
+            boot() {
+              events.push("boot");
+            }
+          }
         }
       },
       {
-        packageId: "@example/with-hook",
+        packageId: "@example/zeta",
         module: {
           clientRoutes: [
             {
-              id: "public.landing",
-              name: "public-landing",
-              path: "/landing",
+              id: "auth.login",
+              name: "auth-login",
+              path: "/auth/login",
               scope: "global",
-              component: {}
+              component: loginComponent
             }
           ],
+          routeComponents: {
+            "auth-login": loginComponent
+          },
           async bootClient(context) {
             events.push(`bootClient:${context.packageId}`);
+            context.registerRoutes([
+              {
+                id: "auth.callback",
+                name: "auth-callback",
+                path: "/auth/callback",
+                scope: "global",
+                component: manualComponent
+              }
+            ]);
           }
         }
       }
@@ -137,9 +147,42 @@ test("bootClientModules boots provider-only modules and bootClient modules", asy
     logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.deepEqual(events, ["register", "boot", "bootClient:@example/with-hook"]);
+  assert.deepEqual(events, ["register", "boot", "bootClient:@example/zeta"]);
   assert.equal(result.providerCount, 1);
-  assert.equal(result.routeCount, 1);
-  assert.equal(router.routes.length, 1);
+  assert.equal(result.routeCount, 2);
+  assert.equal(router.routes.length, 2);
+  assert.equal(router.routes[0].path, "/auth/login");
+  assert.equal(router.routes[0].component, loginComponent);
+  assert.equal(router.routes[1].component, manualComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
+});
+
+test("bootClientModules rejects clientRoutes without components", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+
+  await assert.rejects(
+    bootClientModules({
+      clientModules: [
+        {
+          packageId: "@example/missing",
+          module: {
+            clientRoutes: [
+              {
+                id: "auth.login",
+                path: "/auth/login",
+                scope: "global",
+                component: null
+              }
+            ]
+          }
+        }
+      ],
+      router,
+      surfaceRuntime,
+      surfaceMode: "all",
+      logger: { info() {}, warn() {}, error() {} }
+    }),
+    /Client route "auth.login" from @example\/missing requires component\./
+  );
 });

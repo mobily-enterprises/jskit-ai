@@ -167,6 +167,20 @@ export default Object.freeze({
         "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
         "category": "auth-web",
         "id": "auth-view-signout"
+      },
+      {
+        "from": "templates/src/pages/auth/login.vue",
+        "to": "src/pages/auth/login.vue",
+        "reason": "Provide a global /auth/login wrapper that renders the package login view.",
+        "category": "auth-web",
+        "id": "auth-page-login"
+      },
+      {
+        "from": "templates/src/pages/auth/signout.vue",
+        "to": "src/pages/auth/signout.vue",
+        "reason": "Provide a global /auth/signout wrapper that renders the package sign-out view.",
+        "category": "auth-web",
+        "id": "auth-page-signout"
       }
     ]
   }

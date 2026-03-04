@@ -23,9 +23,21 @@ function createFallbackNotFoundRoute(component) {
   });
 }
 
-function buildSurfaceAwareRoutes({ routes = [], notFoundComponent, surfaceRuntime, surfaceMode } = {}) {
-  const fallbackRoute = createFallbackNotFoundRoute(notFoundComponent);
-  return filterRoutesBySurface([...routes, fallbackRoute], {
+function buildSurfaceAwareRoutes({
+  routes = [],
+  surfaceRuntime,
+  surfaceMode,
+  fallbackRoute,
+  notFoundComponent
+} = {}) {
+  const effectiveFallback =
+    fallbackRoute ||
+    (notFoundComponent ? createFallbackNotFoundRoute(notFoundComponent) : null);
+
+  if (!effectiveFallback) {
+    throw new TypeError("buildSurfaceAwareRoutes requires fallbackRoute or notFoundComponent.");
+  }
+  return filterRoutesBySurface([...routes, effectiveFallback], {
     surfaceRuntime,
     surfaceMode
   });

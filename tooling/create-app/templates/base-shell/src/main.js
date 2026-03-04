@@ -10,7 +10,11 @@ import App from "./App.vue";
 import NotFoundView from "./views/NotFound.vue";
 import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
-import { buildSurfaceAwareRoutes, createShellBeforeEachGuard } from "@jskit-ai/kernel/client";
+import {
+  buildSurfaceAwareRoutes,
+  createShellBeforeEachGuard,
+  createFallbackNotFoundRoute
+} from "@jskit-ai/kernel/client";
 import {
   SURFACE_DEFAULT_ID,
   SURFACE_DEFINITIONS,
@@ -24,12 +28,13 @@ const surfaceRuntime = createSurfaceRuntime({
   defaultSurfaceId: SURFACE_DEFAULT_ID
 });
 
+const fallbackRoute = createFallbackNotFoundRoute(NotFoundView);
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
 const activeRoutes = buildSurfaceAwareRoutes({
   routes,
-  notFoundComponent: NotFoundView,
   surfaceRuntime,
-  surfaceMode
+  surfaceMode,
+  fallbackRoute
 });
 
 const router = createRouter({
@@ -92,5 +97,12 @@ await bootInstalledClientModules({
   surfaceMode,
   env: import.meta.env
 });
+
+if (fallbackRoute?.name) {
+  if (router.hasRoute(fallbackRoute.name)) {
+    router.removeRoute(fallbackRoute.name);
+  }
+  router.addRoute(fallbackRoute);
+}
 
 app.mount("#app");

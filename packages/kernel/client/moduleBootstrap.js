@@ -317,20 +317,27 @@ async function bootClientModules({
   const seenRoutePaths = new Set();
   const seenRouteNames = new Set();
   const routeResults = [];
-  const bootedPackages = [];
-
-  for (const entry of moduleEntries) {
-    const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
-    const routeResult = registerClientModuleRoutes({
-      packageId: entry.packageId,
-      routes: moduleRoutes,
+  const registerRoutesForEntry = (routeList, packageId) => {
+    if (!routeList || routeList.length === 0) {
+      return null;
+    }
+    const result = registerClientModuleRoutes({
+      packageId,
+      routes: routeList,
       router,
       surfaceRuntime,
       surfaceMode,
       seenRoutePaths,
       seenRouteNames
     });
-    routeResults.push(routeResult);
+    routeResults.push(result);
+    return result;
+  };
+  const bootedPackages = [];
+
+  for (const entry of moduleEntries) {
+    const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
+    registerRoutesForEntry(moduleRoutes, entry.packageId);
 
     if (typeof entry.module.bootClient === "function") {
       await entry.module.bootClient(
@@ -344,15 +351,7 @@ async function bootClientModules({
           env: isRecord(env) ? { ...env } : {},
           logger: log,
           registerRoutes(routeList) {
-            return registerClientModuleRoutes({
-              packageId: entry.packageId,
-              routes: routeList,
-              router,
-              surfaceRuntime,
-              surfaceMode,
-              seenRoutePaths,
-              seenRouteNames
-            });
+            return registerRoutesForEntry(routeList, entry.packageId);
           }
         })
       );
