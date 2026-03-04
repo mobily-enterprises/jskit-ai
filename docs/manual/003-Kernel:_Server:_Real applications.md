@@ -1560,3 +1560,24 @@ The dedicated persistence chapter (to be added later) should cover production pa
 - Provider remains the composition root.
 
 That is the path from "it works" to "it keeps working when the feature grows."
+
+## Verbose Note: Result Style vs Throw Style
+
+Use throw-style `DomainError` as first-class when:
+
+- you have deep call chains where bubbling failures via return objects is noisy
+- you want transaction-like flows that abort immediately on first domain violation
+- cross-cutting middleware/hooks need one uniform thrown-error contract
+- modules already use exception semantics heavily
+
+Keep result-style as default when:
+
+- onboarding/new teams need explicit flow
+- most failures are expected business outcomes
+- you want very predictable unit tests without `try/catch` branches
+
+Recommendation:
+
+- keep result-style + `BaseController` as the standard baseline
+- support `DomainError` throw-style as an approved advanced alternative
+- enforce one style per module to avoid mixed patterns

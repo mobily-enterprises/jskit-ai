@@ -173,7 +173,12 @@ Server platform entrypoint (`@jskit-ai/kernel/server/platform`) exports:
 Server runtime entrypoint (`@jskit-ai/kernel/server/runtime`) exports:
 
 - `isAppError`
+- `isDomainError`
 - `AppError`
+- `DomainError`
+- `DomainValidationError`
+- `ConflictError`
+- `NotFoundError`
 - `createValidationError`
 - `parsePositiveInteger`
 - `safeRequestUrl`

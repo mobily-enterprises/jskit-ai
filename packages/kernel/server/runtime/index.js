@@ -1,4 +1,13 @@
-export { isAppError, AppError, createValidationError } from "./errors.js";
+export {
+  isAppError,
+  isDomainError,
+  AppError,
+  DomainError,
+  DomainValidationError,
+  ConflictError,
+  NotFoundError,
+  createValidationError
+} from "./errors.js";
 export { parsePositiveInteger } from "./integers.js";
 export { safeRequestUrl, safePathnameFromRequest, buildLoginRedirectPathFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 export { normalizePagination } from "./pagination.js";
