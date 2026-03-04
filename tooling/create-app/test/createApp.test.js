@@ -101,9 +101,28 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
       await readFile(path.join(appRoot, "packages/main/package.json"), "utf8")
     );
     assert.equal(localMainPackageJson.name, "@local/main");
+    assert.equal(
+      localMainPackageJson.exports["./server/providers/MainServiceProvider"],
+      "./src/server/providers/MainServiceProvider.js"
+    );
+
+    await assert.rejects(access(path.join(appRoot, "packages/main/src/index.js")), /ENOENT/);
+
+    const localMainServerEntrypoint = await readFile(path.join(appRoot, "packages/main/src/server/index.js"), "utf8");
+    assert.match(localMainServerEntrypoint, /export \{ MainServiceProvider \}/);
+
+    const localMainServiceProvider = await readFile(
+      path.join(appRoot, "packages/main/src/server/providers/MainServiceProvider.js"),
+      "utf8"
+    );
+    assert.match(localMainServiceProvider, /class MainServiceProvider/);
+    assert.match(localMainServiceProvider, /static id = "local\.main";/);
 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
     assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);
+    assert.match(localMainDescriptor, /providerEntrypoint:\s*"src\/server\/index\.js"/);
+    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/providers\/MainServiceProvider\.js"/);
+    assert.match(localMainDescriptor, /export:\s*"MainServiceProvider"/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@local/main"]);

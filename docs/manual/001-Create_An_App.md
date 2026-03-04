@@ -1,6 +1,6 @@
 # 001 - Create An App
 
-## 0) Developers only (ignore for now)
+## Developers only (ignore for now)
 
 ```bash
 ~/Development/current/jskit-ai/tooling/create-app/templates/base-shell/scripts/verdaccio-reset-and-publish-packages.sh
@@ -15,14 +15,14 @@ scripts/link-local-jskit-packages.sh
 cp ~/Development/DOTENV_DEV ./.env
 ```
 
-## 1) Prepare target directory
+## Prepare target directory
 
 ```bash
 mkdir -p manual-app
 cd manual-app
 ```
 
-## 2) Scaffold into current directory
+## Scaffold into current directory
 
 ```bash
 npx @jskit-ai/create-app manual-app --target .
@@ -35,7 +35,7 @@ Notes:
 - If target contains only `.git`, it is allowed.
 - If target contains other files, use `--force`.
 
-## 3) Install and run
+## Install and run
 
 ```bash
 npm install
@@ -67,7 +67,19 @@ Expected:
 - `GET /api/v1/health` returns `404` until runtime routes are installed via JSKIT modules.
 
 
-## 4 Extra packages
+## Overview on what is included
+
+INSTRUCTIONS: Describe what it in the directory, assuming that the person is somewhat familiar with fastapi and Vue.
+Explain the file structure, where happens when the server is run, etc. Give an overview of the server directories, and where the client code is.
+End the tour at the main provider
+
+## The main Provider
+
+INSTRUCTIONS: jskit comes with a base main module which you can use to expand your software
+Brief introduction to provides, and Instructions on how to add a server route introducing the concepts of controllers, service, etc.
+Add a route that uses all concepts.
+
+## To be done later
 
 npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
 npx jskit add bundle auth-base --no-install
