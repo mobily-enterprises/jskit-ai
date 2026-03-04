@@ -69,10 +69,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
-    assert.match(mainJs, /import \{ clientModules \} from "virtual:jskit-client-modules";/);
-    assert.match(mainJs, /collectClientModuleRoutes/);
-    assert.match(mainJs, /import\.meta\.glob\("\.\/views\/\*\*\/\*\.vue"\)/);
-    assert.match(mainJs, /resolveComponent: resolveModuleRouteComponent/);
+    assert.doesNotMatch(mainJs, /@\/modules\/client-modules\.js/);
+    assert.doesNotMatch(mainJs, /virtual:jskit-client-modules/);
+    assert.doesNotMatch(mainJs, /collectClientModuleRoutes/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /router\.beforeEach\(/);
     assert.match(mainJs, /requiresAuth/);

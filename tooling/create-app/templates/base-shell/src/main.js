@@ -8,12 +8,7 @@ import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import App from "./App.vue";
 import NotFoundView from "./views/NotFound.vue";
-import { clientModules } from "virtual:jskit-client-modules";
-import {
-  collectClientModuleRoutes,
-  createSurfaceRuntime,
-  filterRoutesBySurface
-} from "@jskit-ai/framework-core/surface/runtime";
+import { createSurfaceRuntime, filterRoutesBySurface } from "@jskit-ai/framework-core/surface/runtime";
 import {
   SURFACE_DEFAULT_ID,
   SURFACE_DEFINITIONS,
@@ -32,41 +27,6 @@ const surfaceRuntime = createSurfaceRuntime({
   surfaces: SURFACE_DEFINITIONS,
   defaultSurfaceId: SURFACE_DEFAULT_ID
 });
-
-const appViewModules = import.meta.glob("./views/**/*.vue");
-
-function resolveViewModuleComponent(modulePayload, componentPath) {
-  if (!modulePayload || typeof modulePayload !== "object" || !modulePayload.default) {
-    throw new Error(`Route view module did not export default component: ${componentPath}`);
-  }
-  return modulePayload.default;
-}
-
-function resolveModuleRouteComponent(route, { packageId } = {}) {
-  const componentPath = String(route?.componentPath || "").trim();
-  if (!componentPath) {
-    return route?.component;
-  }
-
-  if (!componentPath.startsWith("/src/")) {
-    throw new Error(
-      `Package ${packageId || "<unknown>"} route "${String(route?.id || "").trim()}" has invalid componentPath "${componentPath}".`
-    );
-  }
-
-  const localViewPath = `.${componentPath.slice("/src".length)}`;
-  const loader = appViewModules[localViewPath];
-  if (typeof loader !== "function") {
-    throw new Error(
-      `Package ${packageId || "<unknown>"} route "${String(route?.id || "").trim()}" references missing app view "${componentPath}".`
-    );
-  }
-
-  return async () => {
-    const modulePayload = await loader();
-    return resolveViewModuleComponent(modulePayload, componentPath);
-  };
-}
 
 function normalizeGuardPolicy(value) {
   return String(value || "")
@@ -263,10 +223,6 @@ function evaluateShellGuard({ guard, to }) {
 }
 
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
-const moduleRoutes = collectClientModuleRoutes({
-  clientModules,
-  resolveComponent: resolveModuleRouteComponent
-});
 const fallbackRoute = Object.freeze({
   path: "/:pathMatch(.*)*",
   name: "not-found",
@@ -277,7 +233,7 @@ const fallbackRoute = Object.freeze({
     }
   }
 });
-const activeRoutes = filterRoutesBySurface([...routes, ...moduleRoutes, fallbackRoute], {
+const activeRoutes = filterRoutesBySurface([...routes, fallbackRoute], {
   surfaceRuntime,
   surfaceMode
 });
