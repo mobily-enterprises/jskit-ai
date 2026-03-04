@@ -88,6 +88,13 @@ The tutorials below are all implemented in a functional example module:
 
 - `docs/examples/02.kernel`
 
+Source of truth for the main mini-tutorial providers in this chapter:
+
+- `docs/examples/02.kernel/src/server/providers/BindExampleProvider.js`
+- `docs/examples/02.kernel/src/server/providers/SingletonExampleProvider.js`
+- `docs/examples/02.kernel/src/server/providers/ScopedExampleProvider.js`
+- `docs/examples/02.kernel/src/server/providers/InstanceExampleProvider.js`
+
 The providers are named exactly as they appear in this chapter and can be used as reference implementations.
 
 ### Binding APIs

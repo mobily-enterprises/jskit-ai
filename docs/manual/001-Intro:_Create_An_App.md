@@ -1,5 +1,17 @@
 # JSKIT: Quickstart guide
 
+## Chapter example packages
+
+This chapter is backed by runnable example packages:
+
+- `docs/examples/01.create-app-start`
+- `docs/examples/01.create-app-end`
+
+Source of truth for the end-state code shown in this chapter:
+
+- `docs/examples/01.create-app-end/src/server/providers/MainHelloProvider.js`
+- `docs/examples/01.create-app-end/src/shared/schemas/mainHelloSchema.js`
+
 ## Developers only (ignore for now)
 
 ```bash

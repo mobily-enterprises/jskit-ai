@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "requiredExampleShape": {
+    "files": [
+      "README.md",
+      "package.json",
+      "package.descriptor.mjs",
+      "src/client/index.js",
+      "src/server/index.js",
+      "src/shared/index.js"
+    ]
+  },
+  "chapters": [
+    {
+      "chapter": 1,
+      "manual": "docs/manual/001-Intro:_Create_An_App.md",
+      "examples": [
+        {
+          "id": "01.start_state",
+          "packageDir": "docs/examples/01.create-app-start",
+          "entrypoint": "src/server/index.js",
+          "role": "start_state"
+        },
+        {
+          "id": "01.end_state",
+          "packageDir": "docs/examples/01.create-app-end",
+          "entrypoint": "src/server/index.js",
+          "role": "end_state"
+        }
+      ],
+      "sections": [
+        {
+          "id": "chapter1.main_hello_provider",
+          "source": "docs/examples/01.create-app-end/src/server/providers/MainHelloProvider.js"
+        },
+        {
+          "id": "chapter1.main_hello_schema",
+          "source": "docs/examples/01.create-app-end/src/shared/schemas/mainHelloSchema.js"
+        }
+      ]
+    },
+    {
+      "chapter": 2,
+      "manual": "docs/manual/002-Kernel:_Server:_App_And_Provider_Classes.md",
+      "examples": [
+        {
+          "id": "02.kernel",
+          "packageDir": "docs/examples/02.kernel",
+          "entrypoint": "src/server/index.js",
+          "role": "chapter_module"
+        }
+      ],
+      "sections": [
+        {
+          "id": "chapter2.bind",
+          "source": "docs/examples/02.kernel/src/server/providers/BindExampleProvider.js"
+        },
+        {
+          "id": "chapter2.singleton",
+          "source": "docs/examples/02.kernel/src/server/providers/SingletonExampleProvider.js"
+        },
+        {
+          "id": "chapter2.scoped",
+          "source": "docs/examples/02.kernel/src/server/providers/ScopedExampleProvider.js"
+        },
+        {
+          "id": "chapter2.instance",
+          "source": "docs/examples/02.kernel/src/server/providers/InstanceExampleProvider.js"
+        }
+      ]
+    },
+    {
+      "chapter": 3,
+      "manual": "docs/manual/003-Kernel:_Server:_Real applications.md",
+      "examples": [
+        {
+          "id": "03.real_app",
+          "packageDir": "docs/examples/03.real-app",
+          "entrypoint": "src/server/index.js",
+          "role": "chapter_module"
+        }
+      ],
+      "stages": [
+        {
+          "id": "stage_1_monolith",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js"
+        },
+        {
+          "id": "stage_2_controller",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js"
+        },
+        {
+          "id": "stage_3_service",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js"
+        },
+        {
+          "id": "stage_4_repository",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js"
+        },
+        {
+          "id": "stage_5_actions",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js"
+        },
+        {
+          "id": "stage_6_final",
+          "source": "docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js"
+        }
+      ],
+      "progressive": {
+        "start": "docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js",
+        "end": "docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js"
+      }
+    },
+    {
+      "chapter": 4,
+      "manual": "docs/manual/004-Kernel:_Server:_Advanced_Topics.md",
+      "examples": [
+        {
+          "id": "04.kernel_advanced",
+          "packageDir": "docs/examples/04.kernel-advanced",
+          "entrypoint": "src/server/index.js",
+          "role": "chapter_module"
+        }
+      ]
+    },
+    {
+      "chapter": 5,
+      "manual": "docs/manual/005-Kernel:_Client_Into.md",
+      "examples": [
+        {
+          "id": "05.kernel_client",
+          "packageDir": "docs/examples/05.kernel-client",
+          "entrypoint": "src/client/index.js",
+          "role": "chapter_module"
+        },
+        {
+          "id": "05.tutorial_declarative",
+          "packageDir": "docs/examples/tut-custom-client-routes-dec",
+          "entrypoint": "src/client/index.js",
+          "role": "supplemental"
+        },
+        {
+          "id": "05.tutorial_programmatic",
+          "packageDir": "docs/examples/tut-custom-client-routes-prog",
+          "entrypoint": "src/client/index.js",
+          "role": "supplemental"
+        }
+      ]
+    },
+    {
+      "chapter": 6,
+      "manual": "docs/manual/006-Kernel:_Client_API.md",
+      "examples": [
+        {
+          "id": "06.kernel_client_api",
+          "packageDir": "docs/examples/06.kernel-client-api",
+          "entrypoint": "src/client/index.js",
+          "role": "chapter_module"
+        }
+      ]
+    },
+    {
+      "chapter": 7,
+      "manual": "docs/manual/007-Kernel:_Client_And_Server_API.md",
+      "examples": [
+        {
+          "id": "07.kernel_api_reference",
+          "packageDir": "docs/examples/07.kernel-api-reference",
+          "entrypoint": "src/server/index.js",
+          "role": "chapter_module"
+        }
+      ]
+    }
+  ]
+}

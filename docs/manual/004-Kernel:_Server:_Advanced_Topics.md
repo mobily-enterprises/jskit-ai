@@ -4,6 +4,10 @@ This chapter is intentionally a stub for now.
 
 Its purpose will be to cover advanced package/runtime authoring topics that are not needed for daily feature development.
 
+Runnable chapter example package:
+
+- `docs/examples/04.kernel-advanced`
+
 ## Full Kernel Class Map (Public Exports)
 
 Non-error classes:

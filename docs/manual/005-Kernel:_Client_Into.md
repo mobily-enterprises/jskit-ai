@@ -2,6 +2,12 @@
 
 This chapter defines the full client-side coverage scope.
 
+Runnable chapter example packages:
+
+- `docs/examples/05.kernel-client`
+- `docs/examples/tut-custom-client-routes-dec`
+- `docs/examples/tut-custom-client-routes-prog`
+
 ## Scope
 
 - client runtime mental model and lifecycle

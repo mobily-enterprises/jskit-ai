@@ -2,6 +2,10 @@
 
 This chapter is the canonical API reference for the public kernel API exposed for client and server work.
 
+Runnable chapter example package:
+
+- `docs/examples/07.kernel-api-reference`
+
 Source of truth:
 
 - package exports in `packages/kernel/package.json`

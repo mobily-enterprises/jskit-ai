@@ -86,6 +86,20 @@ Runnable chapter module:
 - `Stage5ActionProvider`
 - `Stage6LayeredProvider`
 
+Stage source-of-truth mapping:
+
+- `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`
+- `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`
+- `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`
+- `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`
+- `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`
+- `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`
+
+Progressive path for this chapter:
+
+- Start: `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`
+- End: `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`
+
 Now let us intentionally start with the bad version.
 
 ## Stage 1: Provider-Only Monolith (Works, But Hurts)
@@ -102,50 +116,14 @@ This stage is intentionally "too much in one place." We want you to feel the pai
 
 Replace `packages/main/src/server/providers/MainServiceProvider.js` with:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage1MonolithProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 
-const contactPayloadSchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-class MainServiceProvider {
-  static id = "local.main";
+class Stage1MonolithProvider {
+  static id = "docs.examples.03.stage1";
 
   register() {}
 
@@ -155,21 +133,15 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-1/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-1/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-1"],
+          summary: "Stage 1 monolith: intake",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       async (request, reply) => {
@@ -269,27 +241,20 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-1"],
+          summary: "Stage 1 monolith: preview",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
-        const company = String(request.body?.company || "").trim();
         const employees = Number(request.body?.employees || 0);
         const plan = String(request.body?.plan || "").trim().toLowerCase();
         const source = String(request.body?.source || "").trim().toLowerCase();
@@ -360,8 +325,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage1MonolithProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Run and test
 
@@ -418,8 +384,9 @@ This already helps because routes become wiring only. But we still keep business
 
 Create `packages/main/src/server/controllers/ContactController.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage2" lang="js" -->
 ```js
-class ContactController {
+class ContactControllerStage2 {
   constructor() {
     this.contacts = [];
   }
@@ -485,6 +452,10 @@ class ContactController {
     } else {
       followupPlan.push("send educational drip campaign");
       followupPlan.push("review intent again in 7 days");
+    }
+
+    if (source === "webinar") {
+      followupPlan.push("attach webinar recording and slides");
     }
 
     this.contacts.push({
@@ -567,6 +538,10 @@ class ContactController {
       followupPlan.push("review intent again in 7 days");
     }
 
+    if (source === "webinar") {
+      followupPlan.push("attach webinar recording and slides");
+    }
+
     reply.code(200).send({
       ok: true,
       mode: "preview",
@@ -580,86 +555,45 @@ class ContactController {
   }
 }
 
-export { ContactController };
+export { ContactControllerStage2 };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Update provider to delegate
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactController } from "../controllers/ContactController.js";
+import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
+import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 
-const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
+const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 
-const contactPayloadSchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-class MainServiceProvider {
-  static id = "local.main";
+class Stage2ControllerProvider {
+  static id = "docs.examples.03.stage2";
 
   register(app) {
-    app.singleton(CONTACT_CONTROLLER_TOKEN, () => new ContactController());
+    app.singleton(STAGE_2_CONTROLLER, () => new ContactControllerStage2());
   }
 
   boot(app) {
     const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(CONTACT_CONTROLLER_TOKEN);
+    const controller = app.make(STAGE_2_CONTROLLER);
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-2/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-2/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-2"],
+          summary: "Stage 2 controller extraction: intake",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -667,21 +601,15 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-2"],
+          summary: "Stage 2 controller extraction: preview",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -689,8 +617,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage2ControllerProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 Routes are now thin delegates, but the controller still carries too much responsibility.
 
@@ -712,6 +641,7 @@ Now we isolate business rules into one class.
 
 Create `packages/main/src/server/services/ContactQualificationService.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" service="ContactQualificationService" lang="js" -->
 ```js
 class ContactQualificationService {
   normalize(raw) {
@@ -732,9 +662,15 @@ class ContactQualificationService {
     if (normalized.name.length < 2) details.push("name must have at least 2 characters");
     if (!normalized.email.includes("@")) details.push("email must include @");
     if (normalized.email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) details.push("country is not in allowed market list");
-    if (normalized.employees > 2000 && normalized.plan !== "enterprise") details.push("large companies must use enterprise plan");
-    if (normalized.source === "partner" && !normalized.consentMarketing) details.push("partner leads require marketing consent");
+    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
+      details.push("country is not in allowed market list");
+    }
+    if (normalized.employees > 2000 && normalized.plan !== "enterprise") {
+      details.push("large companies must use enterprise plan");
+    }
+    if (normalized.source === "partner" && !normalized.consentMarketing) {
+      details.push("partner leads require marketing consent");
+    }
     return details;
   }
 
@@ -770,21 +706,31 @@ class ContactQualificationService {
       plan.push("send educational drip campaign");
       plan.push("review intent again in 7 days");
     }
+
     if (source === "webinar") {
       plan.push("attach webinar recording and slides");
     }
+
     return plan;
   }
 
   qualify(raw) {
     const normalized = this.normalize(raw);
     const details = this.validate(normalized);
+
     if (details.length > 0) {
-      return { ok: false, code: "domain_validation_failed", details, normalized };
+      return {
+        ok: false,
+        code: "domain_validation_failed",
+        details,
+        normalized
+      };
     }
+
     const score = this.score(normalized);
     const segment = this.segment(score);
     const followupPlan = this.followupPlan({ segment, source: normalized.source });
+
     return {
       ok: true,
       normalized,
@@ -797,6 +743,7 @@ class ContactQualificationService {
 
 export { ContactQualificationService };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Update controller to use service
 
@@ -806,89 +753,47 @@ Now the controller can call one service to run domain rules. This removes duplic
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactController } from "../controllers/ContactController.js";
+import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 
-const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
-const CONTACT_QUALIFICATION_SERVICE_TOKEN = "local.contacts.qualificationService";
+const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
+const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
 
-const contactPayloadSchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-class MainServiceProvider {
-  static id = "local.main";
+class Stage3ServiceProvider {
+  static id = "docs.examples.03.stage3";
 
   register(app) {
-    app.singleton(CONTACT_QUALIFICATION_SERVICE_TOKEN, () => new ContactQualificationService());
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
 
     app.singleton(
-      CONTACT_CONTROLLER_TOKEN,
+      STAGE_3_CONTROLLER,
       () =>
-        new ContactController({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN)
+        new ContactControllerStage3({
+          qualificationService: app.make(STAGE_3_QUALIFICATION_SERVICE)
         })
     );
   }
 
   boot(app) {
     const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(CONTACT_CONTROLLER_TOKEN);
+    const controller = app.make(STAGE_3_CONTROLLER);
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-3/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-3/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-3"],
+          summary: "Stage 3 service extraction: intake",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -896,21 +801,15 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-3"],
+          summary: "Stage 3 service extraction: preview",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -918,8 +817,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage3ServiceProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -944,8 +844,9 @@ For now, we use an in-memory repository implementation behind a repository token
 
 Create `packages/main/src/server/repositories/ContactRepository.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
 ```js
-const CONTACT_REPOSITORY_TOKEN = "local.contacts.repository";
+const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
 
 class ContactRepository {
   findByEmail(_email) {
@@ -963,11 +864,13 @@ class ContactRepository {
 
 export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Create in-memory implementation
 
 Create `packages/main/src/server/repositories/InMemoryContactRepository.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" repository="InMemoryContactRepository" lang="js" -->
 ```js
 import { ContactRepository } from "./ContactRepository.js";
 
@@ -980,7 +883,9 @@ class InMemoryContactRepository extends ContactRepository {
 
   findByEmail(email) {
     const id = this.byEmail.get(email) || null;
-    if (!id) return null;
+    if (!id) {
+      return null;
+    }
     return this.byId.get(id) || null;
   }
 
@@ -997,98 +902,57 @@ class InMemoryContactRepository extends ContactRepository {
 
 export { InMemoryContactRepository };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Full provider code for Stage 4
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage4RepositoryProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactController } from "../controllers/ContactController.js";
+import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 
-const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
-const CONTACT_QUALIFICATION_SERVICE_TOKEN = "local.contacts.qualificationService";
-const CONTACT_REPOSITORY_TOKEN = "local.contacts.repository";
+const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
+const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";
+const STAGE_4_CONTROLLER = "docs.examples.03.stage4.controller";
 
-const contactPayloadSchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-class MainServiceProvider {
-  static id = "local.main";
+class Stage4RepositoryProvider {
+  static id = "docs.examples.03.stage4";
 
   register(app) {
-    app.singleton(CONTACT_REPOSITORY_TOKEN, () => new InMemoryContactRepository());
-    app.singleton(CONTACT_QUALIFICATION_SERVICE_TOKEN, () => new ContactQualificationService());
+    app.singleton(STAGE_4_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepository());
 
     app.singleton(
-      CONTACT_CONTROLLER_TOKEN,
+      STAGE_4_CONTROLLER,
       () =>
-        new ContactController({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
-          contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
+        new ContactControllerStage4({
+          qualificationService: app.make(STAGE_4_QUALIFICATION_SERVICE),
+          contactRepository: app.make(STAGE_4_REPOSITORY)
         })
     );
   }
 
   boot(app) {
     const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(CONTACT_CONTROLLER_TOKEN);
+    const controller = app.make(STAGE_4_CONTROLLER);
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-4/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-4/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-4"],
+          summary: "Stage 4 repository extraction: intake",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -1096,21 +960,15 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-4"],
+          summary: "Stage 4 repository extraction: preview",
+          body: contactRouteSchema.body,
+          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -1118,8 +976,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage4RepositoryProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -1145,6 +1004,7 @@ Create:
 
 Create `packages/main/src/server/actions/CreateContactIntakeAction.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeAction" lang="js" -->
 ```js
 class CreateContactIntakeAction {
   constructor({ qualificationService, contactRepository }) {
@@ -1199,9 +1059,11 @@ class CreateContactIntakeAction {
 
 export { CreateContactIntakeAction };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 Create `packages/main/src/server/actions/PreviewContactFollowupAction.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupAction" lang="js" -->
 ```js
 class PreviewContactFollowupAction {
   constructor({ qualificationService, contactRepository }) {
@@ -1241,13 +1103,15 @@ class PreviewContactFollowupAction {
 
 export { PreviewContactFollowupAction };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Update controller to be thin
 
 Create `packages/main/src/server/controllers/ContactController.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage5" lang="js" -->
 ```js
-class ContactController {
+class ContactControllerStage5 {
   constructor({ createContactIntakeAction, previewContactFollowupAction }) {
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
@@ -1263,6 +1127,7 @@ class ContactController {
       });
       return;
     }
+
     reply.code(200).send(result.data);
   }
 
@@ -1276,12 +1141,14 @@ class ContactController {
       });
       return;
     }
+
     reply.code(200).send(result.data);
   }
 }
 
-export { ContactController };
+export { ContactControllerStage5 };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 Note to expand later:
 
@@ -1327,23 +1194,24 @@ async intake(request, reply) {
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage5ActionProvider" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactController } from "../controllers/ContactController.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
+import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 
-const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
-const CONTACT_QUALIFICATION_SERVICE_TOKEN = "local.contacts.qualificationService";
-const CONTACT_REPOSITORY_TOKEN = "local.contacts.repository";
-const CREATE_CONTACT_INTAKE_ACTION_TOKEN = "local.contacts.actions.createIntake";
-const PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN = "local.contacts.actions.previewFollowup";
+const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
+const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
+const STAGE_5_CREATE_ACTION = "docs.examples.03.stage5.actions.create";
+const STAGE_5_PREVIEW_ACTION = "docs.examples.03.stage5.actions.preview";
+const STAGE_5_CONTROLLER = "docs.examples.03.stage5.controller";
 
-const contactPayloadSchema = Type.Object(
+const stage5BodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({ minLength: 5, maxLength: 200 }),
@@ -1357,7 +1225,7 @@ const contactPayloadSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactSuccessSchema = Type.Object(
+const stage5SuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
     mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
@@ -1371,7 +1239,7 @@ const contactSuccessSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactDomainErrorSchema = Type.Object(
+const stage5DomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     code: Type.String({ minLength: 1 }),
@@ -1380,62 +1248,64 @@ const contactDomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
-class MainServiceProvider {
-  static id = "local.main";
+class Stage5ActionProvider {
+  static id = "docs.examples.03.stage5";
 
   register(app) {
-    app.singleton(CONTACT_REPOSITORY_TOKEN, () => new InMemoryContactRepository());
-    app.singleton(CONTACT_QUALIFICATION_SERVICE_TOKEN, () => new ContactQualificationService());
+    app.singleton(STAGE_5_REPOSITORY, () => new InMemoryContactRepository());
+    app.singleton(STAGE_5_QUALIFICATION_SERVICE, () => new ContactQualificationService());
 
     app.singleton(
-      CREATE_CONTACT_INTAKE_ACTION_TOKEN,
+      STAGE_5_CREATE_ACTION,
       () =>
         new CreateContactIntakeAction({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
-          contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
+          qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
+          contactRepository: app.make(STAGE_5_REPOSITORY)
         })
     );
 
     app.singleton(
-      PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN,
+      STAGE_5_PREVIEW_ACTION,
       () =>
         new PreviewContactFollowupAction({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
-          contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
+          qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
+          contactRepository: app.make(STAGE_5_REPOSITORY)
         })
     );
 
     app.singleton(
-      CONTACT_CONTROLLER_TOKEN,
+      STAGE_5_CONTROLLER,
       () =>
-        new ContactController({
-          createContactIntakeAction: app.make(CREATE_CONTACT_INTAKE_ACTION_TOKEN),
-          previewContactFollowupAction: app.make(PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN)
+        new ContactControllerStage5({
+          createContactIntakeAction: app.make(STAGE_5_CREATE_ACTION),
+          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION)
         })
     );
   }
 
   boot(app) {
     const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(CONTACT_CONTROLLER_TOKEN);
+    const controller = app.make(STAGE_5_CONTROLLER);
+
+    const response = withStandardErrorResponses(
+      {
+        200: stage5SuccessSchema,
+        422: stage5DomainErrorSchema
+      },
+      { includeValidation400: true }
+    );
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-5/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-5/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-5"],
+          summary: "Stage 5 actions extraction: intake",
+          body: stage5BodySchema,
+          response
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -1443,21 +1313,15 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
-          body: contactPayloadSchema,
-          response: withStandardErrorResponses(
-            {
-              200: contactSuccessSchema,
-              422: contactDomainErrorSchema
-            },
-            { includeValidation400: true }
-          )
+          tags: ["docs-stage-5"],
+          summary: "Stage 5 actions extraction: preview",
+          body: stage5BodySchema,
+          response
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -1465,8 +1329,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage5ActionProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -1482,6 +1347,7 @@ Now we compose everything together in a clean, production-shaped structure.
 
 Create `packages/main/src/shared/schemas/contactSchemas.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
 
@@ -1532,81 +1398,106 @@ const contactRouteSchema = Object.freeze({
 
 export { contactRouteSchema };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 ### Provider wiring
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage6LayeredProvider" lang="js" -->
 ```js
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
-import { ContactController } from "../controllers/ContactController.js";
+import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
+import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { CONTACT_REPOSITORY_TOKEN } from "../repositories/ContactRepository.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 
-const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
-const CONTACT_QUALIFICATION_SERVICE_TOKEN = "local.contacts.qualificationService";
-const CREATE_CONTACT_INTAKE_ACTION_TOKEN = "local.contacts.actions.createIntake";
-const PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN = "local.contacts.actions.previewFollowup";
+const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
+const STAGE_6_QUALIFICATION_SERVICE = "docs.examples.03.stage6.service.qualification";
+const STAGE_6_CREATE_ACTION = "docs.examples.03.stage6.actions.create";
+const STAGE_6_PREVIEW_ACTION = "docs.examples.03.stage6.actions.preview";
+const STAGE_6_CONTROLLER = "docs.examples.03.stage6.controller";
 
-class MainServiceProvider {
-  static id = "local.main";
+function normalizeContactInput(body) {
+  return {
+    ...body,
+    name: String(body?.name || "").trim(),
+    email: String(body?.email || "")
+      .trim()
+      .toLowerCase(),
+    company: String(body?.company || "").trim(),
+    plan: String(body?.plan || "")
+      .trim()
+      .toLowerCase(),
+    source: String(body?.source || "")
+      .trim()
+      .toLowerCase(),
+    country: String(body?.country || "")
+      .trim()
+      .toUpperCase()
+  };
+}
+
+class Stage6LayeredProvider {
+  static id = "docs.examples.03.stage6";
 
   register(app) {
-    app.singleton(CONTACT_REPOSITORY_TOKEN, () => new InMemoryContactRepository());
+    app.singleton(STAGE_6_REPOSITORY, () => new InMemoryContactRepository());
 
     app.singleton(
-      CONTACT_QUALIFICATION_SERVICE_TOKEN,
+      STAGE_6_QUALIFICATION_SERVICE,
       () => new ContactQualificationService()
     );
 
     app.singleton(
-      CREATE_CONTACT_INTAKE_ACTION_TOKEN,
+      STAGE_6_CREATE_ACTION,
       () =>
         new CreateContactIntakeAction({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
-          contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
+          qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
+          contactRepository: app.make(STAGE_6_REPOSITORY)
         })
     );
 
     app.singleton(
-      PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN,
+      STAGE_6_PREVIEW_ACTION,
       () =>
         new PreviewContactFollowupAction({
-          qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
-          contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
+          qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
+          contactRepository: app.make(STAGE_6_REPOSITORY)
         })
     );
 
     app.singleton(
-      CONTACT_CONTROLLER_TOKEN,
+      STAGE_6_CONTROLLER,
       () =>
-        new ContactController({
-          createContactIntakeAction: app.make(CREATE_CONTACT_INTAKE_ACTION_TOKEN),
-          previewContactFollowupAction: app.make(PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN)
+        new ContactControllerStage6({
+          createContactIntakeAction: app.make(STAGE_6_CREATE_ACTION),
+          previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION)
         })
     );
   }
 
   boot(app) {
     const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(CONTACT_CONTROLLER_TOKEN);
+    const controller = app.make(STAGE_6_CONTROLLER);
 
     router.register(
       "POST",
-      "/api/v1/contacts/intake",
+      "/api/v1/docs/ch03/stage-6/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-6/contacts/intake",
         schema: {
-          tags: ["contacts"],
-          summary: "Create a contact and build follow-up plan",
+          tags: ["docs-stage-6"],
+          summary: "Stage 6 final assembly: intake",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        },
+        input: {
+          body: normalizeContactInput
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -1614,15 +1505,18 @@ class MainServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/contacts/preview-followup",
+        path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
         schema: {
-          tags: ["contacts"],
-          summary: "Preview qualification and follow-up without saving",
+          tags: ["docs-stage-6"],
+          summary: "Stage 6 final assembly: preview",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        },
+        input: {
+          body: normalizeContactInput
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -1630,8 +1524,9 @@ class MainServiceProvider {
   }
 }
 
-export { MainServiceProvider };
+export { Stage6LayeredProvider };
 ```
+<!-- /DOCS:EXAMPLE -->
 
 At this point, the architecture is clean and practical:
 
