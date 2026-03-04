@@ -31,7 +31,7 @@ From earlier chapters, you already have:
 
 - a `manual-app`
 - `@local/main` module
-- `MainServiceProvider`
+- provider lifecycle basics from Chapter 1
 - TypeBox validation pattern
 - container/provider mental model
 
@@ -60,15 +60,15 @@ This is exactly the kind of logic that becomes painful when all code lives in on
 This is where we are going.
 
 ```txt
-packages/main/src/
+docs/examples/03.real-app/src/
   shared/schemas/contactSchemas.js
-  server/controllers/ContactController.js
+  server/controllers/ContactControllerStage6.js
   server/actions/CreateContactIntakeAction.js
   server/actions/PreviewContactFollowupAction.js
   server/services/ContactQualificationService.js
   server/repositories/ContactRepository.js
   server/repositories/InMemoryContactRepository.js
-  server/providers/MainServiceProvider.js
+  server/providers/Stage6LayeredProvider.js
 ```
 
 Final request flow:
@@ -78,22 +78,14 @@ Final request flow:
 Runnable chapter module:
 
 - `docs/examples/03.real-app`
-- one functional provider per stage:
-- `Stage1MonolithProvider`
-- `Stage2ControllerProvider`
-- `Stage3ServiceProvider`
-- `Stage4RepositoryProvider`
-- `Stage5ActionProvider`
-- `Stage6LayeredProvider`
 
-Stage source-of-truth mapping:
-
-- `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`
-- `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`
-- `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`
-- `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`
-- `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`
-- `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`
+The app includes one functional provider per stage:
+- `Stage1MonolithProvider` (`docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`)
+- `Stage2ControllerProvider` (`docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`)
+- `Stage3ServiceProvider` (`docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`)
+- `Stage4RepositoryProvider` (`docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`)
+- `Stage5ActionProvider` (`docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`)
+- `Stage6LayeredProvider` (`docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`)
 
 Progressive path for this chapter:
 
@@ -108,13 +100,13 @@ This stage is intentionally "too much in one place." We want you to feel the pai
 
 ### What this stage shows
 
-- Yes, you can do everything in `MainServiceProvider`.
+- Yes, you can do everything in `Stage1MonolithProvider`.
 - Yes, it can ship quickly for tiny demos.
 - No, it does not stay maintainable once logic grows.
 
 ### Code
 
-Replace `packages/main/src/server/providers/MainServiceProvider.js` with:
+Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage1MonolithProvider" lang="js" -->
 ```js
@@ -382,7 +374,7 @@ This already helps because routes become wiring only. But we still keep business
 
 ### Create controller
 
-Create `packages/main/src/server/controllers/ContactController.js`:
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage2.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage2" lang="js" -->
 ```js
@@ -561,7 +553,7 @@ export { ContactControllerStage2 };
 
 ### Update provider to delegate
 
-Update `packages/main/src/server/providers/MainServiceProvider.js`:
+Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
 ```js
@@ -639,7 +631,7 @@ Now we isolate business rules into one class.
 
 ### Create service
 
-Create `packages/main/src/server/services/ContactQualificationService.js`:
+Use `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" service="ContactQualificationService" lang="js" -->
 ```js
@@ -751,7 +743,7 @@ Now the controller can call one service to run domain rules. This removes duplic
 
 ### Full provider code for Stage 3
 
-Update `packages/main/src/server/providers/MainServiceProvider.js`:
+Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
 ```js
@@ -842,7 +834,7 @@ For now, we use an in-memory repository implementation behind a repository token
 
 ### Create repository contract token
 
-Create `packages/main/src/server/repositories/ContactRepository.js`:
+Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
 ```js
@@ -868,7 +860,7 @@ export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
 
 ### Create in-memory implementation
 
-Create `packages/main/src/server/repositories/InMemoryContactRepository.js`:
+Use `docs/examples/03.real-app/src/server/repositories/InMemoryContactRepository.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" repository="InMemoryContactRepository" lang="js" -->
 ```js
@@ -906,7 +898,7 @@ export { InMemoryContactRepository };
 
 ### Full provider code for Stage 4
 
-Update `packages/main/src/server/providers/MainServiceProvider.js`:
+Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage4RepositoryProvider" lang="js" -->
 ```js
@@ -1002,7 +994,7 @@ Create:
 
 ### Create actions
 
-Create `packages/main/src/server/actions/CreateContactIntakeAction.js`:
+Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeAction.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeAction" lang="js" -->
 ```js
@@ -1061,7 +1053,7 @@ export { CreateContactIntakeAction };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-Create `packages/main/src/server/actions/PreviewContactFollowupAction.js`:
+Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupAction.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupAction" lang="js" -->
 ```js
@@ -1107,7 +1099,7 @@ export { PreviewContactFollowupAction };
 
 ### Update controller to be thin
 
-Create `packages/main/src/server/controllers/ContactController.js`:
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage5.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage5" lang="js" -->
 ```js
@@ -1150,49 +1142,9 @@ export { ContactControllerStage5 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-Note to expand later:
-
-- Talk about the new base controller class (`BaseController` from `@jskit-ai/kernel/server/http`) and show how `sendActionResult(...)` removes repeated HTTP mapping code in controllers.
-- Talk about per-request container scope (`request.scope`) and how the kernel can inject `TOKENS.Request`, `TOKENS.Reply`, `TOKENS.RequestId`, and `TOKENS.RequestScope` automatically so scoped bindings become truly request-local.
-
-Final version of the code will need to be improved with this:
-(NOTE: Let "crappy" version NOT use this mechanism!)
-```js
-router.post(
-  "/api/v1/contacts/intake",
-  {
-    schema: {
-      body: contactBodySchema,
-      querystring: contactQuerySchema
-    },
-    input: {
-      body: (body) => ({
-        name: body.name.trim(),
-        email: body.email.trim().toLowerCase()
-      }),
-      query: (query) => ({
-        dryRun: query?.dryRun === true
-      })
-    }
-  },
-  (request, reply) => controller.intake(request, reply)
-);
-```
-
-```js
-async intake(request, reply) {
-  const result = await this.action.execute({
-    ...request.input.body,
-    ...request.input.query
-  });
-
-  return this.sendActionResult(reply, result);
-}
-```
-
 ### Full provider code for Stage 5
 
-Update `packages/main/src/server/providers/MainServiceProvider.js`:
+Use `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage5ActionProvider" lang="js" -->
 ```js
@@ -1345,7 +1297,7 @@ Now we compose everything together in a clean, production-shaped structure.
 
 ### Shared schemas
 
-Create `packages/main/src/shared/schemas/contactSchemas.js`:
+Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
 ```js
@@ -1402,7 +1354,7 @@ export { contactRouteSchema };
 
 ### Provider wiring
 
-Update `packages/main/src/server/providers/MainServiceProvider.js`:
+Use `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage6LayeredProvider" lang="js" -->
 ```js
@@ -1420,26 +1372,6 @@ const STAGE_6_QUALIFICATION_SERVICE = "docs.examples.03.stage6.service.qualifica
 const STAGE_6_CREATE_ACTION = "docs.examples.03.stage6.actions.create";
 const STAGE_6_PREVIEW_ACTION = "docs.examples.03.stage6.actions.preview";
 const STAGE_6_CONTROLLER = "docs.examples.03.stage6.controller";
-
-function normalizeContactInput(body) {
-  return {
-    ...body,
-    name: String(body?.name || "").trim(),
-    email: String(body?.email || "")
-      .trim()
-      .toLowerCase(),
-    company: String(body?.company || "").trim(),
-    plan: String(body?.plan || "")
-      .trim()
-      .toLowerCase(),
-    source: String(body?.source || "")
-      .trim()
-      .toLowerCase(),
-    country: String(body?.country || "")
-      .trim()
-      .toUpperCase()
-  };
-}
 
 class Stage6LayeredProvider {
   static id = "docs.examples.03.stage6";
@@ -1495,9 +1427,6 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: intake",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        },
-        input: {
-          body: normalizeContactInput
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -1514,9 +1443,6 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: preview",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        },
-        input: {
-          body: normalizeContactInput
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
@@ -1536,6 +1462,32 @@ At this point, the architecture is clean and practical:
 - service owns business logic
 - repository owns data access
 - schemas are shared contracts
+
+
+## TO BE ADDED TO THIS CHAPTER
+
+This chapter standardizes one error-handling style for everyday modules:
+
+- actions return explicit result objects (`ok: true` / `ok: false`)
+- controllers map those results to HTTP responses
+
+Advanced variants to cover in this chapter:
+
+- `BaseController.sendActionResult(...)` convenience mapping.
+- Route `input` transforms with explicit lifecycle order: route `schema` validates first, then `input` normalizes into `request.input`, then controllers/actions consume `request.input`.
+- Request-scope context APIs: `request.scope`, `TOKENS.Request`, `TOKENS.Reply`, `TOKENS.RequestId`, `TOKENS.RequestScope`.
+- Domain-error class model: `DomainValidationError`, `ConflictError`, `NotFoundError`.
+- Global HTTP mapping integration point: `registerApiErrorHandler(...)`.
+- Canonical mapped payload shape: `{ error, code, details }` (with `fieldErrors` when applicable).
+
+Chapter 3 intentionally stays manual up to this point, Now is where we apply these kernel niceties and compare before/after.
+
+Best-practice note for this codebase:
+
+- Default path: action result objects + `BaseController.sendActionResult(...)`.
+- Why: explicit domain failures (`ok: false`, `code`, `details`), easy testing, less controller boilerplate.
+- Use throw-style (`AppError` / domain subclasses) for truly exceptional or cross-cutting failures.
+
 
 ## Three Validation Levels (The Important Mental Model)
 
@@ -1592,14 +1544,6 @@ The dedicated persistence chapter (to be added later) should cover production pa
 - data lifecycle policies
 
 ## Suggested Tests For This Chapter
-
-Unit tests:
-
-- `ContactQualificationService` scoring and validation branches
-- each action happy path and failure path
-- repository duplicate detection behavior
-
-Integration tests:
 
 - `POST /api/v1/contacts/intake` success
 - `POST /api/v1/contacts/intake` duplicate email

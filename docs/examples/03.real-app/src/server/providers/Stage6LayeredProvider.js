@@ -13,26 +13,6 @@ const STAGE_6_CREATE_ACTION = "docs.examples.03.stage6.actions.create";
 const STAGE_6_PREVIEW_ACTION = "docs.examples.03.stage6.actions.preview";
 const STAGE_6_CONTROLLER = "docs.examples.03.stage6.controller";
 
-function normalizeContactInput(body) {
-  return {
-    ...body,
-    name: String(body?.name || "").trim(),
-    email: String(body?.email || "")
-      .trim()
-      .toLowerCase(),
-    company: String(body?.company || "").trim(),
-    plan: String(body?.plan || "")
-      .trim()
-      .toLowerCase(),
-    source: String(body?.source || "")
-      .trim()
-      .toLowerCase(),
-    country: String(body?.country || "")
-      .trim()
-      .toUpperCase()
-  };
-}
-
 class Stage6LayeredProvider {
   static id = "docs.examples.03.stage6";
 
@@ -87,9 +67,6 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: intake",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        },
-        input: {
-          body: normalizeContactInput
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -106,9 +83,6 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: preview",
           body: contactRouteSchema.body,
           response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        },
-        input: {
-          body: normalizeContactInput
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)

@@ -1,26 +1,37 @@
-import { BaseController } from "@jskit-ai/kernel/server/http";
-
-class ContactControllerStage6 extends BaseController {
+class ContactControllerStage6 {
   constructor({ createContactIntakeAction, previewContactFollowupAction }) {
-    super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
   }
 
   async intake(request, reply) {
-    const payload = request.input?.body ?? request.body;
+    const payload = request.body;
     const result = this.createContactIntakeAction.execute(payload);
-    return this.sendActionResult(reply, result, {
-      defaultErrorMessage: "Domain validation failed."
-    });
+    if (!result.ok) {
+      reply.code(result.status).send({
+        error: "Domain validation failed.",
+        code: result.code,
+        details: result.details
+      });
+      return;
+    }
+
+    reply.code(200).send(result.data);
   }
 
   async previewFollowup(request, reply) {
-    const payload = request.input?.body ?? request.body;
+    const payload = request.body;
     const result = this.previewContactFollowupAction.execute(payload);
-    return this.sendActionResult(reply, result, {
-      defaultErrorMessage: "Domain validation failed."
-    });
+    if (!result.ok) {
+      reply.code(result.status).send({
+        error: "Domain validation failed.",
+        code: result.code,
+        details: result.details
+      });
+      return;
+    }
+
+    reply.code(200).send(result.data);
   }
 }
 
