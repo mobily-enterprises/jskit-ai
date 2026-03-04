@@ -130,6 +130,55 @@ function attachRequestScope({
   return scope;
 }
 
+function normalizeRouteInputTransforms(route) {
+  const routeInput = route?.input;
+  if (routeInput == null) {
+    return null;
+  }
+
+  if (!routeInput || typeof routeInput !== "object" || Array.isArray(routeInput)) {
+    throw new RouteRegistrationError(
+      `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} input must be an object.`
+    );
+  }
+
+  const normalized = {};
+  for (const key of ["body", "query", "params"]) {
+    if (!Object.prototype.hasOwnProperty.call(routeInput, key)) {
+      continue;
+    }
+
+    const transform = routeInput[key];
+    if (transform == null) {
+      continue;
+    }
+
+    if (typeof transform !== "function") {
+      throw new RouteRegistrationError(
+        `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} input.${key} must be a function.`
+      );
+    }
+
+    normalized[key] = transform;
+  }
+
+  return Object.freeze(normalized);
+}
+
+function buildRequestInput({ request = null, inputTransforms = null } = {}) {
+  const transforms = inputTransforms && typeof inputTransforms === "object" ? inputTransforms : {};
+
+  const body = typeof transforms.body === "function" ? transforms.body(request?.body, request) : request?.body;
+  const query = typeof transforms.query === "function" ? transforms.query(request?.query, request) : request?.query;
+  const params = typeof transforms.params === "function" ? transforms.params(request?.params, request) : request?.params;
+
+  return Object.freeze({
+    body,
+    query,
+    params
+  });
+}
+
 function registerRoutes(
   fastify,
   {
@@ -156,6 +205,7 @@ function registerRoutes(
     const routeOptions = policyApplier(baseOptions, route);
     const routeHandler = typeof route?.handler === "function" ? route.handler : fallbackHandler;
     const middleware = normalizeArray(route?.middleware).filter((entry) => typeof entry === "function");
+    const routeInputTransforms = normalizeRouteInputTransforms(route);
 
     fastify.route({
       ...routeOptions,
@@ -168,6 +218,13 @@ function registerRoutes(
             requestScopeProperty,
             requestScopeIdPrefix,
             requestIdResolver
+          });
+        }
+
+        if (routeInputTransforms) {
+          request.input = buildRequestInput({
+            request,
+            inputTransforms: routeInputTransforms
           });
         }
 

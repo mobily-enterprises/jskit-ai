@@ -63,12 +63,14 @@ class HttpRouter {
   register(method, path, optionsOrHandler, maybeHandler) {
     const input = normalizeRouteInput(method, path, optionsOrHandler, maybeHandler);
     const routeMiddleware = normalizeMiddlewareStack(input.options.middleware);
+    const routeInput = Object.prototype.hasOwnProperty.call(input.options, "input") ? input.options.input : null;
 
     const route = Object.freeze({
       id: normalizeText(input.options.id),
       method: input.method,
       path: joinPath(this._prefix, input.path),
       schema: input.options.schema,
+      input: routeInput,
       config: normalizeObject(input.options.config),
       auth: input.options.auth,
       workspacePolicy: input.options.workspacePolicy,

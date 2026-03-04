@@ -1288,6 +1288,41 @@ Note to expand later:
 - Talk about the new base controller class (`BaseController` from `@jskit-ai/kernel/server/http`) and show how `sendActionResult(...)` removes repeated HTTP mapping code in controllers.
 - Talk about per-request container scope (`request.scope`) and how the kernel can inject `TOKENS.Request`, `TOKENS.Reply`, `TOKENS.RequestId`, and `TOKENS.RequestScope` automatically so scoped bindings become truly request-local.
 
+Final version of the code will need to be improved with this:
+(NOTE: Let "crappy" version NOT use this mechanism!)
+```js
+router.post(
+  "/api/v1/contacts/intake",
+  {
+    schema: {
+      body: contactBodySchema,
+      querystring: contactQuerySchema
+    },
+    input: {
+      body: (body) => ({
+        name: body.name.trim(),
+        email: body.email.trim().toLowerCase()
+      }),
+      query: (query) => ({
+        dryRun: query?.dryRun === true
+      })
+    }
+  },
+  (request, reply) => controller.intake(request, reply)
+);
+```
+
+```js
+async intake(request, reply) {
+  const result = await this.action.execute({
+    ...request.input.body,
+    ...request.input.query
+  });
+
+  return this.sendActionResult(reply, result);
+}
+```
+
 ### Full provider code for Stage 5
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:

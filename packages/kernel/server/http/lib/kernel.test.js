@@ -172,3 +172,108 @@ test("registerHttpRuntime passes app context so request scope is available", asy
   assert.equal(reply.statusCode, 200);
   assert.deepEqual(reply.payload, { requestId: "runtime-1" });
 });
+
+test("registerRoutes attaches request.input when route input transforms are configured", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "POST",
+        path: "/input-transform",
+        input: {
+          body: (body) => ({
+            name: String(body?.name || "").trim(),
+            email: String(body?.email || "")
+              .trim()
+              .toLowerCase()
+          }),
+          query: (query) => ({
+            dryRun: query?.dryRun === true
+          })
+        },
+        middleware: [
+          (request) => {
+            assert.deepEqual(request.input, {
+              body: {
+                name: "Alice",
+                email: "alice@example.com"
+              },
+              query: {
+                dryRun: true
+              },
+              params: undefined
+            });
+          }
+        ],
+        handler: async (request, reply) => {
+          assert.deepEqual(request.input.body, {
+            name: "Alice",
+            email: "alice@example.com"
+          });
+          assert.deepEqual(request.input.query, { dryRun: true });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = {
+    body: {
+      name: "  Alice  ",
+      email: "  ALICE@EXAMPLE.COM "
+    },
+    query: {
+      dryRun: true
+    }
+  };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+});
+
+test("registerRoutes leaves request.input undefined when route input is not configured", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/no-input-transform",
+        handler: async (request, reply) => {
+          assert.equal(request.input, undefined);
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+  assert.equal(reply.statusCode, 200);
+});
+
+test("registerRoutes rejects invalid route input transform definitions", () => {
+  const fastify = createFastifyStub();
+
+  assert.throws(
+    () =>
+      registerRoutes(fastify, {
+        routes: [
+          {
+            method: "POST",
+            path: "/invalid-input",
+            input: {
+              body: "not-a-function"
+            },
+            handler: async () => {}
+          }
+        ]
+      }),
+    /input\.body must be a function/
+  );
+});

@@ -111,6 +111,43 @@ LATER LATER:
   2. Laravel has first-class FormRequest, middleware, policies, Eloquent conventions out of the box.
   3. JSKIT here is more explicit/low-level in wiring, which gives strong modular control.
 
+
+  [0]
+
+  DONE:
+  1. FormRequest-lite
+     Give controllers a pre-validated input object (request.input.body/query/params) so they stop reading raw request.body and re-
+     validating shapes manually.
+  
+  
+  TODO:
+  2. DomainError classes + global HTTP mapper
+     Add first-class errors like DomainValidationError, ConflictError, NotFoundError and map them centrally to status/payload,
+     instead of per-controller if (!result.ok) branches.
+  3. Named middleware aliases + groups
+     Allow route config like middleware: ["auth", "throttle:60,1"] and groups like api so modules reuse policy stacks without
+     repeating function arrays.
+  4. Route policy DSL (legacy port)
+     Port the declarative policy layer (auth, permission, owner, rateLimit) so enforcement is consistent and not hand-wired route
+     by route.
+  5. CRUD scaffolding generator (legacy port)
+     Provide one command to generate provider/controller/action/service/repository/schema/test stubs for a resource so teams start
+     from a consistent structure.
+  6. Typed module config contract
+     Let each module declare config schema (TypeBox), validate at startup, and fail fast with clear errors for missing/invalid env
+     settings.
+  7. Resource API conventions
+     Upgrade resource/apiResource to optionally apply defaults for schemas, error envelopes, pagination, and policies so REST
+     modules are mostly plug-and-play.
+  8. Docs-to-code templates
+     Make every manual chapter example map to a runnable docs/examples/* module and keep template scaffolding aligned with
+     documented architecture.
+  9. Standard 3-layer test harness (deferred by your choice)
+     Ship helpers for service unit tests, controller tests, and route/provider integration tests so teams can test layered modules
+     with minimal setup.
+
+
+
   [1] 
   Two variants:
 
@@ -173,63 +210,3 @@ Task:
 ```
 
 
- Short answer: quite a few. The architecture is already capable, but we’re missing convenience layers Laravel gives by default.
-
-  Highest-value niceties we could add now:
-
-  1. FormRequest-style request objects
-     Route schema + parsed/validated input object passed to controller, so controllers don’t touch raw request.body/query everywh
-     ere.
-  2. First-class domain error classes + automatic HTTP mapping
-     One standard DomainError family (Validation, Conflict, NotFound) mapped globally to status + payload shape, instead of per-
-     controller mapping.
-  3. Controller/action autowiring by class token
-     If constructor deps are registered, instantiate automatically. Reduces repetitive provider wiring noise.
-  4. Named middleware aliases + groups
-     auth, throttle, csrf, owner aliases and route groups like Laravel middleware groups.
-  5. Route-level policy DSL
-     Simple declarative policy fields (auth, permission, rateLimit) enforced uniformly, not ad-hoc.
-  6. Built-in CRUD scaffolding generators
-     Generate provider/controller/action/service/repository/schema/tests with one command.
-  7. Route model/repository binding
-     Route params resolve to entities/repo lookups automatically with consistent 404 behavior.
-  8. Standard test harness for 3 layers
-     Out-of-the-box helpers for service unit, controller, and route/provider integration tests.
-  9. Typed module config contract
-     Per-module config schema + startup validation, so env/config errors fail fast and clearly.
-  10. Automatic request scope context
-     Create scoped container per request with request-id/user/context already injected.
-  11. Resource API helpers with conventions
-     You have resource/apiResource; add conventions for schemas, errors, pagination, and policies so it’s truly plug-and-play.
-  12. Opinionated docs-to-code templates
-     Every manual chapter example should be generated/runnable package by default (you’re already pushing this in the right
-     direction).
-
-  If you want the “no good reason we don’t have it” shortlist, it’s really: 1, 2, 4, 6, 8. Those are mostly productization work,
-  not hard architecture work.
-
-
-› We have 5 and 6, just not ported yet. tests will come later. for the rest... which one of these are possible and actually kind
-  of easy to achieve?
-
-
-• Given what already exists in JSKIT today, these are the easiest wins:
-
-  1. DomainError + global HTTP mapping (easy)
-     You already have AppError and now BaseController. Add a small domain error family and one mapper so controllers/actions stop
-     repeating status logic.
-  2. Middleware aliases/groups (easy)
-     HTTP runtime already supports middleware stacks and route policy config. Add alias/group expansion (auth, throttle, csrf,
-     etc.) before registration.
-  3. Request-scope container per request (easy-medium)
-     app.createScope(...) already exists. Wrap route execution so each request gets a scope/context token automatically.
-  4. Typed module config helper (easy-medium)
-     Add a kernel helper to validate module/provider config with TypeBox at boot (defineModuleConfig(schema, raw) style). Fast
-     fail, better DX.
-  5. FormRequest-lite (medium)
-     Not full Laravel magic, but easy to add a helper that returns validated input (body/query/params) so controllers don’t touch
-     raw request shape.
-
-
-
-     
