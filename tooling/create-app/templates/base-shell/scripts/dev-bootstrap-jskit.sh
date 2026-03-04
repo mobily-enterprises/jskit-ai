@@ -7,7 +7,7 @@ LOCAL_REPO_ROOT="${JSKIT_REPO_ROOT:-$DEFAULT_LOCAL_REPO_ROOT}"
 
 is_valid_jskit_repo_root() {
   local candidate_root="$1"
-  [[ -d "$candidate_root/packages" && -d "$candidate_root/framework-core" && -d "$candidate_root/tooling" ]]
+  [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
 }
 
 if [[ "${JSKIT_DEV_BOOTSTRAP:-0}" != "1" ]]; then
@@ -49,7 +49,7 @@ if [[ -z "${JSKIT_REPO_ROOT:-}" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$JSKIT_REPO_ROOT/packages" || ! -d "$JSKIT_REPO_ROOT/framework-core" || ! -d "$JSKIT_REPO_ROOT/tooling" ]]; then
+if [[ ! -d "$JSKIT_REPO_ROOT/packages" || ! -d "$JSKIT_REPO_ROOT/packages/kernel" || ! -d "$JSKIT_REPO_ROOT/tooling" ]]; then
   echo "[dev-bootstrap] failed: extracted archive does not look like jskit-ai monorepo." >&2
   echo "[dev-bootstrap] extracted root: $JSKIT_REPO_ROOT" >&2
   exit 1

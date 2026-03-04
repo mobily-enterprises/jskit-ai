@@ -41,7 +41,7 @@ export default Object.freeze({
         "@fastify/cookie": "^11.0.2",
         "@fastify/csrf-protection": "^7.1.0",
         "@fastify/rate-limit": "^10.3.0",
-        "@jskit-ai/framework-core": "0.1.0"
+        "@jskit-ai/kernel": "0.1.0"
       },
       "dev": {}
     },

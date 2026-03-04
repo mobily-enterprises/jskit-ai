@@ -31,7 +31,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/framework-core": "0.1.0"
+        "@jskit-ai/kernel": "0.1.0"
       },
       "dev": {}
     },

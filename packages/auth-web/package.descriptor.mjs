@@ -132,7 +132,7 @@ export default Object.freeze({
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/http-client-runtime": "0.1.0",
         "@jskit-ai/http-contracts": "0.1.0",
-        "@jskit-ai/framework-core": "0.1.0",
+        "@jskit-ai/kernel": "0.1.0",
         "vuetify": "^4.0.0"
       },
       "dev": {}

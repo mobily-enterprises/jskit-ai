@@ -96,14 +96,14 @@ Practical mapping:
 
 ### Framework files that execute for this scaffold
 
-`@jskit-ai/framework-core/surface/runtime`
+`@jskit-ai/kernel/shared/surface/runtime`
 
 Role:
 
 - Creates a surface runtime object from app config.
 - Provides route filtering and path-to-surface resolution.
 
-`@jskit-ai/framework-core/platform/server`
+`@jskit-ai/kernel/server/platform`
 
 Role:
 

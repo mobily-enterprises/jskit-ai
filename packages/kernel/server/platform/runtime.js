@@ -1,4 +1,4 @@
-import { createRuntimeAssembly } from "../server/runtimeAssembly.js";
+import { createRuntimeAssembly } from "../runtime/runtimeAssembly.js";
 
 function createPlatformRuntimeBundle({
   repositoryDefinitions = [],

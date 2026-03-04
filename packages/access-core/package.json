@@ -22,6 +22,6 @@
     "./lib/signOutFlow": "./src/lib/signOutFlow.js"
   },
   "dependencies": {
-    "@jskit-ai/framework-core": "0.1.0"
+    "@jskit-ai/kernel": "0.1.0"
   }
 }

@@ -1,4 +1,4 @@
-import { createSurfaceRuntime } from "@jskit-ai/framework-core/surface/runtime";
+import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { SURFACE_DEFAULT_ID, SURFACE_DEFINITIONS, SURFACE_MODE_ALL } from "../../config/surfaces.js";
 
 const surfaceRuntime = createSurfaceRuntime({

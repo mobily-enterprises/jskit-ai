@@ -11,7 +11,6 @@
     "sloc:actual": "npm run cloc:actual"
   },
   "workspaces": [
-    "framework-core",
     "packages/*",
     "packages/*/*",
     "tooling/*"
@@ -21,7 +20,7 @@
     "jscpd": "^4.0.8"
   },
   "dependencies": {
-    "@jskit-ai/framework-core": "0.1.0",
+    "@jskit-ai/kernel": "0.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/action-runtime-core": "0.1.0",
     "dotenv": "^17.3.1",

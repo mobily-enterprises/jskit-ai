@@ -1,4 +1,4 @@
-import { AppError } from "@jskit-ai/framework-core/server/errors";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
 function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
   const normalized = String(value || "").trim();

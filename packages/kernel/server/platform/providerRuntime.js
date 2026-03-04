@@ -1,10 +1,10 @@
 import { access, constants as fsConstants, readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { createApplication } from "../kernel/server.js";
+import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
-import { TOKENS } from "../support/lib/tokens.js";
-import { readLockFromApp } from "../server/lib/lockfile.js";
+import { TOKENS } from "../../shared/support/tokens.js";
+import { readLockFromApp } from "../runtime/lib/lockfile.js";
 
 function isIdentifier(value) {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(value || ""));

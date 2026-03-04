@@ -72,10 +72,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(mainJs, /@\/modules\/client-modules\.js/);
     assert.doesNotMatch(mainJs, /virtual:jskit-client-modules/);
     assert.doesNotMatch(mainJs, /collectClientModuleRoutes/);
+    assert.match(mainJs, /@jskit-ai\/kernel\/shared\/surface\/runtime/);
+    assert.match(mainJs, /@jskit-ai\/kernel\/client/);
+    assert.match(mainJs, /buildSurfaceAwareRoutes/);
+    assert.match(mainJs, /createShellBeforeEachGuard/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /router\.beforeEach\(/);
-    assert.match(mainJs, /requiresAuth/);
-    assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
     assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");

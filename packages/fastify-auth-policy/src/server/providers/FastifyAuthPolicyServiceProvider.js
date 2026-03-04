@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { authPolicyPlugin } from "../lib/plugin.js";
 
 function parseBoolean(value, fallback = false) {

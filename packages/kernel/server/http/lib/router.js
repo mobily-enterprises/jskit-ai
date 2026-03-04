@@ -1,4 +1,4 @@
-import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../support/lib/normalize.js";
+import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 
 function normalizeMethod(method) {

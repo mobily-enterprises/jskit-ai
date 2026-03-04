@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/FastifyAuthPolicyServiceProvider.js";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 

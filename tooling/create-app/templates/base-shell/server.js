@@ -5,7 +5,7 @@ import {
   registerSurfaceRequestConstraint,
   resolveRuntimeProfileFromSurface,
   tryCreateProviderRuntimeFromApp
-} from "@jskit-ai/framework-core/platform/server";
+} from "@jskit-ai/kernel/server/platform";
 import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
 
 async function createServer() {

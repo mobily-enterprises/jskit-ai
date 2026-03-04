@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const APP_ROOT = path.resolve(__dirname, "../..");
 
 const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
-  "@jskit-ai/framework-core",
+  "@jskit-ai/kernel",
   "fastify",
   "vue",
   "vue-router"

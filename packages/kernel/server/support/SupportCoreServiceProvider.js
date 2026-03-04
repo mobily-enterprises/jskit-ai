@@ -1,6 +1,6 @@
-import * as normalize from "./lib/normalize.js";
-import * as sorting from "./lib/sorting.js";
-import * as tokens from "./lib/tokens.js";
+import * as normalize from "../../shared/support/normalize.js";
+import * as sorting from "../../shared/support/sorting.js";
+import * as tokens from "../../shared/support/tokens.js";
 
 const SUPPORT_CORE_API = Object.freeze({
   normalize: Object.freeze({ ...normalize }),

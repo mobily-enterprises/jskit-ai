@@ -1,6 +1,6 @@
 import { parsePositiveInteger } from "./integers.js";
 import { safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
-import { normalizeSurfaceId } from "../surface/lib/registry.js";
+import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
 function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null) {
   const normalizedExplicit = normalizeSurfaceId(explicitSurface);

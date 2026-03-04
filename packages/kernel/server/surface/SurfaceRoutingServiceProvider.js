@@ -1,8 +1,8 @@
-import * as apiPaths from "./lib/apiPaths.js";
-import * as appSurfaces from "./lib/appSurfaces.js";
-import * as paths from "./lib/paths.js";
-import * as registry from "./lib/registry.js";
-import { escapeRegExp } from "./lib/escapeRegExp.js";
+import * as apiPaths from "../../shared/surface/apiPaths.js";
+import * as appSurfaces from "../../shared/surface/appSurfaces.js";
+import * as paths from "../../shared/surface/paths.js";
+import * as registry from "../../shared/surface/registry.js";
+import { escapeRegExp } from "../../shared/surface/escapeRegExp.js";
 
 const SURFACE_ROUTING_API = Object.freeze({
   apiPaths: Object.freeze({ ...apiPaths }),

@@ -40,7 +40,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/framework-core": "0.1.0"
+              "@jskit-ai/kernel": "0.1.0"
             },
             "dev": {}
           },
@@ -147,6 +147,10 @@
               {
                 "entrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
                 "export": "AuthSupabaseServiceProvider"
+              },
+              {
+                "entrypoint": "src/server/providers/AuthProviderServiceProvider.js",
+                "export": "AuthProviderServiceProvider"
               }
             ]
           }
@@ -156,7 +160,7 @@
             "runtime": {
               "@jskit-ai/access-core": "0.1.0",
               "@jskit-ai/action-runtime-core": "0.1.0",
-              "@jskit-ai/framework-core": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
               "dotenv": "^16.4.5",
               "@supabase/supabase-js": "^2.57.4",
               "jose": "^6.1.0"
@@ -346,7 +350,7 @@
               "@jskit-ai/access-core": "0.1.0",
               "@jskit-ai/http-client-runtime": "0.1.0",
               "@jskit-ai/http-contracts": "0.1.0",
-              "@jskit-ai/framework-core": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -420,7 +424,7 @@
               "@fastify/cookie": "^11.0.2",
               "@fastify/csrf-protection": "^7.1.0",
               "@fastify/rate-limit": "^10.3.0",
-              "@jskit-ai/framework-core": "0.1.0"
+              "@jskit-ai/kernel": "0.1.0"
             },
             "dev": {}
           },

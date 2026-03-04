@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { AuthController } from "../controllers/AuthController.js";
 import { buildRoutes } from "../routes/authRoutes.js";
 

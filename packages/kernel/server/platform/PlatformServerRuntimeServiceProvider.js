@@ -1,4 +1,4 @@
-import { createProviderRuntimeApp, createProviderRuntimeFromApp } from "../providerRuntime.js";
+import { createProviderRuntimeApp, createProviderRuntimeFromApp } from "./providerRuntime.js";
 import {
   createPlatformRuntimeBundle,
   createServerRuntime,

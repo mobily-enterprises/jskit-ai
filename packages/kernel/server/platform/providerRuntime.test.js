@@ -19,7 +19,7 @@ async function createTestAppRoot(prefix) {
 }
 
 test("createProviderRuntimeFromApp loads app local providers from src/server/providers", async () => {
-  const appRoot = await createTestAppRoot("framework-core-provider-runtime-");
+  const appRoot = await createTestAppRoot("kernel-provider-runtime-");
   try {
     await writeFile(
       path.join(appRoot, "src", "server", "providers", "AlphaProvider.js"),
@@ -57,7 +57,7 @@ test("createProviderRuntimeFromApp loads app local providers from src/server/pro
 });
 
 test("createProviderRuntimeFromApp rejects ambiguous app local provider exports", async () => {
-  const appRoot = await createTestAppRoot("framework-core-provider-runtime-error-");
+  const appRoot = await createTestAppRoot("kernel-provider-runtime-error-");
   try {
     await writeFile(
       path.join(appRoot, "src", "server", "providers", "BrokenProvider.js"),

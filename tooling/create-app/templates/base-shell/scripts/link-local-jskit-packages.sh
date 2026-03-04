@@ -16,7 +16,7 @@ if [[ ! -d "$SCOPE_DIR" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$JSKIT_REPO_ROOT/packages" || ! -d "$JSKIT_REPO_ROOT/framework-core" || ! -d "$JSKIT_REPO_ROOT/tooling" ]]; then
+if [[ ! -d "$JSKIT_REPO_ROOT/packages" || ! -d "$JSKIT_REPO_ROOT/packages/kernel" || ! -d "$JSKIT_REPO_ROOT/tooling" ]]; then
   echo "[link-local] JSKIT_REPO_ROOT is not a valid jskit-ai checkout: $JSKIT_REPO_ROOT" >&2
   exit 1
 fi
@@ -24,9 +24,6 @@ fi
 resolve_source_dir() {
   local package_dir_name="$1"
   case "$package_dir_name" in
-    framework-core)
-      echo "$JSKIT_REPO_ROOT/framework-core"
-      ;;
     config-eslint|create-app|jskit-cli|jskit-catalog)
       echo "$JSKIT_REPO_ROOT/tooling/$package_dir_name"
       ;;

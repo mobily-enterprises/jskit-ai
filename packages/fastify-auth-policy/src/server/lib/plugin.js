@@ -1,7 +1,7 @@
 import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
-import { safeRequestUrl } from "@jskit-ai/framework-core/server/requestUrl";
+import { safeRequestUrl } from "@jskit-ai/kernel/server/runtime/requestUrl";
 
 import { assertAuthPolicyDeps, normalizeActorResolution } from "./contracts.js";
 import { AUTH_POLICY_DENY_REASONS, createAuthPolicyError } from "./errors.js";

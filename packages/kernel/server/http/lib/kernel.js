@@ -1,5 +1,5 @@
-import { TOKENS } from "../../support/lib/tokens.js";
-import { normalizeArray, normalizeObject } from "../../support/lib/normalize.js";
+import { TOKENS } from "../../../shared/support/tokens.js";
+import { normalizeArray, normalizeObject } from "../../../shared/support/normalize.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
 

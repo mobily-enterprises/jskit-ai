@@ -1,4 +1,4 @@
-import { createContainer } from "../../container/server.js";
+import { createContainer } from "../../container/index.js";
 import {
   DuplicateProviderError,
   ProviderDependencyError,

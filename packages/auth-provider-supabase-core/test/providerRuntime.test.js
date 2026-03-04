@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/framework-core/kernel/server";
-import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { createApplication } from "@jskit-ai/kernel/server/kernel";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ActionRuntimeCoreServiceProvider } from "@jskit-ai/action-runtime-core/server";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 

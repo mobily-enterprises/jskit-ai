@@ -27,7 +27,7 @@ function isWorkspaceRoot(candidateRoot) {
   }
   return (
     existsSync(path.join(candidateRoot, "packages")) &&
-    existsSync(path.join(candidateRoot, "framework-core")) &&
+    existsSync(path.join(candidateRoot, "packages", "kernel")) &&
     existsSync(path.join(candidateRoot, "tooling", "jskit-cli"))
   );
 }

@@ -11,7 +11,6 @@ VERDACCIO_PID_FILE="${VERDACCIO_PID_FILE:-/tmp/verdaccio-jskit.pid}"
 PUBLISH_CONCURRENCY="${PUBLISH_CONCURRENCY:-10}"
 JSKIT_REPO_ROOT="${JSKIT_REPO_ROOT:-$HOME/Development/current/jskit-ai}"
 PACKAGES_DIR="${PACKAGES_DIR:-$JSKIT_REPO_ROOT/packages}"
-FRAMEWORK_CORE_DIR="${FRAMEWORK_CORE_DIR:-$JSKIT_REPO_ROOT/framework-core}"
 TOOLING_DIR="${TOOLING_DIR:-$JSKIT_REPO_ROOT/tooling}"
 
 resolve_storage_dir() {
@@ -116,9 +115,6 @@ publish_packages() {
   fi
 
   local dirs=()
-  if [[ -f "$FRAMEWORK_CORE_DIR/package.json" ]]; then
-    dirs+=("$FRAMEWORK_CORE_DIR")
-  fi
   if [[ -f "$TOOLING_DIR/config-eslint/package.json" ]]; then
     dirs+=("$TOOLING_DIR/config-eslint")
   fi

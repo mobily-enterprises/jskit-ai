@@ -57,7 +57,7 @@ export default Object.freeze({
       "runtime": {
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/action-runtime-core": "0.1.0",
-        "@jskit-ai/framework-core": "0.1.0",
+        "@jskit-ai/kernel": "0.1.0",
         "dotenv": "^16.4.5",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"

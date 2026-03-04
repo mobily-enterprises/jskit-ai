@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
 import { registerActionContributor } from "@jskit-ai/action-runtime-core/server";
