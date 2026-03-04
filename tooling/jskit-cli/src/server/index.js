@@ -118,6 +118,7 @@ const MATERIALIZED_PACKAGE_ROOTS = new Map();
 const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
 const KNOWN_COMMANDS = new Set([
   "help",
+  "create",
   "list",
   "show",
   "view",
@@ -492,6 +493,7 @@ function parseArgs(argv) {
 function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
+  stream.write("  create package <name>        Scaffold app-local package under packages/ and install it\n");
   stream.write("  list [bundles [all]|packages] List available bundles/packages and installed status\n");
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
@@ -504,7 +506,10 @@ function printUsage(stream = process.stderr) {
   stream.write("\n");
   stream.write("Options:\n");
   stream.write("  --dry-run                    Print planned changes only\n");
-  stream.write("  --no-install                 Skip npm install during add/update/remove\n");
+  stream.write("  --no-install                 Skip npm install during create/add/update/remove\n");
+  stream.write("  --scope <scope>              (create package) override generated package scope\n");
+  stream.write("  --package-id <id>            (create package) explicit @scope/name package id\n");
+  stream.write("  --description <text>         (create package) descriptor description text\n");
   stream.write("  --full                       Show bundle package ids (declared packages)\n");
   stream.write("  --expanded                   Show expanded/transitive package ids\n");
   stream.write("  --details                    Show extra capability detail in show output\n");
@@ -786,6 +791,30 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
   return normalized;
 }
 
+function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { expectedPackageId = "", fallbackVersion = "" } = {}) {
+  const normalized = ensureObject(descriptor);
+  const packageId = String(normalized.packageId || "").trim();
+  const version = String(normalized.version || "").trim() || String(fallbackVersion || "").trim();
+
+  if (!packageId) {
+    throw createCliError(`Invalid app-local package descriptor at ${descriptorPath}: missing packageId.`);
+  }
+  if (expectedPackageId && packageId !== expectedPackageId) {
+    throw createCliError(
+      `Descriptor/package mismatch at ${descriptorPath}: package.descriptor.mjs has ${packageId} but package.json has ${expectedPackageId}.`
+    );
+  }
+  if (!version) {
+    throw createCliError(`Invalid app-local package descriptor at ${descriptorPath}: missing version.`);
+  }
+
+  return {
+    ...normalized,
+    packageId,
+    version
+  };
+}
+
 function validateBundleDescriptorShape(descriptor, descriptorPath) {
   const normalized = ensureObject(descriptor);
   const bundleId = String(normalized.bundleId || "").trim();
@@ -870,6 +899,53 @@ async function loadWorkspacePackageRegistry() {
       descriptorRelativePath: normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, descriptorPath),
       packageJson,
       sourceType: "packages-directory"
+    });
+  }
+
+  return registry;
+}
+
+async function loadAppLocalPackageRegistry(appRoot) {
+  const localPackagesRoot = path.join(appRoot, "packages");
+  if (!(await fileExists(localPackagesRoot))) {
+    return new Map();
+  }
+
+  const registry = new Map();
+  const entries = await readdir(localPackagesRoot, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) {
+      continue;
+    }
+
+    const packageRoot = path.join(localPackagesRoot, entry.name);
+    const packageJsonPath = path.join(packageRoot, "package.json");
+    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+    if (!(await fileExists(packageJsonPath)) || !(await fileExists(descriptorPath))) {
+      continue;
+    }
+
+    const packageJson = await readJsonFile(packageJsonPath);
+    const packageId = String(packageJson?.name || "").trim();
+    if (!packageId) {
+      throw createCliError(`Invalid app-local package at ${normalizeRelativePath(appRoot, packageRoot)}: package.json missing name.`);
+    }
+
+    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
+      expectedPackageId: packageId,
+      fallbackVersion: String(packageJson?.version || "").trim()
+    });
+
+    registry.set(packageId, {
+      packageId: descriptor.packageId,
+      version: descriptor.version,
+      descriptor,
+      rootDir: packageRoot,
+      relativeDir: normalizeRelativePath(appRoot, packageRoot),
+      descriptorRelativePath: normalizeRelativePath(appRoot, descriptorPath),
+      packageJson,
+      sourceType: "app-local-package"
     });
   }
 
@@ -977,6 +1053,278 @@ function createLocalPackageSpecifier(packageEntry) {
     return packageJsonVersion;
   }
   throw createCliError(`Unable to resolve version for ${String(packageEntry?.packageId || "unknown package")}.`);
+}
+
+function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
+  const lowered = String(rawValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[._-]+|[._-]+$/g, "");
+  if (!lowered) {
+    throw createCliError(`Invalid ${label}. Use letters, numbers, dash, underscore, or dot.`);
+  }
+  return lowered;
+}
+
+function normalizeScopeName(rawScope) {
+  const normalized = String(rawScope || "").trim().replace(/^@+/, "");
+  return normalizePackageNameSegment(normalized, { label: "scope" });
+}
+
+function resolveDefaultLocalScopeFromAppName(appPackageName) {
+  const appName = String(appPackageName || "").trim();
+  if (!appName) {
+    return "app";
+  }
+
+  const unscoped = appName.startsWith("@")
+    ? appName.slice(appName.indexOf("/") + 1)
+    : appName;
+  return normalizeScopeName(unscoped || "app");
+}
+
+function normalizeRelativePosixPath(pathValue) {
+  return String(pathValue || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/{2,}/g, "/");
+}
+
+function toFileDependencySpecifier(relativePath) {
+  const normalized = normalizeRelativePosixPath(relativePath);
+  if (!normalized) {
+    throw createCliError("Cannot create file: dependency specifier from empty relative path.");
+  }
+  return `file:${normalized}`;
+}
+
+function resolveLocalPackageId({ rawName, appPackageName, inlineOptions }) {
+  const explicitPackageId = String(inlineOptions["package-id"] || "").trim();
+  if (explicitPackageId) {
+    const scopedPattern = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/;
+    if (!scopedPattern.test(explicitPackageId)) {
+      throw createCliError(
+        `Invalid --package-id ${explicitPackageId}. Expected format: @scope/name (lowercase alphanumeric, ., _, -).`
+      );
+    }
+    const packageName = explicitPackageId.slice(explicitPackageId.indexOf("/") + 1);
+    return {
+      packageId: explicitPackageId,
+      packageDirName: normalizePackageNameSegment(packageName)
+    };
+  }
+
+  const packageDirName = normalizePackageNameSegment(rawName);
+  const scopeName = String(inlineOptions.scope || "").trim()
+    ? normalizeScopeName(inlineOptions.scope)
+    : resolveDefaultLocalScopeFromAppName(appPackageName);
+  return {
+    packageId: `@${scopeName}/${packageDirName}`,
+    packageDirName
+  };
+}
+
+function createLocalPackageDescriptorTemplate({ packageId, description }) {
+  return `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "${packageId}",
+  version: "0.1.0",
+  description: ${JSON.stringify(String(description || ""))},
+  dependsOn: [
+    // "@jskit-ai/kernel"
+  ],
+  capabilities: {
+    provides: [
+      // "example.feature"
+    ],
+    requires: [
+      // "example.dependency"
+    ]
+  },
+  options: {
+    // "example-option": {
+    //   required: true,
+    //   promptLabel: "Enter option value",
+    //   promptHint: "Used by mutations.text interpolation",
+    //   defaultValue: "example"
+    // }
+  },
+  runtime: {
+    server: {
+      providers: [
+        // {
+        //   entrypoint: "src/server/providers/ExampleServerProvider.js",
+        //   export: "ExampleServerProvider"
+        // }
+      ]
+    },
+    client: {
+      providers: [
+        // {
+        //   entrypoint: "src/client/providers/ExampleClientProvider.js",
+        //   export: "ExampleClientProvider"
+        // }
+      ]
+    }
+  },
+  metadata: {
+    server: {
+      routes: [
+        // {
+        //   method: "GET",
+        //   path: "/api/example",
+        //   summary: "Describe server route contract"
+        // }
+      ]
+    },
+    ui: {
+      routes: [
+        // {
+        //   id: "example.route",
+        //   path: "/example",
+        //   scope: "global",
+        //   name: "example-route",
+        //   componentKey: "example-route",
+        //   autoRegister: true,
+        //   guard: {
+        //     policy: "public"
+        //   },
+        //   purpose: "Describe what this route is for."
+        // }
+      ],
+      elements: [
+        // {
+        //   key: "example-route",
+        //   export: "ExampleView",
+        //   entrypoint: "src/client/views/ExampleView.vue",
+        //   purpose: "UI element exposed by this package."
+        // }
+      ],
+      overrides: [
+        // {
+        //   targetId: "some.existing.route",
+        //   mode: "replace",
+        //   reason: "Explain override intent."
+        // }
+      ]
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {
+        // "@example/runtime-dependency": "^1.0.0"
+      },
+      dev: {
+        // "@example/dev-dependency": "^1.0.0"
+      }
+    },
+    packageJson: {
+      scripts: {
+        // "lint:example": "eslint src/example"
+      }
+    },
+    procfile: {
+      // worker: "node ./bin/worker.js"
+    },
+    text: [
+      // {
+      //   op: "upsert-env",
+      //   file: ".env",
+      //   key: "EXAMPLE_ENV",
+      //   value: "\${option:example-option}",
+      //   reason: "Explain why this env var is needed.",
+      //   category: "runtime-config",
+      //   id: "example-env"
+      // }
+    ],
+    files: [
+      // {
+      //   from: "templates/src/pages/example/index.vue",
+      //   to: "src/pages/example/index.vue",
+      //   reason: "Explain what is scaffolded.",
+      //   category: "example",
+      //   id: "example-file"
+      // }
+    ]
+  }
+});
+`;
+}
+
+function createLocalPackageScaffoldFiles({ packageId, packageDescription }) {
+  return [
+    {
+      relativePath: "package.json",
+      content: `${JSON.stringify(
+        {
+          name: packageId,
+          version: "0.1.0",
+          private: true,
+          type: "module",
+          exports: {
+            ".": "./src/index.js",
+            "./client": "./src/client/index.js",
+            "./server": "./src/server/index.js",
+            "./shared": "./src/shared/index.js"
+          }
+        },
+        null,
+        2
+      )}\n`
+    },
+    {
+      relativePath: "package.descriptor.mjs",
+      content: createLocalPackageDescriptorTemplate({
+        packageId,
+        description: packageDescription
+      })
+    },
+    {
+      relativePath: "src/index.js",
+      content: "export {};\n"
+    },
+    {
+      relativePath: "src/server/index.js",
+      content: "export {};\n"
+    },
+    {
+      relativePath: "src/client/index.js",
+      content: [
+        "const routeComponents = Object.freeze({});",
+        "",
+        "async function bootClient({ logger } = {}) {",
+        "  if (logger && typeof logger.debug === \"function\") {",
+        `    logger.debug({ packageId: ${JSON.stringify(packageId)} }, "bootClient executed.");`,
+        "  }",
+        "}",
+        "",
+        "export { routeComponents, bootClient };",
+        ""
+      ].join("\n")
+    },
+    {
+      relativePath: "src/shared/index.js",
+      content: "export {};\n"
+    },
+    {
+      relativePath: "README.md",
+      content: [
+        `# ${packageId}`,
+        "",
+        "App-local JSKIT module scaffold.",
+        "",
+        "## Next Steps",
+        "",
+        "- Define runtime providers in `package.descriptor.mjs`.",
+        "- Add client/server exports under `src/`.",
+        "- Keep package version in sync with descriptor version.",
+        ""
+      ].join("\n")
+    }
+  ];
 }
 
 function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
@@ -1555,8 +1903,16 @@ async function commandList({ positional, options, cwd, stdout }) {
   const bundleRegistry = await loadBundleRegistry();
 
   const appRoot = await resolveAppRootFromCwd(cwd);
+  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
   const { lock } = await loadLockFile(appRoot);
-  const installedPackages = new Set(Object.keys(ensureObject(lock.installedPackages)));
+  const installedPackageEntries = ensureObject(lock.installedPackages);
+  const installedPackages = new Set(Object.keys(installedPackageEntries));
+  const installedLocalPackageIds = sortStrings(
+    [...installedPackages].filter((packageId) => !packageRegistry.has(packageId))
+  );
+  const availableLocalPackageIds = sortStrings(
+    [...appLocalRegistry.keys()].filter((packageId) => !installedPackages.has(packageId))
+  );
 
   const mode = String(positional[0] || "").trim();
   const shouldListBundles = !mode || mode === "bundles";
@@ -1601,6 +1957,28 @@ async function commandList({ positional, options, cwd, stdout }) {
         `- ${color.item(packageId)} ${color.version(`(${packageEntry.version})`)}${installedLabel ? color.installed(installedLabel) : ""}`
       );
     }
+
+    if (installedLocalPackageIds.length > 0) {
+      lines.push("");
+      lines.push(color.heading("Installed local packages:"));
+      for (const packageId of installedLocalPackageIds) {
+        const lockEntry = ensureObject(installedPackageEntries[packageId]);
+        const version = String(lockEntry.version || "").trim();
+        const versionLabel = version ? ` ${color.version(`(${version})`)}` : "";
+        lines.push(`- ${color.item(packageId)}${versionLabel}${color.installed(" (installed)")}`);
+      }
+    }
+
+    if (availableLocalPackageIds.length > 0) {
+      lines.push("");
+      lines.push(color.heading("Available local packages (not installed):"));
+      for (const packageId of availableLocalPackageIds) {
+        const packageEntry = appLocalRegistry.get(packageId);
+        const version = String(packageEntry?.version || "").trim();
+        const versionLabel = version ? ` ${color.version(`(${version})`)}` : "";
+        lines.push(`- ${color.item(packageId)}${versionLabel}`);
+      }
+    }
   }
 
   if (options.json) {
@@ -1626,6 +2004,25 @@ async function commandList({ positional, options, cwd, stdout }) {
             packageId,
             version: packageEntry.version,
             installed: installedPackages.has(packageId)
+          };
+        })
+        : [],
+      installedLocalPackages: shouldListPackages
+        ? installedLocalPackageIds.map((packageId) => {
+          const lockEntry = ensureObject(installedPackageEntries[packageId]);
+          return {
+            packageId,
+            version: String(lockEntry.version || "").trim()
+          };
+        })
+        : [],
+      availableLocalPackages: shouldListPackages
+        ? availableLocalPackageIds.map((packageId) => {
+          const packageEntry = appLocalRegistry.get(packageId);
+          return {
+            packageId,
+            version: String(packageEntry?.version || "").trim(),
+            packagePath: normalizeRelativePosixPath(String(packageEntry?.relativeDir || ""))
           };
         })
         : []
@@ -1986,6 +2383,132 @@ async function commandShow({ positional, options, stdout }) {
   throw createCliError(`Unknown package or bundle: ${id}`);
 }
 
+async function commandCreate({ positional, options, cwd, io }) {
+  const targetType = String(positional[0] || "").trim();
+  const rawName = String(positional[1] || "").trim();
+  if (targetType !== "package" || !rawName) {
+    throw createCliError("create requires: create package <name>", { showUsage: true });
+  }
+
+  const appRoot = await resolveAppRootFromCwd(cwd);
+  const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
+  const { lockPath, lock } = await loadLockFile(appRoot);
+  const installedPackages = ensureObject(lock.installedPackages);
+  const dependencies = ensureObject(packageJson.dependencies);
+  const devDependencies = ensureObject(packageJson.devDependencies);
+
+  const { packageId, packageDirName } = resolveLocalPackageId({
+    rawName,
+    appPackageName: packageJson.name,
+    inlineOptions: options.inlineOptions
+  });
+  const localPackagesRoot = path.join(appRoot, "packages");
+  const packageRoot = path.join(localPackagesRoot, packageDirName);
+  const packageRelativePath = normalizeRelativePath(appRoot, packageRoot);
+  const descriptorRelativePath = `${normalizeRelativePosixPath(packageRelativePath)}/package.descriptor.mjs`;
+  const localDependencySpecifier = toFileDependencySpecifier(packageRelativePath);
+  const packageDescription = String(options.inlineOptions.description || "").trim() || `App-local package ${packageId}.`;
+
+  if (await fileExists(packageRoot)) {
+    throw createCliError(`Package directory already exists: ${normalizeRelativePath(appRoot, packageRoot)}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(installedPackages, packageId)) {
+    throw createCliError(`Package is already present in lock file: ${packageId}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(dependencies, packageId)) {
+    throw createCliError(`package.json dependencies already contains ${packageId}.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(devDependencies, packageId)) {
+    throw createCliError(`package.json devDependencies already contains ${packageId}.`);
+  }
+
+  const scaffoldFiles = createLocalPackageScaffoldFiles({
+    packageId,
+    packageDescription
+  });
+  const touchedFiles = new Set(["package.json", normalizeRelativePath(appRoot, lockPath)]);
+  for (const scaffoldFile of scaffoldFiles) {
+    touchedFiles.add(`${normalizeRelativePosixPath(packageRelativePath)}/${normalizeRelativePosixPath(scaffoldFile.relativePath)}`);
+  }
+
+  if (!options.dryRun) {
+    for (const scaffoldFile of scaffoldFiles) {
+      const absoluteFilePath = path.join(packageRoot, scaffoldFile.relativePath);
+      await mkdir(path.dirname(absoluteFilePath), { recursive: true });
+      await writeFile(absoluteFilePath, String(scaffoldFile.content || ""), "utf8");
+    }
+  }
+
+  const dependencyApplied = applyPackageJsonField(packageJson, "dependencies", packageId, localDependencySpecifier);
+  const managedRecord = {
+    packageId,
+    version: "0.1.0",
+    source: {
+      type: "local-package",
+      packagePath: normalizeRelativePosixPath(packageRelativePath),
+      descriptorPath: descriptorRelativePath
+    },
+    managed: {
+      packageJson: {
+        dependencies: {},
+        devDependencies: {},
+        scripts: {}
+      },
+      text: {},
+      files: []
+    },
+    options: {},
+    installedAt: new Date().toISOString()
+  };
+  if (dependencyApplied.changed) {
+    managedRecord.managed.packageJson.dependencies[packageId] = dependencyApplied.managed;
+  }
+  lock.installedPackages[packageId] = managedRecord;
+
+  const touchedFileList = sortStrings([...touchedFiles]);
+  if (!options.dryRun) {
+    await writeJsonFile(packageJsonPath, packageJson);
+    await writeJsonFile(lockPath, lock);
+    if (!options.noInstall) {
+      await runNpmInstall(appRoot, io.stderr);
+    }
+  }
+
+  if (options.json) {
+    io.stdout.write(
+      `${JSON.stringify(
+        {
+          targetType: "package",
+          packageId,
+          packageDirectory: normalizeRelativePosixPath(packageRelativePath),
+          descriptorPath: descriptorRelativePath,
+          dependency: localDependencySpecifier,
+          touchedFiles: touchedFileList,
+          lockPath: normalizeRelativePath(appRoot, lockPath),
+          dryRun: options.dryRun
+        },
+        null,
+        2
+      )}\n`
+    );
+  } else {
+    io.stdout.write(`Created local package ${packageId}.\n`);
+    io.stdout.write(`Directory: ${normalizeRelativePosixPath(packageRelativePath)}\n`);
+    io.stdout.write(`Dependency: ${packageId} -> ${localDependencySpecifier}\n`);
+    io.stdout.write(`Descriptor: ${descriptorRelativePath}\n`);
+    io.stdout.write(`Touched files (${touchedFileList.length}):\n`);
+    for (const touchedFile of touchedFileList) {
+      io.stdout.write(`- ${touchedFile}\n`);
+    }
+    io.stdout.write(`Lock file: ${normalizeRelativePath(appRoot, lockPath)}\n`);
+    if (options.dryRun) {
+      io.stdout.write("Dry run enabled: no files were written.\n");
+    }
+  }
+
+  return 0;
+}
+
 async function commandAdd({ positional, options, cwd, io }) {
   const targetType = String(positional[0] || "").trim();
   const targetId = String(positional[1] || "").trim();
@@ -1999,12 +2522,19 @@ async function commandAdd({ positional, options, cwd, io }) {
     throw createCliError(`Unsupported add target type: ${targetType}`, { showUsage: true });
   }
 
-  const packageRegistry = await loadPackageRegistry();
-  const bundleRegistry = await loadBundleRegistry();
   const appRoot = await resolveAppRootFromCwd(cwd);
+  const packageRegistry = await loadPackageRegistry();
+  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+  const bundleRegistry = await loadBundleRegistry();
+  const combinedPackageRegistry = new Map(packageRegistry);
+  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
+    if (!combinedPackageRegistry.has(packageId)) {
+      combinedPackageRegistry.set(packageId, packageEntry);
+    }
+  }
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
-  const resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, packageRegistry) : "";
+  const resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, combinedPackageRegistry) : "";
 
   const targetPackageIds = targetType === "bundle"
     ? ensureArray(bundleRegistry.get(targetId)?.packages).map((value) => String(value))
@@ -2018,7 +2548,7 @@ async function commandAdd({ positional, options, cwd, io }) {
 
   const { ordered: resolvedPackageIds, externalDependencies } = resolveLocalDependencyOrder(
     targetPackageIds,
-    packageRegistry
+    combinedPackageRegistry
   );
   const plannedInstalledPackageIds = sortStrings([
     ...new Set([
@@ -2028,13 +2558,13 @@ async function commandAdd({ positional, options, cwd, io }) {
   ]);
   validatePlannedCapabilityClosure(
     plannedInstalledPackageIds,
-    packageRegistry,
+    combinedPackageRegistry,
     `add ${targetType} ${targetId}`
   );
 
   const resolvedOptionsByPackage = {};
   for (const packageId of resolvedPackageIds) {
-    const packageEntry = packageRegistry.get(packageId);
+    const packageEntry = combinedPackageRegistry.get(packageId);
     const lockEntryOptions = ensureObject(ensureObject(lock.installedPackages[packageId]).options);
     resolvedOptionsByPackage[packageId] = await resolvePackageOptions(
       packageEntry,
@@ -2050,14 +2580,14 @@ async function commandAdd({ positional, options, cwd, io }) {
   const installedPackageRecords = [];
 
   for (const packageId of resolvedPackageIds) {
-    const packageEntry = packageRegistry.get(packageId);
+    const packageEntry = combinedPackageRegistry.get(packageId);
     const managedRecord = await applyPackageInstall({
       packageEntry,
       packageOptions: resolvedOptionsByPackage[packageId],
       appRoot,
       appPackageJson: packageJson,
       lock,
-      packageRegistry,
+      packageRegistry: combinedPackageRegistry,
       touchedFiles
     });
     installedPackageRecords.push(managedRecord);
@@ -2135,8 +2665,15 @@ async function commandRemove({ positional, options, cwd, io }) {
     throw createCliError("remove requires: remove package <packageId>", { showUsage: true });
   }
 
-  const packageRegistry = await loadPackageRegistry();
   const appRoot = await resolveAppRootFromCwd(cwd);
+  const packageRegistry = await loadPackageRegistry();
+  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+  const combinedPackageRegistry = new Map(packageRegistry);
+  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
+    if (!combinedPackageRegistry.has(packageId)) {
+      combinedPackageRegistry.set(packageId, packageEntry);
+    }
+  }
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
   const installed = ensureObject(lock.installedPackages);
@@ -2146,7 +2683,7 @@ async function commandRemove({ positional, options, cwd, io }) {
     throw createCliError(`Package is not installed: ${targetId}`);
   }
 
-  const dependents = getInstalledDependents(lock, resolvedTargetId, packageRegistry);
+  const dependents = getInstalledDependents(lock, resolvedTargetId, combinedPackageRegistry);
   if (dependents.length > 0) {
     throw createCliError(
       `Cannot remove ${resolvedTargetId}; installed packages depend on it: ${dependents.join(", ")}`
@@ -2265,12 +2802,19 @@ async function commandDoctor({ cwd, options, stdout }) {
   const appRoot = await resolveAppRootFromCwd(cwd);
   const { lock } = await loadLockFile(appRoot);
   const packageRegistry = await loadPackageRegistry();
+  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+  const combinedPackageRegistry = new Map(packageRegistry);
+  for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
+    if (!combinedPackageRegistry.has(packageId)) {
+      combinedPackageRegistry.set(packageId, packageEntry);
+    }
+  }
   const issues = [];
   const installed = ensureObject(lock.installedPackages);
 
   for (const [packageId, lockEntryValue] of Object.entries(installed)) {
     const lockEntry = ensureObject(lockEntryValue);
-    if (!packageRegistry.has(packageId)) {
+    if (!combinedPackageRegistry.has(packageId)) {
       issues.push(`Installed package not found in package registry: ${packageId}`);
       continue;
     }
@@ -2350,6 +2894,14 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
       return 0;
     }
 
+    if (command === "create") {
+      return await commandCreate({
+        positional,
+        options,
+        cwd,
+        io: { stdin, stdout, stderr }
+      });
+    }
     if (command === "list") {
       return await commandList({ positional, options, cwd, stdout });
     }

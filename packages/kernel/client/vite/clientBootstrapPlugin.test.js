@@ -24,14 +24,18 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
   const source = createVirtualModuleSource([
     {
       packageId: "@z/pkg",
+      descriptorUiRoutes: [{ id: "z.route", path: "/z", scope: "global", componentKey: "z-view" }]
     },
     {
       packageId: "@a/pkg",
+      descriptorUiRoutes: [{ id: "a.route", path: "/a", scope: "global", componentKey: "a-view" }]
     }
   ]);
 
   assert.match(source, /import \* as clientModule0 from "@a\/pkg\/client";/);
   assert.match(source, /import \* as clientModule1 from "@z\/pkg\/client";/);
+  assert.match(source, /descriptorUiRoutes: \[\{"id":"a\.route","path":"\/a","scope":"global","componentKey":"a-view"\}\]/);
+  assert.match(source, /descriptorUiRoutes: \[\{"id":"z\.route","path":"\/z","scope":"global","componentKey":"z-view"\}\]/);
   assert.match(source, /bootClientModules/);
   assert.match(source, /installedClientModules/);
 });
@@ -92,6 +96,21 @@ test("resolveInstalledClientModules returns installed modules with client export
       "./client": "./src/client/index.js"
     }
   });
+  await writeDescriptor(path.join(packageRoot, "package.descriptor.mjs"), {
+    metadata: {
+      ui: {
+        routes: [
+          {
+            id: "auth.default-login-2",
+            path: "/auth/default-login-2",
+            scope: "global",
+            componentKey: "auth-login",
+            autoRegister: true
+          }
+        ]
+      }
+    }
+  });
   const modules = await resolveInstalledClientModules({
     appRoot: tempRoot,
     lockPath: ".jskit/lock.json"
@@ -99,6 +118,61 @@ test("resolveInstalledClientModules returns installed modules with client export
 
   assert.equal(modules.length, 1);
   assert.equal(modules[0].packageId, "@example/has-client");
+  assert.equal(Array.isArray(modules[0].descriptorUiRoutes), true);
+  assert.equal(modules[0].descriptorUiRoutes.length, 1);
+  assert.equal(modules[0].descriptorUiRoutes[0].id, "auth.default-login-2");
+});
+
+test("resolveInstalledClientModules resolves descriptor via source.packagePath", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-package-path-"));
+
+  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+    lockVersion: 1,
+    installedPackages: {
+      "@example/has-client": {
+        source: {
+          type: "local-package",
+          packagePath: "packages/has-client"
+        }
+      }
+    }
+  });
+
+  const packageRoot = path.join(tempRoot, "node_modules", "@example", "has-client");
+  await mkdir(packageRoot, { recursive: true });
+  await writeJson(path.join(packageRoot, "package.json"), {
+    name: "@example/has-client",
+    exports: {
+      "./client": "./src/client/index.js"
+    }
+  });
+  await mkdir(path.join(tempRoot, "packages", "has-client"), { recursive: true });
+  await writeDescriptor(path.join(tempRoot, "packages", "has-client", "package.descriptor.mjs"), {
+    metadata: {
+      ui: {
+        routes: [
+          {
+            id: "local.route",
+            path: "/local",
+            scope: "global",
+            componentKey: "local-view",
+            autoRegister: true
+          }
+        ]
+      }
+    }
+  });
+
+  const modules = await resolveInstalledClientModules({
+    appRoot: tempRoot,
+    lockPath: ".jskit/lock.json"
+  });
+
+  assert.equal(modules.length, 1);
+  assert.equal(modules[0].packageId, "@example/has-client");
+  assert.equal(modules[0].descriptorUiRoutes.length, 1);
+  assert.equal(modules[0].descriptorUiRoutes[0].id, "local.route");
 });
 
 test("createJskitClientBootstrapPlugin resolves and loads virtual module", async () => {

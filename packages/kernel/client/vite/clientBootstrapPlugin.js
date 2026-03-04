@@ -38,6 +38,67 @@ function hasClientExport(packageJson) {
   return Boolean(exportsMap["./client"]);
 }
 
+function normalizeDescriptorUiRoutes(value) {
+  const routeEntries = Array.isArray(value) ? value : [];
+  const normalizedRoutes = [];
+
+  for (const routeEntry of routeEntries) {
+    const routeRecord = ensureObject(routeEntry);
+    if (Object.keys(routeRecord).length < 1) {
+      continue;
+    }
+
+    try {
+      normalizedRoutes.push(Object.freeze(JSON.parse(JSON.stringify(routeRecord))));
+    } catch {
+      continue;
+    }
+  }
+
+  return Object.freeze(normalizedRoutes);
+}
+
+async function resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState }) {
+  const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
+  const packagePathFromSource = String(installedPackageState?.source?.packagePath || "").trim();
+  const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
+  const candidatePaths = [path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs")];
+  if (packagePathFromSource) {
+    candidatePaths.push(path.resolve(appRoot, packagePathFromSource, "package.descriptor.mjs"));
+  }
+  if (descriptorPathFromSource) {
+    candidatePaths.push(path.resolve(appRoot, descriptorPathFromSource));
+    candidatePaths.push(path.resolve(jskitRoot, descriptorPathFromSource));
+  }
+
+  for (const candidatePath of candidatePaths) {
+    if (await fileExists(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  return "";
+}
+
+async function resolveDescriptorUiRoutes({ appRoot, packageId, installedPackageState }) {
+  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
+    appRoot,
+    packageId,
+    installedPackageState
+  });
+  if (!descriptorPath) {
+    return Object.freeze([]);
+  }
+
+  try {
+    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptor = ensureObject(descriptorModule?.default);
+    return normalizeDescriptorUiRoutes(descriptor?.metadata?.ui?.routes);
+  } catch {
+    return Object.freeze([]);
+  }
+}
+
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
@@ -46,15 +107,23 @@ async function resolveInstalledClientModules({ appRoot, lockPath }) {
 
   const modules = [];
   for (const packageId of packageIds) {
+    const installedPackageState = ensureObject(installedPackages[packageId]);
     const packageJsonPath = path.resolve(appRoot, "node_modules", ...packageId.split("/"), "package.json");
     const packageJson = await readJsonFile(packageJsonPath, {});
     if (!hasClientExport(packageJson)) {
       continue;
     }
 
+    const descriptorUiRoutes = await resolveDescriptorUiRoutes({
+      appRoot,
+      packageId,
+      installedPackageState
+    });
+
     modules.push(
       Object.freeze({
-        packageId
+        packageId,
+        descriptorUiRoutes
       })
     );
   }
@@ -77,7 +146,10 @@ function normalizeClientModuleDescriptors(value) {
     if (!packageId) {
       continue;
     }
-    descriptors.push({ packageId });
+    descriptors.push({
+      packageId,
+      descriptorUiRoutes: normalizeDescriptorUiRoutes(record.descriptorUiRoutes)
+    });
   }
 
   return Object.freeze(
@@ -92,7 +164,7 @@ function createVirtualModuleSource(clientModules = []) {
   );
   const moduleEntries = moduleDescriptors.map(
     (entry, index) =>
-      `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index} }`
+      `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index}, descriptorUiRoutes: ${JSON.stringify(entry.descriptorUiRoutes)} }`
   );
 
   const entriesSource = moduleEntries.length > 0 ? moduleEntries.join(",\n") : "";

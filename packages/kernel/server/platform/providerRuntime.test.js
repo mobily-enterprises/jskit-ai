@@ -87,3 +87,74 @@ test("createProviderRuntimeFromApp rejects ambiguous app local provider exports"
     await rm(appRoot, { recursive: true, force: true });
   }
 });
+
+test("createProviderRuntimeFromApp resolves descriptor using source.packagePath", async () => {
+  const appRoot = await createTestAppRoot("kernel-provider-runtime-local-package-");
+  try {
+    await mkdir(path.join(appRoot, "packages", "local-example"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, ".jskit", "lock.json"),
+      `${JSON.stringify(
+        {
+          lockVersion: 1,
+          installedPackages: {
+            "@local/example": {
+              packageId: "@local/example",
+              version: "0.1.0",
+              source: {
+                type: "local-package",
+                packagePath: "packages/local-example"
+              },
+              managed: {
+                packageJson: {
+                  dependencies: {},
+                  devDependencies: {},
+                  scripts: {}
+                },
+                text: {},
+                files: []
+              },
+              options: {},
+              installedAt: "2026-01-01T00:00:00.000Z"
+            }
+          }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "packages", "local-example", "package.descriptor.mjs"),
+      [
+        "export default Object.freeze({",
+        "  packageVersion: 1,",
+        "  packageId: \"@local/example\",",
+        "  version: \"0.1.0\",",
+        "  description: \"Local example package\",",
+        "  dependsOn: [],",
+        "  capabilities: {",
+        "    provides: [],",
+        "    requires: []",
+        "  },",
+        "  runtime: {",
+        "    server: {",
+        "      providers: []",
+        "    }",
+        "  }",
+        "});"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const runtime = await createProviderRuntimeFromApp({
+      appRoot,
+      profile: "app"
+    });
+
+    assert.deepEqual(runtime.packageOrder, ["@local/example"]);
+    assert.deepEqual(runtime.providerPackageOrder, []);
+  } finally {
+    await rm(appRoot, { recursive: true, force: true });
+  }
+});

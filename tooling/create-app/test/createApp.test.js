@@ -39,6 +39,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.name, "sample-app");
     assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
     assert.equal(packageJson.scripts.postinstall, undefined);
+    assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");
     assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
@@ -79,7 +80,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /createShellBeforeEachGuard/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /router\.beforeEach\(/);
+    assert.match(mainJs, /const app = createApp\(App\)\.use\(vuetify\);/);
     assert.match(mainJs, /await bootInstalledClientModules\(/);
+    assert.match(mainJs, /app\.use\(router\);/);
+    const bootstrapIndex = mainJs.indexOf("await bootInstalledClientModules(");
+    const installRouterIndex = mainJs.indexOf("app.use(router);");
+    assert.ok(bootstrapIndex >= 0 && installRouterIndex >= 0 && bootstrapIndex < installRouterIndex);
     assert.match(mainJs, /app\.mount\("#app"\)/);
 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
@@ -90,6 +96,20 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
+
+    const localMainPackageJson = JSON.parse(
+      await readFile(path.join(appRoot, "packages/main/package.json"), "utf8")
+    );
+    assert.equal(localMainPackageJson.name, "@local/main");
+
+    const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
+    assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);
+
+    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.ok(lockfile.installedPackages["@local/main"]);
+    assert.equal(lockfile.installedPackages["@local/main"].source.type, "local-package");
+    assert.equal(lockfile.installedPackages["@local/main"].source.packagePath, "packages/main");
+    assert.equal(lockfile.installedPackages["@local/main"].source.descriptorPath, "packages/main/package.descriptor.mjs");
 
     const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
     assert.match(notFoundView, /The page you requested does not exist\./);

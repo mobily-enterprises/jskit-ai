@@ -17,7 +17,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   const stdout = String(result.stdout || "");
   assert.match(stdout, /File writes \(/);
   assert.match(stdout, /UI routes \(/);
-  assert.match(stdout, /\/auth\/login \(global\) \[auto\] Public login route for authentication flows\. \(id:auth\.login\)/);
+  assert.match(stdout, /\/auth\/login \(global\) \[advisory\] Public login route for authentication flows\. \(id:auth\.login\)/);
   assert.match(stdout, /Server routes \(/);
   assert.match(stdout, /GET \/api\/session: Get current session status and CSRF token/);
   assert.match(stdout, /src\/views\/auth\/LoginView\.vue \(id:auth-view-login\):\n\s+Install minimal login container/);

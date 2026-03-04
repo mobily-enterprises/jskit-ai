@@ -113,7 +113,39 @@ test("bootClientModules registers clientRoutes and bootClient manual routes", as
       },
       {
         packageId: "@example/zeta",
+        descriptorUiRoutes: [
+          {
+            id: "auth.default-login-2",
+            name: "auth-default-login-2",
+            path: "/auth/default-login-2",
+            scope: "global",
+            componentKey: "auth-login",
+            autoRegister: true
+          },
+          {
+            id: "auth.skipped",
+            path: "/auth/skipped",
+            scope: "global",
+            componentKey: "auth-login",
+            autoRegister: false
+          },
+          {
+            id: "auth.login",
+            path: "/auth/login",
+            scope: "global",
+            autoRegister: false
+          },
+          {
+            id: "auth.callback",
+            path: "/auth/callback",
+            scope: "global",
+            autoRegister: false
+          }
+        ],
         module: {
+          routeComponents: {
+            "auth-login": loginComponent
+          },
           clientRoutes: [
             {
               id: "auth.login",
@@ -123,9 +155,6 @@ test("bootClientModules registers clientRoutes and bootClient manual routes", as
               component: loginComponent
             }
           ],
-          routeComponents: {
-            "auth-login": loginComponent
-          },
           async bootClient(context) {
             events.push(`bootClient:${context.packageId}`);
             context.registerRoutes([
@@ -149,11 +178,13 @@ test("bootClientModules registers clientRoutes and bootClient manual routes", as
 
   assert.deepEqual(events, ["register", "boot", "bootClient:@example/zeta"]);
   assert.equal(result.providerCount, 1);
-  assert.equal(result.routeCount, 2);
-  assert.equal(router.routes.length, 2);
-  assert.equal(router.routes[0].path, "/auth/login");
+  assert.equal(result.routeCount, 3);
+  assert.equal(router.routes.length, 3);
+  assert.equal(router.routes[0].path, "/auth/default-login-2");
   assert.equal(router.routes[0].component, loginComponent);
-  assert.equal(router.routes[1].component, manualComponent);
+  assert.equal(router.routes[1].path, "/auth/login");
+  assert.equal(router.routes[1].component, loginComponent);
+  assert.equal(router.routes[2].component, manualComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
 });
 
@@ -184,5 +215,51 @@ test("bootClientModules rejects clientRoutes without components", async () => {
       logger: { info() {}, warn() {}, error() {} }
     }),
     /Client route "auth.login" from @example\/missing requires component\./
+  );
+});
+
+test("bootClientModules rejects non-declared programmatic routes", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const loginComponent = {};
+
+  await assert.rejects(
+    bootClientModules({
+      clientModules: [
+        {
+          packageId: "@example/strict",
+          descriptorUiRoutes: [
+            {
+              id: "auth.default-login-2",
+              path: "/auth/default-login-2",
+              scope: "global",
+              componentKey: "auth-login",
+              autoRegister: true
+            }
+          ],
+          module: {
+            routeComponents: {
+              "auth-login": loginComponent
+            },
+            async bootClient(context) {
+              context.registerRoutes([
+                {
+                  id: "auth.callback",
+                  name: "auth-callback",
+                  path: "/auth/callback",
+                  scope: "global",
+                  component: loginComponent
+                }
+              ]);
+            }
+          }
+        }
+      ],
+      router,
+      surfaceRuntime,
+      surfaceMode: "all",
+      logger: { info() {}, warn() {}, error() {} }
+    }),
+    /must be declared in metadata\.ui\.routes/
   );
 });

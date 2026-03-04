@@ -20,16 +20,48 @@ function normalizePackageId(value) {
 function createLogger(logger) {
   if (isRecord(logger)) {
     const info = typeof logger.info === "function" ? logger.info.bind(logger) : console.info.bind(console);
+    const debug = typeof logger.debug === "function" ? logger.debug.bind(logger) : () => {};
     const warn = typeof logger.warn === "function" ? logger.warn.bind(logger) : console.warn.bind(console);
     const error = typeof logger.error === "function" ? logger.error.bind(logger) : console.error.bind(console);
-    return Object.freeze({ info, warn, error });
+    return Object.freeze({ info, debug, warn, error });
   }
 
   return Object.freeze({
     info: console.info.bind(console),
+    debug: () => {},
     warn: console.warn.bind(console),
     error: console.error.bind(console)
   });
+}
+
+function toRouteSnapshot(route) {
+  const metaJskit = isRecord(route?.meta?.jskit) ? route.meta.jskit : {};
+  return Object.freeze({
+    id: String(route?.id || "").trim(),
+    name: String(route?.name || "").trim(),
+    path: String(route?.path || "").trim(),
+    scope: String(route?.scope || "").trim(),
+    surface: String(route?.surface || "").trim(),
+    metaScope: String(metaJskit.scope || "").trim(),
+    metaSurface: String(metaJskit.surface || "").trim()
+  });
+}
+
+function summarizeRouterRoutes(router) {
+  if (!router || typeof router.getRoutes !== "function") {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(
+    router.getRoutes().map((route) =>
+      Object.freeze({
+        name: String(route?.name || "").trim(),
+        path: String(route?.path || "").trim(),
+        metaScope: String(route?.meta?.jskit?.scope || "").trim(),
+        metaSurface: String(route?.meta?.jskit?.surface || "").trim()
+      })
+    )
+  );
 }
 
 function isRouteComponent(value) {
@@ -118,7 +150,10 @@ function registerClientModuleRoutes({
   surfaceRuntime,
   surfaceMode,
   seenRoutePaths,
-  seenRouteNames
+  seenRouteNames,
+  logger = null,
+  source = "module",
+  descriptorRouteDeclarations = null
 } = {}) {
   const normalizedPackageId = normalizePackageId(packageId);
   if (!normalizedPackageId) {
@@ -132,10 +167,30 @@ function registerClientModuleRoutes({
   }
 
   const normalizedRoutes = normalizeRouteList(routes, { packageId: normalizedPackageId });
+  assertRoutesDeclaredInDescriptor({
+    packageId: normalizedPackageId,
+    source,
+    normalizedRoutes,
+    descriptorRouteDeclarations
+  });
   const activeRoutes = filterRoutesBySurface(normalizedRoutes, {
     surfaceRuntime,
     surfaceMode
   });
+  const log = createLogger(logger);
+  log.debug(
+    {
+      packageId: normalizedPackageId,
+      source,
+      surfaceMode: String(surfaceMode || "").trim(),
+      declaredRoutes: normalizedRoutes.map(toRouteSnapshot),
+      activeRoutes: activeRoutes.map(toRouteSnapshot)
+    },
+    "Client route registration analysis."
+  );
+
+  const declaredPaths = normalizedRoutes.map((route) => route.path);
+  const activePaths = activeRoutes.map((route) => route.path);
 
   let registeredCount = 0;
   for (const route of activeRoutes) {
@@ -154,13 +209,24 @@ function registerClientModuleRoutes({
 
     seenRoutePaths.add(normalizedPath);
     router.addRoute(toVueRouteRecord(route));
+    log.debug(
+      {
+        packageId: normalizedPackageId,
+        source,
+        route: toRouteSnapshot(route)
+      },
+      "Added client route to router."
+    );
     registeredCount += 1;
   }
 
   return Object.freeze({
     packageId: normalizedPackageId,
+    source,
     declaredCount: normalizedRoutes.length,
-    registeredCount
+    registeredCount,
+    declaredPaths: Object.freeze(declaredPaths),
+    activePaths: Object.freeze(activePaths)
   });
 }
 
@@ -225,6 +291,182 @@ function resolveModuleProviderClasses(moduleNamespace, packageId) {
   return providerClasses;
 }
 
+function normalizeDescriptorUiRoutes(value) {
+  if (!Array.isArray(value)) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(value.filter((entry) => isRecord(entry)));
+}
+
+function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = [] } = {}) {
+  const normalizedPackageId = normalizePackageId(packageId);
+  const descriptorRoutes = normalizeDescriptorUiRoutes(descriptorUiRoutes);
+  const byId = new Map();
+
+  for (const descriptorRoute of descriptorRoutes) {
+    const routeId = String(descriptorRoute.id || "").trim();
+    const routePath = String(descriptorRoute.path || "").trim();
+    if (!routeId || !routePath) {
+      continue;
+    }
+
+    if (byId.has(routeId)) {
+      const existingRoute = byId.get(routeId);
+      if (existingRoute.path !== routePath) {
+        throw new Error(
+          `Descriptor ui routes for ${normalizedPackageId} define duplicate id "${routeId}" with conflicting paths ("${existingRoute.path}" vs "${routePath}").`
+        );
+      }
+      continue;
+    }
+
+    byId.set(
+      routeId,
+      Object.freeze({
+        id: routeId,
+        path: routePath
+      })
+    );
+  }
+
+  return Object.freeze({ byId });
+}
+
+function assertRoutesDeclaredInDescriptor({
+  packageId,
+  source,
+  normalizedRoutes = [],
+  descriptorRouteDeclarations = null
+} = {}) {
+  const normalizedSource = String(source || "").trim();
+  if (normalizedSource !== "clientRoutes" && normalizedSource !== "bootClient") {
+    return;
+  }
+
+  const byId = descriptorRouteDeclarations?.byId instanceof Map ? descriptorRouteDeclarations.byId : new Map();
+  const normalizedPackageId = normalizePackageId(packageId);
+
+  for (const route of normalizedRoutes) {
+    const routeId = String(route?.id || "").trim();
+    const routePath = String(route?.path || "").trim();
+    const declaredRoute = byId.get(routeId);
+    if (!declaredRoute) {
+      throw new Error(
+        `Client route "${routeId}" from ${normalizedPackageId} (${source}) must be declared in metadata.ui.routes (id "${routeId}", path "${routePath}") with autoRegister:false.`
+      );
+    }
+    if (String(declaredRoute.path || "").trim() !== routePath) {
+      throw new Error(
+        `Client route "${routeId}" from ${normalizedPackageId} (${source}) path "${routePath}" does not match descriptor metadata.ui.routes path "${declaredRoute.path}".`
+      );
+    }
+  }
+}
+
+function resolveDescriptorClientRoutes({
+  packageId,
+  descriptorUiRoutes = [],
+  routeComponents = {},
+  logger = null
+} = {}) {
+  const normalizedPackageId = normalizePackageId(packageId);
+  const descriptorRoutes = normalizeDescriptorUiRoutes(descriptorUiRoutes);
+  if (descriptorRoutes.length < 1) {
+    return Object.freeze([]);
+  }
+  if (!isRecord(routeComponents)) {
+    throw new TypeError(
+      `Client module ${normalizedPackageId} declares descriptor ui routes but does not export a routeComponents map.`
+    );
+  }
+
+  const log = createLogger(logger);
+  const routes = [];
+  const skippedRoutes = [];
+  for (const descriptorRoute of descriptorRoutes) {
+    const routeId = String(descriptorRoute.id || "").trim();
+    const routePath = String(descriptorRoute.path || "").trim();
+    const autoRegister = descriptorRoute.autoRegister !== false;
+    if (!autoRegister) {
+      skippedRoutes.push(
+        Object.freeze({
+          id: routeId,
+          path: routePath,
+          reason: "autoRegister=false"
+        })
+      );
+      continue;
+    }
+
+    if (!routeId || !routePath) {
+      throw new Error(
+        `Descriptor ui route from ${normalizedPackageId} requires id and path when autoRegister is enabled.`
+      );
+    }
+
+    const componentKey = String(descriptorRoute.componentKey || "").trim();
+    if (!componentKey) {
+      throw new Error(
+        `Descriptor ui route "${routeId}" from ${normalizedPackageId} requires componentKey when autoRegister is enabled.`
+      );
+    }
+
+    const routeComponent = routeComponents[componentKey];
+    if (!isRouteComponent(routeComponent)) {
+      throw new Error(
+        `Descriptor ui route "${routeId}" from ${normalizedPackageId} references unknown routeComponents key "${componentKey}".`
+      );
+    }
+
+    const scope = String(descriptorRoute.scope || "surface")
+      .trim()
+      .toLowerCase();
+    const surface = String(descriptorRoute.surface || "")
+      .trim()
+      .toLowerCase();
+    const guard = isRecord(descriptorRoute.guard) ? { ...descriptorRoute.guard } : {};
+    const baseMeta = isRecord(descriptorRoute.meta) ? { ...descriptorRoute.meta } : {};
+    const baseMetaJskit = isRecord(baseMeta.jskit) ? { ...baseMeta.jskit } : {};
+
+    routes.push(
+      Object.freeze({
+        id: routeId,
+        path: routePath,
+        scope,
+        ...(surface ? { surface } : {}),
+        ...(String(descriptorRoute.name || "").trim() ? { name: String(descriptorRoute.name || "").trim() } : {}),
+        component: routeComponent,
+        meta: {
+          ...baseMeta,
+          ...(Object.keys(guard).length > 0 ? { guard } : {}),
+          jskit: {
+            ...baseMetaJskit,
+            packageId: normalizedPackageId,
+            routeId,
+            scope,
+            componentKey,
+            source: "descriptor.ui.routes",
+            ...(surface ? { surface } : {})
+          }
+        }
+      })
+    );
+  }
+
+  log.debug(
+    {
+      packageId: normalizedPackageId,
+      descriptorRouteCount: descriptorRoutes.length,
+      autoRegisterRouteCount: routes.length,
+      skippedRoutes
+    },
+    "Processed descriptor ui routes."
+  );
+
+  return Object.freeze(routes);
+}
+
 function normalizeClientModuleEntries(clientModules) {
   if (!Array.isArray(clientModules)) {
     return [];
@@ -237,7 +479,11 @@ function normalizeClientModuleEntries(clientModules) {
       if (!packageId || !moduleNamespace) {
         return null;
       }
-      return Object.freeze({ packageId, module: moduleNamespace });
+      return Object.freeze({
+        packageId,
+        module: moduleNamespace,
+        descriptorUiRoutes: normalizeDescriptorUiRoutes(entry?.descriptorUiRoutes)
+      });
     })
     .filter(Boolean)
     .sort((left, right) => left.packageId.localeCompare(right.packageId));
@@ -298,8 +544,26 @@ async function bootClientModules({
 
   const providerClasses = [];
   const seenProviderIds = new Set();
+  log.debug(
+    {
+      surfaceMode: String(surfaceMode || "").trim(),
+      normalizedSurfaceMode: String(surfaceRuntime.normalizeSurfaceMode(surfaceMode) || "").trim(),
+      moduleCount: moduleEntries.length,
+      modules: moduleEntries.map((entry) => entry.packageId)
+    },
+    "Starting JSKIT client module bootstrap."
+  );
   for (const entry of moduleEntries) {
     const providers = resolveModuleProviderClasses(entry.module, entry.packageId);
+    log.debug(
+      {
+        packageId: entry.packageId,
+        providerExports: providers.map((providerClass) => String(providerClass.id || providerClass.name || "").trim()),
+        hasBootClient: typeof entry.module.bootClient === "function",
+        hasClientRoutes: Array.isArray(entry.module.clientRoutes) && entry.module.clientRoutes.length > 0
+      },
+      "Discovered client module capabilities."
+    );
     for (const providerClass of providers) {
       const providerId = String(providerClass.id || "").trim();
       if (seenProviderIds.has(providerId)) {
@@ -317,7 +581,7 @@ async function bootClientModules({
   const seenRoutePaths = new Set();
   const seenRouteNames = new Set();
   const routeResults = [];
-  const registerRoutesForEntry = (routeList, packageId) => {
+  const registerRoutesForEntry = (routeList, packageId, source = "module", descriptorRouteDeclarations = null) => {
     if (!routeList || routeList.length === 0) {
       return null;
     }
@@ -328,16 +592,49 @@ async function bootClientModules({
       surfaceRuntime,
       surfaceMode,
       seenRoutePaths,
-      seenRouteNames
+      seenRouteNames,
+      logger: log,
+      source,
+      descriptorRouteDeclarations
     });
+    log.debug(
+      {
+        packageId,
+        source,
+        declaredPaths: result.declaredPaths,
+        activePaths: result.activePaths,
+        registeredCount: result.registeredCount
+      },
+      "Registered client module routes."
+    );
+    log.debug(
+      {
+        packageId,
+        source,
+        routerRoutes: summarizeRouterRoutes(router)
+      },
+      "Router route table after client route registration."
+    );
     routeResults.push(result);
     return result;
   };
   const bootedPackages = [];
 
   for (const entry of moduleEntries) {
+    const descriptorRouteDeclarations = buildDescriptorRouteDeclarationIndex({
+      packageId: entry.packageId,
+      descriptorUiRoutes: entry.descriptorUiRoutes
+    });
+    const descriptorRoutes = resolveDescriptorClientRoutes({
+      packageId: entry.packageId,
+      descriptorUiRoutes: entry.descriptorUiRoutes,
+      routeComponents: entry.module.routeComponents,
+      logger: log
+    });
+    registerRoutesForEntry(descriptorRoutes, entry.packageId, "descriptor.ui.routes", descriptorRouteDeclarations);
+
     const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
-    registerRoutesForEntry(moduleRoutes, entry.packageId);
+    registerRoutesForEntry(moduleRoutes, entry.packageId, "clientRoutes", descriptorRouteDeclarations);
 
     if (typeof entry.module.bootClient === "function") {
       await entry.module.bootClient(
@@ -351,9 +648,16 @@ async function bootClientModules({
           env: isRecord(env) ? { ...env } : {},
           logger: log,
           registerRoutes(routeList) {
-            return registerRoutesForEntry(routeList, entry.packageId);
+            return registerRoutesForEntry(routeList, entry.packageId, "bootClient", descriptorRouteDeclarations);
           }
         })
+      );
+      log.debug(
+        {
+          packageId: entry.packageId,
+          routerRoutes: summarizeRouterRoutes(router)
+        },
+        "Completed module bootClient hook."
       );
       bootedPackages.push(entry.packageId);
     }
@@ -361,7 +665,7 @@ async function bootClientModules({
 
   const registeredRouteCount = routeResults.reduce((sum, result) => sum + result.registeredCount, 0);
   if (moduleEntries.length > 0) {
-    log.info(
+    log.debug(
       {
         modules: moduleEntries.map((entry) => entry.packageId),
         booted: bootedPackages,
@@ -369,6 +673,13 @@ async function bootClientModules({
         routeCount: registeredRouteCount
       },
       "Booted JSKIT client modules."
+    );
+    log.debug(
+      {
+        routerRoutes: summarizeRouterRoutes(router),
+        currentPath: typeof window !== "undefined" ? String(window.location?.pathname || "") : ""
+      },
+      "JSKIT client bootstrap final route table."
     );
   }
 

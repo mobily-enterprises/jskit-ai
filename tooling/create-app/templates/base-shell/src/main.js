@@ -88,21 +88,60 @@ const vuetify = createVuetify({
   }
 });
 
-const app = createApp(App).use(router).use(vuetify);
-
-await bootInstalledClientModules({
-  app,
-  router,
-  surfaceRuntime,
-  surfaceMode,
-  env: import.meta.env
-});
-
-if (fallbackRoute?.name) {
-  if (router.hasRoute(fallbackRoute.name)) {
-    router.removeRoute(fallbackRoute.name);
-  }
-  router.addRoute(fallbackRoute);
+function createClientBootstrapLogger(env = {}) {
+  const debugEnabled = String(env.VITE_JSKIT_CLIENT_DEBUG || "").trim() === "1";
+  return Object.freeze({
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: debugEnabled ? console.info.bind(console) : () => {}
+  });
 }
 
-app.mount("#app");
+async function bootstrapClient() {
+  const app = createApp(App).use(vuetify);
+
+  const clientBootstrap = await bootInstalledClientModules({
+    app,
+    router,
+    surfaceRuntime,
+    surfaceMode,
+    env: import.meta.env,
+    logger: createClientBootstrapLogger(import.meta.env)
+  });
+
+  if (String(import.meta.env.VITE_JSKIT_CLIENT_DEBUG || "").trim() === "1") {
+    console.info(
+      {
+        bootstrap: {
+          modules: clientBootstrap.modules,
+          bootedPackages: clientBootstrap.bootedPackages,
+          providerCount: clientBootstrap.providerCount,
+          routeCount: clientBootstrap.routeCount
+        },
+        routerRoutesBeforeInstall: router.getRoutes().map((route) => ({
+          name: String(route?.name || ""),
+          path: String(route?.path || ""),
+          scope: String(route?.meta?.jskit?.scope || "")
+        })),
+        currentPath: String(window.location?.pathname || "")
+      },
+      "Client modules bootstrapped before router install."
+    );
+  }
+
+  if (fallbackRoute?.name) {
+    if (router.hasRoute(fallbackRoute.name)) {
+      router.removeRoute(fallbackRoute.name);
+    }
+    router.addRoute(fallbackRoute);
+  }
+
+  app.use(router);
+  await router.isReady();
+  app.mount("#app");
+}
+
+void bootstrapClient().catch((error) => {
+  console.error("Failed to bootstrap client app.", error);
+});

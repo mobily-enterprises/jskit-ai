@@ -17,8 +17,39 @@ const routeComponents = Object.freeze({
   "auth-signout": DefaultSignOutView
 });
 
-async function bootClient() {
+function buildDefaultLoginRoute({ component = DefaultLoginView, path = "/auth/default-login", meta = {} } = {}) {
+  return {
+    id: "auth.default-login",
+    name: "auth-default-login",
+    path,
+    scope: "global",
+    component,
+    meta: {
+      ...meta,
+      guard: {
+        policy: "public",
+        ...(meta?.guard || {})
+      },
+      jskit: {
+        scope: "global",
+        routeId: "auth.default-login"
+      }
+    }
+  };
+}
+
+export function bootDefaultLoginRoute(context = {}) {
+  const { registerRoutes, ...options } = context;
+  if (typeof registerRoutes !== "function") {
+    throw new Error("bootDefaultLoginRoute requires registerRoutes().");
+  }
+
+  registerRoutes([buildDefaultLoginRoute(options)]);
+}
+
+async function bootClient(context) {
   await initializeAuthGuardRuntime({ loginRoute: "/auth/login" });
+  bootDefaultLoginRoute(context);
 }
 
 export { routeComponents, bootClient };
