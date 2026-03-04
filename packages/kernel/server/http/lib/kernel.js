@@ -74,9 +74,74 @@ function toFastifyRouteOptions(route) {
   };
 }
 
+function resolveRequestRuntimeId({ request = null, requestIdResolver = null } = {}) {
+  if (typeof requestIdResolver === "function") {
+    const resolvedByResolver = String(requestIdResolver(request) || "").trim();
+    if (resolvedByResolver) {
+      return resolvedByResolver;
+    }
+  }
+
+  const resolvedFromRequest = String(request?.id || "").trim();
+  if (resolvedFromRequest) {
+    return resolvedFromRequest;
+  }
+
+  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeRequestScopeProperty(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "scope";
+}
+
+function attachRequestScope({
+  app = null,
+  request = null,
+  reply = null,
+  requestScopeProperty = "scope",
+  requestScopeIdPrefix = "http",
+  requestIdResolver = null
+} = {}) {
+  if (!app || typeof app.createScope !== "function") {
+    return null;
+  }
+
+  const runtimeRequestId = resolveRequestRuntimeId({
+    request,
+    requestIdResolver
+  });
+
+  const scopePrefix = String(requestScopeIdPrefix || "").trim() || "http";
+  const scope = app.createScope(`${scopePrefix}:${runtimeRequestId}`);
+  if (!scope || typeof scope.instance !== "function") {
+    return null;
+  }
+
+  scope.instance(TOKENS.Request, request);
+  scope.instance(TOKENS.Reply, reply);
+  scope.instance(TOKENS.RequestId, runtimeRequestId);
+  scope.instance(TOKENS.RequestScope, scope);
+
+  if (request && typeof request === "object") {
+    request[normalizeRequestScopeProperty(requestScopeProperty)] = scope;
+  }
+
+  return scope;
+}
+
 function registerRoutes(
   fastify,
-  { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler } = {}
+  {
+    routes = [],
+    app = null,
+    applyRoutePolicy = defaultApplyRoutePolicy,
+    missingHandler = defaultMissingHandler,
+    enableRequestScope = true,
+    requestScopeProperty = "scope",
+    requestScopeIdPrefix = "http",
+    requestIdResolver = null
+  } = {}
 ) {
   if (!fastify || typeof fastify.route !== "function") {
     throw new RouteRegistrationError("registerRoutes requires a Fastify instance.");
@@ -95,6 +160,17 @@ function registerRoutes(
     fastify.route({
       ...routeOptions,
       handler: async (request, reply) => {
+        if (enableRequestScope) {
+          attachRequestScope({
+            app,
+            request,
+            reply,
+            requestScopeProperty,
+            requestScopeIdPrefix,
+            requestIdResolver
+          });
+        }
+
         await executeMiddlewareStack(middleware, request, reply);
         if (reply?.sent) {
           return;
@@ -122,6 +198,7 @@ function registerHttpRuntime(app, options = {}) {
 
   return registerRoutes(fastify, {
     ...options,
+    app,
     routes
   });
 }
@@ -140,8 +217,8 @@ function createHttpRuntime({ app = null, fastify = null, router = null } = {}) {
 
   return {
     router: runtimeRouter,
-    registerRoutes() {
-      return registerHttpRuntime(app);
+    registerRoutes(runtimeOptions = {}) {
+      return registerHttpRuntime(app, runtimeOptions);
     }
   };
 }

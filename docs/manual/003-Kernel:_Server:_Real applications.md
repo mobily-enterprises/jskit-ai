@@ -1286,6 +1286,7 @@ export { ContactController };
 Note to expand later:
 
 - Talk about the new base controller class (`BaseController` from `@jskit-ai/kernel/server/http`) and show how `sendActionResult(...)` removes repeated HTTP mapping code in controllers.
+- Talk about per-request container scope (`request.scope`) and how the kernel can inject `TOKENS.Request`, `TOKENS.Reply`, `TOKENS.RequestId`, and `TOKENS.RequestScope` automatically so scoped bindings become truly request-local.
 
 ### Full provider code for Stage 5
 
