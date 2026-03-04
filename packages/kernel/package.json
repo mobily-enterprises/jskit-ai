@@ -6,7 +6,10 @@
     "test": "node --test"
   },
   "exports": {
-    "./client": "./client/index.js",
+    "./client": {
+      "types": "./client/index.d.ts",
+      "default": "./client/index.js"
+    },
     "./client/shellRouting": "./client/shellRouting.js",
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
     "./client/vite": "./client/vite/index.js",

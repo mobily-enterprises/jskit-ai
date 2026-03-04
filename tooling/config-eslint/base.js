@@ -16,7 +16,7 @@ const baseConfig = Object.freeze([
         {
           patterns: [
             {
-              group: ["@jskit-ai/*"],
+              regex: "^@jskit-ai/[^/]+$",
               message: "Use explicit JSKIT subpath imports: @jskit-ai/<package>/server or /client."
             }
           ]

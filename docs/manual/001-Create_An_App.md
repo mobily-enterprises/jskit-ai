@@ -1,4 +1,4 @@
-# 001 - Create An App
+# Create An App
 
 ## Developers only (ignore for now)
 
@@ -77,9 +77,9 @@ You now have a minimal full-stack app shell:
 - Frontend app with Vue + Vite + filesystem routes
 - A local JSKIT module (`@local/main`) where your app-specific runtime code should live
 
-If you are familiar with FastAPI + Vue, this should feel familiar at a high level:
+If you are familiar with Fastify + Vue, this should feel familiar at a high level:
 
-- Fastify is your HTTP runtime (similar role to FastAPI in Python projects)
+- Fastify is your HTTP runtime
 - Vue is your UI runtime
 - JSKIT providers are startup/runtime wiring units (roughly: startup dependency registration + boot hooks)
 
@@ -108,6 +108,7 @@ What each area does:
   - Tiny executable entrypoint. It calls `startServer()` from `server.js`.
 - `server.js`
   - Creates Fastify.
+  - Registers TypeBox format + validator compiler for route schema validation.
   - Boots JSKIT provider runtime from installed/local packages.
   - Applies surface constraints (which URLs are served by which surface mode).
   - Starts listening on configured host/port.
@@ -163,7 +164,7 @@ Think of a provider as the runtime wiring unit for a module:
 - `boot(app)` phase:
   - Use registered services to wire routes, handlers, and runtime behavior.
 
-If you know FastAPI terms:
+Some terms:
 
 - Service: business logic class (domain behavior, no direct HTTP handling)
 - Controller: HTTP adapter (reads request, calls service, writes response)
@@ -190,7 +191,7 @@ runtime: {
 
 That means you can grow your backend feature-by-feature inside `packages/main/src/server/**`, and JSKIT will wire it at runtime.
 
-### Add a complete example route (service + controller + route + provider wiring)
+### Add a complete example route (service + controller + schema + route + provider wiring)
 
 The example below adds:
 
@@ -198,15 +199,29 @@ The example below adds:
 
 and demonstrates each layer clearly.
 
-### 1) Create folders
+Before the steps, here is the validation model used across legacy modules and current route packages.
+
+Validation is handled at three levels:
+
+1. Transport-level validation:
+  - Fastify validates incoming `params`, `querystring`, and `body` against TypeBox schemas before your controller runs.
+2. Response contract validation:
+  - Route `response` schemas describe exactly what each status code returns (`200`, `400`, `422`, etc.), which prevents response drift.
+3. Domain/business validation:
+  - Your service enforces business rules that are not just data-shape rules (for example, reserved names, state transitions, permission-sensitive checks).
+
+Because base-shell now configures TypeBox validation in `server.js`, you can apply this pattern immediately in `@local/main`.
+
+### Create folders
 
 ```bash
 mkdir -p packages/main/src/server/services
 mkdir -p packages/main/src/server/controllers
+mkdir -p packages/main/src/server/schemas
 mkdir -p packages/main/src/server/routes
 ```
 
-### 2) Create a service
+### Create a service
 
 Create `packages/main/src/server/services/MainHelloService.js`:
 
@@ -218,6 +233,14 @@ class MainHelloService {
 
   createGreeting({ name = "world" } = {}) {
     const normalizedName = String(name || "").trim() || "world";
+    const lowered = normalizedName.toLowerCase();
+
+    if (["root", "system", "admin"].includes(lowered)) {
+      const error = new Error(`Name "${normalizedName}" is reserved.`);
+      error.code = "name_reserved";
+      throw error;
+    }
+
     return {
       ok: true,
       app: this.appName,
@@ -230,7 +253,7 @@ class MainHelloService {
 export { MainHelloService };
 ```
 
-### 3) Create a controller
+### Create a controller
 
 Create `packages/main/src/server/controllers/MainHelloController.js`:
 
@@ -244,20 +267,83 @@ class MainHelloController {
   }
 
   async getHello(request, reply) {
-    const name = request?.query?.name;
-    const payload = this.service.createGreeting({ name });
-    reply.code(200).send(payload);
+    try {
+      const name = request?.query?.name;
+      const payload = this.service.createGreeting({ name });
+      reply.code(200).send(payload);
+    } catch (error) {
+      if (error && error.code === "name_reserved") {
+        reply.code(422).send({
+          error: "Validation failed.",
+          code: error.code
+        });
+        return;
+      }
+      throw error;
+    }
   }
 }
 
 export { MainHelloController };
 ```
 
-### 4) Create route definitions
+### Create schemas
+
+Create `packages/main/src/server/schemas/mainHelloSchema.js`:
+
+```js
+import { Type } from "@fastify/type-provider-typebox";
+
+const query = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 80 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const successResponse = Type.Object(
+  {
+    ok: Type.Boolean(),
+    app: Type.String({ minLength: 1 }),
+    message: Type.String({ minLength: 1 }),
+    timestamp: Type.String({ format: "iso-utc-date-time" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const domainValidationErrorResponse = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.String({ minLength: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const mainHelloSchema = Object.freeze({
+  query,
+  response: {
+    success: successResponse,
+    domainValidationError: domainValidationErrorResponse
+  }
+});
+
+export { mainHelloSchema };
+```
+
+### Create route definitions
 
 Create `packages/main/src/server/routes/mainHelloRoutes.js`:
 
 ```js
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { mainHelloSchema } from "../schemas/mainHelloSchema.js";
+
 function buildMainHelloRoutes(controller) {
   if (!controller || typeof controller.getHello !== "function") {
     throw new Error("buildMainHelloRoutes requires a controller with getHello().");
@@ -267,7 +353,18 @@ function buildMainHelloRoutes(controller) {
     {
       method: "GET",
       path: "/api/v1/main/hello",
-      summary: "Example hello endpoint from @local/main",
+      schema: {
+        tags: ["main"],
+        summary: "Example hello endpoint from @local/main",
+        querystring: mainHelloSchema.query,
+        response: withStandardErrorResponses(
+          {
+            200: mainHelloSchema.response.success,
+            422: mainHelloSchema.response.domainValidationError
+          },
+          { includeValidation400: true }
+        )
+      },
       handler: controller.getHello.bind(controller)
     }
   ];
@@ -276,7 +373,7 @@ function buildMainHelloRoutes(controller) {
 export { buildMainHelloRoutes };
 ```
 
-### 5) Wire everything in the provider
+### Wire everything in the provider
 
 Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
@@ -319,7 +416,7 @@ class MainServiceProvider {
 export { MainServiceProvider };
 ```
 
-### 6) (Recommended) document the route in descriptor metadata
+### (Recommended) document the route in descriptor metadata
 
 In `packages/main/package.descriptor.mjs`, add the route to `metadata.server.routes`:
 
@@ -342,7 +439,7 @@ metadata: {
 }
 ```
 
-### 7) Run and test
+### Run and test
 
 Restart your backend server and call:
 
@@ -359,6 +456,16 @@ Expected shape:
   "message": "Hello, alice!",
   "timestamp": "2026-03-04T12:34:56.000Z"
 }
+```
+
+Optional validation checks:
+
+```bash
+# Transport-level validation (query too long -> 400)
+curl "http://localhost:3000/api/v1/main/hello?name=$(printf '%081d' 1)"
+
+# Domain-level validation (reserved name -> 422)
+curl "http://localhost:3000/api/v1/main/hello?name=admin"
 ```
 
 This pattern scales well:

@@ -11,9 +11,8 @@ import NotFoundView from "./views/NotFound.vue";
 import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import {
-  buildSurfaceAwareRoutes,
-  createShellBeforeEachGuard,
-  createFallbackNotFoundRoute
+  bootstrapClientShellApp,
+  createShellRouter
 } from "@jskit-ai/kernel/client";
 import {
   SURFACE_DEFAULT_ID,
@@ -28,28 +27,20 @@ const surfaceRuntime = createSurfaceRuntime({
   defaultSurfaceId: SURFACE_DEFAULT_ID
 });
 
-const fallbackRoute = createFallbackNotFoundRoute(NotFoundView);
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
-const activeRoutes = buildSurfaceAwareRoutes({
+const { router, fallbackRoute } = createShellRouter({
+  createRouter,
+  history: createWebHistory(),
   routes,
   surfaceRuntime,
   surfaceMode,
-  fallbackRoute
-});
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes: activeRoutes
-});
-
-router.beforeEach(
-  createShellBeforeEachGuard({
-    surfaceRuntime,
+  notFoundComponent: NotFoundView,
+  guard: {
     surfaceDefinitions: SURFACE_DEFINITIONS,
     defaultSurfaceId: SURFACE_DEFAULT_ID,
     webRootAllowed: WEB_ROOT_ALLOWED
-  })
-);
+  }
+});
 
 const vuetify = createVuetify({
   components,
@@ -88,60 +79,16 @@ const vuetify = createVuetify({
   }
 });
 
-function createClientBootstrapLogger(env = {}) {
-  const debugEnabled = String(env.VITE_JSKIT_CLIENT_DEBUG || "").trim() === "1";
-  return Object.freeze({
-    info: console.info.bind(console),
-    warn: console.warn.bind(console),
-    error: console.error.bind(console),
-    debug: debugEnabled ? console.info.bind(console) : () => {}
-  });
-}
-
-async function bootstrapClient() {
-  const app = createApp(App).use(vuetify);
-
-  const clientBootstrap = await bootInstalledClientModules({
-    app,
-    router,
-    surfaceRuntime,
-    surfaceMode,
-    env: import.meta.env,
-    logger: createClientBootstrapLogger(import.meta.env)
-  });
-
-  if (String(import.meta.env.VITE_JSKIT_CLIENT_DEBUG || "").trim() === "1") {
-    console.info(
-      {
-        bootstrap: {
-          modules: clientBootstrap.modules,
-          bootedPackages: clientBootstrap.bootedPackages,
-          providerCount: clientBootstrap.providerCount,
-          routeCount: clientBootstrap.routeCount
-        },
-        routerRoutesBeforeInstall: router.getRoutes().map((route) => ({
-          name: String(route?.name || ""),
-          path: String(route?.path || ""),
-          scope: String(route?.meta?.jskit?.scope || "")
-        })),
-        currentPath: String(window.location?.pathname || "")
-      },
-      "Client modules bootstrapped before router install."
-    );
-  }
-
-  if (fallbackRoute?.name) {
-    if (router.hasRoute(fallbackRoute.name)) {
-      router.removeRoute(fallbackRoute.name);
-    }
-    router.addRoute(fallbackRoute);
-  }
-
-  app.use(router);
-  await router.isReady();
-  app.mount("#app");
-}
-
-void bootstrapClient().catch((error) => {
+void bootstrapClientShellApp({
+  createApp,
+  rootComponent: App,
+  appPlugins: [vuetify],
+  router,
+  bootClientModules: bootInstalledClientModules,
+  surfaceRuntime,
+  surfaceMode,
+  env: import.meta.env,
+  fallbackRoute
+}).catch((error) => {
   console.error("Failed to bootstrap client app.", error);
 });

@@ -40,6 +40,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
     assert.equal(packageJson.scripts.postinstall, undefined);
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
+    assert.equal(packageJson.dependencies["@jskit-ai/http-contracts"], "0.1.0");
+    assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");
     assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
@@ -76,23 +78,20 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(mainJs, /collectClientModuleRoutes/);
     assert.match(mainJs, /@jskit-ai\/kernel\/shared\/surface\/runtime/);
     assert.match(mainJs, /@jskit-ai\/kernel\/client/);
-    assert.match(mainJs, /buildSurfaceAwareRoutes/);
-    assert.match(mainJs, /createShellBeforeEachGuard/);
+    assert.match(mainJs, /createShellRouter/);
+    assert.match(mainJs, /bootstrapClientShellApp/);
     assert.match(mainJs, /createRouter, createWebHistory/);
-    assert.match(mainJs, /router\.beforeEach\(/);
-    assert.match(mainJs, /const app = createApp\(App\)\.use\(vuetify\);/);
-    assert.match(mainJs, /await bootInstalledClientModules\(/);
-    assert.match(mainJs, /app\.use\(router\);/);
-    const bootstrapIndex = mainJs.indexOf("await bootInstalledClientModules(");
-    const installRouterIndex = mainJs.indexOf("app.use(router);");
-    assert.ok(bootstrapIndex >= 0 && installRouterIndex >= 0 && bootstrapIndex < installRouterIndex);
-    assert.match(mainJs, /app\.mount\("#app"\)/);
+    assert.match(mainJs, /bootClientModules:\s*bootInstalledClientModules/);
+    assert.match(mainJs, /appPlugins:\s*\[vuetify\]/);
+    assert.match(mainJs, /fallbackRoute/);
 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
     assert.match(surfacesConfig, /requiresAuth:\s*false/);
 
     const serverJs = await readFile(path.join(appRoot, "server.js"), "utf8");
     assert.match(serverJs, /globalUiPaths:\s*runtime\?\.globalUiPaths\s*\|\|\s*\[\]/);
+    assert.match(serverJs, /registerTypeBoxFormats\(\);/);
+    assert.match(serverJs, /app\.setValidatorCompiler\(TypeBoxValidatorCompiler\);/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
@@ -117,6 +116,24 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
+
+    const localMainControllersIndex = await readFile(
+      path.join(appRoot, "packages/main/src/server/controllers/index.js"),
+      "utf8"
+    );
+    assert.match(localMainControllersIndex, /export \{\};/);
+
+    const localMainServicesIndex = await readFile(
+      path.join(appRoot, "packages/main/src/server/services/index.js"),
+      "utf8"
+    );
+    assert.match(localMainServicesIndex, /export \{\};/);
+
+    const localMainRoutesIndex = await readFile(
+      path.join(appRoot, "packages/main/src/server/routes/index.js"),
+      "utf8"
+    );
+    assert.match(localMainRoutesIndex, /export \{\};/);
 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
     assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);

@@ -25,3 +25,19 @@ test("node config includes commonjs override for cjs files", () => {
   assert.ok(cjsOverride);
   assert.equal(cjsOverride.languageOptions.sourceType, "commonjs");
 });
+
+test("base config restricts only bare @jskit-ai package imports", () => {
+  const baseRules = baseConfig.find((config) => config?.rules?.["no-restricted-imports"]);
+  assert.ok(baseRules);
+
+  const rule = baseRules.rules["no-restricted-imports"];
+  assert.equal(Array.isArray(rule), true);
+  const patterns = rule[1]?.patterns;
+  assert.equal(Array.isArray(patterns), true);
+
+  const packageBoundaryPattern = patterns.find(
+    (entry) => entry?.message === "Use explicit JSKIT subpath imports: @jskit-ai/<package>/server or /client."
+  );
+  assert.ok(packageBoundaryPattern);
+  assert.equal(packageBoundaryPattern.regex, "^@jskit-ai/[^/]+$");
+});

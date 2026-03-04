@@ -20,3 +20,10 @@ export {
   registerClientModuleRoutes,
   bootClientModules
 } from "./moduleBootstrap.js";
+export {
+  resolveClientBootstrapDebugEnabled,
+  createClientBootstrapLogger,
+  createSurfaceShellRouter,
+  createSurfaceShellRouter as createShellRouter,
+  bootstrapClientShellApp
+} from "./shellBootstrap.js";

@@ -1,4 +1,6 @@
 import Fastify from "fastify";
+import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
+import { registerTypeBoxFormats } from "@jskit-ai/http-contracts/typeboxFormats";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 import path from "node:path";
 import {
@@ -10,6 +12,9 @@ import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
 
 async function createServer() {
   const app = Fastify({ logger: true });
+  registerTypeBoxFormats();
+  app.setValidatorCompiler(TypeBoxValidatorCompiler);
+
   app.get("/api/v1/health", async () => {
     return {
       ok: true,
