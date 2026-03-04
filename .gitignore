@@ -14,3 +14,7 @@ data/
 *.swp
 .jscpd/*
 !.jscpd/baseline.json
+tooling/create-app/templates/base-shell/scripts/verdaccio/storage/
+tooling/create-app/templates/base-shell/scripts/verdaccio/htpasswd
+**/verdaccio/storage/
+**/verdaccio/htpasswd

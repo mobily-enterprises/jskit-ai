@@ -13,7 +13,6 @@ git init
 ## 2) Scaffold into current directory
 
 ```bash
-# ../jskit-ai/packages/tooling/create-app/bin/jskit-create-app.js manual-app --target . --force # LEAVE THIS IN FOR NOW
 npx @jskit-ai/create-app manual-app --target .
 ```
 

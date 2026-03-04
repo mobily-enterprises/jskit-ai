@@ -2,7 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$HOME/.config/verdaccio/config.yaml}"
+DEFAULT_VERDACCIO_CONFIG="$ROOT_DIR/scripts/verdaccio/config.yaml"
+if [[ -f "$DEFAULT_VERDACCIO_CONFIG" ]]; then
+  VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$DEFAULT_VERDACCIO_CONFIG}"
+else
+  VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$HOME/.config/verdaccio/config.yaml}"
+fi
 VERDACCIO_LISTEN="${VERDACCIO_LISTEN:-127.0.0.1:4873}"
 VERDACCIO_REGISTRY="${VERDACCIO_REGISTRY:-http://$VERDACCIO_LISTEN}"
 VERDACCIO_REGISTRY="${VERDACCIO_REGISTRY%/}"
@@ -81,11 +86,17 @@ stop_verdaccio() {
 
 start_verdaccio() {
   local cmd=(npx --yes verdaccio --listen "$VERDACCIO_LISTEN")
+  local config_dir
+  config_dir="$(pwd)"
   if [[ -f "$VERDACCIO_CONFIG" ]]; then
     cmd+=(--config "$VERDACCIO_CONFIG")
+    config_dir="$(cd "$(dirname "$VERDACCIO_CONFIG")" && pwd)"
   fi
 
-  nohup "${cmd[@]}" >"$VERDACCIO_LOG_FILE" 2>&1 &
+  (
+    cd "$config_dir"
+    nohup "${cmd[@]}" >"$VERDACCIO_LOG_FILE" 2>&1 &
+  )
 
   local attempts=0
   until curl -fsS "$VERDACCIO_REGISTRY/-/ping" >/dev/null 2>&1; do
@@ -115,18 +126,33 @@ publish_packages() {
   fi
 
   local dirs=()
-  if [[ -f "$TOOLING_DIR/config-eslint/package.json" ]]; then
-    dirs+=("$TOOLING_DIR/config-eslint")
-  fi
-  if [[ -f "$TOOLING_DIR/jskit-catalog/package.json" ]]; then
-    dirs+=("$TOOLING_DIR/jskit-catalog")
-  fi
-  if [[ -f "$TOOLING_DIR/jskit-cli/package.json" ]]; then
-    dirs+=("$TOOLING_DIR/jskit-cli")
+  if [[ -d "$TOOLING_DIR" ]]; then
+    while IFS= read -r dir; do
+      if [[ ! -f "$dir/package.json" ]]; then
+        continue
+      fi
+      local package_name
+      package_name="$(cd "$dir" && node -p "require('./package.json').name || ''" 2>/dev/null || true)"
+      if [[ "$package_name" == @jskit-ai/* ]]; then
+        dirs+=("$dir")
+      fi
+    done < <(find "$TOOLING_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
   fi
   while IFS= read -r dir; do
     dirs+=("$dir")
   done < <(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
+
+  if (( ${#dirs[@]} > 1 )); then
+    local deduped=()
+    local seen=":"
+    for dir in "${dirs[@]}"; do
+      if [[ "$seen" != *":$dir:"* ]]; then
+        deduped+=("$dir")
+        seen="${seen}${dir}:"
+      fi
+    done
+    dirs=("${deduped[@]}")
+  fi
 
   if (( ${#dirs[@]} == 0 )); then
     echo "No package directories found under $PACKAGES_DIR" >&2
@@ -227,7 +253,7 @@ main() {
   echo "Starting Verdaccio at $VERDACCIO_REGISTRY..."
   start_verdaccio
 
-  echo "Publishing packages from $PACKAGES_DIR..."
+  echo "Publishing packages from $PACKAGES_DIR and tooling in $TOOLING_DIR..."
   publish_packages
 
   echo "Done. Verdaccio is running at $VERDACCIO_REGISTRY"

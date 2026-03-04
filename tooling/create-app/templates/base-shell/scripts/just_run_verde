@@ -5,22 +5,33 @@
 #
 # Env overrides:
 # - VERDACCIO_LISTEN (default: 127.0.0.1:4873)
-# - VERDACCIO_CONFIG (default: ~/.config/verdaccio/config.yaml)
+# - VERDACCIO_CONFIG (default: ./scripts/verdaccio/config.yaml, fallback ~/.config/verdaccio/config.yaml)
 # - VERDACCIO_LOG_FILE (default: /tmp/verdaccio.log)
 # - VERDACCIO_PID_FILE (default: /tmp/verdaccio.pid)
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERDACCIO_LISTEN="${VERDACCIO_LISTEN:-127.0.0.1:4873}"
-VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$HOME/.config/verdaccio/config.yaml}"
+DEFAULT_VERDACCIO_CONFIG="$ROOT_DIR/scripts/verdaccio/config.yaml"
+if [[ -f "$DEFAULT_VERDACCIO_CONFIG" ]]; then
+  VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$DEFAULT_VERDACCIO_CONFIG}"
+else
+  VERDACCIO_CONFIG="${VERDACCIO_CONFIG:-$HOME/.config/verdaccio/config.yaml}"
+fi
 VERDACCIO_LOG_FILE="${VERDACCIO_LOG_FILE:-/tmp/verdaccio.log}"
 VERDACCIO_PID_FILE="${VERDACCIO_PID_FILE:-/tmp/verdaccio.pid}"
+CONFIG_DIR="$(cd "$(dirname "$VERDACCIO_CONFIG")" && pwd)"
 
 if [[ "${1:-}" == "--fg" ]]; then
+  cd "$CONFIG_DIR"
   exec npx verdaccio --listen "$VERDACCIO_LISTEN" --config "$VERDACCIO_CONFIG"
 fi
 
-nohup npx verdaccio --listen "$VERDACCIO_LISTEN" --config "$VERDACCIO_CONFIG" >"$VERDACCIO_LOG_FILE" 2>&1 &
-echo "$!" >"$VERDACCIO_PID_FILE"
+(
+  cd "$CONFIG_DIR"
+  nohup npx verdaccio --listen "$VERDACCIO_LISTEN" --config "$VERDACCIO_CONFIG" >"$VERDACCIO_LOG_FILE" 2>&1 &
+  echo "$!" >"$VERDACCIO_PID_FILE"
+)
 echo "Verdaccio started in background."
 echo "PID file: $VERDACCIO_PID_FILE"
 echo "Log file: $VERDACCIO_LOG_FILE"
