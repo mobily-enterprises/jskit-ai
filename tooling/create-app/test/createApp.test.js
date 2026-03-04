@@ -69,6 +69,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
+    assert.match(mainJs, /import \{ bootInstalledClientModules \} from "virtual:jskit-client-bootstrap";/);
     assert.doesNotMatch(mainJs, /@\/modules\/client-modules\.js/);
     assert.doesNotMatch(mainJs, /virtual:jskit-client-modules/);
     assert.doesNotMatch(mainJs, /collectClientModuleRoutes/);
@@ -78,7 +79,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /createShellBeforeEachGuard/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /router\.beforeEach\(/);
-    assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
+    assert.match(mainJs, /await bootInstalledClientModules\(/);
+    assert.match(mainJs, /app\.mount\("#app"\)/);
 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
     assert.match(surfacesConfig, /requiresAuth:\s*false/);

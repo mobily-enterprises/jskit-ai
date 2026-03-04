@@ -1837,12 +1837,14 @@ async function commandShow({ positional, options, stdout }) {
           const record = ensureObject(route);
           const routePath = String(record.path || "").trim();
           const scope = String(record.scope || "").trim();
-          const name = String(record.name || "").trim();
+          const routeId = String(record.id || record.name || "").trim();
           const purpose = String(record.purpose || "").trim();
+          const modeLabel = record.autoRegister === false ? "advisory" : "auto";
           const scopeLabel = scope ? ` (${scope})` : "";
+          const modePart = ` ${color.installed(`[${modeLabel}]`)}`;
           const purposePart = purpose ? ` ${purpose}` : "";
-          const idPart = name ? ` ${color.installed(`(id:${name})`)}` : "";
-          stdout.write(`- ${color.item(routePath)}${color.installed(scopeLabel)}${purposePart}${idPart}\n`);
+          const idPart = routeId ? ` ${color.installed(`(id:${routeId})`)}` : "";
+          stdout.write(`- ${color.item(routePath)}${color.installed(scopeLabel)}${modePart}${purposePart}${idPart}\n`);
         }
       }
 

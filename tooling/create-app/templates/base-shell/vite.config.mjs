@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import VueRouter from "unplugin-vue-router/vite";
+import { createJskitClientBootstrapPlugin } from "@jskit-ai/kernel/client/vite";
 import { toPositiveInt } from "./vite.shared.mjs";
 
 const devPort = toPositiveInt(process.env.VITE_DEV_PORT, 5173);
@@ -28,6 +29,7 @@ export default defineConfig({
     }
   },
   plugins: [
+    createJskitClientBootstrapPlugin(),
     VueRouter({
       routesFolder: "src/pages",
       dts: "src/typed-router.d.ts"

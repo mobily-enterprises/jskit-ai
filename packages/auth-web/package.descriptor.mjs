@@ -108,15 +108,27 @@ export default Object.freeze({
     "ui": {
       "routes": [
         {
+          "id": "auth.login",
           "path": "/auth/login",
           "scope": "global",
           "name": "auth-login",
+          "componentKey": "auth-login",
+          "autoRegister": true,
+          "guard": {
+            "policy": "public"
+          },
           "purpose": "Public login route for authentication flows."
         },
         {
+          "id": "auth.signout",
           "path": "/auth/signout",
           "scope": "global",
           "name": "auth-signout",
+          "componentKey": "auth-signout",
+          "autoRegister": true,
+          "guard": {
+            "policy": "public"
+          },
           "purpose": "Public sign-out route that clears session then returns to login."
         }
       ],

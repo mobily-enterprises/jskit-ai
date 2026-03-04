@@ -8,6 +8,7 @@ import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import App from "./App.vue";
 import NotFoundView from "./views/NotFound.vue";
+import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { buildSurfaceAwareRoutes, createShellBeforeEachGuard } from "@jskit-ai/kernel/client";
 import {
@@ -82,4 +83,14 @@ const vuetify = createVuetify({
   }
 });
 
-createApp(App).use(router).use(vuetify).mount("#app");
+const app = createApp(App).use(router).use(vuetify);
+
+await bootInstalledClientModules({
+  app,
+  router,
+  surfaceRuntime,
+  surfaceMode,
+  env: import.meta.env
+});
+
+app.mount("#app");

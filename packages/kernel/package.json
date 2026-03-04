@@ -8,6 +8,8 @@
   "exports": {
     "./client": "./client/index.js",
     "./client/shellRouting": "./client/shellRouting.js",
+    "./client/moduleBootstrap": "./client/moduleBootstrap.js",
+    "./client/vite": "./client/vite/index.js",
     "./server": "./server/index.js",
     "./server/container": "./server/container/index.js",
     "./server/container/*": "./server/container/lib/*.js",

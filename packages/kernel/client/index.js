@@ -8,3 +8,15 @@ export {
   buildSurfaceAwareRoutes,
   createShellBeforeEachGuard
 } from "./shellRouting.js";
+export {
+  CLIENT_MODULE_RUNTIME_APP_TOKEN,
+  CLIENT_MODULE_ROUTER_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN,
+  CLIENT_MODULE_ENV_TOKEN,
+  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
+  CLIENT_MODULE_SURFACE_MODE_TOKEN,
+  CLIENT_MODULE_LOGGER_TOKEN,
+  createClientRuntimeApp,
+  registerClientModuleRoutes,
+  bootClientModules
+} from "./moduleBootstrap.js";
