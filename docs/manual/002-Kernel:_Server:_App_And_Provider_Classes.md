@@ -49,11 +49,6 @@ Error classes:
 - `RouteRegistrationError` (`@jskit-ai/kernel/server/http`)
 - `AppError` (`@jskit-ai/kernel/server/runtime`)
 
-Coverage split:
-
-- Chapter 2, Part 1 (this file): everyday provider work with `app`.
-- Chapter 2, Part 2 (later): routing details and HTTP flow.
-- Chapter 3 (stub): advanced internal/runtime composition classes.
 
 ## Where We Pick Up From Chapter 1
 
@@ -1165,47 +1160,42 @@ Practical debugging tip:
 - For provider startup issues, check provider `id` and `dependsOn` first.
 - For request-time API failures, prefer explicit `AppError` over generic `Error`.
 
-## Parked: Raw `Application` API Dump (To Refine Later)
+## Chapter 2 Part 2 Routing Coverage Mock
 
-You asked to park this at the end for later editorial refinement.
+Part 2 is not fully written yet, but this is the API surface we consider covered for routing in Chapter 2.
 
-`Application` constructor:
+Routing definition APIs to cover:
 
-- `new Application({ profile, strict, container })`
+- `@jskit-ai/kernel/server/http` `HttpRouter`
+- `HttpRouter.register(method, path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.get(path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.post(path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.put(path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.patch(path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.delete(path, optionsOrHandler, maybeHandler)`
+- `HttpRouter.group({ prefix, middleware }, defineRoutes)`
+- `HttpRouter.resource(name, controller, options)`
+- `HttpRouter.apiResource(name, controller, options)`
+- `HttpRouter.list()`
+- `@jskit-ai/kernel/server/http` `createRouter(options)`
+- `@jskit-ai/kernel/server/http` `joinPath(left, right)`
 
-`Application` methods:
+Routing runtime wiring APIs to cover:
 
-- `bind(token, factory)`
-- `singleton(token, factory)`
-- `scoped(token, factory)`
-- `instance(token, value)`
-- `make(token)`
-- `has(token)`
-- `createScope(scopeId)`
-- `tag(token, tagName)`
-- `resolveTag(tagName)`
-- `normalizeProviderEntries(providers)`
-- `normalizeProviderEntry(rawProvider)`
-- `sortProviderGraph(entries)`
-- `configureProviders(providers)`
-- `registerProviders()`
-- `bootProviders()`
-- `start({ providers })`
-- `shutdown()`
-- `getDiagnostics()`
+- `@jskit-ai/kernel/server/http` `registerRoutes(fastify, options)`
+- `@jskit-ai/kernel/server/http` `registerHttpRuntime(app, options)`
+- `@jskit-ai/kernel/server/http` `createHttpRuntime({ app, fastify, router })`
+- `@jskit-ai/kernel/server/http` `defaultApplyRoutePolicy(routeOptions, route)`
+- `@jskit-ai/kernel/server/http` `normalizeRoutePolicyConfig(routeOptions, route)`
+- `@jskit-ai/kernel/server/http` `defaultMissingHandler(request, reply)`
 
-Adjacent helpers from `@jskit-ai/kernel/server/kernel`:
+Routing error APIs to cover:
 
-- `createApplication(options)`
-- `createProviderClass({ id, dependsOn, register, boot, shutdown })`
+- `@jskit-ai/kernel/server/http` `HttpKernelError`
+- `@jskit-ai/kernel/server/http` `RouteDefinitionError`
+- `@jskit-ai/kernel/server/http` `RouteRegistrationError`
+- `@jskit-ai/kernel/server/runtime` `AppError` (request-time handling path)
 
-## Chapter 2 Part 2 Placeholder (Routing Focus)
+Related runtime route-registration API to cover:
 
-Not written yet on purpose.
-
-Part 2 will cover:
-
-- `HttpRouter` usage and registration flow
-- API route wiring patterns in providers
-- how request/response errors fit (`AppError`, HTTP route errors)
-- lifecycle timing for route registration
+- `@jskit-ai/kernel/server/runtime` `registerApiRouteDefinitions(fastify, options)`

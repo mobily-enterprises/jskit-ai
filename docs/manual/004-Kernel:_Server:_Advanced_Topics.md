@@ -1,4 +1,4 @@
-# JSKIT Manual: Hardcore Package Developer (Stub)
+# JSKIT Manual: Chapter 4 Hardcore Package Developer (Stub)
 
 This chapter is intentionally a stub for now.
 
@@ -38,13 +38,7 @@ Error classes:
 - `RouteRegistrationError` (`@jskit-ai/kernel/server/http`)
 - `AppError` (`@jskit-ai/kernel/server/runtime`)
 
-## Coverage Split Across Chapters
-
-- Chapter 2, Part 1: everyday `Application` + `ServiceProvider` work and provider lifecycle errors.
-- Chapter 2, Part 2: everyday routing flow and HTTP-facing error shapes.
-- Chapter 3 (this chapter): advanced internals and framework-extender patterns.
-
-## Planned Chapter 3 Sections
+## Planned Chapter 4 Sections
 
 - Direct `Container` usage and when to avoid it
 - Advanced token design and collision-proof naming
@@ -55,3 +49,6 @@ Error classes:
 - Provider graph diagnostics and lifecycle timing analysis
 - Hardcore failure handling and error taxonomy in infrastructure code
 
+Reference note:
+
+- Complete API listings moved to Chapter 7 to keep this chapter focused on advanced concepts and patterns.
