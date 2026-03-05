@@ -36,12 +36,14 @@ class Stage4RepositoryProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-4/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 4 repository extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -52,12 +54,14 @@ class Stage4RepositoryProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 4 repository extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

@@ -81,16 +81,9 @@ class Stage9RuntimeContextProvider {
     const controller = app.make(STAGE_9_CONTROLLER);
 
     const sharedOptions = {
-      schema: {
-        body: contactRouteSchema.body,
-        querystring: stage9QuerySchema,
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
-      },
-      middleware: stage9ContactsMiddleware,
-      input: {
-        body: (body) => ({
+      body: {
+        schema: contactRouteSchema.body,
+        normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
           email: String(body?.email || "").trim().toLowerCase(),
@@ -100,11 +93,18 @@ class Stage9RuntimeContextProvider {
           source: String(body?.source || "").trim().toLowerCase(),
           country: String(body?.country || "").trim().toUpperCase(),
           consentMarketing: Boolean(body?.consentMarketing)
-        }),
-        query: (query) => ({
+        })
+      },
+      query: {
+        schema: stage9QuerySchema,
+        normalize: (query) => ({
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
-      }
+      },
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      }),
+      middleware: stage9ContactsMiddleware,
     };
 
     router.register(
@@ -114,8 +114,7 @@ class Stage9RuntimeContextProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/intake",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-9"],
           summary: "Stage 9 request scope + middleware reuse: intake"
         }
@@ -130,8 +129,7 @@ class Stage9RuntimeContextProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-9"],
           summary: "Stage 9 request scope + middleware reuse: preview"
         }

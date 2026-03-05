@@ -75,14 +75,16 @@ class Stage8ErrorErgonomicsProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-8/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        }
+          summary: "Stage 8 domain errors + BaseController: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, {
+          includeValidation400: true
+        })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -93,14 +95,16 @@ class Stage8ErrorErgonomicsProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        }
+          summary: "Stage 8 domain errors + BaseController: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, {
+          includeValidation400: true
+        })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

@@ -95,15 +95,9 @@ class Stage10ConfigContractProvider {
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {
-      schema: {
-        body: contactRouteSchema.body,
-        querystring: stage10QuerySchema,
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
-      },
-      input: {
-        body: (body) => ({
+      body: {
+        schema: contactRouteSchema.body,
+        normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
           email: String(body?.email || "").trim().toLowerCase(),
@@ -113,11 +107,17 @@ class Stage10ConfigContractProvider {
           source: String(body?.source || "").trim().toLowerCase(),
           country: String(body?.country || "").trim().toUpperCase(),
           consentMarketing: Boolean(body?.consentMarketing)
-        }),
-        query: (query) => ({
+        })
+      },
+      query: {
+        schema: stage10QuerySchema,
+        normalize: (query) => ({
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
-      }
+      },
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      })
     };
 
     router.register(
@@ -127,8 +127,7 @@ class Stage10ConfigContractProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: intake"
         }
@@ -143,8 +142,7 @@ class Stage10ConfigContractProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: preview"
         }

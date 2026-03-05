@@ -103,12 +103,14 @@ class Stage5ActionProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-5/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: intake",
-          body: stage5BodySchema,
-          response
-        }
+          summary: "Stage 5 actions extraction: intake"
+        },
+        body: {
+          schema: stage5BodySchema
+        },
+        response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -119,12 +121,14 @@ class Stage5ActionProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: preview",
-          body: stage5BodySchema,
-          response
-        }
+          summary: "Stage 5 actions extraction: preview"
+        },
+        body: {
+          schema: stage5BodySchema
+        },
+        response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

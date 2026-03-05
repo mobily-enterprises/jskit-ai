@@ -22,12 +22,14 @@ class Stage2ControllerProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-2/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 2 controller extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -38,12 +40,14 @@ class Stage2ControllerProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 2 controller extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

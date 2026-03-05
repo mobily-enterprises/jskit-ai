@@ -1,6 +1,8 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract
+} from "../../shared/schemas/contactSchemas.js";
 
 class Stage1MonolithProvider {
   static id = "docs.examples.03.stage1";
@@ -14,16 +16,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-1/contacts/intake",
-        schema: {
-          tags: ["docs-stage-1"],
-          summary: "Stage 1 monolith: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
-      },
+      contactIntakeRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -122,16 +115,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-        schema: {
-          tags: ["docs-stage-1"],
-          summary: "Stage 1 monolith: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
-      },
+      contactPreviewFollowupRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();

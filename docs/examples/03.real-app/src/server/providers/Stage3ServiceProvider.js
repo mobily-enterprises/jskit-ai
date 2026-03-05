@@ -32,12 +32,14 @@ class Stage3ServiceProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-3/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 3 service extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -48,12 +50,14 @@ class Stage3ServiceProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 3 service extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

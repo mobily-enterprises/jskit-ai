@@ -16,16 +16,17 @@ The important part is not just the final code. The important part is understandi
 
 So this chapter is intentionally written as a staged refactor:
 
-- Stage 1: everything in one provider route handler
-- Stage 2: extract controller
-- Stage 3: extract service
-- Stage 4: extract repository
-- Stage 5: extract actions
-- Stage 6: shared schemas + baseline provider wiring
-- Stage 7: request pipeline and transport validation
-- Stage 8: domain validation and error ergonomics
-- Stage 9: runtime context and middleware reuse
-- Stage 10: startup config contracts
+- Stage 1: *** COMPLETE WHEN CHAPTER IS FINISHED ***
+- Stage 2: 
+- Stage 3: 
+- Stage 4: 
+- Stage 5: 
+- Stage 6: 
+- Stage 7: 
+- Stage 8: 
+- Stage 9: 
+- Stage 10:
+
 
 Each stage works. Each stage improves something. Each stage still has pain that motivates the next one.
 
@@ -36,7 +37,6 @@ From earlier chapters, you already have:
 - a `manual-app`
 - `@local/main` module
 - provider lifecycle basics from Chapter 1
-- TypeBox validation pattern
 - container/provider mental model
 
 Now we move from "first route" to "real feature architecture."
@@ -118,9 +118,11 @@ Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage1MonolithProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract
+} from "../../shared/schemas/contactSchemas.js";
 
 class Stage1MonolithProvider {
   static id = "docs.examples.03.stage1";
@@ -134,16 +136,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-1/contacts/intake",
-        schema: {
-          tags: ["docs-stage-1"],
-          summary: "Stage 1 monolith: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
-      },
+      contactIntakeRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -242,16 +235,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-        schema: {
-          tags: ["docs-stage-1"],
-          summary: "Stage 1 monolith: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
-      },
+      contactPreviewFollowupRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -589,12 +573,14 @@ class Stage2ControllerProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-2/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 2 controller extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -605,12 +591,14 @@ class Stage2ControllerProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 2 controller extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -789,12 +777,14 @@ class Stage3ServiceProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-3/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 3 service extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -805,12 +795,14 @@ class Stage3ServiceProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 3 service extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -948,12 +940,14 @@ class Stage4RepositoryProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-4/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 4 repository extraction: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -964,12 +958,14 @@ class Stage4RepositoryProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 4 repository extraction: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1261,12 +1257,14 @@ class Stage5ActionProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-5/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: intake",
-          body: stage5BodySchema,
-          response
-        }
+          summary: "Stage 5 actions extraction: intake"
+        },
+        body: {
+          schema: stage5BodySchema
+        },
+        response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1277,12 +1275,14 @@ class Stage5ActionProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: preview",
-          body: stage5BodySchema,
-          response
-        }
+          summary: "Stage 5 actions extraction: preview"
+        },
+        body: {
+          schema: stage5BodySchema
+        },
+        response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1310,8 +1310,9 @@ Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
 <!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
-const contactPayloadSchema = Type.Object(
+const contactBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({ minLength: 5, maxLength: 200 }),
@@ -1321,6 +1322,13 @@ const contactPayloadSchema = Type.Object(
     source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
     country: Type.String({ minLength: 2, maxLength: 2 }),
     consentMarketing: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const contactQuerySchema = Type.Object(
+  {
+    dryRun: Type.Optional(Type.Boolean())
   },
   { additionalProperties: false }
 );
@@ -1348,15 +1356,113 @@ const contactDomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactRouteSchema = Object.freeze({
-  body: contactPayloadSchema,
-  response: {
+const contactResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
     200: contactSuccessSchema,
     422: contactDomainErrorSchema
-  }
+    },
+    { includeValidation400: true }
+  )
+);
+
+const contactIntakeRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
 });
 
-export { contactRouteSchema };
+const contactPreviewFollowupRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
+});
+
+function normalizeContactBody(rawBody) {
+  return {
+    name: String(rawBody?.name || "").trim(),
+    email: String(rawBody?.email || "").trim().toLowerCase(),
+    company: String(rawBody?.company || "").trim(),
+    employees: Number(rawBody?.employees || 0),
+    plan: String(rawBody?.plan || "").trim().toLowerCase(),
+    source: String(rawBody?.source || "").trim().toLowerCase(),
+    country: String(rawBody?.country || "").trim().toUpperCase(),
+    consentMarketing: Boolean(rawBody?.consentMarketing)
+  };
+}
+
+function normalizeContactQuery(rawQuery) {
+  return {
+    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+const contactIntakeRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
+  },
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+const contactPreviewFollowupRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+// Backward-compat export used by earlier stage files in this chapter.
+const contactRouteSchema = Object.freeze({
+  body: contactBodySchema,
+  response: contactResponseSchema
+});
+
+export {
+  contactBodySchema,
+  contactQuerySchema,
+  contactSuccessSchema,
+  contactDomainErrorSchema,
+  contactResponseSchema,
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract,
+  contactIntakeRouteContractStage7,
+  contactPreviewFollowupRouteContractStage7,
+  contactRouteSchema
+};
 ```
 <!-- /DOCS:EXAMPLE -->
 
@@ -1430,12 +1536,14 @@ class Stage6LayeredProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-6/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 6 final assembly: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1446,12 +1554,14 @@ class Stage6LayeredProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 6 final assembly: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1473,26 +1583,227 @@ At this point, the architecture is clean and practical:
 
 However, there are still improvements that are possible.
 
-## Stage 7: Request Pipeline and Transport Validation
+## Stage 7: Route Contract API and Normalization
 
-Stage 6 gave us a clean architecture. Stage 7 improves how request data flows from transport shape to domain-ready input.
+Stage 1 already introduced the route contract object in shared code. At that point the contract carries transport schemas, but normalization still happens manually in application code.
 
-In `router.register(...)`, route options include:
+In Stage 7 we keep the same contract shape and move normalization into the contract itself.
 
-- `schema`: Fastify validation schema (built with TypeBox in this chapter)
-- `input`: JSKIT normalization transforms that build `request.input`
+### Stage 1 baseline contract shape (no `normalize`)
 
-`input` is a JSKIT route option (not native Fastify).
-
-### What changed in Stage 7
-
-- provider adds normalizer helpers (`normalizeContactBody`, `normalizeContactQuery`)
-- route options add `input: { body, query }`
-- controller reads `request.input.body` and `request.input.query`
-
-At the top of `Stage7RequestPipelineProvider.js` (module-level helpers), add:
+Use this as the initial shared contract format:
 
 ```js
+export const contactIntakeRouteContract = {
+  meta: { tags: ["contacts"], summary: "Create contact" },
+  body: {
+    schema: Type.Object(
+      {
+        name: Type.String({ minLength: 1, maxLength: 120 }),
+        email: Type.String({ minLength: 5, maxLength: 200 }),
+        company: Type.String({ minLength: 1, maxLength: 160 }),
+        employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
+        plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+        source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+        country: Type.String({ minLength: 2, maxLength: 2 }),
+        consentMarketing: Type.Boolean()
+      },
+      { additionalProperties: false }
+    )
+  },
+  query: {
+    schema: Type.Object(
+      {
+        dryRun: Type.Optional(Type.Boolean())
+      },
+      { additionalProperties: false }
+    )
+  },
+  response: withStandardErrorResponses(
+    {
+      200: Type.Object(
+        {
+          ok: Type.Boolean(),
+          mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
+          email: Type.String({ minLength: 1 }),
+          score: Type.Integer({ minimum: 0, maximum: 100 }),
+          segment: Type.String({ minLength: 1 }),
+          followupPlan: Type.Array(Type.String({ minLength: 1 })),
+          duplicateDetected: Type.Boolean(),
+          persisted: Type.Boolean()
+        },
+        { additionalProperties: false }
+      ),
+      422: Type.Object(
+        {
+          error: Type.String({ minLength: 1 }),
+          code: Type.String({ minLength: 1 }),
+          details: Type.Array(Type.String({ minLength: 1 }))
+        },
+        { additionalProperties: false }
+      )
+    },
+    { includeValidation400: true }
+  )
+};
+```
+
+In this baseline form, controllers/actions still normalize manually from `request.body` and `request.query`.
+
+### Stage 7 upgraded contract shape (normalization moved to the contract)
+
+Now add `normalize` in `body` and `query`:
+
+```js
+export const contactIntakeRouteContractStage7 = {
+  meta: { tags: ["contacts"], summary: "Create contact" },
+  body: {
+    schema: /* same schema as above */,
+    normalize: (body) => ({
+      name: String(body?.name || "").trim(),
+      email: String(body?.email || "").trim().toLowerCase(),
+      company: String(body?.company || "").trim(),
+      employees: Number(body?.employees || 0),
+      plan: String(body?.plan || "").trim().toLowerCase(),
+      source: String(body?.source || "").trim().toLowerCase(),
+      country: String(body?.country || "").trim().toUpperCase(),
+      consentMarketing: Boolean(body?.consentMarketing)
+    })
+  },
+  query: {
+    schema: /* same schema as above */,
+    normalize: (query) => ({
+      dryRun: query?.dryRun === "true" || query?.dryRun === true
+    })
+  },
+  response: /* same response schema map as above */
+};
+```
+
+### What each contract field means
+
+- `meta`: documentation metadata for the route (`tags`, `summary`).
+- `body.schema`: transport validation for request body.
+- `query.schema`: transport validation for request query.
+- `params.schema`: transport validation for route params (optional, when route has params).
+- `response`: response schema map by HTTP status.
+- `body.normalize` / `query.normalize` / `params.normalize`: deterministic input shaping after schema validation.
+
+`query.schema` maps to Fastify `querystring` internally, while normalized query is available as `request.input.query`.
+
+### Route registration with contract object
+
+`router.register(...)` now accepts this contract-shaped options object directly:
+
+```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-7/contacts/intake",
+  contactIntakeRouteContractStage7,
+  (request, reply) => controller.intake(request, reply)
+);
+```
+
+This is the third argument (route options object). There is no separate legacy `schema` + `input` authoring path in this style.
+
+### Execution order
+
+1. `*.schema` validates incoming data.
+2. `*.normalize` transforms validated data.
+3. runtime exposes normalized values as `request.input`.
+4. controller/action reads `request.input.body`, `request.input.query`, `request.input.params`.
+
+### Full shared contract code
+
+Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
+```js
+import { Type } from "@fastify/type-provider-typebox";
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+
+const contactBodySchema = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 120 }),
+    email: Type.String({ minLength: 5, maxLength: 200 }),
+    company: Type.String({ minLength: 1, maxLength: 160 }),
+    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
+    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+    country: Type.String({ minLength: 2, maxLength: 2 }),
+    consentMarketing: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const contactQuerySchema = Type.Object(
+  {
+    dryRun: Type.Optional(Type.Boolean())
+  },
+  { additionalProperties: false }
+);
+
+const contactSuccessSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
+    email: Type.String({ minLength: 1 }),
+    score: Type.Integer({ minimum: 0, maximum: 100 }),
+    segment: Type.String({ minLength: 1 }),
+    followupPlan: Type.Array(Type.String({ minLength: 1 })),
+    duplicateDetected: Type.Boolean(),
+    persisted: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const contactDomainErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.String({ minLength: 1 }),
+    details: Type.Array(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: false }
+);
+
+const contactResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
+    200: contactSuccessSchema,
+    422: contactDomainErrorSchema
+    },
+    { includeValidation400: true }
+  )
+);
+
+const contactIntakeRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
+});
+
+const contactPreviewFollowupRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
+});
+
 function normalizeContactBody(rawBody) {
   return {
     name: String(rawBody?.name || "").trim(),
@@ -1511,107 +1822,82 @@ function normalizeContactQuery(rawQuery) {
     dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
   };
 }
-```
 
-Inside `boot(app)` in `Stage7RequestPipelineProvider.js`, route registration adds `input`:
-
-```js
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-7/contacts/intake",
-  {
-    method: "POST",
-    path: "/api/v1/docs/ch03/stage-7/contacts/intake",
-    schema: {
-      tags: ["docs-stage-7"],
-      summary: "Stage 7 request pipeline: intake",
-      body: contactRouteSchema.body,
-      querystring: stage7QuerySchema,
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      })
-    },
-    input: {
-      body: normalizeContactBody,
-      query: normalizeContactQuery
-    }
+const contactIntakeRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
   },
-  (request, reply) => controller.intake(request, reply)
-);
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+const contactPreviewFollowupRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+// Backward-compat export used by earlier stage files in this chapter.
+const contactRouteSchema = Object.freeze({
+  body: contactBodySchema,
+  response: contactResponseSchema
+});
+
+export {
+  contactBodySchema,
+  contactQuerySchema,
+  contactSuccessSchema,
+  contactDomainErrorSchema,
+  contactResponseSchema,
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract,
+  contactIntakeRouteContractStage7,
+  contactPreviewFollowupRouteContractStage7,
+  contactRouteSchema
+};
 ```
-
-In `ContactControllerStage7.js`, read normalized input:
-
-```js
-async intake(request, reply) {
-  const payload = request.input.body;
-  const query = request.input.query;
-  ...
-}
-```
-
-Execution order:
-
-- route `schema` validates first
-- route `input` transforms run next
-- normalized values are exposed as `request.input`
-- controllers/actions consume `request.input`, not raw request internals
-
-`request.input` exists on routes that define `input`.
-
-This keeps controllers cleaner and avoids repeating normalization boilerplate.
+<!-- /DOCS:EXAMPLE -->
 
 ### Full provider code for Stage 7
 
 Use `docs/examples/03.real-app/src/server/providers/Stage7RequestPipelineProvider.js`:
 
-This is the complete provider file for Stage 7 (full code, not a partial snippet).
-
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage7RequestPipelineProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage7 } from "../controllers/ContactControllerStage7.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactIntakeRouteContractStage7,
+  contactPreviewFollowupRouteContractStage7
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
 const STAGE_7_QUALIFICATION_SERVICE = "docs.examples.03.stage7.service.qualification";
 const STAGE_7_CREATE_ACTION = "docs.examples.03.stage7.actions.create";
 const STAGE_7_PREVIEW_ACTION = "docs.examples.03.stage7.actions.preview";
 const STAGE_7_CONTROLLER = "docs.examples.03.stage7.controller";
-
-const stage7QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-function normalizeContactBody(rawBody) {
-  return {
-    name: String(rawBody?.name || "").trim(),
-    email: String(rawBody?.email || "").trim().toLowerCase(),
-    company: String(rawBody?.company || "").trim(),
-    employees: Number(rawBody?.employees || 0),
-    plan: String(rawBody?.plan || "").trim().toLowerCase(),
-    source: String(rawBody?.source || "").trim().toLowerCase(),
-    country: String(rawBody?.country || "").trim().toUpperCase(),
-    consentMarketing: Boolean(rawBody?.consentMarketing)
-  };
-}
-
-function normalizeContactQuery(rawQuery) {
-  return {
-    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
-  };
-}
 
 class Stage7RequestPipelineProvider {
   static id = "docs.examples.03.stage7";
@@ -1655,46 +1941,14 @@ class Stage7RequestPipelineProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-7/contacts/intake",
-        schema: {
-          tags: ["docs-stage-7"],
-          summary: "Stage 7 request pipeline: intake",
-          body: contactRouteSchema.body,
-          querystring: stage7QuerySchema,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        },
-        input: {
-          body: normalizeContactBody,
-          query: normalizeContactQuery
-        }
-      },
+      contactIntakeRouteContractStage7,
       (request, reply) => controller.intake(request, reply)
     );
 
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup",
-        schema: {
-          tags: ["docs-stage-7"],
-          summary: "Stage 7 request pipeline: preview",
-          body: contactRouteSchema.body,
-          querystring: stage7QuerySchema,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        },
-        input: {
-          body: normalizeContactBody,
-          query: normalizeContactQuery
-        }
-      },
+      contactPreviewFollowupRouteContractStage7,
       (request, reply) => controller.previewFollowup(request, reply)
     );
   }
@@ -1704,7 +1958,7 @@ export { Stage7RequestPipelineProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-### Full controller that reads `request.input`
+### Controller consumption pattern in Stage 7
 
 Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage7.js`:
 
@@ -1757,19 +2011,16 @@ export { ContactControllerStage7 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-
 ### What improved
 
-- transport validation and normalization now have explicit lifecycle order
-- controller code consumes stable input shape (`request.input`)
-- `dryRun` behavior can be routed without branching on raw query parsing code in multiple places
-
-
-
+- Stage 1 and Stage 7 share the same contract API shape, but Stage 7 adds normalization where it belongs.
+- provider stays wiring-only and reads shared route contracts directly.
+- transport validation and normalization are both visible in one shared object.
+- controllers/actions consume stable normalized input via `request.input`.
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
-Stage 7 fixed transport input flow. Stage 8 fixes domain failure handling flow.
+Stage 8 fixes domain failure handling flow.
 
 In this stage:
 
@@ -2062,14 +2313,16 @@ class Stage8ErrorErgonomicsProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-8/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        }
+          summary: "Stage 8 domain errors + BaseController: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, {
+          includeValidation400: true
+        })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -2080,14 +2333,16 @@ class Stage8ErrorErgonomicsProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        }
+          summary: "Stage 8 domain errors + BaseController: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, {
+          includeValidation400: true
+        })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -2352,16 +2607,9 @@ class Stage9RuntimeContextProvider {
     const controller = app.make(STAGE_9_CONTROLLER);
 
     const sharedOptions = {
-      schema: {
-        body: contactRouteSchema.body,
-        querystring: stage9QuerySchema,
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
-      },
-      middleware: stage9ContactsMiddleware,
-      input: {
-        body: (body) => ({
+      body: {
+        schema: contactRouteSchema.body,
+        normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
           email: String(body?.email || "").trim().toLowerCase(),
@@ -2371,11 +2619,18 @@ class Stage9RuntimeContextProvider {
           source: String(body?.source || "").trim().toLowerCase(),
           country: String(body?.country || "").trim().toUpperCase(),
           consentMarketing: Boolean(body?.consentMarketing)
-        }),
-        query: (query) => ({
+        })
+      },
+      query: {
+        schema: stage9QuerySchema,
+        normalize: (query) => ({
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
-      }
+      },
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      }),
+      middleware: stage9ContactsMiddleware,
     };
 
     router.register(
@@ -2385,8 +2640,7 @@ class Stage9RuntimeContextProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/intake",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-9"],
           summary: "Stage 9 request scope + middleware reuse: intake"
         }
@@ -2401,8 +2655,7 @@ class Stage9RuntimeContextProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-9"],
           summary: "Stage 9 request scope + middleware reuse: preview"
         }
@@ -2690,15 +2943,9 @@ class Stage10ConfigContractProvider {
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {
-      schema: {
-        body: contactRouteSchema.body,
-        querystring: stage10QuerySchema,
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
-      },
-      input: {
-        body: (body) => ({
+      body: {
+        schema: contactRouteSchema.body,
+        normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
           email: String(body?.email || "").trim().toLowerCase(),
@@ -2708,11 +2955,17 @@ class Stage10ConfigContractProvider {
           source: String(body?.source || "").trim().toLowerCase(),
           country: String(body?.country || "").trim().toUpperCase(),
           consentMarketing: Boolean(body?.consentMarketing)
-        }),
-        query: (query) => ({
+        })
+      },
+      query: {
+        schema: stage10QuerySchema,
+        normalize: (query) => ({
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
-      }
+      },
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      })
     };
 
     router.register(
@@ -2722,8 +2975,7 @@ class Stage10ConfigContractProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: intake"
         }
@@ -2738,8 +2990,7 @@ class Stage10ConfigContractProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: preview"
         }
@@ -2954,15 +3205,9 @@ class Stage10ConfigContractProvider {
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {
-      schema: {
-        body: contactRouteSchema.body,
-        querystring: stage10QuerySchema,
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
-      },
-      input: {
-        body: (body) => ({
+      body: {
+        schema: contactRouteSchema.body,
+        normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
           email: String(body?.email || "").trim().toLowerCase(),
@@ -2972,11 +3217,17 @@ class Stage10ConfigContractProvider {
           source: String(body?.source || "").trim().toLowerCase(),
           country: String(body?.country || "").trim().toUpperCase(),
           consentMarketing: Boolean(body?.consentMarketing)
-        }),
-        query: (query) => ({
+        })
+      },
+      query: {
+        schema: stage10QuerySchema,
+        normalize: (query) => ({
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
-      }
+      },
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      })
     };
 
     router.register(
@@ -2984,10 +3235,10 @@ class Stage10ConfigContractProvider {
       "/api/v1/docs/ch03/stage-10/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
+       
+       path: "/api/v1/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: intake"
         }
@@ -3002,8 +3253,7 @@ class Stage10ConfigContractProvider {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
         ...sharedOptions,
-        schema: {
-          ...sharedOptions.schema,
+        meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config contract: preview"
         }

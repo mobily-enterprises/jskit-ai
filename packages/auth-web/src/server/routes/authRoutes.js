@@ -14,17 +14,19 @@ function buildRoutes(controller) {
       path: "/api/register",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Register a new user",
-        body: schema.register.body,
-        response: withStandardErrorResponses(
-          {
-            201: schema.register.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Register a new user"
       },
+      body: {
+        schema: schema.register.body
+      },
+      response: withStandardErrorResponses(
+        {
+          201: schema.register.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 10,
         timeWindow: "1 minute"
@@ -35,17 +37,19 @@ function buildRoutes(controller) {
       path: "/api/login",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Log in with configured credentials",
-        body: schema.login.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.login.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Log in with configured credentials"
       },
+      body: {
+        schema: schema.login.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.login.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 10,
         timeWindow: "1 minute"
@@ -56,17 +60,19 @@ function buildRoutes(controller) {
       path: "/api/login/otp/request",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Request one-time email login code",
-        body: schema.otpRequest.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.otpRequest.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Request one-time email login code"
       },
+      body: {
+        schema: schema.otpRequest.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.otpRequest.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 10,
         timeWindow: "1 minute"
@@ -77,17 +83,19 @@ function buildRoutes(controller) {
       path: "/api/login/otp/verify",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Verify one-time email login code and create session",
-        body: schema.otpVerify.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.otpVerify.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Verify one-time email login code and create session"
       },
+      body: {
+        schema: schema.otpVerify.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.otpVerify.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 10,
         timeWindow: "1 minute"
@@ -99,18 +107,22 @@ function buildRoutes(controller) {
       method: "GET",
       auth: "public",
       csrfProtection: false,
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Start OAuth login with configured provider",
-        params: schema.oauthStart.params,
-        querystring: schema.oauthStart.query,
-        response: withStandardErrorResponses(
-          {
-            302: Type.Unknown()
-          },
-          { includeValidation400: true }
-        )
+        summary: "Start OAuth login with configured provider"
       },
+      params: {
+        schema: schema.oauthStart.params
+      },
+      query: {
+        schema: schema.oauthStart.query
+      },
+      response: withStandardErrorResponses(
+        {
+          302: Type.Unknown()
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -121,17 +133,19 @@ function buildRoutes(controller) {
       path: "/api/oauth/complete",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Complete OAuth code exchange and set session cookies",
-        body: schema.oauthComplete.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.oauthComplete.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Complete OAuth code exchange and set session cookies"
       },
+      body: {
+        schema: schema.oauthComplete.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.oauthComplete.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -142,17 +156,19 @@ function buildRoutes(controller) {
       path: "/api/password/forgot",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Request a password reset email",
-        body: schema.passwordForgot.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.passwordForgot.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Request a password reset email"
       },
+      body: {
+        schema: schema.passwordForgot.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.passwordForgot.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 5,
         timeWindow: "1 minute"
@@ -163,17 +179,19 @@ function buildRoutes(controller) {
       path: "/api/password/recovery",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Complete password recovery link exchange",
-        body: schema.passwordRecovery.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.passwordRecovery.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Complete password recovery link exchange"
       },
+      body: {
+        schema: schema.passwordRecovery.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.passwordRecovery.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -184,17 +202,19 @@ function buildRoutes(controller) {
       path: "/api/password/reset",
       method: "POST",
       auth: "required",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Set a new password for authenticated recovery session",
-        body: schema.passwordReset.body,
-        response: withStandardErrorResponses(
-          {
-            200: schema.passwordReset.response
-          },
-          { includeValidation400: true }
-        )
+        summary: "Set a new password for authenticated recovery session"
       },
+      body: {
+        schema: schema.passwordReset.body
+      },
+      response: withStandardErrorResponses(
+        {
+          200: schema.passwordReset.response
+        },
+        { includeValidation400: true }
+      ),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -205,27 +225,27 @@ function buildRoutes(controller) {
       path: "/api/logout",
       method: "POST",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Log out and clear session cookies",
-        response: withStandardErrorResponses({
-          200: schema.logout.response
-        })
+        summary: "Log out and clear session cookies"
       },
+      response: withStandardErrorResponses({
+        200: schema.logout.response
+      }),
       handler: handler("logout")
     },
     {
       path: "/api/session",
       method: "GET",
       auth: "public",
-      schema: {
+      meta: {
         tags: ["auth"],
-        summary: "Get current session status and CSRF token",
-        response: withStandardErrorResponses({
-          200: schema.session.response,
-          503: schema.session.unavailable
-        })
+        summary: "Get current session status and CSRF token"
       },
+      response: withStandardErrorResponses({
+        200: schema.session.response,
+        503: schema.session.unavailable
+      }),
       handler: handler("session")
     }
   ];

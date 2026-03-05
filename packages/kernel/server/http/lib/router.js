@@ -1,5 +1,6 @@
 import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
+import { resolveRouteContractOptions } from "./routeContract.js";
 
 function normalizeMethod(method) {
   return ensureNonEmptyText(method, "route method").toUpperCase();
@@ -77,27 +78,32 @@ class HttpRouter {
 
   register(method, path, optionsOrHandler, maybeHandler) {
     const input = normalizeRouteInput(method, path, optionsOrHandler, maybeHandler);
-    const routeMiddleware = normalizeMiddlewareStack(input.options.middleware, {
+    const resolvedOptions = resolveRouteContractOptions({
+      method: input.method,
+      path: input.path,
+      options: input.options
+    });
+    const routeMiddleware = normalizeMiddlewareStack(resolvedOptions.middleware, {
       context: `Route ${input.method} ${input.path} middleware`
     });
-    const routeInput = Object.prototype.hasOwnProperty.call(input.options, "input") ? input.options.input : null;
+    const routeInput = Object.prototype.hasOwnProperty.call(resolvedOptions, "input") ? resolvedOptions.input : null;
 
     const route = Object.freeze({
-      id: normalizeText(input.options.id),
+      id: normalizeText(resolvedOptions.id),
       method: input.method,
       path: joinPath(this._prefix, input.path),
-      schema: input.options.schema,
+      schema: resolvedOptions.schema,
       input: routeInput,
-      config: normalizeObject(input.options.config),
-      auth: input.options.auth,
-      workspacePolicy: input.options.workspacePolicy,
-      workspaceSurface: input.options.workspaceSurface,
-      permission: input.options.permission,
-      ownerParam: input.options.ownerParam,
-      userField: input.options.userField,
-      ownerResolver: input.options.ownerResolver,
-      csrfProtection: input.options.csrfProtection,
-      bodyLimit: input.options.bodyLimit,
+      config: normalizeObject(resolvedOptions.config),
+      auth: resolvedOptions.auth,
+      workspacePolicy: resolvedOptions.workspacePolicy,
+      workspaceSurface: resolvedOptions.workspaceSurface,
+      permission: resolvedOptions.permission,
+      ownerParam: resolvedOptions.ownerParam,
+      userField: resolvedOptions.userField,
+      ownerResolver: resolvedOptions.ownerResolver,
+      csrfProtection: resolvedOptions.csrfProtection,
+      bodyLimit: resolvedOptions.bodyLimit,
       middleware: Object.freeze([...this._middleware, ...routeMiddleware]),
       handler: input.handler
     });

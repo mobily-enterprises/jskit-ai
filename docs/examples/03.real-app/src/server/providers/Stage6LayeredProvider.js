@@ -62,12 +62,14 @@ class Stage6LayeredProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-6/contacts/intake",
-        schema: {
+        meta: {
           tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: intake",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 6 final assembly: intake"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -78,12 +80,14 @@ class Stage6LayeredProvider {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
-        schema: {
+        meta: {
           tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: preview",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
-        }
+          summary: "Stage 6 final assembly: preview"
+        },
+        body: {
+          schema: contactRouteSchema.body
+        },
+        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
