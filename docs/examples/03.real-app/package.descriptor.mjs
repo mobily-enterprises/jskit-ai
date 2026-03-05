@@ -36,6 +36,22 @@ export default Object.freeze({
         {
           entrypoint: "src/server/providers/Stage6LayeredProvider.js",
           export: "Stage6LayeredProvider"
+        },
+        {
+          entrypoint: "src/server/providers/Stage7RequestPipelineProvider.js",
+          export: "Stage7RequestPipelineProvider"
+        },
+        {
+          entrypoint: "src/server/providers/Stage8ErrorErgonomicsProvider.js",
+          export: "Stage8ErrorErgonomicsProvider"
+        },
+        {
+          entrypoint: "src/server/providers/Stage9RuntimeContextProvider.js",
+          export: "Stage9RuntimeContextProvider"
+        },
+        {
+          entrypoint: "src/server/providers/Stage10ConfigContractProvider.js",
+          export: "Stage10ConfigContractProvider"
         }
       ]
     },
@@ -57,7 +73,15 @@ export default Object.freeze({
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/intake" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup" }
+        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/intake" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/intake" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-9/contacts/intake" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-10/contacts/intake" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup" }
       ]
     },
     ui: {

@@ -1,5 +1,6 @@
 import * as apiRouteRegistration from "./apiRouteRegistration.js";
 import * as canonicalJson from "./canonicalJson.js";
+import * as domainRules from "./domainRules.js";
 import * as composition from "./composition.js";
 import * as errors from "./errors.js";
 import * as fastifyBootstrap from "./fastifyBootstrap.js";
@@ -20,6 +21,7 @@ import * as storagePaths from "./storagePaths.js";
 const SERVER_RUNTIME_CORE_API = Object.freeze({
   apiRouteRegistration: Object.freeze({ ...apiRouteRegistration }),
   canonicalJson: Object.freeze({ ...canonicalJson }),
+  domainRules: Object.freeze({ ...domainRules }),
   composition: Object.freeze({ ...composition }),
   errors: Object.freeze({ ...errors }),
   fastifyBootstrap: Object.freeze({ ...fastifyBootstrap }),

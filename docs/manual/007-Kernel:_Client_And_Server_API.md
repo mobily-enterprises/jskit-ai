@@ -225,6 +225,7 @@ Server runtime entrypoint (`@jskit-ai/kernel/server/runtime`) exports:
 - `registerApiRouteDefinitions`
 - `ModuleConfigError`
 - `defineModuleConfig`
+- `runDomainRules`
 - `defaultMissingHandler`
 - `normalizeIdempotencyKey`
 - `requireIdempotencyKey`

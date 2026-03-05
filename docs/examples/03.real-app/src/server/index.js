@@ -4,3 +4,7 @@ export { Stage3ServiceProvider } from "./providers/Stage3ServiceProvider.js";
 export { Stage4RepositoryProvider } from "./providers/Stage4RepositoryProvider.js";
 export { Stage5ActionProvider } from "./providers/Stage5ActionProvider.js";
 export { Stage6LayeredProvider } from "./providers/Stage6LayeredProvider.js";
+export { Stage7RequestPipelineProvider } from "./providers/Stage7RequestPipelineProvider.js";
+export { Stage8ErrorErgonomicsProvider } from "./providers/Stage8ErrorErgonomicsProvider.js";
+export { Stage9RuntimeContextProvider } from "./providers/Stage9RuntimeContextProvider.js";
+export { Stage10ConfigContractProvider } from "./providers/Stage10ConfigContractProvider.js";
