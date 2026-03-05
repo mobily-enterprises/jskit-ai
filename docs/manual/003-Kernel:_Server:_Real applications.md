@@ -1482,11 +1482,17 @@ In `router.register(...)`, route options include:
 - `schema`: Fastify validation schema (built with TypeBox in this chapter)
 - `input`: JSKIT normalization transforms that build `request.input`
 
-Here is an example of how to use it:
+`input` is a JSKIT route option (not native Fastify).
+
+### What changed in Stage 7
+
+- provider adds normalizer helpers (`normalizeContactBody`, `normalizeContactQuery`)
+- route options add `input: { body, query }`
+- controller reads `request.input.body` and `request.input.query`
+
+At the top of `Stage7RequestPipelineProvider.js` (module-level helpers), add:
 
 ```js
-
-(...)
 function normalizeContactBody(rawBody) {
   return {
     name: String(rawBody?.name || "").trim(),
@@ -1505,53 +1511,43 @@ function normalizeContactQuery(rawQuery) {
     dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
   };
 }
-
-(...)
-
-class Stage7RequestPipelineProvider {
-  static id = "docs.examples.03.stage7";
-
-  (...)
-
-  boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
-    const controller = app.make(STAGE_7_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-7/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-7/contacts/intake",
-        schema: {
-          tags: ["docs-stage-7"],
-          summary: "Stage 7 request pipeline: intake",
-          body: contactRouteSchema.body,
-          querystring: stage7QuerySchema,
-          response: withStandardErrorResponses(contactRouteSchema.response, {
-            includeValidation400: true
-          })
-        },
-        input: {
-          body: normalizeContactBody,
-          query: normalizeContactQuery
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
 ```
 
-Also note that the controller will need to use request.input.body, instead of request.body:
-
-
+Inside `boot(app)` in `Stage7RequestPipelineProvider.js`, route registration adds `input`:
 
 ```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-7/contacts/intake",
+  {
+    method: "POST",
+    path: "/api/v1/docs/ch03/stage-7/contacts/intake",
+    schema: {
+      tags: ["docs-stage-7"],
+      summary: "Stage 7 request pipeline: intake",
+      body: contactRouteSchema.body,
+      querystring: stage7QuerySchema,
+      response: withStandardErrorResponses(contactRouteSchema.response, {
+        includeValidation400: true
+      })
+    },
+    input: {
+      body: normalizeContactBody,
+      query: normalizeContactQuery
+    }
+  },
+  (request, reply) => controller.intake(request, reply)
+);
+```
 
-(...)
+In `ContactControllerStage7.js`, read normalized input:
 
-  async intake(request, reply) {
-    const payload = request.input.body;
-    const query = request.input.query;
+```js
+async intake(request, reply) {
+  const payload = request.input.body;
+  const query = request.input.query;
+  ...
+}
 ```
 
 Execution order:
@@ -1561,11 +1557,15 @@ Execution order:
 - normalized values are exposed as `request.input`
 - controllers/actions consume `request.input`, not raw request internals
 
+`request.input` exists on routes that define `input`.
+
 This keeps controllers cleaner and avoids repeating normalization boilerplate.
 
 ### Full provider code for Stage 7
 
 Use `docs/examples/03.real-app/src/server/providers/Stage7RequestPipelineProvider.js`:
+
+This is the complete provider file for Stage 7 (full code, not a partial snippet).
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage7RequestPipelineProvider" lang="js" -->
 ```js
