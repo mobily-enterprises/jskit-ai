@@ -1753,7 +1753,7 @@ This works, but it drifts easily:
 
 ### After: one schema contract per module, validated at startup
 
-Target model for this feature:
+Kernel helper pattern:
 
 ```js
 const contactsModuleConfigSchema = Type.Object(
@@ -1765,15 +1765,20 @@ const contactsModuleConfigSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactsConfig = validateModuleConfig({
+const contactsModuleConfig = defineModuleConfig({
   moduleId: "contacts",
   schema: contactsModuleConfigSchema,
-  raw: {
-    mode: process.env.CONTACTS_MODE,
-    maxContacts: Number(process.env.CONTACTS_MAX),
-    inviteExpiryHours: Number(process.env.CONTACTS_INVITE_EXPIRY_HOURS)
+  coerce: true,
+  load({ env }) {
+    return {
+      mode: env.CONTACTS_MODE,
+      maxContacts: env.CONTACTS_MAX,
+      inviteExpiryHours: env.CONTACTS_INVITE_EXPIRY_HOURS
+    };
   }
 });
+
+const contactsConfig = contactsModuleConfig.resolve();
 ```
 
 Resulting behavior:
@@ -1785,4 +1790,4 @@ Resulting behavior:
 Status note:
 
 - this chapter now explains the concept and why it matters
-- first-class kernel helper ergonomics for this contract are still planned work
+- first-class kernel helper is now available as `defineModuleConfig(...)` in `@jskit-ai/kernel/server/runtime`

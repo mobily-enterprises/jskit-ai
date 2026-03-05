@@ -21,6 +21,7 @@ export { normalizeRuntimeBundle, createRuntimeKernel } from "./runtimeKernel.js"
 export { mergeRuntimeBundles, createRuntimeAssembly, buildRoutesFromManifest } from "./runtimeAssembly.js";
 export { registerApiRouteDefinitions } from "./apiRouteRegistration.js";
 export { defaultMissingHandler, normalizeIdempotencyKey, requireIdempotencyKey } from "./routeUtils.js";
+export { ModuleConfigError, defineModuleConfig } from "./moduleConfig.js";
 export { resolveFsBasePath } from "./storagePaths.js";
 export { readLockFromApp } from "./lib/lockfile.js";
 export { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";

@@ -223,6 +223,8 @@ Server runtime entrypoint (`@jskit-ai/kernel/server/runtime`) exports:
 - `createRuntimeAssembly`
 - `buildRoutesFromManifest`
 - `registerApiRouteDefinitions`
+- `ModuleConfigError`
+- `defineModuleConfig`
 - `defaultMissingHandler`
 - `normalizeIdempotencyKey`
 - `requireIdempotencyKey`
