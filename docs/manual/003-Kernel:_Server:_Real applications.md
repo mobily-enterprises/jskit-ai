@@ -1476,11 +1476,14 @@ Advanced variants to cover in this chapter:
 - `BaseController.sendActionResult(...)` convenience mapping.
 - Route `input` transforms with explicit lifecycle order: route `schema` validates first, then `input` normalizes into `request.input`, then controllers/actions consume `request.input`.
 - Request-scope context APIs: `request.scope`, `TOKENS.Request`, `TOKENS.Reply`, `TOKENS.RequestId`, `TOKENS.RequestScope`.
+- Named middleware aliases and groups in HTTP runtime (`registerHttpRuntime(..., { middleware: { aliases, groups } })`) so routes can declare `middleware: ["api"]` instead of repeating function arrays.
+- Typed module config contracts (startup-time config/env validation using schema, fail fast before serving requests).
+- Domain-authorization rules in actions/services (current app-level pattern, not a dedicated kernel helper yet): record ownership checks, state-transition guards, and contextual business permissions like "who can edit what, and when".
 - Domain-error class model: `DomainValidationError`, `ConflictError`, `NotFoundError`.
 - Global HTTP mapping integration point: `registerApiErrorHandler(...)`.
 - Canonical mapped payload shape: `{ error, code, details }` (with `fieldErrors` when applicable).
 
-Chapter 3 intentionally stays manual up to this point, Now is where we apply these kernel niceties and compare before/after.
+Chapter 3 intentionally stays manual up to this point. Now is where we apply these kernel niceties and compare before/after.
 
 Best-practice note for this codebase:
 
@@ -1581,3 +1584,205 @@ Recommendation:
 - keep result-style + `BaseController` as the standard baseline
 - support `DomainError` throw-style as an approved advanced alternative
 - enforce one style per module to avoid mixed patterns
+
+## Verbose Note: Authorization Scope In This Chapter
+
+This chapter focuses on domain/business authorization rules, not transport wiring details.
+
+Important status note:
+
+- JSKIT does not yet provide a first-class dedicated kernel API for domain authorization rules.
+- In this chapter, authorization is implemented as a pattern in your own actions/services.
+- A future chapter can formalize this into reusable framework conventions.
+
+In practical terms, this is the layer where you decide things like:
+
+- whether the current actor can edit this specific record
+- whether the resource is in a mutable state (for example draft vs locked/archived)
+- whether a role can perform a specific state transition (for example approve/reject/reopen)
+
+These checks belong close to business logic (actions/services), because they depend on domain data and domain meaning.
+
+What we intentionally do not deep-dive here is the global HTTP auth policy pipeline (route metadata + centralized Fastify preHandler), such as:
+
+- route-level auth policy fields (`auth`, `workspacePolicy`, `workspaceSurface`, `permission`)
+- reusable named middleware policies (`middleware.aliases` / `middleware.groups`)
+- centralized authentication/CSRF/rate-limit enforcement
+- top-level request context population before controllers run
+
+That transport-level policy system is still important, and we will cover it in a dedicated chapter so it can be explained end-to-end without breaking the layered architecture flow of Chapter 3.
+
+## Verbose Note: Named Middleware Aliases and Groups (Before/After)
+
+This is now supported at kernel HTTP runtime level, and it solves one very common scaling problem:
+
+- repeated raw middleware arrays across many routes
+
+### Before: repeated middleware functions per route
+
+In a manual setup, each route repeats the same middleware stack:
+
+```js
+const requireAuth = async (req, reply) => {
+  if (!req.user) {
+    reply.code(401).send({ error: "Unauthorized." });
+    return;
+  }
+};
+
+const throttle60PerMinute = createThrottleMiddleware({ limit: 60, windowMs: 60_000 });
+
+router.register(
+  "GET",
+  "/api/v1/contacts",
+  {
+    schema: { /* ... */ },
+    middleware: [requireAuth, throttle60PerMinute]
+  },
+  handler
+);
+
+router.register(
+  "POST",
+  "/api/v1/contacts",
+  {
+    schema: { /* ... */ },
+    middleware: [requireAuth, throttle60PerMinute]
+  },
+  createHandler
+);
+```
+
+This works, but it scales poorly:
+
+- duplication grows fast
+- policy updates are error-prone (you forget one route)
+- route files become noisy
+
+### After: declare aliases/groups once, reuse by name
+
+Define middleware names once in HTTP runtime:
+
+```js
+registerHttpRuntime(app, {
+  middleware: {
+    aliases: {
+      auth: requireAuth,
+      "throttle:60,1": createThrottleMiddleware({ limit: 60, windowMs: 60_000 }),
+      audit: attachAuditContext
+    },
+    groups: {
+      api: ["auth", "throttle:60,1", "audit"],
+      publicApi: ["throttle:60,1"]
+    }
+  }
+});
+```
+
+Then keep routes declarative:
+
+```js
+router.register(
+  "GET",
+  "/api/v1/contacts",
+  {
+    schema: { /* ... */ },
+    middleware: ["api"]
+  },
+  handler
+);
+
+router.register(
+  "POST",
+  "/api/v1/contacts",
+  {
+    schema: { /* ... */ },
+    middleware: ["api"]
+  },
+  createHandler
+);
+
+router.register(
+  "GET",
+  "/api/v1/public/ping",
+  {
+    schema: { /* ... */ },
+    middleware: ["publicApi"]
+  },
+  pingHandler
+);
+```
+
+### What the kernel does for you
+
+At route registration time, kernel runtime expands the names to concrete middleware functions:
+
+- route middleware entries can be functions or names
+- names are resolved from `middleware.aliases` first, then `middleware.groups`
+- groups can include aliases and other groups
+- unknown names fail fast
+- group cycles fail fast
+
+So your route modules stay clean and policy-oriented, while execution remains function-based and explicit.
+
+## Verbose Note: Typed Module Config Contract (Before/After)
+
+This is a different validation layer from route TypeBox schemas.
+
+- route schema validation checks request/response payloads per request
+- module config validation checks module/env configuration once at startup
+
+### Before: ad-hoc config reads inside providers/services
+
+Typical manual pattern:
+
+```js
+const maxContacts = Number(process.env.CONTACTS_MAX || 5000);
+const mode = String(process.env.CONTACTS_MODE || "standard").trim();
+
+if (!Number.isInteger(maxContacts) || maxContacts < 1) {
+  throw new Error("CONTACTS_MAX must be a positive integer.");
+}
+```
+
+This works, but it drifts easily:
+
+- each module reimplements parsing/validation differently
+- error messages vary in quality
+- contracts are not centralized
+
+### After: one schema contract per module, validated at startup
+
+Target model for this feature:
+
+```js
+const contactsModuleConfigSchema = Type.Object(
+  {
+    mode: Type.Union([Type.Literal("standard"), Type.Literal("strict")]),
+    maxContacts: Type.Integer({ minimum: 1 }),
+    inviteExpiryHours: Type.Integer({ minimum: 1, maximum: 168 })
+  },
+  { additionalProperties: false }
+);
+
+const contactsConfig = validateModuleConfig({
+  moduleId: "contacts",
+  schema: contactsModuleConfigSchema,
+  raw: {
+    mode: process.env.CONTACTS_MODE,
+    maxContacts: Number(process.env.CONTACTS_MAX),
+    inviteExpiryHours: Number(process.env.CONTACTS_INVITE_EXPIRY_HOURS)
+  }
+});
+```
+
+Resulting behavior:
+
+- startup fails fast with clear module-scoped errors
+- config contracts are explicit and reviewable
+- all modules follow one validation style
+
+Status note:
+
+- this chapter now explains the concept and why it matters
+- first-class kernel helper ergonomics for this contract are still planned work

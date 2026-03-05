@@ -127,11 +127,12 @@ LATER LATER:
      Add first-class errors like DomainValidationError, ConflictError, NotFoundError and map them centrally to status/payload,
      instead of per-controller if (!result.ok) branches.
 
-  TODO:
-  
   3. Named middleware aliases + groups
      Allow route config like middleware: ["auth", "throttle:60,1"] and groups like api so modules reuse policy stacks without
      repeating function arrays.
+
+  TODO:
+  
 
   9. Standard 3-layer test harness (deferred by your choice)
      Ship helpers for service unit tests, controller tests, and route/provider integration tests so teams can test layered modules

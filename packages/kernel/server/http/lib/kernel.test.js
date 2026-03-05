@@ -173,6 +173,52 @@ test("registerHttpRuntime passes app context so request scope is available", asy
   assert.deepEqual(reply.payload, { requestId: "runtime-1" });
 });
 
+test("registerHttpRuntime forwards middleware alias/group config to route execution", async () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+  const observed = [];
+
+  router.get(
+    "/runtime-middleware",
+    {
+      middleware: ["api"]
+    },
+    async (_request, reply) => {
+      observed.push("handler");
+      reply.code(200).send({
+        ok: true
+      });
+    }
+  );
+
+  app.instance(TOKENS.Fastify, fastify);
+  app.instance(TOKENS.HttpRouter, router);
+
+  registerHttpRuntime(app, {
+    middleware: {
+      aliases: {
+        auth: async () => {
+          observed.push("auth");
+        },
+        "throttle:60,1": async () => {
+          observed.push("throttle");
+        }
+      },
+      groups: {
+        api: ["auth", "throttle:60,1"]
+      }
+    }
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(observed, ["auth", "throttle", "handler"]);
+});
+
 test("registerRoutes attaches request.input when route input transforms are configured", async () => {
   const fastify = createFastifyStub();
 
@@ -275,5 +321,131 @@ test("registerRoutes rejects invalid route input transform definitions", () => {
         ]
       }),
     /input\.body must be a function/
+  );
+});
+
+test("registerRoutes resolves middleware aliases and groups", async () => {
+  const fastify = createFastifyStub();
+  const observed = {
+    traces: []
+  };
+
+  const requireAuth = async (request) => {
+    observed.traces.push("auth");
+    request.user = {
+      id: 7
+    };
+  };
+  const throttle = async () => {
+    observed.traces.push("throttle");
+  };
+  const attachAuditContext = async (request) => {
+    observed.traces.push("audit");
+    request.audit = {
+      requestScoped: true
+    };
+  };
+
+  registerRoutes(fastify, {
+    middleware: {
+      aliases: {
+        auth: requireAuth,
+        "throttle:60,1": throttle,
+        audit: attachAuditContext
+      },
+      groups: {
+        api: ["auth", "throttle:60,1", "audit"],
+        publicApi: ["throttle:60,1"]
+      }
+    },
+    routes: [
+      {
+        method: "GET",
+        path: "/contacts",
+        middleware: ["api"],
+        handler: async (request, reply) => {
+          assert.equal(request.user?.id, 7);
+          assert.equal(request.audit?.requestScoped, true);
+          reply.code(200).send({
+            ok: true
+          });
+        }
+      },
+      {
+        method: "GET",
+        path: "/public/ping",
+        middleware: ["publicApi"],
+        handler: async (request, reply) => {
+          assert.equal(request.user, undefined);
+          assert.equal(request.audit, undefined);
+          reply.code(200).send({
+            ok: true
+          });
+        }
+      }
+    ]
+  });
+
+  const contactsReply = createReplyStub();
+  await fastify.routes[0].handler({}, contactsReply);
+  assert.equal(contactsReply.statusCode, 200);
+  assert.deepEqual(observed.traces, ["auth", "throttle", "audit"]);
+
+  observed.traces.length = 0;
+  const publicReply = createReplyStub();
+  await fastify.routes[1].handler({}, publicReply);
+  assert.equal(publicReply.statusCode, 200);
+  assert.deepEqual(observed.traces, ["throttle"]);
+});
+
+test("registerRoutes rejects unknown named middleware references", () => {
+  const fastify = createFastifyStub();
+
+  assert.throws(
+    () =>
+      registerRoutes(fastify, {
+        middleware: {
+          aliases: {
+            auth: async () => {}
+          },
+          groups: {
+            api: ["auth"]
+          }
+        },
+        routes: [
+          {
+            method: "GET",
+            path: "/contacts",
+            middleware: ["missing-group"],
+            handler: async () => {}
+          }
+        ]
+      }),
+    /unknown middleware "missing-group"/
+  );
+});
+
+test("registerRoutes rejects middleware group cycles", () => {
+  const fastify = createFastifyStub();
+
+  assert.throws(
+    () =>
+      registerRoutes(fastify, {
+        middleware: {
+          groups: {
+            api: ["audited"],
+            audited: ["api"]
+          }
+        },
+        routes: [
+          {
+            method: "GET",
+            path: "/contacts",
+            middleware: ["api"],
+            handler: async () => {}
+          }
+        ]
+      }),
+    /middleware group cycle detected/
   );
 });

@@ -23,8 +23,21 @@ function joinPath(left, right) {
   return joined || "/";
 }
 
-function normalizeMiddlewareStack(value) {
-  return normalizeArray(value).filter((entry) => typeof entry === "function");
+function normalizeMiddlewareEntry(entry, { context = "middleware" } = {}) {
+  if (typeof entry === "function") {
+    return entry;
+  }
+
+  const normalizedName = normalizeText(entry);
+  if (normalizedName) {
+    return normalizedName;
+  }
+
+  throw new RouteDefinitionError(`${context} entries must be functions or non-empty strings.`);
+}
+
+function normalizeMiddlewareStack(value, { context = "middleware" } = {}) {
+  return normalizeArray(value).map((entry) => normalizeMiddlewareEntry(entry, { context }));
 }
 
 function normalizeRouteInput(method, path, optionsOrHandler, maybeHandler) {
@@ -57,12 +70,16 @@ class HttpRouter {
   constructor({ routes = null, prefix = "", middleware = [] } = {}) {
     this._routes = Array.isArray(routes) ? routes : [];
     this._prefix = normalizeText(prefix);
-    this._middleware = normalizeMiddlewareStack(middleware);
+    this._middleware = normalizeMiddlewareStack(middleware, {
+      context: "router middleware"
+    });
   }
 
   register(method, path, optionsOrHandler, maybeHandler) {
     const input = normalizeRouteInput(method, path, optionsOrHandler, maybeHandler);
-    const routeMiddleware = normalizeMiddlewareStack(input.options.middleware);
+    const routeMiddleware = normalizeMiddlewareStack(input.options.middleware, {
+      context: `Route ${input.method} ${input.path} middleware`
+    });
     const routeInput = Object.prototype.hasOwnProperty.call(input.options, "input") ? input.options.input : null;
 
     const route = Object.freeze({
@@ -117,7 +134,12 @@ class HttpRouter {
     const nestedRouter = new HttpRouter({
       routes: this._routes,
       prefix: joinPath(this._prefix, prefix || ""),
-      middleware: [...this._middleware, ...normalizeMiddlewareStack(middleware)]
+      middleware: [
+        ...this._middleware,
+        ...normalizeMiddlewareStack(middleware, {
+          context: "group middleware"
+        })
+      ]
     });
 
     defineRoutes(nestedRouter);
@@ -147,7 +169,9 @@ class HttpRouter {
     const itemPath = `/${resourceName}/:${idParam}`;
 
     const methods = normalizeObject(controller);
-    const middleware = normalizeMiddlewareStack(options.middleware);
+    const middleware = normalizeMiddlewareStack(options.middleware, {
+      context: `resource ${resourceName} middleware`
+    });
 
     const requireMethod = (methodName) => {
       const handler = methods[methodName];
