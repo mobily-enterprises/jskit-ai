@@ -1764,7 +1764,7 @@ export { ContactControllerStage7 };
 - controller code consumes stable input shape (`request.input`)
 - `dryRun` behavior can be routed without branching on raw query parsing code in multiple places
 
-HELP: write here the 
+
 
 
 ## Stage 8: Domain Validation and Error Ergonomics
