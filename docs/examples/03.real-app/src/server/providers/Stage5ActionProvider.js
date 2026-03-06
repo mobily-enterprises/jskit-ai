@@ -1,5 +1,4 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
@@ -53,6 +52,18 @@ const stage5DomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const stage5ErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
+    details: Type.Optional(Type.Unknown()),
+    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
+    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
+    message: Type.Optional(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: true }
+);
+
 class Stage5ActionProvider {
   static id = "docs.examples.03.stage5";
 
@@ -101,13 +112,18 @@ class Stage5ActionProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_5_CONTROLLER);
 
-    const response = withStandardErrorResponses(
-      {
-        200: stage5SuccessSchema,
-        422: stage5DomainErrorSchema
-      },
-      { includeValidation400: true }
-    );
+    const response = {
+      200: stage5SuccessSchema,
+      400: stage5ErrorSchema,
+      401: stage5ErrorSchema,
+      403: stage5ErrorSchema,
+      404: stage5ErrorSchema,
+      409: stage5ErrorSchema,
+      422: stage5DomainErrorSchema,
+      429: stage5ErrorSchema,
+      500: stage5ErrorSchema,
+      503: stage5ErrorSchema
+    };
 
     router.register(
       "POST",

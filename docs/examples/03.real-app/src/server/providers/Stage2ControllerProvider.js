@@ -1,9 +1,8 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
@@ -30,9 +29,9 @@ class Stage2ControllerProvider {
           summary: "Stage 2 controller extraction: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -48,9 +47,9 @@ class Stage2ControllerProvider {
           summary: "Stage 2 controller extraction: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

@@ -1,1 +1,1 @@
-export { contactRouteSchema } from "./schemas/contactSchemas.js";
+export { contactIntakePreviewRouteSchema } from "./schemas/contactSchemas.js";

@@ -9,7 +9,7 @@ import {
   contactByIdRouteContractStage7,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage7.js";
 
 const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
 const STAGE_7_QUALIFICATION_SERVICE = "docs.examples.03.stage7.service.qualification";

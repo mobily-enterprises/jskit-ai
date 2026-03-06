@@ -302,16 +302,30 @@ export { Stage1MonolithProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-The file includes the schema too, which uses Typebox to validate the input data.
+At Stage 1 we keep this shared file intentionally minimal at the public API level: it exports only the baseline route contracts used by the first stages.
+Normalization and other refinements are added later, when they are actually introduced.
 
 Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/schemas/contactSchemas.js" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
-const contactBodySchema = Type.Object(
+/**
+ * Chapter 3 baseline route contracts (Stages 1-6).
+ *
+ * How this maps to controller flow:
+ * - POST routes: controller/action reads body (+ query when needed).
+ * - GET by id route: controller/action reads params.contactId.
+ * - These route contracts validate incoming request data before controller code runs.
+ * - Controller/action responses are expected to match the response maps below.
+ *
+ * Stage 7 adds normalization in a separate file:
+ * - ./contactSchemasStage7.js
+ */
+
+// 1) Incoming request schemas (transport validation).
+const contactIntakePreviewBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({ minLength: 5, maxLength: 200 }),
@@ -325,21 +339,22 @@ const contactBodySchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactQuerySchema = Type.Object(
+const contactIntakePreviewQuerySchema = Type.Object(
   {
     dryRun: Type.Optional(Type.Boolean())
   },
   { additionalProperties: false }
 );
 
-const contactParamsSchema = Type.Object(
+const contactByIdParamsSchema = Type.Object(
   {
     contactId: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
 );
 
-const contactRecordSchema = Type.Object(
+// 2) Contact read model schema (what a stored/retrieved contact record looks like).
+const contactStoredRecordSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1 }),
@@ -356,7 +371,8 @@ const contactRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactSuccessSchema = Type.Object(
+// 3) Success response schemas.
+const contactIntakePreviewSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
     mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
@@ -373,12 +389,13 @@ const contactSuccessSchema = Type.Object(
 const contactByIdSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
-    contact: contactRecordSchema
+    contact: contactStoredRecordSchema
   },
   { additionalProperties: false }
 );
 
-const contactDomainErrorSchema = Type.Object(
+// 4) Error response schemas.
+const contactIntakePreviewDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     code: Type.String({ minLength: 1 }),
@@ -387,37 +404,58 @@ const contactDomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactByIdResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactByIdSuccessSchema
-    },
-    { includeValidation400: true }
-  )
+const contactGenericErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
+    details: Type.Optional(Type.Unknown()),
+    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
+    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
+    message: Type.Optional(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: true }
 );
 
-const contactResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-    200: contactSuccessSchema,
-    422: contactDomainErrorSchema
-    },
-    { includeValidation400: true }
-  )
-);
+// 5) Response maps by route family.
+const contactByIdResponseSchema = Object.freeze({
+  200: contactByIdSuccessSchema,
+  400: contactGenericErrorSchema,
+  401: contactGenericErrorSchema,
+  403: contactGenericErrorSchema,
+  404: contactGenericErrorSchema,
+  409: contactGenericErrorSchema,
+  422: contactGenericErrorSchema,
+  429: contactGenericErrorSchema,
+  500: contactGenericErrorSchema,
+  503: contactGenericErrorSchema
+});
 
+const contactIntakePreviewResponseSchema = Object.freeze({
+  200: contactIntakePreviewSuccessSchema,
+  400: contactGenericErrorSchema,
+  401: contactGenericErrorSchema,
+  403: contactGenericErrorSchema,
+  404: contactGenericErrorSchema,
+  409: contactGenericErrorSchema,
+  422: contactIntakePreviewDomainErrorSchema,
+  429: contactGenericErrorSchema,
+  500: contactGenericErrorSchema,
+  503: contactGenericErrorSchema
+});
+
+// 6) Route contracts consumed by router.register(...).
 const contactIntakeRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
   },
   body: {
-    schema: contactBodySchema
+    schema: contactIntakePreviewBodySchema
   },
   query: {
-    schema: contactQuerySchema
+    schema: contactIntakePreviewQuerySchema
   },
-  response: contactResponseSchema
+  response: contactIntakePreviewResponseSchema
 });
 
 const contactPreviewFollowupRouteContract = Object.freeze({
@@ -426,12 +464,12 @@ const contactPreviewFollowupRouteContract = Object.freeze({
     summary: "Preview follow-up"
   },
   body: {
-    schema: contactBodySchema
+    schema: contactIntakePreviewBodySchema
   },
   query: {
-    schema: contactQuerySchema
+    schema: contactIntakePreviewQuerySchema
   },
-  response: contactResponseSchema
+  response: contactIntakePreviewResponseSchema
 });
 
 const contactByIdRouteContract = Object.freeze({
@@ -440,103 +478,22 @@ const contactByIdRouteContract = Object.freeze({
     summary: "Get contact by id"
   },
   params: {
-    schema: contactParamsSchema
+    schema: contactByIdParamsSchema
   },
   response: contactByIdResponseSchema
 });
 
-function normalizeContactBody(rawBody) {
-  return {
-    name: String(rawBody?.name || "").trim(),
-    email: String(rawBody?.email || "").trim().toLowerCase(),
-    company: String(rawBody?.company || "").trim(),
-    employees: Number(rawBody?.employees || 0),
-    plan: String(rawBody?.plan || "").trim().toLowerCase(),
-    source: String(rawBody?.source || "").trim().toLowerCase(),
-    country: String(rawBody?.country || "").trim().toUpperCase(),
-    consentMarketing: Boolean(rawBody?.consentMarketing)
-  };
-}
-
-function normalizeContactQuery(rawQuery) {
-  return {
-    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
-  };
-}
-
-function normalizeContactParams(rawParams) {
-  return {
-    contactId: String(rawParams?.contactId || "").trim()
-  };
-}
-
-const contactIntakeRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactBodySchema,
-    normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
-    normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
-});
-
-const contactPreviewFollowupRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactBodySchema,
-    normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
-    normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
-});
-
-const contactByIdRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactParamsSchema,
-    normalize: normalizeContactParams
-  },
-  response: contactByIdResponseSchema
-});
-
-// Backward-compat export used by earlier stage files in this chapter.
-const contactRouteSchema = Object.freeze({
-  body: contactBodySchema,
-  response: contactResponseSchema
+// 7) Baseline convenience export used by early stage providers/snippets.
+const contactIntakePreviewRouteSchema = Object.freeze({
+  body: contactIntakePreviewBodySchema,
+  response: contactIntakePreviewResponseSchema
 });
 
 export {
-  contactBodySchema,
-  contactQuerySchema,
-  contactParamsSchema,
-  contactRecordSchema,
-  contactSuccessSchema,
-  contactByIdSuccessSchema,
-  contactDomainErrorSchema,
-  contactByIdResponseSchema,
-  contactResponseSchema,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract,
   contactByIdRouteContract,
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7,
-  contactByIdRouteContractStage7,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -815,12 +772,11 @@ Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
@@ -847,9 +803,9 @@ class Stage2ControllerProvider {
           summary: "Stage 2 controller extraction: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -865,9 +821,9 @@ class Stage2ControllerProvider {
           summary: "Stage 2 controller extraction: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1019,13 +975,12 @@ Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
@@ -1061,9 +1016,9 @@ class Stage3ServiceProvider {
           summary: "Stage 3 service extraction: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1079,9 +1034,9 @@ class Stage3ServiceProvider {
           summary: "Stage 3 service extraction: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1196,14 +1151,13 @@ Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage4RepositoryProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
@@ -1242,9 +1196,9 @@ class Stage4RepositoryProvider {
           summary: "Stage 4 repository extraction: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1260,9 +1214,9 @@ class Stage4RepositoryProvider {
           summary: "Stage 4 repository extraction: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1474,7 +1428,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`:
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage5ActionProvider" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
@@ -1528,6 +1481,18 @@ const stage5DomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const stage5ErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
+    details: Type.Optional(Type.Unknown()),
+    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
+    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
+    message: Type.Optional(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: true }
+);
+
 class Stage5ActionProvider {
   static id = "docs.examples.03.stage5";
 
@@ -1576,13 +1541,18 @@ class Stage5ActionProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_5_CONTROLLER);
 
-    const response = withStandardErrorResponses(
-      {
-        200: stage5SuccessSchema,
-        422: stage5DomainErrorSchema
-      },
-      { includeValidation400: true }
-    );
+    const response = {
+      200: stage5SuccessSchema,
+      400: stage5ErrorSchema,
+      401: stage5ErrorSchema,
+      403: stage5ErrorSchema,
+      404: stage5ErrorSchema,
+      409: stage5ErrorSchema,
+      422: stage5DomainErrorSchema,
+      429: stage5ErrorSchema,
+      500: stage5ErrorSchema,
+      503: stage5ErrorSchema
+    };
 
     router.register(
       "POST",
@@ -1650,9 +1620,22 @@ Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
 <!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
-const contactBodySchema = Type.Object(
+/**
+ * Chapter 3 baseline route contracts (Stages 1-6).
+ *
+ * How this maps to controller flow:
+ * - POST routes: controller/action reads body (+ query when needed).
+ * - GET by id route: controller/action reads params.contactId.
+ * - These route contracts validate incoming request data before controller code runs.
+ * - Controller/action responses are expected to match the response maps below.
+ *
+ * Stage 7 adds normalization in a separate file:
+ * - ./contactSchemasStage7.js
+ */
+
+// 1) Incoming request schemas (transport validation).
+const contactIntakePreviewBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({ minLength: 5, maxLength: 200 }),
@@ -1666,21 +1649,22 @@ const contactBodySchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactQuerySchema = Type.Object(
+const contactIntakePreviewQuerySchema = Type.Object(
   {
     dryRun: Type.Optional(Type.Boolean())
   },
   { additionalProperties: false }
 );
 
-const contactParamsSchema = Type.Object(
+const contactByIdParamsSchema = Type.Object(
   {
     contactId: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
 );
 
-const contactRecordSchema = Type.Object(
+// 2) Contact read model schema (what a stored/retrieved contact record looks like).
+const contactStoredRecordSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1 }),
@@ -1697,7 +1681,8 @@ const contactRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactSuccessSchema = Type.Object(
+// 3) Success response schemas.
+const contactIntakePreviewSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
     mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
@@ -1714,12 +1699,13 @@ const contactSuccessSchema = Type.Object(
 const contactByIdSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
-    contact: contactRecordSchema
+    contact: contactStoredRecordSchema
   },
   { additionalProperties: false }
 );
 
-const contactDomainErrorSchema = Type.Object(
+// 4) Error response schemas.
+const contactIntakePreviewDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     code: Type.String({ minLength: 1 }),
@@ -1728,37 +1714,58 @@ const contactDomainErrorSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactByIdResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactByIdSuccessSchema
-    },
-    { includeValidation400: true }
-  )
+const contactGenericErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
+    details: Type.Optional(Type.Unknown()),
+    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
+    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
+    message: Type.Optional(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: true }
 );
 
-const contactResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-    200: contactSuccessSchema,
-    422: contactDomainErrorSchema
-    },
-    { includeValidation400: true }
-  )
-);
+// 5) Response maps by route family.
+const contactByIdResponseSchema = Object.freeze({
+  200: contactByIdSuccessSchema,
+  400: contactGenericErrorSchema,
+  401: contactGenericErrorSchema,
+  403: contactGenericErrorSchema,
+  404: contactGenericErrorSchema,
+  409: contactGenericErrorSchema,
+  422: contactGenericErrorSchema,
+  429: contactGenericErrorSchema,
+  500: contactGenericErrorSchema,
+  503: contactGenericErrorSchema
+});
 
+const contactIntakePreviewResponseSchema = Object.freeze({
+  200: contactIntakePreviewSuccessSchema,
+  400: contactGenericErrorSchema,
+  401: contactGenericErrorSchema,
+  403: contactGenericErrorSchema,
+  404: contactGenericErrorSchema,
+  409: contactGenericErrorSchema,
+  422: contactIntakePreviewDomainErrorSchema,
+  429: contactGenericErrorSchema,
+  500: contactGenericErrorSchema,
+  503: contactGenericErrorSchema
+});
+
+// 6) Route contracts consumed by router.register(...).
 const contactIntakeRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
   },
   body: {
-    schema: contactBodySchema
+    schema: contactIntakePreviewBodySchema
   },
   query: {
-    schema: contactQuerySchema
+    schema: contactIntakePreviewQuerySchema
   },
-  response: contactResponseSchema
+  response: contactIntakePreviewResponseSchema
 });
 
 const contactPreviewFollowupRouteContract = Object.freeze({
@@ -1767,12 +1774,12 @@ const contactPreviewFollowupRouteContract = Object.freeze({
     summary: "Preview follow-up"
   },
   body: {
-    schema: contactBodySchema
+    schema: contactIntakePreviewBodySchema
   },
   query: {
-    schema: contactQuerySchema
+    schema: contactIntakePreviewQuerySchema
   },
-  response: contactResponseSchema
+  response: contactIntakePreviewResponseSchema
 });
 
 const contactByIdRouteContract = Object.freeze({
@@ -1781,103 +1788,22 @@ const contactByIdRouteContract = Object.freeze({
     summary: "Get contact by id"
   },
   params: {
-    schema: contactParamsSchema
+    schema: contactByIdParamsSchema
   },
   response: contactByIdResponseSchema
 });
 
-function normalizeContactBody(rawBody) {
-  return {
-    name: String(rawBody?.name || "").trim(),
-    email: String(rawBody?.email || "").trim().toLowerCase(),
-    company: String(rawBody?.company || "").trim(),
-    employees: Number(rawBody?.employees || 0),
-    plan: String(rawBody?.plan || "").trim().toLowerCase(),
-    source: String(rawBody?.source || "").trim().toLowerCase(),
-    country: String(rawBody?.country || "").trim().toUpperCase(),
-    consentMarketing: Boolean(rawBody?.consentMarketing)
-  };
-}
-
-function normalizeContactQuery(rawQuery) {
-  return {
-    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
-  };
-}
-
-function normalizeContactParams(rawParams) {
-  return {
-    contactId: String(rawParams?.contactId || "").trim()
-  };
-}
-
-const contactIntakeRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactBodySchema,
-    normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
-    normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
-});
-
-const contactPreviewFollowupRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactBodySchema,
-    normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
-    normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
-});
-
-const contactByIdRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactParamsSchema,
-    normalize: normalizeContactParams
-  },
-  response: contactByIdResponseSchema
-});
-
-// Backward-compat export used by earlier stage files in this chapter.
-const contactRouteSchema = Object.freeze({
-  body: contactBodySchema,
-  response: contactResponseSchema
+// 7) Baseline convenience export used by early stage providers/snippets.
+const contactIntakePreviewRouteSchema = Object.freeze({
+  body: contactIntakePreviewBodySchema,
+  response: contactIntakePreviewResponseSchema
 });
 
 export {
-  contactBodySchema,
-  contactQuerySchema,
-  contactParamsSchema,
-  contactRecordSchema,
-  contactSuccessSchema,
-  contactByIdSuccessSchema,
-  contactDomainErrorSchema,
-  contactByIdResponseSchema,
-  contactResponseSchema,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract,
   contactByIdRouteContract,
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7,
-  contactByIdRouteContractStage7,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -1888,7 +1814,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage6LayeredProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
@@ -1898,7 +1823,7 @@ import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
@@ -1971,9 +1896,9 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1989,9 +1914,9 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -2024,7 +1949,7 @@ However, there are still improvements that are possible.
 
 Stage 1 already introduced the route contract object in shared code. At that point the contract carries transport schemas, but normalization still happens manually in application code.
 
-In Stage 7 we keep the same contract shape and move normalization into the contract itself.
+In Stage 7 we add a second shared file dedicated to normalized variants. We keep the Stage 1 file unchanged on purpose, so the baseline remains readable and stable while this stage adds one new concept.
 
 ### Stage 1 baseline contract shape (no `normalize`)
 
@@ -2056,32 +1981,37 @@ export const contactIntakeRouteContract = {
       { additionalProperties: false }
     )
   },
-  response: withStandardErrorResponses(
-    {
-      200: Type.Object(
-        {
-          ok: Type.Boolean(),
-          mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-          email: Type.String({ minLength: 1 }),
-          score: Type.Integer({ minimum: 0, maximum: 100 }),
-          segment: Type.String({ minLength: 1 }),
-          followupPlan: Type.Array(Type.String({ minLength: 1 })),
-          duplicateDetected: Type.Boolean(),
-          persisted: Type.Boolean()
-        },
-        { additionalProperties: false }
-      ),
-      422: Type.Object(
-        {
-          error: Type.String({ minLength: 1 }),
-          code: Type.String({ minLength: 1 }),
-          details: Type.Array(Type.String({ minLength: 1 }))
-        },
-        { additionalProperties: false }
-      )
-    },
-    { includeValidation400: true }
-  )
+  response: {
+    200: Type.Object(
+      {
+        ok: Type.Boolean(),
+        mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
+        email: Type.String({ minLength: 1 }),
+        score: Type.Integer({ minimum: 0, maximum: 100 }),
+        segment: Type.String({ minLength: 1 }),
+        followupPlan: Type.Array(Type.String({ minLength: 1 })),
+        duplicateDetected: Type.Boolean(),
+        persisted: Type.Boolean()
+      },
+      { additionalProperties: false }
+    ),
+    400: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    401: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    403: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    404: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    409: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    422: Type.Object(
+      {
+        error: Type.String({ minLength: 1 }),
+        code: Type.String({ minLength: 1 }),
+        details: Type.Array(Type.String({ minLength: 1 }))
+      },
+      { additionalProperties: false }
+    ),
+    429: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    500: Type.Object({ error: Type.String({ minLength: 1 }) }),
+    503: Type.Object({ error: Type.String({ minLength: 1 }) })
+  }
 };
 ```
 
@@ -2152,146 +2082,15 @@ This is the third argument (route options object). There is no separate legacy `
 
 ### Full shared contract code
 
-Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
+Use `docs/examples/03.real-app/src/shared/schemas/contactSchemasStage7.js`:
 
-<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
+<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemasStage7" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-
-const contactBodySchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactQuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  { additionalProperties: false }
-);
-
-const contactParamsSchema = Type.Object(
-  {
-    contactId: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-const contactRecordSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    email: Type.String({ minLength: 1 }),
-    company: Type.String({ minLength: 1 }),
-    employees: Type.Integer({ minimum: 1 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean(),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-const contactSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    contact: contactRecordSchema
-  },
-  { additionalProperties: false }
-);
-
-const contactDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactByIdSuccessSchema
-    },
-    { includeValidation400: true }
-  )
-);
-
-const contactResponseSchema = Object.freeze(
-  withStandardErrorResponses(
-    {
-    200: contactSuccessSchema,
-    422: contactDomainErrorSchema
-    },
-    { includeValidation400: true }
-  )
-);
-
-const contactIntakeRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactBodySchema
-  },
-  query: {
-    schema: contactQuerySchema
-  },
-  response: contactResponseSchema
-});
-
-const contactPreviewFollowupRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactBodySchema
-  },
-  query: {
-    schema: contactQuerySchema
-  },
-  response: contactResponseSchema
-});
-
-const contactByIdRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactParamsSchema
-  },
-  response: contactByIdResponseSchema
-});
+import {
+  contactByIdRouteContract,
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract
+} from "./contactSchemas.js";
 
 function normalizeContactBody(rawBody) {
   return {
@@ -2319,72 +2118,41 @@ function normalizeContactParams(rawParams) {
 }
 
 const contactIntakeRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactBodySchema,
+  ...contactIntakeRouteContract,
+  body: Object.freeze({
+    ...contactIntakeRouteContract.body,
     normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
+  }),
+  query: Object.freeze({
+    ...contactIntakeRouteContract.query,
     normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
+  })
 });
 
 const contactPreviewFollowupRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactBodySchema,
+  ...contactPreviewFollowupRouteContract,
+  body: Object.freeze({
+    ...contactPreviewFollowupRouteContract.body,
     normalize: normalizeContactBody
-  },
-  query: {
-    schema: contactQuerySchema,
+  }),
+  query: Object.freeze({
+    ...contactPreviewFollowupRouteContract.query,
     normalize: normalizeContactQuery
-  },
-  response: contactResponseSchema
+  })
 });
 
 const contactByIdRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactParamsSchema,
+  ...contactByIdRouteContract,
+  params: Object.freeze({
+    ...contactByIdRouteContract.params,
     normalize: normalizeContactParams
-  },
-  response: contactByIdResponseSchema
-});
-
-// Backward-compat export used by earlier stage files in this chapter.
-const contactRouteSchema = Object.freeze({
-  body: contactBodySchema,
-  response: contactResponseSchema
+  })
 });
 
 export {
-  contactBodySchema,
-  contactQuerySchema,
-  contactParamsSchema,
-  contactRecordSchema,
-  contactSuccessSchema,
-  contactByIdSuccessSchema,
-  contactDomainErrorSchema,
-  contactByIdResponseSchema,
-  contactResponseSchema,
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract,
-  contactByIdRouteContract,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7,
-  contactByIdRouteContractStage7,
-  contactRouteSchema
+  contactByIdRouteContractStage7
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -2406,7 +2174,7 @@ import {
   contactByIdRouteContractStage7,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage7.js";
 
 const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
 const STAGE_7_QUALIFICATION_SERVICE = "docs.examples.03.stage7.service.qualification";
@@ -2638,8 +2406,7 @@ import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
   contactByIdRouteContract,
-  contactBodySchema,
-  contactSuccessSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
@@ -2653,7 +2420,7 @@ const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactSuccessSchema
+      200: contactIntakePreviewRouteSchema.response[200]
     },
     {
       includeValidation400: true
@@ -2730,7 +2497,7 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: intake"
         },
         body: {
-          schema: contactBodySchema
+          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -2748,7 +2515,7 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: preview"
         },
         body: {
-          schema: contactBodySchema
+          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -3228,10 +2995,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
+import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactByIdRouteContractStage7,
-  contactBodySchema,
-  contactSuccessSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
@@ -3245,7 +3011,7 @@ const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactSuccessSchema
+      200: contactIntakePreviewRouteSchema.response[200]
     },
     {
       includeValidation400: true
@@ -3322,7 +3088,7 @@ class Stage9RuntimeContextProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactBodySchema,
+        schema: contactIntakePreviewRouteSchema.body,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -3735,10 +3501,9 @@ import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStag
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
+import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactByIdRouteContractStage7,
-  contactBodySchema,
-  contactSuccessSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
@@ -3753,7 +3518,7 @@ const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactSuccessSchema
+      200: contactIntakePreviewRouteSchema.response[200]
     },
     {
       includeValidation400: true
@@ -3834,7 +3599,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactBodySchema,
+        schema: contactIntakePreviewRouteSchema.body,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -4020,10 +3785,9 @@ import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStag
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
+import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactByIdRouteContractStage7,
-  contactBodySchema,
-  contactSuccessSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
@@ -4038,7 +3802,7 @@ const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactSuccessSchema
+      200: contactIntakePreviewRouteSchema.response[200]
     },
     {
       includeValidation400: true
@@ -4119,7 +3883,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactBodySchema,
+        schema: contactIntakePreviewRouteSchema.body,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),

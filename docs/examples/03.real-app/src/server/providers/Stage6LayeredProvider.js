@@ -1,4 +1,3 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
@@ -8,7 +7,7 @@ import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
   contactByIdRouteContract,
-  contactRouteSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
@@ -81,9 +80,9 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -99,9 +98,9 @@ class Stage6LayeredProvider {
           summary: "Stage 6 final assembly: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactIntakePreviewRouteSchema.body
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+        response: contactIntakePreviewRouteSchema.response
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

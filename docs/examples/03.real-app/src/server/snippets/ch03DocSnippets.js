@@ -3,8 +3,8 @@ router.post(
   "/api/v1/contacts/intake",
   {
     schema: {
-      body: contactBodySchema,
-      querystring: contactQuerySchema
+      body: contactIntakePreviewBodySchema,
+      querystring: contactIntakePreviewQuerySchema
     },
     input: {
       body: (body) => ({
@@ -32,9 +32,8 @@ async intake(request, reply) {
 // docs:end:formrequest_controller_upgrade
 
 // docs:start:stage6_main_provider_final
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import { contactIntakePreviewRouteSchema } from "../../shared/schemas/contactSchemas.js";
 import { ContactController } from "../controllers/ContactController.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
@@ -99,8 +98,8 @@ class MainServiceProvider {
         schema: {
           tags: ["contacts"],
           summary: "Create a contact and build follow-up plan",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+          body: contactIntakePreviewRouteSchema.body,
+          response: contactIntakePreviewRouteSchema.response
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -115,8 +114,8 @@ class MainServiceProvider {
         schema: {
           tags: ["contacts"],
           summary: "Preview qualification and follow-up without saving",
-          body: contactRouteSchema.body,
-          response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
+          body: contactIntakePreviewRouteSchema.body,
+          response: contactIntakePreviewRouteSchema.response
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)

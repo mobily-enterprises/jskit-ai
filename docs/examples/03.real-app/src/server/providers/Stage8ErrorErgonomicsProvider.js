@@ -13,8 +13,7 @@ import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
   contactByIdRouteContract,
-  contactBodySchema,
-  contactSuccessSchema
+  contactIntakePreviewRouteSchema
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
@@ -28,7 +27,7 @@ const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactSuccessSchema
+      200: contactIntakePreviewRouteSchema.response[200]
     },
     {
       includeValidation400: true
@@ -105,7 +104,7 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: intake"
         },
         body: {
-          schema: contactBodySchema
+          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -123,7 +122,7 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: preview"
         },
         body: {
-          schema: contactBodySchema
+          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
