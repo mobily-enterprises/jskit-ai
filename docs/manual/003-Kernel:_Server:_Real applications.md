@@ -849,7 +849,6 @@ Routes are now thin delegates, but the controller still carries too much respons
 
 Now we isolate business rules into one class.
 
-
 ### Create the new updated provider for Stage 3
 
 To do this, the provider will first need to instance the services as a singleton:
@@ -894,7 +893,6 @@ It becomes a Service Locator pattern. Problems:
 - mixing composition concerns into business code
 
 So yes, while `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
-
 
 Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 
@@ -971,14 +969,160 @@ export { Stage3ServiceProvider };
 <!-- /DOCS:EXAMPLE -->
 
 
-### Make the controller use the service
+### Update controller to delegate to service
 
-CODEX: Write a section here that follows the pattern of the previous section "### Create the new updated provider for Stage 3" explaining how the controller will change now that it uses the service, and provide full source code for it.
+In Stage 2, each controller method duplicated normalization, validation, scoring, and follow-up planning.
+
+In Stage 3, the controller delegates that domain work to `ContactQualificationService`.  
+This keeps controller responsibilities focused on:
+
+- reading transport input (`request.body`)
+- calling domain logic
+- mapping result to HTTP response
+
+Quick snippet summary of what changed:
+
+```js
+// Before (Stage 2): controller performs domain logic inline
+const name = String(request.body?.name || "").trim();
+const email = String(request.body?.email || "").trim().toLowerCase();
+// ...many validation/scoring/segment/follow-up lines...
+reply.code(200).send({ ok: true, ... });
+
+// After (Stage 3): controller delegates domain logic to service
+const qualified = this.qualificationService.qualify(request.body);
+if (!qualified.ok) {
+  reply.code(422).send({
+    error: "Domain validation failed.",
+    code: qualified.code,
+    details: qualified.details
+  });
+  return;
+}
+reply.code(200).send({
+  ok: true,
+  mode: "intake",
+  email: qualified.normalized.email,
+  score: qualified.score,
+  segment: qualified.segment,
+  followupPlan: qualified.followupPlan,
+  duplicateDetected: false,
+  persisted: true
+});
+```
+
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage3.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage3" lang="js" -->
+```js
+class ContactControllerStage3 {
+  constructor({ qualificationService }) {
+    this.qualificationService = qualificationService;
+    this.contacts = [];
+  }
+
+  async intake(request, reply) {
+    const qualified = this.qualificationService.qualify(request.body);
+
+    if (!qualified.ok) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: qualified.code,
+        details: qualified.details
+      });
+      return;
+    }
+
+    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
+    if (duplicate) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: "duplicate_contact",
+        details: ["a contact with this email already exists"]
+      });
+      return;
+    }
+
+    const created = {
+      id: `contact-${Date.now().toString(36)}`,
+      ...qualified.normalized,
+      score: qualified.score,
+      segment: qualified.segment
+    };
+
+    this.contacts.push(created);
+
+    reply.code(200).send({
+      ok: true,
+      mode: "intake",
+      email: created.email,
+      score: created.score,
+      segment: created.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: false,
+      persisted: true
+    });
+  }
+
+  async previewFollowup(request, reply) {
+    const qualified = this.qualificationService.qualify(request.body);
+
+    if (!qualified.ok) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: qualified.code,
+        details: qualified.details
+      });
+      return;
+    }
+
+    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
+
+    reply.code(200).send({
+      ok: true,
+      mode: "preview",
+      email: qualified.normalized.email,
+      score: qualified.score,
+      segment: qualified.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: Boolean(duplicate),
+      persisted: false
+    });
+  }
+
+  async show(request, reply) {
+    const contactId = String(request.params?.contactId || "").trim();
+    const found = this.contacts.find((entry) => entry.id === contactId) || null;
+
+    if (!found) {
+      reply.code(404).send({
+        error: "Contact not found.",
+        code: "contact_not_found",
+        details: [`No contact found for id ${contactId || "<empty>"}.`]
+      });
+      return;
+    }
+
+    reply.code(200).send({
+      ok: true,
+      contact: found
+    });
+  }
+}
+
+export { ContactControllerStage3 };
+```
+<!-- /DOCS:EXAMPLE -->
 
 ### Create service
 
-Finall, you will need to create the service called by the provider.
-Codex: explain the philosofly behind this
+Now create the service that holds domain logic in one place.
+
+Philosophy:
+
+- service owns business rules
+- controller should not reimplement those rules
+- this makes domain behavior easy to test without booting HTTP routes
 
 Use `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`:
 
@@ -1085,6 +1229,52 @@ class ContactQualificationService {
 export { ContactQualificationService };
 ```
 <!-- /DOCS:EXAMPLE -->
+
+### Service contract (`qualify(raw)`)
+
+`qualify(raw)` returns one of two shapes:
+
+- success:
+```js
+{
+  ok: true,
+  normalized,
+  score,
+  segment,
+  followupPlan
+}
+```
+
+- failure:
+```js
+{
+  ok: false,
+  code: "domain_validation_failed",
+  details,
+  normalized
+}
+```
+
+This keeps response handling explicit in the controller while centralizing business rules in the service.
+
+### End-to-end flow for intake in Stage 3
+
+1. Route validates input shape through `contactIntakePostRouteContract`.
+2. Controller receives `request.body`.
+3. Controller calls `qualificationService.qualify(request.body)`.
+4. Service returns either domain failure (`ok: false`) or qualified result (`ok: true`).
+5. Controller maps that result to HTTP response payload and status code.
+6. Controller still stores/retrieves contacts locally (`this.contacts`) for now.
+
+### Why Stage 4 is still needed
+
+Stage 3 removed duplicated domain logic, but persistence is still in the controller:
+
+- duplicate checks read from `this.contacts` in controller methods
+- writes (`push`) happen in controller code
+- `show` route lookup also lives in controller
+
+That means storage policy is still mixed into HTTP orchestration. Stage 4 fixes this by moving data access behind a repository contract.
 
 ### What improved
 
