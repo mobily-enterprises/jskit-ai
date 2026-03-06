@@ -7,11 +7,7 @@ class ContactControllerStage7 {
 
   async intake(request, reply) {
     const payload = request.input.body;
-    const query = request.input.query;
-
-    const result = query.dryRun
-      ? this.previewContactFollowupAction.execute(payload)
-      : this.createContactIntakeAction.execute(payload);
+    const result = this.createContactIntakeAction.execute(payload);
 
     if (!result.ok) {
       reply.code(result.status).send({
@@ -43,7 +39,7 @@ class ContactControllerStage7 {
 
   async show(request, reply) {
     const result = this.getContactByIdAction.execute({
-      contactId: request.input?.params?.contactId || request.params?.contactId
+      contactId: request.input.params.contactId
     });
     if (!result.ok) {
       reply.code(result.status).send({
