@@ -4,6 +4,8 @@ import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
 
+const { structuredClone: cloneRouteSchema } = globalThis;
+
 function defaultMissingHandler(_request, reply) {
   reply.code(501).send({
     error: "Route handler is not available in this runtime profile."
@@ -218,10 +220,11 @@ function resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig) {
 
 function toFastifyRouteOptions(route) {
   const sourceRoute = normalizeObject(route);
+  const schema = cloneRouteSchema(sourceRoute.schema);
   return {
     method: sourceRoute.method,
     url: sourceRoute.path,
-    ...(sourceRoute.schema ? { schema: sourceRoute.schema } : {}),
+    ...(schema ? { schema } : {}),
     ...(sourceRoute.bodyLimit ? { bodyLimit: sourceRoute.bodyLimit } : {}),
     config: {
       ...(sourceRoute.config || {})
