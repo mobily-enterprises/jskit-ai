@@ -13,9 +13,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
@@ -29,7 +29,7 @@ const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -106,7 +106,7 @@ class Stage9RuntimeContextProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactIntakePreviewRouteSchema.body,
+        schema: contactIntakePostRouteContract.body.schema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -163,7 +163,7 @@ class Stage9RuntimeContextProvider {
       "GET",
       "/api/v1/docs/ch03/stage-9/contacts/:contactId",
       {
-        ...contactByIdRouteContractStage7,
+        ...contactByIdGetRouteContractStage7,
         middleware: stage9ContactsMiddleware,
         meta: {
           tags: ["docs-stage-9"],

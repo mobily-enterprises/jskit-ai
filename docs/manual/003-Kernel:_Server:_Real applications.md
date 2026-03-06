@@ -84,9 +84,9 @@ Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
 ```js
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
-  contactByIdRouteContract,
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 class Stage1MonolithProvider {
@@ -101,7 +101,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/intake",
-      contactIntakeRouteContract,
+      contactIntakePostRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -200,7 +200,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-      contactPreviewFollowupRouteContract,
+      contactPreviewFollowupPostRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -275,7 +275,7 @@ class Stage1MonolithProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-1/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       async (request, reply) => {
         const contactId = String(request.params?.contactId || "").trim();
         const found = contacts.find((entry) => entry.id === contactId) || null;
@@ -444,7 +444,7 @@ const contactIntakePreviewResponseSchema = Object.freeze({
 });
 
 // 6) Route contracts consumed by router.register(...).
-const contactIntakeRouteContract = Object.freeze({
+const contactIntakePostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
@@ -458,7 +458,7 @@ const contactIntakeRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactPreviewFollowupRouteContract = Object.freeze({
+const contactPreviewFollowupPostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Preview follow-up"
@@ -472,7 +472,7 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactByIdRouteContract = Object.freeze({
+const contactByIdGetRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Get contact by id"
@@ -483,17 +483,10 @@ const contactByIdRouteContract = Object.freeze({
   response: contactByIdResponseSchema
 });
 
-// 7) Baseline convenience export used by early stage providers/snippets.
-const contactIntakePreviewRouteSchema = Object.freeze({
-  body: contactIntakePreviewBodySchema,
-  response: contactIntakePreviewResponseSchema
-});
-
 export {
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract,
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract,
+  contactByIdGetRouteContract
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -501,7 +494,7 @@ export {
 What this file does in practical terms:
 
 - It defines the transport contract once (request and response shapes).
-- It exports named route-contract objects (`contactIntakeRouteContract`, `contactPreviewFollowupRouteContract`) that routes can reuse.
+- It exports named route-contract objects (`contactIntakePostRouteContract`, `contactPreviewFollowupPostRouteContract`) that routes can reuse.
 - It keeps API metadata (`meta.tags`, `meta.summary`) with the same contract.
 
 Practical consequence in `router.register(...)`:
@@ -568,7 +561,80 @@ Now we move handler logic out of provider and into a controller.
 
 This already helps because routes become wiring only. But we still keep business logic duplicated in controller methods so you can see what pain remains.
 
-### Create controller
+### The new simplified provider
+
+The goal of creating controllers is to have much simplified providers.
+
+This is what the provider will look like.
+
+Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
+```js
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
+import {
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
+} from "../../shared/schemas/contactSchemas.js";
+
+const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
+
+class Stage2ControllerProvider {
+  static id = "docs.examples.03.stage2";
+
+  register(app) {
+    app.singleton(STAGE_2_CONTROLLER, () => new ContactControllerStage2());
+  }
+
+  boot(app) {
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const controller = app.make(STAGE_2_CONTROLLER);
+
+    router.register(
+      "POST",
+      "/api/v1/docs/ch03/stage-2/contacts/intake",
+      {
+        ...contactIntakePostRouteContract,
+        meta: {
+          tags: ["docs-stage-2"],
+          summary: "Stage 2 controller extraction: intake"
+        }
+      },
+      (request, reply) => controller.intake(request, reply)
+    );
+
+    router.register(
+      "POST",
+      "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
+      {
+        ...contactPreviewFollowupPostRouteContract,
+        meta: {
+          tags: ["docs-stage-2"],
+          summary: "Stage 2 controller extraction: preview"
+        }
+      },
+      (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
+      contactByIdGetRouteContract,
+      (request, reply) => controller.show(request, reply)
+    );
+  }
+}
+
+export { Stage2ControllerProvider };
+```
+<!-- /DOCS:EXAMPLE -->
+
+
+### Create the controllers
+
+For the controllers, we effectively use the code we just pulled out.
 
 Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage2.js`:
 
@@ -766,80 +832,6 @@ export { ContactControllerStage2 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-### Update provider to delegate
-
-Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
-import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
-} from "../../shared/schemas/contactSchemas.js";
-
-const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
-
-class Stage2ControllerProvider {
-  static id = "docs.examples.03.stage2";
-
-  register(app) {
-    app.singleton(STAGE_2_CONTROLLER, () => new ContactControllerStage2());
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_2_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-2/contacts/intake",
-        meta: {
-          tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
-        meta: {
-          tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
-      contactByIdRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage2ControllerProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 Routes are now thin delegates, but the controller still carries too much responsibility.
 
@@ -857,7 +849,136 @@ Routes are now thin delegates, but the controller still carries too much respons
 
 Now we isolate business rules into one class.
 
+
+### Create the new updated provider for Stage 3
+
+To do this, the provider will first need to instance the services as a singleton:
+
+```js
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+```
+
+Then, when creating the controller, it will pass the service as a parameter:
+
+```js
+    app.singleton(
+      STAGE_3_CONTROLLER,
+      () =>
+        new ContactControllerStage3({
+          qualificationService: app.make(STAGE_3_QUALIFICATION_SERVICE)
+        })
+    );
+```
+
+One question may arise: why create the singleton, if the service is then passed as a parameter in the controller's constructor? It's a way for the provider to wire dependencies, and the controller just uses them. That is good because:
+
+- dependencies are explicit (you can read constructor and know what it needs)
+- easier tests (pass a fake service directly, no container boot needed)
+- controller stays framework/container-agnostic
+- failures happen earlier (bad wiring shows up at composition time, not deep at runtime)
+- cleaner architecture: provider = wiring, controller = behavior
+
+If controller did this internally:
+
+```js
+  // Note: NOT best practice!
+  this.app.make(STAGE_3_QUALIFICATION_SERVICE)
+```
+
+It becomes a Service Locator pattern. Problems:
+
+- hidden dependencies (not visible in constructor)
+- harder tests (must mock container/app)
+- controller now depends on container API
+- more runtime surprises (token not found) during request handling
+- mixing composition concerns into business code
+
+So yes, while `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
+
+
+Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
+```js
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
+import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import {
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
+} from "../../shared/schemas/contactSchemas.js";
+
+const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
+const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
+
+class Stage3ServiceProvider {
+  static id = "docs.examples.03.stage3";
+
+  register(app) {
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+
+    app.singleton(
+      STAGE_3_CONTROLLER,
+      () =>
+        new ContactControllerStage3({
+          qualificationService: app.make(STAGE_3_QUALIFICATION_SERVICE)
+        })
+    );
+  }
+
+  boot(app) {
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const controller = app.make(STAGE_3_CONTROLLER);
+
+    router.register(
+      "POST",
+      "/api/v1/docs/ch03/stage-3/contacts/intake",
+      {
+        ...contactIntakePostRouteContract,
+        meta: {
+          tags: ["docs-stage-3"],
+          summary: "Stage 3 service extraction: intake"
+        }
+      },
+      (request, reply) => controller.intake(request, reply)
+    );
+
+    router.register(
+      "POST",
+      "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
+      {
+        ...contactPreviewFollowupPostRouteContract,
+        meta: {
+          tags: ["docs-stage-3"],
+          summary: "Stage 3 service extraction: preview"
+        }
+      },
+      (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
+      contactByIdGetRouteContract,
+      (request, reply) => controller.show(request, reply)
+    );
+  }
+}
+
+export { Stage3ServiceProvider };
+```
+<!-- /DOCS:EXAMPLE -->
+
+
+### Make the controller use the service
+
+CODEX: Write a section here that follows the pattern of the previous section "### Create the new updated provider for Stage 3" explaining how the controller will change now that it uses the service, and provide full source code for it.
+
 ### Create service
+
+Finall, you will need to create the service called by the provider.
+Codex: explain the philosofly behind this
 
 Use `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`:
 
@@ -965,95 +1086,6 @@ export { ContactQualificationService };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-### Update controller to use service
-
-Now the controller can call one service to run domain rules. This removes duplication in business logic.
-
-### Full provider code for Stage 3
-
-Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
-} from "../../shared/schemas/contactSchemas.js";
-
-const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
-const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
-
-class Stage3ServiceProvider {
-  static id = "docs.examples.03.stage3";
-
-  register(app) {
-    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-
-    app.singleton(
-      STAGE_3_CONTROLLER,
-      () =>
-        new ContactControllerStage3({
-          qualificationService: app.make(STAGE_3_QUALIFICATION_SERVICE)
-        })
-    );
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_3_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-3/contacts/intake",
-        meta: {
-          tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
-        meta: {
-          tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
-      contactByIdRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage3ServiceProvider };
-```
-<!-- /DOCS:EXAMPLE -->
-
 ### What improved
 
 - one place for business logic
@@ -1156,8 +1188,9 @@ import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
@@ -1189,16 +1222,11 @@ class Stage4RepositoryProvider {
       "POST",
       "/api/v1/docs/ch03/stage-4/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-4/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-4"],
           summary: "Stage 4 repository extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1207,16 +1235,11 @@ class Stage4RepositoryProvider {
       "POST",
       "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-4"],
           summary: "Stage 4 repository extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1224,7 +1247,7 @@ class Stage4RepositoryProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-4/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }
@@ -1435,7 +1458,7 @@ import { InMemoryContactRepository } from "../repositories/InMemoryContactReposi
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { contactByIdRouteContract } from "../../shared/schemas/contactSchemas.js";
+import { contactByIdGetRouteContract } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
@@ -1593,7 +1616,7 @@ class Stage5ActionProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-5/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }
@@ -1754,7 +1777,7 @@ const contactIntakePreviewResponseSchema = Object.freeze({
 });
 
 // 6) Route contracts consumed by router.register(...).
-const contactIntakeRouteContract = Object.freeze({
+const contactIntakePostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
@@ -1768,7 +1791,7 @@ const contactIntakeRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactPreviewFollowupRouteContract = Object.freeze({
+const contactPreviewFollowupPostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Preview follow-up"
@@ -1782,7 +1805,7 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactByIdRouteContract = Object.freeze({
+const contactByIdGetRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Get contact by id"
@@ -1793,17 +1816,10 @@ const contactByIdRouteContract = Object.freeze({
   response: contactByIdResponseSchema
 });
 
-// 7) Baseline convenience export used by early stage providers/snippets.
-const contactIntakePreviewRouteSchema = Object.freeze({
-  body: contactIntakePreviewBodySchema,
-  response: contactIntakePreviewResponseSchema
-});
-
 export {
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract,
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract,
+  contactByIdGetRouteContract
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -1822,8 +1838,9 @@ import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
@@ -1889,16 +1906,11 @@ class Stage6LayeredProvider {
       "POST",
       "/api/v1/docs/ch03/stage-6/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-6/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-6"],
           summary: "Stage 6 final assembly: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -1907,16 +1919,11 @@ class Stage6LayeredProvider {
       "POST",
       "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-6"],
           summary: "Stage 6 final assembly: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -1924,7 +1931,7 @@ class Stage6LayeredProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-6/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }
@@ -1956,7 +1963,7 @@ In Stage 7 we add a second shared file dedicated to normalized variants. We keep
 Use this as the initial shared contract format:
 
 ```js
-export const contactIntakeRouteContract = {
+export const contactIntakePostRouteContract = {
   meta: { tags: ["contacts"], summary: "Create contact" },
   body: {
     schema: Type.Object(
@@ -2022,7 +2029,7 @@ In this baseline form, controllers/actions still normalize manually from `reques
 Now add `normalize` in `body` and `query`:
 
 ```js
-export const contactIntakeRouteContractStage7 = {
+export const contactIntakePostRouteContractStage7 = {
   meta: { tags: ["contacts"], summary: "Create contact" },
   body: {
     schema: /* same schema as above */,
@@ -2066,7 +2073,7 @@ export const contactIntakeRouteContractStage7 = {
 router.register(
   "POST",
   "/api/v1/docs/ch03/stage-7/contacts/intake",
-  contactIntakeRouteContractStage7,
+  contactIntakePostRouteContractStage7,
   (request, reply) => controller.intake(request, reply)
 );
 ```
@@ -2087,9 +2094,9 @@ Use `docs/examples/03.real-app/src/shared/schemas/contactSchemasStage7.js`:
 <!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemasStage7" lang="js" -->
 ```js
 import {
-  contactByIdRouteContract,
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "./contactSchemas.js";
 
 function normalizeContactBody(rawBody) {
@@ -2117,42 +2124,42 @@ function normalizeContactParams(rawParams) {
   };
 }
 
-const contactIntakeRouteContractStage7 = Object.freeze({
-  ...contactIntakeRouteContract,
+const contactIntakePostRouteContractStage7 = Object.freeze({
+  ...contactIntakePostRouteContract,
   body: Object.freeze({
-    ...contactIntakeRouteContract.body,
+    ...contactIntakePostRouteContract.body,
     normalize: normalizeContactBody
   }),
   query: Object.freeze({
-    ...contactIntakeRouteContract.query,
+    ...contactIntakePostRouteContract.query,
     normalize: normalizeContactQuery
   })
 });
 
-const contactPreviewFollowupRouteContractStage7 = Object.freeze({
-  ...contactPreviewFollowupRouteContract,
+const contactPreviewFollowupPostRouteContractStage7 = Object.freeze({
+  ...contactPreviewFollowupPostRouteContract,
   body: Object.freeze({
-    ...contactPreviewFollowupRouteContract.body,
+    ...contactPreviewFollowupPostRouteContract.body,
     normalize: normalizeContactBody
   }),
   query: Object.freeze({
-    ...contactPreviewFollowupRouteContract.query,
+    ...contactPreviewFollowupPostRouteContract.query,
     normalize: normalizeContactQuery
   })
 });
 
-const contactByIdRouteContractStage7 = Object.freeze({
-  ...contactByIdRouteContract,
+const contactByIdGetRouteContractStage7 = Object.freeze({
+  ...contactByIdGetRouteContract,
   params: Object.freeze({
-    ...contactByIdRouteContract.params,
+    ...contactByIdGetRouteContract.params,
     normalize: normalizeContactParams
   })
 });
 
 export {
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7,
-  contactByIdRouteContractStage7
+  contactIntakePostRouteContractStage7,
+  contactPreviewFollowupPostRouteContractStage7,
+  contactByIdGetRouteContractStage7
 };
 ```
 <!-- /DOCS:EXAMPLE -->
@@ -2171,9 +2178,9 @@ import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
-  contactByIdRouteContractStage7,
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7
+  contactByIdGetRouteContractStage7,
+  contactIntakePostRouteContractStage7,
+  contactPreviewFollowupPostRouteContractStage7
 } from "../../shared/schemas/contactSchemasStage7.js";
 
 const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
@@ -2234,21 +2241,21 @@ class Stage7RequestPipelineProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/intake",
-      contactIntakeRouteContractStage7,
+      contactIntakePostRouteContractStage7,
       (request, reply) => controller.intake(request, reply)
     );
 
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/preview-followup",
-      contactPreviewFollowupRouteContractStage7,
+      contactPreviewFollowupPostRouteContractStage7,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-7/contacts/:contactId",
-      contactByIdRouteContractStage7,
+      contactByIdGetRouteContractStage7,
       (request, reply) => controller.show(request, reply)
     );
   }
@@ -2405,8 +2412,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
@@ -2420,7 +2428,7 @@ const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -2490,14 +2498,10 @@ class Stage8ErrorErgonomicsProvider {
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-8/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-8"],
           summary: "Stage 8 domain errors + BaseController: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -2508,14 +2512,10 @@ class Stage8ErrorErgonomicsProvider {
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-8"],
           summary: "Stage 8 domain errors + BaseController: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -2525,7 +2525,7 @@ class Stage8ErrorErgonomicsProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-8/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }
@@ -2995,9 +2995,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
@@ -3011,7 +3011,7 @@ const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -3088,7 +3088,7 @@ class Stage9RuntimeContextProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactIntakePreviewRouteSchema.body,
+        schema: contactIntakePostRouteContract.body.schema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -3145,7 +3145,7 @@ class Stage9RuntimeContextProvider {
       "GET",
       "/api/v1/docs/ch03/stage-9/contacts/:contactId",
       {
-        ...contactByIdRouteContractStage7,
+        ...contactByIdGetRouteContractStage7,
         middleware: stage9ContactsMiddleware,
         meta: {
           tags: ["docs-stage-9"],
@@ -3501,9 +3501,9 @@ import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStag
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
@@ -3518,7 +3518,7 @@ const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -3599,7 +3599,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactIntakePreviewRouteSchema.body,
+        schema: contactIntakePostRouteContract.body.schema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -3650,7 +3650,7 @@ class Stage10ConfigContractProvider {
       "GET",
       "/api/v1/docs/ch03/stage-10/contacts/:contactId",
       {
-        ...contactByIdRouteContractStage7,
+        ...contactByIdGetRouteContractStage7,
         middleware: stage10ContactsMiddleware,
         meta: {
           tags: ["docs-stage-10"],
@@ -3785,9 +3785,9 @@ import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStag
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
@@ -3802,7 +3802,7 @@ const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -3883,7 +3883,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactIntakePreviewRouteSchema.body,
+        schema: contactIntakePostRouteContract.body.schema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -3934,7 +3934,7 @@ class Stage10ConfigContractProvider {
       "GET",
       "/api/v1/docs/ch03/stage-10/contacts/:contactId",
       {
-        ...contactByIdRouteContractStage7,
+        ...contactByIdGetRouteContractStage7,
         middleware: stage10ContactsMiddleware,
         meta: {
           tags: ["docs-stage-10"],

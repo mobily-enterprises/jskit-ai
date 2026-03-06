@@ -2,8 +2,9 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
@@ -32,16 +33,11 @@ class Stage3ServiceProvider {
       "POST",
       "/api/v1/docs/ch03/stage-3/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-3/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-3"],
           summary: "Stage 3 service extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -50,16 +46,11 @@ class Stage3ServiceProvider {
       "POST",
       "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-3"],
           summary: "Stage 3 service extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -67,7 +58,7 @@ class Stage3ServiceProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-3/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }

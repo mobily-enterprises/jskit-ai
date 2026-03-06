@@ -1,7 +1,7 @@
 import {
-  contactByIdRouteContract,
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "./contactSchemas.js";
 
 function normalizeContactBody(rawBody) {
@@ -29,40 +29,40 @@ function normalizeContactParams(rawParams) {
   };
 }
 
-const contactIntakeRouteContractStage7 = Object.freeze({
-  ...contactIntakeRouteContract,
+const contactIntakePostRouteContractStage7 = Object.freeze({
+  ...contactIntakePostRouteContract,
   body: Object.freeze({
-    ...contactIntakeRouteContract.body,
+    ...contactIntakePostRouteContract.body,
     normalize: normalizeContactBody
   }),
   query: Object.freeze({
-    ...contactIntakeRouteContract.query,
+    ...contactIntakePostRouteContract.query,
     normalize: normalizeContactQuery
   })
 });
 
-const contactPreviewFollowupRouteContractStage7 = Object.freeze({
-  ...contactPreviewFollowupRouteContract,
+const contactPreviewFollowupPostRouteContractStage7 = Object.freeze({
+  ...contactPreviewFollowupPostRouteContract,
   body: Object.freeze({
-    ...contactPreviewFollowupRouteContract.body,
+    ...contactPreviewFollowupPostRouteContract.body,
     normalize: normalizeContactBody
   }),
   query: Object.freeze({
-    ...contactPreviewFollowupRouteContract.query,
+    ...contactPreviewFollowupPostRouteContract.query,
     normalize: normalizeContactQuery
   })
 });
 
-const contactByIdRouteContractStage7 = Object.freeze({
-  ...contactByIdRouteContract,
+const contactByIdGetRouteContractStage7 = Object.freeze({
+  ...contactByIdGetRouteContract,
   params: Object.freeze({
-    ...contactByIdRouteContract.params,
+    ...contactByIdGetRouteContract.params,
     normalize: normalizeContactParams
   })
 });
 
 export {
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7,
-  contactByIdRouteContractStage7
+  contactIntakePostRouteContractStage7,
+  contactPreviewFollowupPostRouteContractStage7,
+  contactByIdGetRouteContractStage7
 };

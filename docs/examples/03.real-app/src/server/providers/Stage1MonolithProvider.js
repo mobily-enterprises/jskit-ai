@@ -1,8 +1,8 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
-  contactByIdRouteContract,
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 class Stage1MonolithProvider {
@@ -17,7 +17,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/intake",
-      contactIntakeRouteContract,
+      contactIntakePostRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -116,7 +116,7 @@ class Stage1MonolithProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-      contactPreviewFollowupRouteContract,
+      contactPreviewFollowupPostRouteContract,
       async (request, reply) => {
         const name = String(request.body?.name || "").trim();
         const email = String(request.body?.email || "").trim().toLowerCase();
@@ -191,7 +191,7 @@ class Stage1MonolithProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-1/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       async (request, reply) => {
         const contactId = String(request.params?.contactId || "").trim();
         const found = contacts.find((entry) => entry.id === contactId) || null;

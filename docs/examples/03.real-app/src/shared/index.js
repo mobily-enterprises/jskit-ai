@@ -1,1 +1,5 @@
-export { contactIntakePreviewRouteSchema } from "./schemas/contactSchemas.js";
+export {
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract,
+  contactByIdGetRouteContract
+} from "./schemas/contactSchemas.js";

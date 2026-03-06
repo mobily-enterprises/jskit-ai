@@ -3,8 +3,9 @@ import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
@@ -36,16 +37,11 @@ class Stage4RepositoryProvider {
       "POST",
       "/api/v1/docs/ch03/stage-4/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-4/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-4"],
           summary: "Stage 4 repository extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -54,16 +50,11 @@ class Stage4RepositoryProvider {
       "POST",
       "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-4"],
           summary: "Stage 4 repository extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -71,7 +62,7 @@ class Stage4RepositoryProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-4/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }

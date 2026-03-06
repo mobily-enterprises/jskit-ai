@@ -13,9 +13,9 @@ import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStag
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
 import {
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
@@ -30,7 +30,7 @@ const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -111,7 +111,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactIntakePreviewRouteSchema.body,
+        schema: contactIntakePostRouteContract.body.schema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -162,7 +162,7 @@ class Stage10ConfigContractProvider {
       "GET",
       "/api/v1/docs/ch03/stage-10/contacts/:contactId",
       {
-        ...contactByIdRouteContractStage7,
+        ...contactByIdGetRouteContractStage7,
         middleware: stage10ContactsMiddleware,
         meta: {
           tags: ["docs-stage-10"],

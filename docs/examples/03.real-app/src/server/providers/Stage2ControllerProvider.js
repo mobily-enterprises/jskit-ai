@@ -1,8 +1,9 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
@@ -22,16 +23,11 @@ class Stage2ControllerProvider {
       "POST",
       "/api/v1/docs/ch03/stage-2/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-2/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-2"],
           summary: "Stage 2 controller extraction: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -40,16 +36,11 @@ class Stage2ControllerProvider {
       "POST",
       "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-2"],
           summary: "Stage 2 controller extraction: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -57,7 +48,7 @@ class Stage2ControllerProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-2/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }

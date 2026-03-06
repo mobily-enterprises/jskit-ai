@@ -12,8 +12,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
@@ -27,7 +28,7 @@ const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
-      200: contactIntakePreviewRouteSchema.response[200]
+      200: contactIntakePostRouteContract.response[200]
     },
     {
       includeValidation400: true
@@ -97,14 +98,10 @@ class Stage8ErrorErgonomicsProvider {
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-8/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-8"],
           summary: "Stage 8 domain errors + BaseController: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -115,14 +112,10 @@ class Stage8ErrorErgonomicsProvider {
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-8"],
           summary: "Stage 8 domain errors + BaseController: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
         },
         response: STAGE_8_RESPONSE_SCHEMA
       },
@@ -132,7 +125,7 @@ class Stage8ErrorErgonomicsProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-8/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }

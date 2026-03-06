@@ -33,7 +33,10 @@ async intake(request, reply) {
 
 // docs:start:stage6_main_provider_final
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactIntakePreviewRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
+} from "../../shared/schemas/contactSchemas.js";
 import { ContactController } from "../controllers/ContactController.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
@@ -93,13 +96,10 @@ class MainServiceProvider {
       "POST",
       "/api/v1/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/contacts/intake",
-        schema: {
+        ...contactIntakePostRouteContract,
+        meta: {
           tags: ["contacts"],
           summary: "Create a contact and build follow-up plan",
-          body: contactIntakePreviewRouteSchema.body,
-          response: contactIntakePreviewRouteSchema.response
         }
       },
       (request, reply) => controller.intake(request, reply)
@@ -109,13 +109,10 @@ class MainServiceProvider {
       "POST",
       "/api/v1/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/contacts/preview-followup",
-        schema: {
+        ...contactPreviewFollowupPostRouteContract,
+        meta: {
           tags: ["contacts"],
           summary: "Preview qualification and follow-up without saving",
-          body: contactIntakePreviewRouteSchema.body,
-          response: contactIntakePreviewRouteSchema.response
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)

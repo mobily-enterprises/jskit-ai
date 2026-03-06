@@ -6,9 +6,9 @@ import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
-  contactByIdRouteContractStage7,
-  contactIntakeRouteContractStage7,
-  contactPreviewFollowupRouteContractStage7
+  contactByIdGetRouteContractStage7,
+  contactIntakePostRouteContractStage7,
+  contactPreviewFollowupPostRouteContractStage7
 } from "../../shared/schemas/contactSchemasStage7.js";
 
 const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
@@ -69,21 +69,21 @@ class Stage7RequestPipelineProvider {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/intake",
-      contactIntakeRouteContractStage7,
+      contactIntakePostRouteContractStage7,
       (request, reply) => controller.intake(request, reply)
     );
 
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-7/contacts/preview-followup",
-      contactPreviewFollowupRouteContractStage7,
+      contactPreviewFollowupPostRouteContractStage7,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-7/contacts/:contactId",
-      contactByIdRouteContractStage7,
+      contactByIdGetRouteContractStage7,
       (request, reply) => controller.show(request, reply)
     );
   }

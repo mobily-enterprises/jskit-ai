@@ -133,7 +133,7 @@ const contactIntakePreviewResponseSchema = Object.freeze({
 });
 
 // 6) Route contracts consumed by router.register(...).
-const contactIntakeRouteContract = Object.freeze({
+const contactIntakePostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
@@ -147,7 +147,7 @@ const contactIntakeRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactPreviewFollowupRouteContract = Object.freeze({
+const contactPreviewFollowupPostRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Preview follow-up"
@@ -161,7 +161,7 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactByIdRouteContract = Object.freeze({
+const contactByIdGetRouteContract = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Get contact by id"
@@ -172,15 +172,8 @@ const contactByIdRouteContract = Object.freeze({
   response: contactByIdResponseSchema
 });
 
-// 7) Baseline convenience export used by early stage providers/snippets.
-const contactIntakePreviewRouteSchema = Object.freeze({
-  body: contactIntakePreviewBodySchema,
-  response: contactIntakePreviewResponseSchema
-});
-
 export {
-  contactIntakeRouteContract,
-  contactPreviewFollowupRouteContract,
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract,
+  contactByIdGetRouteContract
 };

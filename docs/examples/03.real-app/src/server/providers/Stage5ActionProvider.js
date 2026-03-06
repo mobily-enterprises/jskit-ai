@@ -6,7 +6,7 @@ import { InMemoryContactRepository } from "../repositories/InMemoryContactReposi
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { contactByIdRouteContract } from "../../shared/schemas/contactSchemas.js";
+import { contactByIdGetRouteContract } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
@@ -164,7 +164,7 @@ class Stage5ActionProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-5/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }

@@ -6,8 +6,9 @@ import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
-  contactByIdRouteContract,
-  contactIntakePreviewRouteSchema
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
@@ -73,16 +74,11 @@ class Stage6LayeredProvider {
       "POST",
       "/api/v1/docs/ch03/stage-6/contacts/intake",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-6/contacts/intake",
+        ...contactIntakePostRouteContract,
         meta: {
           tags: ["docs-stage-6"],
           summary: "Stage 6 final assembly: intake"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -91,16 +87,11 @@ class Stage6LayeredProvider {
       "POST",
       "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
       {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
+        ...contactPreviewFollowupPostRouteContract,
         meta: {
           tags: ["docs-stage-6"],
           summary: "Stage 6 final assembly: preview"
-        },
-        body: {
-          schema: contactIntakePreviewRouteSchema.body
-        },
-        response: contactIntakePreviewRouteSchema.response
+        }
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -108,7 +99,7 @@ class Stage6LayeredProvider {
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-6/contacts/:contactId",
-      contactByIdRouteContract,
+      contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
   }
