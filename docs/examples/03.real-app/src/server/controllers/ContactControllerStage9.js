@@ -1,5 +1,5 @@
 import { BaseController } from "@jskit-ai/kernel/server/http";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { STAGE_9_REQUEST_CONTEXT_TOKEN } from "../support/stage9Middleware.js";
 
 class ContactControllerStage9 extends BaseController {
@@ -20,7 +20,7 @@ class ContactControllerStage9 extends BaseController {
       return;
     }
 
-    const requestId = scope.make(TOKENS.RequestId);
+    const requestId = scope.make(KERNEL_TOKENS.RequestId);
     if (requestId) {
       reply.header("x-request-id", requestId);
     }

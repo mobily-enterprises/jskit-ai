@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage7 } from "../controllers/ContactControllerStage7.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
@@ -63,7 +63,7 @@ class Stage7RequestPipelineProvider {
   }
 
   boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_7_CONTROLLER);
 
     router.register(

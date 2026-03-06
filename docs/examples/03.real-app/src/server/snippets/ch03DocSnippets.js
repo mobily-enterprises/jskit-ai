@@ -33,7 +33,7 @@ async intake(request, reply) {
 
 // docs:start:stage6_main_provider_final
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
 import { ContactController } from "../controllers/ContactController.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
@@ -87,7 +87,7 @@ class MainServiceProvider {
   }
 
   boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(CONTACT_CONTROLLER_TOKEN);
 
     router.register(

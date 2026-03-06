@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { TOKENS } from "../../../shared/support/tokens.js";
+import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { createApplication } from "../../kernel/lib/index.js";
 import { createRouter } from "./router.js";
 import { registerHttpRuntime, registerRoutes } from "./kernel.js";
@@ -51,16 +51,16 @@ test("registerRoutes attaches request scope and request context tokens", async (
         path: "/scope-check",
         middleware: [
           (request) => {
-            observed.middlewareRequest = request.scope.make(TOKENS.Request);
-            observed.middlewareReply = request.scope.make(TOKENS.Reply);
-            observed.middlewareRequestId = request.scope.make(TOKENS.RequestId);
-            observed.middlewareScope = request.scope.make(TOKENS.RequestScope);
+            observed.middlewareRequest = request.scope.make(KERNEL_TOKENS.Request);
+            observed.middlewareReply = request.scope.make(KERNEL_TOKENS.Reply);
+            observed.middlewareRequestId = request.scope.make(KERNEL_TOKENS.RequestId);
+            observed.middlewareScope = request.scope.make(KERNEL_TOKENS.RequestScope);
           }
         ],
         handler: async (request, reply) => {
           observed.handlerScope = request.scope;
-          observed.handlerRequest = request.scope.make(TOKENS.Request);
-          observed.handlerRequestId = request.scope.make(TOKENS.RequestId);
+          observed.handlerRequest = request.scope.make(KERNEL_TOKENS.Request);
+          observed.handlerRequestId = request.scope.make(KERNEL_TOKENS.RequestId);
           reply.code(200).send({ ok: true });
         }
       }
@@ -128,7 +128,7 @@ test("registerRoutes supports custom request scope property and requestId resolv
           assert.equal(Boolean(request.scope), false);
           assert.equal(Boolean(request.requestScope), true);
           assert.equal(request.requestScope.scopeId, "request:r-42");
-          assert.equal(request.requestScope.make(TOKENS.RequestId), "r-42");
+          assert.equal(request.requestScope.make(KERNEL_TOKENS.RequestId), "r-42");
           reply.code(200).send({ ok: true });
         }
       }
@@ -154,12 +154,12 @@ test("registerHttpRuntime passes app context so request scope is available", asy
   const router = createRouter();
 
   router.get("/runtime-scope", async (request, reply) => {
-    const requestId = request.scope.make(TOKENS.RequestId);
+    const requestId = request.scope.make(KERNEL_TOKENS.RequestId);
     reply.code(200).send({ requestId });
   });
 
-  app.instance(TOKENS.Fastify, fastify);
-  app.instance(TOKENS.HttpRouter, router);
+  app.instance(KERNEL_TOKENS.Fastify, fastify);
+  app.instance(KERNEL_TOKENS.HttpRouter, router);
 
   const registration = registerHttpRuntime(app);
   assert.equal(registration.routeCount, 1);
@@ -192,8 +192,8 @@ test("registerHttpRuntime forwards middleware alias/group config to route execut
     }
   );
 
-  app.instance(TOKENS.Fastify, fastify);
-  app.instance(TOKENS.HttpRouter, router);
+  app.instance(KERNEL_TOKENS.Fastify, fastify);
+  app.instance(KERNEL_TOKENS.HttpRouter, router);
 
   registerHttpRuntime(app, {
     middleware: {

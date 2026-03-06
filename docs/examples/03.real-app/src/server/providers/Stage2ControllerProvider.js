@@ -1,5 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
 import {
   contactByIdRouteContract,
@@ -16,7 +16,7 @@ class Stage2ControllerProvider {
   }
 
   boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_2_CONTROLLER);
 
     router.register(

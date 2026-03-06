@@ -128,10 +128,10 @@ When request scope is enabled (default in `registerRoutes`):
 
 - `request.scope` is a container scope
 - tokens bound in that scope:
-  - `TOKENS.Request`
-  - `TOKENS.Reply`
-  - `TOKENS.RequestId`
-  - `TOKENS.RequestScope`
+  - `KERNEL_TOKENS.Request`
+  - `KERNEL_TOKENS.Reply`
+  - `KERNEL_TOKENS.RequestId`
+  - `KERNEL_TOKENS.RequestScope`
 - if route has input transforms, `request.input` is created:
 
 ```js
@@ -357,7 +357,7 @@ Current Stage 10 middleware stack order (`stage10ContactsMiddleware`):
 Request-scope context behavior:
 
 - middleware stores context in request scope under `STAGE_10_REQUEST_CONTEXT_TOKEN`
-- controller reads `TOKENS.RequestId` and that context from `request.scope`
+- controller reads `KERNEL_TOKENS.RequestId` and that context from `request.scope`
 - controller sets response headers:
   - `x-request-id`
   - `x-request-received-at`
@@ -384,7 +384,7 @@ Stage 10 env contract example:
 
 ## Symbol Token Rule
 
-`TOKENS` uses `Symbol.for("...")` so token identity is shared through the runtime global symbol registry. That prevents accidental token identity splits across modules.
+`KERNEL_TOKENS` uses `Symbol.for("...")` so token identity is shared through the runtime global symbol registry. That prevents accidental token identity splits across modules.
 
 ## If Asked: "Make A Provider Using Best Practices"
 
@@ -402,7 +402,7 @@ Mandatory provider checklist:
 
 1. Define stable provider id and optional dependsOn.
 2. Register only bindings in `register`; avoid route wiring there.
-3. Resolve env/logger from tokens (`TOKENS.Env`, `TOKENS.Logger`) when needed.
+3. Resolve env/logger from tokens (`KERNEL_TOKENS.Env`, `KERNEL_TOKENS.Logger`) when needed.
 4. Resolve router in `boot` and register routes there.
 5. Put normalization in route contract (`body/query/params.normalize`).
 6. Use `request.input.*` in controllers when normalize exists.
@@ -422,7 +422,7 @@ Anti-patterns to avoid:
 ## Copyable Provider Skeleton (AI Baseline)
 
 ```js
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { isAppError, registerApiErrorHandler } from "@jskit-ai/kernel/server/runtime";
 
@@ -439,11 +439,11 @@ class AcmeContactsProvider {
 
   boot(app) {
     if (!app.has(MODULE_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(TOKENS.Fastify), { isAppError });
+      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), { isAppError });
       app.instance(MODULE_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(MODULE_CONTROLLER);
 
     const sharedOptions = {

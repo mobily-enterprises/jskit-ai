@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
 import { registerActionContributor } from "@jskit-ai/action-runtime-core/server";
@@ -104,11 +104,11 @@ const fallbackUserSettingsRepository = createInMemoryUserSettingsRepository();
 
 function resolveCommonDependencies(scope) {
   const dependencies = {};
-  if (scope.has(TOKENS.Env)) {
-    dependencies.env = scope.make(TOKENS.Env);
+  if (scope.has(KERNEL_TOKENS.Env)) {
+    dependencies.env = scope.make(KERNEL_TOKENS.Env);
   }
-  if (scope.has(TOKENS.Logger)) {
-    dependencies.logger = scope.make(TOKENS.Logger);
+  if (scope.has(KERNEL_TOKENS.Logger)) {
+    dependencies.logger = scope.make(KERNEL_TOKENS.Logger);
   }
   return dependencies;
 }

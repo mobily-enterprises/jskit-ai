@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { AuthController } from "../controllers/AuthController.js";
 import { buildRoutes } from "../routes/authRoutes.js";
 
@@ -18,7 +18,7 @@ class AuthRouteServiceProvider {
       throw new Error("AuthRouteServiceProvider requires application make().");
     }
 
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const authWebService = app.make("auth.web.service");
     const controller = new AuthController({ service: authWebService });
     const routes = buildRoutes(controller);

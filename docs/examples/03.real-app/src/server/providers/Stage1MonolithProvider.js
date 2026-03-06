@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   contactByIdRouteContract,
   contactIntakeRouteContract,
@@ -11,7 +11,7 @@ class Stage1MonolithProvider {
   register() {}
 
   boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const contacts = [];
 
     router.register(

@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -96,13 +96,13 @@ class Stage9RuntimeContextProvider {
 
   boot(app) {
     if (!app.has(STAGE_9_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(TOKENS.Fastify), {
+      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
         isAppError
       });
       app.instance(STAGE_9_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_9_CONTROLLER);
 
     const sharedOptions = {

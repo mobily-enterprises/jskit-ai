@@ -1,4 +1,4 @@
-export { TOKENS } from "./tokens.js";
+export { KERNEL_TOKENS } from "./tokens.js";
 export {
   normalizeText,
   normalizeObject,

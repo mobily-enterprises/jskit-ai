@@ -1,4 +1,4 @@
-import { TOKENS } from "../../../shared/support/tokens.js";
+import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
@@ -272,10 +272,10 @@ function attachRequestScope({
     return null;
   }
 
-  scope.instance(TOKENS.Request, request);
-  scope.instance(TOKENS.Reply, reply);
-  scope.instance(TOKENS.RequestId, runtimeRequestId);
-  scope.instance(TOKENS.RequestScope, scope);
+  scope.instance(KERNEL_TOKENS.Request, request);
+  scope.instance(KERNEL_TOKENS.Reply, reply);
+  scope.instance(KERNEL_TOKENS.RequestId, runtimeRequestId);
+  scope.instance(KERNEL_TOKENS.RequestScope, scope);
 
   if (request && typeof request === "object") {
     request[normalizeRequestScopeProperty(requestScopeProperty)] = scope;
@@ -403,8 +403,8 @@ function registerHttpRuntime(app, options = {}) {
     throw new RouteRegistrationError("registerHttpRuntime requires an application instance.");
   }
 
-  const fastifyToken = options.fastifyToken || TOKENS.Fastify;
-  const routerToken = options.routerToken || TOKENS.HttpRouter;
+  const fastifyToken = options.fastifyToken || KERNEL_TOKENS.Fastify;
+  const routerToken = options.routerToken || KERNEL_TOKENS.HttpRouter;
   const fastify = app.make(fastifyToken);
   const router = app.make(routerToken);
   const routes = typeof router?.list === "function" ? router.list() : [];
@@ -422,10 +422,10 @@ function createHttpRuntime({ app = null, fastify = null, router = null } = {}) {
   }
 
   const runtimeRouter = router || createRouter();
-  app.singleton(TOKENS.HttpRouter, () => runtimeRouter);
+  app.singleton(KERNEL_TOKENS.HttpRouter, () => runtimeRouter);
 
   if (fastify) {
-    app.instance(TOKENS.Fastify, fastify);
+    app.instance(KERNEL_TOKENS.Fastify, fastify);
   }
 
   return {

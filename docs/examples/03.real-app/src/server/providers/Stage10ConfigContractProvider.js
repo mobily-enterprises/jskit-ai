@@ -1,5 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -43,7 +43,7 @@ class Stage10ConfigContractProvider {
   static id = "docs.examples.03.stage10";
 
   register(app) {
-    const env = app.has(TOKENS.Env) ? app.make(TOKENS.Env) : process.env;
+    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
     const config = contactsModuleConfig.resolve({
       env
     });
@@ -101,13 +101,13 @@ class Stage10ConfigContractProvider {
 
   boot(app) {
     if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(TOKENS.Fastify), {
+      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
         isAppError
       });
       app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {

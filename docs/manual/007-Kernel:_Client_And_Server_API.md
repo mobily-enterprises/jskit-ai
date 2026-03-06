@@ -58,7 +58,7 @@ Shared aggregate entrypoint (`@jskit-ai/kernel/shared`) re-exports support and s
 
 Shared support entrypoint (`@jskit-ai/kernel/shared/support`) exports:
 
-- `TOKENS`
+- `KERNEL_TOKENS`
 - `normalizeText`
 - `normalizeObject`
 - `normalizeArray`
@@ -239,7 +239,7 @@ Server runtime entrypoint (`@jskit-ai/kernel/server/runtime`) exports:
 
 Server support entrypoint (`@jskit-ai/kernel/server/support`) exports:
 
-- `TOKENS`
+- `KERNEL_TOKENS`
 - `normalizeText`
 - `normalizeObject`
 - `normalizeArray`

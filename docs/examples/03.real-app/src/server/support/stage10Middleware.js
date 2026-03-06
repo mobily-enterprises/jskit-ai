@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 
 const STAGE_10_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage10.requestContext";
 
@@ -17,7 +17,7 @@ async function attachRequestContextMiddleware(request) {
     return;
   }
 
-  const requestId = scope.make(TOKENS.RequestId);
+  const requestId = scope.make(KERNEL_TOKENS.RequestId);
   scope.instance(STAGE_10_REQUEST_CONTEXT_TOKEN, {
     requestId,
     receivedAt: new Date().toISOString()

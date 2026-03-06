@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { authPolicyPlugin } from "../lib/plugin.js";
 
 function parseBoolean(value, fallback = false) {
@@ -48,8 +48,8 @@ class FastifyAuthPolicyServiceProvider {
       throw new Error("FastifyAuthPolicyServiceProvider requires authService binding.");
     }
 
-    const env = app.has(TOKENS.Env) ? app.make(TOKENS.Env) : {};
-    const fastify = app.make(TOKENS.Fastify);
+    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};
+    const fastify = app.make(KERNEL_TOKENS.Fastify);
     const authService = app.make("authService");
 
     const plugin = authPolicyPlugin(

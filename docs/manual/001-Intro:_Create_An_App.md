@@ -300,7 +300,7 @@ Update `packages/main/src/server/providers/MainServiceProvider.js`:
 
 ```js
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { mainHelloSchema } from "../../shared/schemas/mainHelloSchema.js";
 
 class MainServiceProvider {
@@ -309,8 +309,8 @@ class MainServiceProvider {
   register() {}
 
   boot(app) {
-    const router = app.make(TOKENS.HttpRouter);
-    const env = app.has(TOKENS.Env) ? app.make(TOKENS.Env) : {};
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};
     const appName = String(env.APP_NAME || "manual-app").trim() || "manual-app";
 
     router.register(

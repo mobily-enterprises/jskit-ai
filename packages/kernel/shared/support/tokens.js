@@ -1,4 +1,4 @@
-const TOKENS = Object.freeze({
+const KERNEL_TOKENS = Object.freeze({
   Logger: Symbol.for("jskit.logger"),
   Env: Symbol.for("jskit.env"),
   Fastify: Symbol.for("jskit.fastify"),
@@ -16,4 +16,4 @@ const TOKENS = Object.freeze({
   HealthService: Symbol.for("jskit.health.service")
 });
 
-export { TOKENS };
+export { KERNEL_TOKENS };

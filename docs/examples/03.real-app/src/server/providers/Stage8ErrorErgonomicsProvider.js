@@ -1,5 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -85,13 +85,13 @@ class Stage8ErrorErgonomicsProvider {
 
   boot(app) {
     if (!app.has(STAGE_8_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(TOKENS.Fastify), {
+      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
         isAppError
       });
       app.instance(STAGE_8_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(TOKENS.HttpRouter);
+    const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_8_CONTROLLER);
 
     router.register(

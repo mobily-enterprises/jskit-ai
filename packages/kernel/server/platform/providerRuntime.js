@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
-import { TOKENS } from "../../shared/support/tokens.js";
+import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { readLockFromApp } from "../runtime/lib/lockfile.js";
 
 function isIdentifier(value) {
@@ -521,8 +521,8 @@ async function createProviderRuntimeApp({
     profile
   });
 
-  app.instance(TOKENS.Env, env && typeof env === "object" ? { ...env } : {});
-  app.instance(TOKENS.Logger, logger || console);
+  app.instance(KERNEL_TOKENS.Env, env && typeof env === "object" ? { ...env } : {});
+  app.instance(KERNEL_TOKENS.Logger, logger || console);
 
   let httpRuntime = null;
   if (fastify && typeof fastify.route === "function") {
