@@ -3,10 +3,11 @@ import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
 
 class ContactControllerStage10 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, contactsConfig }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction, contactsConfig }) {
     super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
     this.contactsConfig = contactsConfig;
   }
 
@@ -56,6 +57,15 @@ class ContactControllerStage10 extends BaseController {
     this.attachRequestScopeHeaders(request, reply);
     this.attachConfigHeaders(reply);
     return this.ok(reply, preview);
+  }
+
+  async show(request, reply) {
+    const contact = await this.getContactByIdAction.execute({
+      contactId: request.input?.params?.contactId || request.params?.contactId
+    });
+    this.attachRequestScopeHeaders(request, reply);
+    this.attachConfigHeaders(reply);
+    return this.ok(reply, contact);
   }
 }
 

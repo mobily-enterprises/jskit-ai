@@ -1,7 +1,10 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 
@@ -50,6 +53,13 @@ class Stage2ControllerProvider {
         response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

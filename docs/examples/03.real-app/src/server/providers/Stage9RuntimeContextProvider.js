@@ -10,9 +10,11 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
+import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
 import {
+  contactByIdRouteContractStage7,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -22,6 +24,7 @@ const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualifica
 const STAGE_9_DOMAIN_RULES_SERVICE = "docs.examples.03.stage9.service.domainRules";
 const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
+const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
 const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
@@ -73,11 +76,20 @@ class Stage9RuntimeContextProvider {
     );
 
     app.singleton(
+      STAGE_9_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage8({
+          contactRepository: app.make(STAGE_9_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_9_CONTROLLER,
       () =>
         new ContactControllerStage9({
           createContactIntakeAction: app.make(STAGE_9_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_9_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_9_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_9_GET_BY_ID_ACTION)
         })
     );
   }
@@ -146,6 +158,20 @@ class Stage9RuntimeContextProvider {
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-9/contacts/:contactId",
+      {
+        ...contactByIdRouteContractStage7,
+        middleware: stage9ContactsMiddleware,
+        meta: {
+          tags: ["docs-stage-9"],
+          summary: "Stage 9 request scope + middleware reuse: show by id"
+        }
+      },
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

@@ -9,8 +9,10 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
+import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
+  contactByIdRouteContract,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -20,6 +22,7 @@ const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualifica
 const STAGE_8_DOMAIN_RULES_SERVICE = "docs.examples.03.stage8.service.domainRules";
 const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
+const STAGE_8_GET_BY_ID_ACTION = "docs.examples.03.stage8.actions.getById";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
 const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
@@ -62,11 +65,20 @@ class Stage8ErrorErgonomicsProvider {
     );
 
     app.singleton(
+      STAGE_8_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage8({
+          contactRepository: app.make(STAGE_8_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_8_CONTROLLER,
       () =>
         new ContactControllerStage8({
           createContactIntakeAction: app.make(STAGE_8_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_8_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_8_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_8_GET_BY_ID_ACTION)
         })
     );
   }
@@ -116,6 +128,13 @@ class Stage8ErrorErgonomicsProvider {
         response: STAGE_8_RESPONSE_SCHEMA
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-8/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

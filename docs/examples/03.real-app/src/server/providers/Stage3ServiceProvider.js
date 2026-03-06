@@ -2,7 +2,10 @@ import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorRespon
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
 const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
@@ -60,6 +63,13 @@ class Stage3ServiceProvider {
         response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

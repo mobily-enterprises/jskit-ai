@@ -43,12 +43,13 @@ Now we move from "first route" to "real feature architecture."
 
 ## The Feature We Will Build
 
-We will build a `contacts` intake feature with two routes:
+We will build a `contacts` feature with three routes:
 
 - `POST /api/v1/contacts/intake`
 - `POST /api/v1/contacts/preview-followup`
+- `GET /api/v1/contacts/:contactId`
 
-Both routes are business-logic-heavy on purpose:
+The two `POST` routes are business-logic-heavy on purpose:
 
 - normalize input
 - run business rules
@@ -56,6 +57,8 @@ Both routes are business-logic-heavy on purpose:
 - derive segment
 - build follow-up plan
 - check duplicates
+
+The `GET` route is intentionally simple so we can demonstrate `params` contracts without bloating each stage.
 
 This is exactly the kind of logic that becomes painful when all code lives in one handler.
 
@@ -81,6 +84,7 @@ Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
 ```js
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
+  contactByIdRouteContract,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract
 } from "../../shared/schemas/contactSchemas.js";
@@ -267,6 +271,30 @@ class Stage1MonolithProvider {
         });
       }
     );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-1/contacts/:contactId",
+      contactByIdRouteContract,
+      async (request, reply) => {
+        const contactId = String(request.params?.contactId || "").trim();
+        const found = contacts.find((entry) => entry.id === contactId) || null;
+
+        if (!found) {
+          reply.code(404).send({
+            error: "Contact not found.",
+            code: "contact_not_found",
+            details: [`No contact found for id ${contactId || "<empty>"}.`]
+          });
+          return;
+        }
+
+        reply.code(200).send({
+          ok: true,
+          contact: found
+        });
+      }
+    );
   }
 }
 
@@ -304,6 +332,30 @@ const contactQuerySchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactParamsSchema = Type.Object(
+  {
+    contactId: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+const contactRecordSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    email: Type.String({ minLength: 1 }),
+    company: Type.String({ minLength: 1 }),
+    employees: Type.Integer({ minimum: 1 }),
+    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+    country: Type.String({ minLength: 2, maxLength: 2 }),
+    consentMarketing: Type.Boolean(),
+    score: Type.Integer({ minimum: 0, maximum: 100 }),
+    segment: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
 const contactSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
@@ -318,6 +370,14 @@ const contactSuccessSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactByIdSuccessSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    contact: contactRecordSchema
+  },
+  { additionalProperties: false }
+);
+
 const contactDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
@@ -325,6 +385,15 @@ const contactDomainErrorSchema = Type.Object(
     details: Type.Array(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
+);
+
+const contactByIdResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactByIdSuccessSchema
+    },
+    { includeValidation400: true }
+  )
 );
 
 const contactResponseSchema = Object.freeze(
@@ -365,6 +434,17 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema
+  },
+  response: contactByIdResponseSchema
+});
+
 function normalizeContactBody(rawBody) {
   return {
     name: String(rawBody?.name || "").trim(),
@@ -381,6 +461,12 @@ function normalizeContactBody(rawBody) {
 function normalizeContactQuery(rawQuery) {
   return {
     dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+function normalizeContactParams(rawParams) {
+  return {
+    contactId: String(rawParams?.contactId || "").trim()
   };
 }
 
@@ -416,6 +502,18 @@ const contactPreviewFollowupRouteContractStage7 = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema,
+    normalize: normalizeContactParams
+  },
+  response: contactByIdResponseSchema
+});
+
 // Backward-compat export used by earlier stage files in this chapter.
 const contactRouteSchema = Object.freeze({
   body: contactBodySchema,
@@ -425,13 +523,19 @@ const contactRouteSchema = Object.freeze({
 export {
   contactBodySchema,
   contactQuerySchema,
+  contactParamsSchema,
+  contactRecordSchema,
   contactSuccessSchema,
+  contactByIdSuccessSchema,
   contactDomainErrorSchema,
+  contactByIdResponseSchema,
   contactResponseSchema,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract,
+  contactByIdRouteContract,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7,
+  contactByIdRouteContractStage7,
   contactRouteSchema
 };
 ```
@@ -486,6 +590,10 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
     "country":"US",
     "consentMarketing":true
   }'
+```
+
+```bash
+curl -i "http://localhost:3000/api/v1/docs/ch03/stage-1/contacts/contact-does-not-exist"
 ```
 
 ### Why this hurts
@@ -676,6 +784,25 @@ class ContactControllerStage2 {
       persisted: false
     });
   }
+
+  async show(request, reply) {
+    const contactId = String(request.params?.contactId || "").trim();
+    const found = this.contacts.find((entry) => entry.id === contactId) || null;
+
+    if (!found) {
+      reply.code(404).send({
+        error: "Contact not found.",
+        code: "contact_not_found",
+        details: [`No contact found for id ${contactId || "<empty>"}.`]
+      });
+      return;
+    }
+
+    reply.code(200).send({
+      ok: true,
+      contact: found
+    });
+  }
 }
 
 export { ContactControllerStage2 };
@@ -691,7 +818,10 @@ Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 
@@ -740,6 +870,13 @@ class Stage2ControllerProvider {
         response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }
@@ -886,7 +1023,10 @@ import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorRespon
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
 const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
@@ -945,6 +1085,13 @@ class Stage3ServiceProvider {
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
+    );
   }
 }
 
@@ -980,6 +1127,10 @@ Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
 const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
 
 class ContactRepository {
+  findById(_id) {
+    throw new Error("ContactRepository.findById must be implemented.");
+  }
+
   findByEmail(_email) {
     throw new Error("ContactRepository.findByEmail must be implemented.");
   }
@@ -1010,6 +1161,10 @@ class InMemoryContactRepository extends ContactRepository {
     super();
     this.byId = new Map();
     this.byEmail = new Map();
+  }
+
+  findById(id) {
+    return this.byId.get(id) || null;
   }
 
   findByEmail(email) {
@@ -1046,7 +1201,10 @@ import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
 const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";
@@ -1107,6 +1265,13 @@ class Stage4RepositoryProvider {
         response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-4/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }
@@ -1247,9 +1412,10 @@ Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage5.js
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage5" lang="js" -->
 ```js
 class ContactControllerStage5 {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
   }
 
   async intake(request, reply) {
@@ -1279,6 +1445,22 @@ class ContactControllerStage5 {
 
     reply.code(200).send(result.data);
   }
+
+  async show(request, reply) {
+    const result = this.getContactByIdAction.execute({
+      contactId: request.params?.contactId
+    });
+    if (!result.ok) {
+      reply.code(result.status).send({
+        error: "Contact not found.",
+        code: result.code,
+        details: result.details
+      });
+      return;
+    }
+
+    reply.code(200).send(result.data);
+  }
 }
 
 export { ContactControllerStage5 };
@@ -1298,12 +1480,15 @@ import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { contactByIdRouteContract } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
 const STAGE_5_CREATE_ACTION = "docs.examples.03.stage5.actions.create";
 const STAGE_5_PREVIEW_ACTION = "docs.examples.03.stage5.actions.preview";
+const STAGE_5_GET_BY_ID_ACTION = "docs.examples.03.stage5.actions.getById";
 const STAGE_5_CONTROLLER = "docs.examples.03.stage5.controller";
 
 const stage5BodySchema = Type.Object(
@@ -1369,11 +1554,20 @@ class Stage5ActionProvider {
     );
 
     app.singleton(
+      STAGE_5_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdAction({
+          contactRepository: app.make(STAGE_5_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_5_CONTROLLER,
       () =>
         new ContactControllerStage5({
           createContactIntakeAction: app.make(STAGE_5_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_5_GET_BY_ID_ACTION)
         })
     );
   }
@@ -1425,6 +1619,13 @@ class Stage5ActionProvider {
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-5/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
+    );
   }
 }
 
@@ -1472,6 +1673,30 @@ const contactQuerySchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactParamsSchema = Type.Object(
+  {
+    contactId: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+const contactRecordSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    email: Type.String({ minLength: 1 }),
+    company: Type.String({ minLength: 1 }),
+    employees: Type.Integer({ minimum: 1 }),
+    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+    country: Type.String({ minLength: 2, maxLength: 2 }),
+    consentMarketing: Type.Boolean(),
+    score: Type.Integer({ minimum: 0, maximum: 100 }),
+    segment: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
 const contactSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
@@ -1486,6 +1711,14 @@ const contactSuccessSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactByIdSuccessSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    contact: contactRecordSchema
+  },
+  { additionalProperties: false }
+);
+
 const contactDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
@@ -1493,6 +1726,15 @@ const contactDomainErrorSchema = Type.Object(
     details: Type.Array(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
+);
+
+const contactByIdResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactByIdSuccessSchema
+    },
+    { includeValidation400: true }
+  )
 );
 
 const contactResponseSchema = Object.freeze(
@@ -1533,6 +1775,17 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema
+  },
+  response: contactByIdResponseSchema
+});
+
 function normalizeContactBody(rawBody) {
   return {
     name: String(rawBody?.name || "").trim(),
@@ -1549,6 +1802,12 @@ function normalizeContactBody(rawBody) {
 function normalizeContactQuery(rawQuery) {
   return {
     dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+function normalizeContactParams(rawParams) {
+  return {
+    contactId: String(rawParams?.contactId || "").trim()
   };
 }
 
@@ -1584,6 +1843,18 @@ const contactPreviewFollowupRouteContractStage7 = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema,
+    normalize: normalizeContactParams
+  },
+  response: contactByIdResponseSchema
+});
+
 // Backward-compat export used by earlier stage files in this chapter.
 const contactRouteSchema = Object.freeze({
   body: contactBodySchema,
@@ -1593,13 +1864,19 @@ const contactRouteSchema = Object.freeze({
 export {
   contactBodySchema,
   contactQuerySchema,
+  contactParamsSchema,
+  contactRecordSchema,
   contactSuccessSchema,
+  contactByIdSuccessSchema,
   contactDomainErrorSchema,
+  contactByIdResponseSchema,
   contactResponseSchema,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract,
+  contactByIdRouteContract,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7,
+  contactByIdRouteContractStage7,
   contactRouteSchema
 };
 ```
@@ -1617,13 +1894,18 @@ import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactByIdRouteContract,
+  contactRouteSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
 const STAGE_6_QUALIFICATION_SERVICE = "docs.examples.03.stage6.service.qualification";
 const STAGE_6_CREATE_ACTION = "docs.examples.03.stage6.actions.create";
 const STAGE_6_PREVIEW_ACTION = "docs.examples.03.stage6.actions.preview";
+const STAGE_6_GET_BY_ID_ACTION = "docs.examples.03.stage6.actions.getById";
 const STAGE_6_CONTROLLER = "docs.examples.03.stage6.controller";
 
 class Stage6LayeredProvider {
@@ -1656,11 +1938,20 @@ class Stage6LayeredProvider {
     );
 
     app.singleton(
+      STAGE_6_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdAction({
+          contactRepository: app.make(STAGE_6_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_6_CONTROLLER,
       () =>
         new ContactControllerStage6({
           createContactIntakeAction: app.make(STAGE_6_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_6_GET_BY_ID_ACTION)
         })
     );
   }
@@ -1703,6 +1994,13 @@ class Stage6LayeredProvider {
         response: withStandardErrorResponses(contactRouteSchema.response, { includeValidation400: true })
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-6/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }
@@ -1882,6 +2180,30 @@ const contactQuerySchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactParamsSchema = Type.Object(
+  {
+    contactId: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+const contactRecordSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    email: Type.String({ minLength: 1 }),
+    company: Type.String({ minLength: 1 }),
+    employees: Type.Integer({ minimum: 1 }),
+    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+    country: Type.String({ minLength: 2, maxLength: 2 }),
+    consentMarketing: Type.Boolean(),
+    score: Type.Integer({ minimum: 0, maximum: 100 }),
+    segment: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
 const contactSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
@@ -1896,6 +2218,14 @@ const contactSuccessSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const contactByIdSuccessSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    contact: contactRecordSchema
+  },
+  { additionalProperties: false }
+);
+
 const contactDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
@@ -1903,6 +2233,15 @@ const contactDomainErrorSchema = Type.Object(
     details: Type.Array(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
+);
+
+const contactByIdResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactByIdSuccessSchema
+    },
+    { includeValidation400: true }
+  )
 );
 
 const contactResponseSchema = Object.freeze(
@@ -1943,6 +2282,17 @@ const contactPreviewFollowupRouteContract = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema
+  },
+  response: contactByIdResponseSchema
+});
+
 function normalizeContactBody(rawBody) {
   return {
     name: String(rawBody?.name || "").trim(),
@@ -1959,6 +2309,12 @@ function normalizeContactBody(rawBody) {
 function normalizeContactQuery(rawQuery) {
   return {
     dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+function normalizeContactParams(rawParams) {
+  return {
+    contactId: String(rawParams?.contactId || "").trim()
   };
 }
 
@@ -1994,6 +2350,18 @@ const contactPreviewFollowupRouteContractStage7 = Object.freeze({
   response: contactResponseSchema
 });
 
+const contactByIdRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Get contact by id"
+  },
+  params: {
+    schema: contactParamsSchema,
+    normalize: normalizeContactParams
+  },
+  response: contactByIdResponseSchema
+});
+
 // Backward-compat export used by earlier stage files in this chapter.
 const contactRouteSchema = Object.freeze({
   body: contactBodySchema,
@@ -2003,13 +2371,19 @@ const contactRouteSchema = Object.freeze({
 export {
   contactBodySchema,
   contactQuerySchema,
+  contactParamsSchema,
+  contactRecordSchema,
   contactSuccessSchema,
+  contactByIdSuccessSchema,
   contactDomainErrorSchema,
+  contactByIdResponseSchema,
   contactResponseSchema,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract,
+  contactByIdRouteContract,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7,
+  contactByIdRouteContractStage7,
   contactRouteSchema
 };
 ```
@@ -2026,8 +2400,10 @@ import { ContactControllerStage7 } from "../controllers/ContactControllerStage7.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
+  contactByIdRouteContractStage7,
   contactIntakeRouteContractStage7,
   contactPreviewFollowupRouteContractStage7
 } from "../../shared/schemas/contactSchemas.js";
@@ -2036,6 +2412,7 @@ const STAGE_7_REPOSITORY = "docs.examples.03.stage7.repository";
 const STAGE_7_QUALIFICATION_SERVICE = "docs.examples.03.stage7.service.qualification";
 const STAGE_7_CREATE_ACTION = "docs.examples.03.stage7.actions.create";
 const STAGE_7_PREVIEW_ACTION = "docs.examples.03.stage7.actions.preview";
+const STAGE_7_GET_BY_ID_ACTION = "docs.examples.03.stage7.actions.getById";
 const STAGE_7_CONTROLLER = "docs.examples.03.stage7.controller";
 
 class Stage7RequestPipelineProvider {
@@ -2064,11 +2441,20 @@ class Stage7RequestPipelineProvider {
     );
 
     app.singleton(
+      STAGE_7_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdAction({
+          contactRepository: app.make(STAGE_7_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_7_CONTROLLER,
       () =>
         new ContactControllerStage7({
           createContactIntakeAction: app.make(STAGE_7_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_7_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_7_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_7_GET_BY_ID_ACTION)
         })
     );
   }
@@ -2090,6 +2476,13 @@ class Stage7RequestPipelineProvider {
       contactPreviewFollowupRouteContractStage7,
       (request, reply) => controller.previewFollowup(request, reply)
     );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-7/contacts/:contactId",
+      contactByIdRouteContractStage7,
+      (request, reply) => controller.show(request, reply)
+    );
   }
 }
 
@@ -2104,9 +2497,10 @@ Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage7.js
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage7" lang="js" -->
 ```js
 class ContactControllerStage7 {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
   }
 
   async intake(request, reply) {
@@ -2136,6 +2530,22 @@ class ContactControllerStage7 {
     if (!result.ok) {
       reply.code(result.status).send({
         error: "Domain validation failed.",
+        code: result.code,
+        details: result.details
+      });
+      return;
+    }
+
+    reply.code(200).send(result.data);
+  }
+
+  async show(request, reply) {
+    const result = this.getContactByIdAction.execute({
+      contactId: request.input?.params?.contactId || request.params?.contactId
+    });
+    if (!result.ok) {
+      reply.code(result.status).send({
+        error: "Contact not found.",
         code: result.code,
         details: result.details
       });
@@ -2224,8 +2634,10 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
+import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
+  contactByIdRouteContract,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -2235,6 +2647,7 @@ const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualifica
 const STAGE_8_DOMAIN_RULES_SERVICE = "docs.examples.03.stage8.service.domainRules";
 const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
+const STAGE_8_GET_BY_ID_ACTION = "docs.examples.03.stage8.actions.getById";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
 const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
@@ -2277,11 +2690,20 @@ class Stage8ErrorErgonomicsProvider {
     );
 
     app.singleton(
+      STAGE_8_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage8({
+          contactRepository: app.make(STAGE_8_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_8_CONTROLLER,
       () =>
         new ContactControllerStage8({
           createContactIntakeAction: app.make(STAGE_8_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_8_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_8_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_8_GET_BY_ID_ACTION)
         })
     );
   }
@@ -2332,6 +2754,13 @@ class Stage8ErrorErgonomicsProvider {
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-8/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
+    );
   }
 }
 
@@ -2348,10 +2777,11 @@ Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage8.js
 import { BaseController } from "@jskit-ai/kernel/server/http";
 
 class ContactControllerStage8 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
     super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
   }
 
   resolveInputBody(request) {
@@ -2368,6 +2798,13 @@ class ContactControllerStage8 extends BaseController {
     const payload = this.resolveInputBody(request);
     const preview = await this.previewContactFollowupAction.execute(payload);
     return this.ok(reply, preview);
+  }
+
+  async show(request, reply) {
+    const contact = await this.getContactByIdAction.execute({
+      contactId: request.params?.contactId
+    });
+    return this.ok(reply, contact);
   }
 }
 
@@ -2712,10 +3149,11 @@ import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { STAGE_9_REQUEST_CONTEXT_TOKEN } from "../support/stage9Middleware.js";
 
 class ContactControllerStage9 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
     super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
   }
 
   resolveInputBody(request) {
@@ -2755,6 +3193,14 @@ class ContactControllerStage9 extends BaseController {
     this.attachRequestScopeHeaders(request, reply);
     return this.ok(reply, preview);
   }
+
+  async show(request, reply) {
+    const contact = await this.getContactByIdAction.execute({
+      contactId: request.input?.params?.contactId || request.params?.contactId
+    });
+    this.attachRequestScopeHeaders(request, reply);
+    return this.ok(reply, contact);
+  }
 }
 
 export { ContactControllerStage9 };
@@ -2779,9 +3225,11 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
+import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
 import {
+  contactByIdRouteContractStage7,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -2791,6 +3239,7 @@ const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualifica
 const STAGE_9_DOMAIN_RULES_SERVICE = "docs.examples.03.stage9.service.domainRules";
 const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
+const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
 const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
@@ -2842,11 +3291,20 @@ class Stage9RuntimeContextProvider {
     );
 
     app.singleton(
+      STAGE_9_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage8({
+          contactRepository: app.make(STAGE_9_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_9_CONTROLLER,
       () =>
         new ContactControllerStage9({
           createContactIntakeAction: app.make(STAGE_9_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_9_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_9_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_9_GET_BY_ID_ACTION)
         })
     );
   }
@@ -2915,6 +3373,20 @@ class Stage9RuntimeContextProvider {
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-9/contacts/:contactId",
+      {
+        ...contactByIdRouteContractStage7,
+        middleware: stage9ContactsMiddleware,
+        meta: {
+          tags: ["docs-stage-9"],
+          summary: "Stage 9 request scope + middleware reuse: show by id"
+        }
+      },
+      (request, reply) => controller.show(request, reply)
     );
   }
 }
@@ -3172,10 +3644,11 @@ import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
 
 class ContactControllerStage10 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, contactsConfig }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction, contactsConfig }) {
     super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
     this.contactsConfig = contactsConfig;
   }
 
@@ -3226,6 +3699,15 @@ class ContactControllerStage10 extends BaseController {
     this.attachConfigHeaders(reply);
     return this.ok(reply, preview);
   }
+
+  async show(request, reply) {
+    const contact = await this.getContactByIdAction.execute({
+      contactId: request.input?.params?.contactId || request.params?.contactId
+    });
+    this.attachRequestScopeHeaders(request, reply);
+    this.attachConfigHeaders(reply);
+    return this.ok(reply, contact);
+  }
 }
 
 export { ContactControllerStage10 };
@@ -3249,10 +3731,12 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
 import {
+  contactByIdRouteContractStage7,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -3263,6 +3747,7 @@ const STAGE_10_QUALIFICATION_SERVICE = "docs.examples.03.stage10.service.qualifi
 const STAGE_10_DOMAIN_RULES_SERVICE = "docs.examples.03.stage10.service.domainRules";
 const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
+const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
@@ -3317,11 +3802,20 @@ class Stage10ConfigContractProvider {
     );
 
     app.singleton(
+      STAGE_10_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage10({
+          contactRepository: app.make(STAGE_10_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_10_CONTROLLER,
       () =>
         new ContactControllerStage10({
           createContactIntakeAction: app.make(STAGE_10_CREATE_ACTION),
           previewContactFollowupAction: app.make(STAGE_10_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_10_GET_BY_ID_ACTION),
           contactsConfig: app.make(STAGE_10_CONFIG)
         })
     );
@@ -3385,6 +3879,20 @@ class Stage10ConfigContractProvider {
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
+      {
+        ...contactByIdRouteContractStage7,
+        middleware: stage10ContactsMiddleware,
+        meta: {
+          tags: ["docs-stage-10"],
+          summary: "Stage 10 startup config + runtime context: show by id"
+        }
+      },
+      (request, reply) => controller.show(request, reply)
     );
   }
 }
@@ -3508,10 +4016,12 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
 import {
+  contactByIdRouteContractStage7,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -3522,6 +4032,7 @@ const STAGE_10_QUALIFICATION_SERVICE = "docs.examples.03.stage10.service.qualifi
 const STAGE_10_DOMAIN_RULES_SERVICE = "docs.examples.03.stage10.service.domainRules";
 const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
+const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
@@ -3576,11 +4087,20 @@ class Stage10ConfigContractProvider {
     );
 
     app.singleton(
+      STAGE_10_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage10({
+          contactRepository: app.make(STAGE_10_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_10_CONTROLLER,
       () =>
         new ContactControllerStage10({
           createContactIntakeAction: app.make(STAGE_10_CREATE_ACTION),
           previewContactFollowupAction: app.make(STAGE_10_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_10_GET_BY_ID_ACTION),
           contactsConfig: app.make(STAGE_10_CONFIG)
         })
     );
@@ -3644,6 +4164,20 @@ class Stage10ConfigContractProvider {
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
+      {
+        ...contactByIdRouteContractStage7,
+        middleware: stage10ContactsMiddleware,
+        meta: {
+          tags: ["docs-stage-10"],
+          summary: "Stage 10 startup config + runtime context: show by id"
+        }
+      },
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

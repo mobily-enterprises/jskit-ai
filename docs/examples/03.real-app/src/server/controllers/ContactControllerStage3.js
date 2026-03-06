@@ -72,6 +72,25 @@ class ContactControllerStage3 {
       persisted: false
     });
   }
+
+  async show(request, reply) {
+    const contactId = String(request.params?.contactId || "").trim();
+    const found = this.contacts.find((entry) => entry.id === contactId) || null;
+
+    if (!found) {
+      reply.code(404).send({
+        error: "Contact not found.",
+        code: "contact_not_found",
+        details: [`No contact found for id ${contactId || "<empty>"}.`]
+      });
+      return;
+    }
+
+    reply.code(200).send({
+      ok: true,
+      contact: found
+    });
+  }
 }
 
 export { ContactControllerStage3 };

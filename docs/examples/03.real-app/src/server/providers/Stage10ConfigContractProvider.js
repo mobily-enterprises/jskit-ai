@@ -9,10 +9,12 @@ import { ContactQualificationService } from "../services/ContactQualificationSer
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
 import {
+  contactByIdRouteContractStage7,
   contactBodySchema,
   contactSuccessSchema
 } from "../../shared/schemas/contactSchemas.js";
@@ -23,6 +25,7 @@ const STAGE_10_QUALIFICATION_SERVICE = "docs.examples.03.stage10.service.qualifi
 const STAGE_10_DOMAIN_RULES_SERVICE = "docs.examples.03.stage10.service.domainRules";
 const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
+const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
@@ -77,11 +80,20 @@ class Stage10ConfigContractProvider {
     );
 
     app.singleton(
+      STAGE_10_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdActionStage10({
+          contactRepository: app.make(STAGE_10_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_10_CONTROLLER,
       () =>
         new ContactControllerStage10({
           createContactIntakeAction: app.make(STAGE_10_CREATE_ACTION),
           previewContactFollowupAction: app.make(STAGE_10_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_10_GET_BY_ID_ACTION),
           contactsConfig: app.make(STAGE_10_CONFIG)
         })
     );
@@ -145,6 +157,20 @@ class Stage10ConfigContractProvider {
         }
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
+      {
+        ...contactByIdRouteContractStage7,
+        middleware: stage10ContactsMiddleware,
+        meta: {
+          tags: ["docs-stage-10"],
+          summary: "Stage 10 startup config + runtime context: show by id"
+        }
+      },
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

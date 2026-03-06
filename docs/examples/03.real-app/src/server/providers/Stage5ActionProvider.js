@@ -5,12 +5,15 @@ import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { contactByIdRouteContract } from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
 const STAGE_5_CREATE_ACTION = "docs.examples.03.stage5.actions.create";
 const STAGE_5_PREVIEW_ACTION = "docs.examples.03.stage5.actions.preview";
+const STAGE_5_GET_BY_ID_ACTION = "docs.examples.03.stage5.actions.getById";
 const STAGE_5_CONTROLLER = "docs.examples.03.stage5.controller";
 
 const stage5BodySchema = Type.Object(
@@ -76,11 +79,20 @@ class Stage5ActionProvider {
     );
 
     app.singleton(
+      STAGE_5_GET_BY_ID_ACTION,
+      () =>
+        new GetContactByIdAction({
+          contactRepository: app.make(STAGE_5_REPOSITORY)
+        })
+    );
+
+    app.singleton(
       STAGE_5_CONTROLLER,
       () =>
         new ContactControllerStage5({
           createContactIntakeAction: app.make(STAGE_5_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION)
+          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION),
+          getContactByIdAction: app.make(STAGE_5_GET_BY_ID_ACTION)
         })
     );
   }
@@ -131,6 +143,13 @@ class Stage5ActionProvider {
         response
       },
       (request, reply) => controller.previewFollowup(request, reply)
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-5/contacts/:contactId",
+      contactByIdRouteContract,
+      (request, reply) => controller.show(request, reply)
     );
   }
 }

@@ -1,5 +1,6 @@
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
+  contactByIdRouteContract,
   contactIntakeRouteContract,
   contactPreviewFollowupRouteContract
 } from "../../shared/schemas/contactSchemas.js";
@@ -183,6 +184,30 @@ class Stage1MonolithProvider {
           followupPlan,
           duplicateDetected: Boolean(duplicate),
           persisted: false
+        });
+      }
+    );
+
+    router.register(
+      "GET",
+      "/api/v1/docs/ch03/stage-1/contacts/:contactId",
+      contactByIdRouteContract,
+      async (request, reply) => {
+        const contactId = String(request.params?.contactId || "").trim();
+        const found = contacts.find((entry) => entry.id === contactId) || null;
+
+        if (!found) {
+          reply.code(404).send({
+            error: "Contact not found.",
+            code: "contact_not_found",
+            details: [`No contact found for id ${contactId || "<empty>"}.`]
+          });
+          return;
+        }
+
+        reply.code(200).send({
+          ok: true,
+          contact: found
         });
       }
     );

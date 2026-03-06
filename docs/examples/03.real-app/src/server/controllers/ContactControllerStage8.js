@@ -1,10 +1,11 @@
 import { BaseController } from "@jskit-ai/kernel/server/http";
 
 class ContactControllerStage8 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
     super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
+    this.getContactByIdAction = getContactByIdAction;
   }
 
   resolveInputBody(request) {
@@ -21,6 +22,13 @@ class ContactControllerStage8 extends BaseController {
     const payload = this.resolveInputBody(request);
     const preview = await this.previewContactFollowupAction.execute(payload);
     return this.ok(reply, preview);
+  }
+
+  async show(request, reply) {
+    const contact = await this.getContactByIdAction.execute({
+      contactId: request.params?.contactId
+    });
+    return this.ok(reply, contact);
   }
 }
 

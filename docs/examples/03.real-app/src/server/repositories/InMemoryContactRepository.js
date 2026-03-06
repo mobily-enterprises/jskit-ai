@@ -7,6 +7,10 @@ class InMemoryContactRepository extends ContactRepository {
     this.byEmail = new Map();
   }
 
+  findById(id) {
+    return this.byId.get(id) || null;
+  }
+
   findByEmail(email) {
     const id = this.byEmail.get(email) || null;
     if (!id) {

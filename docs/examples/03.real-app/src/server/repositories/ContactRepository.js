@@ -1,6 +1,10 @@
 const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
 
 class ContactRepository {
+  findById(_id) {
+    throw new Error("ContactRepository.findById must be implemented.");
+  }
+
   findByEmail(_email) {
     throw new Error("ContactRepository.findByEmail must be implemented.");
   }
