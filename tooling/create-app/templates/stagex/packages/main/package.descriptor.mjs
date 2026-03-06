@@ -2,7 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@local/main",
   version: "0.1.0",
-  description: "App-local main module scaffold.",
+  description: "App-local contacts module scaffold.",
   dependsOn: [],
   capabilities: {
     provides: [],
@@ -25,7 +25,11 @@ export default Object.freeze({
   },
   metadata: {
     server: {
-      routes: []
+      routes: [
+        { method: "POST", path: "/api/v1/contacts/intake" },
+        { method: "POST", path: "/api/v1/contacts/preview-followup" },
+        { method: "GET", path: "/api/v1/contacts/:contactId" }
+      ]
     },
     ui: {
       routes: [],

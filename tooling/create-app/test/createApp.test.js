@@ -162,6 +162,49 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
   });
 });
 
+test("create-app scaffolds stagex with main service provider and contact routes", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({ cwd, args: ["stagex-app", "--template", "stagex"] });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const appRoot = path.join(cwd, "stagex-app");
+
+    const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
+    assert.match(readme, /template: `stagex`/);
+    assert.match(readme, /POST \/api\/v1\/contacts\/intake/);
+    assert.match(readme, /POST \/api\/v1\/contacts\/preview-followup/);
+    assert.match(readme, /GET \/api\/v1\/contacts\/:contactId/);
+
+    const localMainServerEntrypoint = await readFile(path.join(appRoot, "packages/main/src/server/index.js"), "utf8");
+    assert.match(localMainServerEntrypoint, /export \{ MainServiceProvider \}/);
+
+    const localMainProvider = await readFile(
+      path.join(appRoot, "packages/main/src/server/providers/MainServiceProvider.js"),
+      "utf8"
+    );
+    assert.match(localMainProvider, /class MainServiceProvider/);
+    assert.match(localMainProvider, /static id = "local\.main";/);
+    assert.match(localMainProvider, /\/api\/v1\/contacts\/intake/);
+    assert.match(localMainProvider, /\/api\/v1\/contacts\/preview-followup/);
+    assert.match(localMainProvider, /\/api\/v1\/contacts\/:contactId/);
+    assert.doesNotMatch(localMainProvider, /stage-7|Stage7|stage7/);
+
+    const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
+    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/providers\/MainServiceProvider\.js"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/intake"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/preview-followup"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/:contactId"/);
+
+    const contactSchemas = await readFile(
+      path.join(appRoot, "packages/main/src/shared/schemas/contactSchemas.js"),
+      "utf8"
+    );
+    assert.match(contactSchemas, /contact_domain_invalid/);
+    assert.doesNotMatch(contactSchemas, /stage-7|Stage7|stage7/);
+  });
+});
+
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const stdoutCapture = createCaptureWritable();
