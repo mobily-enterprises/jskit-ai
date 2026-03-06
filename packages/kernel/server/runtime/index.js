@@ -16,7 +16,7 @@ export { createRealtimeEventEnvelope, createRealtimeEventsBus, createTargetedCha
 export { createService } from "./realtimeEventsService.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";
-export { resolveLoggerLevel, createFastifyLoggerOptions, registerRequestLoggingHooks, registerApiErrorHandler, resolveDatabaseErrorCode, recordDbErrorBestEffort, runGracefulShutdown } from "./fastifyBootstrap.js";
+export { resolveLoggerLevel, createFastifyLoggerOptions, registerRequestLoggingHooks, registerApiErrorHandler, ensureApiErrorHandling, resolveDatabaseErrorCode, recordDbErrorBestEffort, runGracefulShutdown } from "./fastifyBootstrap.js";
 export { normalizeRuntimeBundle, createRuntimeKernel } from "./runtimeKernel.js";
 export { mergeRuntimeBundles, createRuntimeAssembly, buildRoutesFromManifest } from "./runtimeAssembly.js";
 export { registerApiRouteDefinitions } from "./apiRouteRegistration.js";

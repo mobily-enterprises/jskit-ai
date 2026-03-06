@@ -6,8 +6,7 @@ class ContactControllerStage6 {
   }
 
   async intake(request, reply) {
-    const payload = request.body;
-    const result = this.createContactIntakeAction.execute(payload);
+    const result = this.createContactIntakeAction.execute(request.body);
     if (!result.ok) {
       reply.code(result.status).send({
         error: "Domain validation failed.",
@@ -21,8 +20,7 @@ class ContactControllerStage6 {
   }
 
   async previewFollowup(request, reply) {
-    const payload = request.body;
-    const result = this.previewContactFollowupAction.execute(payload);
+    const result = this.previewContactFollowupAction.execute(request.body);
     if (!result.ok) {
       reply.code(result.status).send({
         error: "Domain validation failed.",

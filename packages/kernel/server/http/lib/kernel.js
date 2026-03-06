@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
 
@@ -403,20 +404,41 @@ function registerHttpRuntime(app, options = {}) {
     throw new RouteRegistrationError("registerHttpRuntime requires an application instance.");
   }
 
-  const fastifyToken = options.fastifyToken || KERNEL_TOKENS.Fastify;
-  const routerToken = options.routerToken || KERNEL_TOKENS.HttpRouter;
+  const runtimeOptions = normalizeObject(options);
+  const {
+    fastifyToken = KERNEL_TOKENS.Fastify,
+    routerToken = KERNEL_TOKENS.HttpRouter,
+    autoRegisterApiErrorHandling = true,
+    apiErrorHandling = {},
+    ...routeRegistrationOptions
+  } = runtimeOptions;
   const fastify = app.make(fastifyToken);
   const router = app.make(routerToken);
   const routes = typeof router?.list === "function" ? router.list() : [];
 
+  if (autoRegisterApiErrorHandling !== false) {
+    ensureApiErrorHandling(app, {
+      fastifyToken,
+      ...normalizeObject(apiErrorHandling)
+    });
+  }
+
   return registerRoutes(fastify, {
-    ...options,
+    ...routeRegistrationOptions,
     app,
     routes
   });
 }
 
-function createHttpRuntime({ app = null, fastify = null, router = null } = {}) {
+function createHttpRuntime(
+  {
+    app = null,
+    fastify = null,
+    router = null,
+    autoRegisterApiErrorHandling = true,
+    apiErrorHandling = {}
+  } = {}
+) {
   if (!app || typeof app.singleton !== "function") {
     throw new RouteRegistrationError("createHttpRuntime requires an application instance.");
   }
@@ -426,12 +448,22 @@ function createHttpRuntime({ app = null, fastify = null, router = null } = {}) {
 
   if (fastify) {
     app.instance(KERNEL_TOKENS.Fastify, fastify);
+    if (autoRegisterApiErrorHandling !== false) {
+      ensureApiErrorHandling(app, {
+        fastifyToken: KERNEL_TOKENS.Fastify,
+        ...normalizeObject(apiErrorHandling)
+      });
+    }
   }
 
   return {
     router: runtimeRouter,
     registerRoutes(runtimeOptions = {}) {
-      return registerHttpRuntime(app, runtimeOptions);
+      return registerHttpRuntime(app, {
+        autoRegisterApiErrorHandling,
+        apiErrorHandling: normalizeObject(apiErrorHandling),
+        ...normalizeObject(runtimeOptions)
+      });
     }
   };
 }

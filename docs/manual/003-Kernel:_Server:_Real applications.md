@@ -571,137 +571,9 @@ The bad:
 - controller still manually maps `{ ok, status, code, details, data }` envelopes
 - domain failures are still result-object based and not yet using the Stage 8 ergonomics
 
-## Stage 6: Shared Schemas + Baseline Provider Wiring
+## Stage 6: DOESN'T ACTUALLY DO ANYTHING
 
-Now we compose everything together in a clean baseline structure, before the advanced Stage 7 to Stage 10 refinements.
-
-Files:
-
-* src/server/providers/ContactProviderStage6.js (modified)
-* src/server/controllers/ContactControllerStage6.js (modified)
-* src/server/actions/CreateContactIntakeActionStage6.js (unchanged)
-* src/server/actions/PreviewContactFollowupActionStage6.js (unchanged)
-* src/server/actions/GetContactByIdActionStage6.js (unchanged)
-* src/server/services/ContactQualificationServiceStage6.js (unchanged)
-* src/server/repositories/InMemoryContactRepositoryStage6.js (unchanged)
-* src/shared/schemas/contactSchemasStage6.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
-
-### The differences
-
-#### The provider
-
-* src/server/providers/ContactProviderStage6.js (modified)
-
-Stage 6 provider is where the full layered assembly is made explicit.
-
-Snippet: dependency wiring in `register(app)`:
-
-```js
-app.singleton(STAGE_6_REPOSITORY, () => new InMemoryContactRepositoryStage6());
-app.singleton(STAGE_6_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage6());
-
-app.singleton(
-  STAGE_6_CREATE_ACTION,
-  () =>
-    new CreateContactIntakeActionStage6({
-      qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
-      contactRepository: app.make(STAGE_6_REPOSITORY)
-    })
-);
-
-app.singleton(
-  STAGE_6_CONTROLLER,
-  () =>
-    new ContactControllerStage6({
-      createContactIntakeAction: app.make(STAGE_6_CREATE_ACTION),
-      previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION),
-      getContactByIdAction: app.make(STAGE_6_GET_BY_ID_ACTION)
-    })
-);
-```
-
-What this snippet shows:
-
-- repository and service are infrastructure/domain dependencies
-- actions are use-case orchestration units
-- controller receives actions only (not service/repository directly)
-- provider remains the composition root
-
-Snippet: route wiring in `boot(app)`:
-
-```js
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-6/contacts/intake",
-  contactIntakePostRouteContract,
-  (request, reply) => controller.intake(request, reply)
-);
-```
-
-This keeps transport wiring very thin: route + contract + controller method.
-
-#### The controller
-
-* src/server/controllers/ContactControllerStage6.js (modified)
-
-In this stage, the controller keeps the thin action-delegation pattern introduced in Stage 5, while routes and wiring are consolidated under the Stage 6 baseline assembly.
-
-
-### Shared schemas
-
-* src/shared/schemas/contactSchemasStage6.js
-
-At Stage 6, schema contracts are intentionally stable and reused.
-
-Snippet from `contactSchemasStage6.js`:
-
-```js
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "./contactSchemasStage1.js";
-
-export {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-};
-```
-
-What this snippet shows:
-
-- Stage 6 does not redesign transport contracts yet
-- it reuses already-defined contracts while architecture is cleaned up
-- this gives you a stable baseline before Stage 7 introduces contract normalization enhancements
-
-
-### The verdict
-
-At this point, the architecture is clean and practical:
-
-- provider composes dependencies
-- controller handles HTTP mapping
-- actions represent use cases
-- service owns business logic
-- repository owns data access
-- schemas are shared contracts
-
-However, there are still improvements that are possible.
-
-
-The good:
-
-- architecture is now layered and readable end to end
-- responsibilities are clearly split across provider, controller, actions, service, and repository
-- this stage is a stable baseline that is easy to reason about
-
-The bad:
-
-- transport normalization is still not fully explicit at the contract edge
-- error ergonomics are still manual in controllers/actions
-- runtime context and startup config safeguards are not in place yet
+TO BE DELETED
 
 ## Stage 7: Route Contract API and Normalization
 
@@ -724,25 +596,58 @@ Files:
 
 * src/server/providers/ContactProviderStage7.js (modified)
 
-What changes in Stage 7:
+```js
+// Stage 6 style
+router.register(
+  "POST",
+  "/.../intake",
+  { ...contactIntakePostRouteContract, meta: { ... } },
+  handler
+);
+```
 
-- route contracts define both transport schema and normalization in one shared object
-- runtime validates first, then normalizes, and exposes normalized values in `request.input`
-- controller reads only `request.input.body` and `request.input.params`
-- Stage 7 actions consume normalized payload directly, so transport normalization is not repeated in service/action internals
+```js
+// Stage 7 style
+router.register(
+  "POST",
+  "/.../intake",
+  contactIntakePostRouteContractStage7,
+  handler
+);
+```
 
-Execution order in this stage:
+Provider now passes route contracts directly (instead of spreading and overriding `meta` inline):
 
-1. `body.schema` / `params.schema` validate transport shape
-2. matching `normalize` functions run
-3. normalized values are exposed under `request.input`
-4. controller/actions consume normalized data only
+```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-7/contacts/intake",
+  contactIntakePostRouteContractStage7,
+  (request, reply) => controller.intake(request, reply)
+);
+```
 
+What this means at runtime:
 
+- request is validated first (`body.schema`, `params.schema`)
+- matching normalizers then run (`body.normalize`, `params.normalize`)
+- normalized values are exposed in `request.input`
+- controller/actions consume normalized values instead of raw transport values
 
 #### The controller
 
 * src/server/controllers/ContactControllerStage7.js (modified)
+
+```js
+// Stage 6
+const result = this.createContactIntakeAction.execute(request.body);
+const contactId = request.params?.contactId;
+
+// Stage 7
+const payload = request.input.body;
+const result = this.createContactIntakeAction.execute(payload);
+const contactId = request.input.params.contactId;
+```
 
 What changed from Stage 6:
 
@@ -750,21 +655,8 @@ What changed from Stage 6:
 - route-param fallback to `request.params` is removed
 - transport-shape parsing concerns are out of controller code
 
-Quick snippet summary:
-
-```js
-// Stage 6
-const payload = request.body;
-const contactId = request.params?.contactId;
-
-// Stage 7
-const payload = request.input.body;
-const contactId = request.input.params.contactId;
-```
 
 #### The shared route contracts
-
-* src/shared/schemas/contactSchemasStage7.js (modified)
 
 - Stage 7 contracts are declared as full standalone contracts (not wrappers around Stage 6 contracts)
 - each route section (`body`, `params`) includes both `schema` and `normalize` where relevant
@@ -790,34 +682,30 @@ They are all pure functions, which means that both client and server can access 
 
 * src/server/services/ContactQualificationServiceStage7.js (modified)
 
-What changed from Stage 6:
-
-- Stage 6 `qualify(rawPayload)` normalized internally
-- Stage 7 `qualify(payload)` assumes route contract normalization already happened
-- service still returns the same qualified shape (`ok`, `normalized`, `score`, `segment`, `followupPlan`)
-- `qualify(...)` is the only public method; helper methods are internal (`_...`)
-
-Important note: this is a real API behavior change in `qualify(...)`.
-From Stage 7 onward, callers should pass normalized input (for example `request.input.body`), not raw transport payloads.
-
-Quick snippet summary:
-
 ```js
-// Stage 6 behavior
-qualify(rawPayload) {
-  const normalized = normalizeContactBody(rawPayload);
-  // validate + score + segment + followup
-}
+  // Stage 6
+  qualify(rawPayload) {
+    const normalized = normalizeContactBody(rawPayload);
+    // ...qualification logic
+  }
 
-// Stage 7 behavior
-qualify(payload) {
-  // validate + score + segment + followup
-}
+  // Stage 7
+  qualify(payload) { // already normalized by route contract
+    // ...same qualification logic, no normalization step
+  }
 ```
 
 #### The shared input normalization
 
 * src/shared/input/contactInputNormalizationStage7.js (modified)
+
+```js
+// Stage 7 input module
+export {
+  normalizeContactBody,
+  normalizeContactParams
+} from "./contactInputNormalizationStage1.js";
+```
 
 Normalization functions now live in shared input modules and are referenced by route contracts.
 That keeps transport-shaping logic reusable and out of provider/controller code.
@@ -839,21 +727,22 @@ The bad:
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
-Stage 8 changes domain-failure handling from manual per-controller branching to one centralized thrown-error flow.
+Stage 8 keeps the layered shape from Stage 7, but it changes one important behavior:
+
+- before: actions returned `{ ok: false, status, code, details }` and controllers mapped that manually
+- now: actions throw typed domain/app errors, and controllers stay focused on success paths
+
+This stage is intentionally small. You are not changing the architecture again. You are only changing how failures flow.
 
 Files:
 
 * src/server/providers/ContactProviderStage8.js (modified)
 * src/server/controllers/ContactControllerStage8.js (modified)
-* src/server/support/domainRuleValidationStage8.js (new)
-* src/server/services/ContactDomainRulesServiceStage8.js (new)
 * src/server/actions/CreateContactIntakeActionStage8.js (modified)
 * src/server/actions/PreviewContactFollowupActionStage8.js (modified)
 * src/server/actions/GetContactByIdActionStage8.js (modified)
-* src/server/services/ContactQualificationServiceStage8.js (unchanged)
-* src/server/repositories/InMemoryContactRepositoryStage8.js (unchanged)
-* src/shared/schemas/contactSchemasStage8.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
+* src/server/support/domainRuleValidationStage8.js (new)
+* src/server/services/ContactDomainRulesServiceStage8.js (new)
 
 ### The differences
 
@@ -861,107 +750,147 @@ Files:
 
 * src/server/providers/ContactProviderStage8.js (modified)
 
-- installs `registerApiErrorHandler(...)` once so thrown app/domain errors map consistently
-- wires the new domain-rules service/helper path for Stage 8 actions
+What changed:
 
+- route registration stays the same pattern as previous stages
+- provider wires Stage 8 action/controller classes
+- provider no longer installs API error handling manually; runtime bootstrap does it automatically
 
+Snippet:
+
+```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-8/contacts/intake",
+  {
+    ...contactIntakePostRouteContract,
+    response: STAGE_8_RESPONSE_SCHEMA
+  },
+  (request, reply) => controller.intake(request, reply)
+);
+```
 
 #### The controller
 
 * src/server/controllers/ContactControllerStage8.js (modified)
 
-Before (manual result mapping in each controller method):
+What changed:
+
+- controller now extends `BaseController`
+- controller methods handle success only (`this.ok(...)`)
+- no manual `if (!result.ok)` branches in controller methods
+
+Before:
 
 ```js
-const result = this.createContactIntakeAction.execute(request.body);
+const result = this.createContactIntakeAction.execute(payload);
 if (!result.ok) {
-  reply.code(result.status).send({
-    error: "Domain validation failed.",
-    code: result.code,
-    details: result.details
-  });
+  reply.code(result.status).send({ error: "...", code: result.code, details: result.details });
   return;
 }
 reply.code(200).send(result.data);
 ```
 
-After (controller handles success path only, and errors are mapped globally):
+After:
 
 ```js
-import { BaseController } from "@jskit-ai/kernel/server/http";
-
-class ContactControllerStage8 extends BaseController {
-  async intake(request, reply) {
-    const payload = request?.input?.body || request?.body || {};
-    const created = await this.createContactIntakeAction.execute(payload);
-    return this.ok(reply, created);
-  }
-}
+const created = await this.createContactIntakeAction.execute(payload);
+return this.ok(reply, created);
 ```
 
-
-
-#### The domain rule helper
-
-* src/server/support/domainRuleValidationStage8.js (new)
-
-- centralizes domain-rule execution/checking
-- throws consistent `DomainValidationError` payloads when one or more rules fail
-
-
-
-#### The domain rules service
-
-* src/server/services/ContactDomainRulesServiceStage8.js (new)
-
-- defines contact-domain rule sets in one reusable service
-- keeps rule definition separate from action orchestration
-
-
-
-#### The action: create intake
+#### The actions
 
 * src/server/actions/CreateContactIntakeActionStage8.js (modified)
+* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
+* src/server/actions/GetContactByIdActionStage8.js (modified)
 
-Key change:
+What changed:
+
+- actions move from result-error objects to thrown typed errors
+- success return values remain plain objects
+- the runtime error handler maps thrown errors to HTTP JSON payloads
+
+Before:
 
 ```js
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
-
-class CreateContactIntakeActionStage8 {
-  async execute(payload) {
-    const normalized = normalizeContactBody(payload);
-    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-    const qualified = this.qualificationService.qualify(normalized);
-    // ... domain conflict checks, persistence, return success payload from qualified
-  }
+if (duplicate) {
+  return {
+    ok: false,
+    status: 409,
+    code: "duplicate_contact",
+    details: ["..."]
+  };
 }
 ```
 
-- throws domain errors (`DomainValidationError`, `ConflictError`) instead of returning `{ ok: false }`
-- uses shared domain rule evaluation before persistence
+After:
 
+```js
+if (duplicate) {
+  throw new ConflictError("A contact with this email already exists.", {
+    code: "duplicate_contact",
+    details: {
+      fieldErrors: {
+        email: "a contact with this email already exists"
+      }
+    }
+  });
+}
+```
 
+And for not-found:
 
-#### The action: preview follow-up
+```js
+if (!contact) {
+  throw new NotFoundError("Contact not found.", {
+    code: "contact_not_found",
+    details: { contactId: normalizedId }
+  });
+}
+```
 
-* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
+#### Optional domain-rule extraction helper (used in this stage)
 
-- follows the same throw-style domain flow as create-intake
+* src/server/support/domainRuleValidationStage8.js (new)
+* src/server/services/ContactDomainRulesServiceStage8.js (new)
 
-#### The action: get by id
+This is optional design refinement, not a mandatory kernel requirement.
 
-* src/server/actions/GetContactByIdActionStage8.js (modified)
+It lets Stage 8 actions do this:
 
-- aligned to the same centralized error-style conventions
+```js
+assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+```
+
+instead of duplicating rule loops in each action.
+
+### Optional advanced API: custom error handling behavior
+
+Everyday usage needs no extra code. Runtime already auto-installs API error handling.
+
+If you want custom behavior, pass `apiErrorHandling` when registering runtime:
+
+```js
+registerHttpRuntime(app, {
+  apiErrorHandling: {
+    isAppError: (error) =>
+      error?.name === "AppError" || error?.name === "DomainValidationError",
+    onCaptureServerError: (request, error, statusCode) => {
+      request.log.error({ err: error, statusCode }, "api.custom.capture");
+    },
+    unhandledErrorLogMessage: "API unhandled error"
+  }
+});
+```
+
+This is non-mandatory. Use it only when you need custom error classification or custom server-error side effects.
 
 ### What improved
 
-- domain validation is centralized and reusable
-- actions fail fast with domain-meaningful error classes
-- provider installs one API error handler integration point (`registerApiErrorHandler(...)`)
-- controller is now success-only for core happy paths
+- controllers are shorter and success-focused
+- actions express failures with typed domain/app errors
+- error JSON shape is centralized and consistent
+- no provider-level error-handler boilerplate is required
 
 ### Result vs throw in domain validation
 
@@ -988,16 +917,15 @@ Recommendation:
 
 The good:
 
-- domain validation is centralized and reusable
-- actions fail fast with domain-meaningful error classes
-- provider installs one API error handler integration point (`registerApiErrorHandler(...)`)
-- controller is now success-only for core happy paths
+- Stage 8 changes are focused and small
+- controller code is cleaner and easier to read
+- domain failures are now explicit typed errors
+- runtime gives centralized JSON error mapping by default
 
 The bad:
 
-- request-scoped runtime context is not yet leveraged
-- middleware reuse policy is not yet centralized per stage
-- startup config contracts are still missing
+- you now need discipline around one error style per module
+- advanced custom error hooks should be used sparingly
 
 ## Stage 9: Runtime Context and Middleware Reuse
 
@@ -1288,7 +1216,7 @@ By this point, the module is a proper composition root:
 - transport validation is enforced by route `schema`
 - request pipeline ergonomics are handled through `input` normalization into `request.input`
 - domain validation is explicit in actions/services, using domain error classes
-- global HTTP error mapping is centralized with `registerApiErrorHandler(...)`
+- global HTTP error mapping is centralized by runtime bootstrap defaults
 - runtime context is request-scoped (`request.scope`, `KERNEL_TOKENS.RequestId`, and scoped context instances)
 - middleware reuse is declarative at provider route registration
 - startup config contracts are validated once at boot with `defineModuleConfig(...)`

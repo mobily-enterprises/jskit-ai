@@ -4,14 +4,20 @@ import test from "node:test";
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { createApplication } from "../../kernel/lib/index.js";
 import { createRouter } from "./router.js";
-import { registerHttpRuntime, registerRoutes } from "./kernel.js";
+import { createHttpRuntime, registerHttpRuntime, registerRoutes } from "./kernel.js";
 
 function createFastifyStub() {
   const routes = [];
   return {
     routes,
+    setErrorHandlerCalls: 0,
+    errorHandler: null,
     route(definition) {
       routes.push(definition);
+    },
+    setErrorHandler(handler) {
+      this.errorHandler = handler;
+      this.setErrorHandlerCalls += 1;
     }
   };
 }
@@ -171,6 +177,49 @@ test("registerHttpRuntime passes app context so request scope is available", asy
 
   assert.equal(reply.statusCode, 200);
   assert.deepEqual(reply.payload, { requestId: "runtime-1" });
+  assert.equal(fastify.setErrorHandlerCalls, 1);
+});
+
+test("registerHttpRuntime installs API error handling once by default", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+
+  app.instance(KERNEL_TOKENS.Fastify, fastify);
+  app.instance(KERNEL_TOKENS.HttpRouter, router);
+
+  registerHttpRuntime(app);
+  registerHttpRuntime(app);
+
+  assert.equal(fastify.setErrorHandlerCalls, 1);
+  assert.equal(typeof fastify.errorHandler, "function");
+});
+
+test("registerHttpRuntime can disable automatic API error handling", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+
+  app.instance(KERNEL_TOKENS.Fastify, fastify);
+  app.instance(KERNEL_TOKENS.HttpRouter, router);
+
+  registerHttpRuntime(app, {
+    autoRegisterApiErrorHandling: false
+  });
+
+  assert.equal(fastify.setErrorHandlerCalls, 0);
+});
+
+test("createHttpRuntime installs API error handling when Fastify is provided", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+
+  createHttpRuntime({
+    app,
+    fastify
+  });
+
+  assert.equal(fastify.setErrorHandlerCalls, 1);
 });
 
 test("registerHttpRuntime forwards middleware alias/group config to route execution", async () => {

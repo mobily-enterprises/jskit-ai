@@ -1,9 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
 import { ContactQualificationServiceStage10 } from "../services/ContactQualificationServiceStage10.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
@@ -27,7 +23,6 @@ const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
 const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
-const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
@@ -100,13 +95,6 @@ class ContactProviderStage10 {
   }
 
   boot(app) {
-    if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
-    }
-
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_10_CONTROLLER);
 

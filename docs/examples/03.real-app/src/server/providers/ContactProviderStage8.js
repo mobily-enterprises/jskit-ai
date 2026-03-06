@@ -1,9 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
 import { ContactQualificationServiceStage8 } from "../services/ContactQualificationServiceStage8.js";
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
@@ -24,7 +20,6 @@ const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
 const STAGE_8_GET_BY_ID_ACTION = "docs.examples.03.stage8.actions.getById";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
-const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
@@ -84,13 +79,6 @@ class ContactProviderStage8 {
   }
 
   boot(app) {
-    if (!app.has(STAGE_8_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_8_ERROR_HANDLER_MARKER, true);
-    }
-
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_8_CONTROLLER);
 

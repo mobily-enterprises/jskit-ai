@@ -9,8 +9,12 @@ function createFastifyStub() {
   const routes = [];
   return {
     routes,
+    errorHandler: null,
     route(definition) {
       routes.push(definition);
+    },
+    setErrorHandler(handler) {
+      this.errorHandler = handler;
     }
   };
 }

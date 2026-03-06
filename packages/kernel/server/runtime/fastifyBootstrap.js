@@ -1,3 +1,8 @@
+import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
+import { isAppError } from "./errors.js";
+
+const API_ERROR_HANDLER_MARKER_TOKEN = "kernel.runtime.apiErrorHandlerRegistered";
+
 function resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {}) {
   const normalizedConfiguredLevel = String(configuredLevel || "")
     .trim()
@@ -141,8 +146,10 @@ function registerApiErrorHandler(
 
     if (Array.isArray(error?.validation)) {
       const fieldErrors = resolveValidationFieldErrors(error);
+      const validationErrorCode = normalizedErrorCode || "validation_failed";
       reply.code(400).send({
         error: "Validation failed.",
+        code: validationErrorCode,
         fieldErrors,
         details: {
           fieldErrors
@@ -158,7 +165,11 @@ function registerApiErrorHandler(
         app.log.error({ err: error }, appErrorLogMessage);
       }
 
-      const payload = { error: error.message };
+      const appErrorCode = normalizedErrorCode || "app_error";
+      const payload = {
+        error: error.message,
+        code: appErrorCode
+      };
       if (error.details) {
         payload.details = error.details;
         if (error.details.fieldErrors) {
@@ -189,7 +200,12 @@ function registerApiErrorHandler(
     app.log.error({ err: error }, unhandledErrorLogMessage);
 
     const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
-    const payload = { error: message };
+    const fallbackErrorCode =
+      normalizedErrorCode || (statusCode >= 500 ? "internal_server_error" : "request_failed");
+    const payload = {
+      error: message,
+      code: fallbackErrorCode
+    };
     if (isCsrfErrorCode) {
       payload.details = {
         code: normalizedErrorCode
@@ -197,6 +213,44 @@ function registerApiErrorHandler(
     }
     reply.code(statusCode).send(payload);
   });
+}
+
+function ensureApiErrorHandling(
+  app,
+  {
+    fastifyToken = KERNEL_TOKENS.Fastify,
+    markerToken = API_ERROR_HANDLER_MARKER_TOKEN,
+    isAppError: isAppErrorOverride,
+    autoRegister = true,
+    ...handlerOptions
+  } = {}
+) {
+  if (!app || typeof app.make !== "function" || typeof app.has !== "function" || typeof app.instance !== "function") {
+    throw new TypeError("ensureApiErrorHandling requires an application instance.");
+  }
+
+  if (autoRegister === false) {
+    return false;
+  }
+
+  const normalizedMarkerToken = String(markerToken || "").trim() || API_ERROR_HANDLER_MARKER_TOKEN;
+  if (app.has(normalizedMarkerToken)) {
+    return false;
+  }
+
+  const fastify = app.make(fastifyToken);
+  if (!fastify || typeof fastify.setErrorHandler !== "function") {
+    throw new TypeError("ensureApiErrorHandling requires a Fastify instance.");
+  }
+
+  const appErrorPredicate = typeof isAppErrorOverride === "function" ? isAppErrorOverride : isAppError;
+  registerApiErrorHandler(fastify, {
+    ...handlerOptions,
+    isAppError: appErrorPredicate
+  });
+  app.instance(normalizedMarkerToken, true);
+
+  return true;
 }
 
 function resolveDatabaseErrorCode(error) {
@@ -301,6 +355,7 @@ export {
   createFastifyLoggerOptions,
   registerRequestLoggingHooks,
   registerApiErrorHandler,
+  ensureApiErrorHandling,
   resolveDatabaseErrorCode,
   recordDbErrorBestEffort,
   runGracefulShutdown

@@ -1,10 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
 import { ContactQualificationServiceStage9 } from "../services/ContactQualificationServiceStage9.js";
 import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
@@ -29,7 +25,6 @@ const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
 const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
-const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
 const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
@@ -98,13 +93,6 @@ class ContactProviderStage9 {
   }
 
   boot(app) {
-    if (!app.has(STAGE_9_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_9_ERROR_HANDLER_MARKER, true);
-    }
-
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(STAGE_9_CONTROLLER);
 
