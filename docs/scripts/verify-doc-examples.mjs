@@ -41,6 +41,38 @@ function resolveAbs(repoRoot, relativePath) {
   return path.resolve(repoRoot, relativePath);
 }
 
+function expandStructuralPathVariants(relativePath) {
+  if (!ensureString(relativePath)) return [];
+  const normalized = relativePath.replace(/\\/g, "/");
+  if (normalized.startsWith("src/")) {
+    return [normalized, normalized.replace(/^src\//, "stages/")];
+  }
+  if (normalized.startsWith("stages/")) {
+    return [normalized, normalized.replace(/^stages\//, "src/")];
+  }
+  return [normalized];
+}
+
+async function findExistingPath(baseDirAbs, relativePath) {
+  const variants = expandStructuralPathVariants(relativePath);
+  for (const variant of variants) {
+    const abs = path.join(baseDirAbs, variant);
+    if (await fileExists(abs)) {
+      return {
+        found: true,
+        abs,
+        variant
+      };
+    }
+  }
+
+  return {
+    found: false,
+    abs: path.join(baseDirAbs, relativePath),
+    variant: relativePath
+  };
+}
+
 async function verifyManifestStructure({ manifest, errors }) {
   if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
     errors.push("manifest must be an object");
@@ -82,15 +114,15 @@ async function verifyExamplePackage({ chapterNumber, manualText, example, requir
   if (!ensureString(example.entrypoint)) {
     errors.push(`chapter ${chapterNumber}: ${example.packageDir} is missing entrypoint`);
   } else {
-    const entryAbs = path.join(packageDirAbs, example.entrypoint);
-    if (!(await fileExists(entryAbs))) {
+    const entry = await findExistingPath(packageDirAbs, example.entrypoint);
+    if (!entry.found) {
       errors.push(`chapter ${chapterNumber}: missing entrypoint ${example.packageDir}/${example.entrypoint}`);
     }
   }
 
   for (const file of requiredFiles) {
-    const abs = path.join(packageDirAbs, file);
-    if (!(await fileExists(abs))) {
+    const required = await findExistingPath(packageDirAbs, file);
+    if (!required.found) {
       errors.push(`chapter ${chapterNumber}: ${example.packageDir} missing required file ${file}`);
     }
   }

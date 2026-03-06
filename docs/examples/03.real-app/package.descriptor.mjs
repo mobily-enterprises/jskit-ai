@@ -11,34 +11,34 @@ export default Object.freeze({
   options: {},
   runtime: {
     server: {
-      providerEntrypoint: "src/server/index.js",
+      providerEntrypoint: "stages/server/index.js",
       providers: [
         {
-          entrypoint: "src/server/providers/ContactProviderStage1.js",
+          entrypoint: "stages/server/providers/ContactProviderStage1.js",
           export: "ContactProviderStage1"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage2.js",
+          entrypoint: "stages/server/providers/ContactProviderStage2.js",
           export: "ContactProviderStage2"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage3.js",
+          entrypoint: "stages/server/providers/ContactProviderStage3.js",
           export: "ContactProviderStage3"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage4.js",
+          entrypoint: "stages/server/providers/ContactProviderStage4.js",
           export: "ContactProviderStage4"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage5.js",
+          entrypoint: "stages/server/providers/ContactProviderStage5.js",
           export: "ContactProviderStage5"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage7.js",
+          entrypoint: "stages/server/providers/ContactProviderStage7.js",
           export: "ContactProviderStage7"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage8.js",
+          entrypoint: "stages/server/providers/ContactProviderStage8.js",
           export: "ContactProviderStage8"
         }
       ]

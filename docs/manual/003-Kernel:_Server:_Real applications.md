@@ -29,11 +29,13 @@ Each stage works. Each stage improves something. Each stage still has pain that 
 
 <!-- docs:tooling-references
 docs/examples/03.real-app
-docs/examples/03.real-app/src/server/providers/ContactProviderStage1.js
-docs/examples/03.real-app/src/server/providers/ContactProviderStage2.js
-docs/examples/03.real-app/src/server/providers/ContactProviderStage3.js
-docs/examples/03.real-app/src/server/providers/ContactProviderStage4.js
-docs/examples/03.real-app/src/server/providers/ContactProviderStage5.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage1.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage2.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage3.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage4.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage5.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage7.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage8.js
 -->
 
 ## Where We Pick Up
@@ -56,9 +58,9 @@ This stage is intentionally "too much in one place." We want you to feel the pai
 
 Files:
 
-* src/server/providers/ContactProviderStage1.js (created)
-* src/shared/schemas/contactSchemasStage1.js (created)
-* src/shared/input/contactInputNormalizationStage1.js (created)
+* stages/server/providers/ContactProviderStage1.js (created)
+* stages/shared/schemas/contactSchemasStage1.js (created)
+* stages/shared/input/contactInputNormalizationStage1.js (created)
 
 ## What was added
 
@@ -138,15 +140,15 @@ This already helps because routes become wiring only. But the controller still o
 
 Files:
 
-* src/server/providers/ContactProviderStage2.js (modified)
-* src/shared/schemas/contactSchemasStage2.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
+* stages/server/providers/ContactProviderStage2.js (modified)
+* stages/shared/schemas/contactSchemasStage2.js (unchanged)
+* stages/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### The differences
 
 #### The provider
 
-* src/server/providers/ContactProviderStage2.js (modified)
+* stages/server/providers/ContactProviderStage2.js (modified)
 
 In the main body of the module, the provider file now has:
 
@@ -181,18 +183,18 @@ The next step is to move domain logic out of the controller and into a service.
 
 Files:
 
-* src/server/providers/ContactProviderStage3.js (modified)
-* src/server/controllers/ContactControllerStage3.js (modified)
-* src/server/services/ContactQualificationServiceStage3.js (new)
-* src/shared/schemas/contactSchemasStage3.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
+* stages/server/providers/ContactProviderStage3.js (modified)
+* stages/server/controllers/ContactControllerStage3.js (modified)
+* stages/server/services/ContactQualificationServiceStage3.js (new)
+* stages/shared/schemas/contactSchemasStage3.js (unchanged)
+* stages/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### The differences
 
 
 #### The provider
 
-* src/server/providers/ContactProviderStage3.js (modified)
+* stages/server/providers/ContactProviderStage3.js (modified)
 
 The provider first registers the newly created service as a singleton:
 
@@ -223,7 +225,7 @@ This keeps controller responsibilities focused on:
 
 #### The service
 
-* src/server/services/ContactQualificationServiceStage3.js (new)
+* stages/server/services/ContactQualificationServiceStage3.js (new)
 
 The service file holds domain logic in one place.
 
@@ -307,19 +309,19 @@ For now, we use an in-memory repository implementation behind a repository token
 
 Files:
 
-* src/server/providers/ContactProviderStage4.js (modified)
-* src/server/controllers/ContactControllerStage4.js (modified)
-* src/server/repositories/ContactRepositoryStage4.js (new)
-* src/server/repositories/InMemoryContactRepositoryStage4.js (new)
-* src/server/services/ContactQualificationServiceStage4.js (unchanged)
-* src/shared/schemas/contactSchemasStage4.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
+* stages/server/providers/ContactProviderStage4.js (modified)
+* stages/server/controllers/ContactControllerStage4.js (modified)
+* stages/server/repositories/ContactRepositoryStage4.js (new)
+* stages/server/repositories/InMemoryContactRepositoryStage4.js (new)
+* stages/server/services/ContactQualificationServiceStage4.js (unchanged)
+* stages/shared/schemas/contactSchemasStage4.js (unchanged)
+* stages/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### The differences
 
 #### The provider
 
-* src/server/providers/ContactProviderStage4.js (modified)
+* stages/server/providers/ContactProviderStage4.js (modified)
 
 With the repository extracted, provider wiring gets cleaner and responsibilities are more explicit.
 
@@ -347,7 +349,7 @@ app.singleton(
 
 #### The controller
 
-* src/server/controllers/ContactControllerStage4.js (modified)
+* stages/server/controllers/ContactControllerStage4.js (modified)
 
 This is the key behavior change in this stage:
 
@@ -376,7 +378,7 @@ const found = this.contactRepository.findById(contactId);
 
 #### The repository contract
 
-* src/server/repositories/ContactRepositoryStage4.js (new)
+* stages/server/repositories/ContactRepositoryStage4.js (new)
 
 We now need the code that actually implements the repository.
 
@@ -389,7 +391,7 @@ Why define both a token and a repository contract?
 
 #### The in-memory repository implementation
 
-* src/server/repositories/InMemoryContactRepositoryStage4.js (new)
+* stages/server/repositories/InMemoryContactRepositoryStage4.js (new)
 
 This is the basic implementation of the repository.
 
@@ -413,15 +415,15 @@ At this point, we are getting close to the shape most production backends use ev
 
 Files:
 
-* src/server/providers/ContactProviderStage5.js (modified)
-* src/server/controllers/ContactControllerStage5.js (modified)
-* src/server/actions/CreateContactIntakeActionStage5.js (new)
-* src/server/actions/PreviewContactFollowupActionStage5.js (new)
-* src/server/actions/GetContactByIdActionStage5.js (new)
-* src/server/services/ContactQualificationServiceStage5.js (unchanged)
-* src/server/repositories/InMemoryContactRepositoryStage5.js (unchanged)
-* src/shared/schemas/contactSchemasStage5.js (unchanged)
-* src/shared/input/contactInputNormalizationStage1.js (unchanged)
+* stages/server/providers/ContactProviderStage5.js (modified)
+* stages/server/controllers/ContactControllerStage5.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage5.js (new)
+* stages/server/actions/PreviewContactFollowupActionStage5.js (new)
+* stages/server/actions/GetContactByIdActionStage5.js (new)
+* stages/server/services/ContactQualificationServiceStage5.js (unchanged)
+* stages/server/repositories/InMemoryContactRepositoryStage5.js (unchanged)
+* stages/shared/schemas/contactSchemasStage5.js (unchanged)
+* stages/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### The differences
 
@@ -449,7 +451,7 @@ Here is how the codebase will change.
 
 #### The provider
 
-* src/server/providers/ContactProviderStage5.js (modified)
+* stages/server/providers/ContactProviderStage5.js (modified)
 
 This is the most important thing to understand in this stage:
 
@@ -499,7 +501,7 @@ app.singleton(
 
 #### The controller
 
-* src/server/controllers/ContactControllerStage5.js (modified)
+* stages/server/controllers/ContactControllerStage5.js (modified)
 
 What changed:
 
@@ -531,9 +533,9 @@ reply.code(200).send(result.data);
 
 #### The actions: create intake, preview follow-up, get by id
 
-* src/server/actions/CreateContactIntakeActionStage5.js (new)
-* src/server/actions/PreviewContactFollowupActionStage5.js (new)
-* src/server/actions/GetContactByIdActionStage5.js (new)
+* stages/server/actions/CreateContactIntakeActionStage5.js (new)
+* stages/server/actions/PreviewContactFollowupActionStage5.js (new)
+* stages/server/actions/GetContactByIdActionStage5.js (new)
 
 What changed from Stage 4:
 
@@ -573,20 +575,20 @@ Stage 5 gave us clean layering. Stage 7 keeps that layering, and upgrades transp
 
 Files:
 
-* src/server/providers/ContactProviderStage7.js (modified)
-* src/server/controllers/ContactControllerStage7.js (modified)
-* src/server/services/ContactQualificationServiceStage7.js (modified)
-* src/server/actions/CreateContactIntakeActionStage7.js (unchanged)
-* src/server/actions/PreviewContactFollowupActionStage7.js (unchanged)
-* src/server/actions/GetContactByIdActionStage7.js (unchanged)
-* src/shared/schemas/contactSchemasStage7.js (modified)
-* src/shared/input/contactInputNormalizationStage7.js (modified)
+* stages/server/providers/ContactProviderStage7.js (modified)
+* stages/server/controllers/ContactControllerStage7.js (modified)
+* stages/server/services/ContactQualificationServiceStage7.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage7.js (unchanged)
+* stages/server/actions/PreviewContactFollowupActionStage7.js (unchanged)
+* stages/server/actions/GetContactByIdActionStage7.js (unchanged)
+* stages/shared/schemas/contactSchemasStage7.js (modified)
+* stages/shared/input/contactInputNormalizationStage7.js (modified)
 
 ### The differences
 
 #### The provider
 
-* src/server/providers/ContactProviderStage7.js (modified)
+* stages/server/providers/ContactProviderStage7.js (modified)
 
 ```js
 // Stage 5 style
@@ -628,7 +630,7 @@ What this means at runtime:
 
 #### The controller
 
-* src/server/controllers/ContactControllerStage7.js (modified)
+* stages/server/controllers/ContactControllerStage7.js (modified)
 
 ```js
 // Stage 5
@@ -672,7 +674,7 @@ They are all pure functions, which means that both client and server can access 
 
 #### The service
 
-* src/server/services/ContactQualificationServiceStage7.js (modified)
+* stages/server/services/ContactQualificationServiceStage7.js (modified)
 
 ```js
   // Stage 5
@@ -689,7 +691,7 @@ They are all pure functions, which means that both client and server can access 
 
 #### The shared input normalization
 
-* src/shared/input/contactInputNormalizationStage7.js (modified)
+* stages/shared/input/contactInputNormalizationStage7.js (modified)
 
 ```js
 // Stage 7 input module
@@ -724,19 +726,19 @@ After these changes, actions throw typed errors (`DomainValidationError`, `Confl
 
 Files changed from Stage 7:
 
-* src/server/providers/ContactProviderStage8.js (unchanged)
-* src/server/controllers/ContactControllerStage8.js (modified)
-* src/server/actions/CreateContactIntakeActionStage8.js (modified)
-* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
-* src/server/actions/GetContactByIdActionStage8.js (modified)
-* src/server/services/ContactQualificationServiceStage8.js (modified)
+* stages/server/providers/ContactProviderStage8.js (unchanged)
+* stages/server/controllers/ContactControllerStage8.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage8.js (modified)
+* stages/server/actions/PreviewContactFollowupActionStage8.js (modified)
+* stages/server/actions/GetContactByIdActionStage8.js (modified)
+* stages/server/services/ContactQualificationServiceStage8.js (modified)
 
 ### The differences
 
 
 #### The controller
 
-* src/server/controllers/ContactControllerStage8.js (modified)
+* stages/server/controllers/ContactControllerStage8.js (modified)
 
 Before this change, the controller would branch off in case the result was not OK:
 
@@ -764,7 +766,7 @@ return this.ok(reply, created);
 
 #### The create action
 
-* src/server/actions/CreateContactIntakeActionStage8.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage8.js (modified)
 
 Before:
 
@@ -808,7 +810,7 @@ if (duplicate) {
 
 #### The preview action
 
-* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
+* stages/server/actions/PreviewContactFollowupActionStage8.js (modified)
 
 Before:
 
@@ -840,7 +842,7 @@ if (Object.keys(fieldErrors).length > 0) {
 
 #### The get-by-id action
 
-* src/server/actions/GetContactByIdActionStage8.js (modified)
+* stages/server/actions/GetContactByIdActionStage8.js (modified)
 
 Before:
 
@@ -872,7 +874,7 @@ if (!contact) {
 
 #### The qualification service
 
-* src/server/services/ContactQualificationServiceStage8.js (modified)
+* stages/server/services/ContactQualificationServiceStage8.js (modified)
 
 Before (Stage 7 style):
 
@@ -1042,7 +1044,7 @@ That is the path from "it works" to "it keeps working when the feature grows."
 
 This is the final provider assembly after all stages in this chapter (Stages 1-5, 7, and 8).
 
-* src/server/providers/ContactProviderStage8.js
+* stages/server/providers/ContactProviderStage8.js
 
 
 
