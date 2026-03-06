@@ -2364,21 +2364,12 @@ Execution order in this stage:
 4. controller/actions consume normalized data only
 
 
-### Provider wiring: it's the same
-
-The only thing that changes for providers is the included files, now reflecting the contracts/actions for Stage 7:
-
-Use `docs/examples/03.real-app/src/server/providers/Stage7RequestPipelineProvider.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage7RequestPipelineProvider" lang="js" -->
-<!-- /DOCS:EXAMPLE -->
-
 
 ### Controller reads `request.input` only
 
 What changed from Stage 6:
 
-- controller now reads normalized payload/query/params from `request.input`
+- controller now reads normalized payload/params from `request.input`
 - route-param fallback to `request.params` is removed
 - transport-shape parsing concerns are out of controller code
 
@@ -2643,138 +2634,66 @@ export {
 <!-- /DOCS:EXAMPLE -->
 
 
-### Actions consume normalized payload directly
+### Service keeps `qualify(...)` but no longer normalizes in Stage 7
 
 What changed from Stage 6:
 
-- Stage 6 actions called `qualificationService.qualify(rawPayload)`, which normalizes internally
-- Stage 7 actions take normalized payload from controller and run domain logic directly (`validate`, `score`, `segment`, `followupPlan`)
-- this removes duplicate normalization work in Stage 7 request flow
+- Stage 6 `qualify(rawPayload)` normalized internally
+- Stage 7 `qualify(payload)` assumes route contract normalization already happened
+- service still returns the same qualified shape (`ok`, `normalized`, `score`, `segment`, `followupPlan`)
 
 Quick snippet summary:
 
 ```js
-// Stage 6 style
-const qualified = this.qualificationService.qualify(payload);
+// Stage 6 behavior
+qualify(rawPayload) {
+  const normalized = normalizeContactBody(rawPayload);
+  // validate + score + segment + followup
+}
 
-// Stage 7 style
-const details = this.qualificationService.validate(normalizedPayload);
-const score = this.qualificationService.score(normalizedPayload);
+// Stage 7 behavior
+qualify(payload) {
+  // validate + score + segment + followup
+}
 ```
 
-Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeActionStage7.js`:
+Use `docs/examples/03.real-app/src/server/services/ContactQualificationServiceStage7.js`:
 
-<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeActionStage7" lang="js" -->
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/services/ContactQualificationServiceStage7.js" lang="js" -->
 ```js
-class CreateContactIntakeActionStage7 {
-  constructor({ qualificationService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.contactRepository = contactRepository;
-  }
+import { ContactQualificationService } from "./ContactQualificationService.js";
 
-  execute(normalizedPayload) {
-    const details = this.qualificationService.validate(normalizedPayload);
+class ContactQualificationServiceStage7 extends ContactQualificationService {
+  qualify(payload) {
+    const details = this.validate(payload);
+
     if (details.length > 0) {
       return {
         ok: false,
-        status: 422,
         code: "domain_validation_failed",
-        details
+        details,
+        normalized: payload
       };
     }
 
-    const duplicate = this.contactRepository.findByEmail(normalizedPayload.email);
-    if (duplicate) {
-      return {
-        ok: false,
-        status: 422,
-        code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      };
-    }
-
-    const score = this.qualificationService.score(normalizedPayload);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
+    const score = this.score(payload);
+    const segment = this.segment(score);
+    const followupPlan = this.followupPlan({
       segment,
-      source: normalizedPayload.source
+      source: payload.source
     });
 
-    const created = this.contactRepository.save({
-      id: `contact-${Date.now().toString(36)}`,
-      ...normalizedPayload,
+    return {
+      ok: true,
+      normalized: payload,
       score,
-      segment
-    });
-
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "intake",
-        email: created.email,
-        score: created.score,
-        segment: created.segment,
-        followupPlan,
-        duplicateDetected: false,
-        persisted: true
-      }
-    };
-  }
-}
-
-export { CreateContactIntakeActionStage7 };
-```
-<!-- /DOCS:EXAMPLE -->
-
-Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionStage7.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupActionStage7" lang="js" -->
-```js
-class PreviewContactFollowupActionStage7 {
-  constructor({ qualificationService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.contactRepository = contactRepository;
-  }
-
-  execute(normalizedPayload) {
-    const details = this.qualificationService.validate(normalizedPayload);
-    if (details.length > 0) {
-      return {
-        ok: false,
-        status: 422,
-        code: "domain_validation_failed",
-        details
-      };
-    }
-
-    const duplicate = this.contactRepository.findByEmail(normalizedPayload.email);
-    const score = this.qualificationService.score(normalizedPayload);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
       segment,
-      source: normalizedPayload.source
-    });
-
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "preview",
-        email: normalizedPayload.email,
-        score,
-        segment,
-        followupPlan,
-        duplicateDetected: Boolean(duplicate),
-        persisted: false
-      }
+      followupPlan
     };
   }
 }
 
-export { PreviewContactFollowupActionStage7 };
+export { ContactQualificationServiceStage7 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
@@ -2784,7 +2703,7 @@ export { PreviewContactFollowupActionStage7 };
 - Stage 7 contracts are now production-shaped: full schema + normalization in one shared contract module
 - transport normalization is done once in the request pipeline, not repeated inside service/action flow
 - controller stays transport-thin and consumes normalized input only
-- provider remains wiring-focused while using explicit Stage 7 contracts and Stage 7 actions
+- provider remains wiring-focused while using explicit Stage 7 contracts and the same action classes as Stage 6
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
