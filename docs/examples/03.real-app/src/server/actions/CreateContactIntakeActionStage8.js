@@ -1,5 +1,5 @@
 import {
-  assertNoDomainRuleFailures,
+  DomainValidationError,
   ConflictError
 } from "@jskit-ai/kernel/server/runtime";
 
@@ -11,12 +11,18 @@ class CreateContactIntakeActionStage8 {
   }
 
   async execute(payload) {
-    const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
-    assertNoDomainRuleFailures(
-      this.domainRulesService.buildRules(payload, {
-        isAllowedEmailDomain
-      })
-    );
+    const fieldErrors = this.domainRulesService.collectFieldErrors(payload);
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new DomainValidationError(
+        {
+          fieldErrors
+        },
+        {
+          message: "Contact domain validation failed.",
+          code: "contact_domain_invalid"
+        }
+      );
+    }
 
     const duplicate = this.contactRepository.findByEmail(payload.email);
     if (duplicate) {

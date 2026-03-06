@@ -1,4 +1,4 @@
-import { assertNoDomainRuleFailures } from "@jskit-ai/kernel/server/runtime";
+import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -8,12 +8,18 @@ class PreviewContactFollowupActionStage8 {
   }
 
   async execute(payload) {
-    const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
-    assertNoDomainRuleFailures(
-      this.domainRulesService.buildRules(payload, {
-        isAllowedEmailDomain
-      })
-    );
+    const fieldErrors = this.domainRulesService.collectFieldErrors(payload);
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new DomainValidationError(
+        {
+          fieldErrors
+        },
+        {
+          message: "Contact domain validation failed.",
+          code: "contact_domain_invalid"
+        }
+      );
+    }
 
     const duplicate = this.contactRepository.findByEmail(payload.email);
     const qualified = this.qualificationService.qualify(payload);
