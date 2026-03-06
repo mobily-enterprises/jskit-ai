@@ -593,7 +593,53 @@ Files:
 
 * src/server/providers/ContactProviderStage6.js (modified)
 
-CODEX: GIVE AN OVERVIEW OF THE CHANGES THAT IS READABLE TO HUMANS.
+Stage 6 provider is where the full layered assembly is made explicit.
+
+Snippet: dependency wiring in `register(app)`:
+
+```js
+app.singleton(STAGE_6_REPOSITORY, () => new InMemoryContactRepositoryStage6());
+app.singleton(STAGE_6_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage6());
+
+app.singleton(
+  STAGE_6_CREATE_ACTION,
+  () =>
+    new CreateContactIntakeActionStage6({
+      qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
+      contactRepository: app.make(STAGE_6_REPOSITORY)
+    })
+);
+
+app.singleton(
+  STAGE_6_CONTROLLER,
+  () =>
+    new ContactControllerStage6({
+      createContactIntakeAction: app.make(STAGE_6_CREATE_ACTION),
+      previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION),
+      getContactByIdAction: app.make(STAGE_6_GET_BY_ID_ACTION)
+    })
+);
+```
+
+What this snippet shows:
+
+- repository and service are infrastructure/domain dependencies
+- actions are use-case orchestration units
+- controller receives actions only (not service/repository directly)
+- provider remains the composition root
+
+Snippet: route wiring in `boot(app)`:
+
+```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-6/contacts/intake",
+  contactIntakePostRouteContract,
+  (request, reply) => controller.intake(request, reply)
+);
+```
+
+This keeps transport wiring very thin: route + contract + controller method.
 
 #### The controller
 
@@ -604,10 +650,31 @@ In this stage, the controller keeps the thin action-delegation pattern introduce
 
 ### Shared schemas
 
-* src/shared/schemas/contactSchemasStage1.js
+* src/shared/schemas/contactSchemasStage6.js
 
+At Stage 6, schema contracts are intentionally stable and reused.
 
-CODEX: GIVE AN OVERVIEW OF THE CHANGES THAT IS READABLE TO HUMANS.
+Snippet from `contactSchemasStage6.js`:
+
+```js
+import {
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
+} from "./contactSchemasStage1.js";
+
+export {
+  contactByIdGetRouteContract,
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
+};
+```
+
+What this snippet shows:
+
+- Stage 6 does not redesign transport contracts yet
+- it reuses already-defined contracts while architecture is cleaned up
+- this gives you a stable baseline before Stage 7 introduces contract normalization enhancements
 
 
 ### The verdict
