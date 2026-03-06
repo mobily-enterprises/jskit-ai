@@ -1243,9 +1243,29 @@ For now, we use an in-memory repository implementation behind a repository token
 
 ### Full provider code for Stage 4
 
-With the new repository as a module, the providers becomes much cleaner:
+With the repository extracted, provider wiring gets cleaner and responsibilities are more explicit.
 
-(CODEX: Summarise the changes, as I did in Stage 3)
+What changed from Stage 3:
+
+- provider now registers a repository dependency (`STAGE_4_REPOSITORY`)
+- controller receives `contactRepository` via constructor injection
+- route wiring stays thin and unchanged
+- persistence no longer lives in controller-owned state internals
+
+The main change is that the repository is now imported, and added to the controller's constructor 9along with the service).
+
+```js
+// Stage 4: provider wires service + repository
+app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepository());
+app.singleton(
+  STAGE_4_CONTROLLER,
+  () =>
+    new ContactControllerStage4({
+      qualificationService: app.make(STAGE_4_QUALIFICATION_SERVICE),
+      contactRepository: app.make(STAGE_4_REPOSITORY)
+    })
+);
+```
 
 Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`:
 
@@ -1325,13 +1345,147 @@ export { Stage4RepositoryProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
 
+### Controller change that actually matters in Stage 4
+
+This is the key behavior change in this stage:
+
+- Stage 3 controller used local storage state (`this.contacts`)
+- Stage 4 controller uses repository calls (`findByEmail`, `save`, `findById`)
+
+Quick snippet summary of what changed.
+
+Instead of using straight array searching function:
+
+```js
+// Stage 3 (local controller state)
+const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
+this.contacts.push(created);
+const found = this.contacts.find((entry) => entry.id === contactId) || null;
+```
+
+It now uses a data layer:
+
+```js
+// Stage 4 (repository boundary)
+const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
+this.contactRepository.save(created);
+const found = this.contactRepository.findById(contactId);
+```
+
+Here is the complete code.
+
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage4.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage4" lang="js" -->
+```js
+class ContactControllerStage4 {
+  constructor({ qualificationService, contactRepository }) {
+    this.qualificationService = qualificationService;
+    this.contactRepository = contactRepository;
+  }
+
+  async intake(request, reply) {
+    const qualified = this.qualificationService.qualify(request.body);
+
+    if (!qualified.ok) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: qualified.code,
+        details: qualified.details
+      });
+      return;
+    }
+
+    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
+    if (duplicate) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: "duplicate_contact",
+        details: ["a contact with this email already exists"]
+      });
+      return;
+    }
+
+    const created = this.contactRepository.save({
+      id: `contact-${Date.now().toString(36)}`,
+      ...qualified.normalized,
+      score: qualified.score,
+      segment: qualified.segment
+    });
+
+    reply.code(200).send({
+      ok: true,
+      mode: "intake",
+      email: created.email,
+      score: created.score,
+      segment: created.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: false,
+      persisted: true
+    });
+  }
+
+  async previewFollowup(request, reply) {
+    const qualified = this.qualificationService.qualify(request.body);
+
+    if (!qualified.ok) {
+      reply.code(422).send({
+        error: "Domain validation failed.",
+        code: qualified.code,
+        details: qualified.details
+      });
+      return;
+    }
+
+    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
+
+    reply.code(200).send({
+      ok: true,
+      mode: "preview",
+      email: qualified.normalized.email,
+      score: qualified.score,
+      segment: qualified.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: Boolean(duplicate),
+      persisted: false
+    });
+  }
+
+  async show(request, reply) {
+    const contactId = String(request.params?.contactId || "").trim();
+    const found = this.contactRepository.findById(contactId);
+
+    if (!found) {
+      reply.code(404).send({
+        error: "Contact not found.",
+        code: "contact_not_found",
+        details: [`No contact found for id ${contactId || "<empty>"}.`]
+      });
+      return;
+    }
+
+    reply.code(200).send({
+      ok: true,
+      contact: found
+    });
+  }
+}
+
+export { ContactControllerStage4 };
+```
+<!-- /DOCS:EXAMPLE -->
 
 
 ### Create repository and token
 
 We now need the code that actually implements the repository.
 
-(CODEX: Explain why you create the token AND the repository together)
+Why define both a token and a repository contract?
+
+- token (`CONTACT_REPOSITORY_TOKEN`) is the container key used by app wiring
+- contract class (`ContactRepository`) is the code-level interface that defines required methods
+- together they decouple usage from implementation, so you can swap implementations without touching controller/action code
+- tests can bind fakes/stubs to the same token, while production can bind database-backed implementations
 
 Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
 
