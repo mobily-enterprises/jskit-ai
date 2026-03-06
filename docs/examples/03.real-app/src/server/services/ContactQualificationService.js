@@ -14,56 +14,50 @@ class ContactQualificationService {
 
   validate(normalized) {
     const details = [];
-    if (normalized.name.length < 2) details.push("name must have at least 2 characters");
-    if (!normalized.email.includes("@")) details.push("email must include @");
-    if (normalized.email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
+    if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
+    if (!normalized.email.includes("@")) details.push("email must include @.");
     if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
       details.push("country is not in allowed market list");
     }
-    if (normalized.employees > 2000 && normalized.plan !== "enterprise") {
-      details.push("large companies must use enterprise plan");
+    if (normalized.plan === "starter" && normalized.employees > 200) {
+      details.push("starter plan supports up to 200 employees");
     }
-    if (normalized.source === "partner" && !normalized.consentMarketing) {
-      details.push("partner leads require marketing consent");
-    }
+
     return details;
   }
 
   score(normalized) {
-    let score = 0;
-    if (normalized.plan === "enterprise") score += 35;
-    if (normalized.plan === "growth") score += 20;
-    if (normalized.employees >= 500) score += 30;
-    else if (normalized.employees >= 100) score += 20;
-    else if (normalized.employees >= 20) score += 10;
-    if (normalized.source === "referral") score += 20;
-    if (normalized.source === "webinar") score += 15;
-    if (normalized.country === "US") score += 5;
-    if (normalized.consentMarketing) score += 5;
-    return Math.max(0, Math.min(100, score));
+    const planScore =
+      normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
+    const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
+    const sourceScore =
+      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
+    const consentScore = normalized.consentMarketing ? 4 : 0;
+
+    return Math.max(0, Math.min(100, planScore + employeeScore + sourceScore + consentScore));
   }
 
   segment(score) {
-    if (score >= 80) return "enterprise_hot";
-    if (score >= 50) return "growth_warm";
+    if (score >= 70) return "enterprise_hot";
+    if (score >= 40) return "growth_warm";
     return "starter_cold";
   }
 
   followupPlan({ segment, source }) {
     const plan = [];
     if (segment === "enterprise_hot") {
-      plan.push("assign account executive within 15 minutes");
-      plan.push("book discovery call in first business day");
+      plan.push("assign account executive in 15 minutes");
+      plan.push("send solution outline today");
     } else if (segment === "growth_warm") {
-      plan.push("send product fit email within 2 hours");
-      plan.push("schedule SDR outreach within 24 hours");
+      plan.push("send product-fit email in 2 hours");
+      plan.push("schedule follow-up in 2 days");
     } else {
-      plan.push("send educational drip campaign");
-      plan.push("review intent again in 7 days");
+      plan.push("send starter onboarding guide");
+      plan.push("review intent in 7 days");
     }
 
     if (source === "webinar") {
-      plan.push("attach webinar recording and slides");
+      plan.push("include webinar recap");
     }
 
     return plan;

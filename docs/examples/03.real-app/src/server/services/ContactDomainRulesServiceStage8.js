@@ -4,19 +4,12 @@ class ContactDomainRulesServiceStage8 {
       {
         field: "name",
         check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters" : null
+          normalized.name.length < 2 ? "name must have at least 2 characters." : null
       },
       {
         field: "email",
         check: () =>
-          !normalized.email.includes("@") ? "email must include @" : null
-      },
-      {
-        field: "email",
-        check: () =>
-          normalized.email.endsWith("@mailinator.com")
-            ? "disposable emails are not allowed"
-            : null
+          !normalized.email.includes("@") ? "email must include @." : null
       },
       {
         field: "country",
@@ -28,15 +21,8 @@ class ContactDomainRulesServiceStage8 {
       {
         field: "plan",
         check: () =>
-          normalized.employees > 2000 && normalized.plan !== "enterprise"
-            ? "large companies must use enterprise plan"
-            : null
-      },
-      {
-        field: "consentMarketing",
-        check: () =>
-          normalized.source === "partner" && !normalized.consentMarketing
-            ? "partner leads require marketing consent"
+          normalized.plan === "starter" && normalized.employees > 200
+            ? "starter plan supports up to 200 employees"
             : null
       }
     ];

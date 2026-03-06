@@ -14,12 +14,12 @@ class ContactDomainRulesServiceStage10 {
       {
         field: "name",
         check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters" : null
+          normalized.name.length < 2 ? "name must have at least 2 characters." : null
       },
       {
         field: "email",
         check: () =>
-          !normalized.email.includes("@") ? "email must include @" : null
+          !normalized.email.includes("@") ? "email must include @." : null
       },
       {
         field: "email",
@@ -41,13 +41,6 @@ class ContactDomainRulesServiceStage10 {
         check: () =>
           normalized.plan === "starter" && normalized.employees > maxStarterEmployees
             ? `starter plan supports up to ${maxStarterEmployees} employees`
-            : null
-      },
-      {
-        field: "consentMarketing",
-        check: () =>
-          normalized.source === "partner" && !normalized.consentMarketing
-            ? "partner leads require marketing consent"
             : null
       }
     ];

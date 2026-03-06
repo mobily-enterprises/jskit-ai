@@ -98,38 +98,126 @@ class Stage1MonolithProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const contacts = [];
 
+    const normalizeContact = (raw) => ({
+      name: String(raw?.name || "").trim(),
+      email: String(raw?.email || "").trim().toLowerCase(),
+      company: String(raw?.company || "").trim(),
+      employees: Number(raw?.employees || 0),
+      plan: String(raw?.plan || "").trim().toLowerCase(),
+      source: String(raw?.source || "").trim().toLowerCase(),
+      country: String(raw?.country || "").trim().toUpperCase(),
+      consentMarketing: Boolean(raw?.consentMarketing)
+    });
+
+    const validateContact = (normalized) => {
+      const details = [];
+      if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
+      if (!normalized.email.includes("@")) details.push("email must include @.");
+      if (![
+        "US",
+        "CA",
+        "GB",
+        "DE",
+        "FR",
+        "ES",
+        "IT"
+      ].includes(normalized.country)) {
+        details.push("country is not in allowed market list");
+      }
+      if (normalized.plan === "starter" && normalized.employees > 200) {
+        details.push("starter plan supports up to 200 employees");
+      }
+
+      return details;
+    };
+
+    const scoreContact = (normalized) => {
+      const planScore =
+        normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
+      const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
+      const sourceScore =
+        normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
+      const consentScore = normalized.consentMarketing ? 4 : 0;
+
+      return Math.max(
+        0,
+        Math.min(100, planScore + employeeScore + sourceScore + consentScore)
+      );
+    };
+
+    const segmentFromScore = (score) => {
+      if (score >= 70) return "enterprise_hot";
+      if (score >= 40) return "growth_warm";
+      return "starter_cold";
+    };
+
+    const buildFollowupPlan = ({ segment, source }) => {
+      const plan = [];
+
+      if (segment === "enterprise_hot") {
+        plan.push("assign account executive in 15 minutes");
+        plan.push("send solution outline today");
+      } else if (segment === "growth_warm") {
+        plan.push("send product-fit email in 2 hours");
+        plan.push("schedule follow-up in 2 days");
+      } else {
+        plan.push("send starter onboarding guide");
+        plan.push("review intent in 7 days");
+      }
+
+      if (source === "webinar") {
+        plan.push("include webinar recap");
+      }
+
+      return plan;
+    };
+
+    const qualifyContact = (raw) => {
+      const normalized = normalizeContact(raw);
+      const details = validateContact(normalized);
+
+      if (details.length > 0) {
+        return {
+          ok: false,
+          code: "domain_validation_failed",
+          details,
+          normalized
+        };
+      }
+
+      const score = scoreContact(normalized);
+      const segment = segmentFromScore(score);
+      const followupPlan = buildFollowupPlan({
+        segment,
+        source: normalized.source
+      });
+
+      return {
+        ok: true,
+        normalized,
+        score,
+        segment,
+        followupPlan
+      };
+    };
+
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-1/contacts/intake",
       contactIntakePostRouteContract,
       async (request, reply) => {
-        const name = String(request.body?.name || "").trim();
-        const email = String(request.body?.email || "").trim().toLowerCase();
-        const company = String(request.body?.company || "").trim();
-        const employees = Number(request.body?.employees || 0);
-        const plan = String(request.body?.plan || "").trim().toLowerCase();
-        const source = String(request.body?.source || "").trim().toLowerCase();
-        const country = String(request.body?.country || "").trim().toUpperCase();
-        const consentMarketing = Boolean(request.body?.consentMarketing);
+        const qualified = qualifyContact(request.body);
 
-        const details = [];
-        if (name.length < 2) details.push("name must have at least 2 characters");
-        if (!email.includes("@")) details.push("email must include @");
-        if (email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
-        if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(country)) details.push("country is not in allowed market list");
-        if (employees > 2000 && plan !== "enterprise") details.push("large companies must use enterprise plan");
-        if (source === "partner" && !consentMarketing) details.push("partner leads require marketing consent");
-
-        if (details.length > 0) {
+        if (!qualified.ok) {
           reply.code(422).send({
             error: "Domain validation failed.",
-            code: "domain_validation_failed",
-            details
+            code: qualified.code,
+            details: qualified.details
           });
           return;
         }
 
-        const duplicate = contacts.find((entry) => entry.email === email);
+        const duplicate = contacts.find((entry) => entry.email === qualified.normalized.email);
         if (duplicate) {
           reply.code(422).send({
             error: "Domain validation failed.",
@@ -139,58 +227,22 @@ class Stage1MonolithProvider {
           return;
         }
 
-        let score = 0;
-        if (plan === "enterprise") score += 35;
-        if (plan === "growth") score += 20;
-        if (employees >= 500) score += 30;
-        else if (employees >= 100) score += 20;
-        else if (employees >= 20) score += 10;
-        if (source === "referral") score += 20;
-        if (source === "webinar") score += 15;
-        if (country === "US") score += 5;
-        if (consentMarketing) score += 5;
-        score = Math.max(0, Math.min(100, score));
-
-        const segment = score >= 80 ? "enterprise_hot" : score >= 50 ? "growth_warm" : "starter_cold";
-
-        const followupPlan = [];
-        if (segment === "enterprise_hot") {
-          followupPlan.push("assign account executive within 15 minutes");
-          followupPlan.push("book discovery call in first business day");
-        } else if (segment === "growth_warm") {
-          followupPlan.push("send product fit email within 2 hours");
-          followupPlan.push("schedule SDR outreach within 24 hours");
-        } else {
-          followupPlan.push("send educational drip campaign");
-          followupPlan.push("review intent again in 7 days");
-        }
-
-        if (source === "webinar") {
-          followupPlan.push("attach webinar recording and slides");
-        }
-
         const created = {
           id: `contact-${Date.now().toString(36)}`,
-          name,
-          email,
-          company,
-          employees,
-          plan,
-          source,
-          country,
-          consentMarketing,
-          score,
-          segment
+          ...qualified.normalized,
+          score: qualified.score,
+          segment: qualified.segment
         };
+
         contacts.push(created);
 
         reply.code(200).send({
           ok: true,
           mode: "intake",
-          email,
-          score,
-          segment,
-          followupPlan,
+          email: created.email,
+          score: created.score,
+          segment: created.segment,
+          followupPlan: qualified.followupPlan,
           duplicateDetected: false,
           persisted: true
         });
@@ -202,70 +254,26 @@ class Stage1MonolithProvider {
       "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
       contactPreviewFollowupPostRouteContract,
       async (request, reply) => {
-        const name = String(request.body?.name || "").trim();
-        const email = String(request.body?.email || "").trim().toLowerCase();
-        const employees = Number(request.body?.employees || 0);
-        const plan = String(request.body?.plan || "").trim().toLowerCase();
-        const source = String(request.body?.source || "").trim().toLowerCase();
-        const country = String(request.body?.country || "").trim().toUpperCase();
-        const consentMarketing = Boolean(request.body?.consentMarketing);
+        const qualified = qualifyContact(request.body);
 
-        const details = [];
-        if (name.length < 2) details.push("name must have at least 2 characters");
-        if (!email.includes("@")) details.push("email must include @");
-        if (email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
-        if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(country)) details.push("country is not in allowed market list");
-        if (employees > 2000 && plan !== "enterprise") details.push("large companies must use enterprise plan");
-        if (source === "partner" && !consentMarketing) details.push("partner leads require marketing consent");
-
-        if (details.length > 0) {
+        if (!qualified.ok) {
           reply.code(422).send({
             error: "Domain validation failed.",
-            code: "domain_validation_failed",
-            details
+            code: qualified.code,
+            details: qualified.details
           });
           return;
         }
 
-        const duplicate = contacts.find((entry) => entry.email === email);
-
-        let score = 0;
-        if (plan === "enterprise") score += 35;
-        if (plan === "growth") score += 20;
-        if (employees >= 500) score += 30;
-        else if (employees >= 100) score += 20;
-        else if (employees >= 20) score += 10;
-        if (source === "referral") score += 20;
-        if (source === "webinar") score += 15;
-        if (country === "US") score += 5;
-        if (consentMarketing) score += 5;
-        score = Math.max(0, Math.min(100, score));
-
-        const segment = score >= 80 ? "enterprise_hot" : score >= 50 ? "growth_warm" : "starter_cold";
-
-        const followupPlan = [];
-        if (segment === "enterprise_hot") {
-          followupPlan.push("assign account executive within 15 minutes");
-          followupPlan.push("book discovery call in first business day");
-        } else if (segment === "growth_warm") {
-          followupPlan.push("send product fit email within 2 hours");
-          followupPlan.push("schedule SDR outreach within 24 hours");
-        } else {
-          followupPlan.push("send educational drip campaign");
-          followupPlan.push("review intent again in 7 days");
-        }
-
-        if (source === "webinar") {
-          followupPlan.push("attach webinar recording and slides");
-        }
+        const duplicate = contacts.find((entry) => entry.email === qualified.normalized.email);
 
         reply.code(200).send({
           ok: true,
           mode: "preview",
-          email,
-          score,
-          segment,
-          followupPlan,
+          email: qualified.normalized.email,
+          score: qualified.score,
+          segment: qualified.segment,
+          followupPlan: qualified.followupPlan,
           duplicateDetected: Boolean(duplicate),
           persisted: false
         });
@@ -548,7 +556,7 @@ curl -i "http://localhost:3000/api/v1/docs/ch03/stage-1/contacts/contact-does-no
 
 ### Why this hurts
 
-- both handlers duplicate large logic blocks
+- provider still owns transport + domain + persistence logic in one place
 - business logic is mixed with HTTP handling
 - data storage policy is hidden in route code
 - testing one rule requires booting route runtime
@@ -559,7 +567,7 @@ This is exactly when teams start introducing layers.
 
 Now we move handler logic out of provider and into a controller.
 
-This already helps because routes become wiring only. But we still keep business logic duplicated in controller methods so you can see what pain remains.
+This already helps because routes become wiring only. But the controller still owns domain logic and persistence details, so it is still overloaded.
 
 ### The new simplified provider
 
@@ -645,34 +653,116 @@ class ContactControllerStage2 {
     this.contacts = [];
   }
 
-  async intake(request, reply) {
-    const name = String(request.body?.name || "").trim();
-    const email = String(request.body?.email || "").trim().toLowerCase();
-    const company = String(request.body?.company || "").trim();
-    const employees = Number(request.body?.employees || 0);
-    const plan = String(request.body?.plan || "").trim().toLowerCase();
-    const source = String(request.body?.source || "").trim().toLowerCase();
-    const country = String(request.body?.country || "").trim().toUpperCase();
-    const consentMarketing = Boolean(request.body?.consentMarketing);
+  normalizeContact(raw) {
+    return {
+      name: String(raw?.name || "").trim(),
+      email: String(raw?.email || "").trim().toLowerCase(),
+      company: String(raw?.company || "").trim(),
+      employees: Number(raw?.employees || 0),
+      plan: String(raw?.plan || "").trim().toLowerCase(),
+      source: String(raw?.source || "").trim().toLowerCase(),
+      country: String(raw?.country || "").trim().toUpperCase(),
+      consentMarketing: Boolean(raw?.consentMarketing)
+    };
+  }
 
+  validateContact(normalized) {
     const details = [];
-    if (name.length < 2) details.push("name must have at least 2 characters");
-    if (!email.includes("@")) details.push("email must include @");
-    if (email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(country)) details.push("country is not in allowed market list");
-    if (employees > 2000 && plan !== "enterprise") details.push("large companies must use enterprise plan");
-    if (source === "partner" && !consentMarketing) details.push("partner leads require marketing consent");
+    if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
+    if (!normalized.email.includes("@")) details.push("email must include @.");
+    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
+      details.push("country is not in allowed market list");
+    }
+    if (normalized.plan === "starter" && normalized.employees > 200) {
+      details.push("starter plan supports up to 200 employees");
+    }
+
+    return details;
+  }
+
+  scoreContact(normalized) {
+    const planScore =
+      normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
+    const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
+    const sourceScore =
+      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
+    const consentScore = normalized.consentMarketing ? 4 : 0;
+
+    return Math.max(
+      0,
+      Math.min(100, planScore + employeeScore + sourceScore + consentScore)
+    );
+  }
+
+  segmentFromScore(score) {
+    if (score >= 70) return "enterprise_hot";
+    if (score >= 40) return "growth_warm";
+    return "starter_cold";
+  }
+
+  buildFollowupPlan({ segment, source }) {
+    const plan = [];
+
+    if (segment === "enterprise_hot") {
+      plan.push("assign account executive in 15 minutes");
+      plan.push("send solution outline today");
+    } else if (segment === "growth_warm") {
+      plan.push("send product-fit email in 2 hours");
+      plan.push("schedule follow-up in 2 days");
+    } else {
+      plan.push("send starter onboarding guide");
+      plan.push("review intent in 7 days");
+    }
+
+    if (source === "webinar") {
+      plan.push("include webinar recap");
+    }
+
+    return plan;
+  }
+
+  qualify(raw) {
+    const normalized = this.normalizeContact(raw);
+    const details = this.validateContact(normalized);
 
     if (details.length > 0) {
+      return {
+        ok: false,
+        code: "domain_validation_failed",
+        details,
+        normalized
+      };
+    }
+
+    const score = this.scoreContact(normalized);
+    const segment = this.segmentFromScore(score);
+    const followupPlan = this.buildFollowupPlan({
+      segment,
+      source: normalized.source
+    });
+
+    return {
+      ok: true,
+      normalized,
+      score,
+      segment,
+      followupPlan
+    };
+  }
+
+  async intake(request, reply) {
+    const qualified = this.qualify(request.body);
+
+    if (!qualified.ok) {
       reply.code(422).send({
         error: "Domain validation failed.",
-        code: "domain_validation_failed",
-        details
+        code: qualified.code,
+        details: qualified.details
       });
       return;
     }
 
-    const duplicate = this.contacts.find((entry) => entry.email === email);
+    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
     if (duplicate) {
       reply.code(422).send({
         error: "Domain validation failed.",
@@ -682,127 +772,48 @@ class ContactControllerStage2 {
       return;
     }
 
-    let score = 0;
-    if (plan === "enterprise") score += 35;
-    if (plan === "growth") score += 20;
-    if (employees >= 500) score += 30;
-    else if (employees >= 100) score += 20;
-    else if (employees >= 20) score += 10;
-    if (source === "referral") score += 20;
-    if (source === "webinar") score += 15;
-    if (country === "US") score += 5;
-    if (consentMarketing) score += 5;
-    score = Math.max(0, Math.min(100, score));
-
-    const segment = score >= 80 ? "enterprise_hot" : score >= 50 ? "growth_warm" : "starter_cold";
-
-    const followupPlan = [];
-    if (segment === "enterprise_hot") {
-      followupPlan.push("assign account executive within 15 minutes");
-      followupPlan.push("book discovery call in first business day");
-    } else if (segment === "growth_warm") {
-      followupPlan.push("send product fit email within 2 hours");
-      followupPlan.push("schedule SDR outreach within 24 hours");
-    } else {
-      followupPlan.push("send educational drip campaign");
-      followupPlan.push("review intent again in 7 days");
-    }
-
-    if (source === "webinar") {
-      followupPlan.push("attach webinar recording and slides");
-    }
-
-    this.contacts.push({
+    const created = {
       id: `contact-${Date.now().toString(36)}`,
-      name,
-      email,
-      company,
-      employees,
-      plan,
-      source,
-      country,
-      consentMarketing,
-      score,
-      segment
-    });
+      ...qualified.normalized,
+      score: qualified.score,
+      segment: qualified.segment
+    };
+
+    this.contacts.push(created);
 
     reply.code(200).send({
       ok: true,
       mode: "intake",
-      email,
-      score,
-      segment,
-      followupPlan,
+      email: created.email,
+      score: created.score,
+      segment: created.segment,
+      followupPlan: qualified.followupPlan,
       duplicateDetected: false,
       persisted: true
     });
   }
 
   async previewFollowup(request, reply) {
-    const name = String(request.body?.name || "").trim();
-    const email = String(request.body?.email || "").trim().toLowerCase();
-    const employees = Number(request.body?.employees || 0);
-    const plan = String(request.body?.plan || "").trim().toLowerCase();
-    const source = String(request.body?.source || "").trim().toLowerCase();
-    const country = String(request.body?.country || "").trim().toUpperCase();
-    const consentMarketing = Boolean(request.body?.consentMarketing);
+    const qualified = this.qualify(request.body);
 
-    const details = [];
-    if (name.length < 2) details.push("name must have at least 2 characters");
-    if (!email.includes("@")) details.push("email must include @");
-    if (email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(country)) details.push("country is not in allowed market list");
-    if (employees > 2000 && plan !== "enterprise") details.push("large companies must use enterprise plan");
-    if (source === "partner" && !consentMarketing) details.push("partner leads require marketing consent");
-
-    if (details.length > 0) {
+    if (!qualified.ok) {
       reply.code(422).send({
         error: "Domain validation failed.",
-        code: "domain_validation_failed",
-        details
+        code: qualified.code,
+        details: qualified.details
       });
       return;
     }
 
-    const duplicate = this.contacts.find((entry) => entry.email === email);
-
-    let score = 0;
-    if (plan === "enterprise") score += 35;
-    if (plan === "growth") score += 20;
-    if (employees >= 500) score += 30;
-    else if (employees >= 100) score += 20;
-    else if (employees >= 20) score += 10;
-    if (source === "referral") score += 20;
-    if (source === "webinar") score += 15;
-    if (country === "US") score += 5;
-    if (consentMarketing) score += 5;
-    score = Math.max(0, Math.min(100, score));
-
-    const segment = score >= 80 ? "enterprise_hot" : score >= 50 ? "growth_warm" : "starter_cold";
-
-    const followupPlan = [];
-    if (segment === "enterprise_hot") {
-      followupPlan.push("assign account executive within 15 minutes");
-      followupPlan.push("book discovery call in first business day");
-    } else if (segment === "growth_warm") {
-      followupPlan.push("send product fit email within 2 hours");
-      followupPlan.push("schedule SDR outreach within 24 hours");
-    } else {
-      followupPlan.push("send educational drip campaign");
-      followupPlan.push("review intent again in 7 days");
-    }
-
-    if (source === "webinar") {
-      followupPlan.push("attach webinar recording and slides");
-    }
+    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
 
     reply.code(200).send({
       ok: true,
       mode: "preview",
-      email,
-      score,
-      segment,
-      followupPlan,
+      email: qualified.normalized.email,
+      score: qualified.score,
+      segment: qualified.segment,
+      followupPlan: qualified.followupPlan,
       duplicateDetected: Boolean(duplicate),
       persisted: false
     });
@@ -838,11 +849,11 @@ Routes are now thin delegates, but the controller still carries too much respons
 ### What improved
 
 - provider now focuses on assembly and route mapping
-- request handlers are not inline anonymous functions anymore
+- request handlers now delegate to controller methods instead of embedding domain logic in provider
 
 ### What still hurts
 
-- controller still duplicates business logic
+- controller is still the domain engine (`normalize`, `validate`, `score`, `segment`, `followupPlan`)
 - controller still mixes orchestration + domain rules + storage access
 
 ## Stage 3: Extract a Service (Domain Logic in One Place)
@@ -851,7 +862,7 @@ Now we isolate business rules into one class.
 
 ### Create the new updated provider for Stage 3
 
-To do this, the provider will first need to instance the services as a singleton:
+To do this, the provider first registers the service as a singleton:
 
 ```js
     app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
@@ -971,7 +982,7 @@ export { Stage3ServiceProvider };
 
 ### Update controller to delegate to service
 
-In Stage 2, each controller method duplicated normalization, validation, scoring, and follow-up planning.
+In Stage 2, the controller still owned domain methods (`normalizeContact`, `validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
 
 In Stage 3, the controller delegates that domain work to `ContactQualificationService`.  
 This keeps controller responsibilities focused on:
@@ -983,11 +994,23 @@ This keeps controller responsibilities focused on:
 Quick snippet summary of what changed:
 
 ```js
-// Before (Stage 2): controller performs domain logic inline
-const name = String(request.body?.name || "").trim();
-const email = String(request.body?.email || "").trim().toLowerCase();
-// ...many validation/scoring/segment/follow-up lines...
-reply.code(200).send({ ok: true, ... });
+// Before (Stage 2): controller owns qualification internals
+const qualified = this.qualify(request.body);
+// ...and qualify() itself contains the domain flow:
+qualify(raw) {
+  const normalized = this.normalizeContact(raw);
+  const details = this.validateContact(normalized);
+
+  if (details.length > 0) {
+    return { ok: false, code: "domain_validation_failed", details, normalized };
+  }
+
+  const score = this.scoreContact(normalized);
+  const segment = this.segmentFromScore(score);
+  const followupPlan = this.buildFollowupPlan({ segment, source: normalized.source });
+
+  return { ok: true, normalized, score, segment, followupPlan };
+}
 
 // After (Stage 3): controller delegates domain logic to service
 const qualified = this.qualificationService.qualify(request.body);
@@ -1144,56 +1167,50 @@ class ContactQualificationService {
 
   validate(normalized) {
     const details = [];
-    if (normalized.name.length < 2) details.push("name must have at least 2 characters");
-    if (!normalized.email.includes("@")) details.push("email must include @");
-    if (normalized.email.endsWith("@mailinator.com")) details.push("disposable emails are not allowed");
+    if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
+    if (!normalized.email.includes("@")) details.push("email must include @.");
     if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
       details.push("country is not in allowed market list");
     }
-    if (normalized.employees > 2000 && normalized.plan !== "enterprise") {
-      details.push("large companies must use enterprise plan");
+    if (normalized.plan === "starter" && normalized.employees > 200) {
+      details.push("starter plan supports up to 200 employees");
     }
-    if (normalized.source === "partner" && !normalized.consentMarketing) {
-      details.push("partner leads require marketing consent");
-    }
+
     return details;
   }
 
   score(normalized) {
-    let score = 0;
-    if (normalized.plan === "enterprise") score += 35;
-    if (normalized.plan === "growth") score += 20;
-    if (normalized.employees >= 500) score += 30;
-    else if (normalized.employees >= 100) score += 20;
-    else if (normalized.employees >= 20) score += 10;
-    if (normalized.source === "referral") score += 20;
-    if (normalized.source === "webinar") score += 15;
-    if (normalized.country === "US") score += 5;
-    if (normalized.consentMarketing) score += 5;
-    return Math.max(0, Math.min(100, score));
+    const planScore =
+      normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
+    const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
+    const sourceScore =
+      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
+    const consentScore = normalized.consentMarketing ? 4 : 0;
+
+    return Math.max(0, Math.min(100, planScore + employeeScore + sourceScore + consentScore));
   }
 
   segment(score) {
-    if (score >= 80) return "enterprise_hot";
-    if (score >= 50) return "growth_warm";
+    if (score >= 70) return "enterprise_hot";
+    if (score >= 40) return "growth_warm";
     return "starter_cold";
   }
 
   followupPlan({ segment, source }) {
     const plan = [];
     if (segment === "enterprise_hot") {
-      plan.push("assign account executive within 15 minutes");
-      plan.push("book discovery call in first business day");
+      plan.push("assign account executive in 15 minutes");
+      plan.push("send solution outline today");
     } else if (segment === "growth_warm") {
-      plan.push("send product fit email within 2 hours");
-      plan.push("schedule SDR outreach within 24 hours");
+      plan.push("send product-fit email in 2 hours");
+      plan.push("schedule follow-up in 2 days");
     } else {
-      plan.push("send educational drip campaign");
-      plan.push("review intent again in 7 days");
+      plan.push("send starter onboarding guide");
+      plan.push("review intent in 7 days");
     }
 
     if (source === "webinar") {
-      plan.push("attach webinar recording and slides");
+      plan.push("include webinar recap");
     }
 
     return plan;
@@ -2840,19 +2857,12 @@ class ContactDomainRulesServiceStage8 {
       {
         field: "name",
         check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters" : null
+          normalized.name.length < 2 ? "name must have at least 2 characters." : null
       },
       {
         field: "email",
         check: () =>
-          !normalized.email.includes("@") ? "email must include @" : null
-      },
-      {
-        field: "email",
-        check: () =>
-          normalized.email.endsWith("@mailinator.com")
-            ? "disposable emails are not allowed"
-            : null
+          !normalized.email.includes("@") ? "email must include @." : null
       },
       {
         field: "country",
@@ -2864,15 +2874,8 @@ class ContactDomainRulesServiceStage8 {
       {
         field: "plan",
         check: () =>
-          normalized.employees > 2000 && normalized.plan !== "enterprise"
-            ? "large companies must use enterprise plan"
-            : null
-      },
-      {
-        field: "consentMarketing",
-        check: () =>
-          normalized.source === "partner" && !normalized.consentMarketing
-            ? "partner leads require marketing consent"
+          normalized.plan === "starter" && normalized.employees > 200
+            ? "starter plan supports up to 200 employees"
             : null
       }
     ];
@@ -3479,12 +3482,12 @@ class ContactDomainRulesServiceStage10 {
       {
         field: "name",
         check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters" : null
+          normalized.name.length < 2 ? "name must have at least 2 characters." : null
       },
       {
         field: "email",
         check: () =>
-          !normalized.email.includes("@") ? "email must include @" : null
+          !normalized.email.includes("@") ? "email must include @." : null
       },
       {
         field: "email",
@@ -3506,13 +3509,6 @@ class ContactDomainRulesServiceStage10 {
         check: () =>
           normalized.plan === "starter" && normalized.employees > maxStarterEmployees
             ? `starter plan supports up to ${maxStarterEmployees} employees`
-            : null
-      },
-      {
-        field: "consentMarketing",
-        check: () =>
-          normalized.source === "partner" && !normalized.consentMarketing
-            ? "partner leads require marketing consent"
             : null
       }
     ];
