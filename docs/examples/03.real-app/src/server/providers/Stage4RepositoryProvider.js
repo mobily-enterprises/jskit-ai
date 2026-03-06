@@ -1,12 +1,12 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage4.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage4.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage4.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
 const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";

@@ -2,7 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import {
   normalizeContactBody,
   normalizeContactParams
-} from "../input/contactInputNormalization.js";
+} from "../input/contactInputNormalizationStage7.js";
 
 const contactIntakePreviewBodySchema = Type.Object(
   {

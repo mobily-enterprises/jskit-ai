@@ -4,7 +4,7 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage2.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 

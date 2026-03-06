@@ -5,9 +5,9 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage8.js";
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage8.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
@@ -15,7 +15,7 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage8.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
 const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualification";

@@ -3,8 +3,8 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/schemas/contactSchemasStage1.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class Stage1MonolithProvider {
   static id = "docs.examples.03.stage1";

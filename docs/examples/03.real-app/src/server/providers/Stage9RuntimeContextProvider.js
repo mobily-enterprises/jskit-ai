@@ -6,21 +6,21 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage9.js";
+import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage9.js";
+import { CreateContactIntakeActionStage9 } from "../actions/CreateContactIntakeActionStage9.js";
+import { GetContactByIdActionStage9 } from "../actions/GetContactByIdActionStage9.js";
+import { PreviewContactFollowupActionStage9 } from "../actions/PreviewContactFollowupActionStage9.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage9.js";
 import {
   contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage9.js";
 import {
   normalizeContactBody,
   normalizeContactQuery
-} from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/input/contactInputNormalizationStage9.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -56,12 +56,12 @@ class Stage9RuntimeContextProvider {
   register(app) {
     app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepository());
     app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
+    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage9());
 
     app.singleton(
       STAGE_9_CREATE_ACTION,
       () =>
-        new CreateContactIntakeActionStage8({
+        new CreateContactIntakeActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
@@ -71,7 +71,7 @@ class Stage9RuntimeContextProvider {
     app.singleton(
       STAGE_9_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupActionStage8({
+        new PreviewContactFollowupActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
@@ -81,7 +81,7 @@ class Stage9RuntimeContextProvider {
     app.singleton(
       STAGE_9_GET_BY_ID_ACTION,
       () =>
-        new GetContactByIdActionStage8({
+        new GetContactByIdActionStage9({
           contactRepository: app.make(STAGE_9_REPOSITORY)
         })
     );

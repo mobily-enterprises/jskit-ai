@@ -87,8 +87,8 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/schemas/contactSchemasStage1.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class Stage1MonolithProvider {
   static id = "docs.examples.03.stage1";
@@ -553,7 +553,7 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage2.js";
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 
@@ -899,12 +899,12 @@ Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 ```js
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage3.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage3.js";
 
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
 const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
@@ -1273,13 +1273,13 @@ Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`
 ```js
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage4.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage4.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage4.js";
 
 const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
 const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";
@@ -1658,16 +1658,16 @@ Use `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`:
 ```js
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage5.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage5.js";
+import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage5.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdActionStage5.js";
+import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage5.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage5.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
@@ -2225,16 +2225,16 @@ Use `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`:
 ```js
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage6.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage6.js";
+import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage6.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdActionStage6.js";
+import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage6.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage6.js";
 
 const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
 const STAGE_6_QUALIFICATION_SERVICE = "docs.examples.03.stage6.service.qualification";
@@ -2480,7 +2480,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import {
   normalizeContactBody,
   normalizeContactParams
-} from "../input/contactInputNormalization.js";
+} from "../input/contactInputNormalizationStage7.js";
 
 const contactIntakePreviewBodySchema = Type.Object(
   {
@@ -2769,9 +2769,9 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage8.js";
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage8.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
@@ -2779,7 +2779,7 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage8.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
 const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualification";
@@ -3333,21 +3333,21 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage9.js";
+import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage9.js";
+import { CreateContactIntakeActionStage9 } from "../actions/CreateContactIntakeActionStage9.js";
+import { GetContactByIdActionStage9 } from "../actions/GetContactByIdActionStage9.js";
+import { PreviewContactFollowupActionStage9 } from "../actions/PreviewContactFollowupActionStage9.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage9.js";
 import {
   contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage9.js";
 import {
   normalizeContactBody,
   normalizeContactQuery
-} from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/input/contactInputNormalizationStage9.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -3383,12 +3383,12 @@ class Stage9RuntimeContextProvider {
   register(app) {
     app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepository());
     app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
+    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage9());
 
     app.singleton(
       STAGE_9_CREATE_ACTION,
       () =>
-        new CreateContactIntakeActionStage8({
+        new CreateContactIntakeActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
@@ -3398,7 +3398,7 @@ class Stage9RuntimeContextProvider {
     app.singleton(
       STAGE_9_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupActionStage8({
+        new PreviewContactFollowupActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
@@ -3408,7 +3408,7 @@ class Stage9RuntimeContextProvider {
     app.singleton(
       STAGE_9_GET_BY_ID_ACTION,
       () =>
-        new GetContactByIdActionStage8({
+        new GetContactByIdActionStage9({
           contactRepository: app.make(STAGE_9_REPOSITORY)
         })
     );
@@ -3823,19 +3823,19 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage10.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage10.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
 import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage10.js";
 import {
   contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/schemas/contactSchemasStage10.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage10.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -4098,19 +4098,19 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage10.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage10.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
 import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
 import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage7.js";
+import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage10.js";
 import {
   contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+} from "../../shared/schemas/contactSchemasStage10.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage10.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";

@@ -1,15 +1,15 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { ContactQualificationService } from "../services/ContactQualificationServiceStage5.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage5.js";
+import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage5.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdActionStage5.js";
+import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage5.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage5.js";
 
 const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
 const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";

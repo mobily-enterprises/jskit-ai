@@ -1,10 +1,10 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage7 } from "../controllers/ContactControllerStage7.js";
 import { ContactQualificationServiceStage7 } from "../services/ContactQualificationServiceStage7.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
+import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage7.js";
+import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage7.js";
+import { GetContactByIdAction } from "../actions/GetContactByIdActionStage7.js";
+import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage7.js";
 import {
   contactByIdGetRouteContractStage7,
   contactIntakePostRouteContractStage7,
