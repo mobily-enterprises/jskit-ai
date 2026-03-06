@@ -1,4 +1,4 @@
-import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
+import { DomainValidationError } from "./errors.js";
 
 function collectDomainFieldErrors(rules) {
   const fieldErrors = {};

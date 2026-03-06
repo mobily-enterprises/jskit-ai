@@ -727,46 +727,63 @@ The bad:
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
-Stage 8 keeps the layered shape from Stage 7, but it changes one important behavior:
+Stage 8 is now shippable and final for this concern set.
 
-- before: actions returned `{ ok: false, status, code, details }` and controllers mapped that manually
-- now: actions throw typed domain/app errors, and controllers stay focused on success paths
+It keeps Stage 7 transport best practices (contract-driven schema + normalization) and upgrades only domain error ergonomics:
 
-This stage is intentionally small. You are not changing the architecture again. You are only changing how failures flow.
+- actions throw typed domain/runtime errors
+- controller is success-path only (`BaseController`)
+- provider remains wiring-only
 
-Files:
+Files changed from Stage 7:
 
 * src/server/providers/ContactProviderStage8.js (modified)
 * src/server/controllers/ContactControllerStage8.js (modified)
 * src/server/actions/CreateContactIntakeActionStage8.js (modified)
 * src/server/actions/PreviewContactFollowupActionStage8.js (modified)
 * src/server/actions/GetContactByIdActionStage8.js (modified)
-* src/server/support/domainRuleValidationStage8.js (new)
+* src/server/services/ContactQualificationServiceStage8.js (modified)
 * src/server/services/ContactDomainRulesServiceStage8.js (new)
 
 ### The differences
 
-#### The provider
+#### The provider dependency graph
 
 * src/server/providers/ContactProviderStage8.js (modified)
 
-What changed:
-
-- route registration stays the same pattern as previous stages
-- provider wires Stage 8 action/controller classes
-- provider no longer installs API error handling manually; runtime bootstrap does it automatically
-
-Snippet:
+This stage adds:
 
 ```js
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-8/contacts/intake",
-  {
-    ...contactIntakePostRouteContract,
-    response: STAGE_8_RESPONSE_SCHEMA
-  },
-  (request, reply) => controller.intake(request, reply)
+import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
+
+const STAGE_8_DOMAIN_RULES_SERVICE = "docs.examples.03.stage8.service.domainRules";
+```
+
+In terms of wiring, the new service is passed to both controllers:
+
+
+
+```js
+app.singleton(STAGE_8_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
+
+app.singleton(
+  STAGE_8_CREATE_ACTION,
+  () =>
+    new CreateContactIntakeActionStage8({
+      qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
+      domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE), // NEW
+      contactRepository: app.make(STAGE_8_REPOSITORY)
+    })
+);
+
+app.singleton(
+  STAGE_8_PREVIEW_ACTION,
+  () =>
+    new PreviewContactFollowupActionStage8({
+      qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
+      domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE), // NEW
+      contactRepository: app.make(STAGE_8_REPOSITORY)
+    })
 );
 ```
 
@@ -774,51 +791,65 @@ router.register(
 
 * src/server/controllers/ContactControllerStage8.js (modified)
 
-What changed:
-
-- controller now extends `BaseController`
-- controller methods handle success only (`this.ok(...)`)
-- no manual `if (!result.ok)` branches in controller methods
-
-Before:
+The controller no longer checks the result, but expects the action to throw in case of problems.
+It goes from this:
 
 ```js
-const result = this.createContactIntakeAction.execute(payload);
+const result = this.createContactIntakeAction.execute(request.input.body);
 if (!result.ok) {
-  reply.code(result.status).send({ error: "...", code: result.code, details: result.details });
+  reply.code(result.status).send({
+    error: "Domain validation failed.",
+    code: result.code,
+    details: result.details
+  });
   return;
 }
 reply.code(200).send(result.data);
 ```
 
-After:
+To this:
 
 ```js
-const created = await this.createContactIntakeAction.execute(payload);
+import { BaseController } from "@jskit-ai/kernel/server/http";
+
+const created = await this.createContactIntakeAction.execute(request.input.body);
 return this.ok(reply, created);
 ```
 
-#### The actions
+#### The action: create intake
 
 * src/server/actions/CreateContactIntakeActionStage8.js (modified)
-* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
-* src/server/actions/GetContactByIdActionStage8.js (modified)
 
-What changed:
-
-- actions move from result-error objects to thrown typed errors
-- success return values remain plain objects
-- the runtime error handler maps thrown errors to HTTP JSON payloads
-
-Before:
+The domain rules service is saved onto this:
 
 ```js
+constructor({ qualificationService, domainRulesService, contactRepository }) {
+  this.qualificationService = qualificationService;
+  this.domainRulesService = domainRulesService; // NEW
+  this.contactRepository = contactRepository;
+}
+```
+
+The way 
+
+```js
+const qualified = this.qualificationService.qualify(payload);
+if (!qualified.ok) {
+  return {
+    ok: false,
+    status: 422,
+    code: qualified.code,
+    details: qualified.details
+  };
+}
+
+const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
 if (duplicate) {
   return {
     ok: false,
-    status: 409,
+    status: 422,
     code: "duplicate_contact",
-    details: ["..."]
+    details: ["a contact with this email already exists"]
   };
 }
 ```
@@ -826,6 +857,16 @@ if (duplicate) {
 After:
 
 ```js
+import { assertNoDomainRuleFailures, ConflictError } from "@jskit-ai/kernel/server/runtime";
+
+const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
+assertNoDomainRuleFailures(
+  this.domainRulesService.buildRules(payload, {
+    isAllowedEmailDomain
+  })
+);
+
+const duplicate = this.contactRepository.findByEmail(payload.email);
 if (duplicate) {
   throw new ConflictError("A contact with this email already exists.", {
     code: "duplicate_contact",
@@ -836,39 +877,174 @@ if (duplicate) {
     }
   });
 }
+
+const qualified = this.qualificationService.qualify(payload);
 ```
 
-And for not-found:
+Important: payload is already normalized by route contract in Stage 8; action does not re-normalize.
+
+#### The action: preview follow-up
+
+* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
+
+Before:
+
+```js
+const qualified = this.qualificationService.qualify(payload);
+if (!qualified.ok) {
+  return {
+    ok: false,
+    status: 422,
+    code: qualified.code,
+    details: qualified.details
+  };
+}
+```
+
+After:
+
+```js
+import { assertNoDomainRuleFailures } from "@jskit-ai/kernel/server/runtime";
+
+const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
+assertNoDomainRuleFailures(
+  this.domainRulesService.buildRules(payload, {
+    isAllowedEmailDomain
+  })
+);
+const qualified = this.qualificationService.qualify(payload);
+```
+
+#### The action: get by id
+
+* src/server/actions/GetContactByIdActionStage8.js (modified)
+
+Before:
 
 ```js
 if (!contact) {
+  return {
+    ok: false,
+    status: 404,
+    code: "contact_not_found",
+    details: [`No contact found for id ${normalizedId || "<empty>"}.`]
+  };
+}
+```
+
+After:
+
+```js
+import { NotFoundError } from "@jskit-ai/kernel/server/runtime";
+
+if (!contact) {
   throw new NotFoundError("Contact not found.", {
     code: "contact_not_found",
-    details: { contactId: normalizedId }
+    details: {
+      contactId: normalizedId
+    }
   });
 }
 ```
 
-#### Optional domain-rule extraction helper (used in this stage)
+#### Qualification service contract tightened
 
-* src/server/support/domainRuleValidationStage8.js (new)
-* src/server/services/ContactDomainRulesServiceStage8.js (new)
+* src/server/services/ContactQualificationServiceStage8.js (modified)
 
-This is optional design refinement, not a mandatory kernel requirement.
-
-It lets Stage 8 actions do this:
+Before (Stage 7 service):
 
 ```js
-assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+qualify(payload) {
+  const details = this._validate(payload);
+  if (details.length > 0) {
+    return {
+      ok: false,
+      code: "domain_validation_failed",
+      details,
+      normalized: payload
+    };
+  }
+  return {
+    ok: true,
+    normalized: payload,
+    score,
+    segment,
+    followupPlan
+  };
+}
 ```
 
-instead of duplicating rule loops in each action.
+After (Stage 8 service):
+
+```js
+qualify(payload) {
+  const score = this._score(payload);
+  const segment = this._segment(score);
+  const followupPlan = this._followupPlan({ segment, source: payload.source });
+
+  return {
+    normalized: payload,
+    score,
+    segment,
+    followupPlan
+  };
+}
+```
+
+Practical consequence:
+
+- validation responsibility is no longer duplicated here
+- domain validation is handled in dedicated Stage 8 rule service + kernel helper
+
+#### New domain-rule modules
+
+* src/server/services/ContactDomainRulesServiceStage8.js (new)
+* `@jskit-ai/kernel/server/runtime` `assertNoDomainRuleFailures(...)` (kernel runtime helper)
+
+Domain rules service in Stage 8:
+
+```js
+// Snippet shows the new async-policy part added in Stage 8.
+class ContactDomainRulesServiceStage8 {
+  async isAllowedEmailDomain(email) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const domain = normalizedEmail.includes("@") ? normalizedEmail.split("@").pop() : "";
+
+    // Stubbed async policy check. In a real app this would usually come from a database lookup.
+    const blockedDomains = new Set(["mailinator.com", "tempmail.com", "example-blocked.test"]);
+    return !blockedDomains.has(domain);
+  }
+
+  buildRules(normalized, { isAllowedEmailDomain = true } = {}) {
+    return [
+      {
+        field: "email",
+        check: () =>
+          isAllowedEmailDomain ? null : "email domain is not allowed"
+      }
+    ];
+  }
+}
+```
+
+Stage 8 action flow:
+
+```js
+const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
+const rules = this.domainRulesService.buildRules(payload, {
+  isAllowedEmailDomain
+});
+assertNoDomainRuleFailures(rules);
+```
+
+The `isAllowedEmailDomain(...)` method in Stage 8 is intentionally async and stubbed.
+In a real module, this policy would typically come from a database lookup.
 
 ### Optional advanced API: custom error handling behavior
 
-Everyday usage needs no extra code. Runtime already auto-installs API error handling.
+Default path: no provider code needed. Runtime auto-installs API error handling.
 
-If you want custom behavior, pass `apiErrorHandling` when registering runtime:
+Optional override:
 
 ```js
 registerHttpRuntime(app, {
@@ -883,14 +1059,13 @@ registerHttpRuntime(app, {
 });
 ```
 
-This is non-mandatory. Use it only when you need custom error classification or custom server-error side effects.
-
 ### What improved
 
-- controllers are shorter and success-focused
-- actions express failures with typed domain/app errors
-- error JSON shape is centralized and consistent
-- no provider-level error-handler boilerplate is required
+- Stage 8 is now transport-clean and domain-error focused
+- provider remains wiring-only
+- controller is success-path only
+- domain validation is centralized via rules service + helper
+- action code throws typed errors instead of returning ad-hoc failure envelopes
 
 ### Result vs throw in domain validation
 
@@ -917,14 +1092,13 @@ Recommendation:
 
 The good:
 
-- Stage 8 changes are focused and small
-- controller code is cleaner and easier to read
-- domain failures are now explicit typed errors
-- runtime gives centralized JSON error mapping by default
+- Stage 8 is now shippable for domain-error ergonomics
+- responsibilities are cleanly separated across provider/controller/action/service
+- route contracts remain the source of transport normalization and validation
 
 The bad:
 
-- you now need discipline around one error style per module
+- you still need discipline around one error style per module
 - advanced custom error hooks should be used sparingly
 
 ## Stage 9: Runtime Context and Middleware Reuse
@@ -1020,7 +1194,6 @@ Files:
 * src/server/controllers/ContactControllerStage10.js (modified)
 * src/server/support/contactsModuleConfigStage10.js (new)
 * src/server/support/contactsMiddlewareStage10.js (new)
-* src/server/support/domainRuleValidationStage10.js (new)
 * src/server/services/ContactDomainRulesServiceStage10.js (modified)
 * src/server/actions/CreateContactIntakeActionStage10.js (modified)
 * src/server/actions/PreviewContactFollowupActionStage10.js (modified)
@@ -1061,9 +1234,9 @@ Files:
 
 - fails fast at startup when config is invalid
 
-#### The domain rule helper
+#### Kernel domain rule helper
 
-* src/server/support/domainRuleValidationStage10.js (new)
+* `@jskit-ai/kernel/server/runtime` `assertNoDomainRuleFailures(...)`
 
 - keeps the centralized domain rule execution pattern from Stage 8
 

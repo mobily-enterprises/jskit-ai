@@ -1,7 +1,7 @@
 import {
+  assertNoDomainRuleFailures,
   ConflictError
 } from "@jskit-ai/kernel/server/runtime";
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage10.js";
 import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class CreateContactIntakeActionStage10 {

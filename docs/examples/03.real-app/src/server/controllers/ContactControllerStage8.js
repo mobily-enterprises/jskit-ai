@@ -8,25 +8,21 @@ class ContactControllerStage8 extends BaseController {
     this.getContactByIdAction = getContactByIdAction;
   }
 
-  resolveInputBody(request) {
-    return request?.input?.body || request?.body || {};
-  }
-
   async intake(request, reply) {
-    const payload = this.resolveInputBody(request);
+    const payload = request.input.body;
     const created = await this.createContactIntakeAction.execute(payload);
     return this.ok(reply, created);
   }
 
   async previewFollowup(request, reply) {
-    const payload = this.resolveInputBody(request);
+    const payload = request.input.body;
     const preview = await this.previewContactFollowupAction.execute(payload);
     return this.ok(reply, preview);
   }
 
   async show(request, reply) {
     const contact = await this.getContactByIdAction.execute({
-      contactId: request.params?.contactId
+      contactId: request.input.params.contactId
     });
     return this.ok(reply, contact);
   }

@@ -1,4 +1,3 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
 import { ContactQualificationServiceStage8 } from "../services/ContactQualificationServiceStage8.js";
@@ -8,9 +7,9 @@ import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeA
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
+  contactByIdGetRouteContractStage8,
+  contactIntakePostRouteContractStage8,
+  contactPreviewFollowupPostRouteContractStage8
 } from "../../shared/schemas/contactSchemasStage8.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
@@ -20,16 +19,6 @@ const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
 const STAGE_8_GET_BY_ID_ACTION = "docs.examples.03.stage8.actions.getById";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
-const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactIntakePostRouteContract.response[200]
-    },
-    {
-      includeValidation400: true
-    }
-  )
-);
 
 class ContactProviderStage8 {
   static id = "docs.examples.03.stage8";
@@ -85,35 +74,21 @@ class ContactProviderStage8 {
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: intake"
-        },
-        response: STAGE_8_RESPONSE_SCHEMA
-      },
+      contactIntakePostRouteContractStage8,
       (request, reply) => controller.intake(request, reply)
     );
 
     router.register(
       "POST",
       "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: preview"
-        },
-        response: STAGE_8_RESPONSE_SCHEMA
-      },
+      contactPreviewFollowupPostRouteContractStage8,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
     router.register(
       "GET",
       "/api/v1/docs/ch03/stage-8/contacts/:contactId",
-      contactByIdGetRouteContract,
+      contactByIdGetRouteContractStage8,
       (request, reply) => controller.show(request, reply)
     );
   }

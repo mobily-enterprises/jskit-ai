@@ -1,5 +1,14 @@
 class ContactDomainRulesServiceStage8 {
-  buildRules(normalized) {
+  async isAllowedEmailDomain(email) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const domain = normalizedEmail.includes("@") ? normalizedEmail.split("@").pop() : "";
+
+    // Stubbed async policy check. In a real app this would usually come from a database lookup.
+    const blockedDomains = new Set(["mailinator.com", "tempmail.com", "example-blocked.test"]);
+    return !blockedDomains.has(domain);
+  }
+
+  buildRules(normalized, { isAllowedEmailDomain = true } = {}) {
     return [
       {
         field: "name",
@@ -10,6 +19,11 @@ class ContactDomainRulesServiceStage8 {
         field: "email",
         check: () =>
           !normalized.email.includes("@") ? "email must include @." : null
+      },
+      {
+        field: "email",
+        check: () =>
+          isAllowedEmailDomain ? null : "email domain is not allowed"
       },
       {
         field: "plan",

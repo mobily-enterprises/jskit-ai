@@ -1,5 +1,4 @@
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
+import { assertNoDomainRuleFailures } from "@jskit-ai/kernel/server/runtime";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -9,11 +8,15 @@ class PreviewContactFollowupActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = normalizeContactBody(payload);
-    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+    const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
+    assertNoDomainRuleFailures(
+      this.domainRulesService.buildRules(payload, {
+        isAllowedEmailDomain
+      })
+    );
 
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
-    const qualified = this.qualificationService.qualify(normalized);
+    const duplicate = this.contactRepository.findByEmail(payload.email);
+    const qualified = this.qualificationService.qualify(payload);
 
     return {
       ok: true,

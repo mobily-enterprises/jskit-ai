@@ -1,8 +1,7 @@
 import {
+  assertNoDomainRuleFailures,
   ConflictError
 } from "@jskit-ai/kernel/server/runtime";
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class CreateContactIntakeActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -12,10 +11,14 @@ class CreateContactIntakeActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = normalizeContactBody(payload);
-    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+    const isAllowedEmailDomain = await this.domainRulesService.isAllowedEmailDomain(payload.email);
+    assertNoDomainRuleFailures(
+      this.domainRulesService.buildRules(payload, {
+        isAllowedEmailDomain
+      })
+    );
 
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
+    const duplicate = this.contactRepository.findByEmail(payload.email);
     if (duplicate) {
       throw new ConflictError("A contact with this email already exists.", {
         code: "duplicate_contact",
@@ -27,7 +30,7 @@ class CreateContactIntakeActionStage8 {
       });
     }
 
-    const qualified = this.qualificationService.qualify(normalized);
+    const qualified = this.qualificationService.qualify(payload);
 
     const created = this.contactRepository.save({
       id: `contact-${Date.now().toString(36)}`,

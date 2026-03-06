@@ -1,4 +1,4 @@
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage10.js";
+import { assertNoDomainRuleFailures } from "@jskit-ai/kernel/server/runtime";
 import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class PreviewContactFollowupActionStage10 {

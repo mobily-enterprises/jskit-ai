@@ -1,11 +1,11 @@
 import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from './contactSchemasStage1.js';
+  contactByIdGetRouteContractStage7,
+  contactIntakePostRouteContractStage7,
+  contactPreviewFollowupPostRouteContractStage7
+} from "./contactSchemasStage7.js";
 
 export {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
+  contactByIdGetRouteContractStage7 as contactByIdGetRouteContractStage8,
+  contactIntakePostRouteContractStage7 as contactIntakePostRouteContractStage8,
+  contactPreviewFollowupPostRouteContractStage7 as contactPreviewFollowupPostRouteContractStage8
 };
