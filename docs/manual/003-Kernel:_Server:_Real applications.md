@@ -727,70 +727,27 @@ The bad:
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
-Stage 7 already fixed transport shape (schema + normalization + `request.input`).
-Stage 8 changes only one concern: domain failures.
+Before this stage, actions returned error objects (`{ ok: false, status, code, details }`;  controllers had to branch on `if (!result.ok)` and map errors manually
 
-Before Stage 8:
-
-- actions returned error objects (`{ ok: false, status, code, details }`)
-- controllers had to branch on `if (!result.ok)` and map errors manually
-
-After Stage 8:
-
-- actions throw typed errors (`DomainValidationError`, `ConflictError`, `NotFoundError`)
-- controller stays success-path only, using `BaseController`
-- runtime error handling maps thrown app errors to JSON responses
+After these changes, actions throw typed errors (`DomainValidationError`, `ConflictError`, `NotFoundError`); controller stays success-path only, using `BaseController`, and runtime error handling will map thrown app errors to JSON responses.
 
 Files changed from Stage 7:
 
-* src/server/providers/ContactProviderStage8.js (modified)
+* src/server/providers/ContactProviderStage8.js (unchanged)
 * src/server/controllers/ContactControllerStage8.js (modified)
 * src/server/actions/CreateContactIntakeActionStage8.js (modified)
 * src/server/actions/PreviewContactFollowupActionStage8.js (modified)
 * src/server/actions/GetContactByIdActionStage8.js (modified)
 * src/server/services/ContactQualificationServiceStage8.js (modified)
-* src/server/services/ContactDomainRulesServiceStage8.js (new)
 
 ### The differences
 
-#### The provider
-
-* src/server/providers/ContactProviderStage8.js (modified)
-
-Stage 8 adds one new dependency and injects it into both write-path actions:
-
-```js
-import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-const STAGE_8_DOMAIN_RULES_SERVICE = "docs.examples.03.stage8.service.domainRules";
-
-app.singleton(STAGE_8_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
-
-app.singleton(
-  STAGE_8_CREATE_ACTION,
-  () =>
-    new CreateContactIntakeActionStage8({
-      qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
-      domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE),
-      contactRepository: app.make(STAGE_8_REPOSITORY)
-    })
-);
-
-app.singleton(
-  STAGE_8_PREVIEW_ACTION,
-  () =>
-    new PreviewContactFollowupActionStage8({
-      qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
-      domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE),
-      contactRepository: app.make(STAGE_8_REPOSITORY)
-    })
-);
-```
 
 #### The controller
 
 * src/server/controllers/ContactControllerStage8.js (modified)
 
-Before (manual error mapping in controller):
+Before this change, the controller would branch off in case the result was not OK:
 
 ```js
 const result = this.createContactIntakeAction.execute(request.input.body);
@@ -812,49 +769,6 @@ import { BaseController } from "@jskit-ai/kernel/server/http";
 
 const created = await this.createContactIntakeAction.execute(request.input.body);
 return this.ok(reply, created);
-```
-
-#### New domain rules service
-
-* src/server/services/ContactDomainRulesServiceStage8.js (new)
-
-Stage 8 introduces a dedicated service for domain rule definitions and field-error collection:
-
-```js
-class ContactDomainRulesServiceStage8 {
-  buildRules(normalized) {
-    return [
-      {
-        field: "name",
-        check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters." : null
-      },
-      {
-        field: "email",
-        check: () =>
-          !normalized.email.includes("@") ? "email must include @." : null
-      },
-      {
-        field: "plan",
-        check: () =>
-          normalized.plan === "starter" && normalized.employees > 200
-            ? "starter plan supports up to 200 employees"
-            : null
-      }
-    ];
-  }
-
-  collectFieldErrors(normalized) {
-    const fieldErrors = {};
-    for (const rule of this.buildRules(normalized)) {
-      const message = rule?.check ? rule.check() : null;
-      if (message) {
-        fieldErrors[rule.field] = message;
-      }
-    }
-    return fieldErrors;
-  }
-}
 ```
 
 #### The create action
@@ -880,7 +794,7 @@ After:
 ```js
 import { DomainValidationError, ConflictError } from "@jskit-ai/kernel/server/runtime";
 
-const fieldErrors = this.domainRulesService.collectFieldErrors(payload);
+const fieldErrors = this.qualificationService.validate(payload);
 if (Object.keys(fieldErrors).length > 0) {
   throw new DomainValidationError(
     { fieldErrors },
@@ -924,7 +838,7 @@ After:
 ```js
 import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
 
-const fieldErrors = this.domainRulesService.collectFieldErrors(payload);
+const fieldErrors = this.qualificationService.validate(payload);
 if (Object.keys(fieldErrors).length > 0) {
   throw new DomainValidationError(
     { fieldErrors },
@@ -969,31 +883,91 @@ if (!contact) {
 
 * src/server/services/ContactQualificationServiceStage8.js (modified)
 
-`qualify(...)` no longer performs and returns validation-failure envelopes.
-Validation is now handled by `ContactDomainRulesServiceStage8` before `qualify(...)` is used.
+Before (Stage 7 style):
 
-### What improved
+```js
+qualify(payload) {
+  const details = this._validate(payload);
+  if (details.length > 0) {
+    return {
+      ok: false,
+      code: "domain_validation_failed",
+      details,
+      normalized: payload
+    };
+  }
 
-- one clear error-flow style inside this stage: typed throws from actions
-- controllers are thinner and focus on success responses
-- provider wiring remains explicit and easy to trace
-- domain validation logic is centralized in one service
+  const score = this._score(payload);
+  const segment = this._segment(score);
+  const followupPlan = this._followupPlan({
+    segment,
+    source: payload.source
+  });
+
+  return {
+    ok: true,
+    normalized: payload,
+    score,
+    segment,
+    followupPlan
+  };
+}
+```
+
+After (Stage 8 style):
+
+```js
+validate(payload) {
+  const fieldErrors = {};
+  if (payload.name.length < 2) fieldErrors.name = "name must have at least 2 characters.";
+  if (!payload.email.includes("@")) fieldErrors.email = "email must include @.";
+  if (payload.plan === "starter" && payload.employees > 200) {
+    fieldErrors.plan = "starter plan supports up to 200 employees";
+  }
+  return fieldErrors;
+}
+
+qualify(payload) {
+  const score = this._score(payload);
+  const segment = this._segment(score);
+  const followupPlan = this._followupPlan({
+    segment,
+    source: payload.source
+  });
+
+  return {
+    normalized: payload,
+    score,
+    segment,
+    followupPlan
+  };
+}
+```
+
+Difference in responsibility:
+
+- `validate(payload)` handles domain validation only
+- `qualify(payload)` handles scoring/segmentation/follow-up only
+
+This is why Stage 8 actions can now throw directly on validation errors and then call `qualify(...)` for success-path domain output.
 
 ### The verdict
 
 The good:
-
 - Stage 8 is now a clean, shippable domain-error ergonomics step
 - each layer has one clear responsibility
 
 The bad:
-
-- you still need discipline to keep one error style per module
-- advanced helper patterns should stay in advanced chapters, not baseline flow
-
+- Not much left!
 ## Stage 9: Runtime Context and Middleware Reuse
 
-Stage 9 focuses on request-scoped context and reusable middleware stacks.
+Stage 9 adds runtime context and middleware reuse.
+
+What this means in plain terms:
+
+- every request has `request.scope` (request-local container)
+- middleware can read/write request-local values in that scope
+- provider can reuse one middleware stack across all related routes
 
 Files:
 
@@ -1002,7 +976,6 @@ Files:
 * src/server/support/contactsMiddlewareStage9.js (new)
 * src/shared/input/contactInputNormalizationStage9.js (modified)
 * src/shared/schemas/contactSchemasStage9.js (modified)
-* src/server/services/ContactDomainRulesServiceStage9.js (unchanged)
 * src/server/actions/CreateContactIntakeActionStage9.js (unchanged)
 * src/server/actions/PreviewContactFollowupActionStage9.js (unchanged)
 * src/server/actions/GetContactByIdActionStage9.js (unchanged)
@@ -1013,66 +986,143 @@ Files:
 
 * src/server/support/contactsMiddlewareStage9.js (new)
 
-- each request automatically has a request scope (`request.scope`)
-- middleware reads/writes scoped request context
+Stage 9 introduces one reusable middleware array:
 
-#### The controller
+```js
+const contactsMiddlewareStage9 = Object.freeze([
+  requireRequestScopeMiddleware,
+  attachRequestContextMiddleware,
+  requirePartnerConsentMiddleware
+]);
+```
 
-* src/server/controllers/ContactControllerStage9.js (modified)
+Each middleware does one thing:
 
-- reads scope context to enrich response metadata without pushing runtime concerns into actions
+- `requireRequestScopeMiddleware` ensures `request.scope` exists
+- `attachRequestContextMiddleware` stores request context in scope
+- `requirePartnerConsentMiddleware` enforces route-level business precondition
 
 #### The provider
 
 * src/server/providers/ContactProviderStage9.js (modified)
 
-- reuses one middleware stack across related routes
+Before (Stage 8): each route used a direct contract object only.
 
-#### The shared input normalization
+```js
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-8/contacts/intake",
+  contactIntakePostRouteContractStage8,
+  handler
+);
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
+  contactPreviewFollowupPostRouteContractStage8,
+  handler
+);
+```
 
-* src/shared/input/contactInputNormalizationStage9.js (modified)
+After (Stage 9): provider defines shared route options once and reuses them.
 
-- aligns transport normalization with Stage 9 middleware/context flow
+```js
+const sharedOptions = {
+  body: {
+    schema: contactIntakePostRouteContract.body.schema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: stage9QuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: STAGE_9_RESPONSE_SCHEMA,
+  middleware: contactsMiddlewareStage9
+};
 
-#### The shared route contracts
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-9/contacts/intake",
+  {
+    method: "POST",
+    path: "/api/v1/docs/ch03/stage-9/contacts/intake",
+    ...sharedOptions,
+    meta: {
+      tags: ["docs-stage-9"],
+      summary: "Stage 9 request scope + middleware reuse: intake"
+    }
+  },
+  (request, reply) => controller.intake(request, reply)
+);
+router.register(
+  "POST",
+  "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
+  {
+    method: "POST",
+    path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
+    ...sharedOptions,
+    meta: {
+      tags: ["docs-stage-9"],
+      summary: "Stage 9 request scope + middleware reuse: preview"
+    }
+  },
+  (request, reply) => controller.previewFollowup(request, reply)
+);
+```
+
+This is the key Stage 9 win: one middleware stack, reused across related routes.
+
+#### The controller
+
+* src/server/controllers/ContactControllerStage9.js (modified)
+
+Controller now reads context from request scope and adds response headers:
+
+```js
+const requestId = scope.make(KERNEL_TOKENS.RequestId);
+const context = scope.has(STAGE_9_REQUEST_CONTEXT_TOKEN)
+  ? scope.make(STAGE_9_REQUEST_CONTEXT_TOKEN)
+  : null;
+
+if (requestId) reply.header("x-request-id", requestId);
+if (context?.receivedAt) reply.header("x-request-received-at", context.receivedAt);
+```
+
+Controller input handling is also made defensive:
+
+```js
+resolveInputBody(request) {
+  return request?.input?.body || request?.body || {};
+}
+```
+
+#### Shared contracts and input
 
 * src/shared/schemas/contactSchemasStage9.js (modified)
+* src/shared/input/contactInputNormalizationStage9.js (modified)
 
-- reflects Stage 9 route-level runtime context and middleware wiring
+These remain thin stage-scoped exports. The practical behavior change in Stage 9 comes from:
+
+- provider middleware wiring
+- middleware implementation
+- controller use of request scope context
 
 ### What improved
 
-- request metadata is available from scope anywhere in the route lifecycle
-- middleware is reusable without duplicating function lists per route
-- context-dependent concerns (trace IDs, guard checks) stay out of actions/services
-
-Note:
-
-- this middleware layer is for route/runtime concerns and scoped checks
-- for full authentication strategy and policy composition, see the auth chapter
-
-### Optional runtime alias/group style
-
-Stage 9 uses direct middleware function reuse so the stage provider stays runnable without extra runtime bootstrap config.
-
-When your runtime bootstrap owns route registration centrally, you can also use named aliases/groups:
-
-- before: routes repeat raw middleware function arrays
-- after: runtime defines `middleware.aliases` and `middleware.groups`, routes declare names like `middleware: ["api"]`
+- request metadata is available in one request-local place (`request.scope`)
+- middleware is reusable without duplicating route-level function arrays
+- runtime concerns stay in middleware/controller, not in actions/services
 
 ### The verdict
 
 The good:
 
-- request metadata is available from scope anywhere in the route lifecycle
-- middleware is reusable without duplicating function lists per route
-- context-dependent concerns (trace IDs, guard checks) stay out of actions/services
+- Stage 9 introduces a clear runtime-context pattern
+- middleware reuse reduces repeated route boilerplate
 
 The bad:
 
-- startup config is still not validated at boot
-- middleware alias/group declarations are still optional, not standardized
-- config-driven domain policy is still not wired
+- startup config still is not validated yet (next stage)
+- alias/group middleware declarations are still optional at this stage
 
 ## Stage 10: Startup Config Contracts
 

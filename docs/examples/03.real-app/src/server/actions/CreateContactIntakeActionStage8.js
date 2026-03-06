@@ -4,14 +4,13 @@ import {
 } from "@jskit-ai/kernel/server/runtime";
 
 class CreateContactIntakeActionStage8 {
-  constructor({ qualificationService, domainRulesService, contactRepository }) {
+  constructor({ qualificationService, contactRepository }) {
     this.qualificationService = qualificationService;
-    this.domainRulesService = domainRulesService;
     this.contactRepository = contactRepository;
   }
 
   async execute(payload) {
-    const fieldErrors = this.domainRulesService.collectFieldErrors(payload);
+    const fieldErrors = this.qualificationService.validate(payload);
     if (Object.keys(fieldErrors).length > 0) {
       throw new DomainValidationError(
         {

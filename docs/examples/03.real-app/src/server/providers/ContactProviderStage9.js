@@ -3,7 +3,6 @@ import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorRespon
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
 import { ContactQualificationServiceStage9 } from "../services/ContactQualificationServiceStage9.js";
-import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
 import { InMemoryContactRepositoryStage9 } from "../repositories/InMemoryContactRepositoryStage9.js";
 import { CreateContactIntakeActionStage9 } from "../actions/CreateContactIntakeActionStage9.js";
 import { GetContactByIdActionStage9 } from "../actions/GetContactByIdActionStage9.js";
@@ -20,7 +19,6 @@ import {
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
-const STAGE_9_DOMAIN_RULES_SERVICE = "docs.examples.03.stage9.service.domainRules";
 const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
 const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
@@ -51,14 +49,12 @@ class ContactProviderStage9 {
   register(app) {
     app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepositoryStage9());
     app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage9());
-    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage9());
 
     app.singleton(
       STAGE_9_CREATE_ACTION,
       () =>
         new CreateContactIntakeActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
         })
     );
@@ -68,7 +64,6 @@ class ContactProviderStage9 {
       () =>
         new PreviewContactFollowupActionStage9({
           qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_9_REPOSITORY)
         })
     );
