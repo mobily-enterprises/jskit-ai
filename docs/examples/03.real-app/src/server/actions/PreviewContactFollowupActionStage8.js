@@ -13,20 +13,15 @@ class PreviewContactFollowupActionStage8 {
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
+    const qualified = this.qualificationService.qualify(normalized);
 
     return {
       ok: true,
       mode: "preview",
-      email: normalized.email,
-      score,
-      segment,
-      followupPlan,
+      email: qualified.normalized.email,
+      score: qualified.score,
+      segment: qualified.segment,
+      followupPlan: qualified.followupPlan,
       duplicateDetected: Boolean(duplicate),
       persisted: false
     };

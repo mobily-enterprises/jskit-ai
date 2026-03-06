@@ -866,30 +866,6 @@ Then, when creating the controller, it will pass the service as a parameter:
     );
 ```
 
-One question may arise: why create the singleton, if the service is then passed as a parameter in the controller's constructor? It's a way for the provider to wire dependencies, and the controller just uses them. That is good because:
-
-- dependencies are explicit (you can read constructor and know what it needs)
-- easier tests (pass a fake service directly, no container boot needed)
-- controller stays framework/container-agnostic
-- failures happen earlier (bad wiring shows up at composition time, not deep at runtime)
-- cleaner architecture: provider = wiring, controller = behavior
-
-If controller did this internally:
-
-```js
-  // Note: NOT best practice!
-  this.app.make(STAGE_3_QUALIFICATION_SERVICE)
-```
-
-It becomes a Service Locator pattern. Problems:
-
-- hidden dependencies (not visible in constructor)
-- harder tests (must mock container/app)
-- controller now depends on container API
-- more runtime surprises (token not found) during request handling
-- mixing composition concerns into business code
-
-While `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
 
 This is the final code of the provider.
 

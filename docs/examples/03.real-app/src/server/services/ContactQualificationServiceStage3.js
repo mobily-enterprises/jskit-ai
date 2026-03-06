@@ -1,7 +1,7 @@
 import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class ContactQualificationServiceStage3 {
-  validate(normalized) {
+  _validate(normalized) {
     const details = [];
     if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
     if (!normalized.email.includes("@")) details.push("email must include @.");
@@ -12,20 +12,20 @@ class ContactQualificationServiceStage3 {
     return details;
   }
 
-  score(normalized) {
+  _score(normalized) {
     const planScore =
       normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
     const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
     return Math.max(0, Math.min(100, planScore + employeeScore));
   }
 
-  segment(score) {
+  _segment(score) {
     if (score >= 70) return "enterprise_hot";
     if (score >= 40) return "growth_warm";
     return "starter_cold";
   }
 
-  followupPlan({ segment, source }) {
+  _followupPlan({ segment, source }) {
     const plan = [];
     if (segment === "enterprise_hot") {
       plan.push("assign account executive in 15 minutes");
@@ -47,7 +47,7 @@ class ContactQualificationServiceStage3 {
 
   qualify(raw) {
     const normalized = normalizeContactBody(raw);
-    const details = this.validate(normalized);
+    const details = this._validate(normalized);
 
     if (details.length > 0) {
       return {
@@ -58,9 +58,9 @@ class ContactQualificationServiceStage3 {
       };
     }
 
-    const score = this.score(normalized);
-    const segment = this.segment(score);
-    const followupPlan = this.followupPlan({ segment, source: normalized.source });
+    const score = this._score(normalized);
+    const segment = this._segment(score);
+    const followupPlan = this._followupPlan({ segment, source: normalized.source });
 
     return {
       ok: true,

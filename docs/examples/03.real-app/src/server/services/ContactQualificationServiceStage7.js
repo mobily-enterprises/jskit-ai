@@ -2,7 +2,7 @@ import { ContactQualificationServiceStage3 } from "./ContactQualificationService
 
 class ContactQualificationServiceStage7 extends ContactQualificationServiceStage3 {
   qualify(payload) {
-    const details = this.validate(payload);
+    const details = this._validate(payload);
 
     if (details.length > 0) {
       return {
@@ -13,9 +13,9 @@ class ContactQualificationServiceStage7 extends ContactQualificationServiceStage
       };
     }
 
-    const score = this.score(payload);
-    const segment = this.segment(score);
-    const followupPlan = this.followupPlan({
+    const score = this._score(payload);
+    const segment = this._segment(score);
+    const followupPlan = this._followupPlan({
       segment,
       source: payload.source
     });

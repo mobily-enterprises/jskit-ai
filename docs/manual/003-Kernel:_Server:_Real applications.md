@@ -229,7 +229,7 @@ This keeps controller responsibilities focused on:
 
 * src/server/services/ContactQualificationServiceStage3.js (new)
 
-The service file olds domain logic in one place.
+The service file holds domain logic in one place.
 
 The service contract is simple; `qualify(raw)` returns one of two shapes:
 
@@ -255,6 +255,8 @@ The service contract is simple; `qualify(raw)` returns one of two shapes:
 ```
 
 This keeps response handling explicit in the controller while centralizing business rules in the service.
+
+Internal service helpers are `_`-prefixed (`_validate`, `_score`, `_segment`, `_followupPlan`) and are not part of the public service API.
 
 ### Notes
 
@@ -317,7 +319,11 @@ Files:
 * src/shared/schemas/contactSchemasStage4.js (unchanged)
 * src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
-### Full provider code for Stage 4
+### The differences
+
+#### The provider
+
+* src/server/providers/ContactProviderStage4.js (modified)
 
 With the repository extracted, provider wiring gets cleaner and responsibilities are more explicit.
 
@@ -343,11 +349,9 @@ app.singleton(
 );
 ```
 
-* src/server/providers/ContactProviderStage4.js
+#### The controller
 
-
-
-### Controller change that actually matters in Stage 4
+* src/server/controllers/ContactControllerStage4.js (modified)
 
 This is the key behavior change in this stage:
 
@@ -374,14 +378,9 @@ this.contactRepository.save(created);
 const found = this.contactRepository.findById(contactId);
 ```
 
-Here is the complete code.
+#### The repository contract
 
-* src/server/controllers/ContactControllerStage4.js
-
-
-
-
-### Create repository and token
+* src/server/repositories/ContactRepositoryStage4.js (new)
 
 We now need the code that actually implements the repository.
 
@@ -392,15 +391,11 @@ Why define both a token and a repository contract?
 - together they decouple usage from implementation, so you can swap implementations without touching controller/action code
 - tests can bind fakes/stubs to the same token, while production can bind database-backed implementations
 
-* src/server/repositories/ContactRepositoryStage4.js
+#### The in-memory repository implementation
 
+* src/server/repositories/InMemoryContactRepositoryStage4.js (new)
 
-
-And the actual implementation:
-
-* src/server/repositories/InMemoryContactRepositoryStage4.js
-
-
+This is the basic implementation of the repository.
 
 
 ### The verdict
@@ -432,6 +427,8 @@ Files:
 * src/shared/schemas/contactSchemasStage5.js (unchanged)
 * src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
+### The differences
+
 In real modules, controller methods are usually very small:
 
 - read transport input
@@ -445,28 +442,6 @@ Before we write code, it helps to make one distinction very explicit:
 - a `service` usually provides reusable business capabilities
 - an `action` usually executes one concrete use case end to end
 
-If that still sounds abstract, use this practical reading:
-
-- service answers: "how does this business rule work?"
-- action answers: "what exactly happens for this user operation?"
-
-In our example:
-
-- `ContactQualificationServiceStage3` is a service
-  - it knows how to validate, score, segment, and build follow-up strategy
-  - it does not decide route-level workflow by itself
-- `CreateContactIntakeActionStage5` is an action
-  - it runs a full workflow for "create intake contact"
-  - it calls service logic, checks duplicates in repository, persists data, and returns an operation result
-
-Why this split matters:
-
-- two endpoints can reuse the same service but still need different workflows
-  - intake route persists
-  - preview route does not persist
-- without actions, controller methods become orchestration scripts and grow quickly
-- with actions, controller stays thin and each workflow is isolated and testable
-
 A good rule of thumb:
 
 - if code is reusable domain behavior across multiple workflows, it belongs in a service
@@ -476,7 +451,9 @@ In Stage 5, each workflow becomes an explicit action class, and the controller d
 
 Here is how the codebase will change.
 
-### Provider wiring for actions
+#### The provider
+
+* src/server/providers/ContactProviderStage5.js (modified)
 
 This is the most important thing to understand in this stage:
 
@@ -497,10 +474,22 @@ This is why the injected dependencies in new ContactControllerStage4() are very 
 
 ```js
 // Stage 5: controller receives explicit actions
-app.singleton(STAGE_5_CREATE_ACTION, () => new CreateContactIntakeActionStage5({ ... }));
-app.singleton(STAGE_5_PREVIEW_ACTION, () => new PreviewContactFollowupActionStage5({ ... }));
-app.singleton(STAGE_5_GET_BY_ID_ACTION, () => new GetContactByIdActionStage5({ ... }));
 app.singleton(
+  STAGE_5_CREATE_ACTION,
+  () =>
+    // The action depeneds on the repository
+    new CreateContactIntakeActionStage5({
+      qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
+      contactRepository: app.make(STAGE_5_REPOSITORY)
+    })
+);
+
+// Repeat for actions STAGE_5_PREVIEW_ACTION and STAGE_5_GET_BY_ID_ACTION
+
+// (...)
+
+app.singleton(
+  // The controller depends on the actions
   STAGE_5_CONTROLLER,
   () =>
     new ContactControllerStage5({
@@ -509,15 +498,14 @@ app.singleton(
       getContactByIdAction: app.make(STAGE_5_GET_BY_ID_ACTION)
     })
 );
+
 ```
 
-* src/server/providers/ContactProviderStage5.js
+#### The controller
 
+* src/server/controllers/ContactControllerStage5.js (modified)
 
-
-### Controller becomes a thin HTTP adapter
-
-What changed from Stage 4:
+What changed:
 
 - controller no longer coordinates qualification + repository calls directly
 - each route handler calls exactly one action
@@ -545,11 +533,11 @@ if (!result.ok) {
 reply.code(200).send(result.data);
 ```
 
-* src/server/controllers/ContactControllerStage5.js
+#### The actions: create intake, preview follow-up, get by id
 
-
-
-### Action classes own use-case orchestration
+* src/server/actions/CreateContactIntakeActionStage5.js (new)
+* src/server/actions/PreviewContactFollowupActionStage5.js (new)
+* src/server/actions/GetContactByIdActionStage5.js (new)
 
 What changed from Stage 4:
 
@@ -569,18 +557,6 @@ execute(payload) {
   return { ok: true, status: 200, data: { ... } };
 }
 ```
-
-* src/server/actions/CreateContactIntakeActionStage5.js
-
-
-
-* src/server/actions/PreviewContactFollowupActionStage5.js
-
-
-
-* src/server/actions/GetContactByIdActionStage5.js
-
-
 
 ### The verdict
 
@@ -611,17 +587,30 @@ Files:
 * src/shared/schemas/contactSchemasStage6.js (unchanged)
 * src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
+### The differences
+
+#### The provider
+
+* src/server/providers/ContactProviderStage6.js (modified)
+
+CODEX: GIVE AN OVERVIEW OF THE CHANGES THAT IS READABLE TO HUMANS.
+
+#### The controller
+
+* src/server/controllers/ContactControllerStage6.js (modified)
+
+In this stage, the controller keeps the thin action-delegation pattern introduced in Stage 5, while routes and wiring are consolidated under the Stage 6 baseline assembly.
+
+
 ### Shared schemas
 
 * src/shared/schemas/contactSchemasStage1.js
 
 
-
-### Provider wiring
-
-* src/server/providers/ContactProviderStage6.js
+CODEX: GIVE AN OVERVIEW OF THE CHANGES THAT IS READABLE TO HUMANS.
 
 
+### The verdict
 
 At this point, the architecture is clean and practical:
 
@@ -634,7 +623,6 @@ At this point, the architecture is clean and practical:
 
 However, there are still improvements that are possible.
 
-### The verdict
 
 The good:
 
@@ -663,6 +651,12 @@ Files:
 * src/shared/schemas/contactSchemasStage7.js (modified)
 * src/shared/input/contactInputNormalizationStage7.js (modified)
 
+### The differences
+
+#### The provider
+
+* src/server/providers/ContactProviderStage7.js (modified)
+
 What changes in Stage 7:
 
 - route contracts define both transport schema and normalization in one shared object
@@ -679,7 +673,9 @@ Execution order in this stage:
 
 
 
-### Controller reads `request.input` only
+#### The controller
+
+* src/server/controllers/ContactControllerStage7.js (modified)
 
 What changed from Stage 6:
 
@@ -699,12 +695,9 @@ const payload = request.input.body;
 const contactId = request.input.params.contactId;
 ```
 
-* src/server/controllers/ContactControllerStage7.js
+#### The shared route contracts
 
-
-
-
-### Shared contracts now include normalization directly
+* src/shared/schemas/contactSchemasStage7.js (modified)
 
 - Stage 7 contracts are declared as full standalone contracts (not wrappers around Stage 6 contracts)
 - each route section (`body`, `params`) includes both `schema` and `normalize` where relevant
@@ -726,18 +719,19 @@ const contactIntakePostRouteContractStage7 = {
 This is a strong shift: schema validation and normalization happens once only, and it's centralised in the contract definition.
 They are all pure functions, which means that both client and server can access them.
 
-* src/shared/schemas/contactSchemasStage7.js
+#### The service
 
-
-
-
-### Service keeps `qualify(...)` but no longer normalizes in Stage 7
+* src/server/services/ContactQualificationServiceStage7.js (modified)
 
 What changed from Stage 6:
 
 - Stage 6 `qualify(rawPayload)` normalized internally
 - Stage 7 `qualify(payload)` assumes route contract normalization already happened
 - service still returns the same qualified shape (`ok`, `normalized`, `score`, `segment`, `followupPlan`)
+- `qualify(...)` is the only public method; helper methods are internal (`_...`)
+
+Important note: this is a real API behavior change in `qualify(...)`.
+From Stage 7 onward, callers should pass normalized input (for example `request.input.body`), not raw transport payloads.
 
 Quick snippet summary:
 
@@ -754,10 +748,12 @@ qualify(payload) {
 }
 ```
 
-* src/server/services/ContactQualificationServiceStage7.js
+#### The shared input normalization
 
+* src/shared/input/contactInputNormalizationStage7.js (modified)
 
-
+Normalization functions now live in shared input modules and are referenced by route contracts.
+That keeps transport-shaping logic reusable and out of provider/controller code.
 
 ### The verdict
 
@@ -792,6 +788,21 @@ Files:
 * src/shared/schemas/contactSchemasStage8.js (unchanged)
 * src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
+### The differences
+
+#### The provider
+
+* src/server/providers/ContactProviderStage8.js (modified)
+
+- installs `registerApiErrorHandler(...)` once so thrown app/domain errors map consistently
+- wires the new domain-rules service/helper path for Stage 8 actions
+
+
+
+#### The controller
+
+* src/server/controllers/ContactControllerStage8.js (modified)
+
 Before (manual result mapping in each controller method):
 
 ```js
@@ -819,7 +830,35 @@ class ContactControllerStage8 extends BaseController {
     return this.ok(reply, created);
   }
 }
+```
 
+
+
+#### The domain rule helper
+
+* src/server/support/domainRuleValidationStage8.js (new)
+
+- centralizes domain-rule execution/checking
+- throws consistent `DomainValidationError` payloads when one or more rules fail
+
+
+
+#### The domain rules service
+
+* src/server/services/ContactDomainRulesServiceStage8.js (new)
+
+- defines contact-domain rule sets in one reusable service
+- keeps rule definition separate from action orchestration
+
+
+
+#### The action: create intake
+
+* src/server/actions/CreateContactIntakeActionStage8.js (modified)
+
+Key change:
+
+```js
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
 import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
@@ -827,51 +866,28 @@ class CreateContactIntakeActionStage8 {
   async execute(payload) {
     const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-    // ... domain conflict checks, persistence, return success payload
+    const qualified = this.qualificationService.qualify(normalized);
+    // ... domain conflict checks, persistence, return success payload from qualified
   }
 }
 ```
 
-What changed in this stage:
-
-- controller extends `BaseController`, and stays focused on happy-path responses (`ok(...)`)
-- actions throw domain errors (`DomainValidationError`, `ConflictError`) instead of returning `ok: false` objects
-- provider installs `registerApiErrorHandler(...)` once, so thrown app/domain errors are mapped consistently
-- domain-rule evaluation is centralized in `domainRuleValidationStage8.js` (no duplicated rule-loop logic in each action)
-
-### Full provider code for Stage 8
-
-* src/server/providers/ContactProviderStage8.js
+- throws domain errors (`DomainValidationError`, `ConflictError`) instead of returning `{ ok: false }`
+- uses shared domain rule evaluation before persistence
 
 
 
-### Full controller code for Stage 8
+#### The action: preview follow-up
 
-* src/server/controllers/ContactControllerStage8.js
+* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
 
+- follows the same throw-style domain flow as create-intake
 
+#### The action: get by id
 
-### Full domain-rule helper for Stage 8
+* src/server/actions/GetContactByIdActionStage8.js (modified)
 
-* src/server/support/domainRuleValidationStage8.js
-
-
-
-### Full domain-rules service for Stage 8
-
-* src/server/services/ContactDomainRulesServiceStage8.js
-
-
-
-### Full actions for Stage 8
-
-* src/server/actions/CreateContactIntakeActionStage8.js
-
-
-
-* src/server/actions/PreviewContactFollowupActionStage8.js
-
-
+- aligned to the same centralized error-style conventions
 
 ### What improved
 
@@ -932,30 +948,38 @@ Files:
 * src/server/actions/PreviewContactFollowupActionStage9.js (unchanged)
 * src/server/actions/GetContactByIdActionStage9.js (unchanged)
 
-In this stage:
+### The differences
+
+#### The middleware stack
+
+* src/server/support/contactsMiddlewareStage9.js (new)
 
 - each request automatically has a request scope (`request.scope`)
 - middleware reads/writes scoped request context
-- providers reuse one middleware stack across related routes
-- controller reads scope context to enrich response headers
 
-### Create reusable middleware stack
+#### The controller
 
-* src/server/support/contactsMiddlewareStage9.js
+* src/server/controllers/ContactControllerStage9.js (modified)
 
+- reads scope context to enrich response metadata without pushing runtime concerns into actions
 
+#### The provider
 
-### Create controller that consumes request-scope context
+* src/server/providers/ContactProviderStage9.js (modified)
 
-* src/server/controllers/ContactControllerStage9.js
+- reuses one middleware stack across related routes
 
+#### The shared input normalization
 
+* src/shared/input/contactInputNormalizationStage9.js (modified)
 
-### Full provider code for Stage 9
+- aligns transport normalization with Stage 9 middleware/context flow
 
-* src/server/providers/ContactProviderStage9.js
+#### The shared route contracts
 
+* src/shared/schemas/contactSchemasStage9.js (modified)
 
+- reflects Stage 9 route-level runtime context and middleware wiring
 
 ### What improved
 
@@ -1009,43 +1033,74 @@ Files:
 * src/shared/schemas/contactSchemasStage10.js (modified)
 * src/shared/input/contactInputNormalizationStage10.js (modified)
 
-In this stage:
+### The differences
 
-- module config schema is declared once with TypeBox
-- env/raw values are transformed + validated with `defineModuleConfig(...)`
-- startup fails fast when config is invalid
-- domain rules service receives typed, validated config
-- Stage 9 runtime context and middleware reuse remain integrated
+#### The module config contract
 
-### Create module config contract
+* src/server/support/contactsModuleConfigStage10.js (new)
 
-* src/server/support/contactsModuleConfigStage10.js
+- declares module config schema once with TypeBox
+- transforms + validates raw/env values with `defineModuleConfig(...)`
 
+#### The domain rules service
 
+* src/server/services/ContactDomainRulesServiceStage10.js (modified)
 
-### Create config-driven domain rules service
+- receives typed, validated config instead of unchecked runtime values
 
-* src/server/services/ContactDomainRulesServiceStage10.js
+#### The middleware stack
 
+* src/server/support/contactsMiddlewareStage10.js (new)
 
+- keeps Stage 9 middleware reuse integrated in the config-hardened stage
 
-### Create reusable middleware stack for Stage 10
+#### The controller
 
-* src/server/support/contactsMiddlewareStage10.js
+* src/server/controllers/ContactControllerStage10.js (modified)
 
+- remains thin; behavior now runs on validated module policy
 
+#### The provider
 
-### Create Stage 10 controller with config + request-scope headers
+* src/server/providers/ContactProviderStage10.js (modified)
 
-* src/server/controllers/ContactControllerStage10.js
+- fails fast at startup when config is invalid
 
+#### The domain rule helper
 
+* src/server/support/domainRuleValidationStage10.js (new)
 
-### Full provider code for Stage 10
+- keeps the centralized domain rule execution pattern from Stage 8
 
-* src/server/providers/ContactProviderStage10.js
+#### The action: create intake
 
+* src/server/actions/CreateContactIntakeActionStage10.js (modified)
 
+- consumes validated config limits/policies during orchestration
+
+#### The action: preview follow-up
+
+* src/server/actions/PreviewContactFollowupActionStage10.js (modified)
+
+- consumes the same validated policy contract as intake
+
+#### The action: get by id
+
+* src/server/actions/GetContactByIdActionStage10.js (modified)
+
+- aligned to the Stage 10 typed-config error flow
+
+#### The shared route contracts
+
+* src/shared/schemas/contactSchemasStage10.js (modified)
+
+- transport contract remains explicit and versioned for Stage 10
+
+#### The shared input normalization
+
+* src/shared/input/contactInputNormalizationStage10.js (modified)
+
+- normalization remains deterministic and tied to Stage 10 contracts
 
 ### The verdict
 

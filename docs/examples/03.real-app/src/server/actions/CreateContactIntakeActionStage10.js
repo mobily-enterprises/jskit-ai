@@ -27,18 +27,13 @@ class CreateContactIntakeActionStage10 {
       });
     }
 
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
+    const qualified = this.qualificationService.qualify(normalized);
 
     const created = this.contactRepository.save({
       id: `contact-${Date.now().toString(36)}`,
-      ...normalized,
-      score,
-      segment
+      ...qualified.normalized,
+      score: qualified.score,
+      segment: qualified.segment
     });
 
     return {
@@ -47,7 +42,7 @@ class CreateContactIntakeActionStage10 {
       email: created.email,
       score: created.score,
       segment: created.segment,
-      followupPlan,
+      followupPlan: qualified.followupPlan,
       duplicateDetected: false,
       persisted: true
     };
