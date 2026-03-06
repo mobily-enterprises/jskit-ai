@@ -12,13 +12,6 @@ class ContactDomainRulesServiceStage8 {
           !normalized.email.includes("@") ? "email must include @." : null
       },
       {
-        field: "country",
-        check: () =>
-          !["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)
-            ? "country is not in allowed market list"
-            : null
-      },
-      {
         field: "plan",
         check: () =>
           normalized.plan === "starter" && normalized.employees > 200

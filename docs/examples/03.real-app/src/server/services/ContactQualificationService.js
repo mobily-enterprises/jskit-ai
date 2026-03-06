@@ -1,24 +1,10 @@
-class ContactQualificationService {
-  normalize(raw) {
-    return {
-      name: String(raw?.name || "").trim(),
-      email: String(raw?.email || "").trim().toLowerCase(),
-      company: String(raw?.company || "").trim(),
-      employees: Number(raw?.employees || 0),
-      plan: String(raw?.plan || "").trim().toLowerCase(),
-      source: String(raw?.source || "").trim().toLowerCase(),
-      country: String(raw?.country || "").trim().toUpperCase(),
-      consentMarketing: Boolean(raw?.consentMarketing)
-    };
-  }
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
+class ContactQualificationService {
   validate(normalized) {
     const details = [];
     if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
     if (!normalized.email.includes("@")) details.push("email must include @.");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
-      details.push("country is not in allowed market list");
-    }
     if (normalized.plan === "starter" && normalized.employees > 200) {
       details.push("starter plan supports up to 200 employees");
     }
@@ -30,11 +16,7 @@ class ContactQualificationService {
     const planScore =
       normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
     const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-    const sourceScore =
-      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
-    const consentScore = normalized.consentMarketing ? 4 : 0;
-
-    return Math.max(0, Math.min(100, planScore + employeeScore + sourceScore + consentScore));
+    return Math.max(0, Math.min(100, planScore + employeeScore));
   }
 
   segment(score) {
@@ -64,7 +46,7 @@ class ContactQualificationService {
   }
 
   qualify(raw) {
-    const normalized = this.normalize(raw);
+    const normalized = normalizeContactBody(raw);
     const details = this.validate(normalized);
 
     if (details.length > 0) {

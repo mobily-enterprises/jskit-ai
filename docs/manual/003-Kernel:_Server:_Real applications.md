@@ -88,6 +88,7 @@ import {
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class Stage1MonolithProvider {
   static id = "docs.examples.03.stage1";
@@ -98,32 +99,10 @@ class Stage1MonolithProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const contacts = [];
 
-    const normalizeContact = (raw) => ({
-      name: String(raw?.name || "").trim(),
-      email: String(raw?.email || "").trim().toLowerCase(),
-      company: String(raw?.company || "").trim(),
-      employees: Number(raw?.employees || 0),
-      plan: String(raw?.plan || "").trim().toLowerCase(),
-      source: String(raw?.source || "").trim().toLowerCase(),
-      country: String(raw?.country || "").trim().toUpperCase(),
-      consentMarketing: Boolean(raw?.consentMarketing)
-    });
-
     const validateContact = (normalized) => {
       const details = [];
       if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
       if (!normalized.email.includes("@")) details.push("email must include @.");
-      if (![
-        "US",
-        "CA",
-        "GB",
-        "DE",
-        "FR",
-        "ES",
-        "IT"
-      ].includes(normalized.country)) {
-        details.push("country is not in allowed market list");
-      }
       if (normalized.plan === "starter" && normalized.employees > 200) {
         details.push("starter plan supports up to 200 employees");
       }
@@ -135,14 +114,7 @@ class Stage1MonolithProvider {
       const planScore =
         normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
       const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-      const sourceScore =
-        normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
-      const consentScore = normalized.consentMarketing ? 4 : 0;
-
-      return Math.max(
-        0,
-        Math.min(100, planScore + employeeScore + sourceScore + consentScore)
-      );
+      return Math.max(0, Math.min(100, planScore + employeeScore));
     };
 
     const segmentFromScore = (score) => {
@@ -173,7 +145,7 @@ class Stage1MonolithProvider {
     };
 
     const qualifyContact = (raw) => {
-      const normalized = normalizeContact(raw);
+      const normalized = normalizeContactBody(raw);
       const details = validateContact(normalized);
 
       if (details.length > 0) {
@@ -644,35 +616,60 @@ export { Stage2ControllerProvider };
 
 For the controllers, we effectively use the code we just pulled out.
 
+Transport normalization is extracted to shared input utilities immediately, so it does not need to hop from controller to service later.
+
+Use `docs/examples/03.real-app/src/shared/input/contactInputNormalization.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/input/contactInputNormalization.js" lang="js" -->
+```js
+function normalizeContactBody(rawBody) {
+  return {
+    name: String(rawBody?.name || "").trim(),
+    email: String(rawBody?.email || "").trim().toLowerCase(),
+    company: String(rawBody?.company || "").trim(),
+    employees: Number(rawBody?.employees || 0),
+    plan: String(rawBody?.plan || "").trim().toLowerCase(),
+    source: String(rawBody?.source || "").trim().toLowerCase(),
+    country: String(rawBody?.country || "").trim().toUpperCase(),
+    consentMarketing: Boolean(rawBody?.consentMarketing)
+  };
+}
+
+function normalizeContactQuery(rawQuery) {
+  return {
+    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+function normalizeContactParams(rawParams) {
+  return {
+    contactId: String(rawParams?.contactId || "").trim()
+  };
+}
+
+export {
+  normalizeContactBody,
+  normalizeContactQuery,
+  normalizeContactParams
+};
+```
+<!-- /DOCS:EXAMPLE -->
+
 Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage2.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage2" lang="js" -->
 ```js
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+
 class ContactControllerStage2 {
   constructor() {
     this.contacts = [];
-  }
-
-  normalizeContact(raw) {
-    return {
-      name: String(raw?.name || "").trim(),
-      email: String(raw?.email || "").trim().toLowerCase(),
-      company: String(raw?.company || "").trim(),
-      employees: Number(raw?.employees || 0),
-      plan: String(raw?.plan || "").trim().toLowerCase(),
-      source: String(raw?.source || "").trim().toLowerCase(),
-      country: String(raw?.country || "").trim().toUpperCase(),
-      consentMarketing: Boolean(raw?.consentMarketing)
-    };
   }
 
   validateContact(normalized) {
     const details = [];
     if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
     if (!normalized.email.includes("@")) details.push("email must include @.");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
-      details.push("country is not in allowed market list");
-    }
     if (normalized.plan === "starter" && normalized.employees > 200) {
       details.push("starter plan supports up to 200 employees");
     }
@@ -684,14 +681,7 @@ class ContactControllerStage2 {
     const planScore =
       normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
     const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-    const sourceScore =
-      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
-    const consentScore = normalized.consentMarketing ? 4 : 0;
-
-    return Math.max(
-      0,
-      Math.min(100, planScore + employeeScore + sourceScore + consentScore)
-    );
+    return Math.max(0, Math.min(100, planScore + employeeScore));
   }
 
   segmentFromScore(score) {
@@ -722,7 +712,7 @@ class ContactControllerStage2 {
   }
 
   qualify(raw) {
-    const normalized = this.normalizeContact(raw);
+    const normalized = normalizeContactBody(raw);
     const details = this.validateContact(normalized);
 
     if (details.length > 0) {
@@ -853,7 +843,7 @@ Routes are now thin delegates, but the controller still carries too much respons
 
 ### What still hurts
 
-- controller is still the domain engine (`normalize`, `validate`, `score`, `segment`, `followupPlan`)
+- controller is still the domain engine (`validate`, `score`, `segment`, `followupPlan`, `qualify`)
 - controller still mixes orchestration + domain rules + storage access
 
 ## Stage 3: Extract a Service (Domain Logic in One Place)
@@ -982,7 +972,7 @@ export { Stage3ServiceProvider };
 
 ### Update controller to delegate to service
 
-In Stage 2, the controller still owned domain methods (`normalizeContact`, `validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
+In Stage 2, the controller still owned domain methods (`validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
 
 In Stage 3, the controller delegates that domain work to `ContactQualificationService`.  
 This keeps controller responsibilities focused on:
@@ -998,7 +988,7 @@ Quick snippet summary of what changed:
 const qualified = this.qualify(request.body);
 // ...and qualify() itself contains the domain flow:
 qualify(raw) {
-  const normalized = this.normalizeContact(raw);
+  const normalized = normalizeContactBody(raw);
   const details = this.validateContact(normalized);
 
   if (details.length > 0) {
@@ -1151,27 +1141,13 @@ Use `docs/examples/03.real-app/src/server/services/ContactQualificationService.j
 
 <!-- DOCS:EXAMPLE package="03.real-app" service="ContactQualificationService" lang="js" -->
 ```js
-class ContactQualificationService {
-  normalize(raw) {
-    return {
-      name: String(raw?.name || "").trim(),
-      email: String(raw?.email || "").trim().toLowerCase(),
-      company: String(raw?.company || "").trim(),
-      employees: Number(raw?.employees || 0),
-      plan: String(raw?.plan || "").trim().toLowerCase(),
-      source: String(raw?.source || "").trim().toLowerCase(),
-      country: String(raw?.country || "").trim().toUpperCase(),
-      consentMarketing: Boolean(raw?.consentMarketing)
-    };
-  }
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
+class ContactQualificationService {
   validate(normalized) {
     const details = [];
     if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
     if (!normalized.email.includes("@")) details.push("email must include @.");
-    if (!["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)) {
-      details.push("country is not in allowed market list");
-    }
     if (normalized.plan === "starter" && normalized.employees > 200) {
       details.push("starter plan supports up to 200 employees");
     }
@@ -1183,11 +1159,7 @@ class ContactQualificationService {
     const planScore =
       normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
     const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-    const sourceScore =
-      normalized.source === "referral" ? 12 : normalized.source === "webinar" ? 8 : 0;
-    const consentScore = normalized.consentMarketing ? 4 : 0;
-
-    return Math.max(0, Math.min(100, planScore + employeeScore + sourceScore + consentScore));
+    return Math.max(0, Math.min(100, planScore + employeeScore));
   }
 
   segment(score) {
@@ -1217,7 +1189,7 @@ class ContactQualificationService {
   }
 
   qualify(raw) {
-    const normalized = this.normalize(raw);
+    const normalized = normalizeContactBody(raw);
     const details = this.validate(normalized);
 
     if (details.length > 0) {
@@ -2305,31 +2277,11 @@ import {
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
 } from "./contactSchemas.js";
-
-function normalizeContactBody(rawBody) {
-  return {
-    name: String(rawBody?.name || "").trim(),
-    email: String(rawBody?.email || "").trim().toLowerCase(),
-    company: String(rawBody?.company || "").trim(),
-    employees: Number(rawBody?.employees || 0),
-    plan: String(rawBody?.plan || "").trim().toLowerCase(),
-    source: String(rawBody?.source || "").trim().toLowerCase(),
-    country: String(rawBody?.country || "").trim().toUpperCase(),
-    consentMarketing: Boolean(rawBody?.consentMarketing)
-  };
-}
-
-function normalizeContactQuery(rawQuery) {
-  return {
-    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
-  };
-}
-
-function normalizeContactParams(rawParams) {
-  return {
-    contactId: String(rawParams?.contactId || "").trim()
-  };
-}
+import {
+  normalizeContactBody,
+  normalizeContactQuery,
+  normalizeContactParams
+} from "../input/contactInputNormalization.js";
 
 const contactIntakePostRouteContractStage7 = Object.freeze({
   ...contactIntakePostRouteContract,
@@ -2582,10 +2534,11 @@ class ContactControllerStage8 extends BaseController {
 }
 
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class CreateContactIntakeActionStage8 {
   async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
+    const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
     // ... domain conflict checks, persistence, return success payload
   }
@@ -2865,13 +2818,6 @@ class ContactDomainRulesServiceStage8 {
           !normalized.email.includes("@") ? "email must include @." : null
       },
       {
-        field: "country",
-        check: () =>
-          !["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)
-            ? "country is not in allowed market list"
-            : null
-      },
-      {
         field: "plan",
         check: () =>
           normalized.plan === "starter" && normalized.employees > 200
@@ -2896,6 +2842,7 @@ import {
   ConflictError
 } from "@jskit-ai/kernel/server/runtime";
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class CreateContactIntakeActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -2905,7 +2852,7 @@ class CreateContactIntakeActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
+    const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);
@@ -2956,6 +2903,7 @@ Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionSt
 <!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupActionStage8" lang="js" -->
 ```js
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -2965,7 +2913,7 @@ class PreviewContactFollowupActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
+    const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);
@@ -3192,6 +3140,10 @@ import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactS
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import {
+  normalizeContactBody,
+  normalizeContactQuery
+} from "../../shared/input/contactInputNormalization.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -3282,23 +3234,11 @@ class Stage9RuntimeContextProvider {
     const sharedOptions = {
       body: {
         schema: contactIntakePostRouteContract.body.schema,
-        normalize: (body) => ({
-          ...body,
-          name: String(body?.name || "").trim(),
-          email: String(body?.email || "").trim().toLowerCase(),
-          company: String(body?.company || "").trim(),
-          employees: Number(body?.employees || 0),
-          plan: String(body?.plan || "").trim().toLowerCase(),
-          source: String(body?.source || "").trim().toLowerCase(),
-          country: String(body?.country || "").trim().toUpperCase(),
-          consentMarketing: Boolean(body?.consentMarketing)
-        })
+        normalize: normalizeContactBody
       },
       query: {
         schema: stage9QuerySchema,
-        normalize: (query) => ({
-          dryRun: query?.dryRun === true || query?.dryRun === "true"
-        })
+        normalize: normalizeContactQuery
       },
       response: STAGE_9_RESPONSE_SCHEMA,
       middleware: stage9ContactsMiddleware,
@@ -3691,6 +3631,7 @@ import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactS
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -3786,17 +3727,7 @@ class Stage10ConfigContractProvider {
     const sharedOptions = {
       body: {
         schema: contactIntakePostRouteContract.body.schema,
-        normalize: (body) => ({
-          ...body,
-          name: String(body?.name || "").trim(),
-          email: String(body?.email || "").trim().toLowerCase(),
-          company: String(body?.company || "").trim(),
-          employees: Number(body?.employees || 0),
-          plan: String(body?.plan || "").trim().toLowerCase(),
-          source: String(body?.source || "").trim().toLowerCase(),
-          country: String(body?.country || "").trim().toUpperCase(),
-          consentMarketing: Boolean(body?.consentMarketing)
-        })
+        normalize: normalizeContactBody
       },
       middleware: stage10ContactsMiddleware,
       response: STAGE_10_RESPONSE_SCHEMA
@@ -3975,6 +3906,7 @@ import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactS
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -4070,17 +4002,7 @@ class Stage10ConfigContractProvider {
     const sharedOptions = {
       body: {
         schema: contactIntakePostRouteContract.body.schema,
-        normalize: (body) => ({
-          ...body,
-          name: String(body?.name || "").trim(),
-          email: String(body?.email || "").trim().toLowerCase(),
-          company: String(body?.company || "").trim(),
-          employees: Number(body?.employees || 0),
-          plan: String(body?.plan || "").trim().toLowerCase(),
-          source: String(body?.source || "").trim().toLowerCase(),
-          country: String(body?.country || "").trim().toUpperCase(),
-          consentMarketing: Boolean(body?.consentMarketing)
-        })
+        normalize: normalizeContactBody
       },
       middleware: stage10ContactsMiddleware,
       response: STAGE_10_RESPONSE_SCHEMA

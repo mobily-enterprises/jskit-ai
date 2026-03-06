@@ -2,6 +2,7 @@ import {
   ConflictError
 } from "@jskit-ai/kernel/server/runtime";
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class CreateContactIntakeActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -11,7 +12,7 @@ class CreateContactIntakeActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
+    const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);

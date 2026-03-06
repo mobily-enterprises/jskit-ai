@@ -1,4 +1,5 @@
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -8,7 +9,7 @@ class PreviewContactFollowupActionStage8 {
   }
 
   async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
+    const normalized = normalizeContactBody(payload);
     assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);

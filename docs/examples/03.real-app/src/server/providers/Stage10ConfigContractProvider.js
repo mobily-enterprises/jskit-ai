@@ -17,6 +17,7 @@ import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactS
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -112,17 +113,7 @@ class Stage10ConfigContractProvider {
     const sharedOptions = {
       body: {
         schema: contactIntakePostRouteContract.body.schema,
-        normalize: (body) => ({
-          ...body,
-          name: String(body?.name || "").trim(),
-          email: String(body?.email || "").trim().toLowerCase(),
-          company: String(body?.company || "").trim(),
-          employees: Number(body?.employees || 0),
-          plan: String(body?.plan || "").trim().toLowerCase(),
-          source: String(body?.source || "").trim().toLowerCase(),
-          country: String(body?.country || "").trim().toUpperCase(),
-          consentMarketing: Boolean(body?.consentMarketing)
-        })
+        normalize: normalizeContactBody
       },
       middleware: stage10ContactsMiddleware,
       response: STAGE_10_RESPONSE_SCHEMA

@@ -17,6 +17,10 @@ import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactS
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemas.js";
+import {
+  normalizeContactBody,
+  normalizeContactQuery
+} from "../../shared/input/contactInputNormalization.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -107,23 +111,11 @@ class Stage9RuntimeContextProvider {
     const sharedOptions = {
       body: {
         schema: contactIntakePostRouteContract.body.schema,
-        normalize: (body) => ({
-          ...body,
-          name: String(body?.name || "").trim(),
-          email: String(body?.email || "").trim().toLowerCase(),
-          company: String(body?.company || "").trim(),
-          employees: Number(body?.employees || 0),
-          plan: String(body?.plan || "").trim().toLowerCase(),
-          source: String(body?.source || "").trim().toLowerCase(),
-          country: String(body?.country || "").trim().toUpperCase(),
-          consentMarketing: Boolean(body?.consentMarketing)
-        })
+        normalize: normalizeContactBody
       },
       query: {
         schema: stage9QuerySchema,
-        normalize: (query) => ({
-          dryRun: query?.dryRun === true || query?.dryRun === "true"
-        })
+        normalize: normalizeContactQuery
       },
       response: STAGE_9_RESPONSE_SCHEMA,
       middleware: stage9ContactsMiddleware,
