@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage3.js";
+import { ContactQualificationServiceStage3 } from "../services/ContactQualificationServiceStage3.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
@@ -10,11 +10,11 @@ import {
 const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
 const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
 
-class Stage3ServiceProvider {
+class ContactProviderStage3 {
   static id = "docs.examples.03.stage3";
 
   register(app) {
-    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage3());
 
     app.singleton(
       STAGE_3_CONTROLLER,
@@ -64,4 +64,4 @@ class Stage3ServiceProvider {
   }
 }
 
-export { Stage3ServiceProvider };
+export { ContactProviderStage3 };

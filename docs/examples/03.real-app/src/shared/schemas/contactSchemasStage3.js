@@ -2,7 +2,7 @@ import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from './contactSchemas.js';
+} from './contactSchemasStage1.js';
 
 export {
   contactByIdGetRouteContract,

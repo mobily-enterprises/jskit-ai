@@ -1,4 +1,4 @@
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class ContactControllerStage2 {
   constructor() {

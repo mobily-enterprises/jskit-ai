@@ -8,7 +8,7 @@ import {
 
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
 
-class Stage2ControllerProvider {
+class ContactProviderStage2 {
   static id = "docs.examples.03.stage2";
 
   register(app) {
@@ -54,4 +54,4 @@ class Stage2ControllerProvider {
   }
 }
 
-export { Stage2ControllerProvider };
+export { ContactProviderStage2 };

@@ -41,9 +41,22 @@ From earlier chapters, you already have:
 
 Now we move from "first route" to "real feature architecture."
 
-## The Feature We Will Build
 
-We will build a `contacts` feature with three routes:
+## Stage 1: Provider-Only Monolith (Works, But Hurts)
+
+We will build a `contacts` feature with three routes.
+
+This stage is intentionally "too much in one place." We want you to feel the pain clearly.
+
+Files:
+
+* src/server/providers/ContactProviderStage1.js (created)
+* src/shared/schemas/contactSchemasStage1.js (created)
+* src/shared/input/contactInputNormalizationStage1.js (created)
+
+The project includes a Provider that uses `router.register()` to add the specific routes. It uses an external schema file and a set of normalisation functions in the shared folder.
+
+The fully working server exposes these endpoints:
 
 - `POST /api/v1/contacts/intake`
 - `POST /api/v1/contacts/preview-followup`
@@ -60,429 +73,7 @@ The two `POST` routes are business-logic-heavy on purpose:
 
 The `GET` route is intentionally simple so we can demonstrate `params` contracts without bloating each stage.
 
-This is exactly the kind of logic that becomes painful when all code lives in one handler.
-
-Now let us intentionally start with the bad version.
-
-## Stage 1: Provider-Only Monolith (Works, But Hurts)
-
-This stage is intentionally "too much in one place." We want you to feel the pain clearly.
-
-### What this stage shows
-
-- Yes, you can do everything in `Stage1MonolithProvider`.
-- Yes, it can ship quickly for tiny demos.
-- No, it does not stay maintainable once logic grows.
-
-This provider imports shared route contracts from `contactSchemas.js`; right after this block, we inspect that file in detail.
-
-### Code
-
-Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage1MonolithProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage1.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
-
-class Stage1MonolithProvider {
-  static id = "docs.examples.03.stage1";
-
-  register() {}
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const contacts = [];
-
-    const validateContact = (normalized) => {
-      const details = [];
-      if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
-      if (!normalized.email.includes("@")) details.push("email must include @.");
-      if (normalized.plan === "starter" && normalized.employees > 200) {
-        details.push("starter plan supports up to 200 employees");
-      }
-
-      return details;
-    };
-
-    const scoreContact = (normalized) => {
-      const planScore =
-        normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
-      const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-      return Math.max(0, Math.min(100, planScore + employeeScore));
-    };
-
-    const segmentFromScore = (score) => {
-      if (score >= 70) return "enterprise_hot";
-      if (score >= 40) return "growth_warm";
-      return "starter_cold";
-    };
-
-    const buildFollowupPlan = ({ segment, source }) => {
-      const plan = [];
-
-      if (segment === "enterprise_hot") {
-        plan.push("assign account executive in 15 minutes");
-        plan.push("send solution outline today");
-      } else if (segment === "growth_warm") {
-        plan.push("send product-fit email in 2 hours");
-        plan.push("schedule follow-up in 2 days");
-      } else {
-        plan.push("send starter onboarding guide");
-        plan.push("review intent in 7 days");
-      }
-
-      if (source === "webinar") {
-        plan.push("include webinar recap");
-      }
-
-      return plan;
-    };
-
-    const qualifyContact = (raw) => {
-      const normalized = normalizeContactBody(raw);
-      const details = validateContact(normalized);
-
-      if (details.length > 0) {
-        return {
-          ok: false,
-          code: "domain_validation_failed",
-          details,
-          normalized
-        };
-      }
-
-      const score = scoreContact(normalized);
-      const segment = segmentFromScore(score);
-      const followupPlan = buildFollowupPlan({
-        segment,
-        source: normalized.source
-      });
-
-      return {
-        ok: true,
-        normalized,
-        score,
-        segment,
-        followupPlan
-      };
-    };
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/intake",
-      contactIntakePostRouteContract,
-      async (request, reply) => {
-        const qualified = qualifyContact(request.body);
-
-        if (!qualified.ok) {
-          reply.code(422).send({
-            error: "Domain validation failed.",
-            code: qualified.code,
-            details: qualified.details
-          });
-          return;
-        }
-
-        const duplicate = contacts.find((entry) => entry.email === qualified.normalized.email);
-        if (duplicate) {
-          reply.code(422).send({
-            error: "Domain validation failed.",
-            code: "duplicate_contact",
-            details: ["a contact with this email already exists"]
-          });
-          return;
-        }
-
-        const created = {
-          id: `contact-${Date.now().toString(36)}`,
-          ...qualified.normalized,
-          score: qualified.score,
-          segment: qualified.segment
-        };
-
-        contacts.push(created);
-
-        reply.code(200).send({
-          ok: true,
-          mode: "intake",
-          email: created.email,
-          score: created.score,
-          segment: created.segment,
-          followupPlan: qualified.followupPlan,
-          duplicateDetected: false,
-          persisted: true
-        });
-      }
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
-      contactPreviewFollowupPostRouteContract,
-      async (request, reply) => {
-        const qualified = qualifyContact(request.body);
-
-        if (!qualified.ok) {
-          reply.code(422).send({
-            error: "Domain validation failed.",
-            code: qualified.code,
-            details: qualified.details
-          });
-          return;
-        }
-
-        const duplicate = contacts.find((entry) => entry.email === qualified.normalized.email);
-
-        reply.code(200).send({
-          ok: true,
-          mode: "preview",
-          email: qualified.normalized.email,
-          score: qualified.score,
-          segment: qualified.segment,
-          followupPlan: qualified.followupPlan,
-          duplicateDetected: Boolean(duplicate),
-          persisted: false
-        });
-      }
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-1/contacts/:contactId",
-      contactByIdGetRouteContract,
-      async (request, reply) => {
-        const contactId = String(request.params?.contactId || "").trim();
-        const found = contacts.find((entry) => entry.id === contactId) || null;
-
-        if (!found) {
-          reply.code(404).send({
-            error: "Contact not found.",
-            code: "contact_not_found",
-            details: [`No contact found for id ${contactId || "<empty>"}.`]
-          });
-          return;
-        }
-
-        reply.code(200).send({
-          ok: true,
-          contact: found
-        });
-      }
-    );
-  }
-}
-
-export { Stage1MonolithProvider };
-```
-<!-- /DOCS:EXAMPLE -->
-
-The routing contracts are stored in an external file. They are self explanatory.
-
-Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/schemas/contactSchemas.js" lang="js" -->
-```js
-import { Type } from "@fastify/type-provider-typebox";
-
-/**
- * Chapter 3 baseline route contracts (Stages 1-6).
- *
- * How this maps to controller flow:
- * - POST routes: controller/action reads body (+ query when needed).
- * - GET by id route: controller/action reads params.contactId.
- * - These route contracts validate incoming request data before controller code runs.
- * - Controller/action responses are expected to match the response maps below.
- *
- * Stage 7 adds normalization in a separate file:
- * - ./contactSchemasStage7.js
- */
-
-// 1) Incoming request schemas (transport validation).
-const contactIntakePreviewBodySchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactIntakePreviewQuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdParamsSchema = Type.Object(
-  {
-    contactId: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-// 2) Contact read model schema (what a stored/retrieved contact record looks like).
-const contactStoredRecordSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    email: Type.String({ minLength: 1 }),
-    company: Type.String({ minLength: 1 }),
-    employees: Type.Integer({ minimum: 1 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean(),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-// 3) Success response schemas.
-const contactIntakePreviewSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    contact: contactStoredRecordSchema
-  },
-  { additionalProperties: false }
-);
-
-// 4) Error response schemas.
-const contactIntakePreviewDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-const contactGenericErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
-    details: Type.Optional(Type.Unknown()),
-    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
-    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
-    message: Type.Optional(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: true }
-);
-
-// 5) Response maps by route family.
-const contactByIdResponseSchema = Object.freeze({
-  200: contactByIdSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactGenericErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-const contactIntakePreviewResponseSchema = Object.freeze({
-  200: contactIntakePreviewSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactIntakePreviewDomainErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-// 6) Route contracts consumed by router.register(...).
-const contactIntakePostRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactPreviewFollowupPostRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactByIdGetRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactByIdParamsSchema
-  },
-  response: contactByIdResponseSchema
-});
-
-export {
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract,
-  contactByIdGetRouteContract
-};
-```
-<!-- /DOCS:EXAMPLE -->
-
-Practical consequence in `router.register(...)`:
-
-- You pass the contract object directly as the route options argument.
-- Fastify validation and response schema expectations are applied from that object.
-
-Finally, the functions to nornmalize fields are placed in a file in the package's `shared` folder:
-
-Use `docs/examples/03.real-app/src/shared/input/contactInputNormalization.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/input/contactInputNormalization.js" lang="js" -->
-<!-- /DOCS:EXAMPLE -->
-
-### Run and test
+Testing it:
 
 ```bash
 npm run dev
@@ -522,325 +113,57 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
 curl -i "http://localhost:3000/api/v1/docs/ch03/stage-1/contacts/contact-does-not-exist"
 ```
 
-### Why this hurts
+### The verdict
 
-- provider still owns transport + domain + persistence logic in one place
+- provider owns transport + domain + persistence logic in one place
 - business logic is mixed with HTTP handling
 - data storage policy is hidden in route code
 - testing one rule requires booting route runtime
 
-This is exactly when teams start introducing layers.
+This is exactly why you need layers.
 
 ## Stage 2: Extract a Controller (Better, But Not Enough)
 
-Now we move handler logic out of provider and into a controller.
+the first step is to move handler logic out of provider and into a controller.
 
 This already helps because routes become wiring only. But the controller still owns domain logic and persistence details, so it is still overloaded.
 
-### The new simplified provider
+Files:
 
-The goal of creating controllers is to have much simplified providers.
+* src/server/providers/ContactProviderStage2.js (modified)
+* src/shared/schemas/contactSchemasStage2.js (unchanged)
+* src/shared/input/contactInputNormalizationStage2.js (unchanged)
 
-This is what the provider will look like.
+### The differences
 
-Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`:
+In the main body of the module, the provider file now has:
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage2.js";
-
+(...)
 const STAGE_2_CONTROLLER = "docs.examples.03.stage2.controller";
+```
 
-class Stage2ControllerProvider {
-  static id = "docs.examples.03.stage2";
+In the `boot()` function, it does:
 
-  register(app) {
-    app.singleton(STAGE_2_CONTROLLER, () => new ContactControllerStage2());
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+```js
     const controller = app.make(STAGE_2_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-2"],
-          summary: "Stage 2 controller extraction: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage2ControllerProvider };
 ```
-<!-- /DOCS:EXAMPLE -->
+
+As well as simply calling `router.register()` using the newly created controller function.
+The code that used to be in the main function is now in the controller.
+
+### The verdict
 
 
-### Create the controllers
-
-For the controllers, we effectively use the code we just pulled out.
-
-Transport normalization is extracted to shared input utilities immediately, so it does not need to hop from controller to service later.
-
-Use `docs/examples/03.real-app/src/shared/input/contactInputNormalization.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/input/contactInputNormalization.js" lang="js" -->
-```js
-function normalizeContactBody(rawBody) {
-  return {
-    name: String(rawBody?.name || "").trim(),
-    email: String(rawBody?.email || "").trim().toLowerCase(),
-    company: String(rawBody?.company || "").trim(),
-    employees: Number(rawBody?.employees || 0),
-    plan: String(rawBody?.plan || "").trim().toLowerCase(),
-    source: String(rawBody?.source || "").trim().toLowerCase(),
-    country: String(rawBody?.country || "").trim().toUpperCase(),
-    consentMarketing: Boolean(rawBody?.consentMarketing)
-  };
-}
-
-function normalizeContactQuery(rawQuery) {
-  return {
-    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
-  };
-}
-
-function normalizeContactParams(rawParams) {
-  return {
-    contactId: String(rawParams?.contactId || "").trim()
-  };
-}
-
-export {
-  normalizeContactBody,
-  normalizeContactQuery,
-  normalizeContactParams
-};
-```
-<!-- /DOCS:EXAMPLE -->
-
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage2.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage2" lang="js" -->
-```js
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
-
-class ContactControllerStage2 {
-  constructor() {
-    this.contacts = [];
-  }
-
-  validateContact(normalized) {
-    const details = [];
-    if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
-    if (!normalized.email.includes("@")) details.push("email must include @.");
-    if (normalized.plan === "starter" && normalized.employees > 200) {
-      details.push("starter plan supports up to 200 employees");
-    }
-
-    return details;
-  }
-
-  scoreContact(normalized) {
-    const planScore =
-      normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
-    const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-    return Math.max(0, Math.min(100, planScore + employeeScore));
-  }
-
-  segmentFromScore(score) {
-    if (score >= 70) return "enterprise_hot";
-    if (score >= 40) return "growth_warm";
-    return "starter_cold";
-  }
-
-  buildFollowupPlan({ segment, source }) {
-    const plan = [];
-
-    if (segment === "enterprise_hot") {
-      plan.push("assign account executive in 15 minutes");
-      plan.push("send solution outline today");
-    } else if (segment === "growth_warm") {
-      plan.push("send product-fit email in 2 hours");
-      plan.push("schedule follow-up in 2 days");
-    } else {
-      plan.push("send starter onboarding guide");
-      plan.push("review intent in 7 days");
-    }
-
-    if (source === "webinar") {
-      plan.push("include webinar recap");
-    }
-
-    return plan;
-  }
-
-  qualify(raw) {
-    const normalized = normalizeContactBody(raw);
-    const details = this.validateContact(normalized);
-
-    if (details.length > 0) {
-      return {
-        ok: false,
-        code: "domain_validation_failed",
-        details,
-        normalized
-      };
-    }
-
-    const score = this.scoreContact(normalized);
-    const segment = this.segmentFromScore(score);
-    const followupPlan = this.buildFollowupPlan({
-      segment,
-      source: normalized.source
-    });
-
-    return {
-      ok: true,
-      normalized,
-      score,
-      segment,
-      followupPlan
-    };
-  }
-
-  async intake(request, reply) {
-    const qualified = this.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
-    if (duplicate) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      });
-      return;
-    }
-
-    const created = {
-      id: `contact-${Date.now().toString(36)}`,
-      ...qualified.normalized,
-      score: qualified.score,
-      segment: qualified.segment
-    };
-
-    this.contacts.push(created);
-
-    reply.code(200).send({
-      ok: true,
-      mode: "intake",
-      email: created.email,
-      score: created.score,
-      segment: created.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: false,
-      persisted: true
-    });
-  }
-
-  async previewFollowup(request, reply) {
-    const qualified = this.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
-
-    reply.code(200).send({
-      ok: true,
-      mode: "preview",
-      email: qualified.normalized.email,
-      score: qualified.score,
-      segment: qualified.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: Boolean(duplicate),
-      persisted: false
-    });
-  }
-
-  async show(request, reply) {
-    const contactId = String(request.params?.contactId || "").trim();
-    const found = this.contacts.find((entry) => entry.id === contactId) || null;
-
-    if (!found) {
-      reply.code(404).send({
-        error: "Contact not found.",
-        code: "contact_not_found",
-        details: [`No contact found for id ${contactId || "<empty>"}.`]
-      });
-      return;
-    }
-
-    reply.code(200).send({
-      ok: true,
-      contact: found
-    });
-  }
-}
-
-export { ContactControllerStage2 };
-```
-<!-- /DOCS:EXAMPLE -->
-
-
-Routes are now thin delegates, but the controller still carries too much responsibility.
-
-### What improved
-
+The good:
 - provider now focuses on assembly and route mapping
 - request handlers now delegate to controller methods instead of embedding domain logic in provider
 
-### What still hurts
-
+The bad:
 - controller is still the domain engine (`validate`, `score`, `segment`, `followupPlan`, `qualify`)
 - controller still mixes orchestration + domain rules + storage access
+
 
 ## Stage 3: Extract a Service (Domain Logic in One Place)
 
@@ -851,7 +174,7 @@ Now we isolate business rules into one class.
 To do this, the provider first registers the service as a singleton:
 
 ```js
-    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage3());
 ```
 
 Then, when creating the controller, it will pass the service as a parameter:
@@ -893,86 +216,16 @@ While `make()` exists, but it should mostly live in providers (composition root)
 
 This is the final code of the provider.
 
-Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
+* src/server/providers/ContactProviderStage3.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage3.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage3.js";
 
-const STAGE_3_QUALIFICATION_SERVICE = "docs.examples.03.stage3.service.qualification";
-const STAGE_3_CONTROLLER = "docs.examples.03.stage3.controller";
-
-class Stage3ServiceProvider {
-  static id = "docs.examples.03.stage3";
-
-  register(app) {
-    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-
-    app.singleton(
-      STAGE_3_CONTROLLER,
-      () =>
-        new ContactControllerStage3({
-          qualificationService: app.make(STAGE_3_QUALIFICATION_SERVICE)
-        })
-    );
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_3_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-3"],
-          summary: "Stage 3 service extraction: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage3ServiceProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### Update controller to delegate to service
 
 In Stage 2, the controller still owned domain methods (`validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
 
-In Stage 3, the controller delegates that domain work to `ContactQualificationService`.  
+In Stage 3, the controller delegates that domain work to `ContactQualificationServiceStage3`.  
 This keeps controller responsibilities focused on:
 
 - reading transport input (`request.body`)
@@ -981,108 +234,9 @@ This keeps controller responsibilities focused on:
 
 In the new controller, the business specific functions are moved out (`validateContact)`, `scoreContact()`, `segmentFromScore()`, `buildFollowupPlan()`, `qualify()`) and the service passed into the constructor is saved onto `this.` and used:
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage3.js`:
+* src/server/controllers/ContactControllerStage3.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage3" lang="js" -->
-```js
-class ContactControllerStage3 {
-  constructor({ qualificationService }) {
-    this.qualificationService = qualificationService;
-    this.contacts = [];
-  }
 
-  async intake(request, reply) {
-    const qualified = this.qualificationService.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
-    if (duplicate) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      });
-      return;
-    }
-
-    const created = {
-      id: `contact-${Date.now().toString(36)}`,
-      ...qualified.normalized,
-      score: qualified.score,
-      segment: qualified.segment
-    };
-
-    this.contacts.push(created);
-
-    reply.code(200).send({
-      ok: true,
-      mode: "intake",
-      email: created.email,
-      score: created.score,
-      segment: created.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: false,
-      persisted: true
-    });
-  }
-
-  async previewFollowup(request, reply) {
-    const qualified = this.qualificationService.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contacts.find((entry) => entry.email === qualified.normalized.email);
-
-    reply.code(200).send({
-      ok: true,
-      mode: "preview",
-      email: qualified.normalized.email,
-      score: qualified.score,
-      segment: qualified.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: Boolean(duplicate),
-      persisted: false
-    });
-  }
-
-  async show(request, reply) {
-    const contactId = String(request.params?.contactId || "").trim();
-    const found = this.contacts.find((entry) => entry.id === contactId) || null;
-
-    if (!found) {
-      reply.code(404).send({
-        error: "Contact not found.",
-        code: "contact_not_found",
-        details: [`No contact found for id ${contactId || "<empty>"}.`]
-      });
-      return;
-    }
-
-    reply.code(200).send({
-      ok: true,
-      contact: found
-    });
-  }
-}
-
-export { ContactControllerStage3 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Create service
 
@@ -1094,87 +248,9 @@ Philosophy:
 - controller should not reimplement those rules
 - this makes domain behavior easy to test without booting HTTP routes
 
-Use `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`:
+* src/server/services/ContactQualificationServiceStage3.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" service="ContactQualificationService" lang="js" -->
-```js
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
-class ContactQualificationService {
-  validate(normalized) {
-    const details = [];
-    if (normalized.name.length < 2) details.push("name must have at least 2 characters.");
-    if (!normalized.email.includes("@")) details.push("email must include @.");
-    if (normalized.plan === "starter" && normalized.employees > 200) {
-      details.push("starter plan supports up to 200 employees");
-    }
-
-    return details;
-  }
-
-  score(normalized) {
-    const planScore =
-      normalized.plan === "enterprise" ? 50 : normalized.plan === "growth" ? 30 : 10;
-    const employeeScore = Math.min(30, Math.floor(normalized.employees / 50) * 5);
-    return Math.max(0, Math.min(100, planScore + employeeScore));
-  }
-
-  segment(score) {
-    if (score >= 70) return "enterprise_hot";
-    if (score >= 40) return "growth_warm";
-    return "starter_cold";
-  }
-
-  followupPlan({ segment, source }) {
-    const plan = [];
-    if (segment === "enterprise_hot") {
-      plan.push("assign account executive in 15 minutes");
-      plan.push("send solution outline today");
-    } else if (segment === "growth_warm") {
-      plan.push("send product-fit email in 2 hours");
-      plan.push("schedule follow-up in 2 days");
-    } else {
-      plan.push("send starter onboarding guide");
-      plan.push("review intent in 7 days");
-    }
-
-    if (source === "webinar") {
-      plan.push("include webinar recap");
-    }
-
-    return plan;
-  }
-
-  qualify(raw) {
-    const normalized = normalizeContactBody(raw);
-    const details = this.validate(normalized);
-
-    if (details.length > 0) {
-      return {
-        ok: false,
-        code: "domain_validation_failed",
-        details,
-        normalized
-      };
-    }
-
-    const score = this.score(normalized);
-    const segment = this.segment(score);
-    const followupPlan = this.followupPlan({ segment, source: normalized.source });
-
-    return {
-      ok: true,
-      normalized,
-      score,
-      segment,
-      followupPlan
-    };
-  }
-}
-
-export { ContactQualificationService };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Service contract (`qualify(raw)`)
 
@@ -1256,7 +332,7 @@ The main change is that the repository is now imported, and added to the control
 
 ```js
 // Stage 4: provider wires service + repository
-app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepository());
+app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepositoryStage4());
 app.singleton(
   STAGE_4_CONTROLLER,
   () =>
@@ -1267,83 +343,9 @@ app.singleton(
 );
 ```
 
-Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`:
+* src/server/providers/ContactProviderStage4.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage4RepositoryProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage4.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage4.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage4.js";
 
-const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualification";
-const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";
-const STAGE_4_CONTROLLER = "docs.examples.03.stage4.controller";
-
-class Stage4RepositoryProvider {
-  static id = "docs.examples.03.stage4";
-
-  register(app) {
-    app.singleton(STAGE_4_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepository());
-
-    app.singleton(
-      STAGE_4_CONTROLLER,
-      () =>
-        new ContactControllerStage4({
-          qualificationService: app.make(STAGE_4_QUALIFICATION_SERVICE),
-          contactRepository: app.make(STAGE_4_REPOSITORY)
-        })
-    );
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_4_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-4"],
-          summary: "Stage 4 repository extraction: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-4/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage4RepositoryProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Controller change that actually matters in Stage 4
 
@@ -1374,106 +376,9 @@ const found = this.contactRepository.findById(contactId);
 
 Here is the complete code.
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage4.js`:
+* src/server/controllers/ContactControllerStage4.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage4" lang="js" -->
-```js
-class ContactControllerStage4 {
-  constructor({ qualificationService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.contactRepository = contactRepository;
-  }
 
-  async intake(request, reply) {
-    const qualified = this.qualificationService.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
-    if (duplicate) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      });
-      return;
-    }
-
-    const created = this.contactRepository.save({
-      id: `contact-${Date.now().toString(36)}`,
-      ...qualified.normalized,
-      score: qualified.score,
-      segment: qualified.segment
-    });
-
-    reply.code(200).send({
-      ok: true,
-      mode: "intake",
-      email: created.email,
-      score: created.score,
-      segment: created.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: false,
-      persisted: true
-    });
-  }
-
-  async previewFollowup(request, reply) {
-    const qualified = this.qualificationService.qualify(request.body);
-
-    if (!qualified.ok) {
-      reply.code(422).send({
-        error: "Domain validation failed.",
-        code: qualified.code,
-        details: qualified.details
-      });
-      return;
-    }
-
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
-
-    reply.code(200).send({
-      ok: true,
-      mode: "preview",
-      email: qualified.normalized.email,
-      score: qualified.score,
-      segment: qualified.segment,
-      followupPlan: qualified.followupPlan,
-      duplicateDetected: Boolean(duplicate),
-      persisted: false
-    });
-  }
-
-  async show(request, reply) {
-    const contactId = String(request.params?.contactId || "").trim();
-    const found = this.contactRepository.findById(contactId);
-
-    if (!found) {
-      reply.code(404).send({
-        error: "Contact not found.",
-        code: "contact_not_found",
-        details: [`No contact found for id ${contactId || "<empty>"}.`]
-      });
-      return;
-    }
-
-    reply.code(200).send({
-      ok: true,
-      contact: found
-    });
-  }
-}
-
-export { ContactControllerStage4 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### Create repository and token
@@ -1483,79 +388,19 @@ We now need the code that actually implements the repository.
 Why define both a token and a repository contract?
 
 - token (`CONTACT_REPOSITORY_TOKEN`) is the container key used by app wiring
-- contract class (`ContactRepository`) is the code-level interface that defines required methods
+- contract class (`ContactRepositoryStage4`) is the code-level interface that defines required methods
 - together they decouple usage from implementation, so you can swap implementations without touching controller/action code
 - tests can bind fakes/stubs to the same token, while production can bind database-backed implementations
 
-Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
+* src/server/repositories/ContactRepositoryStage4.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
-```js
-const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
 
-class ContactRepository {
-  findById(_id) {
-    throw new Error("ContactRepository.findById must be implemented.");
-  }
-
-  findByEmail(_email) {
-    throw new Error("ContactRepository.findByEmail must be implemented.");
-  }
-
-  save(_contact) {
-    throw new Error("ContactRepository.save must be implemented.");
-  }
-
-  list() {
-    throw new Error("ContactRepository.list must be implemented.");
-  }
-}
-
-export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
-```
-<!-- /DOCS:EXAMPLE -->
 
 And the actual implementation:
 
-Use `docs/examples/03.real-app/src/server/repositories/InMemoryContactRepository.js`:
+* src/server/repositories/InMemoryContactRepositoryStage4.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" repository="InMemoryContactRepository" lang="js" -->
-```js
-import { ContactRepository } from "./ContactRepository.js";
 
-class InMemoryContactRepository extends ContactRepository {
-  constructor() {
-    super();
-    this.byId = new Map();
-    this.byEmail = new Map();
-  }
-
-  findById(id) {
-    return this.byId.get(id) || null;
-  }
-
-  findByEmail(email) {
-    const id = this.byEmail.get(email) || null;
-    if (!id) {
-      return null;
-    }
-    return this.byId.get(id) || null;
-  }
-
-  save(contact) {
-    this.byId.set(contact.id, contact);
-    this.byEmail.set(contact.email, contact.id);
-    return contact;
-  }
-
-  list() {
-    return [...this.byId.values()];
-  }
-}
-
-export { InMemoryContactRepository };
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### What improved
@@ -1593,10 +438,10 @@ If that still sounds abstract, use this practical reading:
 
 In our example:
 
-- `ContactQualificationService` is a service
+- `ContactQualificationServiceStage3` is a service
   - it knows how to validate, score, segment, and build follow-up strategy
   - it does not decide route-level workflow by itself
-- `CreateContactIntakeAction` is an action
+- `CreateContactIntakeActionStage5` is an action
   - it runs a full workflow for "create intake contact"
   - it calls service logic, checks duplicates in repository, persists data, and returns an operation result
 
@@ -1638,9 +483,9 @@ This is why the injected dependencies in new ContactControllerStage4() are very 
 
 ```js
 // Stage 5: controller receives explicit actions
-app.singleton(STAGE_5_CREATE_ACTION, () => new CreateContactIntakeAction({ ... }));
-app.singleton(STAGE_5_PREVIEW_ACTION, () => new PreviewContactFollowupAction({ ... }));
-app.singleton(STAGE_5_GET_BY_ID_ACTION, () => new GetContactByIdAction({ ... }));
+app.singleton(STAGE_5_CREATE_ACTION, () => new CreateContactIntakeActionStage5({ ... }));
+app.singleton(STAGE_5_PREVIEW_ACTION, () => new PreviewContactFollowupActionStage5({ ... }));
+app.singleton(STAGE_5_GET_BY_ID_ACTION, () => new GetContactByIdActionStage5({ ... }));
 app.singleton(
   STAGE_5_CONTROLLER,
   () =>
@@ -1652,116 +497,9 @@ app.singleton(
 );
 ```
 
-Use `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`:
+* src/server/providers/ContactProviderStage5.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage5ActionProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage5.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage5.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage5.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdActionStage5.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage5.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage5.js";
 
-const STAGE_5_REPOSITORY = "docs.examples.03.stage5.repository";
-const STAGE_5_QUALIFICATION_SERVICE = "docs.examples.03.stage5.service.qualification";
-const STAGE_5_CREATE_ACTION = "docs.examples.03.stage5.actions.create";
-const STAGE_5_PREVIEW_ACTION = "docs.examples.03.stage5.actions.preview";
-const STAGE_5_GET_BY_ID_ACTION = "docs.examples.03.stage5.actions.getById";
-const STAGE_5_CONTROLLER = "docs.examples.03.stage5.controller";
-
-class Stage5ActionProvider {
-  static id = "docs.examples.03.stage5";
-
-  register(app) {
-    app.singleton(STAGE_5_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_5_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-
-    app.singleton(
-      STAGE_5_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeAction({
-          qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
-          contactRepository: app.make(STAGE_5_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_5_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupAction({
-          qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
-          contactRepository: app.make(STAGE_5_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_5_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdAction({
-          contactRepository: app.make(STAGE_5_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_5_CONTROLLER,
-      () =>
-        new ContactControllerStage5({
-          createContactIntakeAction: app.make(STAGE_5_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_5_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_5_GET_BY_ID_ACTION)
-        })
-    );
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_5_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-5/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-5"],
-          summary: "Stage 5 actions extraction: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-5/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage5ActionProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Controller becomes a thin HTTP adapter
 
@@ -1793,65 +531,9 @@ if (!result.ok) {
 reply.code(200).send(result.data);
 ```
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage5.js`:
+* src/server/controllers/ContactControllerStage5.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage5" lang="js" -->
-```js
-class ContactControllerStage5 {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-    this.getContactByIdAction = getContactByIdAction;
-  }
 
-  async intake(request, reply) {
-    const result = this.createContactIntakeAction.execute(request.body);
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-
-  async previewFollowup(request, reply) {
-    const result = this.previewContactFollowupAction.execute(request.body);
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-
-  async show(request, reply) {
-    const result = this.getContactByIdAction.execute({
-      contactId: request.params?.contactId
-    });
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Contact not found.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-}
-
-export { ContactControllerStage5 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Action classes own use-case orchestration
 
@@ -1874,145 +556,17 @@ execute(payload) {
 }
 ```
 
-Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeAction.js`:
+* src/server/actions/CreateContactIntakeActionStage5.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeAction" lang="js" -->
-```js
-class CreateContactIntakeAction {
-  constructor({ qualificationService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.contactRepository = contactRepository;
-  }
 
-  execute(payload) {
-    const qualified = this.qualificationService.qualify(payload);
-    if (!qualified.ok) {
-      return {
-        ok: false,
-        status: 422,
-        code: qualified.code,
-        details: qualified.details
-      };
-    }
 
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
-    if (duplicate) {
-      return {
-        ok: false,
-        status: 422,
-        code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      };
-    }
+* src/server/actions/PreviewContactFollowupActionStage5.js
 
-    const created = this.contactRepository.save({
-      id: `contact-${Date.now().toString(36)}`,
-      ...qualified.normalized,
-      score: qualified.score,
-      segment: qualified.segment
-    });
 
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "intake",
-        email: created.email,
-        score: created.score,
-        segment: created.segment,
-        followupPlan: qualified.followupPlan,
-        duplicateDetected: false,
-        persisted: true
-      }
-    };
-  }
-}
 
-export { CreateContactIntakeAction };
-```
-<!-- /DOCS:EXAMPLE -->
+* src/server/actions/GetContactByIdActionStage5.js
 
-Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupAction.js`:
 
-<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupAction" lang="js" -->
-```js
-class PreviewContactFollowupAction {
-  constructor({ qualificationService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.contactRepository = contactRepository;
-  }
-
-  execute(payload) {
-    const qualified = this.qualificationService.qualify(payload);
-    if (!qualified.ok) {
-      return {
-        ok: false,
-        status: 422,
-        code: qualified.code,
-        details: qualified.details
-      };
-    }
-
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
-
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "preview",
-        email: qualified.normalized.email,
-        score: qualified.score,
-        segment: qualified.segment,
-        followupPlan: qualified.followupPlan,
-        duplicateDetected: Boolean(duplicate),
-        persisted: false
-      }
-    };
-  }
-}
-
-export { PreviewContactFollowupAction };
-```
-<!-- /DOCS:EXAMPLE -->
-
-Use `docs/examples/03.real-app/src/server/actions/GetContactByIdAction.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" action="GetContactByIdAction" lang="js" -->
-```js
-class GetContactByIdAction {
-  constructor({ contactRepository }) {
-    this.contactRepository = contactRepository;
-  }
-
-  execute({ contactId }) {
-    const normalizedId = String(contactId || "").trim();
-    const contact = this.contactRepository.findById(normalizedId);
-
-    if (!contact) {
-      return {
-        ok: false,
-        status: 404,
-        code: "contact_not_found",
-        details: [`No contact found for id ${normalizedId || "<empty>"}.`]
-      };
-    }
-
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        contact
-      }
-    };
-  }
-}
-
-export { GetContactByIdAction };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -2031,308 +585,15 @@ Now we compose everything together in a clean baseline structure, before the adv
 
 ### Shared schemas
 
-Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
+* src/shared/schemas/contactSchemasStage1.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemas" lang="js" -->
-```js
-import { Type } from "@fastify/type-provider-typebox";
 
-/**
- * Chapter 3 baseline route contracts (Stages 1-6).
- *
- * How this maps to controller flow:
- * - POST routes: controller/action reads body (+ query when needed).
- * - GET by id route: controller/action reads params.contactId.
- * - These route contracts validate incoming request data before controller code runs.
- * - Controller/action responses are expected to match the response maps below.
- *
- * Stage 7 adds normalization in a separate file:
- * - ./contactSchemasStage7.js
- */
-
-// 1) Incoming request schemas (transport validation).
-const contactIntakePreviewBodySchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactIntakePreviewQuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdParamsSchema = Type.Object(
-  {
-    contactId: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-// 2) Contact read model schema (what a stored/retrieved contact record looks like).
-const contactStoredRecordSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    email: Type.String({ minLength: 1 }),
-    company: Type.String({ minLength: 1 }),
-    employees: Type.Integer({ minimum: 1 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean(),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-// 3) Success response schemas.
-const contactIntakePreviewSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    contact: contactStoredRecordSchema
-  },
-  { additionalProperties: false }
-);
-
-// 4) Error response schemas.
-const contactIntakePreviewDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-const contactGenericErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
-    details: Type.Optional(Type.Unknown()),
-    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
-    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
-    message: Type.Optional(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: true }
-);
-
-// 5) Response maps by route family.
-const contactByIdResponseSchema = Object.freeze({
-  200: contactByIdSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactGenericErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-const contactIntakePreviewResponseSchema = Object.freeze({
-  200: contactIntakePreviewSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactIntakePreviewDomainErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-// 6) Route contracts consumed by router.register(...).
-const contactIntakePostRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactPreviewFollowupPostRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactByIdGetRouteContract = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: {
-    schema: contactByIdParamsSchema
-  },
-  response: contactByIdResponseSchema
-});
-
-export {
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract,
-  contactByIdGetRouteContract
-};
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Provider wiring
 
-Use `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`:
+* src/server/providers/ContactProviderStage6.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage6LayeredProvider" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage6.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage6.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage6.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdActionStage6.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage6.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage6.js";
 
-const STAGE_6_REPOSITORY = "docs.examples.03.stage6.repository";
-const STAGE_6_QUALIFICATION_SERVICE = "docs.examples.03.stage6.service.qualification";
-const STAGE_6_CREATE_ACTION = "docs.examples.03.stage6.actions.create";
-const STAGE_6_PREVIEW_ACTION = "docs.examples.03.stage6.actions.preview";
-const STAGE_6_GET_BY_ID_ACTION = "docs.examples.03.stage6.actions.getById";
-const STAGE_6_CONTROLLER = "docs.examples.03.stage6.controller";
-
-class Stage6LayeredProvider {
-  static id = "docs.examples.03.stage6";
-
-  register(app) {
-    app.singleton(STAGE_6_REPOSITORY, () => new InMemoryContactRepository());
-
-    app.singleton(
-      STAGE_6_QUALIFICATION_SERVICE,
-      () => new ContactQualificationService()
-    );
-
-    app.singleton(
-      STAGE_6_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeAction({
-          qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
-          contactRepository: app.make(STAGE_6_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_6_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupAction({
-          qualificationService: app.make(STAGE_6_QUALIFICATION_SERVICE),
-          contactRepository: app.make(STAGE_6_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_6_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdAction({
-          contactRepository: app.make(STAGE_6_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_6_CONTROLLER,
-      () =>
-        new ContactControllerStage6({
-          createContactIntakeAction: app.make(STAGE_6_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_6_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_6_GET_BY_ID_ACTION)
-        })
-    );
-  }
-
-  boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_6_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-6/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-6"],
-          summary: "Stage 6 final assembly: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-6/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage6LayeredProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 At this point, the architecture is clean and practical:
 
@@ -2385,69 +646,9 @@ const payload = request.input.body;
 const contactId = request.input.params.contactId;
 ```
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage7.js`:
+* src/server/controllers/ContactControllerStage7.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage7" lang="js" -->
-```js
-class ContactControllerStage7 {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-    this.getContactByIdAction = getContactByIdAction;
-  }
 
-  async intake(request, reply) {
-    const payload = request.input.body;
-    const result = this.createContactIntakeAction.execute(payload);
-
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-
-  async previewFollowup(request, reply) {
-    const payload = request.input.body;
-    const result = this.previewContactFollowupAction.execute(payload);
-
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-
-  async show(request, reply) {
-    const result = this.getContactByIdAction.execute({
-      contactId: request.input.params.contactId
-    });
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Contact not found.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
-  }
-}
-
-export { ContactControllerStage7 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### Shared contracts now include normalization directly
@@ -2472,166 +673,9 @@ const contactIntakePostRouteContractStage7 = {
 This is a strong shift: schema validation and normalization happens once only, and it's centralised in the contract definition.
 They are all pure functions, which means that both client and server can access them.
 
-Use `docs/examples/03.real-app/src/shared/schemas/contactSchemasStage7.js`:
+* src/shared/schemas/contactSchemasStage7.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" schema="contactSchemasStage7" lang="js" -->
-```js
-import { Type } from "@fastify/type-provider-typebox";
-import {
-  normalizeContactBody,
-  normalizeContactParams
-} from "../input/contactInputNormalizationStage7.js";
 
-const contactIntakePreviewBodySchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 120 }),
-    email: Type.String({ minLength: 5, maxLength: 200 }),
-    company: Type.String({ minLength: 1, maxLength: 160 }),
-    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdParamsSchema = Type.Object(
-  {
-    contactId: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-const contactStoredRecordSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    email: Type.String({ minLength: 1 }),
-    company: Type.String({ minLength: 1 }),
-    employees: Type.Integer({ minimum: 1 }),
-    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
-    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
-    country: Type.String({ minLength: 2, maxLength: 2 }),
-    consentMarketing: Type.Boolean(),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
-const contactIntakePreviewSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
-    email: Type.String({ minLength: 1 }),
-    score: Type.Integer({ minimum: 0, maximum: 100 }),
-    segment: Type.String({ minLength: 1 }),
-    followupPlan: Type.Array(Type.String({ minLength: 1 })),
-    duplicateDetected: Type.Boolean(),
-    persisted: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const contactByIdSuccessSchema = Type.Object(
-  {
-    ok: Type.Boolean(),
-    contact: contactStoredRecordSchema
-  },
-  { additionalProperties: false }
-);
-
-const contactIntakePreviewDomainErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.String({ minLength: 1 }),
-    details: Type.Array(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-const contactGenericErrorSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
-    details: Type.Optional(Type.Unknown()),
-    fieldErrors: Type.Optional(Type.Record(Type.String(), Type.String())),
-    statusCode: Type.Optional(Type.Integer({ minimum: 400, maximum: 599 })),
-    message: Type.Optional(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: true }
-);
-
-const contactByIdResponseSchema = Object.freeze({
-  200: contactByIdSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactGenericErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-const contactIntakePreviewResponseSchema = Object.freeze({
-  200: contactIntakePreviewSuccessSchema,
-  400: contactGenericErrorSchema,
-  401: contactGenericErrorSchema,
-  403: contactGenericErrorSchema,
-  404: contactGenericErrorSchema,
-  409: contactGenericErrorSchema,
-  422: contactIntakePreviewDomainErrorSchema,
-  429: contactGenericErrorSchema,
-  500: contactGenericErrorSchema,
-  503: contactGenericErrorSchema
-});
-
-const contactIntakePostRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Create contact"
-  },
-  body: Object.freeze({
-    schema: contactIntakePreviewBodySchema,
-    normalize: normalizeContactBody
-  }),
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactPreviewFollowupPostRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Preview follow-up"
-  },
-  body: Object.freeze({
-    schema: contactIntakePreviewBodySchema,
-    normalize: normalizeContactBody
-  }),
-  response: contactIntakePreviewResponseSchema
-});
-
-const contactByIdGetRouteContractStage7 = Object.freeze({
-  meta: {
-    tags: ["contacts"],
-    summary: "Get contact by id"
-  },
-  params: Object.freeze({
-    schema: contactByIdParamsSchema,
-    normalize: normalizeContactParams
-  }),
-  response: contactByIdResponseSchema
-});
-
-export {
-  contactIntakePostRouteContractStage7,
-  contactPreviewFollowupPostRouteContractStage7,
-  contactByIdGetRouteContractStage7
-};
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### Service keeps `qualify(...)` but no longer normalizes in Stage 7
@@ -2657,45 +701,9 @@ qualify(payload) {
 }
 ```
 
-Use `docs/examples/03.real-app/src/server/services/ContactQualificationServiceStage7.js`:
+* src/server/services/ContactQualificationServiceStage7.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/services/ContactQualificationServiceStage7.js" lang="js" -->
-```js
-import { ContactQualificationService } from "./ContactQualificationService.js";
 
-class ContactQualificationServiceStage7 extends ContactQualificationService {
-  qualify(payload) {
-    const details = this.validate(payload);
-
-    if (details.length > 0) {
-      return {
-        ok: false,
-        code: "domain_validation_failed",
-        details,
-        normalized: payload
-      };
-    }
-
-    const score = this.score(payload);
-    const segment = this.segment(score);
-    const followupPlan = this.followupPlan({
-      segment,
-      source: payload.source
-    });
-
-    return {
-      ok: true,
-      normalized: payload,
-      score,
-      segment,
-      followupPlan
-    };
-  }
-}
-
-export { ContactQualificationServiceStage7 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 
 ### What improved
@@ -2737,8 +745,8 @@ class ContactControllerStage8 extends BaseController {
   }
 }
 
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class CreateContactIntakeActionStage8 {
   async execute(payload) {
@@ -2754,396 +762,41 @@ What changed in this stage:
 - controller extends `BaseController`, and stays focused on happy-path responses (`ok(...)`)
 - actions throw domain errors (`DomainValidationError`, `ConflictError`) instead of returning `ok: false` objects
 - provider installs `registerApiErrorHandler(...)` once, so thrown app/domain errors are mapped consistently
-- domain-rule evaluation is centralized in `domainRuleValidation.js` (no duplicated rule-loop logic in each action)
+- domain-rule evaluation is centralized in `domainRuleValidationStage8.js` (no duplicated rule-loop logic in each action)
 
 ### Full provider code for Stage 8
 
-Use `docs/examples/03.real-app/src/server/providers/Stage8ErrorErgonomicsProvider.js`:
+* src/server/providers/ContactProviderStage8.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage8ErrorErgonomicsProvider" lang="js" -->
-```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
-import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage8.js";
-import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage8.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
-import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemasStage8.js";
 
-const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
-const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualification";
-const STAGE_8_DOMAIN_RULES_SERVICE = "docs.examples.03.stage8.service.domainRules";
-const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
-const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
-const STAGE_8_GET_BY_ID_ACTION = "docs.examples.03.stage8.actions.getById";
-const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
-const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactIntakePostRouteContract.response[200]
-    },
-    {
-      includeValidation400: true
-    }
-  )
-);
-
-class Stage8ErrorErgonomicsProvider {
-  static id = "docs.examples.03.stage8";
-
-  register(app) {
-    app.singleton(STAGE_8_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_8_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_8_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
-
-    app.singleton(
-      STAGE_8_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeActionStage8({
-          qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_8_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_8_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupActionStage8({
-          qualificationService: app.make(STAGE_8_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_8_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_8_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_8_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdActionStage8({
-          contactRepository: app.make(STAGE_8_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_8_CONTROLLER,
-      () =>
-        new ContactControllerStage8({
-          createContactIntakeAction: app.make(STAGE_8_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_8_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_8_GET_BY_ID_ACTION)
-        })
-    );
-  }
-
-  boot(app) {
-    if (!app.has(STAGE_8_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_8_ERROR_HANDLER_MARKER, true);
-    }
-
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_8_CONTROLLER);
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-8/contacts/intake",
-      {
-        ...contactIntakePostRouteContract,
-        meta: {
-          tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: intake"
-        },
-        response: STAGE_8_RESPONSE_SCHEMA
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
-      {
-        ...contactPreviewFollowupPostRouteContract,
-        meta: {
-          tags: ["docs-stage-8"],
-          summary: "Stage 8 domain errors + BaseController: preview"
-        },
-        response: STAGE_8_RESPONSE_SCHEMA
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-8/contacts/:contactId",
-      contactByIdGetRouteContract,
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage8ErrorErgonomicsProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full controller code for Stage 8
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage8.js`:
+* src/server/controllers/ContactControllerStage8.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage8" lang="js" -->
-```js
-import { BaseController } from "@jskit-ai/kernel/server/http";
 
-class ContactControllerStage8 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
-    super();
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-    this.getContactByIdAction = getContactByIdAction;
-  }
-
-  resolveInputBody(request) {
-    return request?.input?.body || request?.body || {};
-  }
-
-  async intake(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const created = await this.createContactIntakeAction.execute(payload);
-    return this.ok(reply, created);
-  }
-
-  async previewFollowup(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const preview = await this.previewContactFollowupAction.execute(payload);
-    return this.ok(reply, preview);
-  }
-
-  async show(request, reply) {
-    const contact = await this.getContactByIdAction.execute({
-      contactId: request.params?.contactId
-    });
-    return this.ok(reply, contact);
-  }
-}
-
-export { ContactControllerStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full domain-rule helper for Stage 8
 
-Use `docs/examples/03.real-app/src/server/support/domainRuleValidation.js`:
+* src/server/support/domainRuleValidationStage8.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/domainRuleValidation.js" lang="js" -->
-```js
-import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
 
-function collectDomainFieldErrors(rules) {
-  const fieldErrors = {};
-
-  for (const rule of Array.isArray(rules) ? rules : []) {
-    if (rule?.when && !rule.when()) {
-      continue;
-    }
-
-    const outcome = rule?.check ? rule.check() : null;
-    if (!outcome) {
-      continue;
-    }
-
-    if (typeof outcome === "string") {
-      fieldErrors[rule.field] = outcome;
-      continue;
-    }
-
-    if (typeof outcome === "object") {
-      fieldErrors[rule.field] = outcome?.message || "domain rule failed";
-    }
-  }
-
-  return fieldErrors;
-}
-
-function assertNoDomainRuleFailures(
-  rules,
-  {
-    message = "Domain validation failed.",
-    code = "domain_validation_failed"
-  } = {}
-) {
-  const fieldErrors = collectDomainFieldErrors(rules);
-  if (Object.keys(fieldErrors).length > 0) {
-    throw new DomainValidationError(
-      {
-        fieldErrors
-      },
-      {
-        message,
-        code
-      }
-    );
-  }
-}
-
-export { collectDomainFieldErrors, assertNoDomainRuleFailures };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full domain-rules service for Stage 8
 
-Use `docs/examples/03.real-app/src/server/services/ContactDomainRulesServiceStage8.js`:
+* src/server/services/ContactDomainRulesServiceStage8.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" service="ContactDomainRulesServiceStage8" lang="js" -->
-```js
-class ContactDomainRulesServiceStage8 {
-  buildRules(normalized) {
-    return [
-      {
-        field: "name",
-        check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters." : null
-      },
-      {
-        field: "email",
-        check: () =>
-          !normalized.email.includes("@") ? "email must include @." : null
-      },
-      {
-        field: "plan",
-        check: () =>
-          normalized.plan === "starter" && normalized.employees > 200
-            ? "starter plan supports up to 200 employees"
-            : null
-      }
-    ];
-  }
-}
 
-export { ContactDomainRulesServiceStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full actions for Stage 8
 
-Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeActionStage8.js`:
+* src/server/actions/CreateContactIntakeActionStage8.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeActionStage8" lang="js" -->
-```js
-import {
-  ConflictError
-} from "@jskit-ai/kernel/server/runtime";
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
 
-class CreateContactIntakeActionStage8 {
-  constructor({ qualificationService, domainRulesService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.domainRulesService = domainRulesService;
-    this.contactRepository = contactRepository;
-  }
 
-  async execute(payload) {
-    const normalized = normalizeContactBody(payload);
-    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+* src/server/actions/PreviewContactFollowupActionStage8.js
 
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
-    if (duplicate) {
-      throw new ConflictError("A contact with this email already exists.", {
-        code: "duplicate_contact",
-        details: {
-          fieldErrors: {
-            email: "a contact with this email already exists"
-          }
-        }
-      });
-    }
 
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
-
-    const created = this.contactRepository.save({
-      id: `contact-${Date.now().toString(36)}`,
-      ...normalized,
-      score,
-      segment
-    });
-
-    return {
-      ok: true,
-      mode: "intake",
-      email: created.email,
-      score: created.score,
-      segment: created.segment,
-      followupPlan,
-      duplicateDetected: false,
-      persisted: true
-    };
-  }
-}
-
-export { CreateContactIntakeActionStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
-
-Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionStage8.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupActionStage8" lang="js" -->
-```js
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
-
-class PreviewContactFollowupActionStage8 {
-  constructor({ qualificationService, domainRulesService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.domainRulesService = domainRulesService;
-    this.contactRepository = contactRepository;
-  }
-
-  async execute(payload) {
-    const normalized = normalizeContactBody(payload);
-    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
-
-    return {
-      ok: true,
-      mode: "preview",
-      email: normalized.email,
-      score,
-      segment,
-      followupPlan,
-      duplicateDetected: Boolean(duplicate),
-      persisted: false
-    };
-  }
-}
-
-export { PreviewContactFollowupActionStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -3186,317 +839,21 @@ In this stage:
 
 ### Create reusable middleware stack
 
-Use `docs/examples/03.real-app/src/server/support/stage9Middleware.js`:
+* src/server/support/contactsMiddlewareStage9.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/stage9Middleware.js" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 
-const STAGE_9_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage9.requestContext";
-
-async function requireRequestScopeMiddleware(request, reply) {
-  if (!request?.scope || typeof request.scope.make !== "function") {
-    reply.code(500).send({
-      error: "Request scope is unavailable.",
-      code: "missing_request_scope"
-    });
-  }
-}
-
-async function attachRequestContextMiddleware(request) {
-  const scope = request?.scope;
-  if (!scope || typeof scope.instance !== "function" || typeof scope.make !== "function") {
-    return;
-  }
-
-  const requestId = scope.make(KERNEL_TOKENS.RequestId);
-  scope.instance(STAGE_9_REQUEST_CONTEXT_TOKEN, {
-    requestId,
-    receivedAt: new Date().toISOString()
-  });
-}
-
-async function requirePartnerConsentMiddleware(request, reply) {
-  const payload = request?.input?.body || request?.body || {};
-  const source = String(payload?.source || "").trim().toLowerCase();
-  const hasMarketingConsent = payload?.consentMarketing === true;
-
-  if (source === "partner" && !hasMarketingConsent) {
-    reply.code(422).send({
-      error: "Domain validation failed.",
-      code: "partner_consent_required",
-      details: {
-        fieldErrors: {
-          consentMarketing: "partner leads require marketing consent"
-        }
-      }
-    });
-  }
-}
-
-const stage9ContactsMiddleware = Object.freeze([
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware
-]);
-
-export {
-  STAGE_9_REQUEST_CONTEXT_TOKEN,
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware,
-  stage9ContactsMiddleware
-};
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Create controller that consumes request-scope context
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage9.js`:
+* src/server/controllers/ContactControllerStage9.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage9" lang="js" -->
-```js
-import { BaseController } from "@jskit-ai/kernel/server/http";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { STAGE_9_REQUEST_CONTEXT_TOKEN } from "../support/stage9Middleware.js";
 
-class ContactControllerStage9 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
-    super();
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-    this.getContactByIdAction = getContactByIdAction;
-  }
-
-  resolveInputBody(request) {
-    return request?.input?.body || request?.body || {};
-  }
-
-  attachRequestScopeHeaders(request, reply) {
-    const scope = request?.scope;
-    if (!scope || typeof scope.make !== "function") {
-      return;
-    }
-
-    const requestId = scope.make(KERNEL_TOKENS.RequestId);
-    if (requestId) {
-      reply.header("x-request-id", requestId);
-    }
-
-    const context = scope.has(STAGE_9_REQUEST_CONTEXT_TOKEN)
-      ? scope.make(STAGE_9_REQUEST_CONTEXT_TOKEN)
-      : null;
-
-    if (context?.receivedAt) {
-      reply.header("x-request-received-at", context.receivedAt);
-    }
-  }
-
-  async intake(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const created = await this.createContactIntakeAction.execute(payload);
-    this.attachRequestScopeHeaders(request, reply);
-    return this.ok(reply, created);
-  }
-
-  async previewFollowup(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const preview = await this.previewContactFollowupAction.execute(payload);
-    this.attachRequestScopeHeaders(request, reply);
-    return this.ok(reply, preview);
-  }
-
-  async show(request, reply) {
-    const contact = await this.getContactByIdAction.execute({
-      contactId: request.input?.params?.contactId || request.params?.contactId
-    });
-    this.attachRequestScopeHeaders(request, reply);
-    return this.ok(reply, contact);
-  }
-}
-
-export { ContactControllerStage9 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full provider code for Stage 9
 
-Use `docs/examples/03.real-app/src/server/providers/Stage9RuntimeContextProvider.js`:
+* src/server/providers/ContactProviderStage9.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage9RuntimeContextProvider" lang="js" -->
-```js
-import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
-import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage9.js";
-import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage9.js";
-import { CreateContactIntakeActionStage9 } from "../actions/CreateContactIntakeActionStage9.js";
-import { GetContactByIdActionStage9 } from "../actions/GetContactByIdActionStage9.js";
-import { PreviewContactFollowupActionStage9 } from "../actions/PreviewContactFollowupActionStage9.js";
-import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage9.js";
-import {
-  contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemasStage9.js";
-import {
-  normalizeContactBody,
-  normalizeContactQuery
-} from "../../shared/input/contactInputNormalizationStage9.js";
 
-const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
-const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
-const STAGE_9_DOMAIN_RULES_SERVICE = "docs.examples.03.stage9.service.domainRules";
-const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
-const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
-const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
-const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
-const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactIntakePostRouteContract.response[200]
-    },
-    {
-      includeValidation400: true
-    }
-  )
-);
-
-const stage9QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-class Stage9RuntimeContextProvider {
-  static id = "docs.examples.03.stage9";
-
-  register(app) {
-    app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage9());
-
-    app.singleton(
-      STAGE_9_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeActionStage9({
-          qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_9_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_9_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupActionStage9({
-          qualificationService: app.make(STAGE_9_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_9_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_9_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_9_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdActionStage9({
-          contactRepository: app.make(STAGE_9_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_9_CONTROLLER,
-      () =>
-        new ContactControllerStage9({
-          createContactIntakeAction: app.make(STAGE_9_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_9_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_9_GET_BY_ID_ACTION)
-        })
-    );
-  }
-
-  boot(app) {
-    if (!app.has(STAGE_9_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_9_ERROR_HANDLER_MARKER, true);
-    }
-
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_9_CONTROLLER);
-
-    const sharedOptions = {
-      body: {
-        schema: contactIntakePostRouteContract.body.schema,
-        normalize: normalizeContactBody
-      },
-      query: {
-        schema: stage9QuerySchema,
-        normalize: normalizeContactQuery
-      },
-      response: STAGE_9_RESPONSE_SCHEMA,
-      middleware: stage9ContactsMiddleware,
-    };
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-9/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-9/contacts/intake",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-9"],
-          summary: "Stage 9 request scope + middleware reuse: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-9"],
-          summary: "Stage 9 request scope + middleware reuse: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-9/contacts/:contactId",
-      {
-        ...contactByIdGetRouteContractStage7,
-        middleware: stage9ContactsMiddleware,
-        meta: {
-          tags: ["docs-stage-9"],
-          summary: "Stage 9 request scope + middleware reuse: show by id"
-        }
-      },
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage9RuntimeContextProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -3532,460 +889,33 @@ In this stage:
 
 ### Create module config contract
 
-Use `docs/examples/03.real-app/src/server/support/contactsModuleConfigStage10.js`:
+* src/server/support/contactsModuleConfigStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/contactsModuleConfigStage10.js" lang="js" -->
-```js
-import { Type } from "typebox";
-import { defineModuleConfig } from "@jskit-ai/kernel/server/runtime";
 
-const DEFAULT_ALLOWED_COUNTRIES = Object.freeze(["US", "CA", "GB", "DE", "FR", "ES", "IT"]);
-
-const contactsModuleConfigSchema = Type.Object(
-  {
-    mode: Type.Union([Type.Literal("standard"), Type.Literal("strict")]),
-    allowedCountries: Type.Array(Type.String({ minLength: 2, maxLength: 2 }), {
-      minItems: 1
-    }),
-    maxStarterEmployees: Type.Integer({ minimum: 1 }),
-    blockDisposableEmailDomains: Type.Boolean()
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const contactsModuleConfig = defineModuleConfig({
-  moduleId: "docs.examples.03.contacts",
-  schema: contactsModuleConfigSchema,
-  coerce: true,
-  load({ env }) {
-    return {
-      mode: env.CONTACTS_MODE,
-      allowedCountries: env.CONTACTS_ALLOWED_COUNTRIES,
-      maxStarterEmployees: env.CONTACTS_MAX_STARTER_EMPLOYEES,
-      blockDisposableEmailDomains: env.CONTACTS_BLOCK_DISPOSABLE_EMAILS
-    };
-  },
-  transform(raw) {
-    const allowedCountriesRaw = String(
-      raw?.allowedCountries || DEFAULT_ALLOWED_COUNTRIES.join(",")
-    );
-
-    return {
-      mode: raw?.mode || "standard",
-      allowedCountries: allowedCountriesRaw
-        .split(",")
-        .map((value) => String(value || "").trim().toUpperCase())
-        .filter(Boolean),
-      maxStarterEmployees: raw?.maxStarterEmployees ?? 2000,
-      blockDisposableEmailDomains: raw?.blockDisposableEmailDomains ?? true
-    };
-  },
-  validate(config) {
-    if (config.mode === "strict" && config.maxStarterEmployees > 1000) {
-      return [
-        {
-          path: "maxStarterEmployees",
-          message: "must be <= 1000 when mode is strict"
-        }
-      ];
-    }
-
-    return true;
-  }
-});
-
-export {
-  DEFAULT_ALLOWED_COUNTRIES,
-  contactsModuleConfigSchema,
-  contactsModuleConfig
-};
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Create config-driven domain rules service
 
-Use `docs/examples/03.real-app/src/server/services/ContactDomainRulesServiceStage10.js`:
+* src/server/services/ContactDomainRulesServiceStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" service="ContactDomainRulesServiceStage10" lang="js" -->
-```js
-class ContactDomainRulesServiceStage10 {
-  constructor({ config }) {
-    this.config = config;
-  }
 
-  buildRules(normalized) {
-    const allowedCountries = Array.isArray(this.config?.allowedCountries)
-      ? this.config.allowedCountries
-      : ["US", "CA", "GB", "DE", "FR", "ES", "IT"];
-    const maxStarterEmployees = Number(this.config?.maxStarterEmployees || 2000);
-    const blockDisposableEmailDomains = this.config?.blockDisposableEmailDomains !== false;
-
-    return [
-      {
-        field: "name",
-        check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters." : null
-      },
-      {
-        field: "email",
-        check: () =>
-          !normalized.email.includes("@") ? "email must include @." : null
-      },
-      {
-        field: "email",
-        when: () => blockDisposableEmailDomains,
-        check: () =>
-          normalized.email.endsWith("@mailinator.com")
-            ? "disposable emails are not allowed"
-            : null
-      },
-      {
-        field: "country",
-        check: () =>
-          !allowedCountries.includes(normalized.country)
-            ? "country is not in allowed market list"
-            : null
-      },
-      {
-        field: "plan",
-        check: () =>
-          normalized.plan === "starter" && normalized.employees > maxStarterEmployees
-            ? `starter plan supports up to ${maxStarterEmployees} employees`
-            : null
-      }
-    ];
-  }
-}
-
-export { ContactDomainRulesServiceStage10 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Create reusable middleware stack for Stage 10
 
-Use `docs/examples/03.real-app/src/server/support/stage10Middleware.js`:
+* src/server/support/contactsMiddlewareStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/stage10Middleware.js" lang="js" -->
-```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 
-const STAGE_10_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage10.requestContext";
-
-async function requireRequestScopeMiddleware(request, reply) {
-  if (!request?.scope || typeof request.scope.make !== "function") {
-    reply.code(500).send({
-      error: "Request scope is unavailable.",
-      code: "missing_request_scope"
-    });
-  }
-}
-
-async function attachRequestContextMiddleware(request) {
-  const scope = request?.scope;
-  if (!scope || typeof scope.instance !== "function" || typeof scope.make !== "function") {
-    return;
-  }
-
-  const requestId = scope.make(KERNEL_TOKENS.RequestId);
-  scope.instance(STAGE_10_REQUEST_CONTEXT_TOKEN, {
-    requestId,
-    receivedAt: new Date().toISOString()
-  });
-}
-
-async function requirePartnerConsentMiddleware(request, reply) {
-  const payload = request?.input?.body || request?.body || {};
-  const source = String(payload?.source || "").trim().toLowerCase();
-  const hasMarketingConsent = payload?.consentMarketing === true;
-
-  if (source === "partner" && !hasMarketingConsent) {
-    reply.code(422).send({
-      error: "Domain validation failed.",
-      code: "partner_consent_required",
-      details: {
-        fieldErrors: {
-          consentMarketing: "partner leads require marketing consent"
-        }
-      }
-    });
-  }
-}
-
-const stage10ContactsMiddleware = Object.freeze([
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware
-]);
-
-export {
-  STAGE_10_REQUEST_CONTEXT_TOKEN,
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware,
-  stage10ContactsMiddleware
-};
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Create Stage 10 controller with config + request-scope headers
 
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage10.js`:
+* src/server/controllers/ContactControllerStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage10" lang="js" -->
-```js
-import { BaseController } from "@jskit-ai/kernel/server/http";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
 
-class ContactControllerStage10 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction, contactsConfig }) {
-    super();
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-    this.getContactByIdAction = getContactByIdAction;
-    this.contactsConfig = contactsConfig;
-  }
-
-  resolveInputBody(request) {
-    return request?.input?.body || request?.body || {};
-  }
-
-  attachConfigHeaders(reply) {
-    reply.header("x-contacts-mode", this.contactsConfig.mode);
-    reply.header(
-      "x-contacts-max-starter-employees",
-      String(this.contactsConfig.maxStarterEmployees)
-    );
-  }
-
-  attachRequestScopeHeaders(request, reply) {
-    const scope = request?.scope;
-    if (!scope || typeof scope.make !== "function") {
-      return;
-    }
-
-    const requestId = scope.make(KERNEL_TOKENS.RequestId);
-    if (requestId) {
-      reply.header("x-request-id", requestId);
-    }
-
-    const context = scope.has(STAGE_10_REQUEST_CONTEXT_TOKEN)
-      ? scope.make(STAGE_10_REQUEST_CONTEXT_TOKEN)
-      : null;
-
-    if (context?.receivedAt) {
-      reply.header("x-request-received-at", context.receivedAt);
-    }
-  }
-
-  async intake(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const created = await this.createContactIntakeAction.execute(payload);
-    this.attachRequestScopeHeaders(request, reply);
-    this.attachConfigHeaders(reply);
-    return this.ok(reply, created);
-  }
-
-  async previewFollowup(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const preview = await this.previewContactFollowupAction.execute(payload);
-    this.attachRequestScopeHeaders(request, reply);
-    this.attachConfigHeaders(reply);
-    return this.ok(reply, preview);
-  }
-
-  async show(request, reply) {
-    const contact = await this.getContactByIdAction.execute({
-      contactId: request.input?.params?.contactId || request.params?.contactId
-    });
-    this.attachRequestScopeHeaders(request, reply);
-    this.attachConfigHeaders(reply);
-    return this.ok(reply, contact);
-  }
-}
-
-export { ContactControllerStage10 };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Full provider code for Stage 10
 
-Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`:
+* src/server/providers/ContactProviderStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
-```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
-import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage10.js";
-import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage10.js";
-import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
-import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
-import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
-import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage10.js";
-import {
-  contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemasStage10.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage10.js";
 
-const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
-const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
-const STAGE_10_QUALIFICATION_SERVICE = "docs.examples.03.stage10.service.qualification";
-const STAGE_10_DOMAIN_RULES_SERVICE = "docs.examples.03.stage10.service.domainRules";
-const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
-const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
-const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
-const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
-const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactIntakePostRouteContract.response[200]
-    },
-    {
-      includeValidation400: true
-    }
-  )
-);
-
-class Stage10ConfigContractProvider {
-  static id = "docs.examples.03.stage10";
-
-  register(app) {
-    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
-    const config = contactsModuleConfig.resolve({
-      env
-    });
-
-    app.instance(STAGE_10_CONFIG, config);
-    app.singleton(STAGE_10_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_10_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(
-      STAGE_10_DOMAIN_RULES_SERVICE,
-      () =>
-        new ContactDomainRulesServiceStage10({
-          config: app.make(STAGE_10_CONFIG)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeActionStage10({
-          qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupActionStage10({
-          qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdActionStage10({
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_CONTROLLER,
-      () =>
-        new ContactControllerStage10({
-          createContactIntakeAction: app.make(STAGE_10_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_10_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_10_GET_BY_ID_ACTION),
-          contactsConfig: app.make(STAGE_10_CONFIG)
-        })
-    );
-  }
-
-  boot(app) {
-    if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
-    }
-
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_10_CONTROLLER);
-
-    const sharedOptions = {
-      body: {
-        schema: contactIntakePostRouteContract.body.schema,
-        normalize: normalizeContactBody
-      },
-      middleware: stage10ContactsMiddleware,
-      response: STAGE_10_RESPONSE_SCHEMA
-    };
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config contract: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config contract: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
-      {
-        ...contactByIdGetRouteContractStage7,
-        middleware: stage10ContactsMiddleware,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config + runtime context: show by id"
-        }
-      },
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage10ConfigContractProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### What improved
 
@@ -4087,180 +1017,9 @@ That is the path from "it works" to "it keeps working when the feature grows."
 
 This is the final provider assembly after all stages (Stage 1 through Stage 10).
 
-Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`:
+* src/server/providers/ContactProviderStage10.js
 
-<!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
-```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  isAppError,
-  registerApiErrorHandler
-} from "@jskit-ai/kernel/server/runtime";
-import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage10.js";
-import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage10.js";
-import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
-import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
-import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
-import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage10.js";
-import {
-  contactIntakePostRouteContract
-} from "../../shared/schemas/contactSchemasStage10.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage10.js";
 
-const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
-const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
-const STAGE_10_QUALIFICATION_SERVICE = "docs.examples.03.stage10.service.qualification";
-const STAGE_10_DOMAIN_RULES_SERVICE = "docs.examples.03.stage10.service.domainRules";
-const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
-const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
-const STAGE_10_GET_BY_ID_ACTION = "docs.examples.03.stage10.actions.getById";
-const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
-const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
-  withStandardErrorResponses(
-    {
-      200: contactIntakePostRouteContract.response[200]
-    },
-    {
-      includeValidation400: true
-    }
-  )
-);
-
-class Stage10ConfigContractProvider {
-  static id = "docs.examples.03.stage10";
-
-  register(app) {
-    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
-    const config = contactsModuleConfig.resolve({
-      env
-    });
-
-    app.instance(STAGE_10_CONFIG, config);
-    app.singleton(STAGE_10_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_10_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(
-      STAGE_10_DOMAIN_RULES_SERVICE,
-      () =>
-        new ContactDomainRulesServiceStage10({
-          config: app.make(STAGE_10_CONFIG)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_CREATE_ACTION,
-      () =>
-        new CreateContactIntakeActionStage10({
-          qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_PREVIEW_ACTION,
-      () =>
-        new PreviewContactFollowupActionStage10({
-          qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
-          domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_GET_BY_ID_ACTION,
-      () =>
-        new GetContactByIdActionStage10({
-          contactRepository: app.make(STAGE_10_REPOSITORY)
-        })
-    );
-
-    app.singleton(
-      STAGE_10_CONTROLLER,
-      () =>
-        new ContactControllerStage10({
-          createContactIntakeAction: app.make(STAGE_10_CREATE_ACTION),
-          previewContactFollowupAction: app.make(STAGE_10_PREVIEW_ACTION),
-          getContactByIdAction: app.make(STAGE_10_GET_BY_ID_ACTION),
-          contactsConfig: app.make(STAGE_10_CONFIG)
-        })
-    );
-  }
-
-  boot(app) {
-    if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
-        isAppError
-      });
-      app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
-    }
-
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const controller = app.make(STAGE_10_CONTROLLER);
-
-    const sharedOptions = {
-      body: {
-        schema: contactIntakePostRouteContract.body.schema,
-        normalize: normalizeContactBody
-      },
-      middleware: stage10ContactsMiddleware,
-      response: STAGE_10_RESPONSE_SCHEMA
-    };
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/intake",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config contract: intake"
-        }
-      },
-      (request, reply) => controller.intake(request, reply)
-    );
-
-    router.register(
-      "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
-      {
-        method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
-        ...sharedOptions,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config contract: preview"
-        }
-      },
-      (request, reply) => controller.previewFollowup(request, reply)
-    );
-
-    router.register(
-      "GET",
-      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
-      {
-        ...contactByIdGetRouteContractStage7,
-        middleware: stage10ContactsMiddleware,
-        meta: {
-          tags: ["docs-stage-10"],
-          summary: "Stage 10 startup config + runtime context: show by id"
-        }
-      },
-      (request, reply) => controller.show(request, reply)
-    );
-  }
-}
-
-export { Stage10ConfigContractProvider };
-```
-<!-- /DOCS:EXAMPLE -->
 
 ### Final overview (using the full lingo)
 
@@ -4278,4 +1037,4 @@ By this point, the module is a proper composition root:
 
 If you had read the next sentence before this tutorial, it would have been almost impossible to parse:
 
-`Stage10ConfigContractProvider` is a config-aware composition root that wires typed startup contracts, transport schema gates, request-input normalization, scoped runtime context, reusable middleware policy, explicit domain validation, centralized domain error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.
+`ContactProviderStage10` is a config-aware composition root that wires typed startup contracts, transport schema gates, request-input normalization, scoped runtime context, reusable middleware policy, explicit domain validation, centralized domain error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.

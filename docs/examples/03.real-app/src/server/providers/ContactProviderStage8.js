@@ -5,9 +5,9 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage8 } from "../controllers/ContactControllerStage8.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage8.js";
+import { ContactQualificationServiceStage8 } from "../services/ContactQualificationServiceStage8.js";
 import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesServiceStage8.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage8.js";
+import { InMemoryContactRepositoryStage8 } from "../repositories/InMemoryContactRepositoryStage8.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { GetContactByIdActionStage8 } from "../actions/GetContactByIdActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
@@ -36,12 +36,12 @@ const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
   )
 );
 
-class Stage8ErrorErgonomicsProvider {
+class ContactProviderStage8 {
   static id = "docs.examples.03.stage8";
 
   register(app) {
-    app.singleton(STAGE_8_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_8_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_8_REPOSITORY, () => new InMemoryContactRepositoryStage8());
+    app.singleton(STAGE_8_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage8());
     app.singleton(STAGE_8_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage8());
 
     app.singleton(
@@ -131,4 +131,4 @@ class Stage8ErrorErgonomicsProvider {
   }
 }
 
-export { Stage8ErrorErgonomicsProvider };
+export { ContactProviderStage8 };

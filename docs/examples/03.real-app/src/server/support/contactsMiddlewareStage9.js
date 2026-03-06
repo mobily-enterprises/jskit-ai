@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 
-const STAGE_10_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage10.requestContext";
+const STAGE_9_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage9.requestContext";
 
 async function requireRequestScopeMiddleware(request, reply) {
   if (!request?.scope || typeof request.scope.make !== "function") {
@@ -18,7 +18,7 @@ async function attachRequestContextMiddleware(request) {
   }
 
   const requestId = scope.make(KERNEL_TOKENS.RequestId);
-  scope.instance(STAGE_10_REQUEST_CONTEXT_TOKEN, {
+  scope.instance(STAGE_9_REQUEST_CONTEXT_TOKEN, {
     requestId,
     receivedAt: new Date().toISOString()
   });
@@ -42,16 +42,16 @@ async function requirePartnerConsentMiddleware(request, reply) {
   }
 }
 
-const stage10ContactsMiddleware = Object.freeze([
+const contactsMiddlewareStage9 = Object.freeze([
   requireRequestScopeMiddleware,
   attachRequestContextMiddleware,
   requirePartnerConsentMiddleware
 ]);
 
 export {
-  STAGE_10_REQUEST_CONTEXT_TOKEN,
+  STAGE_9_REQUEST_CONTEXT_TOKEN,
   requireRequestScopeMiddleware,
   attachRequestContextMiddleware,
   requirePartnerConsentMiddleware,
-  stage10ContactsMiddleware
+  contactsMiddlewareStage9
 };

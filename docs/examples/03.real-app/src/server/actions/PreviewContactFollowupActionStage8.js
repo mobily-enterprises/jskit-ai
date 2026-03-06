@@ -1,5 +1,5 @@
-import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
-import { normalizeContactBody } from "../../shared/input/contactInputNormalization.js";
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidationStage8.js";
+import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {

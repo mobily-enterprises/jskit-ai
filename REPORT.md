@@ -115,10 +115,10 @@ These are not cosmetic. Several findings are functional correctness or portabili
 
 11. Repeated normalization/rule logic across multiple stage files
 - Files:
-  - `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`
-  - `docs/examples/03.real-app/src/server/providers/Stage7RequestPipelineProvider.js`
-  - `docs/examples/03.real-app/src/server/providers/Stage9RuntimeContextProvider.js`
-  - `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`
+  - `docs/examples/03.real-app/src/server/services/ContactQualificationServiceStage3.js`
+  - `docs/examples/03.real-app/src/server/providers/ContactProviderStage7.js`
+  - `docs/examples/03.real-app/src/server/providers/ContactProviderStage9.js`
+  - `docs/examples/03.real-app/src/server/providers/ContactProviderStage10.js`
 - Why this is a slop marker:
   - Domain normalization duplicated across layers and stages.
 

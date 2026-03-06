@@ -1,6 +1,6 @@
-import { ContactQualificationService } from "./ContactQualificationService.js";
+import { ContactQualificationServiceStage3 } from "./ContactQualificationServiceStage3.js";
 
-class ContactQualificationServiceStage7 extends ContactQualificationService {
+class ContactQualificationServiceStage7 extends ContactQualificationServiceStage3 {
   qualify(payload) {
     const details = this.validate(payload);
 

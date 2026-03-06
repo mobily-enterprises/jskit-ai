@@ -1,7 +1,7 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage4.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage4.js";
+import { ContactQualificationServiceStage4 } from "../services/ContactQualificationServiceStage4.js";
+import { InMemoryContactRepositoryStage4 } from "../repositories/InMemoryContactRepositoryStage4.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
@@ -12,12 +12,12 @@ const STAGE_4_QUALIFICATION_SERVICE = "docs.examples.03.stage4.service.qualifica
 const STAGE_4_REPOSITORY = "docs.examples.03.stage4.repository";
 const STAGE_4_CONTROLLER = "docs.examples.03.stage4.controller";
 
-class Stage4RepositoryProvider {
+class ContactProviderStage4 {
   static id = "docs.examples.03.stage4";
 
   register(app) {
-    app.singleton(STAGE_4_QUALIFICATION_SERVICE, () => new ContactQualificationService());
-    app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepository());
+    app.singleton(STAGE_4_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage4());
+    app.singleton(STAGE_4_REPOSITORY, () => new InMemoryContactRepositoryStage4());
 
     app.singleton(
       STAGE_4_CONTROLLER,
@@ -68,4 +68,4 @@ class Stage4RepositoryProvider {
   }
 }
 
-export { Stage4RepositoryProvider };
+export { ContactProviderStage4 };

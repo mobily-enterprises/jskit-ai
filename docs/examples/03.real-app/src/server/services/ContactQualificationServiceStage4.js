@@ -1,1 +1,1 @@
-export { ContactQualificationService } from './ContactQualificationService.js';
+export { ContactQualificationServiceStage3 as ContactQualificationServiceStage4 } from './ContactQualificationServiceStage3.js';

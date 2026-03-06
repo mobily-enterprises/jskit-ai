@@ -36,13 +36,13 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactSchemasStage1.js";
 import { ContactController } from "../controllers/ContactController.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
-import { ContactQualificationService } from "../services/ContactQualificationService.js";
-import { CONTACT_REPOSITORY_TOKEN } from "../repositories/ContactRepository.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
+import { CreateContactIntakeActionStage5 } from "../actions/CreateContactIntakeActionStage5.js";
+import { PreviewContactFollowupActionStage5 } from "../actions/PreviewContactFollowupActionStage5.js";
+import { ContactQualificationServiceStage3 } from "../services/ContactQualificationServiceStage3.js";
+import { CONTACT_REPOSITORY_TOKEN } from "../repositories/ContactRepositoryStage4.js";
+import { InMemoryContactRepositoryStage4 } from "../repositories/InMemoryContactRepositoryStage4.js";
 
 const CONTACT_CONTROLLER_TOKEN = "local.contacts.controller";
 const CONTACT_QUALIFICATION_SERVICE_TOKEN = "local.contacts.qualificationService";
@@ -53,17 +53,17 @@ class MainServiceProvider {
   static id = "local.main";
 
   register(app) {
-    app.singleton(CONTACT_REPOSITORY_TOKEN, () => new InMemoryContactRepository());
+    app.singleton(CONTACT_REPOSITORY_TOKEN, () => new InMemoryContactRepositoryStage4());
 
     app.singleton(
       CONTACT_QUALIFICATION_SERVICE_TOKEN,
-      () => new ContactQualificationService()
+      () => new ContactQualificationServiceStage3()
     );
 
     app.singleton(
       CREATE_CONTACT_INTAKE_ACTION_TOKEN,
       () =>
-        new CreateContactIntakeAction({
+        new CreateContactIntakeActionStage5({
           qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
           contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
         })
@@ -72,7 +72,7 @@ class MainServiceProvider {
     app.singleton(
       PREVIEW_CONTACT_FOLLOWUP_ACTION_TOKEN,
       () =>
-        new PreviewContactFollowupAction({
+        new PreviewContactFollowupActionStage5({
           qualificationService: app.make(CONTACT_QUALIFICATION_SERVICE_TOKEN),
           contactRepository: app.make(CONTACT_REPOSITORY_TOKEN)
         })

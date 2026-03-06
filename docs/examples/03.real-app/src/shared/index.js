@@ -2,9 +2,9 @@ export {
   contactIntakePostRouteContract,
   contactPreviewFollowupPostRouteContract,
   contactByIdGetRouteContract
-} from "./schemas/contactSchemas.js";
+} from "./schemas/contactSchemasStage1.js";
 export {
   normalizeContactBody,
   normalizeContactQuery,
   normalizeContactParams
-} from "./input/contactInputNormalization.js";
+} from "./input/contactInputNormalizationStage1.js";

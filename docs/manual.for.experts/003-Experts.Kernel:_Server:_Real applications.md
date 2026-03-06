@@ -6,7 +6,7 @@ Audience: expert engineers and AI agents. This is a code-accurate operating refe
 
 - Canonical runtime model is current Stage 10 (`03.real-app`) plus current kernel APIs.
 - This chapter includes the practical Chapter 2 server knowledge (Application, providers, container, routing, errors), but written in contract form.
-- If you need one provider to emulate for "best practices", use `Stage10ConfigContractProvider`.
+- If you need one provider to emulate for "best practices", use `ContactProviderStage10`.
 
 ## Canonical Files (Read First)
 
@@ -28,25 +28,25 @@ Runtime entry and assembly:
 
 Stage 10 implementation reference:
 
-- `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`
-- `docs/examples/03.real-app/src/server/support/stage10Middleware.js`
+- `docs/examples/03.real-app/src/server/providers/ContactProviderStage10.js`
+- `docs/examples/03.real-app/src/server/support/contactsMiddlewareStage10.js`
 - `docs/examples/03.real-app/src/server/controllers/ContactControllerStage10.js`
 - `docs/examples/03.real-app/src/server/actions/CreateContactIntakeActionStage10.js`
 - `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionStage10.js`
-- `docs/examples/03.real-app/src/server/services/ContactQualificationService.js`
+- `docs/examples/03.real-app/src/server/services/ContactQualificationServiceStage3.js`
 - `docs/examples/03.real-app/src/server/services/ContactDomainRulesServiceStage10.js`
 - `docs/examples/03.real-app/src/server/support/contactsModuleConfigStage10.js`
-- `docs/examples/03.real-app/src/server/support/domainRuleValidation.js`
+- `docs/examples/03.real-app/src/server/support/domainRuleValidationStage8.js`
 
 ## One-Line Answer: "Which Provider Is Best Practice?"
 
 Use this as the primary reference:
 
-- `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`
+- `docs/examples/03.real-app/src/server/providers/ContactProviderStage10.js`
 
 And also copy its adjacent patterns:
 
-- reusable cross-route middleware stack: `docs/examples/03.real-app/src/server/support/stage10Middleware.js`
+- reusable cross-route middleware stack: `docs/examples/03.real-app/src/server/support/contactsMiddlewareStage10.js`
 - thin controller with shared HTTP helpers: `docs/examples/03.real-app/src/server/controllers/ContactControllerStage10.js`
 - actions for orchestration, services for domain logic, repository for persistence shape
 - startup config contract via `defineModuleConfig`
@@ -324,7 +324,7 @@ From `@jskit-ai/kernel/server` exports:
 
 ## Stage 10 Canonical Composition (Current)
 
-`Stage10ConfigContractProvider.register(app)` wires:
+`ContactProviderStage10.register(app)` wires:
 
 - config singleton via `contactsModuleConfig.resolve({ env })`
 - repository
@@ -334,7 +334,7 @@ From `@jskit-ai/kernel/server` exports:
 - preview action
 - controller
 
-`Stage10ConfigContractProvider.boot(app)` wires:
+`ContactProviderStage10.boot(app)` wires:
 
 - global API error handler (`registerApiErrorHandler`) with single-install marker
 - two POST routes
@@ -344,11 +344,11 @@ Current Stage 10 route contract:
 
 - body schema: `contactBodySchema`
 - body normalize: trim/canonicalize payload fields
-- middleware: `stage10ContactsMiddleware`
+- middleware: `contactsMiddlewareStage10`
 - response schema: `withStandardErrorResponses({ 200: contactSuccessSchema }, { includeValidation400: true })`
 - no Stage 10 query contract in current provider
 
-Current Stage 10 middleware stack order (`stage10ContactsMiddleware`):
+Current Stage 10 middleware stack order (`contactsMiddlewareStage10`):
 
 1. `requireRequestScopeMiddleware`
 2. `attachRequestContextMiddleware`
@@ -390,7 +390,7 @@ Stage 10 env contract example:
 
 Use this generation target exactly:
 
-- emulate `Stage10ConfigContractProvider` shape
+- emulate `ContactProviderStage10` shape
 - include reusable middleware module (not inline duplication)
 - thin controller, action orchestration, service logic, repository persistence boundary
 - startup config via `defineModuleConfig`

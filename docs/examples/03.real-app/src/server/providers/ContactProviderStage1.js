@@ -6,7 +6,7 @@ import {
 } from "../../shared/schemas/contactSchemasStage1.js";
 import { normalizeContactBody } from "../../shared/input/contactInputNormalizationStage1.js";
 
-class Stage1MonolithProvider {
+class ContactProviderStage1 {
   static id = "docs.examples.03.stage1";
 
   register() {}
@@ -194,4 +194,4 @@ class Stage1MonolithProvider {
   }
 }
 
-export { Stage1MonolithProvider };
+export { ContactProviderStage1 };

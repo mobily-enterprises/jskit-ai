@@ -1,6 +1,6 @@
 import { BaseController } from "@jskit-ai/kernel/server/http";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
+import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/contactsMiddlewareStage10.js";
 
 class ContactControllerStage10 extends BaseController {
   constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction, contactsConfig }) {

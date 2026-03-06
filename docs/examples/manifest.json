@@ -83,32 +83,32 @@
       "stages": [
         {
           "id": "stage_1_monolith",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage1.js"
         },
         {
           "id": "stage_2_controller",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage2.js"
         },
         {
           "id": "stage_3_service",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage3.js"
         },
         {
           "id": "stage_4_repository",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage4.js"
         },
         {
           "id": "stage_5_actions",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage5.js"
         },
         {
           "id": "stage_6_final",
-          "source": "docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js"
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js"
         }
       ],
       "progressive": {
-        "start": "docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js",
-        "end": "docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js"
+        "start": "docs/examples/03.real-app/src/server/providers/ContactProviderStage1.js",
+        "end": "docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js"
       }
     },
     {

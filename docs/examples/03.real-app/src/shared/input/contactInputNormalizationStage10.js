@@ -1,1 +1,1 @@
-export { normalizeContactBody } from './contactInputNormalization.js';
+export { normalizeContactBody } from './contactInputNormalizationStage1.js';

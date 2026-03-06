@@ -1,10 +1,10 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage7 } from "../controllers/ContactControllerStage7.js";
 import { ContactQualificationServiceStage7 } from "../services/ContactQualificationServiceStage7.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage7.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage7.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdActionStage7.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage7.js";
+import { InMemoryContactRepositoryStage7 } from "../repositories/InMemoryContactRepositoryStage7.js";
+import { CreateContactIntakeActionStage7 } from "../actions/CreateContactIntakeActionStage7.js";
+import { GetContactByIdActionStage7 } from "../actions/GetContactByIdActionStage7.js";
+import { PreviewContactFollowupActionStage7 } from "../actions/PreviewContactFollowupActionStage7.js";
 import {
   contactByIdGetRouteContractStage7,
   contactIntakePostRouteContractStage7,
@@ -18,11 +18,11 @@ const STAGE_7_PREVIEW_ACTION = "docs.examples.03.stage7.actions.preview";
 const STAGE_7_GET_BY_ID_ACTION = "docs.examples.03.stage7.actions.getById";
 const STAGE_7_CONTROLLER = "docs.examples.03.stage7.controller";
 
-class Stage7RequestPipelineProvider {
+class ContactProviderStage7 {
   static id = "docs.examples.03.stage7";
 
   register(app) {
-    app.singleton(STAGE_7_REPOSITORY, () => new InMemoryContactRepository());
+    app.singleton(STAGE_7_REPOSITORY, () => new InMemoryContactRepositoryStage7());
     app.singleton(
       STAGE_7_QUALIFICATION_SERVICE,
       () => new ContactQualificationServiceStage7()
@@ -31,7 +31,7 @@ class Stage7RequestPipelineProvider {
     app.singleton(
       STAGE_7_CREATE_ACTION,
       () =>
-        new CreateContactIntakeAction({
+        new CreateContactIntakeActionStage7({
           qualificationService: app.make(STAGE_7_QUALIFICATION_SERVICE),
           contactRepository: app.make(STAGE_7_REPOSITORY)
         })
@@ -40,7 +40,7 @@ class Stage7RequestPipelineProvider {
     app.singleton(
       STAGE_7_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupAction({
+        new PreviewContactFollowupActionStage7({
           qualificationService: app.make(STAGE_7_QUALIFICATION_SERVICE),
           contactRepository: app.make(STAGE_7_REPOSITORY)
         })
@@ -49,7 +49,7 @@ class Stage7RequestPipelineProvider {
     app.singleton(
       STAGE_7_GET_BY_ID_ACTION,
       () =>
-        new GetContactByIdAction({
+        new GetContactByIdActionStage7({
           contactRepository: app.make(STAGE_7_REPOSITORY)
         })
     );
@@ -92,4 +92,4 @@ class Stage7RequestPipelineProvider {
   }
 }
 
-export { Stage7RequestPipelineProvider };
+export { ContactProviderStage7 };

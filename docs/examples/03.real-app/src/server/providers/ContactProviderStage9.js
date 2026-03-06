@@ -6,14 +6,14 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage9.js";
+import { ContactQualificationServiceStage9 } from "../services/ContactQualificationServiceStage9.js";
 import { ContactDomainRulesServiceStage9 } from "../services/ContactDomainRulesServiceStage9.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage9.js";
+import { InMemoryContactRepositoryStage9 } from "../repositories/InMemoryContactRepositoryStage9.js";
 import { CreateContactIntakeActionStage9 } from "../actions/CreateContactIntakeActionStage9.js";
 import { GetContactByIdActionStage9 } from "../actions/GetContactByIdActionStage9.js";
 import { PreviewContactFollowupActionStage9 } from "../actions/PreviewContactFollowupActionStage9.js";
-import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage9.js";
+import { contactsMiddlewareStage9 } from "../support/contactsMiddlewareStage9.js";
+import { contactByIdGetRouteContractStage9 } from "../../shared/schemas/contactSchemasStage9.js";
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemasStage9.js";
@@ -50,12 +50,12 @@ const stage9QuerySchema = Type.Object(
   }
 );
 
-class Stage9RuntimeContextProvider {
+class ContactProviderStage9 {
   static id = "docs.examples.03.stage9";
 
   register(app) {
-    app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_9_REPOSITORY, () => new InMemoryContactRepositoryStage9());
+    app.singleton(STAGE_9_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage9());
     app.singleton(STAGE_9_DOMAIN_RULES_SERVICE, () => new ContactDomainRulesServiceStage9());
 
     app.singleton(
@@ -118,7 +118,7 @@ class Stage9RuntimeContextProvider {
         normalize: normalizeContactQuery
       },
       response: STAGE_9_RESPONSE_SCHEMA,
-      middleware: stage9ContactsMiddleware,
+      middleware: contactsMiddlewareStage9,
     };
 
     router.register(
@@ -155,8 +155,8 @@ class Stage9RuntimeContextProvider {
       "GET",
       "/api/v1/docs/ch03/stage-9/contacts/:contactId",
       {
-        ...contactByIdGetRouteContractStage7,
-        middleware: stage9ContactsMiddleware,
+        ...contactByIdGetRouteContractStage9,
+        middleware: contactsMiddlewareStage9,
         meta: {
           tags: ["docs-stage-9"],
           summary: "Stage 9 request scope + middleware reuse: show by id"
@@ -167,4 +167,4 @@ class Stage9RuntimeContextProvider {
   }
 }
 
-export { Stage9RuntimeContextProvider };
+export { ContactProviderStage9 };

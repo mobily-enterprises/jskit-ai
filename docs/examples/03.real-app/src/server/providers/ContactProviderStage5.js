@@ -1,10 +1,10 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage5.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage5.js";
-import { CreateContactIntakeAction } from "../actions/CreateContactIntakeActionStage5.js";
-import { GetContactByIdAction } from "../actions/GetContactByIdActionStage5.js";
-import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupActionStage5.js";
+import { ContactQualificationServiceStage5 } from "../services/ContactQualificationServiceStage5.js";
+import { InMemoryContactRepositoryStage5 } from "../repositories/InMemoryContactRepositoryStage5.js";
+import { CreateContactIntakeActionStage5 } from "../actions/CreateContactIntakeActionStage5.js";
+import { GetContactByIdActionStage5 } from "../actions/GetContactByIdActionStage5.js";
+import { PreviewContactFollowupActionStage5 } from "../actions/PreviewContactFollowupActionStage5.js";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
@@ -18,17 +18,17 @@ const STAGE_5_PREVIEW_ACTION = "docs.examples.03.stage5.actions.preview";
 const STAGE_5_GET_BY_ID_ACTION = "docs.examples.03.stage5.actions.getById";
 const STAGE_5_CONTROLLER = "docs.examples.03.stage5.controller";
 
-class Stage5ActionProvider {
+class ContactProviderStage5 {
   static id = "docs.examples.03.stage5";
 
   register(app) {
-    app.singleton(STAGE_5_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_5_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_5_REPOSITORY, () => new InMemoryContactRepositoryStage5());
+    app.singleton(STAGE_5_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage5());
 
     app.singleton(
       STAGE_5_CREATE_ACTION,
       () =>
-        new CreateContactIntakeAction({
+        new CreateContactIntakeActionStage5({
           qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
           contactRepository: app.make(STAGE_5_REPOSITORY)
         })
@@ -37,7 +37,7 @@ class Stage5ActionProvider {
     app.singleton(
       STAGE_5_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupAction({
+        new PreviewContactFollowupActionStage5({
           qualificationService: app.make(STAGE_5_QUALIFICATION_SERVICE),
           contactRepository: app.make(STAGE_5_REPOSITORY)
         })
@@ -46,7 +46,7 @@ class Stage5ActionProvider {
     app.singleton(
       STAGE_5_GET_BY_ID_ACTION,
       () =>
-        new GetContactByIdAction({
+        new GetContactByIdActionStage5({
           contactRepository: app.make(STAGE_5_REPOSITORY)
         })
     );
@@ -101,4 +101,4 @@ class Stage5ActionProvider {
   }
 }
 
-export { Stage5ActionProvider };
+export { ContactProviderStage5 };

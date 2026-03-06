@@ -5,15 +5,15 @@ import {
   registerApiErrorHandler
 } from "@jskit-ai/kernel/server/runtime";
 import { ContactControllerStage10 } from "../controllers/ContactControllerStage10.js";
-import { ContactQualificationService } from "../services/ContactQualificationServiceStage10.js";
+import { ContactQualificationServiceStage10 } from "../services/ContactQualificationServiceStage10.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
-import { InMemoryContactRepository } from "../repositories/InMemoryContactRepositoryStage10.js";
+import { InMemoryContactRepositoryStage10 } from "../repositories/InMemoryContactRepositoryStage10.js";
 import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
 import { GetContactByIdActionStage10 } from "../actions/GetContactByIdActionStage10.js";
 import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
-import { contactByIdGetRouteContractStage7 } from "../../shared/schemas/contactSchemasStage10.js";
+import { contactsMiddlewareStage10 } from "../support/contactsMiddlewareStage10.js";
+import { contactByIdGetRouteContractStage10 } from "../../shared/schemas/contactSchemasStage10.js";
 import {
   contactIntakePostRouteContract
 } from "../../shared/schemas/contactSchemasStage10.js";
@@ -39,7 +39,7 @@ const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
   )
 );
 
-class Stage10ConfigContractProvider {
+class ContactProviderStage10 {
   static id = "docs.examples.03.stage10";
 
   register(app) {
@@ -49,8 +49,8 @@ class Stage10ConfigContractProvider {
     });
 
     app.instance(STAGE_10_CONFIG, config);
-    app.singleton(STAGE_10_REPOSITORY, () => new InMemoryContactRepository());
-    app.singleton(STAGE_10_QUALIFICATION_SERVICE, () => new ContactQualificationService());
+    app.singleton(STAGE_10_REPOSITORY, () => new InMemoryContactRepositoryStage10());
+    app.singleton(STAGE_10_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage10());
     app.singleton(
       STAGE_10_DOMAIN_RULES_SERVICE,
       () =>
@@ -115,7 +115,7 @@ class Stage10ConfigContractProvider {
         schema: contactIntakePostRouteContract.body.schema,
         normalize: normalizeContactBody
       },
-      middleware: stage10ContactsMiddleware,
+      middleware: contactsMiddlewareStage10,
       response: STAGE_10_RESPONSE_SCHEMA
     };
 
@@ -153,8 +153,8 @@ class Stage10ConfigContractProvider {
       "GET",
       "/api/v1/docs/ch03/stage-10/contacts/:contactId",
       {
-        ...contactByIdGetRouteContractStage7,
-        middleware: stage10ContactsMiddleware,
+        ...contactByIdGetRouteContractStage10,
+        middleware: contactsMiddlewareStage10,
         meta: {
           tags: ["docs-stage-10"],
           summary: "Stage 10 startup config + runtime context: show by id"
@@ -165,4 +165,4 @@ class Stage10ConfigContractProvider {
   }
 }
 
-export { Stage10ConfigContractProvider };
+export { ContactProviderStage10 };

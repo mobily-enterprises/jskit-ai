@@ -1,4 +1,4 @@
 export {
   normalizeContactBody,
   normalizeContactParams
-} from './contactInputNormalization.js';
+} from './contactInputNormalizationStage1.js';

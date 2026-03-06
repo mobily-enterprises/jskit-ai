@@ -1,1 +1,1 @@
-export { InMemoryContactRepository } from './InMemoryContactRepository.js';
+export { InMemoryContactRepositoryStage4 as InMemoryContactRepositoryStage5 } from './InMemoryContactRepositoryStage4.js';

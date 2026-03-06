@@ -14,44 +14,44 @@ export default Object.freeze({
       providerEntrypoint: "src/server/index.js",
       providers: [
         {
-          entrypoint: "src/server/providers/Stage1MonolithProvider.js",
-          export: "Stage1MonolithProvider"
+          entrypoint: "src/server/providers/ContactProviderStage1.js",
+          export: "ContactProviderStage1"
         },
         {
-          entrypoint: "src/server/providers/Stage2ControllerProvider.js",
-          export: "Stage2ControllerProvider"
+          entrypoint: "src/server/providers/ContactProviderStage2.js",
+          export: "ContactProviderStage2"
         },
         {
-          entrypoint: "src/server/providers/Stage3ServiceProvider.js",
-          export: "Stage3ServiceProvider"
+          entrypoint: "src/server/providers/ContactProviderStage3.js",
+          export: "ContactProviderStage3"
         },
         {
-          entrypoint: "src/server/providers/Stage4RepositoryProvider.js",
-          export: "Stage4RepositoryProvider"
+          entrypoint: "src/server/providers/ContactProviderStage4.js",
+          export: "ContactProviderStage4"
         },
         {
-          entrypoint: "src/server/providers/Stage5ActionProvider.js",
-          export: "Stage5ActionProvider"
+          entrypoint: "src/server/providers/ContactProviderStage5.js",
+          export: "ContactProviderStage5"
         },
         {
-          entrypoint: "src/server/providers/Stage6LayeredProvider.js",
-          export: "Stage6LayeredProvider"
+          entrypoint: "src/server/providers/ContactProviderStage6.js",
+          export: "ContactProviderStage6"
         },
         {
-          entrypoint: "src/server/providers/Stage7RequestPipelineProvider.js",
-          export: "Stage7RequestPipelineProvider"
+          entrypoint: "src/server/providers/ContactProviderStage7.js",
+          export: "ContactProviderStage7"
         },
         {
-          entrypoint: "src/server/providers/Stage8ErrorErgonomicsProvider.js",
-          export: "Stage8ErrorErgonomicsProvider"
+          entrypoint: "src/server/providers/ContactProviderStage8.js",
+          export: "ContactProviderStage8"
         },
         {
-          entrypoint: "src/server/providers/Stage9RuntimeContextProvider.js",
-          export: "Stage9RuntimeContextProvider"
+          entrypoint: "src/server/providers/ContactProviderStage9.js",
+          export: "ContactProviderStage9"
         },
         {
-          entrypoint: "src/server/providers/Stage10ConfigContractProvider.js",
-          export: "Stage10ConfigContractProvider"
+          entrypoint: "src/server/providers/ContactProviderStage10.js",
+          export: "ContactProviderStage10"
         }
       ]
     },

@@ -4,16 +4,16 @@ Chapter 3 staged server architecture examples.
 
 This example package includes ten functional providers, one for each chapter stage:
 
-- `Stage1MonolithProvider`
-- `Stage2ControllerProvider`
-- `Stage3ServiceProvider`
-- `Stage4RepositoryProvider`
-- `Stage5ActionProvider`
-- `Stage6LayeredProvider`
-- `Stage7RequestPipelineProvider`
-- `Stage8ErrorErgonomicsProvider`
-- `Stage9RuntimeContextProvider`
-- `Stage10ConfigContractProvider`
+- `ContactProviderStage1`
+- `ContactProviderStage2`
+- `ContactProviderStage3`
+- `ContactProviderStage4`
+- `ContactProviderStage5`
+- `ContactProviderStage6`
+- `ContactProviderStage7`
+- `ContactProviderStage8`
+- `ContactProviderStage9`
+- `ContactProviderStage10`
 
 Each provider exposes two routes with its own stage-specific prefix so all stages can run together.
 
