@@ -1,5 +1,8 @@
-class ContactControllerStage7 {
+import { BaseController } from "@jskit-ai/kernel/server/http";
+
+class ContactControllerStage7 extends BaseController {
   constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
+    super();
     this.createContactIntakeAction = createContactIntakeAction;
     this.previewContactFollowupAction = previewContactFollowupAction;
     this.getContactByIdAction = getContactByIdAction;
@@ -7,50 +10,21 @@ class ContactControllerStage7 {
 
   async intake(request, reply) {
     const payload = request.input.body;
-    const result = this.createContactIntakeAction.execute(payload);
-
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
+    const created = await this.createContactIntakeAction.execute(payload);
+    return this.ok(reply, created);
   }
 
   async previewFollowup(request, reply) {
     const payload = request.input.body;
-    const result = this.previewContactFollowupAction.execute(payload);
-
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Domain validation failed.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
+    const preview = await this.previewContactFollowupAction.execute(payload);
+    return this.ok(reply, preview);
   }
 
   async show(request, reply) {
-    const result = this.getContactByIdAction.execute({
+    const contact = await this.getContactByIdAction.execute({
       contactId: request.input.params.contactId
     });
-    if (!result.ok) {
-      reply.code(result.status).send({
-        error: "Contact not found.",
-        code: result.code,
-        details: result.details
-      });
-      return;
-    }
-
-    reply.code(200).send(result.data);
+    return this.ok(reply, contact);
   }
 }
 

@@ -23,10 +23,7 @@ class ContactProviderStage7 {
 
   register(app) {
     app.singleton(STAGE_7_REPOSITORY, () => new InMemoryContactRepositoryStage7());
-    app.singleton(
-      STAGE_7_QUALIFICATION_SERVICE,
-      () => new ContactQualificationServiceStage7()
-    );
+    app.singleton(STAGE_7_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage7());
 
     app.singleton(
       STAGE_7_CREATE_ACTION,

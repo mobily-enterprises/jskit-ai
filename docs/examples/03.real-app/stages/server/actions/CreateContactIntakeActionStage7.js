@@ -1,29 +1,41 @@
+import {
+  DomainValidationError,
+  ConflictError
+} from "@jskit-ai/kernel/server/runtime";
+
 class CreateContactIntakeActionStage7 {
   constructor({ qualificationService, contactRepository }) {
     this.qualificationService = qualificationService;
     this.contactRepository = contactRepository;
   }
 
-  execute(payload) {
-    const qualified = this.qualificationService.qualify(payload);
-    if (!qualified.ok) {
-      return {
-        ok: false,
-        status: 422,
-        code: qualified.code,
-        details: qualified.details
-      };
+  async execute(payload) {
+    const fieldErrors = this.qualificationService.validate(payload);
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new DomainValidationError(
+        {
+          fieldErrors
+        },
+        {
+          message: "Contact domain validation failed.",
+          code: "contact_domain_invalid"
+        }
+      );
     }
 
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
+    const duplicate = this.contactRepository.findByEmail(payload.email);
     if (duplicate) {
-      return {
-        ok: false,
-        status: 422,
+      throw new ConflictError("A contact with this email already exists.", {
         code: "duplicate_contact",
-        details: ["a contact with this email already exists"]
-      };
+        details: {
+          fieldErrors: {
+            email: "a contact with this email already exists"
+          }
+        }
+      });
     }
+
+    const qualified = this.qualificationService.qualify(payload);
 
     const created = this.contactRepository.save({
       id: `contact-${Date.now().toString(36)}`,
@@ -34,17 +46,13 @@ class CreateContactIntakeActionStage7 {
 
     return {
       ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "intake",
-        email: created.email,
-        score: created.score,
-        segment: created.segment,
-        followupPlan: qualified.followupPlan,
-        duplicateDetected: false,
-        persisted: true
-      }
+      mode: "intake",
+      email: created.email,
+      score: created.score,
+      segment: created.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: false,
+      persisted: true
     };
   }
 }

@@ -1,28 +1,26 @@
+import { NotFoundError } from "@jskit-ai/kernel/server/runtime";
+
 class GetContactByIdActionStage7 {
   constructor({ contactRepository }) {
     this.contactRepository = contactRepository;
   }
 
-  execute({ contactId }) {
+  async execute({ contactId }) {
     const normalizedId = String(contactId || "").trim();
     const contact = this.contactRepository.findById(normalizedId);
 
     if (!contact) {
-      return {
-        ok: false,
-        status: 404,
+      throw new NotFoundError("Contact not found.", {
         code: "contact_not_found",
-        details: [`No contact found for id ${normalizedId || "<empty>"}.`]
-      };
+        details: {
+          contactId: normalizedId
+        }
+      });
     }
 
     return {
       ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        contact
-      }
+      contact
     };
   }
 }

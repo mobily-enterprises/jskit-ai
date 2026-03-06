@@ -1,19 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
+import {
+  normalizeContactBody,
+  normalizeContactParams
+} from "../input/contactInputNormalizationStage6.js";
 
-/**
- * Chapter 3 baseline route contracts (Stages 1-6).
- *
- * How this maps to controller flow:
- * - POST routes: controller/action reads body (+ query when needed).
- * - GET by id route: controller/action reads params.contactId.
- * - These route contracts validate incoming request data before controller code runs.
- * - Controller/action responses are expected to match the response maps below.
- *
- * Stage 6 adds normalization in a separate file:
- * - ./contactSchemasStage6.js
- */
-
-// 1) Incoming request schemas (transport validation).
 const contactIntakePreviewBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 120 }),
@@ -28,13 +18,6 @@ const contactIntakePreviewBodySchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactIntakePreviewQuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  { additionalProperties: false }
-);
-
 const contactByIdParamsSchema = Type.Object(
   {
     contactId: Type.String({ minLength: 1 })
@@ -42,7 +25,6 @@ const contactByIdParamsSchema = Type.Object(
   { additionalProperties: false }
 );
 
-// 2) Contact read model schema (what a stored/retrieved contact record looks like).
 const contactStoredRecordSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
@@ -60,7 +42,6 @@ const contactStoredRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
-// 3) Success response schemas.
 const contactIntakePreviewSuccessSchema = Type.Object(
   {
     ok: Type.Boolean(),
@@ -83,7 +64,6 @@ const contactByIdSuccessSchema = Type.Object(
   { additionalProperties: false }
 );
 
-// 4) Error response schemas.
 const contactIntakePreviewDomainErrorSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
@@ -105,7 +85,6 @@ const contactGenericErrorSchema = Type.Object(
   { additionalProperties: true }
 );
 
-// 5) Response maps by route family.
 const contactByIdResponseSchema = Object.freeze({
   200: contactByIdSuccessSchema,
   400: contactGenericErrorSchema,
@@ -132,48 +111,44 @@ const contactIntakePreviewResponseSchema = Object.freeze({
   503: contactGenericErrorSchema
 });
 
-// 6) Route contracts consumed by router.register(...).
-const contactIntakePostRouteContract = Object.freeze({
+const contactIntakePostRouteContractStage6 = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
   },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
+  body: Object.freeze({
+    schema: contactIntakePreviewBodySchema,
+    normalize: normalizeContactBody
+  }),
   response: contactIntakePreviewResponseSchema
 });
 
-const contactPreviewFollowupPostRouteContract = Object.freeze({
+const contactPreviewFollowupPostRouteContractStage6 = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Preview follow-up"
   },
-  body: {
-    schema: contactIntakePreviewBodySchema
-  },
-  query: {
-    schema: contactIntakePreviewQuerySchema
-  },
+  body: Object.freeze({
+    schema: contactIntakePreviewBodySchema,
+    normalize: normalizeContactBody
+  }),
   response: contactIntakePreviewResponseSchema
 });
 
-const contactByIdGetRouteContract = Object.freeze({
+const contactByIdGetRouteContractStage6 = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Get contact by id"
   },
-  params: {
-    schema: contactByIdParamsSchema
-  },
+  params: Object.freeze({
+    schema: contactByIdParamsSchema,
+    normalize: normalizeContactParams
+  }),
   response: contactByIdResponseSchema
 });
 
 export {
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract,
-  contactByIdGetRouteContract
+  contactIntakePostRouteContractStage6,
+  contactPreviewFollowupPostRouteContractStage6,
+  contactByIdGetRouteContractStage6
 };

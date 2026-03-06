@@ -1,35 +1,37 @@
+import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
+
 class PreviewContactFollowupActionStage7 {
   constructor({ qualificationService, contactRepository }) {
     this.qualificationService = qualificationService;
     this.contactRepository = contactRepository;
   }
 
-  execute(payload) {
-    const qualified = this.qualificationService.qualify(payload);
-    if (!qualified.ok) {
-      return {
-        ok: false,
-        status: 422,
-        code: qualified.code,
-        details: qualified.details
-      };
+  async execute(payload) {
+    const fieldErrors = this.qualificationService.validate(payload);
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new DomainValidationError(
+        {
+          fieldErrors
+        },
+        {
+          message: "Contact domain validation failed.",
+          code: "contact_domain_invalid"
+        }
+      );
     }
 
-    const duplicate = this.contactRepository.findByEmail(qualified.normalized.email);
+    const duplicate = this.contactRepository.findByEmail(payload.email);
+    const qualified = this.qualificationService.qualify(payload);
 
     return {
       ok: true,
-      status: 200,
-      data: {
-        ok: true,
-        mode: "preview",
-        email: qualified.normalized.email,
-        score: qualified.score,
-        segment: qualified.segment,
-        followupPlan: qualified.followupPlan,
-        duplicateDetected: Boolean(duplicate),
-        persisted: false
-      }
+      mode: "preview",
+      email: qualified.normalized.email,
+      score: qualified.score,
+      segment: qualified.segment,
+      followupPlan: qualified.followupPlan,
+      duplicateDetected: Boolean(duplicate),
+      persisted: false
     };
   }
 }

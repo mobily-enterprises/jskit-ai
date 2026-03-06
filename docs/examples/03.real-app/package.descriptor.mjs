@@ -34,12 +34,12 @@ export default Object.freeze({
           export: "ContactProviderStage5"
         },
         {
-          entrypoint: "stages/server/providers/ContactProviderStage7.js",
-          export: "ContactProviderStage7"
+          entrypoint: "stages/server/providers/ContactProviderStage6.js",
+          export: "ContactProviderStage6"
         },
         {
-          entrypoint: "stages/server/providers/ContactProviderStage8.js",
-          export: "ContactProviderStage8"
+          entrypoint: "stages/server/providers/ContactProviderStage7.js",
+          export: "ContactProviderStage7"
         }
       ]
     },
@@ -60,10 +60,10 @@ export default Object.freeze({
         { method: "POST", path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/intake" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/intake" },
+        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup" }
+        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup" }
       ]
     },
     ui: {

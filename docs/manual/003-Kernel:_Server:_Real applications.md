@@ -21,8 +21,8 @@ So this chapter is intentionally written as a staged refactor:
 - Stage 3: 
 - Stage 4: 
 - Stage 5: 
+- Stage 6: 
 - Stage 7: 
-- Stage 8: 
 
 
 Each stage works. Each stage improves something. Each stage still has pain that motivates the next one.
@@ -34,8 +34,8 @@ docs/examples/03.real-app/stages/server/providers/ContactProviderStage2.js
 docs/examples/03.real-app/stages/server/providers/ContactProviderStage3.js
 docs/examples/03.real-app/stages/server/providers/ContactProviderStage4.js
 docs/examples/03.real-app/stages/server/providers/ContactProviderStage5.js
+docs/examples/03.real-app/stages/server/providers/ContactProviderStage6.js
 docs/examples/03.real-app/stages/server/providers/ContactProviderStage7.js
-docs/examples/03.real-app/stages/server/providers/ContactProviderStage8.js
 -->
 
 ## Where We Pick Up
@@ -567,28 +567,28 @@ The good:
 The bad:
 
 - controller still manually maps `{ ok, status, code, details, data }` envelopes
-- domain failures are still result-object based and not yet using the Stage 8 ergonomics
+- domain failures are still result-object based and not yet using the Stage 7 ergonomics
 
-## Stage 7: Route Contract API and Normalization
+## Stage 6: Route Contract API and Normalization
 
-Stage 5 gave us clean layering. Stage 7 keeps that layering, and upgrades transport input handling so it is explicit, centralized, and deterministic.
+Stage 5 gave us clean layering. Stage 6 keeps that layering, and upgrades transport input handling so it is explicit, centralized, and deterministic.
 
 Files:
 
-* stages/server/providers/ContactProviderStage7.js (modified)
-* stages/server/controllers/ContactControllerStage7.js (modified)
-* stages/server/services/ContactQualificationServiceStage7.js (modified)
-* stages/server/actions/CreateContactIntakeActionStage7.js (unchanged)
-* stages/server/actions/PreviewContactFollowupActionStage7.js (unchanged)
-* stages/server/actions/GetContactByIdActionStage7.js (unchanged)
-* stages/shared/schemas/contactSchemasStage7.js (modified)
-* stages/shared/input/contactInputNormalizationStage7.js (modified)
+* stages/server/providers/ContactProviderStage6.js (modified)
+* stages/server/controllers/ContactControllerStage6.js (modified)
+* stages/server/services/ContactQualificationServiceStage6.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage6.js (unchanged)
+* stages/server/actions/PreviewContactFollowupActionStage6.js (unchanged)
+* stages/server/actions/GetContactByIdActionStage6.js (unchanged)
+* stages/shared/schemas/contactSchemasStage6.js (modified)
+* stages/shared/input/contactInputNormalizationStage6.js (modified)
 
 ### The differences
 
 #### The provider
 
-* stages/server/providers/ContactProviderStage7.js (modified)
+* stages/server/providers/ContactProviderStage6.js (modified)
 
 ```js
 // Stage 5 style
@@ -601,11 +601,11 @@ router.register(
 ```
 
 ```js
-// Stage 7 style
+// Stage 6 style
 router.register(
   "POST",
   "/.../intake",
-  contactIntakePostRouteContractStage7,
+  contactIntakePostRouteContractStage6,
   handler
 );
 ```
@@ -615,8 +615,8 @@ Provider now passes route contracts directly (instead of spreading and overridin
 ```js
 router.register(
   "POST",
-  "/api/v1/docs/ch03/stage-7/contacts/intake",
-  contactIntakePostRouteContractStage7,
+  "/api/v1/docs/ch03/stage-6/contacts/intake",
+  contactIntakePostRouteContractStage6,
   (request, reply) => controller.intake(request, reply)
 );
 ```
@@ -630,14 +630,14 @@ What this means at runtime:
 
 #### The controller
 
-* stages/server/controllers/ContactControllerStage7.js (modified)
+* stages/server/controllers/ContactControllerStage6.js (modified)
 
 ```js
 // Stage 5
 const result = this.createContactIntakeAction.execute(request.body);
 const contactId = request.params?.contactId;
 
-// Stage 7
+// Stage 6
 const payload = request.input.body;
 const result = this.createContactIntakeAction.execute(payload);
 const contactId = request.input.params.contactId;
@@ -652,14 +652,14 @@ What changed from Stage 5:
 
 #### The shared route contracts
 
-- Stage 7 contracts are declared as full standalone contracts (not wrappers around Stage 5 contracts)
+- Stage 6 contracts are declared as full standalone contracts (not wrappers around Stage 5 contracts)
 - each route section (`body`, `params`) includes both `schema` and `normalize` where relevant
 - response maps stay in the same contract object
 
 For example:
 
 ```js
-const contactIntakePostRouteContractStage7 = {
+const contactIntakePostRouteContractStage6 = {
   meta: { tags: ["contacts"], summary: "Create contact" },
   body: { 
     schema: contactIntakePreviewBodySchema, 
@@ -674,7 +674,7 @@ They are all pure functions, which means that both client and server can access 
 
 #### The service
 
-* stages/server/services/ContactQualificationServiceStage7.js (modified)
+* stages/server/services/ContactQualificationServiceStage6.js (modified)
 
 ```js
   // Stage 5
@@ -683,7 +683,7 @@ They are all pure functions, which means that both client and server can access 
     // ...qualification logic
   }
 
-  // Stage 7
+  // Stage 6
   qualify(payload) { // already normalized by route contract
     // ...same qualification logic, no normalization step
   }
@@ -691,10 +691,10 @@ They are all pure functions, which means that both client and server can access 
 
 #### The shared input normalization
 
-* stages/shared/input/contactInputNormalizationStage7.js (modified)
+* stages/shared/input/contactInputNormalizationStage6.js (modified)
 
 ```js
-// Stage 7 input module
+// Stage 6 input module
 export {
   normalizeContactBody,
   normalizeContactParams
@@ -708,37 +708,37 @@ That keeps transport-shaping logic reusable and out of provider/controller code.
 
 The good:
 
-- Stage 7 contracts are now production-shaped: full schema + normalization in one shared contract module
+- Stage 6 contracts are now production-shaped: full schema + normalization in one shared contract module
 - transport normalization is done once in the request pipeline, not repeated inside service/action flow
 - controller stays transport-thin and consumes normalized input only
-- provider remains wiring-focused while using explicit Stage 7 contracts and the same action classes as Stage 5
+- provider remains wiring-focused while using explicit Stage 6 contracts and the same action classes as Stage 5
 
 The bad:
 
-- domain error ergonomics are still in transition until Stage 8
+- domain error ergonomics are still in transition until Stage 7
 - advanced runtime policy wiring is intentionally out of scope for this chapter
 
-## Stage 8: Domain Validation and Error Ergonomics
+## Stage 7: Domain Validation and Error Ergonomics
 
 Before this stage, actions returned error objects (`{ ok: false, status, code, details }`;  controllers had to branch on `if (!result.ok)` and map errors manually
 
 After these changes, actions throw typed errors (`DomainValidationError`, `ConflictError`, `NotFoundError`); controller stays success-path only, using `BaseController`, and runtime error handling will map thrown app errors to JSON responses.
 
-Files changed from Stage 7:
+Files changed from Stage 6:
 
-* stages/server/providers/ContactProviderStage8.js (unchanged)
-* stages/server/controllers/ContactControllerStage8.js (modified)
-* stages/server/actions/CreateContactIntakeActionStage8.js (modified)
-* stages/server/actions/PreviewContactFollowupActionStage8.js (modified)
-* stages/server/actions/GetContactByIdActionStage8.js (modified)
-* stages/server/services/ContactQualificationServiceStage8.js (modified)
+* stages/server/providers/ContactProviderStage7.js (unchanged)
+* stages/server/controllers/ContactControllerStage7.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage7.js (modified)
+* stages/server/actions/PreviewContactFollowupActionStage7.js (modified)
+* stages/server/actions/GetContactByIdActionStage7.js (modified)
+* stages/server/services/ContactQualificationServiceStage7.js (modified)
 
 ### The differences
 
 
 #### The controller
 
-* stages/server/controllers/ContactControllerStage8.js (modified)
+* stages/server/controllers/ContactControllerStage7.js (modified)
 
 Before this change, the controller would branch off in case the result was not OK:
 
@@ -766,7 +766,7 @@ return this.ok(reply, created);
 
 #### The create action
 
-* stages/server/actions/CreateContactIntakeActionStage8.js (modified)
+* stages/server/actions/CreateContactIntakeActionStage7.js (modified)
 
 Before:
 
@@ -810,7 +810,7 @@ if (duplicate) {
 
 #### The preview action
 
-* stages/server/actions/PreviewContactFollowupActionStage8.js (modified)
+* stages/server/actions/PreviewContactFollowupActionStage7.js (modified)
 
 Before:
 
@@ -842,7 +842,7 @@ if (Object.keys(fieldErrors).length > 0) {
 
 #### The get-by-id action
 
-* stages/server/actions/GetContactByIdActionStage8.js (modified)
+* stages/server/actions/GetContactByIdActionStage7.js (modified)
 
 Before:
 
@@ -874,9 +874,9 @@ if (!contact) {
 
 #### The qualification service
 
-* stages/server/services/ContactQualificationServiceStage8.js (modified)
+* stages/server/services/ContactQualificationServiceStage7.js (modified)
 
-Before (Stage 7 style):
+Before (Stage 6 style):
 
 ```js
 qualify(payload) {
@@ -907,7 +907,7 @@ qualify(payload) {
 }
 ```
 
-After (Stage 8 style):
+After (Stage 7 style):
 
 ```js
 validate(payload) {
@@ -942,12 +942,12 @@ Difference in responsibility:
 - `validate(payload)` handles domain validation only
 - `qualify(payload)` handles scoring/segmentation/follow-up only
 
-This is why Stage 8 actions can now throw directly on validation errors and then call `qualify(...)` for success-path domain output.
+This is why Stage 7 actions can now throw directly on validation errors and then call `qualify(...)` for success-path domain output.
 
 ### The verdict
 
 The good:
-- Stage 8 is now a clean, shippable domain-error ergonomics step
+- Stage 7 is now a clean, shippable domain-error ergonomics step
 - each layer has one clear responsibility
 
 The bad:
@@ -1025,8 +1025,8 @@ The dedicated persistence chapter (to be added later) should cover production pa
 
 ## Suggested Tests For This Chapter
 
-- `POST /api/v1/docs/ch03/stage-8/contacts/intake` duplicate email mapped as domain conflict
-- `POST /api/v1/docs/ch03/stage-7/contacts/intake` success (input normalized through Stage 7 route contract)
+- `POST /api/v1/docs/ch03/stage-7/contacts/intake` duplicate email mapped as domain conflict
+- `POST /api/v1/docs/ch03/stage-6/contacts/intake` success (input normalized through Stage 6 route contract)
 - schema-level validation failure for malformed request payload
 
 ## What You Should Take Away
@@ -1042,9 +1042,9 @@ That is the path from "it works" to "it keeps working when the feature grows."
 
 ## Final, clean assembly
 
-This is the final provider assembly after all stages in this chapter (Stages 1-5, 7, and 8).
+This is the final provider assembly after all stages in this chapter (Stages 1-7).
 
-* stages/server/providers/ContactProviderStage8.js
+* stages/server/providers/ContactProviderStage7.js
 
 
 
@@ -1061,4 +1061,4 @@ By this point, the module is a proper composition root:
 
 If you had read the next sentence before this tutorial, it would have been almost impossible to parse:
 
-`ContactProviderStage8` is a composition root that wires transport schema gates, request-input normalization, explicit domain validation with typed app errors, centralized HTTP error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.
+`ContactProviderStage7` is a composition root that wires transport schema gates, request-input normalization, explicit domain validation with typed app errors, centralized HTTP error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.
