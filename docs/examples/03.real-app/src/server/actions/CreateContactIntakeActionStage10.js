@@ -3,7 +3,7 @@ import {
 } from "@jskit-ai/kernel/server/runtime";
 import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
 
-class CreateContactIntakeActionStage8 {
+class CreateContactIntakeActionStage10 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
     this.qualificationService = qualificationService;
     this.domainRulesService = domainRulesService;
@@ -53,4 +53,4 @@ class CreateContactIntakeActionStage8 {
   }
 }
 
-export { CreateContactIntakeActionStage8 };
+export { CreateContactIntakeActionStage10 };

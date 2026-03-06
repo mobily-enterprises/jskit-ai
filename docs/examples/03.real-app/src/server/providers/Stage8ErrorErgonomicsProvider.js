@@ -10,7 +10,10 @@ import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesS
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
 const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualification";
@@ -19,6 +22,16 @@ const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
 const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
+const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
+);
 
 class Stage8ErrorErgonomicsProvider {
   static id = "docs.examples.03.stage8";
@@ -80,11 +93,9 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactBodySchema
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
+        response: STAGE_8_RESPONSE_SCHEMA
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -100,11 +111,9 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactBodySchema
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
+        response: STAGE_8_RESPONSE_SCHEMA
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );

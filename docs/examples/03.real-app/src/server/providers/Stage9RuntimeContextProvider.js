@@ -12,7 +12,10 @@ import { InMemoryContactRepository } from "../repositories/InMemoryContactReposi
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -21,6 +24,16 @@ const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
 const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
+const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
+);
 
 const stage9QuerySchema = Type.Object(
   {
@@ -82,7 +95,7 @@ class Stage9RuntimeContextProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactRouteSchema.body,
+        schema: contactBodySchema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -101,9 +114,7 @@ class Stage9RuntimeContextProvider {
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
       },
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      }),
+      response: STAGE_9_RESPONSE_SCHEMA,
       middleware: stage9ContactsMiddleware,
     };
 

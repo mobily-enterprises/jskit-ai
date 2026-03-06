@@ -59,47 +59,6 @@ Both routes are business-logic-heavy on purpose:
 
 This is exactly the kind of logic that becomes painful when all code lives in one handler.
 
-## Core Architecture Preview (Stage 6 Baseline)
-
-This is the baseline architecture we reach at Stage 6 before extension stages.
-
-```txt
-docs/examples/03.real-app/src/
-  shared/schemas/contactSchemas.js
-  server/controllers/ContactControllerStage6.js
-  server/actions/CreateContactIntakeAction.js
-  server/actions/PreviewContactFollowupAction.js
-  server/services/ContactQualificationService.js
-  server/repositories/ContactRepository.js
-  server/repositories/InMemoryContactRepository.js
-  server/providers/Stage6LayeredProvider.js
-```
-
-Baseline request flow:
-
-- route -> controller -> action -> service + repository -> response
-
-Runnable chapter module:
-
-- `docs/examples/03.real-app`
-
-The app includes one functional provider per stage:
-- `Stage1MonolithProvider` (`docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`)
-- `Stage2ControllerProvider` (`docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`)
-- `Stage3ServiceProvider` (`docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`)
-- `Stage4RepositoryProvider` (`docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`)
-- `Stage5ActionProvider` (`docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`)
-- `Stage6LayeredProvider` (`docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`)
-- `Stage7RequestPipelineProvider` (`docs/examples/03.real-app/src/server/providers/Stage7RequestPipelineProvider.js`)
-- `Stage8ErrorErgonomicsProvider` (`docs/examples/03.real-app/src/server/providers/Stage8ErrorErgonomicsProvider.js`)
-- `Stage9RuntimeContextProvider` (`docs/examples/03.real-app/src/server/providers/Stage9RuntimeContextProvider.js`)
-- `Stage10ConfigContractProvider` (`docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`)
-
-Progressive path for this chapter:
-
-- Start: `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`
-- End: `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`
-
 Now let us intentionally start with the bad version.
 
 ## Stage 1: Provider-Only Monolith (Works, But Hurts)
@@ -111,6 +70,8 @@ This stage is intentionally "too much in one place." We want you to feel the pai
 - Yes, you can do everything in `Stage1MonolithProvider`.
 - Yes, it can ship quickly for tiny demos.
 - No, it does not stay maintainable once logic grows.
+
+This provider imports shared route contracts from `contactSchemas.js`; right after this block, we inspect that file in detail.
 
 ### Code
 
@@ -312,6 +273,184 @@ class Stage1MonolithProvider {
 export { Stage1MonolithProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
+
+The file includes the schema too, which uses Typebox to validate the input data.
+
+Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/schemas/contactSchemas.js" lang="js" -->
+```js
+import { Type } from "@fastify/type-provider-typebox";
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+
+const contactBodySchema = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 120 }),
+    email: Type.String({ minLength: 5, maxLength: 200 }),
+    company: Type.String({ minLength: 1, maxLength: 160 }),
+    employees: Type.Integer({ minimum: 1, maximum: 1000000 }),
+    plan: Type.Union([Type.Literal("starter"), Type.Literal("growth"), Type.Literal("enterprise")]),
+    source: Type.Union([Type.Literal("web"), Type.Literal("referral"), Type.Literal("webinar"), Type.Literal("partner")]),
+    country: Type.String({ minLength: 2, maxLength: 2 }),
+    consentMarketing: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const contactQuerySchema = Type.Object(
+  {
+    dryRun: Type.Optional(Type.Boolean())
+  },
+  { additionalProperties: false }
+);
+
+const contactSuccessSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    mode: Type.Union([Type.Literal("intake"), Type.Literal("preview")]),
+    email: Type.String({ minLength: 1 }),
+    score: Type.Integer({ minimum: 0, maximum: 100 }),
+    segment: Type.String({ minLength: 1 }),
+    followupPlan: Type.Array(Type.String({ minLength: 1 })),
+    duplicateDetected: Type.Boolean(),
+    persisted: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const contactDomainErrorSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    code: Type.String({ minLength: 1 }),
+    details: Type.Array(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: false }
+);
+
+const contactResponseSchema = Object.freeze(
+  withStandardErrorResponses(
+    {
+    200: contactSuccessSchema,
+    422: contactDomainErrorSchema
+    },
+    { includeValidation400: true }
+  )
+);
+
+const contactIntakeRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
+});
+
+const contactPreviewFollowupRouteContract = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema
+  },
+  query: {
+    schema: contactQuerySchema
+  },
+  response: contactResponseSchema
+});
+
+function normalizeContactBody(rawBody) {
+  return {
+    name: String(rawBody?.name || "").trim(),
+    email: String(rawBody?.email || "").trim().toLowerCase(),
+    company: String(rawBody?.company || "").trim(),
+    employees: Number(rawBody?.employees || 0),
+    plan: String(rawBody?.plan || "").trim().toLowerCase(),
+    source: String(rawBody?.source || "").trim().toLowerCase(),
+    country: String(rawBody?.country || "").trim().toUpperCase(),
+    consentMarketing: Boolean(rawBody?.consentMarketing)
+  };
+}
+
+function normalizeContactQuery(rawQuery) {
+  return {
+    dryRun: rawQuery?.dryRun === true || rawQuery?.dryRun === "true"
+  };
+}
+
+const contactIntakeRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Create contact"
+  },
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+const contactPreviewFollowupRouteContractStage7 = Object.freeze({
+  meta: {
+    tags: ["contacts"],
+    summary: "Preview follow-up"
+  },
+  body: {
+    schema: contactBodySchema,
+    normalize: normalizeContactBody
+  },
+  query: {
+    schema: contactQuerySchema,
+    normalize: normalizeContactQuery
+  },
+  response: contactResponseSchema
+});
+
+// Backward-compat export used by earlier stage files in this chapter.
+const contactRouteSchema = Object.freeze({
+  body: contactBodySchema,
+  response: contactResponseSchema
+});
+
+export {
+  contactBodySchema,
+  contactQuerySchema,
+  contactSuccessSchema,
+  contactDomainErrorSchema,
+  contactResponseSchema,
+  contactIntakeRouteContract,
+  contactPreviewFollowupRouteContract,
+  contactIntakeRouteContractStage7,
+  contactPreviewFollowupRouteContractStage7,
+  contactRouteSchema
+};
+```
+<!-- /DOCS:EXAMPLE -->
+
+What this file does in practical terms:
+
+- It defines the transport contract once (request and response shapes).
+- It exports named route-contract objects (`contactIntakeRouteContract`, `contactPreviewFollowupRouteContract`) that routes can reuse.
+- It keeps API metadata (`meta.tags`, `meta.summary`) with the same contract.
+
+Practical consequence in `router.register(...)`:
+
+- You pass the contract object directly as the route options argument.
+- Fastify validation and response schema expectations are applied from that object.
+- Route definitions stay short and consistent; you avoid repeating schema objects in every provider.
+- If you update the contract in this shared file, all routes importing it pick up that change.
+
+
 
 ### Run and test
 
@@ -2020,215 +2159,53 @@ export { ContactControllerStage7 };
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
-Stage 8 fixes domain failure handling flow.
+Stage 8 changes domain-failure handling from manual per-controller branching to one centralized thrown-error flow.
 
-In this stage:
+Before (manual result mapping in each controller method):
 
-- domain rules are represented explicitly as rule definitions
-- `runDomainRules(...)` executes those rules and throws a consistent `DomainValidationError` when needed
-- actions throw domain errors (`DomainValidationError`, `ConflictError`) instead of returning ad-hoc error objects
-- controller uses `BaseController` for success response ergonomics
-
-### Create domain rules service
-
-Use `docs/examples/03.real-app/src/server/services/ContactDomainRulesServiceStage8.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" service="ContactDomainRulesServiceStage8" lang="js" -->
 ```js
-class ContactDomainRulesServiceStage8 {
-  buildRules(normalized) {
-    return [
-      {
-        field: "name",
-        check: () =>
-          normalized.name.length < 2 ? "name must have at least 2 characters" : null
-      },
-      {
-        field: "email",
-        check: () =>
-          !normalized.email.includes("@") ? "email must include @" : null
-      },
-      {
-        field: "email",
-        check: () =>
-          normalized.email.endsWith("@mailinator.com")
-            ? "disposable emails are not allowed"
-            : null
-      },
-      {
-        field: "country",
-        check: () =>
-          !["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)
-            ? "country is not in allowed market list"
-            : null
-      },
-      {
-        field: "plan",
-        check: () =>
-          normalized.employees > 2000 && normalized.plan !== "enterprise"
-            ? "large companies must use enterprise plan"
-            : null
-      },
-      {
-        field: "consentMarketing",
-        check: () =>
-          normalized.source === "partner" && !normalized.consentMarketing
-            ? "partner leads require marketing consent"
-            : null
-      }
-    ];
-  }
+const result = this.createContactIntakeAction.execute(request.body);
+if (!result.ok) {
+  reply.code(result.status).send({
+    error: "Domain validation failed.",
+    code: result.code,
+    details: result.details
+  });
+  return;
 }
-
-export { ContactDomainRulesServiceStage8 };
+reply.code(200).send(result.data);
 ```
-<!-- /DOCS:EXAMPLE -->
 
-### Create throw-style actions with `runDomainRules(...)`
+After (controller handles success path only, and errors are mapped globally):
 
-Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeActionStage8.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeActionStage8" lang="js" -->
-```js
-import { ConflictError, runDomainRules } from "@jskit-ai/kernel/server/runtime";
-
-class CreateContactIntakeActionStage8 {
-  constructor({ qualificationService, domainRulesService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.domainRulesService = domainRulesService;
-    this.contactRepository = contactRepository;
-  }
-
-  async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
-
-    await runDomainRules(this.domainRulesService.buildRules(normalized), {
-      message: "Domain validation failed."
-    });
-
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
-    if (duplicate) {
-      throw new ConflictError("A contact with this email already exists.", {
-        code: "duplicate_contact",
-        details: {
-          fieldErrors: {
-            email: "a contact with this email already exists"
-          }
-        }
-      });
-    }
-
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
-
-    const created = this.contactRepository.save({
-      id: `contact-${Date.now().toString(36)}`,
-      ...normalized,
-      score,
-      segment
-    });
-
-    return {
-      ok: true,
-      mode: "intake",
-      email: created.email,
-      score: created.score,
-      segment: created.segment,
-      followupPlan,
-      duplicateDetected: false,
-      persisted: true
-    };
-  }
-}
-
-export { CreateContactIntakeActionStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
-
-Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionStage8.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupActionStage8" lang="js" -->
-```js
-import { runDomainRules } from "@jskit-ai/kernel/server/runtime";
-
-class PreviewContactFollowupActionStage8 {
-  constructor({ qualificationService, domainRulesService, contactRepository }) {
-    this.qualificationService = qualificationService;
-    this.domainRulesService = domainRulesService;
-    this.contactRepository = contactRepository;
-  }
-
-  async execute(payload) {
-    const normalized = this.qualificationService.normalize(payload);
-
-    await runDomainRules(this.domainRulesService.buildRules(normalized), {
-      message: "Domain validation failed."
-    });
-
-    const duplicate = this.contactRepository.findByEmail(normalized.email);
-    const score = this.qualificationService.score(normalized);
-    const segment = this.qualificationService.segment(score);
-    const followupPlan = this.qualificationService.followupPlan({
-      segment,
-      source: normalized.source
-    });
-
-    return {
-      ok: true,
-      mode: "preview",
-      email: normalized.email,
-      score,
-      segment,
-      followupPlan,
-      duplicateDetected: Boolean(duplicate),
-      persisted: false
-    };
-  }
-}
-
-export { PreviewContactFollowupActionStage8 };
-```
-<!-- /DOCS:EXAMPLE -->
-
-### Create BaseController-based controller
-
-Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage8.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage8" lang="js" -->
 ```js
 import { BaseController } from "@jskit-ai/kernel/server/http";
 
 class ContactControllerStage8 extends BaseController {
-  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
-    super();
-    this.createContactIntakeAction = createContactIntakeAction;
-    this.previewContactFollowupAction = previewContactFollowupAction;
-  }
-
-  resolveInputBody(request) {
-    return request?.input?.body || request?.body || {};
-  }
-
   async intake(request, reply) {
-    const payload = this.resolveInputBody(request);
+    const payload = request?.input?.body || request?.body || {};
     const created = await this.createContactIntakeAction.execute(payload);
     return this.ok(reply, created);
   }
-
-  async previewFollowup(request, reply) {
-    const payload = this.resolveInputBody(request);
-    const preview = await this.previewContactFollowupAction.execute(payload);
-    return this.ok(reply, preview);
-  }
 }
 
-export { ContactControllerStage8 };
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+
+class CreateContactIntakeActionStage8 {
+  async execute(payload) {
+    const normalized = this.qualificationService.normalize(payload);
+    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+    // ... domain conflict checks, persistence, return success payload
+  }
+}
 ```
-<!-- /DOCS:EXAMPLE -->
+
+What changed in this stage:
+
+- controller extends `BaseController`, and stays focused on happy-path responses (`ok(...)`)
+- actions throw domain errors (`DomainValidationError`, `ConflictError`) instead of returning `ok: false` objects
+- provider installs `registerApiErrorHandler(...)` once, so thrown app/domain errors are mapped consistently
+- domain-rule evaluation is centralized in `domainRuleValidation.js` (no duplicated rule-loop logic in each action)
 
 ### Full provider code for Stage 8
 
@@ -2248,7 +2225,10 @@ import { ContactDomainRulesServiceStage8 } from "../services/ContactDomainRulesS
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_8_REPOSITORY = "docs.examples.03.stage8.repository";
 const STAGE_8_QUALIFICATION_SERVICE = "docs.examples.03.stage8.service.qualification";
@@ -2257,6 +2237,16 @@ const STAGE_8_CREATE_ACTION = "docs.examples.03.stage8.actions.create";
 const STAGE_8_PREVIEW_ACTION = "docs.examples.03.stage8.actions.preview";
 const STAGE_8_CONTROLLER = "docs.examples.03.stage8.controller";
 const STAGE_8_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
+const STAGE_8_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
+);
 
 class Stage8ErrorErgonomicsProvider {
   static id = "docs.examples.03.stage8";
@@ -2318,11 +2308,9 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: intake"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactBodySchema
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
+        response: STAGE_8_RESPONSE_SCHEMA
       },
       (request, reply) => controller.intake(request, reply)
     );
@@ -2338,11 +2326,9 @@ class Stage8ErrorErgonomicsProvider {
           summary: "Stage 8 domain errors + BaseController: preview"
         },
         body: {
-          schema: contactRouteSchema.body
+          schema: contactBodySchema
         },
-        response: withStandardErrorResponses(contactRouteSchema.response, {
-          includeValidation400: true
-        })
+        response: STAGE_8_RESPONSE_SCHEMA
       },
       (request, reply) => controller.previewFollowup(request, reply)
     );
@@ -2350,6 +2336,263 @@ class Stage8ErrorErgonomicsProvider {
 }
 
 export { Stage8ErrorErgonomicsProvider };
+```
+<!-- /DOCS:EXAMPLE -->
+
+### Full controller code for Stage 8
+
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage8.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage8" lang="js" -->
+```js
+import { BaseController } from "@jskit-ai/kernel/server/http";
+
+class ContactControllerStage8 extends BaseController {
+  constructor({ createContactIntakeAction, previewContactFollowupAction }) {
+    super();
+    this.createContactIntakeAction = createContactIntakeAction;
+    this.previewContactFollowupAction = previewContactFollowupAction;
+  }
+
+  resolveInputBody(request) {
+    return request?.input?.body || request?.body || {};
+  }
+
+  async intake(request, reply) {
+    const payload = this.resolveInputBody(request);
+    const created = await this.createContactIntakeAction.execute(payload);
+    return this.ok(reply, created);
+  }
+
+  async previewFollowup(request, reply) {
+    const payload = this.resolveInputBody(request);
+    const preview = await this.previewContactFollowupAction.execute(payload);
+    return this.ok(reply, preview);
+  }
+}
+
+export { ContactControllerStage8 };
+```
+<!-- /DOCS:EXAMPLE -->
+
+### Full domain-rule helper for Stage 8
+
+Use `docs/examples/03.real-app/src/server/support/domainRuleValidation.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/domainRuleValidation.js" lang="js" -->
+```js
+import { DomainValidationError } from "@jskit-ai/kernel/server/runtime";
+
+function collectDomainFieldErrors(rules) {
+  const fieldErrors = {};
+
+  for (const rule of Array.isArray(rules) ? rules : []) {
+    if (rule?.when && !rule.when()) {
+      continue;
+    }
+
+    const outcome = rule?.check ? rule.check() : null;
+    if (!outcome) {
+      continue;
+    }
+
+    if (typeof outcome === "string") {
+      fieldErrors[rule.field] = outcome;
+      continue;
+    }
+
+    if (typeof outcome === "object") {
+      fieldErrors[rule.field] = outcome?.message || "domain rule failed";
+    }
+  }
+
+  return fieldErrors;
+}
+
+function assertNoDomainRuleFailures(
+  rules,
+  {
+    message = "Domain validation failed.",
+    code = "domain_validation_failed"
+  } = {}
+) {
+  const fieldErrors = collectDomainFieldErrors(rules);
+  if (Object.keys(fieldErrors).length > 0) {
+    throw new DomainValidationError(
+      {
+        fieldErrors
+      },
+      {
+        message,
+        code
+      }
+    );
+  }
+}
+
+export { collectDomainFieldErrors, assertNoDomainRuleFailures };
+```
+<!-- /DOCS:EXAMPLE -->
+
+### Full domain-rules service for Stage 8
+
+Use `docs/examples/03.real-app/src/server/services/ContactDomainRulesServiceStage8.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" service="ContactDomainRulesServiceStage8" lang="js" -->
+```js
+class ContactDomainRulesServiceStage8 {
+  buildRules(normalized) {
+    return [
+      {
+        field: "name",
+        check: () =>
+          normalized.name.length < 2 ? "name must have at least 2 characters" : null
+      },
+      {
+        field: "email",
+        check: () =>
+          !normalized.email.includes("@") ? "email must include @" : null
+      },
+      {
+        field: "email",
+        check: () =>
+          normalized.email.endsWith("@mailinator.com")
+            ? "disposable emails are not allowed"
+            : null
+      },
+      {
+        field: "country",
+        check: () =>
+          !["US", "CA", "GB", "DE", "FR", "ES", "IT"].includes(normalized.country)
+            ? "country is not in allowed market list"
+            : null
+      },
+      {
+        field: "plan",
+        check: () =>
+          normalized.employees > 2000 && normalized.plan !== "enterprise"
+            ? "large companies must use enterprise plan"
+            : null
+      },
+      {
+        field: "consentMarketing",
+        check: () =>
+          normalized.source === "partner" && !normalized.consentMarketing
+            ? "partner leads require marketing consent"
+            : null
+      }
+    ];
+  }
+}
+
+export { ContactDomainRulesServiceStage8 };
+```
+<!-- /DOCS:EXAMPLE -->
+
+### Full actions for Stage 8
+
+Use `docs/examples/03.real-app/src/server/actions/CreateContactIntakeActionStage8.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" action="CreateContactIntakeActionStage8" lang="js" -->
+```js
+import {
+  ConflictError
+} from "@jskit-ai/kernel/server/runtime";
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+
+class CreateContactIntakeActionStage8 {
+  constructor({ qualificationService, domainRulesService, contactRepository }) {
+    this.qualificationService = qualificationService;
+    this.domainRulesService = domainRulesService;
+    this.contactRepository = contactRepository;
+  }
+
+  async execute(payload) {
+    const normalized = this.qualificationService.normalize(payload);
+    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+
+    const duplicate = this.contactRepository.findByEmail(normalized.email);
+    if (duplicate) {
+      throw new ConflictError("A contact with this email already exists.", {
+        code: "duplicate_contact",
+        details: {
+          fieldErrors: {
+            email: "a contact with this email already exists"
+          }
+        }
+      });
+    }
+
+    const score = this.qualificationService.score(normalized);
+    const segment = this.qualificationService.segment(score);
+    const followupPlan = this.qualificationService.followupPlan({
+      segment,
+      source: normalized.source
+    });
+
+    const created = this.contactRepository.save({
+      id: `contact-${Date.now().toString(36)}`,
+      ...normalized,
+      score,
+      segment
+    });
+
+    return {
+      ok: true,
+      mode: "intake",
+      email: created.email,
+      score: created.score,
+      segment: created.segment,
+      followupPlan,
+      duplicateDetected: false,
+      persisted: true
+    };
+  }
+}
+
+export { CreateContactIntakeActionStage8 };
+```
+<!-- /DOCS:EXAMPLE -->
+
+Use `docs/examples/03.real-app/src/server/actions/PreviewContactFollowupActionStage8.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" action="PreviewContactFollowupActionStage8" lang="js" -->
+```js
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
+
+class PreviewContactFollowupActionStage8 {
+  constructor({ qualificationService, domainRulesService, contactRepository }) {
+    this.qualificationService = qualificationService;
+    this.domainRulesService = domainRulesService;
+    this.contactRepository = contactRepository;
+  }
+
+  async execute(payload) {
+    const normalized = this.qualificationService.normalize(payload);
+    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+
+    const duplicate = this.contactRepository.findByEmail(normalized.email);
+    const score = this.qualificationService.score(normalized);
+    const segment = this.qualificationService.segment(score);
+    const followupPlan = this.qualificationService.followupPlan({
+      segment,
+      source: normalized.source
+    });
+
+    return {
+      ok: true,
+      mode: "preview",
+      email: normalized.email,
+      score,
+      segment,
+      followupPlan,
+      duplicateDetected: Boolean(duplicate),
+      persisted: false
+    };
+  }
+}
+
+export { PreviewContactFollowupActionStage8 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
@@ -2538,7 +2781,10 @@ import { InMemoryContactRepository } from "../repositories/InMemoryContactReposi
 import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
 import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
 import { stage9ContactsMiddleware } from "../support/stage9Middleware.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_9_REPOSITORY = "docs.examples.03.stage9.repository";
 const STAGE_9_QUALIFICATION_SERVICE = "docs.examples.03.stage9.service.qualification";
@@ -2547,6 +2793,16 @@ const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
 const STAGE_9_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
+const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
+);
 
 const stage9QuerySchema = Type.Object(
   {
@@ -2608,7 +2864,7 @@ class Stage9RuntimeContextProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactRouteSchema.body,
+        schema: contactBodySchema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -2627,9 +2883,7 @@ class Stage9RuntimeContextProvider {
           dryRun: query?.dryRun === true || query?.dryRun === "true"
         })
       },
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      }),
+      response: STAGE_9_RESPONSE_SCHEMA,
       middleware: stage9ContactsMiddleware,
     };
 
@@ -2699,6 +2953,7 @@ In this stage:
 - env/raw values are transformed + validated with `defineModuleConfig(...)`
 - startup fails fast when config is invalid
 - domain rules service receives typed, validated config
+- Stage 9 runtime context and middleware reuse remain integrated
 
 ### Create module config contract
 
@@ -2840,13 +3095,149 @@ export { ContactDomainRulesServiceStage10 };
 ```
 <!-- /DOCS:EXAMPLE -->
 
+### Create reusable middleware stack for Stage 10
+
+Use `docs/examples/03.real-app/src/server/support/stage10Middleware.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/stage10Middleware.js" lang="js" -->
+```js
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+
+const STAGE_10_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage10.requestContext";
+
+async function requireRequestScopeMiddleware(request, reply) {
+  if (!request?.scope || typeof request.scope.make !== "function") {
+    reply.code(500).send({
+      error: "Request scope is unavailable.",
+      code: "missing_request_scope"
+    });
+  }
+}
+
+async function attachRequestContextMiddleware(request) {
+  const scope = request?.scope;
+  if (!scope || typeof scope.instance !== "function" || typeof scope.make !== "function") {
+    return;
+  }
+
+  const requestId = scope.make(TOKENS.RequestId);
+  scope.instance(STAGE_10_REQUEST_CONTEXT_TOKEN, {
+    requestId,
+    receivedAt: new Date().toISOString()
+  });
+}
+
+async function requirePartnerConsentMiddleware(request, reply) {
+  const payload = request?.input?.body || request?.body || {};
+  const source = String(payload?.source || "").trim().toLowerCase();
+  const hasMarketingConsent = payload?.consentMarketing === true;
+
+  if (source === "partner" && !hasMarketingConsent) {
+    reply.code(422).send({
+      error: "Domain validation failed.",
+      code: "partner_consent_required",
+      details: {
+        fieldErrors: {
+          consentMarketing: "partner leads require marketing consent"
+        }
+      }
+    });
+  }
+}
+
+const stage10ContactsMiddleware = Object.freeze([
+  requireRequestScopeMiddleware,
+  attachRequestContextMiddleware,
+  requirePartnerConsentMiddleware
+]);
+
+export {
+  STAGE_10_REQUEST_CONTEXT_TOKEN,
+  requireRequestScopeMiddleware,
+  attachRequestContextMiddleware,
+  requirePartnerConsentMiddleware,
+  stage10ContactsMiddleware
+};
+```
+<!-- /DOCS:EXAMPLE -->
+
+### Create Stage 10 controller with config + request-scope headers
+
+Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage10.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage10" lang="js" -->
+```js
+import { BaseController } from "@jskit-ai/kernel/server/http";
+import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
+
+class ContactControllerStage10 extends BaseController {
+  constructor({ createContactIntakeAction, previewContactFollowupAction, contactsConfig }) {
+    super();
+    this.createContactIntakeAction = createContactIntakeAction;
+    this.previewContactFollowupAction = previewContactFollowupAction;
+    this.contactsConfig = contactsConfig;
+  }
+
+  resolveInputBody(request) {
+    return request?.input?.body || request?.body || {};
+  }
+
+  attachConfigHeaders(reply) {
+    reply.header("x-contacts-mode", this.contactsConfig.mode);
+    reply.header(
+      "x-contacts-max-starter-employees",
+      String(this.contactsConfig.maxStarterEmployees)
+    );
+  }
+
+  attachRequestScopeHeaders(request, reply) {
+    const scope = request?.scope;
+    if (!scope || typeof scope.make !== "function") {
+      return;
+    }
+
+    const requestId = scope.make(TOKENS.RequestId);
+    if (requestId) {
+      reply.header("x-request-id", requestId);
+    }
+
+    const context = scope.has(STAGE_10_REQUEST_CONTEXT_TOKEN)
+      ? scope.make(STAGE_10_REQUEST_CONTEXT_TOKEN)
+      : null;
+
+    if (context?.receivedAt) {
+      reply.header("x-request-received-at", context.receivedAt);
+    }
+  }
+
+  async intake(request, reply) {
+    const payload = this.resolveInputBody(request);
+    const created = await this.createContactIntakeAction.execute(payload);
+    this.attachRequestScopeHeaders(request, reply);
+    this.attachConfigHeaders(reply);
+    return this.ok(reply, created);
+  }
+
+  async previewFollowup(request, reply) {
+    const payload = this.resolveInputBody(request);
+    const preview = await this.previewContactFollowupAction.execute(payload);
+    this.attachRequestScopeHeaders(request, reply);
+    this.attachConfigHeaders(reply);
+    return this.ok(reply, preview);
+  }
+}
+
+export { ContactControllerStage10 };
+```
+<!-- /DOCS:EXAMPLE -->
+
 ### Full provider code for Stage 10
 
 Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
@@ -2857,10 +3248,14 @@ import { ContactControllerStage10 } from "../controllers/ContactControllerStage1
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
+import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -2870,14 +3265,15 @@ const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-
-const stage10QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
+const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
 );
 
 class Stage10ConfigContractProvider {
@@ -2903,7 +3299,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_CREATE_ACTION,
       () =>
-        new CreateContactIntakeActionStage8({
+        new CreateContactIntakeActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -2913,7 +3309,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupActionStage8({
+        new PreviewContactFollowupActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -2944,7 +3340,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactRouteSchema.body,
+        schema: contactBodySchema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -2957,15 +3353,8 @@ class Stage10ConfigContractProvider {
           consentMarketing: Boolean(body?.consentMarketing)
         })
       },
-      query: {
-        schema: stage10QuerySchema,
-        normalize: (query) => ({
-          dryRun: query?.dryRun === true || query?.dryRun === "true"
-        })
-      },
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      })
+      middleware: stage10ContactsMiddleware,
+      response: STAGE_10_RESPONSE_SCHEMA
     };
 
     router.register(
@@ -3028,7 +3417,7 @@ Example:
 ### Domain validation
 
 - actions/services check business rules
-- `runDomainRules(...)` + domain error classes can enforce one consistent domain-failure contract
+- actions throw domain errors with one consistent failure contract
 
 Example:
 
@@ -3108,7 +3497,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvide
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
@@ -3119,10 +3507,14 @@ import { ContactControllerStage10 } from "../controllers/ContactControllerStage1
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
+import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -3132,14 +3524,15 @@ const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-
-const stage10QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
+const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
 );
 
 class Stage10ConfigContractProvider {
@@ -3165,7 +3558,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_CREATE_ACTION,
       () =>
-        new CreateContactIntakeActionStage8({
+        new CreateContactIntakeActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -3175,7 +3568,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupActionStage8({
+        new PreviewContactFollowupActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -3206,7 +3599,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactRouteSchema.body,
+        schema: contactBodySchema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -3219,15 +3612,8 @@ class Stage10ConfigContractProvider {
           consentMarketing: Boolean(body?.consentMarketing)
         })
       },
-      query: {
-        schema: stage10QuerySchema,
-        normalize: (query) => ({
-          dryRun: query?.dryRun === true || query?.dryRun === "true"
-        })
-      },
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      })
+      middleware: stage10ContactsMiddleware,
+      response: STAGE_10_RESPONSE_SCHEMA
     };
 
     router.register(
@@ -3235,8 +3621,7 @@ class Stage10ConfigContractProvider {
       "/api/v1/docs/ch03/stage-10/contacts/intake",
       {
         method: "POST",
-       
-       path: "/api/v1/docs/ch03/stage-10/contacts/intake",
+        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-10"],
@@ -3274,7 +3659,7 @@ By this point, the module is a proper composition root:
 - provider lifecycle wires container bindings (`singleton` + `instance`) with explicit tokens
 - transport validation is enforced by route `schema`
 - request pipeline ergonomics are handled through `input` normalization into `request.input`
-- domain validation is explicit in actions/services, using `runDomainRules(...)` + domain error classes
+- domain validation is explicit in actions/services, using domain error classes
 - global HTTP error mapping is centralized with `registerApiErrorHandler(...)`
 - runtime context is request-scoped (`request.scope`, `TOKENS.RequestId`, and scoped context instances)
 - middleware reuse is declarative at provider route registration
@@ -3283,4 +3668,4 @@ By this point, the module is a proper composition root:
 
 If you had read the next sentence before this tutorial, it would have been almost impossible to parse:
 
-`Stage10ConfigContractProvider` is a config-aware composition root that wires typed startup contracts, transport schema gates, request-input normalization, scoped runtime context, reusable middleware policy, explicit domain-rule execution, centralized domain error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.
+`Stage10ConfigContractProvider` is a config-aware composition root that wires typed startup contracts, transport schema gates, request-input normalization, scoped runtime context, reusable middleware policy, explicit domain validation, centralized domain error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.

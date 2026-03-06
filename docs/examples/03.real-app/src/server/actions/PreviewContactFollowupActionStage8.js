@@ -1,4 +1,4 @@
-import { runDomainRules } from "@jskit-ai/kernel/server/runtime";
+import { assertNoDomainRuleFailures } from "../support/domainRuleValidation.js";
 
 class PreviewContactFollowupActionStage8 {
   constructor({ qualificationService, domainRulesService, contactRepository }) {
@@ -9,10 +9,7 @@ class PreviewContactFollowupActionStage8 {
 
   async execute(payload) {
     const normalized = this.qualificationService.normalize(payload);
-
-    await runDomainRules(this.domainRulesService.buildRules(normalized), {
-      message: "Domain validation failed."
-    });
+    assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
 
     const duplicate = this.contactRepository.findByEmail(normalized.email);
     const score = this.qualificationService.score(normalized);

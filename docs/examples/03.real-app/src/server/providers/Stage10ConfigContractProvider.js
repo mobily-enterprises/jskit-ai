@@ -1,4 +1,3 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
@@ -9,10 +8,14 @@ import { ContactControllerStage10 } from "../controllers/ContactControllerStage1
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { ContactDomainRulesServiceStage10 } from "../services/ContactDomainRulesServiceStage10.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
-import { CreateContactIntakeActionStage8 } from "../actions/CreateContactIntakeActionStage8.js";
-import { PreviewContactFollowupActionStage8 } from "../actions/PreviewContactFollowupActionStage8.js";
+import { CreateContactIntakeActionStage10 } from "../actions/CreateContactIntakeActionStage10.js";
+import { PreviewContactFollowupActionStage10 } from "../actions/PreviewContactFollowupActionStage10.js";
 import { contactsModuleConfig } from "../support/contactsModuleConfigStage10.js";
-import { contactRouteSchema } from "../../shared/schemas/contactSchemas.js";
+import { stage10ContactsMiddleware } from "../support/stage10Middleware.js";
+import {
+  contactBodySchema,
+  contactSuccessSchema
+} from "../../shared/schemas/contactSchemas.js";
 
 const STAGE_10_CONFIG = "docs.examples.03.stage10.config";
 const STAGE_10_REPOSITORY = "docs.examples.03.stage10.repository";
@@ -22,14 +25,15 @@ const STAGE_10_CREATE_ACTION = "docs.examples.03.stage10.actions.create";
 const STAGE_10_PREVIEW_ACTION = "docs.examples.03.stage10.actions.preview";
 const STAGE_10_CONTROLLER = "docs.examples.03.stage10.controller";
 const STAGE_10_ERROR_HANDLER_MARKER = "docs.examples.03.errorHandlerRegistered";
-
-const stage10QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
+const STAGE_10_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactSuccessSchema
+    },
+    {
+      includeValidation400: true
+    }
+  )
 );
 
 class Stage10ConfigContractProvider {
@@ -55,7 +59,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_CREATE_ACTION,
       () =>
-        new CreateContactIntakeActionStage8({
+        new CreateContactIntakeActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -65,7 +69,7 @@ class Stage10ConfigContractProvider {
     app.singleton(
       STAGE_10_PREVIEW_ACTION,
       () =>
-        new PreviewContactFollowupActionStage8({
+        new PreviewContactFollowupActionStage10({
           qualificationService: app.make(STAGE_10_QUALIFICATION_SERVICE),
           domainRulesService: app.make(STAGE_10_DOMAIN_RULES_SERVICE),
           contactRepository: app.make(STAGE_10_REPOSITORY)
@@ -96,7 +100,7 @@ class Stage10ConfigContractProvider {
 
     const sharedOptions = {
       body: {
-        schema: contactRouteSchema.body,
+        schema: contactBodySchema,
         normalize: (body) => ({
           ...body,
           name: String(body?.name || "").trim(),
@@ -109,15 +113,8 @@ class Stage10ConfigContractProvider {
           consentMarketing: Boolean(body?.consentMarketing)
         })
       },
-      query: {
-        schema: stage10QuerySchema,
-        normalize: (query) => ({
-          dryRun: query?.dryRun === true || query?.dryRun === "true"
-        })
-      },
-      response: withStandardErrorResponses(contactRouteSchema.response, {
-        includeValidation400: true
-      })
+      middleware: stage10ContactsMiddleware,
+      response: STAGE_10_RESPONSE_SCHEMA
     };
 
     router.register(
