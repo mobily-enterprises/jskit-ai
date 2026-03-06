@@ -30,6 +30,16 @@ So this chapter is intentionally written as a staged refactor:
 
 Each stage works. Each stage improves something. Each stage still has pain that motivates the next one.
 
+<!-- docs:tooling-references
+docs/examples/03.real-app
+docs/examples/03.real-app/src/server/providers/ContactProviderStage1.js
+docs/examples/03.real-app/src/server/providers/ContactProviderStage2.js
+docs/examples/03.real-app/src/server/providers/ContactProviderStage3.js
+docs/examples/03.real-app/src/server/providers/ContactProviderStage4.js
+docs/examples/03.real-app/src/server/providers/ContactProviderStage5.js
+docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js
+-->
+
 ## Where We Pick Up
 
 From earlier chapters, you already have:
@@ -53,6 +63,8 @@ Files:
 * src/server/providers/ContactProviderStage1.js (created)
 * src/shared/schemas/contactSchemasStage1.js (created)
 * src/shared/input/contactInputNormalizationStage1.js (created)
+
+## What was added
 
 The project includes a Provider that uses `router.register()` to add the specific routes. It uses an external schema file and a set of normalisation functions in the shared folder.
 
@@ -132,9 +144,13 @@ Files:
 
 * src/server/providers/ContactProviderStage2.js (modified)
 * src/shared/schemas/contactSchemasStage2.js (unchanged)
-* src/shared/input/contactInputNormalizationStage2.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### The differences
+
+#### The provider
+
+* src/server/providers/ContactProviderStage2.js (modified)
 
 In the main body of the module, the provider file now has:
 
@@ -155,7 +171,6 @@ The code that used to be in the main function is now in the controller.
 
 ### The verdict
 
-
 The good:
 - provider now focuses on assembly and route mapping
 - request handlers now delegate to controller methods instead of embedding domain logic in provider
@@ -164,17 +179,29 @@ The bad:
 - controller is still the domain engine (`validate`, `score`, `segment`, `followupPlan`, `qualify`)
 - controller still mixes orchestration + domain rules + storage access
 
+## Stage 3: Extract a Service (Domain Logic in One Place) (REWRITE)
 
-## Stage 3: Extract a Service (Domain Logic in One Place)
+The next step is to move domain logic out of the controller and into a service.
 
-Now we isolate business rules into one class.
+Files:
 
-### Create the new updated provider for Stage 3
+* src/server/providers/ContactProviderStage3.js (modified)
+* src/server/controllers/ContactControllerStage3.js (modified)
+* src/server/services/ContactQualificationServiceStage3.js (new)
+* src/shared/schemas/contactSchemasStage3.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
-To do this, the provider first registers the service as a singleton:
+### The differences
+
+
+#### The provider
+
+* src/server/providers/ContactProviderStage3.js (modified)
+
+The provider first registers the newly created service as a singleton:
 
 ```js
-    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationServiceStage3());
+    app.singleton(STAGE_3_QUALIFICATION_SERVICE, () => new ContactQualificationService());
 ```
 
 Then, when creating the controller, it will pass the service as a parameter:
@@ -189,72 +216,22 @@ Then, when creating the controller, it will pass the service as a parameter:
     );
 ```
 
-One question may arise: why create the singleton, if the service is then passed as a parameter in the controller's constructor? It's a way for the provider to wire dependencies, and the controller just uses them. That is good because:
 
-- dependencies are explicit (you can read constructor and know what it needs)
-- easier tests (pass a fake service directly, no container boot needed)
-- controller stays framework/container-agnostic
-- failures happen earlier (bad wiring shows up at composition time, not deep at runtime)
-- cleaner architecture: provider = wiring, controller = behavior
-
-If controller did this internally:
-
-```js
-  // Note: NOT best practice!
-  this.app.make(STAGE_3_QUALIFICATION_SERVICE)
-```
-
-It becomes a Service Locator pattern. Problems:
-
-- hidden dependencies (not visible in constructor)
-- harder tests (must mock container/app)
-- controller now depends on container API
-- more runtime surprises (token not found) during request handling
-- mixing composition concerns into business code
-
-While `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
-
-This is the final code of the provider.
-
-* src/server/providers/ContactProviderStage3.js
-
-
-
-
-### Update controller to delegate to service
-
-In Stage 2, the controller still owned domain methods (`validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
-
-In Stage 3, the controller delegates that domain work to `ContactQualificationServiceStage3`.  
+In the previous stage, the controller still owned domain methods (`validateContact`, `scoreContact`, `segmentFromScore`, `buildFollowupPlan`, `qualify`).
+Now, the controller delegates that domain work to `ContactQualificationService`.  
 This keeps controller responsibilities focused on:
 
 - reading transport input (`request.body`)
 - calling domain logic
 - mapping result to HTTP response
 
-In the new controller, the business specific functions are moved out (`validateContact)`, `scoreContact()`, `segmentFromScore()`, `buildFollowupPlan()`, `qualify()`) and the service passed into the constructor is saved onto `this.` and used:
+#### The service
 
-* src/server/controllers/ContactControllerStage3.js
+* src/server/services/ContactQualificationServiceStage3.js (new)
 
+The service file olds domain logic in one place.
 
-
-### Create service
-
-Now create the service that holds domain logic in one place.
-
-Philosophy:
-
-- service owns business rules
-- controller should not reimplement those rules
-- this makes domain behavior easy to test without booting HTTP routes
-
-* src/server/services/ContactQualificationServiceStage3.js
-
-
-
-### Service contract (`qualify(raw)`)
-
-`qualify(raw)` returns one of two shapes:
+The service contract is simple; `qualify(raw)` returns one of two shapes:
 
 - success:
 ```js
@@ -279,35 +256,48 @@ Philosophy:
 
 This keeps response handling explicit in the controller while centralizing business rules in the service.
 
-### End-to-end flow for intake in Stage 3
+### Notes
 
-1. Route validates input shape through `contactIntakePostRouteContract`.
-2. Controller receives `request.body`.
-3. Controller calls `qualificationService.qualify(request.body)`.
-4. Service returns either domain failure (`ok: false`) or qualified result (`ok: true`).
-5. Controller maps that result to HTTP response payload and status code.
-6. Controller still stores/retrieves contacts locally (`this.contacts`) for now.
+One question may arise: why create the singleton, if the service is then passed as a parameter in the controller's constructor? It's a way for the provider to wire dependencies, and the controller just uses them. That is good because:
 
-### Why Stage 4 is still needed
+- dependencies are explicit (you can read constructor and know what it needs)
+- easier tests (pass a fake service directly, no container boot needed)
+- controller stays framework/container-agnostic
+- failures happen earlier (bad wiring shows up at composition time, not deep at runtime)
+- cleaner architecture: provider = wiring, controller = behavior
 
-Stage 3 removed duplicated domain logic, but persistence is still in the controller:
+If controller did this internally:
 
-- duplicate checks read from `this.contacts` in controller methods
-- writes (`push`) happen in controller code
-- `show` route lookup also lives in controller
+```js
+  // Note: NOT best practice!
+  this.app.make(STAGE_3_QUALIFICATION_SERVICE)
+```
 
-That means storage policy is still mixed into HTTP orchestration. Stage 4 fixes this by moving data access behind a repository contract.
+It becomes a Service Locator pattern. Problems:
 
-### What improved
+- hidden dependencies (not visible in constructor)
+- harder tests (must mock container/app)
+- controller now depends on container API
+- more runtime surprises (token not found) during request handling
+- mixing composition concerns into business code
 
-- one place for business logic
-- easier unit tests for domain behavior
-- controller becomes smaller
+While `make()` exists, it should mostly live in providers (composition root), not in controller methods.
 
-### What still hurts
 
-- controller still orchestrates data access details
-- persistence strategy is still not isolated behind a contract
+### The verdict
+
+The good:
+
+- business rules are centralized in one reusable class
+- controller code is smaller and easier to scan
+- provider wiring makes dependencies explicit
+
+The bad:
+
+- controller still mixes HTTP flow with storage policy
+- duplicate checks and writes are still done against controller-local state
+- persistence is still not isolated behind a repository contract
+
 
 ## Stage 4: Extract Repository (Data Access Contract)
 
@@ -316,6 +306,16 @@ Now we isolate persistence concerns from controller code.
 We are not introducing the official DB module yet. That is deliberate.
 
 For now, we use an in-memory repository implementation behind a repository token. This keeps architecture correct while staying dependency-light.
+
+Files:
+
+* src/server/providers/ContactProviderStage4.js (modified)
+* src/server/controllers/ContactControllerStage4.js (modified)
+* src/server/repositories/ContactRepositoryStage4.js (new)
+* src/server/repositories/InMemoryContactRepositoryStage4.js (new)
+* src/server/services/ContactQualificationServiceStage4.js (unchanged)
+* src/shared/schemas/contactSchemasStage4.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### Full provider code for Stage 4
 
@@ -403,13 +403,15 @@ And the actual implementation:
 
 
 
-### What improved
+### The verdict
+
+The good:
 
 - data access now has a clear contract
 - storage backend can change without changing business logic
 - repository rules are testable independently
 
-### What still hurts
+The bad:
 
 - controller still contains use-case orchestration logic
 - changing workflow means editing controller methods directly
@@ -417,6 +419,18 @@ And the actual implementation:
 ## Stage 5: Extract Actions (Use-Case Orchestration)
 
 At this point, we are getting close to the shape most production backends use every day.
+
+Files:
+
+* src/server/providers/ContactProviderStage5.js (modified)
+* src/server/controllers/ContactControllerStage5.js (modified)
+* src/server/actions/CreateContactIntakeActionStage5.js (new)
+* src/server/actions/PreviewContactFollowupActionStage5.js (new)
+* src/server/actions/GetContactByIdActionStage5.js (new)
+* src/server/services/ContactQualificationServiceStage5.js (unchanged)
+* src/server/repositories/InMemoryContactRepositoryStage5.js (unchanged)
+* src/shared/schemas/contactSchemasStage5.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 In real modules, controller methods are usually very small:
 
@@ -568,13 +582,15 @@ execute(payload) {
 
 
 
-### What improved
+### The verdict
+
+The good:
 
 - controller now maps HTTP only
 - use-case orchestration is explicit and testable
 - business rules and persistence are isolated from HTTP concerns
 
-### What still hurts
+The bad:
 
 - controller still manually maps `{ ok, status, code, details, data }` envelopes
 - domain failures are still result-object based and not yet using the Stage 8 ergonomics
@@ -582,6 +598,18 @@ execute(payload) {
 ## Stage 6: Shared Schemas + Baseline Provider Wiring
 
 Now we compose everything together in a clean baseline structure, before the advanced Stage 7 to Stage 10 refinements.
+
+Files:
+
+* src/server/providers/ContactProviderStage6.js (modified)
+* src/server/controllers/ContactControllerStage6.js (modified)
+* src/server/actions/CreateContactIntakeActionStage6.js (unchanged)
+* src/server/actions/PreviewContactFollowupActionStage6.js (unchanged)
+* src/server/actions/GetContactByIdActionStage6.js (unchanged)
+* src/server/services/ContactQualificationServiceStage6.js (unchanged)
+* src/server/repositories/InMemoryContactRepositoryStage6.js (unchanged)
+* src/shared/schemas/contactSchemasStage6.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 ### Shared schemas
 
@@ -606,9 +634,34 @@ At this point, the architecture is clean and practical:
 
 However, there are still improvements that are possible.
 
+### The verdict
+
+The good:
+
+- architecture is now layered and readable end to end
+- responsibilities are clearly split across provider, controller, actions, service, and repository
+- this stage is a stable baseline that is easy to reason about
+
+The bad:
+
+- transport normalization is still not fully explicit at the contract edge
+- error ergonomics are still manual in controllers/actions
+- runtime context and startup config safeguards are not in place yet
+
 ## Stage 7: Route Contract API and Normalization
 
 Stage 6 gave us clean layering. Stage 7 keeps that layering, and upgrades transport input handling so it is explicit, centralized, and deterministic.
+
+Files:
+
+* src/server/providers/ContactProviderStage7.js (modified)
+* src/server/controllers/ContactControllerStage7.js (modified)
+* src/server/services/ContactQualificationServiceStage7.js (modified)
+* src/server/actions/CreateContactIntakeActionStage7.js (unchanged)
+* src/server/actions/PreviewContactFollowupActionStage7.js (unchanged)
+* src/server/actions/GetContactByIdActionStage7.js (unchanged)
+* src/shared/schemas/contactSchemasStage7.js (modified)
+* src/shared/input/contactInputNormalizationStage7.js (modified)
 
 What changes in Stage 7:
 
@@ -706,16 +759,38 @@ qualify(payload) {
 
 
 
-### What improved
+### The verdict
+
+The good:
 
 - Stage 7 contracts are now production-shaped: full schema + normalization in one shared contract module
 - transport normalization is done once in the request pipeline, not repeated inside service/action flow
 - controller stays transport-thin and consumes normalized input only
 - provider remains wiring-focused while using explicit Stage 7 contracts and the same action classes as Stage 6
 
+The bad:
+
+- domain error ergonomics are still in transition until Stage 8
+- request-scope context and middleware reuse are still not applied
+- startup config contracts are still not enforced
+
 ## Stage 8: Domain Validation and Error Ergonomics
 
 Stage 8 changes domain-failure handling from manual per-controller branching to one centralized thrown-error flow.
+
+Files:
+
+* src/server/providers/ContactProviderStage8.js (modified)
+* src/server/controllers/ContactControllerStage8.js (modified)
+* src/server/support/domainRuleValidationStage8.js (new)
+* src/server/services/ContactDomainRulesServiceStage8.js (new)
+* src/server/actions/CreateContactIntakeActionStage8.js (modified)
+* src/server/actions/PreviewContactFollowupActionStage8.js (modified)
+* src/server/actions/GetContactByIdActionStage8.js (modified)
+* src/server/services/ContactQualificationServiceStage8.js (unchanged)
+* src/server/repositories/InMemoryContactRepositoryStage8.js (unchanged)
+* src/shared/schemas/contactSchemasStage8.js (unchanged)
+* src/shared/input/contactInputNormalizationStage1.js (unchanged)
 
 Before (manual result mapping in each controller method):
 
@@ -826,9 +901,36 @@ Recommendation:
 - support `DomainError` throw-style as an approved advanced alternative
 - enforce one style per module to avoid mixed patterns
 
+### The verdict
+
+The good:
+
+- domain validation is centralized and reusable
+- actions fail fast with domain-meaningful error classes
+- provider installs one API error handler integration point (`registerApiErrorHandler(...)`)
+- controller is now success-only for core happy paths
+
+The bad:
+
+- request-scoped runtime context is not yet leveraged
+- middleware reuse policy is not yet centralized per stage
+- startup config contracts are still missing
+
 ## Stage 9: Runtime Context and Middleware Reuse
 
 Stage 9 focuses on request-scoped context and reusable middleware stacks.
+
+Files:
+
+* src/server/providers/ContactProviderStage9.js (modified)
+* src/server/controllers/ContactControllerStage9.js (modified)
+* src/server/support/contactsMiddlewareStage9.js (new)
+* src/shared/input/contactInputNormalizationStage9.js (modified)
+* src/shared/schemas/contactSchemasStage9.js (modified)
+* src/server/services/ContactDomainRulesServiceStage9.js (unchanged)
+* src/server/actions/CreateContactIntakeActionStage9.js (unchanged)
+* src/server/actions/PreviewContactFollowupActionStage9.js (unchanged)
+* src/server/actions/GetContactByIdActionStage9.js (unchanged)
 
 In this stage:
 
@@ -875,9 +977,37 @@ When your runtime bootstrap owns route registration centrally, you can also use 
 - before: routes repeat raw middleware function arrays
 - after: runtime defines `middleware.aliases` and `middleware.groups`, routes declare names like `middleware: ["api"]`
 
+### The verdict
+
+The good:
+
+- request metadata is available from scope anywhere in the route lifecycle
+- middleware is reusable without duplicating function lists per route
+- context-dependent concerns (trace IDs, guard checks) stay out of actions/services
+
+The bad:
+
+- startup config is still not validated at boot
+- middleware alias/group declarations are still optional, not standardized
+- config-driven domain policy is still not wired
+
 ## Stage 10: Startup Config Contracts
 
 Stage 10 hardens module startup by validating config at boot time.
+
+Files:
+
+* src/server/providers/ContactProviderStage10.js (modified)
+* src/server/controllers/ContactControllerStage10.js (modified)
+* src/server/support/contactsModuleConfigStage10.js (new)
+* src/server/support/contactsMiddlewareStage10.js (new)
+* src/server/support/domainRuleValidationStage10.js (new)
+* src/server/services/ContactDomainRulesServiceStage10.js (modified)
+* src/server/actions/CreateContactIntakeActionStage10.js (modified)
+* src/server/actions/PreviewContactFollowupActionStage10.js (modified)
+* src/server/actions/GetContactByIdActionStage10.js (modified)
+* src/shared/schemas/contactSchemasStage10.js (modified)
+* src/shared/input/contactInputNormalizationStage10.js (modified)
 
 In this stage:
 
@@ -917,11 +1047,18 @@ In this stage:
 
 
 
-### What improved
+### The verdict
+
+The good:
 
 - config parsing/validation is centralized and testable
 - invalid env fails before traffic, not during request handling
 - business limits are now policy-driven by config, not hardcoded magic numbers
+
+The bad:
+
+- this chapter still uses an in-memory repository (production DB strategy is deferred)
+- advanced test harnessing is still deferred to a dedicated testing chapter
 
 ## Three Validation Levels (The Important Mental Model)
 
