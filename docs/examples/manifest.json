@@ -102,13 +102,17 @@
           "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage5.js"
         },
         {
-          "id": "stage_6_final",
-          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js"
+          "id": "stage_7_route_contracts",
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage7.js"
+        },
+        {
+          "id": "stage_8_domain_errors",
+          "source": "docs/examples/03.real-app/src/server/providers/ContactProviderStage8.js"
         }
       ],
       "progressive": {
         "start": "docs/examples/03.real-app/src/server/providers/ContactProviderStage1.js",
-        "end": "docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js"
+        "end": "docs/examples/03.real-app/src/server/providers/ContactProviderStage8.js"
       }
     },
     {

@@ -21,10 +21,8 @@ So this chapter is intentionally written as a staged refactor:
 - Stage 3: 
 - Stage 4: 
 - Stage 5: 
-- Stage 6: 
 - Stage 7: 
 - Stage 8: 
-- Stage 10:
 
 
 Each stage works. Each stage improves something. Each stage still has pain that motivates the next one.
@@ -36,7 +34,6 @@ docs/examples/03.real-app/src/server/providers/ContactProviderStage2.js
 docs/examples/03.real-app/src/server/providers/ContactProviderStage3.js
 docs/examples/03.real-app/src/server/providers/ContactProviderStage4.js
 docs/examples/03.real-app/src/server/providers/ContactProviderStage5.js
-docs/examples/03.real-app/src/server/providers/ContactProviderStage6.js
 -->
 
 ## Where We Pick Up
@@ -570,13 +567,9 @@ The bad:
 - controller still manually maps `{ ok, status, code, details, data }` envelopes
 - domain failures are still result-object based and not yet using the Stage 8 ergonomics
 
-## Stage 6: DOESN'T ACTUALLY DO ANYTHING
-
-TO BE DELETED
-
 ## Stage 7: Route Contract API and Normalization
 
-Stage 6 gave us clean layering. Stage 7 keeps that layering, and upgrades transport input handling so it is explicit, centralized, and deterministic.
+Stage 5 gave us clean layering. Stage 7 keeps that layering, and upgrades transport input handling so it is explicit, centralized, and deterministic.
 
 Files:
 
@@ -596,7 +589,7 @@ Files:
 * src/server/providers/ContactProviderStage7.js (modified)
 
 ```js
-// Stage 6 style
+// Stage 5 style
 router.register(
   "POST",
   "/.../intake",
@@ -638,7 +631,7 @@ What this means at runtime:
 * src/server/controllers/ContactControllerStage7.js (modified)
 
 ```js
-// Stage 6
+// Stage 5
 const result = this.createContactIntakeAction.execute(request.body);
 const contactId = request.params?.contactId;
 
@@ -648,7 +641,7 @@ const result = this.createContactIntakeAction.execute(payload);
 const contactId = request.input.params.contactId;
 ```
 
-What changed from Stage 6:
+What changed from Stage 5:
 
 - controller now reads normalized payload/params from `request.input`
 - route-param fallback to `request.params` is removed
@@ -657,7 +650,7 @@ What changed from Stage 6:
 
 #### The shared route contracts
 
-- Stage 7 contracts are declared as full standalone contracts (not wrappers around Stage 6 contracts)
+- Stage 7 contracts are declared as full standalone contracts (not wrappers around Stage 5 contracts)
 - each route section (`body`, `params`) includes both `schema` and `normalize` where relevant
 - response maps stay in the same contract object
 
@@ -682,7 +675,7 @@ They are all pure functions, which means that both client and server can access 
 * src/server/services/ContactQualificationServiceStage7.js (modified)
 
 ```js
-  // Stage 6
+  // Stage 5
   qualify(rawPayload) {
     const normalized = normalizeContactBody(rawPayload);
     // ...qualification logic
@@ -716,13 +709,12 @@ The good:
 - Stage 7 contracts are now production-shaped: full schema + normalization in one shared contract module
 - transport normalization is done once in the request pipeline, not repeated inside service/action flow
 - controller stays transport-thin and consumes normalized input only
-- provider remains wiring-focused while using explicit Stage 7 contracts and the same action classes as Stage 6
+- provider remains wiring-focused while using explicit Stage 7 contracts and the same action classes as Stage 5
 
 The bad:
 
 - domain error ergonomics are still in transition until Stage 8
-- request-scope context and middleware reuse are still not applied
-- startup config contracts are still not enforced
+- advanced runtime policy wiring is intentionally out of scope for this chapter
 
 ## Stage 8: Domain Validation and Error Ergonomics
 
@@ -959,247 +951,6 @@ The good:
 The bad:
 - Not much left!
 
-## Stage 10: Startup Config Contracts
-
-Stage 10 hardens module startup by validating config at boot time.
-
-Files:
-
-* src/server/providers/ContactProviderStage10.js (modified)
-* src/server/controllers/ContactControllerStage10.js (modified)
-* src/server/support/contactsModuleConfigStage10.js (new)
-* src/server/support/contactsMiddlewareStage10.js (new)
-* src/server/services/ContactDomainRulesServiceStage10.js (modified)
-* src/server/actions/CreateContactIntakeActionStage10.js (modified)
-* src/server/actions/PreviewContactFollowupActionStage10.js (modified)
-* src/server/actions/GetContactByIdActionStage10.js (modified)
-* src/shared/schemas/contactSchemasStage10.js (modified)
-* src/shared/input/contactInputNormalizationStage10.js (modified)
-
-### The differences
-
-#### The module config contract
-
-* src/server/support/contactsModuleConfigStage10.js (new)
-
-- declares module config schema once with TypeBox
-- transforms + validates raw/env values with `defineModuleConfig(...)`
-
-```js
-const contactsModuleConfig = defineModuleConfig({
-  moduleId: "docs.examples.03.contacts",
-  schema: contactsModuleConfigSchema,
-  coerce: true,
-  load({ env }) {
-    return {
-      mode: env.CONTACTS_MODE,
-      allowedCountries: env.CONTACTS_ALLOWED_COUNTRIES,
-      maxStarterEmployees: env.CONTACTS_MAX_STARTER_EMPLOYEES,
-      blockDisposableEmailDomains: env.CONTACTS_BLOCK_DISPOSABLE_EMAILS
-    };
-  },
-  transform(raw) { ... },
-  validate(config) { ... }
-});
-```
-
-#### The domain rules service
-
-* src/server/services/ContactDomainRulesServiceStage10.js (modified)
-
-- receives typed, validated config instead of unchecked runtime values
-
-```js
-class ContactDomainRulesServiceStage10 {
-  constructor({ config }) {
-    this.config = config;
-  }
-
-  buildRules(normalized) {
-    const allowedCountries = this.config.allowedCountries;
-    const maxStarterEmployees = this.config.maxStarterEmployees;
-
-    return [
-      {
-        field: "country",
-        check: () =>
-          !allowedCountries.includes(normalized.country)
-            ? "country is not in allowed market list"
-            : null
-      },
-      {
-        field: "plan",
-        check: () =>
-          normalized.plan === "starter" && normalized.employees > maxStarterEmployees
-            ? `starter plan supports up to ${maxStarterEmployees} employees`
-            : null
-      }
-    ];
-  }
-}
-```
-
-#### The middleware stack
-
-* src/server/support/contactsMiddlewareStage10.js (new)
-
-- adds reusable middleware in the config-hardened stage
-
-```js
-const contactsMiddlewareStage10 = Object.freeze([
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware
-]);
-```
-
-```js
-async function requirePartnerConsentMiddleware(request, reply) {
-  const payload = request?.input?.body || request?.body || {};
-  const source = String(payload?.source || "").trim().toLowerCase();
-  const hasMarketingConsent = payload?.consentMarketing === true;
-
-  if (source === "partner" && !hasMarketingConsent) {
-    reply.code(422).send({
-      error: "Domain validation failed.",
-      code: "partner_consent_required",
-      details: {
-        fieldErrors: {
-          consentMarketing: "partner leads require marketing consent"
-        }
-      }
-    });
-  }
-}
-```
-
-#### The controller
-
-* src/server/controllers/ContactControllerStage10.js (modified)
-
-- remains thin; behavior now runs on validated module policy
-
-```js
-attachConfigHeaders(reply) {
-  reply.header("x-contacts-mode", this.contactsConfig.mode);
-  reply.header(
-    "x-contacts-max-starter-employees",
-    String(this.contactsConfig.maxStarterEmployees)
-  );
-}
-```
-
-#### The provider
-
-* src/server/providers/ContactProviderStage10.js (modified)
-
-- fails fast at startup when config is invalid
-
-```js
-const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
-const config = contactsModuleConfig.resolve({ env });
-
-app.instance(STAGE_10_CONFIG, config);
-app.singleton(
-  STAGE_10_DOMAIN_RULES_SERVICE,
-  () =>
-    new ContactDomainRulesServiceStage10({
-      config: app.make(STAGE_10_CONFIG)
-    })
-);
-```
-
-#### Kernel domain rule helper
-
-* `@jskit-ai/kernel/server/runtime` `assertNoDomainRuleFailures(...)`
-
-- optional advanced helper to reduce repeated rule-failure plumbing in larger modules
-
-```js
-assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-```
-
-#### The action: create intake
-
-* src/server/actions/CreateContactIntakeActionStage10.js (modified)
-
-- consumes validated config limits/policies during orchestration
-
-```js
-const normalized = normalizeContactBody(payload);
-assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-
-const duplicate = this.contactRepository.findByEmail(normalized.email);
-if (duplicate) {
-  throw new ConflictError("A contact with this email already exists.", {
-    code: "duplicate_contact"
-  });
-}
-```
-
-#### The action: preview follow-up
-
-* src/server/actions/PreviewContactFollowupActionStage10.js (modified)
-
-- consumes the same validated policy contract as intake
-
-```js
-const normalized = normalizeContactBody(payload);
-assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
-const qualified = this.qualificationService.qualify(normalized);
-```
-
-#### The action: get by id
-
-* src/server/actions/GetContactByIdActionStage10.js (modified)
-
-- aligned to the Stage 10 typed-config error flow
-
-```js
-if (!contact) {
-  throw new NotFoundError("Contact not found.", {
-    code: "contact_not_found"
-  });
-}
-```
-
-#### The shared route contracts
-
-* src/shared/schemas/contactSchemasStage10.js (modified)
-
-- transport contract remains explicit and versioned for Stage 10
-
-```js
-export {
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract,
-  contactByIdGetRouteContractStage10
-};
-```
-
-#### The shared input normalization
-
-* src/shared/input/contactInputNormalizationStage10.js (modified)
-
-- normalization remains deterministic and tied to Stage 10 contracts
-
-```js
-export { normalizeContactBody } from "./contactInputNormalizationStage1.js";
-```
-
-### The verdict
-
-The good:
-
-- config parsing/validation is centralized and testable
-- invalid env fails before traffic, not during request handling
-- business limits are now policy-driven by config, not hardcoded magic numbers
-
-The bad:
-
-- this chapter still uses an in-memory repository (production DB strategy is deferred)
-- advanced test harnessing is still deferred to a dedicated testing chapter
-
 ## Three Validation Levels (The Important Mental Model)
 
 When people are new to layered backend design, this is often the most confusing part.
@@ -1272,12 +1023,9 @@ The dedicated persistence chapter (to be added later) should cover production pa
 
 ## Suggested Tests For This Chapter
 
-- `POST /api/v1/docs/ch03/stage-6/contacts/intake` success
 - `POST /api/v1/docs/ch03/stage-8/contacts/intake` duplicate email mapped as domain conflict
-- `POST /api/v1/docs/ch03/stage-10/contacts/intake` partner lead without consent fails in middleware
 - `POST /api/v1/docs/ch03/stage-7/contacts/intake` success (input normalized through Stage 7 route contract)
 - schema-level validation failure for malformed request payload
-- startup config contract failure for Stage 10 invalid env (for example strict mode with too-high starter employee cap)
 
 ## What You Should Take Away
 
@@ -1292,9 +1040,9 @@ That is the path from "it works" to "it keeps working when the feature grows."
 
 ## Final, clean assembly
 
-This is the final provider assembly after all stages (Stage 1 through Stage 10).
+This is the final provider assembly after all stages in this chapter (Stages 1-5, 7, and 8).
 
-* src/server/providers/ContactProviderStage10.js
+* src/server/providers/ContactProviderStage8.js
 
 
 
@@ -1307,11 +1055,8 @@ By this point, the module is a proper composition root:
 - request pipeline ergonomics are handled through `input` normalization into `request.input`
 - domain validation is explicit in actions/services, using domain error classes
 - global HTTP error mapping is centralized by runtime bootstrap defaults
-- runtime context is request-scoped (`request.scope`, `KERNEL_TOKENS.RequestId`, and scoped context instances)
-- middleware reuse is declarative at provider route registration
-- startup config contracts are validated once at boot with `defineModuleConfig(...)`
 - persistence validation stays in repository/storage invariants
 
 If you had read the next sentence before this tutorial, it would have been almost impossible to parse:
 
-`ContactProviderStage10` is a config-aware composition root that wires typed startup contracts, transport schema gates, request-input normalization, scoped runtime context, reusable middleware policy, explicit domain validation, centralized domain error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.
+`ContactProviderStage8` is a composition root that wires transport schema gates, request-input normalization, explicit domain validation with typed app errors, centralized HTTP error mapping, and repository-backed persistence invariants into one predictable provider lifecycle.

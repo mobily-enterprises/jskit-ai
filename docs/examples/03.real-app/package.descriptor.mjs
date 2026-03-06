@@ -34,24 +34,12 @@ export default Object.freeze({
           export: "ContactProviderStage5"
         },
         {
-          entrypoint: "src/server/providers/ContactProviderStage6.js",
-          export: "ContactProviderStage6"
-        },
-        {
           entrypoint: "src/server/providers/ContactProviderStage7.js",
           export: "ContactProviderStage7"
         },
         {
           entrypoint: "src/server/providers/ContactProviderStage8.js",
           export: "ContactProviderStage8"
-        },
-        {
-          entrypoint: "src/server/providers/ContactProviderStage9.js",
-          export: "ContactProviderStage9"
-        },
-        {
-          entrypoint: "src/server/providers/ContactProviderStage10.js",
-          export: "ContactProviderStage10"
         }
       ]
     },
@@ -72,16 +60,10 @@ export default Object.freeze({
         { method: "POST", path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/intake" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/intake" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup" },
         { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-9/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-10/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup" }
+        { method: "POST", path: "/api/v1/docs/ch03/stage-8/contacts/preview-followup" }
       ]
     },
     ui: {
