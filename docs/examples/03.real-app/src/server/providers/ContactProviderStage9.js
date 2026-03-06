@@ -1,4 +1,3 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage9 } from "../controllers/ContactControllerStage9.js";
@@ -10,7 +9,8 @@ import { PreviewContactFollowupActionStage9 } from "../actions/PreviewContactFol
 import { contactsMiddlewareStage9 } from "../support/contactsMiddlewareStage9.js";
 import { contactByIdGetRouteContractStage9 } from "../../shared/schemas/contactSchemasStage9.js";
 import {
-  contactIntakePostRouteContract
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract
 } from "../../shared/schemas/contactSchemasStage9.js";
 import {
   normalizeContactBody,
@@ -23,7 +23,7 @@ const STAGE_9_CREATE_ACTION = "docs.examples.03.stage9.actions.create";
 const STAGE_9_PREVIEW_ACTION = "docs.examples.03.stage9.actions.preview";
 const STAGE_9_GET_BY_ID_ACTION = "docs.examples.03.stage9.actions.getById";
 const STAGE_9_CONTROLLER = "docs.examples.03.stage9.controller";
-const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
+const STAGE_9_INTAKE_RESPONSE_SCHEMA = Object.freeze(
   withStandardErrorResponses(
     {
       200: contactIntakePostRouteContract.response[200]
@@ -33,14 +33,15 @@ const STAGE_9_RESPONSE_SCHEMA = Object.freeze(
     }
   )
 );
-
-const stage9QuerySchema = Type.Object(
-  {
-    dryRun: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
+const STAGE_9_PREVIEW_RESPONSE_SCHEMA = Object.freeze(
+  withStandardErrorResponses(
+    {
+      200: contactPreviewFollowupPostRouteContract.response[200]
+    },
+    {
+      includeValidation400: true
+    }
+  )
 );
 
 class ContactProviderStage9 {
@@ -92,15 +93,6 @@ class ContactProviderStage9 {
     const controller = app.make(STAGE_9_CONTROLLER);
 
     const sharedOptions = {
-      body: {
-        schema: contactIntakePostRouteContract.body.schema,
-        normalize: normalizeContactBody
-      },
-      query: {
-        schema: stage9QuerySchema,
-        normalize: normalizeContactQuery
-      },
-      response: STAGE_9_RESPONSE_SCHEMA,
       middleware: contactsMiddlewareStage9,
     };
 
@@ -110,6 +102,15 @@ class ContactProviderStage9 {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/intake",
+        body: {
+          schema: contactIntakePostRouteContract.body.schema,
+          normalize: normalizeContactBody
+        },
+        query: {
+          schema: contactIntakePostRouteContract.query.schema,
+          normalize: normalizeContactQuery
+        },
+        response: STAGE_9_INTAKE_RESPONSE_SCHEMA,
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-9"],
@@ -125,6 +126,15 @@ class ContactProviderStage9 {
       {
         method: "POST",
         path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
+        body: {
+          schema: contactPreviewFollowupPostRouteContract.body.schema,
+          normalize: normalizeContactBody
+        },
+        query: {
+          schema: contactPreviewFollowupPostRouteContract.query.schema,
+          normalize: normalizeContactQuery
+        },
+        response: STAGE_9_PREVIEW_RESPONSE_SCHEMA,
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-9"],

@@ -24,7 +24,6 @@ So this chapter is intentionally written as a staged refactor:
 - Stage 6: 
 - Stage 7: 
 - Stage 8: 
-- Stage 9: 
 - Stage 10:
 
 
@@ -959,170 +958,6 @@ The good:
 
 The bad:
 - Not much left!
-## Stage 9: Runtime Context and Middleware Reuse
-
-Stage 9 adds runtime context and middleware reuse.
-
-What this means in plain terms:
-
-- every request has `request.scope` (request-local container)
-- middleware can read/write request-local values in that scope
-- provider can reuse one middleware stack across all related routes
-
-Files:
-
-* src/server/providers/ContactProviderStage9.js (modified)
-* src/server/controllers/ContactControllerStage9.js (modified)
-* src/server/support/contactsMiddlewareStage9.js (new)
-* src/shared/input/contactInputNormalizationStage9.js (modified)
-* src/shared/schemas/contactSchemasStage9.js (modified)
-* src/server/actions/CreateContactIntakeActionStage9.js (unchanged)
-* src/server/actions/PreviewContactFollowupActionStage9.js (unchanged)
-* src/server/actions/GetContactByIdActionStage9.js (unchanged)
-
-### The differences
-
-#### The middleware stack
-
-* src/server/support/contactsMiddlewareStage9.js (new)
-
-Stage 9 introduces one reusable middleware array:
-
-```js
-const contactsMiddlewareStage9 = Object.freeze([
-  requireRequestScopeMiddleware,
-  attachRequestContextMiddleware,
-  requirePartnerConsentMiddleware
-]);
-```
-
-Each middleware does one thing:
-
-- `requireRequestScopeMiddleware` ensures `request.scope` exists
-- `attachRequestContextMiddleware` stores request context in scope
-- `requirePartnerConsentMiddleware` enforces route-level business precondition
-
-#### The provider
-
-* src/server/providers/ContactProviderStage9.js (modified)
-
-Before (Stage 8): each route used a direct contract object only.
-
-```js
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-8/contacts/intake",
-  contactIntakePostRouteContractStage8,
-  handler
-);
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
-  contactPreviewFollowupPostRouteContractStage8,
-  handler
-);
-```
-
-After (Stage 9): provider defines shared route options once and reuses them.
-
-```js
-const sharedOptions = {
-  body: {
-    schema: contactIntakePostRouteContract.body.schema,
-    normalize: normalizeContactBody
-  },
-  query: {
-    schema: stage9QuerySchema,
-    normalize: normalizeContactQuery
-  },
-  response: STAGE_9_RESPONSE_SCHEMA,
-  middleware: contactsMiddlewareStage9
-};
-
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-9/contacts/intake",
-  {
-    method: "POST",
-    path: "/api/v1/docs/ch03/stage-9/contacts/intake",
-    ...sharedOptions,
-    meta: {
-      tags: ["docs-stage-9"],
-      summary: "Stage 9 request scope + middleware reuse: intake"
-    }
-  },
-  (request, reply) => controller.intake(request, reply)
-);
-router.register(
-  "POST",
-  "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
-  {
-    method: "POST",
-    path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
-    ...sharedOptions,
-    meta: {
-      tags: ["docs-stage-9"],
-      summary: "Stage 9 request scope + middleware reuse: preview"
-    }
-  },
-  (request, reply) => controller.previewFollowup(request, reply)
-);
-```
-
-This is the key Stage 9 win: one middleware stack, reused across related routes.
-
-#### The controller
-
-* src/server/controllers/ContactControllerStage9.js (modified)
-
-Controller now reads context from request scope and adds response headers:
-
-```js
-const requestId = scope.make(KERNEL_TOKENS.RequestId);
-const context = scope.has(STAGE_9_REQUEST_CONTEXT_TOKEN)
-  ? scope.make(STAGE_9_REQUEST_CONTEXT_TOKEN)
-  : null;
-
-if (requestId) reply.header("x-request-id", requestId);
-if (context?.receivedAt) reply.header("x-request-received-at", context.receivedAt);
-```
-
-Controller input handling is also made defensive:
-
-```js
-resolveInputBody(request) {
-  return request?.input?.body || request?.body || {};
-}
-```
-
-#### Shared contracts and input
-
-* src/shared/schemas/contactSchemasStage9.js (modified)
-* src/shared/input/contactInputNormalizationStage9.js (modified)
-
-These remain thin stage-scoped exports. The practical behavior change in Stage 9 comes from:
-
-- provider middleware wiring
-- middleware implementation
-- controller use of request scope context
-
-### What improved
-
-- request metadata is available in one request-local place (`request.scope`)
-- middleware is reusable without duplicating route-level function arrays
-- runtime concerns stay in middleware/controller, not in actions/services
-
-### The verdict
-
-The good:
-
-- Stage 9 introduces a clear runtime-context pattern
-- middleware reuse reduces repeated route boilerplate
-
-The bad:
-
-- startup config still is not validated yet (next stage)
-- alias/group middleware declarations are still optional at this stage
 
 ## Stage 10: Startup Config Contracts
 
@@ -1150,17 +985,93 @@ Files:
 - declares module config schema once with TypeBox
 - transforms + validates raw/env values with `defineModuleConfig(...)`
 
+```js
+const contactsModuleConfig = defineModuleConfig({
+  moduleId: "docs.examples.03.contacts",
+  schema: contactsModuleConfigSchema,
+  coerce: true,
+  load({ env }) {
+    return {
+      mode: env.CONTACTS_MODE,
+      allowedCountries: env.CONTACTS_ALLOWED_COUNTRIES,
+      maxStarterEmployees: env.CONTACTS_MAX_STARTER_EMPLOYEES,
+      blockDisposableEmailDomains: env.CONTACTS_BLOCK_DISPOSABLE_EMAILS
+    };
+  },
+  transform(raw) { ... },
+  validate(config) { ... }
+});
+```
+
 #### The domain rules service
 
 * src/server/services/ContactDomainRulesServiceStage10.js (modified)
 
 - receives typed, validated config instead of unchecked runtime values
 
+```js
+class ContactDomainRulesServiceStage10 {
+  constructor({ config }) {
+    this.config = config;
+  }
+
+  buildRules(normalized) {
+    const allowedCountries = this.config.allowedCountries;
+    const maxStarterEmployees = this.config.maxStarterEmployees;
+
+    return [
+      {
+        field: "country",
+        check: () =>
+          !allowedCountries.includes(normalized.country)
+            ? "country is not in allowed market list"
+            : null
+      },
+      {
+        field: "plan",
+        check: () =>
+          normalized.plan === "starter" && normalized.employees > maxStarterEmployees
+            ? `starter plan supports up to ${maxStarterEmployees} employees`
+            : null
+      }
+    ];
+  }
+}
+```
+
 #### The middleware stack
 
 * src/server/support/contactsMiddlewareStage10.js (new)
 
-- keeps Stage 9 middleware reuse integrated in the config-hardened stage
+- adds reusable middleware in the config-hardened stage
+
+```js
+const contactsMiddlewareStage10 = Object.freeze([
+  requireRequestScopeMiddleware,
+  attachRequestContextMiddleware,
+  requirePartnerConsentMiddleware
+]);
+```
+
+```js
+async function requirePartnerConsentMiddleware(request, reply) {
+  const payload = request?.input?.body || request?.body || {};
+  const source = String(payload?.source || "").trim().toLowerCase();
+  const hasMarketingConsent = payload?.consentMarketing === true;
+
+  if (source === "partner" && !hasMarketingConsent) {
+    reply.code(422).send({
+      error: "Domain validation failed.",
+      code: "partner_consent_required",
+      details: {
+        fieldErrors: {
+          consentMarketing: "partner leads require marketing consent"
+        }
+      }
+    });
+  }
+}
+```
 
 #### The controller
 
@@ -1168,11 +1079,35 @@ Files:
 
 - remains thin; behavior now runs on validated module policy
 
+```js
+attachConfigHeaders(reply) {
+  reply.header("x-contacts-mode", this.contactsConfig.mode);
+  reply.header(
+    "x-contacts-max-starter-employees",
+    String(this.contactsConfig.maxStarterEmployees)
+  );
+}
+```
+
 #### The provider
 
 * src/server/providers/ContactProviderStage10.js (modified)
 
 - fails fast at startup when config is invalid
+
+```js
+const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
+const config = contactsModuleConfig.resolve({ env });
+
+app.instance(STAGE_10_CONFIG, config);
+app.singleton(
+  STAGE_10_DOMAIN_RULES_SERVICE,
+  () =>
+    new ContactDomainRulesServiceStage10({
+      config: app.make(STAGE_10_CONFIG)
+    })
+);
+```
 
 #### Kernel domain rule helper
 
@@ -1180,11 +1115,27 @@ Files:
 
 - optional advanced helper to reduce repeated rule-failure plumbing in larger modules
 
+```js
+assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+```
+
 #### The action: create intake
 
 * src/server/actions/CreateContactIntakeActionStage10.js (modified)
 
 - consumes validated config limits/policies during orchestration
+
+```js
+const normalized = normalizeContactBody(payload);
+assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+
+const duplicate = this.contactRepository.findByEmail(normalized.email);
+if (duplicate) {
+  throw new ConflictError("A contact with this email already exists.", {
+    code: "duplicate_contact"
+  });
+}
+```
 
 #### The action: preview follow-up
 
@@ -1192,11 +1143,25 @@ Files:
 
 - consumes the same validated policy contract as intake
 
+```js
+const normalized = normalizeContactBody(payload);
+assertNoDomainRuleFailures(this.domainRulesService.buildRules(normalized));
+const qualified = this.qualificationService.qualify(normalized);
+```
+
 #### The action: get by id
 
 * src/server/actions/GetContactByIdActionStage10.js (modified)
 
 - aligned to the Stage 10 typed-config error flow
+
+```js
+if (!contact) {
+  throw new NotFoundError("Contact not found.", {
+    code: "contact_not_found"
+  });
+}
+```
 
 #### The shared route contracts
 
@@ -1204,11 +1169,23 @@ Files:
 
 - transport contract remains explicit and versioned for Stage 10
 
+```js
+export {
+  contactIntakePostRouteContract,
+  contactPreviewFollowupPostRouteContract,
+  contactByIdGetRouteContractStage10
+};
+```
+
 #### The shared input normalization
 
 * src/shared/input/contactInputNormalizationStage10.js (modified)
 
 - normalization remains deterministic and tied to Stage 10 contracts
+
+```js
+export { normalizeContactBody } from "./contactInputNormalizationStage1.js";
+```
 
 ### The verdict
 
@@ -1297,7 +1274,7 @@ The dedicated persistence chapter (to be added later) should cover production pa
 
 - `POST /api/v1/docs/ch03/stage-6/contacts/intake` success
 - `POST /api/v1/docs/ch03/stage-8/contacts/intake` duplicate email mapped as domain conflict
-- `POST /api/v1/docs/ch03/stage-9/contacts/intake` partner lead without consent fails in middleware
+- `POST /api/v1/docs/ch03/stage-10/contacts/intake` partner lead without consent fails in middleware
 - `POST /api/v1/docs/ch03/stage-7/contacts/intake` success (input normalized through Stage 7 route contract)
 - schema-level validation failure for malformed request payload
 - startup config contract failure for Stage 10 invalid env (for example strict mode with too-high starter employee cap)
