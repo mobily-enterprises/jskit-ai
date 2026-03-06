@@ -1241,79 +1241,11 @@ We are not introducing the official DB module yet. That is deliberate.
 
 For now, we use an in-memory repository implementation behind a repository token. This keeps architecture correct while staying dependency-light.
 
-### Create repository contract token
-
-Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
-```js
-const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
-
-class ContactRepository {
-  findById(_id) {
-    throw new Error("ContactRepository.findById must be implemented.");
-  }
-
-  findByEmail(_email) {
-    throw new Error("ContactRepository.findByEmail must be implemented.");
-  }
-
-  save(_contact) {
-    throw new Error("ContactRepository.save must be implemented.");
-  }
-
-  list() {
-    throw new Error("ContactRepository.list must be implemented.");
-  }
-}
-
-export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
-```
-<!-- /DOCS:EXAMPLE -->
-
-### Create in-memory implementation
-
-Use `docs/examples/03.real-app/src/server/repositories/InMemoryContactRepository.js`:
-
-<!-- DOCS:EXAMPLE package="03.real-app" repository="InMemoryContactRepository" lang="js" -->
-```js
-import { ContactRepository } from "./ContactRepository.js";
-
-class InMemoryContactRepository extends ContactRepository {
-  constructor() {
-    super();
-    this.byId = new Map();
-    this.byEmail = new Map();
-  }
-
-  findById(id) {
-    return this.byId.get(id) || null;
-  }
-
-  findByEmail(email) {
-    const id = this.byEmail.get(email) || null;
-    if (!id) {
-      return null;
-    }
-    return this.byId.get(id) || null;
-  }
-
-  save(contact) {
-    this.byId.set(contact.id, contact);
-    this.byEmail.set(contact.email, contact.id);
-    return contact;
-  }
-
-  list() {
-    return [...this.byId.values()];
-  }
-}
-
-export { InMemoryContactRepository };
-```
-<!-- /DOCS:EXAMPLE -->
-
 ### Full provider code for Stage 4
+
+With the new repository as a module, the providers becomes much cleaner:
+
+(CODEX: Summarise the changes, as I did in Stage 3)
 
 Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`:
 
@@ -1392,6 +1324,85 @@ class Stage4RepositoryProvider {
 export { Stage4RepositoryProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
+
+
+
+### Create repository and token
+
+We now need the code that actually implements the repository.
+
+(CODEX: Explain why you create the token AND the repository together)
+
+Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
+```js
+const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
+
+class ContactRepository {
+  findById(_id) {
+    throw new Error("ContactRepository.findById must be implemented.");
+  }
+
+  findByEmail(_email) {
+    throw new Error("ContactRepository.findByEmail must be implemented.");
+  }
+
+  save(_contact) {
+    throw new Error("ContactRepository.save must be implemented.");
+  }
+
+  list() {
+    throw new Error("ContactRepository.list must be implemented.");
+  }
+}
+
+export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
+```
+<!-- /DOCS:EXAMPLE -->
+
+And the actual implementation:
+
+Use `docs/examples/03.real-app/src/server/repositories/InMemoryContactRepository.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" repository="InMemoryContactRepository" lang="js" -->
+```js
+import { ContactRepository } from "./ContactRepository.js";
+
+class InMemoryContactRepository extends ContactRepository {
+  constructor() {
+    super();
+    this.byId = new Map();
+    this.byEmail = new Map();
+  }
+
+  findById(id) {
+    return this.byId.get(id) || null;
+  }
+
+  findByEmail(email) {
+    const id = this.byEmail.get(email) || null;
+    if (!id) {
+      return null;
+    }
+    return this.byId.get(id) || null;
+  }
+
+  save(contact) {
+    this.byId.set(contact.id, contact);
+    this.byEmail.set(contact.email, contact.id);
+    return contact;
+  }
+
+  list() {
+    return [...this.byId.values()];
+  }
+}
+
+export { InMemoryContactRepository };
+```
+<!-- /DOCS:EXAMPLE -->
+
 
 ### What improved
 
