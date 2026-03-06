@@ -282,8 +282,7 @@ export { Stage1MonolithProvider };
 ```
 <!-- /DOCS:EXAMPLE -->
 
-At Stage 1 we keep this shared file intentionally minimal at the public API level: it exports only the baseline route contracts used by the first stages.
-Normalization and other refinements are added later, when they are actually introduced.
+The routing contracts are stored in an external file. They are self explanatory.
 
 Use `docs/examples/03.real-app/src/shared/schemas/contactSchemas.js`:
 
@@ -471,20 +470,17 @@ export {
 ```
 <!-- /DOCS:EXAMPLE -->
 
-What this file does in practical terms:
-
-- It defines the transport contract once (request and response shapes).
-- It exports named route-contract objects (`contactIntakePostRouteContract`, `contactPreviewFollowupPostRouteContract`) that routes can reuse.
-- It keeps API metadata (`meta.tags`, `meta.summary`) with the same contract.
-
 Practical consequence in `router.register(...)`:
 
 - You pass the contract object directly as the route options argument.
 - Fastify validation and response schema expectations are applied from that object.
-- Route definitions stay short and consistent; you avoid repeating schema objects in every provider.
-- If you update the contract in this shared file, all routes importing it pick up that change.
 
+Finally, the functions to nornmalize fields are placed in a file in the package's `shared` folder:
 
+Use `docs/examples/03.real-app/src/shared/input/contactInputNormalization.js`:
+
+<!-- DOCS:EXAMPLE package="03.real-app" file="src/shared/input/contactInputNormalization.js" lang="js" -->
+<!-- /DOCS:EXAMPLE -->
 
 ### Run and test
 
@@ -893,7 +889,9 @@ It becomes a Service Locator pattern. Problems:
 - more runtime surprises (token not found) during request handling
 - mixing composition concerns into business code
 
-So yes, while `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
+While `make()` exists, but it should mostly live in providers (composition root), not in controller methods.
+
+This is the final code of the provider.
 
 Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 
@@ -981,48 +979,7 @@ This keeps controller responsibilities focused on:
 - calling domain logic
 - mapping result to HTTP response
 
-Quick snippet summary of what changed:
-
-```js
-// Before (Stage 2): controller owns qualification internals
-const qualified = this.qualify(request.body);
-// ...and qualify() itself contains the domain flow:
-qualify(raw) {
-  const normalized = normalizeContactBody(raw);
-  const details = this.validateContact(normalized);
-
-  if (details.length > 0) {
-    return { ok: false, code: "domain_validation_failed", details, normalized };
-  }
-
-  const score = this.scoreContact(normalized);
-  const segment = this.segmentFromScore(score);
-  const followupPlan = this.buildFollowupPlan({ segment, source: normalized.source });
-
-  return { ok: true, normalized, score, segment, followupPlan };
-}
-
-// After (Stage 3): controller delegates domain logic to service
-const qualified = this.qualificationService.qualify(request.body);
-if (!qualified.ok) {
-  reply.code(422).send({
-    error: "Domain validation failed.",
-    code: qualified.code,
-    details: qualified.details
-  });
-  return;
-}
-reply.code(200).send({
-  ok: true,
-  mode: "intake",
-  email: qualified.normalized.email,
-  score: qualified.score,
-  segment: qualified.segment,
-  followupPlan: qualified.followupPlan,
-  duplicateDetected: false,
-  persisted: true
-});
-```
+In the new controller, the business specific functions are moved out (`validateContact)`, `scoreContact()`, `segmentFromScore()`, `buildFollowupPlan()`, `qualify()`) and the service passed into the constructor is saved onto `this.` and used:
 
 Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage3.js`:
 
