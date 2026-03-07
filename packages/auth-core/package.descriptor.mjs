@@ -60,8 +60,8 @@ export default Object.freeze({
           "summary": "Exports server auth access, RBAC, and Fastify auth policy providers plus server auth utility modules."
         },
         {
-          "subpath": "./shared/authApi",
-          "summary": "Exports shared auth API helpers (with companion shared sign-out helpers at ./shared/signOutFlow)."
+          "subpath": "./shared",
+          "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
         }
       ],
       "containerTokens": {

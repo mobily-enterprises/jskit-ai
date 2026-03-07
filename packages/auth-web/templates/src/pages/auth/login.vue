@@ -7,7 +7,7 @@ export const routeMeta = {
 </script>
 
 <script setup>
-import DefaultLoginView from "@jskit-ai/auth-web/client/views/DefaultLoginView.vue";
+import DefaultLoginView from "@jskit-ai/auth-web/client/views/DefaultLoginView";
 </script>
 
 <template>

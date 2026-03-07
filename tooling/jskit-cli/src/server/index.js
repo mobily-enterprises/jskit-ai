@@ -2010,6 +2010,19 @@ function collectContainerBindingsFromProviderSource({ source, providerLabel, ent
 
 function collectPackageExportEntries(exportsField) {
   const entries = [];
+  const resolveSubpathSortPriority = (subpath) => {
+    const normalized = String(subpath || "").trim();
+    if (normalized === "./client") {
+      return 0;
+    }
+    if (normalized === "./server") {
+      return 1;
+    }
+    if (normalized === "./shared") {
+      return 2;
+    }
+    return 10;
+  };
 
   const appendEntry = (subpath, conditions, target) => {
     const normalizedSubpath = String(subpath || ".").trim() || ".";
@@ -2070,6 +2083,11 @@ function collectPackageExportEntries(exportsField) {
     deduplicated.push(entry);
   }
   return deduplicated.sort((left, right) => {
+    const leftPriority = resolveSubpathSortPriority(left.subpath);
+    const rightPriority = resolveSubpathSortPriority(right.subpath);
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
     const subpathComparison = left.subpath.localeCompare(right.subpath);
     if (subpathComparison !== 0) {
       return subpathComparison;

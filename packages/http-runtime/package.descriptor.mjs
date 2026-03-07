@@ -50,7 +50,7 @@ export default Object.freeze({
         },
         {
           "subpath": "./shared",
-          "summary": "Exports HTTP contract/schema utilities (error responses, pagination schema, TypeBox formats)."
+          "summary": "Exports HTTP contract/schema utilities, with structured contract subpaths under ./shared/contracts/*."
         }
       ],
       "containerTokens": {

@@ -7,7 +7,7 @@ export const routeMeta = {
 </script>
 
 <script setup>
-import DefaultSignOutView from "@jskit-ai/auth-web/client/views/DefaultSignOutView.vue";
+import DefaultSignOutView from "@jskit-ai/auth-web/client/views/DefaultSignOutView";
 </script>
 
 <template>

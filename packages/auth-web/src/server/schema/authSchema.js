@@ -12,7 +12,7 @@ import {
 } from "@jskit-ai/auth-core/server/authConstraints";
 import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "@jskit-ai/auth-core/server/authMethods";
 import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/auth-core/server/oauthProviders";
-import { enumSchema } from "@jskit-ai/http-runtime/errorResponses";
+import { enumSchema } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 
 const registerCredentials = Type.Object(
   {

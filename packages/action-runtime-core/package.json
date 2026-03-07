@@ -6,20 +6,21 @@
     "test": "node --test"
   },
   "exports": {
-    "./contracts": "./src/shared/contracts.js",
-    "./registry": "./src/shared/registry.js",
-    "./executionContext": "./src/shared/executionContext.js",
-    "./pipeline": "./src/shared/pipeline.js",
-    "./policies": "./src/shared/policies.js",
-    "./idempotency": "./src/shared/idempotency.js",
-    "./audit": "./src/shared/audit.js",
-    "./observability": "./src/shared/observability.js",
-    "./actionIds": "./src/shared/actionIds.js",
-    "./realtimePublish": "./src/shared/realtimePublish.js",
-    "./actionContributorHelpers": "./src/shared/actionContributorHelpers.js",
     "./server": "./src/server/index.js",
     "./server/providers/ActionRuntimeCoreServiceProvider": "./src/server/providers/ActionRuntimeCoreServiceProvider.js",
     "./client": "./src/client/index.js",
-    "./client/providers/ActionRuntimeCoreClientProvider": "./src/client/providers/ActionRuntimeCoreClientProvider.js"
+    "./client/providers/ActionRuntimeCoreClientProvider": "./src/client/providers/ActionRuntimeCoreClientProvider.js",
+    "./shared": "./src/shared/index.js",
+    "./shared/contracts": "./src/shared/contracts.js",
+    "./shared/registry": "./src/shared/registry.js",
+    "./shared/executionContext": "./src/shared/executionContext.js",
+    "./shared/pipeline": "./src/shared/pipeline.js",
+    "./shared/policies": "./src/shared/policies.js",
+    "./shared/idempotency": "./src/shared/idempotency.js",
+    "./shared/audit": "./src/shared/audit.js",
+    "./shared/observability": "./src/shared/observability.js",
+    "./shared/actionIds": "./src/shared/actionIds.js",
+    "./shared/realtimePublish": "./src/shared/realtimePublish.js",
+    "./shared/actionContributorHelpers": "./src/shared/actionContributorHelpers.js"
   }
 }

@@ -40,8 +40,8 @@ export default Object.freeze({
           "summary": "Exports action runtime APIs for server use plus contributor helpers and ActionRuntimeCoreServiceProvider."
         },
         {
-          "subpath": "./contracts",
-          "summary": "Exports shared action definition contracts and normalization primitives (with additional shared subpaths such as ./registry, ./pipeline, ./policies)."
+          "subpath": "./shared",
+          "summary": "Exports shared action runtime APIs and contracts (with structured subpaths such as ./shared/contracts, ./shared/registry, ./shared/pipeline, ./shared/policies)."
         }
       ],
       "containerTokens": {
