@@ -44,14 +44,11 @@ Primary references:
 - Kernel/framework core:
   - `/packages/kernel`
 - Runtime capability packages:
-  - `/packages/access-core`
+  - `/packages/auth-core`
   - `/packages/action-runtime-core`
   - `/packages/auth-provider-supabase-core`
   - `/packages/auth-web`
-  - `/packages/fastify-auth-policy`
-  - `/packages/http-client-runtime`
-  - `/packages/http-contracts`
-  - `/packages/rbac-core`
+  - `/packages/http-runtime`
 - Tooling:
   - `/tooling/create-app`
   - `/tooling/jskit-cli`
@@ -187,8 +184,8 @@ References:
 
 ## 8. Package Responsibilities (Non-Kernel)
 
-- `access-core`: auth constraints/validators/OAuth utilities + auth access APIs.
-  - `/packages/access-core/src/server/*`
+- `auth-core`: auth access utilities + RBAC manifest model + Fastify auth policy runtime.
+  - `/packages/auth-core/src/server/*`
 - `action-runtime-core`: action registry/contracts/pipeline/policies/idempotency/audit.
   - `/packages/action-runtime-core/src/lib/*`
 - `auth-provider-supabase-core`: supabase auth service + auth action contributor.
@@ -196,14 +193,8 @@ References:
 - `auth-web`: auth HTTP routes/controllers + client auth UI/runtime.
   - `/packages/auth-web/src/server/*`
   - `/packages/auth-web/src/client/*`
-- `fastify-auth-policy`: policy + CSRF enforcement plugin using route config metadata.
-  - `/packages/fastify-auth-policy/src/server/lib/*`
-- `http-client-runtime`: HTTP client runtime + CSRF/session/retry/stream support.
-  - `/packages/http-client-runtime/src/lib/*`
-- `http-contracts`: shared TypeBox contracts and standard error schemas.
-  - `/packages/http-contracts/src/lib/*`
-- `rbac-core`: RBAC manifest/permission model and invariants.
-  - `/packages/rbac-core/src/server/lib/rbac.js`
+- `http-runtime`: HTTP contracts (TypeBox + standard errors) plus HTTP client runtime (CSRF/session/retry/stream support).
+  - `/packages/http-runtime/src/shared/*`
 
 ## 9. Tooling Model
 
@@ -401,4 +392,3 @@ References:
 - Descriptor-driven package/runtime composition.
 - Provider lifecycle is the authoritative startup model.
 - Stage 7 architecture is the preferred server feature baseline for real app work.
-

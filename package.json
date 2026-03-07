@@ -24,23 +24,20 @@
   },
   "dependencies": {
     "@jskit-ai/kernel": "0.1.0",
-    "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/action-runtime-core": "0.1.0",
     "dotenv": "^17.3.1",
     "@supabase/supabase-js": "^2.57.4",
     "jose": "^6.1.0",
     "@jskit-ai/auth-provider-supabase-core": "0.1.0",
-    "@jskit-ai/http-client-runtime": "0.1.0",
     "@fastify/type-provider-typebox": "^6.1.0",
     "typebox": "^1.0.81",
-    "@jskit-ai/http-contracts": "0.1.0",
-    "@jskit-ai/rbac-core": "0.1.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/fastify-auth-policy": "0.1.0",
     "@mdi/js": "^7.4.47",
     "vuetify": "^4.0.0",
-    "@jskit-ai/auth-web": "0.1.0"
+    "@jskit-ai/auth-web": "0.1.0",
+    "@jskit-ai/http-runtime": "0.1.0",
+    "@jskit-ai/auth-core": "0.1.0"
   }
 }

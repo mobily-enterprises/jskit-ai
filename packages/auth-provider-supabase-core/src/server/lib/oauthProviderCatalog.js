@@ -1,7 +1,7 @@
 import {
   normalizeOAuthProviderId,
   normalizeOAuthProviderList
-} from "@jskit-ai/access-core/server/oauthProviders";
+} from "@jskit-ai/auth-core/server/oauthProviders";
 
 const SUPABASE_OAUTH_PROVIDER_METADATA = Object.freeze({
   apple: Object.freeze({ id: "apple", label: "Apple" }),

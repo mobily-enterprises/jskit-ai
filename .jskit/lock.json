@@ -1,25 +1,6 @@
 {
   "lockVersion": 1,
   "installedPackages": {
-    "@jskit-ai/access-core": {
-      "packageId": "@jskit-ai/access-core",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/access-core/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {},
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
-    },
     "@jskit-ai/action-runtime-core": {
       "packageId": "@jskit-ai/action-runtime-core",
       "version": "0.1.0",
@@ -134,131 +115,6 @@
       },
       "installedAt": "2026-03-03T04:55:22.231Z"
     },
-    "@jskit-ai/rbac-core": {
-      "packageId": "@jskit-ai/rbac-core",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/rbac-core/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@jskit-ai/rbac-core": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "0.1.0"
-            }
-          },
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
-    },
-    "@jskit-ai/fastify-auth-policy": {
-      "packageId": "@jskit-ai/fastify-auth-policy",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/fastify-auth-policy/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@fastify/cookie": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "^11.0.2"
-            },
-            "@fastify/csrf-protection": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "^7.1.0"
-            },
-            "@fastify/rate-limit": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "^10.3.0"
-            },
-            "@jskit-ai/fastify-auth-policy": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "0.1.0"
-            }
-          },
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.300Z"
-    },
-    "@jskit-ai/http-client-runtime": {
-      "packageId": "@jskit-ai/http-client-runtime",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/http-client-runtime/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@jskit-ai/http-client-runtime": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "0.1.0"
-            }
-          },
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
-    },
-    "@jskit-ai/http-contracts": {
-      "packageId": "@jskit-ai/http-contracts",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/http-contracts/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@fastify/type-provider-typebox": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "^6.1.0"
-            },
-            "typebox": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "^1.0.81"
-            },
-            "@jskit-ai/http-contracts": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "0.1.0"
-            }
-          },
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
-    },
     "@jskit-ai/auth-web": {
       "packageId": "@jskit-ai/auth-web",
       "version": "0.1.0",
@@ -317,6 +173,86 @@
       },
       "options": {},
       "installedAt": "2026-03-03T04:55:22.300Z"
+    },
+    "@jskit-ai/http-runtime": {
+      "packageId": "@jskit-ai/http-runtime",
+      "version": "0.1.0",
+      "source": {
+        "type": "packages-directory",
+        "descriptorPath": "packages/http-runtime/package.descriptor.mjs"
+      },
+      "managed": {
+        "packageJson": {
+          "dependencies": {
+            "@fastify/type-provider-typebox": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^6.1.0"
+            },
+            "typebox": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^1.0.81"
+            },
+            "@jskit-ai/http-runtime": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "0.1.0"
+            }
+          },
+          "devDependencies": {},
+          "scripts": {}
+        },
+        "text": {},
+        "files": []
+      },
+      "options": {},
+      "installedAt": "2026-03-03T04:55:22.299Z"
+    },
+    "@jskit-ai/auth-core": {
+      "packageId": "@jskit-ai/auth-core",
+      "version": "0.1.0",
+      "source": {
+        "type": "packages-directory",
+        "descriptorPath": "packages/auth-core/package.descriptor.mjs"
+      },
+      "managed": {
+        "packageJson": {
+          "dependencies": {
+            "@jskit-ai/kernel": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "0.1.0"
+            },
+            "@fastify/cookie": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^11.0.2"
+            },
+            "@fastify/csrf-protection": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^7.1.0"
+            },
+            "@fastify/rate-limit": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^10.3.0"
+            },
+            "@jskit-ai/auth-core": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "0.1.0"
+            }
+          },
+          "devDependencies": {},
+          "scripts": {}
+        },
+        "text": {},
+        "files": []
+      },
+      "options": {},
+      "installedAt": "2026-03-03T04:55:22.299Z"
     }
   }
 }

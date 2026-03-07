@@ -10,7 +10,7 @@ const APP_ROOT = path.resolve(__dirname, "../..");
 
 const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
   "@fastify/type-provider-typebox",
-  "@jskit-ai/http-contracts",
+  "@jskit-ai/http-runtime",
   "@jskit-ai/kernel",
   "fastify",
   "vue",

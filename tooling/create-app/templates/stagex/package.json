@@ -27,12 +27,12 @@
   "dependencies": {
     "@local/main": "file:packages/main",
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/http-contracts": "0.1.0",
     "@jskit-ai/kernel": "0.1.0",
     "fastify": "^5.7.4",
     "vue": "^3.5.13",
     "vue-router": "^4.6.4",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.0.0",
+    "@jskit-ai/http-runtime": "0.1.0"
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",

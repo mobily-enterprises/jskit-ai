@@ -2845,7 +2845,7 @@ Use `docs/examples/03.real-app/src/server/providers/Stage8ErrorErgonomicsProvide
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage8ErrorErgonomicsProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
@@ -3409,7 +3409,7 @@ Use `docs/examples/03.real-app/src/server/providers/Stage9RuntimeContextProvider
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage9RuntimeContextProvider" lang="js" -->
 ```js
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
@@ -3899,7 +3899,7 @@ Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvide
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
@@ -4174,7 +4174,7 @@ Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvide
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,

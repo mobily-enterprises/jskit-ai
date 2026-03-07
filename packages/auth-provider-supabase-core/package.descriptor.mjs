@@ -24,7 +24,7 @@ export default Object.freeze({
     }
   },
   "dependsOn": [
-    "@jskit-ai/access-core",
+    "@jskit-ai/auth-core",
     "@jskit-ai/action-runtime-core",
     "@jskit-ai/value-app-config-shared"
   ],
@@ -55,7 +55,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/access-core": "0.1.0",
+        "@jskit-ai/auth-core": "0.1.0",
         "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "dotenv": "^16.4.5",

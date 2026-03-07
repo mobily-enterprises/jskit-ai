@@ -45,8 +45,8 @@ test("list packages shows installed local packages section for lock-only package
     await createMinimalApp(appRoot, {
       name: "demo-app",
       installedPackages: {
-        "@jskit-ai/access-core": {
-          packageId: "@jskit-ai/access-core",
+        "@jskit-ai/auth-core": {
+          packageId: "@jskit-ai/auth-core",
           version: "0.1.0"
         },
         "@demo-app/local-feature": {

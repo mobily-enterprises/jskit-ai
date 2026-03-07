@@ -1,4 +1,4 @@
-import { runAuthSignOutFlow } from "@jskit-ai/access-core/client/signOutFlow";
+import { runAuthSignOutFlow } from "@jskit-ai/auth-core/client/signOutFlow";
 import { refreshAuthGuardState } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
 

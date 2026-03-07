@@ -1,0 +1,19 @@
+{
+  "name": "@jskit-ai/http-runtime",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./paginationQuery": "./src/shared/contracts/paginationQuery.js",
+    "./typeboxFormats": "./src/shared/contracts/typeboxFormats.js",
+    "./errorResponses": "./src/shared/contracts/errorResponses.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "typebox": "^1.0.81"
+  }
+}

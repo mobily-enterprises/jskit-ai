@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { schema } from "../schema/index.js";
-import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
 
 function buildRoutes(controller) {
   if (!controller) {

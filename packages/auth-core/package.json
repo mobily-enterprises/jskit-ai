@@ -1,0 +1,37 @@
+{
+  "name": "@jskit-ai/auth-core",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./server": "./src/server/index.js",
+    "./server/authConstraints": "./src/server/authConstraints.js",
+    "./server/authMethods": "./src/server/authMethods.js",
+    "./server/oauthProviders": "./src/server/oauthProviders.js",
+    "./server/oauthCallbackParams": "./src/server/oauthCallbackParams.js",
+    "./server/utils": "./src/server/utils.js",
+    "./server/validators": "./src/server/validators.js",
+    "./server/inviteTokens": "./src/server/inviteTokens.js",
+    "./server/membershipAccess": "./src/server/membershipAccess.js",
+    "./server/lib/rbac": "./src/server/lib/rbac.js",
+    "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
+    "./server/lib/index": "./src/server/lib/index.js",
+    "./server/lib/plugin": "./src/server/lib/plugin.js",
+    "./server/lib/routeMeta": "./src/server/lib/routeMeta.js",
+    "./client": "./src/client/index.js",
+    "./client/authApi": "./src/client/authApi.js",
+    "./client/signOutFlow": "./src/client/signOutFlow.js",
+    "./shared/authApi": "./src/shared/authApi.js",
+    "./shared/signOutFlow": "./src/shared/signOutFlow.js",
+    "./lib/authApi": "./src/shared/authApi.js",
+    "./lib/signOutFlow": "./src/shared/signOutFlow.js"
+  },
+  "dependencies": {
+    "@jskit-ai/kernel": "0.1.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/csrf-protection": "^7.1.0",
+    "@fastify/rate-limit": "^10.3.0"
+  }
+}

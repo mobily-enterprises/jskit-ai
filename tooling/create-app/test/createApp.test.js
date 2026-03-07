@@ -40,7 +40,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
     assert.equal(packageJson.scripts.postinstall, undefined);
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
-    assert.equal(packageJson.dependencies["@jskit-ai/http-contracts"], "0.1.0");
+    assert.equal(packageJson.dependencies["@jskit-ai/http-runtime"], "0.1.0");
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");

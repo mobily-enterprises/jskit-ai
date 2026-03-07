@@ -4,10 +4,8 @@ export default Object.freeze({
   "version": "0.1.0",
   "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
   "dependsOn": [
-    "@jskit-ai/access-core",
-    "@jskit-ai/http-client-runtime",
-    "@jskit-ai/http-contracts",
-    "@jskit-ai/fastify-auth-policy",
+    "@jskit-ai/auth-core",
+    "@jskit-ai/http-runtime",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -165,9 +163,8 @@ export default Object.freeze({
       "runtime": {
         "@mdi/js": "^7.4.47",
         "@fastify/type-provider-typebox": "^6.1.0",
-        "@jskit-ai/access-core": "0.1.0",
-        "@jskit-ai/http-client-runtime": "0.1.0",
-        "@jskit-ai/http-contracts": "0.1.0",
+        "@jskit-ai/auth-core": "0.1.0",
+        "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "vuetify": "^4.0.0"
       },
