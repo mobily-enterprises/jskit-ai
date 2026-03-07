@@ -27,6 +27,11 @@ test("show package renders grouped file write plan from descriptor mutations", (
   );
   assert.match(stdout, /Container tokens -- app\.make\('\.\.\.'\):/);
   assert.match(stdout, /server: auth\.web\.service/);
+  assert.match(stdout, /Placement outlets \(accepted slots\) \(\d+\):/);
+  assert.match(stdout, /avatar\.primary-menu/);
+  assert.match(stdout, /Placement contributions \(default entries\) \(\d+\):/);
+  assert.match(stdout, /auth\.profile\.widget/);
+  assert.match(stdout, /auth\.profile\.menu\.sign-out/);
   assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /- \.\/server\s+\[ok\]/);
   assert.doesNotMatch(stdout, /\.\/server -> \.\/src\/server\/index\.js/);

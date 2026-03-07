@@ -185,7 +185,53 @@ export default Object.freeze({
         }
       ],
       "elements": [],
-      "overrides": []
+      "overrides": [],
+      "placements": {
+        "outlets": [
+          {
+            "slot": "avatar.primary-menu",
+            "surfaces": ["*"],
+            "source": "src/client/views/AuthProfileWidget.vue"
+          }
+        ],
+        "contributions": [
+          {
+            "id": "auth.profile.widget",
+            "slot": "app.top-right",
+            "surface": "*",
+            "order": 1000,
+            "componentToken": "auth.web.profile.widget",
+            "source": "mutations.text#auth-web-placement-block"
+          },
+          {
+            "id": "auth.profile.menu.open-app",
+            "slot": "avatar.primary-menu",
+            "surface": "*",
+            "order": 100,
+            "componentToken": "auth.web.profile.menu.link-item",
+            "when": "auth.authenticated === true",
+            "source": "mutations.text#auth-web-placement-block"
+          },
+          {
+            "id": "auth.profile.menu.sign-in",
+            "slot": "avatar.primary-menu",
+            "surface": "*",
+            "order": 200,
+            "componentToken": "auth.web.profile.menu.link-item",
+            "when": "auth.authenticated !== true",
+            "source": "mutations.text#auth-web-placement-block"
+          },
+          {
+            "id": "auth.profile.menu.sign-out",
+            "slot": "avatar.primary-menu",
+            "surface": "*",
+            "order": 1000,
+            "componentToken": "auth.web.profile.menu.link-item",
+            "when": "auth.authenticated === true",
+            "source": "mutations.text#auth-web-placement-block"
+          }
+        ]
+      }
     }
   },
   "mutations": {

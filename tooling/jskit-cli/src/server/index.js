@@ -2381,6 +2381,81 @@ function formatPackageSubpathImport(packageId, subpath) {
   return `${normalizedPackageId}/${normalizedSubpath}`;
 }
 
+function normalizePlacementOutlets(value) {
+  const outlets = [];
+  const source = ensureArray(value);
+  for (const entry of source) {
+    const record = ensureObject(entry);
+    const slot = String(record.slot || "").trim();
+    if (!slot) {
+      continue;
+    }
+
+    const surfaces = [...new Set(ensureArray(record.surfaces).map((item) => String(item || "").trim()).filter(Boolean))];
+    const description = String(record.description || "").trim();
+    const sourceLabel = String(record.source || "").trim();
+    outlets.push(
+      Object.freeze({
+        slot,
+        surfaces: Object.freeze(surfaces),
+        description,
+        source: sourceLabel
+      })
+    );
+  }
+
+  return Object.freeze(
+    [...outlets].sort((left, right) => left.slot.localeCompare(right.slot))
+  );
+}
+
+function normalizePlacementContributions(value) {
+  const contributions = [];
+  for (const entry of ensureArray(value)) {
+    const record = ensureObject(entry);
+    const id = String(record.id || "").trim();
+    const slot = String(record.slot || "").trim();
+    if (!id || !slot) {
+      continue;
+    }
+
+    const surface = String(record.surface || "").trim();
+    const componentToken = String(record.componentToken || "").trim();
+    const when = String(record.when || "").trim();
+    const description = String(record.description || "").trim();
+    const source = String(record.source || "").trim();
+    const parsedOrder = Number(record.order);
+    const order = Number.isFinite(parsedOrder) ? Math.trunc(parsedOrder) : null;
+    contributions.push(
+      Object.freeze({
+        id,
+        slot,
+        surface,
+        order,
+        componentToken,
+        when,
+        description,
+        source
+      })
+    );
+  }
+
+  return Object.freeze(
+    [...contributions].sort((left, right) => {
+      const slotCompare = left.slot.localeCompare(right.slot);
+      if (slotCompare !== 0) {
+        return slotCompare;
+      }
+      const leftOrder = Number.isFinite(left.order) ? left.order : Number.POSITIVE_INFINITY;
+      const rightOrder = Number.isFinite(right.order) ? right.order : Number.POSITIVE_INFINITY;
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      return left.id.localeCompare(right.id);
+    })
+  );
+}
+
 function deriveCanonicalExportTargetForSubpath(subpath) {
   const normalizedSubpath = String(subpath || "").trim();
   if (!normalizedSubpath) {
@@ -3385,6 +3460,7 @@ async function commandShow({ positional, options, stdout }) {
         .map((value) => String(value || "").trim())
         .filter(Boolean);
       const metadataApiSummary = ensureObject(ensureObject(payload.metadata).apiSummary);
+      const metadataUi = ensureObject(ensureObject(payload.metadata).ui);
       const summarySurfaces = ensureArray(metadataApiSummary.surfaces)
         .map((entry) => {
           const record = ensureObject(entry);
@@ -3397,6 +3473,9 @@ async function commandShow({ positional, options, stdout }) {
       const containerTokenSummary = ensureObject(metadataApiSummary.containerTokens);
       const quickServerTokens = ensureArray(containerTokenSummary.server).map((value) => String(value || "").trim()).filter(Boolean);
       const quickClientTokens = ensureArray(containerTokenSummary.client).map((value) => String(value || "").trim()).filter(Boolean);
+      const metadataUiPlacements = ensureObject(metadataUi.placements);
+      const placementOutlets = normalizePlacementOutlets(metadataUiPlacements.outlets);
+      const placementContributions = normalizePlacementContributions(metadataUiPlacements.contributions);
       const packageExports = ensureArray(payload.packageExports);
       const exportedSymbols = ensureArray(payload.exportedSymbols);
       const exportedSymbolsByFile = new Map(
@@ -3433,6 +3512,117 @@ async function commandShow({ positional, options, stdout }) {
         }
         if (quickClientTokens.length > 0) {
           stdout.write(`- ${color.installed("client")}: ${quickClientTokens.map((token) => color.item(token)).join(", ")}\n`);
+        }
+      }
+      if (placementOutlets.length > 0) {
+        stdout.write(`${color.heading(`Placement outlets (accepted slots) (${placementOutlets.length}):`)}\n`);
+        for (const outlet of placementOutlets) {
+          const surfaces = ensureArray(outlet.surfaces).map((value) => String(value || "").trim()).filter(Boolean);
+          const surfacesLabel = surfaces.length > 0 ? ` ${color.installed(`[surfaces:${surfaces.join(", ")}]`)}` : "";
+          const description = String(outlet.description || "").trim();
+          const descriptionSuffix = description ? `: ${description}` : "";
+          stdout.write(`- ${color.item(outlet.slot)}${surfacesLabel}${descriptionSuffix}\n`);
+          if (options.details) {
+            const sourceLabel = String(outlet.source || "").trim();
+            if (sourceLabel) {
+              stdout.write(`  ${color.dim(`source: ${sourceLabel}`)}\n`);
+            }
+          }
+        }
+      }
+      if (placementContributions.length > 0) {
+        stdout.write(`${color.heading(`Placement contributions (default entries) (${placementContributions.length}):`)}\n`);
+        for (const contribution of placementContributions) {
+          const surface = String(contribution.surface || "").trim() || "*";
+          const orderSuffix = Number.isFinite(contribution.order) ? ` ${color.installed(`[order:${contribution.order}]`)}` : "";
+          const componentToken = String(contribution.componentToken || "").trim();
+          const componentSuffix = componentToken ? ` ${color.dim(`component:${componentToken}`)}` : "";
+          const description = String(contribution.description || "").trim();
+          const descriptionSuffix = description ? `: ${description}` : "";
+          stdout.write(
+            `- ${color.item(contribution.id)} ${color.dim("->")} ${color.item(contribution.slot)} ${color.installed(`[surface:${surface}]`)}${orderSuffix}${componentSuffix}${descriptionSuffix}\n`
+          );
+          if (options.details) {
+            const when = String(contribution.when || "").trim();
+            if (when) {
+              stdout.write(`  ${color.dim(`when: ${when}`)}\n`);
+            }
+            const sourceLabel = String(contribution.source || "").trim();
+            if (sourceLabel) {
+              stdout.write(`  ${color.dim(`source: ${sourceLabel}`)}\n`);
+            }
+          }
+        }
+      }
+      if (introspectionAvailable) {
+        stdout.write(`${color.heading(`Container bindings server (${serverBindings.length}):`)}\n`);
+        if (serverBindings.length < 1) {
+          stdout.write(`- ${color.dim("none detected")}\n`);
+        } else {
+          for (const bindingRecord of serverBindings) {
+            const binding = ensureObject(bindingRecord);
+            const token = String(binding.token || "").trim();
+            const tokenExpression = String(binding.tokenExpression || "").trim();
+            const tokenLabel = binding.tokenResolved === true
+              ? token
+              : token || tokenExpression;
+            const bindingMethod = String(binding.binding || "").trim();
+            const providerName = deriveProviderDisplayName(binding);
+            const lifecycle = String(binding.lifecycle || "").trim();
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
+            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
+            stdout.write(
+              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
+            );
+            if (options.details) {
+              const location = String(binding.location || "").trim();
+              if (location) {
+                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
+              }
+              const providerLabel = String(binding.provider || "").trim();
+              if (providerLabel) {
+                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
+              }
+              if (binding.tokenResolved !== true && tokenExpression) {
+                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
+              }
+            }
+          }
+        }
+
+        stdout.write(`${color.heading(`Container bindings client (${clientBindings.length}):`)}\n`);
+        if (clientBindings.length < 1) {
+          stdout.write(`- ${color.dim("none detected")}\n`);
+        } else {
+          for (const bindingRecord of clientBindings) {
+            const binding = ensureObject(bindingRecord);
+            const token = String(binding.token || "").trim();
+            const tokenExpression = String(binding.tokenExpression || "").trim();
+            const tokenLabel = binding.tokenResolved === true
+              ? token
+              : token || tokenExpression;
+            const bindingMethod = String(binding.binding || "").trim();
+            const providerName = deriveProviderDisplayName(binding);
+            const lifecycle = String(binding.lifecycle || "").trim();
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
+            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
+            stdout.write(
+              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
+            );
+            if (options.details) {
+              const location = String(binding.location || "").trim();
+              if (location) {
+                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
+              }
+              const providerLabel = String(binding.provider || "").trim();
+              if (providerLabel) {
+                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
+              }
+              if (binding.tokenResolved !== true && tokenExpression) {
+                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
+              }
+            }
+          }
         }
       }
       if (introspectionAvailable) {
@@ -3792,77 +3982,6 @@ async function commandShow({ positional, options, stdout }) {
           const exportName = String(record.export || "").trim();
           const label = exportName ? `${entrypoint}#${exportName}` : entrypoint;
           stdout.write(`- ${color.item(label)}\n`);
-        }
-      }
-      if (introspectionAvailable) {
-        stdout.write(`${color.heading(`Container bindings server (${serverBindings.length}):`)}\n`);
-        if (serverBindings.length < 1) {
-          stdout.write(`- ${color.dim("none detected")}\n`);
-        } else {
-          for (const bindingRecord of serverBindings) {
-            const binding = ensureObject(bindingRecord);
-            const token = String(binding.token || "").trim();
-            const tokenExpression = String(binding.tokenExpression || "").trim();
-            const tokenLabel = binding.tokenResolved === true
-              ? token
-              : token || tokenExpression;
-            const bindingMethod = String(binding.binding || "").trim();
-            const providerName = deriveProviderDisplayName(binding);
-            const lifecycle = String(binding.lifecycle || "").trim();
-            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
-            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
-            stdout.write(
-              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
-            );
-            if (options.details) {
-              const location = String(binding.location || "").trim();
-              if (location) {
-                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
-              }
-              const providerLabel = String(binding.provider || "").trim();
-              if (providerLabel) {
-                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
-              }
-              if (binding.tokenResolved !== true && tokenExpression) {
-                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
-              }
-            }
-          }
-        }
-
-        stdout.write(`${color.heading(`Container bindings client (${clientBindings.length}):`)}\n`);
-        if (clientBindings.length < 1) {
-          stdout.write(`- ${color.dim("none detected")}\n`);
-        } else {
-          for (const bindingRecord of clientBindings) {
-            const binding = ensureObject(bindingRecord);
-            const token = String(binding.token || "").trim();
-            const tokenExpression = String(binding.tokenExpression || "").trim();
-            const tokenLabel = binding.tokenResolved === true
-              ? token
-              : token || tokenExpression;
-            const bindingMethod = String(binding.binding || "").trim();
-            const providerName = deriveProviderDisplayName(binding);
-            const lifecycle = String(binding.lifecycle || "").trim();
-            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
-            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
-            stdout.write(
-              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
-            );
-            if (options.details) {
-              const location = String(binding.location || "").trim();
-              if (location) {
-                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
-              }
-              const providerLabel = String(binding.provider || "").trim();
-              if (providerLabel) {
-                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
-              }
-              if (binding.tokenResolved !== true && tokenExpression) {
-                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
-              }
-            }
-          }
         }
       }
       if (introspectionNotes.length > 0) {

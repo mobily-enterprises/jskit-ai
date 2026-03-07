@@ -41,6 +41,33 @@ export default Object.freeze({
           "runtime.web-placement.client"
         ]
       }
+    },
+    ui: {
+      placements: {
+        outlets: [
+          {
+            slot: "app.top-left",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            slot: "app.top-right",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            slot: "app.primary-menu",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            slot: "app.secondary-menu",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          }
+        ],
+        contributions: []
+      }
     }
   },
   mutations: {

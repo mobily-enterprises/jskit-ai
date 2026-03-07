@@ -77,6 +77,10 @@ But rendering is controlled by outlets. Current default shell layout exposes:
 - `app.primary-menu`
 - `app.secondary-menu`
 
+`auth-web` also exposes a nested outlet:
+
+- `avatar.primary-menu`
+
 A placed component can expose nested slots too (example below: `avatar.primary-menu`).
 
 ## 4. App-Owned Registry (`src/placement.js`)
@@ -175,6 +179,51 @@ Inside it, `AuthProfileWidget` renders:
 ```
 
 So other placements targeting `avatar.primary-menu` appear inside the avatar menu.
+
+### 6.4 Drop entries into auth avatar menu
+
+Quick path (reuse auth-web list item component):
+
+```js
+addPlacement({
+  id: "app.profile.menu.settings",
+  slot: "avatar.primary-menu",
+  surface: "*",
+  order: 900,
+  componentToken: "auth.web.profile.menu.link-item",
+  props: {
+    label: "Settings",
+    to: "/app/settings"
+  },
+  when: ({ auth }) => Boolean(auth?.authenticated)
+});
+```
+
+Custom UI path (your own component token):
+
+1. bind your component in a client provider:
+
+```js
+app.singleton("app.profile.menu.settings-item", () => AppProfileSettingsMenuItem);
+```
+
+2. target the same avatar slot from `src/placement.js`:
+
+```js
+addPlacement({
+  id: "app.profile.menu.settings-custom",
+  slot: "avatar.primary-menu",
+  surface: "*",
+  order: 900,
+  componentToken: "app.profile.menu.settings-item",
+  props: {
+    dense: true
+  }
+});
+```
+
+Important: placement only renders where an outlet exists.  
+`avatar.primary-menu` works because `AuthProfileWidget` contains that `ShellOutlet`.
 
 ## 7. Add/Remove Lifecycle (`auth-web`)
 
@@ -302,6 +351,20 @@ It intentionally does not revert `append-text` blocks in app-owned files.
 3. Always set stable `id` and `order`.
 4. Use `when(context)` for visibility logic.
 5. Let modules append entries, but keep final composition under app control.
+
+## 11. Inspecting Placement Surface in CLI
+
+`npx jskit view <package>` now shows placement metadata:
+
+- `Placement outlets (accepted slots)`:
+  where a package is receptive to placements.
+- `Placement contributions (default entries)`:
+  what entries a package installs by default.
+
+Example:
+
+- `npx jskit view shell-web` shows `app.*` outlets.
+- `npx jskit view auth-web` shows `avatar.primary-menu` outlet and auth default menu/widget entries.
 
 
 

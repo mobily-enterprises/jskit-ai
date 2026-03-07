@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: JSKIT
-  text: Manual-first framework docs
+  text: Laravel-style Single Page Applications in Node and Vue
   tagline: A clear path from first app to production-ready provider architecture.
   actions:
     - theme: brand
@@ -24,10 +24,3 @@ features:
   - title: Runtime Contracts
     details: Keep transport schemas, validation levels, and provider metadata aligned with real runtime behavior.
 ---
-
-## Start Here
-
-The manual is the primary entrypoint for JSKIT.
-
-- Use [Manual Overview](/manual/) first.
-- Then continue to [Chapter 1](/manual/001-Intro:_Create_An_App).
