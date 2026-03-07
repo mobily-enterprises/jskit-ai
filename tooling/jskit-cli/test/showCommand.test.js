@@ -20,6 +20,13 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /\/auth\/login \(global\) \[advisory\] Public login route for authentication flows\. \(id:auth\.login\)/);
   assert.match(stdout, /Server routes \(/);
   assert.match(stdout, /GET \/api\/session: Get current session status and CSRF token/);
+  assert.match(stdout, /Package exports \(/);
+  assert.match(stdout, /\.\/server -> \.\/src\/server\/index\.js/);
+  assert.match(stdout, /Exported symbols from index files \(/);
+  assert.match(stdout, /Container bindings server \(/);
+  assert.match(stdout, /auth\.web\.service/);
+  assert.match(stdout, /Container bindings client \(/);
+  assert.match(stdout, /auth\.login\.component/);
   assert.match(stdout, /src\/views\/auth\/LoginView\.vue \(id:auth-view-login\):\n\s+Install minimal login container/);
   assert.match(stdout, /src\/views\/auth\/SignOutView\.vue \(id:auth-view-signout\):\n\s+Install minimal sign-out container/);
 });
@@ -37,4 +44,33 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /Requires detail \(/);
   assert.match(stdout, /auth\.provider/);
   assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.1\.0/);
+});
+
+test("show package --json includes exports, container bindings, and exported symbols", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "http-runtime", "--json"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const payload = JSON.parse(String(result.stdout || "{}"));
+
+  assert.equal(payload.packageId, "@jskit-ai/http-runtime");
+  assert.ok(Array.isArray(payload.packageExports));
+  assert.ok(payload.packageExports.some((record) => record.subpath === "./server" && record.target === "./src/server/index.js"));
+
+  const containerBindings = payload.containerBindings || {};
+  const serverBindings = Array.isArray(containerBindings.server) ? containerBindings.server : [];
+  const clientBindings = Array.isArray(containerBindings.client) ? containerBindings.client : [];
+  assert.ok(serverBindings.some((record) => record.token === "contracts.http"));
+  assert.ok(clientBindings.some((record) => record.token === "contracts.http.client"));
+
+  assert.ok(Array.isArray(payload.exportedSymbols));
+  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/server/index.js"));
+  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/client/index.js"));
+  const clientIndex = payload.exportedSymbols.find((record) => record.file === "src/client/index.js");
+  assert.ok(clientIndex);
+  assert.deepEqual(clientIndex.starReExports, []);
+  assert.ok(Array.isArray(clientIndex.namedReExports));
+  assert.ok(clientIndex.namedReExports.includes("../shared/clientRuntime/client.js"));
 });

@@ -1658,6 +1658,726 @@ function buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependsO
   };
 }
 
+function escapeRegexLiteral(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseQuotedStringLiteral(value) {
+  const source = String(value || "").trim();
+  if (source.length < 2) {
+    return null;
+  }
+
+  const quote = source[0];
+  if ((quote !== "\"" && quote !== "'") || source[source.length - 1] !== quote) {
+    return null;
+  }
+
+  if (quote === "\"") {
+    try {
+      return JSON.parse(source);
+    } catch {
+      return null;
+    }
+  }
+
+  return source
+    .slice(1, -1)
+    .replace(/\\\\/g, "\\")
+    .replace(/\\'/g, "'")
+    .replace(/\\"/g, "\"")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t");
+}
+
+function resolveLineNumberAtIndex(source, index) {
+  const text = String(source || "");
+  const maxIndex = Math.max(0, Math.min(Number(index) || 0, text.length));
+  let line = 1;
+  for (let cursor = 0; cursor < maxIndex; cursor += 1) {
+    if (text[cursor] === "\n") {
+      line += 1;
+    }
+  }
+  return line;
+}
+
+function findMatchingBraceIndex(source, openBraceIndex) {
+  const text = String(source || "");
+  const startIndex = Number(openBraceIndex);
+  if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= text.length || text[startIndex] !== "{") {
+    return -1;
+  }
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inTemplateQuote = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let cursor = startIndex; cursor < text.length; cursor += 1) {
+    const current = text[cursor];
+    const next = text[cursor + 1] || "";
+
+    if (inLineComment) {
+      if (current === "\n") {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (current === "*" && next === "/") {
+        inBlockComment = false;
+        cursor += 1;
+      }
+      continue;
+    }
+
+    if (inSingleQuote) {
+      if (current === "\\") {
+        cursor += 1;
+        continue;
+      }
+      if (current === "'") {
+        inSingleQuote = false;
+      }
+      continue;
+    }
+
+    if (inDoubleQuote) {
+      if (current === "\\") {
+        cursor += 1;
+        continue;
+      }
+      if (current === "\"") {
+        inDoubleQuote = false;
+      }
+      continue;
+    }
+
+    if (inTemplateQuote) {
+      if (current === "\\") {
+        cursor += 1;
+        continue;
+      }
+      if (current === "`") {
+        inTemplateQuote = false;
+      }
+      continue;
+    }
+
+    if (current === "/" && next === "/") {
+      inLineComment = true;
+      cursor += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      inBlockComment = true;
+      cursor += 1;
+      continue;
+    }
+    if (current === "'") {
+      inSingleQuote = true;
+      continue;
+    }
+    if (current === "\"") {
+      inDoubleQuote = true;
+      continue;
+    }
+    if (current === "`") {
+      inTemplateQuote = true;
+      continue;
+    }
+
+    if (current === "{") {
+      depth += 1;
+      continue;
+    }
+    if (current === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function extractProviderLifecycleMethodRanges(source, providerExportName) {
+  const text = String(source || "");
+  const providerName = String(providerExportName || "").trim();
+  if (!text) {
+    return [];
+  }
+
+  const fallback = [
+    {
+      lifecycle: "unknown",
+      start: 0,
+      end: text.length
+    }
+  ];
+  if (!providerName) {
+    return fallback;
+  }
+
+  const classPattern = new RegExp(`\\bclass\\s+${escapeRegexLiteral(providerName)}\\b`);
+  const classMatch = classPattern.exec(text);
+  if (!classMatch) {
+    return fallback;
+  }
+
+  const classOpenBraceIndex = text.indexOf("{", classMatch.index + classMatch[0].length);
+  if (classOpenBraceIndex < 0) {
+    return fallback;
+  }
+  const classCloseBraceIndex = findMatchingBraceIndex(text, classOpenBraceIndex);
+  if (classCloseBraceIndex < 0) {
+    return fallback;
+  }
+
+  const classBody = text.slice(classOpenBraceIndex + 1, classCloseBraceIndex);
+  const methodPattern = /\b(?:async\s+)?(register|boot)\s*\([^)]*\)\s*\{/g;
+  const ranges = [];
+  let methodMatch = methodPattern.exec(classBody);
+  while (methodMatch) {
+    const lifecycle = String(methodMatch[1] || "").trim() || "unknown";
+    const methodOpenOffset = methodMatch[0].lastIndexOf("{");
+    if (methodOpenOffset < 0) {
+      methodMatch = methodPattern.exec(classBody);
+      continue;
+    }
+    const methodOpenIndex = classOpenBraceIndex + 1 + methodMatch.index + methodOpenOffset;
+    const methodCloseIndex = findMatchingBraceIndex(text, methodOpenIndex);
+    if (methodCloseIndex < 0) {
+      methodMatch = methodPattern.exec(classBody);
+      continue;
+    }
+    ranges.push({
+      lifecycle,
+      start: methodOpenIndex + 1,
+      end: methodCloseIndex
+    });
+    methodMatch = methodPattern.exec(classBody);
+  }
+
+  if (ranges.length > 0) {
+    return ranges;
+  }
+  return [
+    {
+      lifecycle: "class",
+      start: classOpenBraceIndex + 1,
+      end: classCloseBraceIndex
+    }
+  ];
+}
+
+function collectConstTokenAssignments(source) {
+  const text = String(source || "");
+  const assignments = new Map();
+  const pattern = /^\s*const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*([^;]+);\s*$/gm;
+  let match = pattern.exec(text);
+  while (match) {
+    const identifier = String(match[1] || "").trim();
+    const expression = String(match[2] || "").trim();
+    if (identifier && expression) {
+      assignments.set(identifier, expression);
+    }
+    match = pattern.exec(text);
+  }
+  return assignments;
+}
+
+function resolveTokenFromExpression(expression, constAssignments, visited = new Set()) {
+  let normalized = String(expression || "").trim();
+  if (!normalized) {
+    return {
+      token: "",
+      resolved: false,
+      kind: "empty"
+    };
+  }
+
+  while (normalized.startsWith("(") && normalized.endsWith(")")) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+
+  const quoted = parseQuotedStringLiteral(normalized);
+  if (quoted !== null) {
+    return {
+      token: quoted,
+      resolved: true,
+      kind: "string"
+    };
+  }
+
+  const symbolMatch = /^Symbol\.for\(\s*(['"])(.*?)\1\s*\)$/.exec(normalized);
+  if (symbolMatch) {
+    return {
+      token: `Symbol.for(${symbolMatch[2]})`,
+      resolved: true,
+      kind: "symbol"
+    };
+  }
+
+  if (/^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+$/.test(normalized)) {
+    return {
+      token: normalized,
+      resolved: true,
+      kind: "member"
+    };
+  }
+
+  if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(normalized)) {
+    const identifier = normalized;
+    if (visited.has(identifier)) {
+      return {
+        token: identifier,
+        resolved: false,
+        kind: "cyclic-identifier"
+      };
+    }
+    const nextExpression = constAssignments.get(identifier);
+    if (nextExpression) {
+      return resolveTokenFromExpression(nextExpression, constAssignments, new Set([...visited, identifier]));
+    }
+    return {
+      token: identifier,
+      resolved: false,
+      kind: "identifier"
+    };
+  }
+
+  return {
+    token: normalized,
+    resolved: false,
+    kind: "expression"
+  };
+}
+
+function collectContainerBindingsFromProviderSource({ source, providerLabel, entrypoint, providerExportName }) {
+  const text = String(source || "");
+  if (!text) {
+    return [];
+  }
+
+  const constAssignments = collectConstTokenAssignments(text);
+  const methodRanges = extractProviderLifecycleMethodRanges(text, providerExportName);
+  const records = [];
+
+  for (const range of methodRanges) {
+    const lifecycle = String(range?.lifecycle || "unknown").trim() || "unknown";
+    const start = Number(range?.start) || 0;
+    const end = Number(range?.end) || text.length;
+    const slice = text.slice(start, end);
+    const bindingPattern = /\bapp\.(singleton|bind|scoped|instance)\s*\(\s*([\s\S]*?)\s*,/g;
+    let match = bindingPattern.exec(slice);
+    while (match) {
+      const binding = String(match[1] || "").trim();
+      const tokenExpression = String(match[2] || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!tokenExpression) {
+        match = bindingPattern.exec(slice);
+        continue;
+      }
+      const tokenResolution = resolveTokenFromExpression(tokenExpression, constAssignments);
+      const line = resolveLineNumberAtIndex(text, start + match.index);
+      records.push({
+        provider: providerLabel,
+        entrypoint: String(entrypoint || "").trim(),
+        exportName: String(providerExportName || "").trim(),
+        lifecycle,
+        binding,
+        token: String(tokenResolution.token || "").trim(),
+        tokenExpression,
+        tokenResolved: Boolean(tokenResolution.resolved),
+        tokenKind: String(tokenResolution.kind || "").trim(),
+        location: `${String(entrypoint || "").trim()}:${line}`,
+        line
+      });
+      match = bindingPattern.exec(slice);
+    }
+  }
+
+  return records;
+}
+
+function collectPackageExportEntries(exportsField) {
+  const entries = [];
+
+  const appendEntry = (subpath, conditions, target) => {
+    const normalizedSubpath = String(subpath || ".").trim() || ".";
+    const normalizedTarget = String(target || "").trim();
+    if (!normalizedTarget) {
+      return;
+    }
+    const normalizedConditions = ensureArray(conditions).map((value) => String(value || "").trim()).filter(Boolean);
+    entries.push({
+      subpath: normalizedSubpath,
+      condition: normalizedConditions.length > 0 ? normalizedConditions.join(".") : "default",
+      target: normalizedTarget
+    });
+  };
+
+  const visit = (subpath, value, conditionStack = []) => {
+    if (typeof value === "string") {
+      appendEntry(subpath, conditionStack, value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        visit(subpath, item, conditionStack);
+      }
+      return;
+    }
+    if (!value || typeof value !== "object") {
+      return;
+    }
+    for (const [conditionName, nested] of Object.entries(value)) {
+      visit(subpath, nested, [...conditionStack, conditionName]);
+    }
+  };
+
+  if (typeof exportsField === "string" || Array.isArray(exportsField)) {
+    visit(".", exportsField, []);
+  } else if (exportsField && typeof exportsField === "object") {
+    const root = ensureObject(exportsField);
+    const rootKeys = Object.keys(root);
+    const hasSubpathKeys = rootKeys.some((key) => key.startsWith("."));
+    if (hasSubpathKeys) {
+      for (const [subpath, value] of Object.entries(root)) {
+        visit(subpath, value, []);
+      }
+    } else {
+      visit(".", root, []);
+    }
+  }
+
+  const deduplicated = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    const key = `${entry.subpath}::${entry.condition}::${entry.target}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduplicated.push(entry);
+  }
+  return deduplicated.sort((left, right) => {
+    const subpathComparison = left.subpath.localeCompare(right.subpath);
+    if (subpathComparison !== 0) {
+      return subpathComparison;
+    }
+    const conditionComparison = left.condition.localeCompare(right.condition);
+    if (conditionComparison !== 0) {
+      return conditionComparison;
+    }
+    return left.target.localeCompare(right.target);
+  });
+}
+
+async function describePackageExports({ packageRoot, packageJson }) {
+  const rootDir = String(packageRoot || "").trim();
+  if (!rootDir) {
+    return [];
+  }
+
+  const exportsField = ensureObject(packageJson).exports;
+  const entries = collectPackageExportEntries(exportsField);
+  const records = [];
+
+  for (const entry of entries) {
+    const subpath = String(entry.subpath || ".").trim() || ".";
+    const condition = String(entry.condition || "default").trim() || "default";
+    const target = String(entry.target || "").trim();
+    const isPattern = subpath.includes("*") || target.includes("*");
+    const isRelativeTarget = target.startsWith("./");
+    let targetExists = null;
+    if (isRelativeTarget && !isPattern) {
+      const absoluteTargetPath = path.resolve(rootDir, target);
+      targetExists = await fileExists(absoluteTargetPath);
+    }
+
+    records.push({
+      subpath,
+      condition,
+      target,
+      targetType: isPattern ? "pattern" : isRelativeTarget ? "file" : "external",
+      targetExists
+    });
+  }
+
+  return records;
+}
+
+function parseNamedExportSpecifiers(specifierSource) {
+  const source = String(specifierSource || "");
+  return source
+    .split(",")
+    .map((entry) => entry.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/g, "").trim())
+    .filter(Boolean)
+    .map((entry) => entry.replace(/\s+/g, " "))
+    .map((entry) => {
+      const aliasMatch = /^(.+?)\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(entry);
+      if (aliasMatch) {
+        return aliasMatch[2];
+      }
+      return entry;
+    })
+    .filter((entry) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entry));
+}
+
+function parseExportedSymbolsFromSource(source) {
+  const text = String(source || "");
+  const symbols = new Set();
+  const starReExports = new Set();
+  const namedReExports = new Set();
+
+  const namespaceStarPattern = /export\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']\s*;?/g;
+  let match = namespaceStarPattern.exec(text);
+  while (match) {
+    symbols.add(String(match[1] || "").trim());
+    starReExports.add(String(match[2] || "").trim());
+    match = namespaceStarPattern.exec(text);
+  }
+
+  const starPattern = /export\s+\*\s+from\s+["']([^"']+)["']\s*;?/g;
+  match = starPattern.exec(text);
+  while (match) {
+    starReExports.add(String(match[1] || "").trim());
+    match = starPattern.exec(text);
+  }
+
+  const namedPattern = /export\s*\{([\s\S]*?)\}\s*(?:from\s*["']([^"']+)["'])?\s*;?/g;
+  match = namedPattern.exec(text);
+  while (match) {
+    const listSource = String(match[1] || "");
+    for (const symbol of parseNamedExportSpecifiers(listSource)) {
+      symbols.add(symbol);
+    }
+    if (match[2]) {
+      namedReExports.add(String(match[2] || "").trim());
+    }
+    match = namedPattern.exec(text);
+  }
+
+  const functionPattern = /export\s+(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/g;
+  match = functionPattern.exec(text);
+  while (match) {
+    symbols.add(String(match[1] || "").trim());
+    match = functionPattern.exec(text);
+  }
+
+  const classPattern = /export\s+class\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/g;
+  match = classPattern.exec(text);
+  while (match) {
+    symbols.add(String(match[1] || "").trim());
+    match = classPattern.exec(text);
+  }
+
+  const variablePattern = /export\s+(?:const|let|var)\s+([\s\S]*?);/g;
+  match = variablePattern.exec(text);
+  while (match) {
+    const declaration = String(match[1] || "");
+    const names = declaration.split(",").map((entry) => String(entry || "").trim());
+    for (const name of names) {
+      const declarationMatch = /^([A-Za-z_$][A-Za-z0-9_$]*)\b/.exec(name);
+      if (declarationMatch) {
+        symbols.add(String(declarationMatch[1] || "").trim());
+      }
+    }
+    match = variablePattern.exec(text);
+  }
+
+  const hasDefaultExport = /\bexport\s+default\b/.test(text);
+  return {
+    symbols: sortStrings([...symbols]),
+    starReExports: sortStrings([...starReExports]),
+    namedReExports: sortStrings([...namedReExports]),
+    hasDefaultExport
+  };
+}
+
+async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, notes }) {
+  const rootDir = String(packageRoot || "").trim();
+  if (!rootDir) {
+    return [];
+  }
+
+  const indexTargets = new Map();
+  for (const entry of ensureArray(packageExports)) {
+    const record = ensureObject(entry);
+    if (record.targetType !== "file" || record.targetExists !== true) {
+      continue;
+    }
+
+    const target = String(record.target || "").trim();
+    if (!target.startsWith("./")) {
+      continue;
+    }
+    const normalizedTarget = normalizeRelativePosixPath(target.replace(/^\.\//, ""));
+    const basename = path.posix.basename(normalizedTarget);
+    if (!/^index\.(?:js|mjs|cjs)$/.test(basename)) {
+      continue;
+    }
+
+    if (!indexTargets.has(normalizedTarget)) {
+      indexTargets.set(normalizedTarget, {
+        file: normalizedTarget,
+        subpaths: new Set(),
+        conditions: new Set()
+      });
+    }
+    const bucket = indexTargets.get(normalizedTarget);
+    bucket.subpaths.add(String(record.subpath || ".").trim() || ".");
+    const condition = String(record.condition || "default").trim() || "default";
+    if (condition !== "default") {
+      bucket.conditions.add(condition);
+    }
+  }
+
+  const summaries = [];
+  for (const [relativeTargetPath, bucket] of indexTargets.entries()) {
+    const absoluteTargetPath = path.resolve(rootDir, relativeTargetPath);
+    if (!(await fileExists(absoluteTargetPath))) {
+      ensureArray(notes).push(`Index export file missing: ${relativeTargetPath}`);
+      continue;
+    }
+
+    let source = "";
+    try {
+      source = await readFile(absoluteTargetPath, "utf8");
+    } catch (error) {
+      ensureArray(notes).push(
+        `Failed to read index export file ${relativeTargetPath}: ${String(error?.message || error || "unknown error")}`
+      );
+      continue;
+    }
+
+    const summary = parseExportedSymbolsFromSource(source);
+    summaries.push({
+      file: normalizeRelativePosixPath(relativeTargetPath),
+      subpaths: sortStrings([...bucket.subpaths]),
+      conditions: sortStrings([...bucket.conditions]),
+      symbols: ensureArray(summary.symbols),
+      hasDefaultExport: Boolean(summary.hasDefaultExport),
+      starReExports: ensureArray(summary.starReExports),
+      namedReExports: ensureArray(summary.namedReExports)
+    });
+  }
+
+  return summaries.sort((left, right) => String(left.file || "").localeCompare(String(right.file || "")));
+}
+
+async function inspectPackageOfferings({ packageEntry }) {
+  const rootDir = String(packageEntry?.rootDir || "").trim();
+  const notes = [];
+  const details = {
+    available: Boolean(rootDir),
+    notes,
+    packageExports: [],
+    containerBindings: {
+      server: [],
+      client: []
+    },
+    exportedSymbols: []
+  };
+
+  if (!rootDir) {
+    notes.push("Source files are unavailable for static introspection (catalog metadata only).");
+    return details;
+  }
+
+  const packageJson = ensureObject(packageEntry?.packageJson);
+  details.packageExports = await describePackageExports({
+    packageRoot: rootDir,
+    packageJson
+  });
+
+  const runtime = ensureObject(packageEntry?.descriptor?.runtime);
+  const runtimeSides = [
+    {
+      side: "server",
+      providers: ensureArray(ensureObject(runtime.server).providers)
+    },
+    {
+      side: "client",
+      providers: ensureArray(ensureObject(runtime.client).providers)
+    }
+  ];
+
+  for (const runtimeSide of runtimeSides) {
+    const side = String(runtimeSide.side || "").trim();
+    if (!side) {
+      continue;
+    }
+    const bindings = [];
+    for (const provider of runtimeSide.providers) {
+      const record = ensureObject(provider);
+      const entrypoint = String(record.entrypoint || "").trim();
+      const exportName = String(record.export || "").trim();
+      if (!entrypoint) {
+        continue;
+      }
+
+      const providerLabel = exportName ? `${entrypoint}#${exportName}` : entrypoint;
+      if (entrypoint.includes("*")) {
+        notes.push(`Skipped wildcard provider entrypoint during introspection: ${providerLabel}`);
+        continue;
+      }
+
+      const providerPath = path.resolve(rootDir, entrypoint);
+      if (!(await fileExists(providerPath))) {
+        notes.push(`Provider file missing during introspection: ${providerLabel}`);
+        continue;
+      }
+
+      let source = "";
+      try {
+        source = await readFile(providerPath, "utf8");
+      } catch (error) {
+        notes.push(`Failed reading provider ${providerLabel}: ${String(error?.message || error || "unknown error")}`);
+        continue;
+      }
+
+      bindings.push(
+        ...collectContainerBindingsFromProviderSource({
+          source,
+          providerLabel,
+          entrypoint,
+          providerExportName: exportName
+        })
+      );
+    }
+
+    details.containerBindings[side] = bindings.sort((left, right) => {
+      const tokenComparison = String(left?.token || "").localeCompare(String(right?.token || ""));
+      if (tokenComparison !== 0) {
+        return tokenComparison;
+      }
+      const providerComparison = String(left?.provider || "").localeCompare(String(right?.provider || ""));
+      if (providerComparison !== 0) {
+        return providerComparison;
+      }
+      return Number(left?.line || 0) - Number(right?.line || 0);
+    });
+  }
+
+  details.exportedSymbols = await collectIndexFileSymbolSummaries({
+    packageRoot: rootDir,
+    packageExports: details.packageExports,
+    notes
+  });
+
+  return details;
+}
+
 function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
   const selectedPackageIds = sortStrings(
     [...new Set(ensureArray(plannedPackageIds).map((value) => String(value || "").trim()).filter(Boolean))]
@@ -2308,6 +3028,7 @@ async function commandShow({ positional, options, stdout }) {
     const devMutations = ensureObject(ensureObject(mutations.dependencies).dev);
     const scriptMutations = ensureObject(ensureObject(mutations.packageJson).scripts);
     const textMutations = ensureArray(mutations.text);
+    const packageInsights = await inspectPackageOfferings({ packageEntry });
     const payload = {
       kind: "package",
       packageId: descriptor.packageId,
@@ -2324,7 +3045,14 @@ async function commandShow({ positional, options, stdout }) {
         fileCount: fileWriteCount,
         groups: fileWriteGroups
       },
-      descriptorPath: packageEntry.descriptorRelativePath
+      descriptorPath: packageEntry.descriptorRelativePath,
+      introspection: {
+        available: Boolean(packageInsights.available),
+        notes: ensureArray(packageInsights.notes)
+      },
+      packageExports: ensureArray(packageInsights.packageExports),
+      containerBindings: ensureObject(packageInsights.containerBindings),
+      exportedSymbols: ensureArray(packageInsights.exportedSymbols)
     };
     const provides = listDeclaredCapabilities(payload.capabilities, "provides");
     const requires = listDeclaredCapabilities(payload.capabilities, "requires");
@@ -2347,6 +3075,16 @@ async function commandShow({ positional, options, stdout }) {
       const devMutationEntries = Object.entries(devMutations);
       const scriptMutationEntries = Object.entries(scriptMutations);
       const wrapWidth = resolveWrapWidth(stdout, 80);
+      const introspection = ensureObject(payload.introspection);
+      const introspectionAvailable = introspection.available === true;
+      const introspectionNotes = ensureArray(introspection.notes)
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      const packageExports = ensureArray(payload.packageExports);
+      const exportedSymbols = ensureArray(payload.exportedSymbols);
+      const bindingSections = ensureObject(payload.containerBindings);
+      const serverBindings = ensureArray(bindingSections.server);
+      const clientBindings = ensureArray(bindingSections.client);
       stdout.write(`${color.heading("Information")}\n`);
       writeField("Package", payload.packageId, color.item);
       writeField("Version", payload.version, color.installed);
@@ -2354,6 +3092,90 @@ async function commandShow({ positional, options, stdout }) {
         writeField("Description", payload.description);
       }
       writeField("Descriptor", payload.descriptorPath, color.dim);
+      if (introspectionAvailable) {
+        stdout.write(`${color.heading(`Package exports (${packageExports.length}):`)}\n`);
+        if (packageExports.length < 1) {
+          stdout.write(`- ${color.dim("none declared")}\n`);
+        } else {
+          for (const packageExport of packageExports) {
+            const record = ensureObject(packageExport);
+            const subpath = String(record.subpath || ".").trim() || ".";
+            const condition = String(record.condition || "default").trim() || "default";
+            const target = String(record.target || "").trim();
+            const targetType = String(record.targetType || "").trim();
+            const conditionSuffix = condition !== "default" ? ` ${color.installed(`[${condition}]`)}` : "";
+            const status = targetType === "file"
+              ? record.targetExists === true
+                ? color.installed("[ok]")
+                : color.provider("[missing]")
+              : targetType === "pattern"
+                ? color.dim("[pattern]")
+                : color.dim("[external]");
+            stdout.write(`- ${color.item(subpath)}${conditionSuffix} -> ${color.item(target)} ${status}\n`);
+          }
+        }
+
+        stdout.write(`${color.heading(`Exported symbols from index files (${exportedSymbols.length}):`)}\n`);
+        if (exportedSymbols.length < 1) {
+          stdout.write(`- ${color.dim("none detected")}\n`);
+        } else {
+          for (const summaryRecord of exportedSymbols) {
+            const summary = ensureObject(summaryRecord);
+            const file = String(summary.file || "").trim();
+            const subpaths = ensureArray(summary.subpaths).map((value) => String(value)).filter(Boolean);
+            const conditions = ensureArray(summary.conditions).map((value) => String(value)).filter(Boolean);
+            const subpathSuffix = subpaths.length > 0 ? ` ${color.installed(`[${subpaths.join(", ")}]`)}` : "";
+            const conditionSuffix = conditions.length > 0 ? ` ${color.dim(`[conditions: ${conditions.join(", ")}]`)}` : "";
+            stdout.write(`- ${color.item(file)}${subpathSuffix}${conditionSuffix}\n`);
+
+            const symbols = ensureArray(summary.symbols).map((value) => String(value)).filter(Boolean);
+            if (symbols.length > 0) {
+              writeWrappedItems({
+                stdout,
+                heading: `  ${color.installed(`symbols (${symbols.length}):`)}`,
+                lineIndent: "    ",
+                wrapWidth,
+                items: symbols.map((symbol) => ({
+                  text: symbol,
+                  rendered: color.item(symbol)
+                }))
+              });
+            }
+            if (summary.hasDefaultExport === true) {
+              stdout.write(`  ${color.installed("default export: yes")}\n`);
+            }
+            const starReExports = ensureArray(summary.starReExports).map((value) => String(value)).filter(Boolean);
+            if (starReExports.length > 0) {
+              writeWrappedItems({
+                stdout,
+                heading: `  ${color.installed(`star re-exports (${starReExports.length}):`)}`,
+                lineIndent: "    ",
+                wrapWidth,
+                items: starReExports.map((specifier) => ({
+                  text: specifier,
+                  rendered: color.item(specifier)
+                }))
+              });
+            }
+            const namedReExports = ensureArray(summary.namedReExports).map((value) => String(value)).filter(Boolean);
+            if (namedReExports.length > 0) {
+              writeWrappedItems({
+                stdout,
+                heading: `  ${color.installed(`named re-exports (${namedReExports.length}):`)}`,
+                lineIndent: "    ",
+                wrapWidth,
+                items: namedReExports.map((specifier) => ({
+                  text: specifier,
+                  rendered: color.item(specifier)
+                }))
+              });
+            }
+          }
+        }
+      } else {
+        stdout.write(`${color.heading("Code introspection:")}\n`);
+        stdout.write(`- ${color.dim("Source files unavailable (descriptor metadata only).")}\n`);
+      }
       if (payload.dependsOn.length > 0) {
         writeWrappedItems({
           stdout,
@@ -2592,6 +3414,55 @@ async function commandShow({ positional, options, stdout }) {
           const exportName = String(record.export || "").trim();
           const label = exportName ? `${entrypoint}#${exportName}` : entrypoint;
           stdout.write(`- ${color.item(label)}\n`);
+        }
+      }
+      if (introspectionAvailable) {
+        stdout.write(`${color.heading(`Container bindings server (${serverBindings.length}):`)}\n`);
+        if (serverBindings.length < 1) {
+          stdout.write(`- ${color.dim("none detected")}\n`);
+        } else {
+          for (const bindingRecord of serverBindings) {
+            const binding = ensureObject(bindingRecord);
+            const token = String(binding.token || "").trim();
+            const tokenExpression = String(binding.tokenExpression || "").trim();
+            const tokenLabel = binding.tokenResolved === true
+              ? token
+              : `${token || tokenExpression}${tokenExpression ? color.dim(` (expr: ${tokenExpression})`) : ""}`;
+            const bindingMethod = String(binding.binding || "").trim();
+            const providerLabel = String(binding.provider || "").trim();
+            const lifecycle = String(binding.lifecycle || "").trim();
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.installed(`[${lifecycle}]`)}` : "";
+            const location = String(binding.location || "").trim();
+            const locationSuffix = location ? ` ${color.dim(`@ ${location}`)}` : "";
+            stdout.write(`- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} <= ${color.item(providerLabel)}${lifecycleSuffix}${locationSuffix}\n`);
+          }
+        }
+
+        stdout.write(`${color.heading(`Container bindings client (${clientBindings.length}):`)}\n`);
+        if (clientBindings.length < 1) {
+          stdout.write(`- ${color.dim("none detected")}\n`);
+        } else {
+          for (const bindingRecord of clientBindings) {
+            const binding = ensureObject(bindingRecord);
+            const token = String(binding.token || "").trim();
+            const tokenExpression = String(binding.tokenExpression || "").trim();
+            const tokenLabel = binding.tokenResolved === true
+              ? token
+              : `${token || tokenExpression}${tokenExpression ? color.dim(` (expr: ${tokenExpression})`) : ""}`;
+            const bindingMethod = String(binding.binding || "").trim();
+            const providerLabel = String(binding.provider || "").trim();
+            const lifecycle = String(binding.lifecycle || "").trim();
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.installed(`[${lifecycle}]`)}` : "";
+            const location = String(binding.location || "").trim();
+            const locationSuffix = location ? ` ${color.dim(`@ ${location}`)}` : "";
+            stdout.write(`- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} <= ${color.item(providerLabel)}${lifecycleSuffix}${locationSuffix}\n`);
+          }
+        }
+      }
+      if (introspectionNotes.length > 0) {
+        stdout.write(`${color.heading(`Introspection notes (${introspectionNotes.length}):`)}\n`);
+        for (const note of introspectionNotes) {
+          stdout.write(`- ${color.dim(note)}\n`);
         }
       }
     }

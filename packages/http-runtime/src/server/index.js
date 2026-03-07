@@ -1,2 +1,2 @@
-export * from "../shared/contracts/index.js";
-export * from "../shared/clientRuntime/index.js";
+export { HttpContractsServiceProvider } from "./providers/HttpContractsServiceProvider.js";
+export { HttpClientRuntimeServiceProvider } from "./providers/HttpClientRuntimeServiceProvider.js";
