@@ -11,7 +11,10 @@
     "docs:sync:check": "node ./docs/scripts/sync-doc-snippets.mjs --check",
     "docs:verify": "node ./docs/scripts/verify-doc-examples.mjs",
     "cloc:actual": "cloc --vcs=git --include-ext=js,cjs,mjs,jsx,ts,tsx,vue,py,go,rs,java,kt,swift,rb,php,cs,cpp,c,h,sql,sh,bash,zsh,ps1,md,mdx,rst,adoc,txt --exclude-dir=node_modules,dist,build,coverage,.next,.nuxt,.turbo,.cache,storybook-static,vendor,tmp,temp,.output,.vercel .",
-    "sloc:actual": "npm run cloc:actual"
+    "sloc:actual": "npm run cloc:actual",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "workspaces": [
     "packages/*",
@@ -20,24 +23,25 @@
   ],
   "devDependencies": {
     "cloc": "^2.6.0-cloc",
-    "jscpd": "^4.0.8"
+    "jscpd": "^4.0.8",
+    "vitepress": "^1.6.4"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.0",
-    "@jskit-ai/action-runtime-core": "0.1.0",
-    "dotenv": "^17.3.1",
-    "@supabase/supabase-js": "^2.57.4",
-    "jose": "^6.1.0",
-    "@jskit-ai/auth-provider-supabase-core": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0",
-    "typebox": "^1.0.81",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@mdi/js": "^7.4.47",
-    "vuetify": "^4.0.0",
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@jskit-ai/action-runtime-core": "0.1.0",
+    "@jskit-ai/auth-core": "0.1.0",
+    "@jskit-ai/auth-provider-supabase-core": "0.1.0",
     "@jskit-ai/auth-web": "0.1.0",
     "@jskit-ai/http-runtime": "0.1.0",
-    "@jskit-ai/auth-core": "0.1.0"
+    "@jskit-ai/kernel": "0.1.0",
+    "@mdi/js": "^7.4.47",
+    "@supabase/supabase-js": "^2.57.4",
+    "dotenv": "^17.3.1",
+    "jose": "^6.1.0",
+    "typebox": "^1.0.81",
+    "vuetify": "^4.0.0"
   }
 }
