@@ -1,4 +1,4 @@
-import * as actionRuntimeCore from "../../lib/index.js";
+import * as actionRuntimeCore from "../../shared/index.js";
 
 const ACTION_RUNTIME_CORE_API = Object.freeze({
   ...actionRuntimeCore

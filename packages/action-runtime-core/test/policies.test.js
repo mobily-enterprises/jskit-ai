@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeActionInput } from "../src/lib/policies.js";
+import { normalizeActionInput } from "../src/shared/policies.js";
 
 test("function schema returns normalized value when ok", async () => {
   const definition = {

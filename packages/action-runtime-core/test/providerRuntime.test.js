@@ -7,7 +7,7 @@ import {
   ActionRuntimeCoreServiceProvider
 } from "../src/server/providers/ActionRuntimeCoreServiceProvider.js";
 import { ActionRuntimeCoreClientProvider } from "../src/client/providers/ActionRuntimeCoreClientProvider.js";
-import { OBJECT_INPUT_SCHEMA, allowPublic } from "../src/lib/actionContributorHelpers.js";
+import { OBJECT_INPUT_SCHEMA, allowPublic } from "../src/shared/actionContributorHelpers.js";
 
 function createSingletonApp() {
   const singletons = new Map();

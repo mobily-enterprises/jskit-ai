@@ -187,7 +187,7 @@ References:
 - `auth-core`: auth access utilities + RBAC manifest model + Fastify auth policy runtime.
   - `/packages/auth-core/src/server/*`
 - `action-runtime-core`: action registry/contracts/pipeline/policies/idempotency/audit.
-  - `/packages/action-runtime-core/src/lib/*`
+  - `/packages/action-runtime-core/src/shared/*`
 - `auth-provider-supabase-core`: supabase auth service + auth action contributor.
   - `/packages/auth-provider-supabase-core/src/server/*`
 - `auth-web`: auth HTTP routes/controllers + client auth UI/runtime.
