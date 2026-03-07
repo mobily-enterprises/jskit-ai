@@ -25,8 +25,10 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /Container tokens \(quick map\):/);
   assert.match(stdout, /server: auth\.web\.service/);
   assert.match(stdout, /Package exports \(/);
-  assert.match(stdout, /\.\/server -> \.\/src\/server\/index\.js/);
-  assert.match(stdout, /Exported symbols from index files \(/);
+  assert.match(stdout, /- \.\/server\s+\[ok\]/);
+  assert.doesNotMatch(stdout, /\.\/server -> \.\/src\/server\/index\.js/);
+  assert.match(stdout, /\.\/client\/views\/DefaultLoginView -> \.\/src\/client\/views\/DefaultLoginView\.vue/);
+  assert.doesNotMatch(stdout, /Exported symbols from index files \(/);
   assert.match(stdout, /Container bindings server \(/);
   assert.match(stdout, /auth\.web\.service/);
   assert.match(stdout, /Container bindings client \(/);
@@ -48,6 +50,9 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /Requires detail \(/);
   assert.match(stdout, /auth\.provider/);
   assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.1\.0/);
+  assert.match(stdout, /Package exports \(/);
+  assert.match(stdout, /providers \(\d+\):/);
+  assert.match(stdout, /named re-exports \(\d+\):/);
 });
 
 test("show package --json includes exports, container bindings, and exported symbols", () => {
@@ -77,4 +82,21 @@ test("show package --json includes exports, container bindings, and exported sym
   assert.deepEqual(clientIndex.starReExports, []);
   assert.ok(Array.isArray(clientIndex.namedReExports));
   assert.ok(clientIndex.namedReExports.includes("../shared/clientRuntime/client.js"));
+});
+
+test("show package --json includes symbol summaries for direct export files", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "action-runtime-core", "--json"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const payload = JSON.parse(String(result.stdout || "{}"));
+  const exportedSymbols = Array.isArray(payload.exportedSymbols) ? payload.exportedSymbols : [];
+  const providerExport = exportedSymbols.find(
+    (record) => record && record.file === "src/client/providers/ActionRuntimeCoreClientProvider.js"
+  );
+  assert.ok(providerExport);
+  const symbols = Array.isArray(providerExport.symbols) ? providerExport.symbols : [];
+  assert.ok(symbols.includes("ActionRuntimeCoreClientProvider"));
 });

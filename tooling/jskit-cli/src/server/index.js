@@ -171,6 +171,8 @@ function createColorFormatter(stream) {
 
   return Object.freeze({
     heading: (text) => paint(text, `${ANSI_BOLD}${ANSI_WHITE}`),
+    emphasis: (text) => paint(text, `${ANSI_BOLD}${ANSI_CYAN}`),
+    white: (text) => paint(text, ANSI_WHITE),
     item: (text) => paint(text, ANSI_CYAN),
     version: (text) => paint(text, ANSI_DIM),
     installed: (text) => paint(text, ANSI_GREEN),
@@ -2010,16 +2012,37 @@ function collectContainerBindingsFromProviderSource({ source, providerLabel, ent
 
 function collectPackageExportEntries(exportsField) {
   const entries = [];
+  const normalizeExportSubpath = (subpath) => {
+    const normalized = String(subpath || ".").trim() || ".";
+    if (normalized === "." || normalized === "./") {
+      return {
+        normalized: ".",
+        segments: []
+      };
+    }
+
+    const withoutPrefix = normalized.startsWith("./") ? normalized.slice(2) : normalized;
+    const segments = withoutPrefix.split("/").map((value) => String(value || "").trim()).filter(Boolean);
+    return {
+      normalized: normalized.startsWith("./") ? normalized : `./${withoutPrefix}`,
+      segments
+    };
+  };
+
   const resolveSubpathSortPriority = (subpath) => {
-    const normalized = String(subpath || "").trim();
-    if (normalized === "./client") {
+    const normalized = normalizeExportSubpath(subpath);
+    const firstSegment = String(normalized.segments[0] || "").trim();
+    if (firstSegment === "client") {
       return 0;
     }
-    if (normalized === "./server") {
+    if (firstSegment === "server") {
       return 1;
     }
-    if (normalized === "./shared") {
+    if (firstSegment === "shared") {
       return 2;
+    }
+    if (normalized.normalized === ".") {
+      return 3;
     }
     return 10;
   };
@@ -2088,6 +2111,21 @@ function collectPackageExportEntries(exportsField) {
     if (leftPriority !== rightPriority) {
       return leftPriority - rightPriority;
     }
+
+    const leftParts = normalizeExportSubpath(left.subpath);
+    const rightParts = normalizeExportSubpath(right.subpath);
+    const leftRoot = String(leftParts.segments[0] || "");
+    const rightRoot = String(rightParts.segments[0] || "");
+    const rootComparison = leftRoot.localeCompare(rightRoot);
+    if (rootComparison !== 0) {
+      return rootComparison;
+    }
+
+    const depthComparison = leftParts.segments.length - rightParts.segments.length;
+    if (depthComparison !== 0) {
+      return depthComparison;
+    }
+
     const subpathComparison = left.subpath.localeCompare(right.subpath);
     if (subpathComparison !== 0) {
       return subpathComparison;
@@ -2283,13 +2321,92 @@ function formatPackageSubpathImport(packageId, subpath) {
   return `${normalizedPackageId}/${normalizedSubpath}`;
 }
 
-async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, notes }) {
+function deriveCanonicalExportTargetForSubpath(subpath) {
+  const normalizedSubpath = String(subpath || "").trim();
+  if (!normalizedSubpath) {
+    return "";
+  }
+  if (normalizedSubpath === ".") {
+    return "./src/index.js";
+  }
+  if (!normalizedSubpath.startsWith("./")) {
+    return "";
+  }
+
+  const bareSubpath = normalizedSubpath.slice(2);
+  if (!bareSubpath) {
+    return "";
+  }
+  if (bareSubpath === "client" || bareSubpath === "server" || bareSubpath === "shared") {
+    return `./src/${bareSubpath}/index.js`;
+  }
+
+  const roots = ["client", "server", "shared"];
+  for (const root of roots) {
+    if (!bareSubpath.startsWith(`${root}/`)) {
+      continue;
+    }
+    const suffix = bareSubpath.slice(root.length + 1);
+    if (!suffix) {
+      return "";
+    }
+    const hasJsExtension = /\.(?:c|m)?js$/.test(suffix);
+    const normalizedSuffix = hasJsExtension ? suffix : `${suffix}.js`;
+    return `./src/${root}/${normalizedSuffix}`;
+  }
+
+  return "";
+}
+
+function shouldShowPackageExportTarget({ subpath, target, targetType }) {
+  if (String(targetType || "").trim() !== "file") {
+    return true;
+  }
+
+  const canonicalTarget = deriveCanonicalExportTargetForSubpath(subpath);
+  if (!canonicalTarget) {
+    return true;
+  }
+
+  const normalizeTarget = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "";
+    }
+    const withoutPrefix = raw.startsWith("./") ? raw.slice(2) : raw;
+    return `./${normalizeRelativePosixPath(withoutPrefix)}`;
+  };
+
+  return normalizeTarget(target) !== normalizeTarget(canonicalTarget);
+}
+
+function deriveProviderDisplayName(bindingRecord) {
+  const binding = ensureObject(bindingRecord);
+  const providerLabel = String(binding.provider || "").trim();
+  if (!providerLabel) {
+    return "";
+  }
+
+  const hashIndex = providerLabel.lastIndexOf("#");
+  if (hashIndex > -1 && hashIndex < providerLabel.length - 1) {
+    return providerLabel.slice(hashIndex + 1);
+  }
+
+  const entrypoint = String(binding.entrypoint || "").trim();
+  if (!entrypoint) {
+    return providerLabel;
+  }
+  const basename = path.posix.basename(entrypoint);
+  return basename.replace(/\.(?:c|m)?js$/i, "") || providerLabel;
+}
+
+async function collectExportFileSymbolSummaries({ packageRoot, packageExports, notes }) {
   const rootDir = String(packageRoot || "").trim();
   if (!rootDir) {
     return [];
   }
 
-  const indexTargets = new Map();
+  const exportTargets = new Map();
   for (const entry of ensureArray(packageExports)) {
     const record = ensureObject(entry);
     if (record.targetType !== "file" || record.targetExists !== true) {
@@ -2302,18 +2419,18 @@ async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, no
     }
     const normalizedTarget = normalizeRelativePosixPath(target.replace(/^\.\//, ""));
     const basename = path.posix.basename(normalizedTarget);
-    if (!/^index\.(?:js|mjs|cjs)$/.test(basename)) {
+    if (!/\.(?:js|mjs|cjs)$/i.test(basename)) {
       continue;
     }
 
-    if (!indexTargets.has(normalizedTarget)) {
-      indexTargets.set(normalizedTarget, {
+    if (!exportTargets.has(normalizedTarget)) {
+      exportTargets.set(normalizedTarget, {
         file: normalizedTarget,
         subpaths: new Set(),
         conditions: new Set()
       });
     }
-    const bucket = indexTargets.get(normalizedTarget);
+    const bucket = exportTargets.get(normalizedTarget);
     bucket.subpaths.add(String(record.subpath || ".").trim() || ".");
     const condition = String(record.condition || "default").trim() || "default";
     if (condition !== "default") {
@@ -2322,10 +2439,10 @@ async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, no
   }
 
   const summaries = [];
-  for (const [relativeTargetPath, bucket] of indexTargets.entries()) {
+  for (const [relativeTargetPath, bucket] of exportTargets.entries()) {
     const absoluteTargetPath = path.resolve(rootDir, relativeTargetPath);
     if (!(await fileExists(absoluteTargetPath))) {
-      ensureArray(notes).push(`Index export file missing: ${relativeTargetPath}`);
+      ensureArray(notes).push(`Export file missing: ${relativeTargetPath}`);
       continue;
     }
 
@@ -2334,7 +2451,7 @@ async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, no
       source = await readFile(absoluteTargetPath, "utf8");
     } catch (error) {
       ensureArray(notes).push(
-        `Failed to read index export file ${relativeTargetPath}: ${String(error?.message || error || "unknown error")}`
+        `Failed to read export file ${relativeTargetPath}: ${String(error?.message || error || "unknown error")}`
       );
       continue;
     }
@@ -2448,7 +2565,7 @@ async function inspectPackageOfferings({ packageEntry }) {
     });
   }
 
-  details.exportedSymbols = await collectIndexFileSymbolSummaries({
+  details.exportedSymbols = await collectExportFileSymbolSummaries({
     packageRoot: rootDir,
     packageExports: details.packageExports,
     notes
@@ -3174,6 +3291,15 @@ async function commandShow({ positional, options, stdout }) {
       const quickClientTokens = ensureArray(containerTokenSummary.client).map((value) => String(value || "").trim()).filter(Boolean);
       const packageExports = ensureArray(payload.packageExports);
       const exportedSymbols = ensureArray(payload.exportedSymbols);
+      const exportedSymbolsByFile = new Map(
+        exportedSymbols
+          .map((entry) => ensureObject(entry))
+          .map((entry) => {
+            const file = normalizeRelativePosixPath(String(entry.file || "").trim());
+            return file ? [file, entry] : null;
+          })
+          .filter(Boolean)
+      );
       const bindingSections = ensureObject(payload.containerBindings);
       const serverBindings = ensureArray(bindingSections.server);
       const clientBindings = ensureArray(bindingSections.client);
@@ -3206,6 +3332,7 @@ async function commandShow({ positional, options, stdout }) {
         if (packageExports.length < 1) {
           stdout.write(`- ${color.dim("none declared")}\n`);
         } else {
+          const symbolDetailsShown = new Set();
           for (const packageExport of packageExports) {
             const record = ensureObject(packageExport);
             const subpath = String(record.subpath || ".").trim() || ".";
@@ -3220,22 +3347,29 @@ async function commandShow({ positional, options, stdout }) {
               : targetType === "pattern"
                 ? color.dim("[pattern]")
                 : color.dim("[external]");
-            stdout.write(`- ${color.item(subpath)}${conditionSuffix} -> ${color.item(target)} ${status}\n`);
-          }
-        }
+            const showTarget = shouldShowPackageExportTarget({ subpath, target, targetType });
+            const targetSuffix = showTarget ? ` -> ${color.item(target)}` : "";
+            const subpathLabel = options.details ? color.white(subpath) : color.item(subpath);
+            stdout.write(`- ${subpathLabel}${conditionSuffix}${targetSuffix} ${status}\n`);
 
-        stdout.write(`${color.heading(`Exported symbols from index files (${exportedSymbols.length}):`)}\n`);
-        if (exportedSymbols.length < 1) {
-          stdout.write(`- ${color.dim("none detected")}\n`);
-        } else {
-          for (const summaryRecord of exportedSymbols) {
-            const summary = ensureObject(summaryRecord);
-            const file = String(summary.file || "").trim();
-            const subpaths = ensureArray(summary.subpaths).map((value) => String(value)).filter(Boolean);
-            const conditions = ensureArray(summary.conditions).map((value) => String(value)).filter(Boolean);
-            const subpathLabel = subpaths.length > 0 ? subpaths.join(", ") : "(unmapped)";
-            const conditionSuffix = conditions.length > 0 ? ` ${color.dim(`[conditions: ${conditions.join(", ")}]`)}` : "";
-            stdout.write(`- ${color.heading(`${subpathLabel} -> ${file}`)}${conditionSuffix}\n`);
+            if (!options.details) {
+              continue;
+            }
+            if (targetType !== "file" || !target.startsWith("./")) {
+              continue;
+            }
+
+            const normalizedTarget = normalizeRelativePosixPath(target.slice(2));
+            const summary = ensureObject(exportedSymbolsByFile.get(normalizedTarget));
+            if (!summary || Object.keys(summary).length < 1) {
+              continue;
+            }
+
+            const detailKey = `${subpath}::${normalizedTarget}`;
+            if (symbolDetailsShown.has(detailKey)) {
+              continue;
+            }
+            symbolDetailsShown.add(detailKey);
 
             const symbols = ensureArray(summary.symbols).map((value) => String(value)).filter(Boolean);
             const classifiedSymbols = classifyExportedSymbols(symbols);
@@ -3276,9 +3410,6 @@ async function commandShow({ positional, options, stdout }) {
             }
             if (reExportSummary.length > 0) {
               stdout.write(`  ${color.dim(`re-export sources: ${reExportSummary.join(", ")}`)}\n`);
-            }
-            if (!options.details) {
-              continue;
             }
 
             if (starReExports.length > 0) {
@@ -3562,14 +3693,28 @@ async function commandShow({ positional, options, stdout }) {
             const tokenExpression = String(binding.tokenExpression || "").trim();
             const tokenLabel = binding.tokenResolved === true
               ? token
-              : `${token || tokenExpression}${tokenExpression ? color.dim(` (expr: ${tokenExpression})`) : ""}`;
+              : token || tokenExpression;
             const bindingMethod = String(binding.binding || "").trim();
-            const providerLabel = String(binding.provider || "").trim();
+            const providerName = deriveProviderDisplayName(binding);
             const lifecycle = String(binding.lifecycle || "").trim();
-            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.installed(`[${lifecycle}]`)}` : "";
-            const location = String(binding.location || "").trim();
-            const locationSuffix = location ? ` ${color.dim(`@ ${location}`)}` : "";
-            stdout.write(`- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} <= ${color.item(providerLabel)}${lifecycleSuffix}${locationSuffix}\n`);
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
+            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
+            stdout.write(
+              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
+            );
+            if (options.details) {
+              const location = String(binding.location || "").trim();
+              if (location) {
+                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
+              }
+              const providerLabel = String(binding.provider || "").trim();
+              if (providerLabel) {
+                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
+              }
+              if (binding.tokenResolved !== true && tokenExpression) {
+                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
+              }
+            }
           }
         }
 
@@ -3583,14 +3728,28 @@ async function commandShow({ positional, options, stdout }) {
             const tokenExpression = String(binding.tokenExpression || "").trim();
             const tokenLabel = binding.tokenResolved === true
               ? token
-              : `${token || tokenExpression}${tokenExpression ? color.dim(` (expr: ${tokenExpression})`) : ""}`;
+              : token || tokenExpression;
             const bindingMethod = String(binding.binding || "").trim();
-            const providerLabel = String(binding.provider || "").trim();
+            const providerName = deriveProviderDisplayName(binding);
             const lifecycle = String(binding.lifecycle || "").trim();
-            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.installed(`[${lifecycle}]`)}` : "";
-            const location = String(binding.location || "").trim();
-            const locationSuffix = location ? ` ${color.dim(`@ ${location}`)}` : "";
-            stdout.write(`- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} <= ${color.item(providerLabel)}${lifecycleSuffix}${locationSuffix}\n`);
+            const lifecycleSuffix = lifecycle && lifecycle !== "unknown" ? ` ${color.dim(`(${lifecycle})`)}` : "";
+            const unresolvedSuffix = binding.tokenResolved === true ? "" : color.dim(" [unresolved token]");
+            stdout.write(
+              `- ${color.item(tokenLabel)} ${color.installed(`[${bindingMethod}]`)} ${color.dim("by")} ${color.item(providerName)}${lifecycleSuffix}${unresolvedSuffix}\n`
+            );
+            if (options.details) {
+              const location = String(binding.location || "").trim();
+              if (location) {
+                stdout.write(`  ${color.dim(`source: ${location}`)}\n`);
+              }
+              const providerLabel = String(binding.provider || "").trim();
+              if (providerLabel) {
+                stdout.write(`  ${color.dim(`provider: ${providerLabel}`)}\n`);
+              }
+              if (binding.tokenResolved !== true && tokenExpression) {
+                stdout.write(`  ${color.dim(`token expression: ${tokenExpression}`)}\n`);
+              }
+            }
           }
         }
       }
