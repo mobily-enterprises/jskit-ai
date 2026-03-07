@@ -96,9 +96,20 @@ function resolveContextContributors(app, baseContext = {}, logger) {
   return merged;
 }
 
-function resolvePlacementComponent(app, placement, logger, missingTokens) {
+function resolvePlacementComponent(
+  app,
+  placement,
+  logger,
+  missingTokens,
+  invalidComponentTokens,
+  failedTokens
+) {
   const componentToken = String(placement.componentToken || "").trim();
   if (!componentToken) {
+    return null;
+  }
+
+  if (invalidComponentTokens.has(componentToken) || failedTokens.has(componentToken)) {
     return null;
   }
 
@@ -116,15 +127,35 @@ function resolvePlacementComponent(app, placement, logger, missingTokens) {
     return null;
   }
 
-  const component = app.make(componentToken);
+  let component = null;
+  try {
+    component = app.make(componentToken);
+  } catch (error) {
+    if (!failedTokens.has(componentToken)) {
+      failedTokens.add(componentToken);
+      logger.error(
+        {
+          placementId: placement.id,
+          componentToken,
+          error: String(error?.message || error || "unknown error")
+        },
+        "Skipping placement because component token resolution threw."
+      );
+    }
+    return null;
+  }
+
   if (!isRenderableComponent(component)) {
-    logger.warn(
-      {
-        placementId: placement.id,
-        componentToken
-      },
-      "Skipping placement because component token did not resolve to a Vue component."
-    );
+    if (!invalidComponentTokens.has(componentToken)) {
+      invalidComponentTokens.add(componentToken);
+      logger.warn(
+        {
+          placementId: placement.id,
+          componentToken
+        },
+        "Skipping placement because component token did not resolve to a Vue component."
+      );
+    }
     return null;
   }
 
@@ -157,9 +188,14 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
   const runtimeLogger = createRuntimeLogger(logger);
   const missingTokens = new Set();
+  const invalidComponentTokens = new Set();
+  const failedTokens = new Set();
   let placementDefinitions = Object.freeze([]);
 
   function replacePlacements(entries = [], { source = "app placement registry" } = {}) {
+    missingTokens.clear();
+    invalidComponentTokens.clear();
+    failedTokens.clear();
     placementDefinitions = Object.freeze(normalizePlacementList(entries, { source }));
   }
 
@@ -200,7 +236,14 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
         continue;
       }
 
-      const component = resolvePlacementComponent(app, placement, runtimeLogger, missingTokens);
+      const component = resolvePlacementComponent(
+        app,
+        placement,
+        runtimeLogger,
+        missingTokens,
+        invalidComponentTokens,
+        failedTokens
+      );
       if (!component) {
         continue;
       }

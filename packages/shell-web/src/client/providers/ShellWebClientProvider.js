@@ -75,7 +75,8 @@ class ShellWebClientProvider {
       throw new Error("ShellWebClientProvider requires application singleton().");
     }
 
-    app.singleton(RUNTIME_WEB_PLACEMENT_CLIENT_TOKEN, () => createWebPlacementRuntime({ app }));
+    const logger = createProviderLogger(app);
+    app.singleton(RUNTIME_WEB_PLACEMENT_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
   }
 
   async boot(app) {
