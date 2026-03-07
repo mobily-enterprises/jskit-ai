@@ -1,4 +1,3 @@
-export * from "../shared/index.js";
 export {
   resolveActionContributors,
   registerActionContributor,
