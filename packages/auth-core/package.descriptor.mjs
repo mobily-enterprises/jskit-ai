@@ -48,6 +48,33 @@ export default Object.freeze({
       ]
     }
   },
+  "metadata": {
+    "apiSummary": {
+      "surfaces": [
+        {
+          "subpath": "./client",
+          "summary": "Exports client auth access APIs plus AccessCoreClientProvider/RbacClientProvider/FastifyAuthPolicyClientProvider."
+        },
+        {
+          "subpath": "./server",
+          "summary": "Exports server auth access, RBAC, and Fastify auth policy providers plus server auth utility modules."
+        },
+        {
+          "subpath": "./shared/authApi",
+          "summary": "Exports shared auth API helpers (with companion shared sign-out helpers at ./shared/signOutFlow)."
+        }
+      ],
+      "containerTokens": {
+        "server": [
+          "auth.access",
+          "auth.rbac"
+        ],
+        "client": [
+          "auth.access.client"
+        ]
+      }
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

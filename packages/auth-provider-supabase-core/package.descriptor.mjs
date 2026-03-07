@@ -52,6 +52,31 @@ export default Object.freeze({
       ]
     }
   },
+  "metadata": {
+    "apiSummary": {
+      "surfaces": [
+        {
+          "subpath": "./server",
+          "summary": "Exports Supabase auth provider service providers and supporting server auth library modules."
+        },
+        {
+          "subpath": "./server/lib/index",
+          "summary": "Exports server-side Supabase auth service and action contributor helpers."
+        },
+        {
+          "subpath": "./client",
+          "summary": "Exports no runtime API today (reserved client entrypoint)."
+        }
+      ],
+      "containerTokens": {
+        "server": [
+          "authService",
+          "auth.provider.supabase.actionContributor"
+        ],
+        "client": []
+      }
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

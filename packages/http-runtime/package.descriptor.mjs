@@ -37,6 +37,34 @@ export default Object.freeze({
       ]
     }
   },
+  "metadata": {
+    "apiSummary": {
+      "surfaces": [
+        {
+          "subpath": "./client",
+          "summary": "Exports HTTP client runtime APIs (createHttpClient and transport helpers) plus client providers."
+        },
+        {
+          "subpath": "./server",
+          "summary": "Exports service providers only (HttpContractsServiceProvider, HttpClientRuntimeServiceProvider)."
+        },
+        {
+          "subpath": "./shared",
+          "summary": "Exports HTTP contract/schema utilities (error responses, pagination schema, TypeBox formats)."
+        }
+      ],
+      "containerTokens": {
+        "server": [
+          "contracts.http",
+          "runtime.http-client"
+        ],
+        "client": [
+          "contracts.http.client",
+          "runtime.http-client.client"
+        ]
+      }
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

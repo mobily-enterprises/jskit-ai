@@ -44,6 +44,31 @@ export default Object.freeze({
     }
   },
   "metadata": {
+    "apiSummary": {
+      "surfaces": [
+        {
+          "subpath": "./client",
+          "summary": "Exports auth web client runtime/views/composables plus AuthWebClientProvider."
+        },
+        {
+          "subpath": "./server",
+          "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
+        },
+        {
+          "subpath": "./client/routes",
+          "summary": "Exports client route registration helper for auth surfaces."
+        }
+      ],
+      "containerTokens": {
+        "server": [
+          "auth.web.service"
+        ],
+        "client": [
+          "auth.login.component",
+          "auth.login.useLoginView"
+        ]
+      }
+    },
     "server": {
       "routes": [
         {

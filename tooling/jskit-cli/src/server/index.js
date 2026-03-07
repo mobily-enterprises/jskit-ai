@@ -2204,6 +2204,67 @@ function parseExportedSymbolsFromSource(source) {
   };
 }
 
+function classifyExportedSymbols(symbols = []) {
+  const source = ensureArray(symbols).map((value) => String(value || "").trim()).filter(Boolean);
+  const providers = [];
+  const constants = [];
+  const functions = [];
+  const classesOrTypes = [];
+  const internals = [];
+  const others = [];
+
+  for (const symbol of source) {
+    if (/Provider$/.test(symbol)) {
+      providers.push(symbol);
+      continue;
+    }
+    if (/^__/.test(symbol)) {
+      internals.push(symbol);
+      continue;
+    }
+    if (/^[A-Z0-9_]+$/.test(symbol)) {
+      constants.push(symbol);
+      continue;
+    }
+    if (/^[a-z]/.test(symbol)) {
+      functions.push(symbol);
+      continue;
+    }
+    if (/^[A-Z]/.test(symbol)) {
+      classesOrTypes.push(symbol);
+      continue;
+    }
+    others.push(symbol);
+  }
+
+  return {
+    providers: sortStrings(providers),
+    constants: sortStrings(constants),
+    functions: sortStrings(functions),
+    classesOrTypes: sortStrings(classesOrTypes),
+    internals: sortStrings(internals),
+    others: sortStrings(others)
+  };
+}
+
+function formatPackageSubpathImport(packageId, subpath) {
+  const normalizedPackageId = String(packageId || "").trim();
+  const normalizedSubpath = String(subpath || "").trim();
+  if (!normalizedPackageId) {
+    return normalizedSubpath;
+  }
+  if (!normalizedSubpath || normalizedSubpath === ".") {
+    return normalizedPackageId;
+  }
+  if (normalizedSubpath.startsWith("./")) {
+    return `${normalizedPackageId}/${normalizedSubpath.slice(2)}`;
+  }
+  if (normalizedSubpath.startsWith("/")) {
+    return `${normalizedPackageId}${normalizedSubpath}`;
+  }
+  return `${normalizedPackageId}/${normalizedSubpath}`;
+}
+
 async function collectIndexFileSymbolSummaries({ packageRoot, packageExports, notes }) {
   const rootDir = String(packageRoot || "").trim();
   if (!rootDir) {
@@ -3080,6 +3141,19 @@ async function commandShow({ positional, options, stdout }) {
       const introspectionNotes = ensureArray(introspection.notes)
         .map((value) => String(value || "").trim())
         .filter(Boolean);
+      const metadataApiSummary = ensureObject(ensureObject(payload.metadata).apiSummary);
+      const summarySurfaces = ensureArray(metadataApiSummary.surfaces)
+        .map((entry) => {
+          const record = ensureObject(entry);
+          return {
+            subpath: String(record.subpath || "").trim(),
+            summary: String(record.summary || "").trim()
+          };
+        })
+        .filter((entry) => entry.subpath && entry.summary);
+      const containerTokenSummary = ensureObject(metadataApiSummary.containerTokens);
+      const quickServerTokens = ensureArray(containerTokenSummary.server).map((value) => String(value || "").trim()).filter(Boolean);
+      const quickClientTokens = ensureArray(containerTokenSummary.client).map((value) => String(value || "").trim()).filter(Boolean);
       const packageExports = ensureArray(payload.packageExports);
       const exportedSymbols = ensureArray(payload.exportedSymbols);
       const bindingSections = ensureObject(payload.containerBindings);
@@ -3092,6 +3166,23 @@ async function commandShow({ positional, options, stdout }) {
         writeField("Description", payload.description);
       }
       writeField("Descriptor", payload.descriptorPath, color.dim);
+      if (summarySurfaces.length > 0) {
+        stdout.write(`${color.heading("Summary:")}\n`);
+        for (const summaryEntry of summarySurfaces) {
+          const importPath = formatPackageSubpathImport(payload.packageId, summaryEntry.subpath);
+          stdout.write(`- ${color.item(`${importPath}:`)}\n`);
+          stdout.write(`  ${summaryEntry.summary}\n`);
+        }
+      }
+      if (quickServerTokens.length > 0 || quickClientTokens.length > 0) {
+        stdout.write(`${color.heading("Container tokens (quick map):")}\n`);
+        if (quickServerTokens.length > 0) {
+          stdout.write(`- ${color.installed("server")}: ${quickServerTokens.map((token) => color.item(token)).join(", ")}\n`);
+        }
+        if (quickClientTokens.length > 0) {
+          stdout.write(`- ${color.installed("client")}: ${quickClientTokens.map((token) => color.item(token)).join(", ")}\n`);
+        }
+      }
       if (introspectionAvailable) {
         stdout.write(`${color.heading(`Package exports (${packageExports.length}):`)}\n`);
         if (packageExports.length < 1) {
@@ -3124,27 +3215,54 @@ async function commandShow({ positional, options, stdout }) {
             const file = String(summary.file || "").trim();
             const subpaths = ensureArray(summary.subpaths).map((value) => String(value)).filter(Boolean);
             const conditions = ensureArray(summary.conditions).map((value) => String(value)).filter(Boolean);
-            const subpathSuffix = subpaths.length > 0 ? ` ${color.installed(`[${subpaths.join(", ")}]`)}` : "";
+            const subpathLabel = subpaths.length > 0 ? subpaths.join(", ") : "(unmapped)";
             const conditionSuffix = conditions.length > 0 ? ` ${color.dim(`[conditions: ${conditions.join(", ")}]`)}` : "";
-            stdout.write(`- ${color.item(file)}${subpathSuffix}${conditionSuffix}\n`);
+            stdout.write(`- ${color.heading(`${subpathLabel} -> ${file}`)}${conditionSuffix}\n`);
 
             const symbols = ensureArray(summary.symbols).map((value) => String(value)).filter(Boolean);
-            if (symbols.length > 0) {
+            const classifiedSymbols = classifyExportedSymbols(symbols);
+            const writeClassifiedSymbols = (label, entries) => {
+              const items = ensureArray(entries).map((entry) => String(entry || "").trim()).filter(Boolean);
+              if (items.length < 1) {
+                return;
+              }
               writeWrappedItems({
                 stdout,
-                heading: `  ${color.installed(`symbols (${symbols.length}):`)}`,
+                heading: `  ${color.installed(`${label} (${items.length}):`)}`,
                 lineIndent: "    ",
                 wrapWidth,
-                items: symbols.map((symbol) => ({
+                items: items.map((symbol) => ({
                   text: symbol,
                   rendered: color.item(symbol)
                 }))
               });
-            }
+            };
+            writeClassifiedSymbols("providers", classifiedSymbols.providers);
+            writeClassifiedSymbols("functions/helpers", classifiedSymbols.functions);
+            writeClassifiedSymbols("constants", classifiedSymbols.constants);
+            writeClassifiedSymbols("classes/types", classifiedSymbols.classesOrTypes);
+            writeClassifiedSymbols("internal/test hooks", classifiedSymbols.internals);
+            writeClassifiedSymbols("other symbols", classifiedSymbols.others);
+
             if (summary.hasDefaultExport === true) {
               stdout.write(`  ${color.installed("default export: yes")}\n`);
             }
             const starReExports = ensureArray(summary.starReExports).map((value) => String(value)).filter(Boolean);
+            const namedReExports = ensureArray(summary.namedReExports).map((value) => String(value)).filter(Boolean);
+            const reExportSummary = [];
+            if (namedReExports.length > 0) {
+              reExportSummary.push(`named from ${namedReExports.length} files`);
+            }
+            if (starReExports.length > 0) {
+              reExportSummary.push(`star from ${starReExports.length} files`);
+            }
+            if (reExportSummary.length > 0) {
+              stdout.write(`  ${color.dim(`re-export sources: ${reExportSummary.join(", ")}`)}\n`);
+            }
+            if (!options.details) {
+              continue;
+            }
+
             if (starReExports.length > 0) {
               writeWrappedItems({
                 stdout,
@@ -3157,7 +3275,6 @@ async function commandShow({ positional, options, stdout }) {
                 }))
               });
             }
-            const namedReExports = ensureArray(summary.namedReExports).map((value) => String(value)).filter(Boolean);
             if (namedReExports.length > 0) {
               writeWrappedItems({
                 stdout,

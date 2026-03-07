@@ -28,6 +28,34 @@ export default Object.freeze({
       ]
     }
   },
+  "metadata": {
+    "apiSummary": {
+      "surfaces": [
+        {
+          "subpath": "./client",
+          "summary": "Exports action runtime APIs for client use plus ActionRuntimeCoreClientProvider."
+        },
+        {
+          "subpath": "./server",
+          "summary": "Exports action runtime APIs for server use plus contributor helpers and ActionRuntimeCoreServiceProvider."
+        },
+        {
+          "subpath": "./contracts",
+          "summary": "Exports shared action definition contracts and normalization primitives (with additional shared subpaths such as ./registry, ./pipeline, ./policies)."
+        }
+      ],
+      "containerTokens": {
+        "server": [
+          "runtime.actions",
+          "actionRegistry",
+          "actionExecutor"
+        ],
+        "client": [
+          "runtime.actions.client"
+        ]
+      }
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {},
