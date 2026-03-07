@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import SurfaceShell from "../../components/shell/SurfaceShell.vue";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
 const health = ref("loading...");
 
@@ -32,7 +32,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <SurfaceShell
+  <ShellLayout
+    surface="app"
     surface-label="App"
     title="App surface is ready."
     subtitle="Primary workspace container for day-to-day product workflows."
@@ -46,5 +47,5 @@ onMounted(async () => {
         <v-chip size="small" color="info" variant="tonal" label>{{ health }}</v-chip>
       </v-card-text>
     </v-card>
-  </SurfaceShell>
+  </ShellLayout>
 </template>

@@ -54,4 +54,12 @@ test("auth-web package exports composables for default auth views", () => {
     exportsMap["./client/routes"],
     "./src/client/routes/registerClientRoutes.js"
   );
+  assert.equal(
+    exportsMap["./client/views/AuthProfileWidget"],
+    "./src/client/views/AuthProfileWidget.vue"
+  );
+  assert.equal(
+    exportsMap["./client/views/AuthProfileMenuLinkItem"],
+    "./src/client/views/AuthProfileMenuLinkItem.vue"
+  );
 });

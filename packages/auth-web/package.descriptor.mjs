@@ -6,6 +6,7 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/auth-core",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/shell-web",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -17,7 +18,8 @@ export default Object.freeze({
       "auth.access",
       "auth.provider",
       "contracts.http",
-      "auth.policy"
+      "auth.policy",
+      "runtime.web-placement"
     ]
   },
   "runtime": {
@@ -48,7 +50,7 @@ export default Object.freeze({
       "surfaces": [
         {
           "subpath": "./client",
-          "summary": "Exports auth web client runtime/views/composables plus AuthWebClientProvider."
+          "summary": "Exports auth web client runtime/views/composables and AuthWebClientProvider."
         },
         {
           "subpath": "./server",
@@ -65,7 +67,10 @@ export default Object.freeze({
         ],
         "client": [
           "auth.login.component",
-          "auth.login.useLoginView"
+          "auth.login.useLoginView",
+          "auth.web.profile.widget",
+          "auth.web.profile.menu.link-item",
+          "auth.web.placement.context"
         ]
       }
     },
@@ -191,6 +196,7 @@ export default Object.freeze({
         "@jskit-ai/auth-core": "0.1.0",
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
+        "@jskit-ai/shell-web": "0.1.0",
         "vuetify": "^4.0.0"
       },
       "dev": {}
@@ -227,6 +233,18 @@ export default Object.freeze({
         "reason": "Provide a global /auth/signout wrapper that renders the package sign-out view.",
         "category": "auth-web",
         "id": "auth-page-signout"
+      }
+    ],
+    "text": [
+      {
+        "op": "append-text",
+        "file": "src/placement.js",
+        "position": "bottom",
+        "skipIfContains": "id: \"auth.profile.widget\"",
+        "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.open-app\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Open app\",\n    to: \"/app\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        "reason": "Append auth profile placement entries into app-owned placement registry.",
+        "category": "auth-web",
+        "id": "auth-web-placement-block"
       }
     ]
   }

@@ -1,5 +1,5 @@
 <script setup>
-import SurfaceShell from "../../components/shell/SurfaceShell.vue";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
 const topLeftActions = [
   { label: "Workspace", to: "/app" },
@@ -19,7 +19,8 @@ const menuItems = [
 </script>
 
 <template>
-  <SurfaceShell
+  <ShellLayout
+    surface="console"
     surface-label="Console"
     title="Console surface is ready."
     subtitle="Use this area for diagnostics, operational tooling, and advanced workflows."
@@ -32,5 +33,5 @@ const menuItems = [
         Replace this area with your console tools.
       </v-card-text>
     </v-card>
-  </SurfaceShell>
+  </ShellLayout>
 </template>

@@ -37,6 +37,34 @@
             ]
           }
         },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports action runtime APIs for client use plus ActionRuntimeCoreClientProvider."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Exports action runtime APIs for server use plus contributor helpers and ActionRuntimeCoreServiceProvider."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared action runtime APIs and contracts (with structured subpaths such as ./shared/contracts, ./shared/registry, ./shared/pipeline, ./shared/policies)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.actions",
+                "actionRegistry",
+                "actionExecutor"
+              ],
+              "client": [
+                "runtime.actions.client"
+              ]
+            }
+          }
+        },
         "mutations": {
           "dependencies": {
             "runtime": {},
@@ -101,6 +129,33 @@
                 "export": "FastifyAuthPolicyClientProvider"
               }
             ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports client auth access APIs plus AccessCoreClientProvider/RbacClientProvider/FastifyAuthPolicyClientProvider."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Exports server auth access, RBAC, and Fastify auth policy providers plus server auth utility modules."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "auth.access",
+                "auth.rbac"
+              ],
+              "client": [
+                "auth.access.client"
+              ]
+            }
           }
         },
         "mutations": {
@@ -178,6 +233,31 @@
             ]
           }
         },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports Supabase auth provider service providers and supporting server auth library modules."
+              },
+              {
+                "subpath": "./server/lib/index",
+                "summary": "Exports server-side Supabase auth service and action contributor helpers."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "authService",
+                "auth.provider.supabase.actionContributor"
+              ],
+              "client": []
+            }
+          }
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
@@ -247,6 +327,7 @@
         "dependsOn": [
           "@jskit-ai/auth-core",
           "@jskit-ai/http-runtime",
+          "@jskit-ai/shell-web",
           "@jskit-ai/value-app-config-shared"
         ],
         "capabilities": {
@@ -258,7 +339,8 @@
             "auth.access",
             "auth.provider",
             "contracts.http",
-            "auth.policy"
+            "auth.policy",
+            "runtime.web-placement"
           ]
         },
         "runtime": {
@@ -285,6 +367,34 @@
           }
         },
         "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports auth web client runtime/views/composables and AuthWebClientProvider."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
+              },
+              {
+                "subpath": "./client/routes",
+                "summary": "Exports client route registration helper for auth surfaces."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "auth.web.service"
+              ],
+              "client": [
+                "auth.login.component",
+                "auth.login.useLoginView",
+                "auth.web.profile.widget",
+                "auth.web.profile.menu.link-item",
+                "auth.web.placement.context"
+              ]
+            }
+          },
           "server": {
             "routes": [
               {
@@ -407,6 +517,7 @@
               "@jskit-ai/auth-core": "0.1.0",
               "@jskit-ai/http-runtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/shell-web": "0.1.0",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -443,6 +554,18 @@
               "reason": "Provide a global /auth/signout wrapper that renders the package sign-out view.",
               "category": "auth-web",
               "id": "auth-page-signout"
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"auth.profile.widget\"",
+              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.open-app\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Open app\",\n    to: \"/app\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append auth profile placement entries into app-owned placement registry.",
+              "category": "auth-web",
+              "id": "auth-web-placement-block"
             }
           ]
         }
@@ -490,6 +613,34 @@
             ]
           }
         },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports HTTP client runtime APIs (createHttpClient and transport helpers) plus client providers."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Exports service providers only (HttpContractsServiceProvider, HttpClientRuntimeServiceProvider)."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports HTTP contract/schema utilities, with structured contract subpaths under ./shared/contracts/*."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "contracts.http",
+                "runtime.http-client"
+              ],
+              "client": [
+                "contracts.http.client",
+                "runtime.http-client.client"
+              ]
+            }
+          }
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
@@ -503,6 +654,113 @@
           },
           "procfile": {},
           "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/shell-web",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/shell-web",
+        "version": "0.1.0",
+        "description": "Web shell layout runtime with outlet-based placement contributions.",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "runtime.web-placement"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/ShellWebClientProvider.js",
+                "export": "ShellWebClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports shell layout/outlet components, placement helpers, and ShellWebClientProvider."
+              },
+              {
+                "subpath": "./client/placement",
+                "summary": "Exports app-owned placement registry helpers, slot contracts, and placement runtime tokens."
+              }
+            ],
+            "containerTokens": {
+              "server": [],
+              "client": [
+                "runtime.web-placement.client"
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.0",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "from": "templates/src/App.vue",
+              "to": "src/App.vue",
+              "reason": "Install full-width shell app root so shell layouts render edge-to-edge.",
+              "category": "shell-web",
+              "id": "shell-web-app-root"
+            },
+            {
+              "from": "templates/src/placement.js",
+              "to": "src/placement.js",
+              "reason": "Install app-owned placement registry scaffold used by shell-web placement runtime.",
+              "category": "shell-web",
+              "id": "shell-web-placement-registry"
+            },
+            {
+              "from": "templates/src/pages/index.vue",
+              "to": "src/pages/index.vue",
+              "reason": "Install shell-driven root page starter.",
+              "category": "shell-web",
+              "id": "shell-web-page-root"
+            },
+            {
+              "from": "templates/src/pages/admin/index.vue",
+              "to": "src/pages/admin/index.vue",
+              "reason": "Install shell-driven admin page starter.",
+              "category": "shell-web",
+              "id": "shell-web-page-admin"
+            },
+            {
+              "from": "templates/src/pages/app/index.vue",
+              "to": "src/pages/app/index.vue",
+              "reason": "Install shell-driven app page starter.",
+              "category": "shell-web",
+              "id": "shell-web-page-app"
+            },
+            {
+              "from": "templates/src/pages/console/index.vue",
+              "to": "src/pages/console/index.vue",
+              "reason": "Install shell-driven console page starter.",
+              "category": "shell-web",
+              "id": "shell-web-page-console"
+            }
+          ]
         }
       }
     }

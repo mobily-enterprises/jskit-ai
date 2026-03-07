@@ -1,11 +1,13 @@
-export { AuthWebClientProvider } from "./providers/AuthWebClientProvider.js";
+import { AuthWebClientProvider } from "./providers/AuthWebClientProvider.js";
 import DefaultLoginView from "./views/DefaultLoginView.vue";
 import DefaultSignOutView from "./views/DefaultSignOutView.vue";
-import { initializeAuthGuardRuntime } from "./runtime/authGuardRuntime.js";
+export { AuthWebClientProvider } from "./providers/AuthWebClientProvider.js";
 export { default as DefaultLoginView } from "./views/DefaultLoginView.vue";
 export { default as LoginView } from "./views/DefaultLoginView.vue";
 export { default as DefaultSignOutView } from "./views/DefaultSignOutView.vue";
 export { default as SignOutView } from "./views/DefaultSignOutView.vue";
+export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
+export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
 export { useDefaultLoginView } from "./composables/useDefaultLoginView.js";
 export { useDefaultSignOutView } from "./composables/useDefaultSignOutView.js";
 export { authHttpRequest, clearAuthCsrfTokenCache } from "./api/AuthHttpClient.js";
@@ -16,6 +18,8 @@ const routeComponents = Object.freeze({
   "auth-login": DefaultLoginView,
   "auth-signout": DefaultSignOutView
 });
+
+const clientProviders = Object.freeze([AuthWebClientProvider]);
 
 function buildDefaultLoginRoute({ component = DefaultLoginView, path = "/auth/default-login", meta = {} } = {}) {
   return {
@@ -48,8 +52,7 @@ export function bootDefaultLoginRoute(context = {}) {
 }
 
 async function bootClient(context) {
-  await initializeAuthGuardRuntime({ loginRoute: "/auth/login" });
   bootDefaultLoginRoute(context);
 }
 
-export { routeComponents, bootClient };
+export { routeComponents, clientProviders, bootClient };

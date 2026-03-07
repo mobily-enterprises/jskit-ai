@@ -21,7 +21,10 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /Server routes \(/);
   assert.match(stdout, /GET \/api\/session: Get current session status and CSRF token/);
   assert.match(stdout, /Summary:/);
-  assert.match(stdout, /@jskit-ai\/auth-web\/client:\n\s+Exports auth web client runtime\/views\/composables plus AuthWebClientProvider\./);
+  assert.match(
+    stdout,
+    /@jskit-ai\/auth-web\/client:\n\s+Exports auth web client runtime\/views\/composables and AuthWebClientProvider\./
+  );
   assert.match(stdout, /Container tokens -- app\.make\('\.\.\.'\):/);
   assert.match(stdout, /server: auth\.web\.service/);
   assert.match(stdout, /Package exports \(/);

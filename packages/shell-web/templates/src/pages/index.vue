@@ -1,8 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import SurfaceShell from "../components/shell/SurfaceShell.vue";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
-const appTitle = "__APP_TITLE__";
 const health = ref("loading...");
 
 const topLeftActions = [
@@ -33,9 +32,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <SurfaceShell
+  <ShellLayout
+    surface="app"
     surface-label="Web"
-    :title="`${appTitle} shell`"
+    title="Web shell is ready."
     subtitle="Base shell container for all surfaces."
     :top-left-actions="topLeftActions"
     :top-right-actions="topRightActions"
@@ -47,5 +47,5 @@ onMounted(async () => {
         <v-chip size="small" color="info" variant="tonal" label>{{ health }}</v-chip>
       </v-card-text>
     </v-card>
-  </SurfaceShell>
+  </ShellLayout>
 </template>

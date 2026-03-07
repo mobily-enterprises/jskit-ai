@@ -1,5 +1,5 @@
 <script setup>
-import SurfaceShell from "../../components/shell/SurfaceShell.vue";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
 const topLeftActions = [
   { label: "Workspace", to: "/app" },
@@ -19,7 +19,8 @@ const menuItems = [
 </script>
 
 <template>
-  <SurfaceShell
+  <ShellLayout
+    surface="admin"
     surface-label="Admin"
     title="Admin surface is ready."
     subtitle="Manage platform settings, operators, and governance from this surface."
@@ -32,5 +33,5 @@ const menuItems = [
         Replace this area with your admin modules.
       </v-card-text>
     </v-card>
-  </SurfaceShell>
+  </ShellLayout>
 </template>

@@ -15,6 +15,8 @@
     "./client/routes": "./src/client/routes/registerClientRoutes.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
+    "./client/views/AuthProfileWidget": "./src/client/views/AuthProfileWidget.vue",
+    "./client/views/AuthProfileMenuLinkItem": "./src/client/views/AuthProfileMenuLinkItem.vue",
     "./client/composables/useDefaultLoginView": "./src/client/composables/useDefaultLoginView.js",
     "./client/composables/useDefaultSignOutView": "./src/client/composables/useDefaultSignOutView.js",
     "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
@@ -27,6 +29,7 @@
     "@mdi/js": "^7.4.47",
     "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/shell-web": "0.1.0",
     "vuetify": "^4.0.0",
     "@jskit-ai/http-runtime": "0.1.0"
   }

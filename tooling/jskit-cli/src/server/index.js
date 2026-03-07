@@ -716,6 +716,55 @@ function removeEnvValue(content, key, expectedValue, previous) {
   };
 }
 
+function normalizeSnippet(value) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trimEnd();
+}
+
+function appendTextSnippet(content, snippet, position = "bottom") {
+  const normalizedContent = String(content || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+  const normalizedSnippet = normalizeSnippet(snippet);
+
+  if (!normalizedSnippet) {
+    return {
+      changed: false,
+      content: normalizedContent
+    };
+  }
+
+  if (normalizedContent.includes(normalizedSnippet)) {
+    return {
+      changed: false,
+      content: normalizedContent
+    };
+  }
+
+  if (!normalizedContent) {
+    return {
+      changed: true,
+      content: `${normalizedSnippet}\n`
+    };
+  }
+
+  if (position === "top") {
+    const nextContent = `${normalizedSnippet}\n\n${normalizedContent.replace(/^\n+/, "")}`.replace(/\n+$/, "\n");
+    return {
+      changed: true,
+      content: nextContent
+    };
+  }
+
+  const nextContent = `${normalizedContent.replace(/\n*$/, "\n\n")}${normalizedSnippet}\n`;
+  return {
+    changed: true,
+    content: nextContent
+  };
+}
+
 function interpolateOptionValue(rawValue, options, ownerId, key) {
   return String(rawValue || "").replace(OPTION_INTERPOLATION_PATTERN, (_, optionName) => {
     if (Object.prototype.hasOwnProperty.call(options, optionName)) {
@@ -2851,38 +2900,86 @@ async function applyFileMutations(packageEntry, appRoot, fileMutations, managedF
 async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
   for (const mutation of textMutations) {
     const operation = String(mutation?.op || "").trim();
-    if (operation !== "upsert-env") {
-      throw createCliError(`Unsupported text mutation op "${operation}" in ${packageEntry.packageId}.`);
+    if (operation === "upsert-env") {
+      const relativeFile = String(mutation?.file || "").trim();
+      const key = String(mutation?.key || "").trim();
+      if (!relativeFile || !key) {
+        throw createCliError(`Invalid upsert-env mutation in ${packageEntry.packageId}: "file" and "key" are required.`);
+      }
+
+      const absoluteFile = path.join(appRoot, relativeFile);
+      const previous = await readFileBufferIfExists(absoluteFile);
+      const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
+      const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, key);
+      const upserted = upsertEnvValue(previousContent, key, resolvedValue);
+
+      await mkdir(path.dirname(absoluteFile), { recursive: true });
+      await writeFile(absoluteFile, upserted.content, "utf8");
+
+      const recordKey = `${relativeFile}::${String(mutation?.id || key)}`;
+      managedText[recordKey] = {
+        file: relativeFile,
+        op: "upsert-env",
+        key,
+        value: resolvedValue,
+        hadPrevious: upserted.hadPrevious,
+        previousValue: upserted.previousValue,
+        reason: String(mutation?.reason || ""),
+        category: String(mutation?.category || ""),
+        id: String(mutation?.id || "")
+      };
+      touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
+      continue;
     }
 
-    const relativeFile = String(mutation?.file || "").trim();
-    const key = String(mutation?.key || "").trim();
-    if (!relativeFile || !key) {
-      throw createCliError(`Invalid upsert-env mutation in ${packageEntry.packageId}: "file" and "key" are required.`);
+    if (operation === "append-text") {
+      const relativeFile = String(mutation?.file || "").trim();
+      const snippet = String(mutation?.value || "");
+      const position = String(mutation?.position || "bottom").trim().toLowerCase();
+      if (!relativeFile) {
+        throw createCliError(`Invalid append-text mutation in ${packageEntry.packageId}: "file" is required.`);
+      }
+      if (position !== "top" && position !== "bottom") {
+        throw createCliError(`Invalid append-text mutation in ${packageEntry.packageId}: "position" must be "top" or "bottom".`);
+      }
+
+      const absoluteFile = path.join(appRoot, relativeFile);
+      const previous = await readFileBufferIfExists(absoluteFile);
+      const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
+      const mutationId = String(mutation?.id || "").trim() || "append-text";
+      const resolvedSnippet = interpolateOptionValue(snippet, options, packageEntry.packageId, mutationId);
+      const skipChecks = ensureArray(mutation?.skipIfContains)
+        .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+        .filter((entry) => String(entry || "").trim().length > 0);
+
+      const shouldSkip = skipChecks.some((pattern) => previousContent.includes(String(pattern)));
+      if (shouldSkip) {
+        continue;
+      }
+
+      const appended = appendTextSnippet(previousContent, resolvedSnippet, position);
+      if (!appended.changed) {
+        continue;
+      }
+
+      await mkdir(path.dirname(absoluteFile), { recursive: true });
+      await writeFile(absoluteFile, appended.content, "utf8");
+
+      const recordKey = `${relativeFile}::${mutationId}`;
+      managedText[recordKey] = {
+        file: relativeFile,
+        op: "append-text",
+        value: resolvedSnippet,
+        position,
+        reason: String(mutation?.reason || ""),
+        category: String(mutation?.category || ""),
+        id: String(mutation?.id || "")
+      };
+      touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
+      continue;
     }
 
-    const absoluteFile = path.join(appRoot, relativeFile);
-    const previous = await readFileBufferIfExists(absoluteFile);
-    const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
-    const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, key);
-    const upserted = upsertEnvValue(previousContent, key, resolvedValue);
-
-    await mkdir(path.dirname(absoluteFile), { recursive: true });
-    await writeFile(absoluteFile, upserted.content, "utf8");
-
-    const recordKey = `${relativeFile}::${String(mutation?.id || key)}`;
-    managedText[recordKey] = {
-      file: relativeFile,
-      op: "upsert-env",
-      key,
-      value: resolvedValue,
-      hadPrevious: upserted.hadPrevious,
-      previousValue: upserted.previousValue,
-      reason: String(mutation?.reason || ""),
-      category: String(mutation?.category || ""),
-      id: String(mutation?.id || "")
-    };
-    touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
+    throw createCliError(`Unsupported text mutation op "${operation}" in ${packageEntry.packageId}.`);
   }
 }
 
@@ -3643,9 +3740,13 @@ async function commandShow({ positional, options, stdout }) {
           const op = String(record.op || "").trim();
           const file = String(record.file || "").trim();
           const key = String(record.key || "").trim();
+          const position = String(record.position || "").trim();
           const reason = String(record.reason || "").trim();
           const reasonSuffix = reason ? `: ${reason}` : "";
-          stdout.write(`- ${color.item(`${op} ${file} ${key}`.trim())}${reasonSuffix}\n`);
+          const mutationLabel = op === "append-text"
+            ? `${op} ${file}${position ? ` [${position}]` : ""}`
+            : `${op} ${file} ${key}`.trim();
+          stdout.write(`- ${color.item(mutationLabel)}${reasonSuffix}\n`);
         }
       }
 
