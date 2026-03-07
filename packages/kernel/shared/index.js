@@ -2,6 +2,7 @@ export { KERNEL_TOKENS } from "./support/tokens.js";
 export {
   normalizeText,
   normalizeObject,
+  isRecord,
   normalizeArray,
   normalizeInteger,
   ensureNonEmptyText

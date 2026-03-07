@@ -10,6 +10,10 @@ function normalizeObject(value, { fallback = {} } = {}) {
   return value;
 }
 
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -41,6 +45,7 @@ function ensureNonEmptyText(value, label = "value") {
 export {
   normalizeText,
   normalizeObject,
+  isRecord,
   normalizeArray,
   normalizeInteger,
   ensureNonEmptyText

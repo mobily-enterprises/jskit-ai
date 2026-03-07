@@ -2,10 +2,7 @@ import {
   DEFAULT_WEB_PLACEMENT_ORDER,
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {

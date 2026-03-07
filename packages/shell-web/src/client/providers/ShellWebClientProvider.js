@@ -1,15 +1,13 @@
 import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   WEB_PLACEMENT_RUNTIME_INJECTION_KEY
 } from "../placement/tokens.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
 
-const RUNTIME_WEB_PLACEMENT_CLIENT_TOKEN = "runtime.web-placement.client";
+// Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 
 function createProviderLogger(app) {
   return Object.freeze({
@@ -76,7 +74,7 @@ class ShellWebClientProvider {
     }
 
     const logger = createProviderLogger(app);
-    app.singleton(RUNTIME_WEB_PLACEMENT_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
+    app.singleton(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
   }
 
   async boot(app) {
@@ -85,7 +83,7 @@ class ShellWebClientProvider {
     }
 
     const logger = createProviderLogger(app);
-    const runtime = app.make(RUNTIME_WEB_PLACEMENT_CLIENT_TOKEN);
+    const runtime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
     if (runtime && typeof runtime.replacePlacements === "function") {
       const placements = await loadAppPlacementDefinitions(logger);
       runtime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });

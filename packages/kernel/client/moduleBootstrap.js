@@ -1,5 +1,6 @@
 import { createApplication } from "../server/kernel/lib/application.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
+import { isRecord } from "../shared/support/normalize.js";
 
 const CLIENT_MODULE_RUNTIME_APP_TOKEN = Symbol.for("jskit.client.runtime.app");
 const CLIENT_MODULE_ROUTER_TOKEN = Symbol.for("jskit.client.router");
@@ -8,10 +9,6 @@ const CLIENT_MODULE_ENV_TOKEN = Symbol.for("jskit.client.env");
 const CLIENT_MODULE_SURFACE_RUNTIME_TOKEN = Symbol.for("jskit.client.surface.runtime");
 const CLIENT_MODULE_SURFACE_MODE_TOKEN = Symbol.for("jskit.client.surface.mode");
 const CLIENT_MODULE_LOGGER_TOKEN = Symbol.for("jskit.client.logger");
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 
 function normalizePackageId(value) {
   return String(value || "").trim();

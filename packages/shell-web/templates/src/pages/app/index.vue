@@ -4,22 +4,6 @@ import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
 const health = ref("loading...");
 
-const topLeftActions = [
-  { label: "Workspace", to: "/app" },
-  { label: "App", to: "/app" }
-];
-
-const topRightActions = [
-  { label: "Alerts", to: "/console" },
-  { label: "Settings", to: "/admin" }
-];
-
-const menuItems = [
-  { label: "Home", to: "/app", icon: "$home" },
-  { label: "Projects", to: "/app", icon: "$folder" },
-  { label: "Reports", to: "/app", icon: "$chartBox" }
-];
-
 onMounted(async () => {
   try {
     const response = await fetch("/api/v1/health");
@@ -37,9 +21,6 @@ onMounted(async () => {
     surface-label="App"
     title="App surface is ready."
     subtitle="Primary workspace container for day-to-day product workflows."
-    :top-left-actions="topLeftActions"
-    :top-right-actions="topRightActions"
-    :menu-items="menuItems"
   >
     <v-card rounded="lg" border elevation="0">
       <v-card-text class="d-flex align-center ga-2">

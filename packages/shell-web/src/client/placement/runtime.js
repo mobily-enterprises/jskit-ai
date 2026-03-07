@@ -2,6 +2,7 @@ import {
   WEB_PLACEMENT_CONTEXT_CONTRIBUTOR_TAG,
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
   normalizePlacementDefinition,
@@ -17,10 +18,6 @@ function ensureArray(value) {
     return [];
   }
   return [value];
-}
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function createRuntimeLogger(logger) {

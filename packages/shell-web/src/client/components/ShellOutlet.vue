@@ -11,10 +11,6 @@ const props = defineProps({
     type: String,
     default: ""
   },
-  zone: {
-    type: String,
-    default: ""
-  },
   context: {
     type: Object,
     default: () => ({})
@@ -26,7 +22,7 @@ const placementRuntime = useWebPlacementRuntime();
 const placements = computed(() => {
   return placementRuntime.getPlacements({
     surface: props.surface,
-    slot: props.placement || props.zone,
+    slot: props.placement,
     context: props.context
   });
 });
@@ -39,7 +35,7 @@ const placements = computed(() => {
     :key="entry.id"
     v-bind="entry.props"
     :surface="surface"
-    :placement="placement || zone"
+    :placement="placement"
     :placement-id="entry.id"
   />
 </template>

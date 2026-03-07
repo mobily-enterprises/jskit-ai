@@ -1,8 +1,5 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
+import { isRecord } from "../shared/support/normalize.js";
 
 function createBaseLogger(logger = console) {
   if (isRecord(logger)) {
