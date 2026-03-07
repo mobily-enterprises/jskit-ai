@@ -394,6 +394,7 @@ function parseArgs(argv) {
         full: false,
         expanded: false,
         details: false,
+        debugExports: false,
         json: false,
         all: false,
         help: true,
@@ -416,6 +417,7 @@ function parseArgs(argv) {
     full: false,
     expanded: false,
     details: false,
+    debugExports: false,
     json: false,
     all: false,
     help: false,
@@ -444,6 +446,10 @@ function parseArgs(argv) {
     }
     if (token === "--details") {
       options.details = true;
+      continue;
+    }
+    if (token === "--debug-exports") {
+      options.debugExports = true;
       continue;
     }
     if (token === "--json") {
@@ -485,6 +491,10 @@ function parseArgs(argv) {
     positional.push(token);
   }
 
+  if (options.debugExports) {
+    options.details = true;
+  }
+
   return {
     command,
     options,
@@ -515,6 +525,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --full                       Show bundle package ids (declared packages)\n");
   stream.write("  --expanded                   Show expanded/transitive package ids\n");
   stream.write("  --details                    Show extra capability detail in show output\n");
+  stream.write("  --debug-exports              Show export provenance/re-export source details in show output\n");
   stream.write("  --<option> <value>           Package option (for packages requiring input)\n");
   stream.write("  --json                       Print structured output\n");
   stream.write("  -h, --help                   Show help\n");
@@ -3319,7 +3330,7 @@ async function commandShow({ positional, options, stdout }) {
         }
       }
       if (quickServerTokens.length > 0 || quickClientTokens.length > 0) {
-        stdout.write(`${color.heading("Container tokens (quick map):")}\n`);
+        stdout.write(`${color.heading("Container tokens")} ${color.dim("-- app.make('...'):")}\n`);
         if (quickServerTokens.length > 0) {
           stdout.write(`- ${color.installed("server")}: ${quickServerTokens.map((token) => color.item(token)).join(", ")}\n`);
         }
@@ -3408,11 +3419,11 @@ async function commandShow({ positional, options, stdout }) {
             if (starReExports.length > 0) {
               reExportSummary.push(`star from ${starReExports.length} files`);
             }
-            if (reExportSummary.length > 0) {
+            if (options.debugExports && reExportSummary.length > 0) {
               stdout.write(`  ${color.dim(`re-export sources: ${reExportSummary.join(", ")}`)}\n`);
             }
 
-            if (starReExports.length > 0) {
+            if (options.debugExports && starReExports.length > 0) {
               writeWrappedItems({
                 stdout,
                 heading: `  ${color.installed(`star re-exports (${starReExports.length}):`)}`,
@@ -3424,7 +3435,7 @@ async function commandShow({ positional, options, stdout }) {
                 }))
               });
             }
-            if (namedReExports.length > 0) {
+            if (options.debugExports && namedReExports.length > 0) {
               writeWrappedItems({
                 stdout,
                 heading: `  ${color.installed(`named re-exports (${namedReExports.length}):`)}`,

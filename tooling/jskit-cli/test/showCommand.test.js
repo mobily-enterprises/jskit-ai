@@ -22,7 +22,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /GET \/api\/session: Get current session status and CSRF token/);
   assert.match(stdout, /Summary:/);
   assert.match(stdout, /@jskit-ai\/auth-web\/client:\n\s+Exports auth web client runtime\/views\/composables plus AuthWebClientProvider\./);
-  assert.match(stdout, /Container tokens \(quick map\):/);
+  assert.match(stdout, /Container tokens -- app\.make\('\.\.\.'\):/);
   assert.match(stdout, /server: auth\.web\.service/);
   assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /- \.\/server\s+\[ok\]/);
@@ -52,6 +52,19 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.1\.0/);
   assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /providers \(\d+\):/);
+  assert.doesNotMatch(stdout, /named re-exports \(\d+\):/);
+});
+
+test("show package --debug-exports includes re-export provenance details", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "http-runtime", "--debug-exports"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Package exports \(/);
+  assert.match(stdout, /re-export sources:/);
   assert.match(stdout, /named re-exports \(\d+\):/);
 });
 

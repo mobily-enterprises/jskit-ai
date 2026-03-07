@@ -112,7 +112,7 @@ Shared surface direct subpaths available from package exports:
 
 ## Server API
 
-Server aggregate entrypoint (`@jskit-ai/kernel/server`) re-exports container, http, kernel, platform, runtime, support, and surface APIs.
+Server aggregate entrypoint (`@jskit-ai/kernel/server`) is intentionally minimal and exports only core server providers (use domain entrypoints such as `@jskit-ai/kernel/server/runtime` and `@jskit-ai/kernel/server/http` for APIs).
 
 Server container entrypoint (`@jskit-ai/kernel/server/container`) exports:
 
