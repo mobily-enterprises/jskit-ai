@@ -1,0 +1,28 @@
+{
+  "name": "@jskit-ai/database-runtime",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./server/providers/DatabaseRuntimeServiceProvider": "./src/server/providers/DatabaseRuntimeServiceProvider.js",
+    "./shared": "./src/shared/index.js",
+    "./shared/dateUtils": "./src/shared/dateUtils.js",
+    "./shared/dialect": "./src/shared/dialect.js",
+    "./shared/duplicateEntry": "./src/shared/duplicateEntry.js",
+    "./shared/json": "./src/shared/json.js",
+    "./shared/repository": "./src/shared/repository.js",
+    "./shared/repositoryOptions": "./src/shared/repositoryOptions.js",
+    "./shared/retention": "./src/shared/retention.js",
+    "./shared/runtime": "./src/shared/runtime.js",
+    "./shared/runtimeErrors": "./src/shared/runtimeErrors.js",
+    "./shared/transactionManager": "./src/shared/transactionManager.js",
+    "./shared/transactions": "./src/shared/transactions.js"
+  },
+  "dependencies": {
+    "@jskit-ai/kernel": "0.1.0"
+  }
+}
