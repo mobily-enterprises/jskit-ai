@@ -4473,10 +4473,17 @@ async function commandAdd({ positional, options, cwd, io }) {
     `add ${targetType} ${targetId}`
   );
 
+  const packagesToInstall = [];
   const resolvedOptionsByPackage = {};
   for (const packageId of resolvedPackageIds) {
     const packageEntry = combinedPackageRegistry.get(packageId);
-    const lockEntryOptions = ensureObject(ensureObject(lock.installedPackages[packageId]).options);
+    const existingInstall = ensureObject(lock.installedPackages[packageId]);
+    const existingVersion = String(existingInstall.version || "").trim();
+    if (existingVersion && existingVersion === packageEntry.version) {
+      continue;
+    }
+    packagesToInstall.push(packageId);
+    const lockEntryOptions = ensureObject(existingInstall.options);
     resolvedOptionsByPackage[packageId] = await resolvePackageOptions(
       packageEntry,
       {
@@ -4490,7 +4497,7 @@ async function commandAdd({ positional, options, cwd, io }) {
   const touchedFiles = new Set();
   const installedPackageRecords = [];
 
-  for (const packageId of resolvedPackageIds) {
+  for (const packageId of packagesToInstall) {
     const packageEntry = combinedPackageRegistry.get(packageId);
     const managedRecord = await applyPackageInstall({
       packageEntry,
