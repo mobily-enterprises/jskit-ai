@@ -1,5 +1,6 @@
 import { computed, onMounted, ref } from "vue";
 import { performSignOutRequest } from "../runtime/useSignOut.js";
+import { useAuthGuardRuntime } from "../runtime/inject.js";
 
 function normalizeReturnToPath(rawValue, fallback = "/app") {
   const normalized = String(rawValue || "").trim();
@@ -35,6 +36,9 @@ function navigateToPath(path, { replace = true } = {}) {
 }
 
 export function useDefaultSignOutView() {
+  const authGuardRuntime = useAuthGuardRuntime({
+    required: true
+  });
   const status = ref("pending");
   const errorMessage = ref("");
   const returnToPath = ref("/app");
@@ -55,7 +59,9 @@ export function useDefaultSignOutView() {
     errorMessage.value = "";
 
     try {
-      await performSignOutRequest();
+      await performSignOutRequest({
+        authGuardRuntime
+      });
       status.value = "success";
       navigateToPath(loginRoute.value, { replace: true });
     } catch (error) {

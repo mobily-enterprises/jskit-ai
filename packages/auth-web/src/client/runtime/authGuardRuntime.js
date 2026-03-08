@@ -9,18 +9,6 @@ const DEFAULT_AUTH_STATE = Object.freeze({
   oauthProviders: Object.freeze([])
 });
 
-let authState = DEFAULT_AUTH_STATE;
-let activePlacementRuntime = null;
-const AUTH_DEBUG_PREFIX = "[auth-debug]";
-
-function debugLog(message, payload = null) {
-  if (payload === null || payload === undefined) {
-    console.log(`${AUTH_DEBUG_PREFIX} ${message}`);
-    return;
-  }
-  console.log(`${AUTH_DEBUG_PREFIX} ${message}`, payload);
-}
-
 function asGlobalObject() {
   if (typeof globalThis !== "object" || !globalThis) {
     return null;
@@ -83,17 +71,13 @@ function isPlacementRuntime(value) {
   return Boolean(value && typeof value.getContext === "function" && typeof value.setContext === "function");
 }
 
-function resolvePlacementRuntime(value = null) {
-  if (isPlacementRuntime(value)) {
-    activePlacementRuntime = value;
-    debugLog("resolvePlacementRuntime: using provided runtime instance.");
-    return value;
-  }
-  if (isPlacementRuntime(activePlacementRuntime)) {
-    debugLog("resolvePlacementRuntime: using cached runtime instance.");
-    return activePlacementRuntime;
-  }
-  throw new Error("Auth guard runtime requires a web placement runtime with getContext()/setContext().");
+function isAuthGuardRuntime(value) {
+  return Boolean(
+    value &&
+      typeof value.initialize === "function" &&
+      typeof value.refresh === "function" &&
+      typeof value.getState === "function"
+  );
 }
 
 function applyAuthContext(nextState, placementRuntime) {
@@ -117,25 +101,19 @@ function applyAuthContext(nextState, placementRuntime) {
     delete nextContext.user;
   }
 
-  debugLog("applyAuthContext: writing placement context.", {
-    previousAuth: currentContext?.auth || null,
-    nextAuth: nextContext.auth,
-    previousUser: currentContext?.user || null,
-    nextUser: nextContext.user || null
-  });
-
   placementRuntime.setContext(nextContext, {
     replace: true,
     source: "auth-web"
   });
 }
 
-async function readSessionState(sessionPath = DEFAULT_SESSION_PATH) {
-  debugLog("readSessionState: requesting session.", {
-    sessionPath
-  });
+async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImplementation = globalThis.fetch } = {}) {
+  if (typeof fetchImplementation !== "function") {
+    return DEFAULT_AUTH_STATE;
+  }
+
   try {
-    const response = await fetch(sessionPath, {
+    const response = await fetchImplementation(sessionPath, {
       method: "GET",
       credentials: "include",
       headers: {
@@ -143,21 +121,13 @@ async function readSessionState(sessionPath = DEFAULT_SESSION_PATH) {
       }
     });
 
-    debugLog("readSessionState: response status.", {
-      status: response.status,
-      ok: response.ok
-    });
-
     if (!response.ok) {
-      debugLog("readSessionState: non-ok response, using default auth state.");
       return DEFAULT_AUTH_STATE;
     }
 
     const payload = await response.json();
-    debugLog("readSessionState: response payload.", payload);
     return normalizeAuthState(payload);
   } catch {
-    debugLog("readSessionState: request failed, using default auth state.");
     return DEFAULT_AUTH_STATE;
   }
 }
@@ -187,7 +157,7 @@ function toLoginRedirect(loginRoute, context) {
   return query ? `${normalizedLoginRoute}?${query}` : normalizedLoginRoute;
 }
 
-function evaluateAuthGuard({ guard, context, loginRoute }) {
+function evaluateAuthGuard({ guard, context, loginRoute, authState = DEFAULT_AUTH_STATE }) {
   const guardPolicy = String(guard?.policy || "")
     .trim()
     .toLowerCase();
@@ -201,11 +171,6 @@ function evaluateAuthGuard({ guard, context, loginRoute }) {
   }
 
   if (authState.authenticated) {
-    debugLog("evaluateAuthGuard: allow authenticated route.", {
-      guardPolicy,
-      authenticated: authState.authenticated,
-      pathname: context?.location?.pathname || ""
-    });
     return {
       allow: true,
       redirectTo: "",
@@ -214,12 +179,6 @@ function evaluateAuthGuard({ guard, context, loginRoute }) {
   }
 
   const redirectTo = toLoginRedirect(loginRoute, context);
-  debugLog("evaluateAuthGuard: deny route, redirecting to login.", {
-    guardPolicy,
-    authenticated: authState.authenticated,
-    pathname: context?.location?.pathname || "",
-    redirectTo
-  });
 
   return {
     allow: false,
@@ -228,9 +187,9 @@ function evaluateAuthGuard({ guard, context, loginRoute }) {
   };
 }
 
-function installGuardEvaluator(loginRoute = DEFAULT_LOGIN_ROUTE) {
+function installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState }) {
   const root = asGlobalObject();
-  if (!root) {
+  if (!root || typeof getAuthState !== "function") {
     return;
   }
 
@@ -238,36 +197,130 @@ function installGuardEvaluator(loginRoute = DEFAULT_LOGIN_ROUTE) {
     return evaluateAuthGuard({
       guard,
       context,
-      loginRoute
+      loginRoute,
+      authState: getAuthState()
     });
   };
 }
 
-async function initializeAuthGuardRuntime({
+function normalizeRuntimePath(value, fallback) {
+  const raw = String(value || "").trim();
+  return raw || fallback;
+}
+
+function createAuthGuardRuntime({
+  placementRuntime = null,
   sessionPath = DEFAULT_SESSION_PATH,
   loginRoute = DEFAULT_LOGIN_ROUTE,
-  placementRuntime = null
+  fetchImplementation = globalThis.fetch
 } = {}) {
-  debugLog("initializeAuthGuardRuntime: start.", {
-    sessionPath,
-    loginRoute
+  if (!isPlacementRuntime(placementRuntime)) {
+    throw new Error("createAuthGuardRuntime requires a web placement runtime with getContext()/setContext().");
+  }
+
+  let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
+  let currentLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
+  let authState = DEFAULT_AUTH_STATE;
+  const listeners = new Set();
+
+  function notifyListeners() {
+    for (const listener of listeners) {
+      try {
+        listener(authState);
+      } catch {
+        // Ignore listener failures to keep runtime updates safe.
+      }
+    }
+  }
+
+  function getState() {
+    return authState;
+  }
+
+  function subscribe(listener) {
+    if (typeof listener !== "function") {
+      return () => {};
+    }
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
+  async function refresh({ sessionPath: nextSessionPath } = {}) {
+    const resolvedSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
+    authState = await readSessionState({
+      sessionPath: resolvedSessionPath,
+      fetchImplementation
+    });
+    applyAuthContext(authState, placementRuntime);
+    notifyListeners();
+    return authState;
+  }
+
+  async function initialize({ sessionPath: nextSessionPath, loginRoute: nextLoginRoute } = {}) {
+    currentSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
+    currentLoginRoute = normalizePathname(nextLoginRoute, currentLoginRoute);
+    installGuardEvaluator({
+      loginRoute: currentLoginRoute,
+      getAuthState: () => authState
+    });
+    return refresh({
+      sessionPath: currentSessionPath
+    });
+  }
+
+  return Object.freeze({
+    initialize,
+    refresh,
+    getState,
+    subscribe
   });
-  const runtime = resolvePlacementRuntime(placementRuntime);
-  authState = await readSessionState(sessionPath);
-  debugLog("initializeAuthGuardRuntime: normalized auth state.", authState);
-  applyAuthContext(authState, runtime);
-  installGuardEvaluator(loginRoute);
-  debugLog("initializeAuthGuardRuntime: complete.");
-  return authState;
 }
 
-async function refreshAuthGuardState(options = {}) {
-  debugLog("refreshAuthGuardState: invoked.", options);
-  return initializeAuthGuardRuntime(options);
+function resolveRuntimeInput(input = {}) {
+  if (isAuthGuardRuntime(input)) {
+    return {
+      runtime: input,
+      options: {}
+    };
+  }
+
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new TypeError("Auth guard runtime API requires options with runtime/authGuardRuntime.");
+  }
+
+  const runtime = input.runtime || input.authGuardRuntime || null;
+  if (!isAuthGuardRuntime(runtime)) {
+    throw new Error("Auth guard runtime API requires runtime/authGuardRuntime from createAuthGuardRuntime().");
+  }
+
+  const { runtime: _runtime, authGuardRuntime: _authGuardRuntime, ...options } = input;
+  return {
+    runtime,
+    options
+  };
 }
 
-function getAuthGuardState() {
-  return authState;
+async function initializeAuthGuardRuntime(input = {}) {
+  const { runtime, options } = resolveRuntimeInput(input);
+  return runtime.initialize(options);
 }
 
-export { initializeAuthGuardRuntime, refreshAuthGuardState, getAuthGuardState };
+async function refreshAuthGuardState(input = {}) {
+  const { runtime, options } = resolveRuntimeInput(input);
+  return runtime.refresh(options);
+}
+
+function getAuthGuardState(input = {}) {
+  const { runtime } = resolveRuntimeInput(input);
+  return runtime.getState();
+}
+
+export {
+  createAuthGuardRuntime,
+  isAuthGuardRuntime,
+  initializeAuthGuardRuntime,
+  refreshAuthGuardState,
+  getAuthGuardState
+};

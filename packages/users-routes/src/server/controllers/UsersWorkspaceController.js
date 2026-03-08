@@ -24,7 +24,9 @@ async function executeAction(actionExecutor, { actionId, request, input = {}, co
     actionId,
     input,
     context: {
-      request,
+      requestMeta: {
+        request
+      },
       channel: "api",
       ...(context && typeof context === "object" ? context : {})
     }

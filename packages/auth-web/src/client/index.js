@@ -13,6 +13,15 @@ export { useDefaultSignOutView } from "./composables/useDefaultSignOutView.js";
 export { authHttpRequest, clearAuthCsrfTokenCache } from "./api/AuthHttpClient.js";
 export { useSignOut, createSignOutAction, performSignOutRequest } from "./composables/useSignOut.js";
 export { registerClientRoutes } from "./routes/registerClientRoutes.js";
+export {
+  createAuthGuardRuntime,
+  isAuthGuardRuntime,
+  initializeAuthGuardRuntime,
+  refreshAuthGuardState,
+  getAuthGuardState
+} from "./runtime/authGuardRuntime.js";
+export { useAuthGuardRuntime, EMPTY_AUTH_GUARD_RUNTIME } from "./runtime/inject.js";
+export { AUTH_GUARD_RUNTIME_CLIENT_TOKEN } from "./runtime/tokens.js";
 
 const routeComponents = Object.freeze({
   "auth-login": DefaultLoginView,

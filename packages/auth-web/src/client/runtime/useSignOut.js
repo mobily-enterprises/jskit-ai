@@ -1,6 +1,7 @@
 import { runAuthSignOutFlow } from "@jskit-ai/auth-core/client/signOutFlow";
-import { refreshAuthGuardState } from "./authGuardRuntime.js";
+import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
+import { useAuthGuardRuntime } from "./inject.js";
 
 const SUPPORTED_SURFACES = new Set(["app", "admin", "console"]);
 const SIGN_OUT_ENDPOINTS = Object.freeze(["/api/logout", "/api/v1/logout"]);
@@ -95,13 +96,17 @@ function createHttpLogoutApi() {
   };
 }
 
-async function performSignOutRequest() {
+async function performSignOutRequest({ authGuardRuntime } = {}) {
+  if (!isAuthGuardRuntime(authGuardRuntime)) {
+    throw new TypeError("performSignOutRequest requires authGuardRuntime from useAuthGuardRuntime().");
+  }
+
   await runAuthSignOutFlow({
     authApi: createHttpLogoutApi(),
     clearCsrfTokenCache: clearAuthCsrfTokenCache
   });
 
-  const guardState = await refreshAuthGuardState();
+  const guardState = await authGuardRuntime.refresh();
   if (guardState?.authenticated) {
     throw new Error("Sign out did not complete because the session is still authenticated.");
   }
@@ -109,9 +114,12 @@ async function performSignOutRequest() {
   return guardState;
 }
 
-function createSignOutAction({ currentSurface, goToEntry } = {}) {
+function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime } = {}) {
   if (typeof goToEntry !== "function") {
     throw new TypeError("createSignOutAction requires goToEntry().");
+  }
+  if (!isAuthGuardRuntime(authGuardRuntime)) {
+    throw new TypeError("createSignOutAction requires authGuardRuntime from useAuthGuardRuntime().");
   }
 
   return async function signOut() {
@@ -122,7 +130,9 @@ function createSignOutAction({ currentSurface, goToEntry } = {}) {
     const redirectRoute = `/auth/login?${redirectParams.toString()}`;
 
     try {
-      await performSignOutRequest();
+      await performSignOutRequest({
+        authGuardRuntime
+      });
       await goToEntry({ resolvedRoute: redirectRoute });
     } catch (error) {
       if (import.meta.env?.DEV) {
@@ -133,8 +143,17 @@ function createSignOutAction({ currentSurface, goToEntry } = {}) {
 }
 
 function useSignOut(options = {}) {
+  const authGuardRuntime = isAuthGuardRuntime(options?.authGuardRuntime)
+    ? options.authGuardRuntime
+    : useAuthGuardRuntime({
+        required: true
+      });
+
   return Object.freeze({
-    signOut: createSignOutAction(options)
+    signOut: createSignOutAction({
+      ...options,
+      authGuardRuntime
+    })
   });
 }
 

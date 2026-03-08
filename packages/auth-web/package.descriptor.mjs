@@ -66,6 +66,7 @@ export default Object.freeze({
           "auth.web.service"
         ],
         "client": [
+          "runtime.auth-guard.client",
           "auth.login.component",
           "auth.login.useLoginView",
           "auth.web.profile.widget",

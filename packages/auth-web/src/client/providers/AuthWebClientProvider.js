@@ -1,9 +1,14 @@
 import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
-import { initializeAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
+import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
 import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/placement";
+import {
+  AUTH_GUARD_RUNTIME_CLIENT_TOKEN,
+  AUTH_GUARD_RUNTIME_INJECTION_KEY
+} from "../runtime/tokens.js";
 
 const AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN = "auth.web.profile.widget";
 const AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN = "auth.web.profile.menu.link-item";
@@ -20,6 +25,17 @@ class AuthWebClientProvider {
     app.singleton("auth.login.useLoginView", () => useLoginView);
     app.singleton(AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN, () => AuthProfileWidget);
     app.singleton(AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN, () => AuthProfileMenuLinkItem);
+    app.singleton(AUTH_GUARD_RUNTIME_CLIENT_TOKEN, () => {
+      if (!app.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN)) {
+        throw new Error("AuthWebClientProvider requires shell-web placement runtime.");
+      }
+
+      const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
+      return createAuthGuardRuntime({
+        loginRoute: "/auth/login",
+        placementRuntime
+      });
+    });
   }
 
   async boot(app) {
@@ -27,15 +43,19 @@ class AuthWebClientProvider {
       throw new Error("AuthWebClientProvider requires application make().");
     }
 
-    if (!app.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN)) {
-      throw new Error("AuthWebClientProvider requires shell-web placement runtime.");
+    const authGuardRuntime = app.make(AUTH_GUARD_RUNTIME_CLIENT_TOKEN);
+    await authGuardRuntime.initialize();
+
+    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+      return;
     }
 
-    const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
-    await initializeAuthGuardRuntime({
-      loginRoute: "/auth/login",
-      placementRuntime
-    });
+    const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
+    if (!vueApp || typeof vueApp.provide !== "function") {
+      return;
+    }
+
+    vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, authGuardRuntime);
   }
 }
 

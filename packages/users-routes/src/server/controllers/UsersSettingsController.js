@@ -20,7 +20,9 @@ async function executeAction(actionExecutor, { actionId, request, input = {} }) 
     actionId,
     input,
     context: {
-      request,
+      requestMeta: {
+        request
+      },
       channel: "api"
     }
   });
