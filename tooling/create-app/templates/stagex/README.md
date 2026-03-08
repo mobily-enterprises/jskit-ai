@@ -17,8 +17,7 @@ npm run server
 
 App configuration files:
 
-- `config/surfaces.js` for surface routing/runtime mode.
-- `config/public.js` for client-visible feature toggles.
+- `config/public.js` for client-visible feature toggles, including surface definitions.
 - `config/server.js` for server-only toggles/secrets wiring.
 
 Contact API routes:

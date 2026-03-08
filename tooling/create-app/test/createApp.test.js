@@ -86,10 +86,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /appPlugins:\s*\[vuetify\]/);
     assert.match(mainJs, /fallbackRoute/);
 
-    const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
-    assert.match(surfacesConfig, /requiresAuth:\s*false/);
+    await assert.rejects(access(path.join(appRoot, "config/surfaces.js")), /ENOENT/);
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    assert.match(publicConfig, /export const config = \{\};/);
+    assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
+    assert.match(publicConfig, /config\.surfaceDefinitions = \{/);
+    assert.match(publicConfig, /requiresAuth:\s*false/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
     assert.match(serverConfig, /export const config = \{\};/);
 

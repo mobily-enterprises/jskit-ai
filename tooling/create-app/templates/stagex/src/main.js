@@ -14,17 +14,12 @@ import {
   bootstrapClientShellApp,
   createShellRouter
 } from "@jskit-ai/kernel/client";
-import {
-  SURFACE_DEFAULT_ID,
-  SURFACE_DEFINITIONS,
-  SURFACE_MODE_ALL,
-  WEB_ROOT_ALLOWED
-} from "../config/surfaces.js";
+import { config } from "../config/public.js";
 
 const surfaceRuntime = createSurfaceRuntime({
-  allMode: SURFACE_MODE_ALL,
-  surfaces: SURFACE_DEFINITIONS,
-  defaultSurfaceId: SURFACE_DEFAULT_ID
+  allMode: config.surfaceModeAll,
+  surfaces: config.surfaceDefinitions,
+  defaultSurfaceId: config.surfaceDefaultId
 });
 
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
@@ -36,9 +31,9 @@ const { router, fallbackRoute } = createShellRouter({
   surfaceMode,
   notFoundComponent: NotFoundView,
   guard: {
-    surfaceDefinitions: SURFACE_DEFINITIONS,
-    defaultSurfaceId: SURFACE_DEFAULT_ID,
-    webRootAllowed: WEB_ROOT_ALLOWED
+    surfaceDefinitions: config.surfaceDefinitions,
+    defaultSurfaceId: config.surfaceDefaultId,
+    webRootAllowed: config.webRootAllowed
   }
 });
 
