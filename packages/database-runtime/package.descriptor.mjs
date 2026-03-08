@@ -55,7 +55,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.0"
+        "@jskit-ai/kernel": "0.1.0",
+        "dotenv": "^16.4.5",
+        "knex": "^3.1.0"
       },
       dev: {}
     },

@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CLI_PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -880,6 +881,33 @@ function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function isSecretOptionInput(optionSchema) {
+  const inputType = String(optionSchema?.inputType || "").trim().toLowerCase();
+  if (inputType === "password" || inputType === "secret" || inputType === "hidden") {
+    return true;
+  }
+  return optionSchema?.sensitive === true || optionSchema?.secret === true;
+}
+
+function createMutedReadlineOutput(stdout) {
+  let muted = false;
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      if (!muted) {
+        stdout.write(chunk, encoding);
+      }
+      callback();
+    }
+  });
+
+  return {
+    output,
+    setMuted(nextMuted) {
+      muted = Boolean(nextMuted);
+    }
+  };
+}
+
 async function promptForRequiredOption({
   ownerType,
   ownerId,
@@ -908,23 +936,46 @@ async function promptForRequiredOption({
   const label = promptLabel || `Select ${optionName} for ${ownerType} ${ownerId}`;
   const defaultHint = defaultValue ? ` [default: ${defaultValue}]` : "";
   const hintSuffix = promptHint ? ` ${promptHint}` : "";
-  const rl = createInterface({
-    input: stdin,
-    output: stdout
-  });
+  const promptText = `${label}${defaultHint}${hintSuffix}: `;
 
-  try {
-    const answer = String(await rl.question(`${label}${defaultHint}${hintSuffix}: `)).trim();
-    if (!answer && defaultValue) {
-      return defaultValue;
+  let answer = "";
+
+  if (isSecretOptionInput(optionSchema)) {
+    const outputController = createMutedReadlineOutput(stdout);
+    const rl = createInterface({
+      input: stdin,
+      output: outputController.output
+    });
+
+    try {
+      stdout.write(promptText);
+      outputController.setMuted(true);
+      answer = String(await rl.question("")).trim();
+    } finally {
+      outputController.setMuted(false);
+      stdout.write("\n");
+      rl.close();
     }
-    if (!answer && required) {
-      throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
+  } else {
+    const rl = createInterface({
+      input: stdin,
+      output: stdout
+    });
+
+    try {
+      answer = String(await rl.question(promptText)).trim();
+    } finally {
+      rl.close();
     }
-    return answer || "";
-  } finally {
-    rl.close();
   }
+
+  if (!answer && defaultValue) {
+    return defaultValue;
+  }
+  if (!answer && required) {
+    throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
+  }
+  return answer || "";
 }
 
 function validatePackageDescriptorShape(descriptor, descriptorPath) {
@@ -2886,7 +2937,7 @@ function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, ac
 
 async function resolvePackageOptions(packageEntry, inlineOptions, io) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
-  const optionNames = sortStrings(Object.keys(optionSchemas));
+  const optionNames = Object.keys(optionSchemas);
   const resolved = {};
 
   for (const optionName of optionNames) {

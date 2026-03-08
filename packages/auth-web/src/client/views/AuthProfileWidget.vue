@@ -15,10 +15,10 @@ const props = defineProps({
 });
 
 const authState = ref(getAuthGuardState());
-const { context: placementContext } = useWebPlacementContext();
+const { context: shellPlacementContext } = useWebPlacementContext();
 
 const shellUser = computed(() => {
-  const user = placementContext.value?.user;
+  const user = shellPlacementContext.value?.user;
   if (!user || typeof user !== "object") {
     return {};
   }
