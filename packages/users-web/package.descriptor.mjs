@@ -36,13 +36,14 @@ export default Object.freeze({
         {
           subpath: "./client",
           summary:
-            "Exports users web client provider, workspace selector shell components, and profile/workspace settings/members UI elements."
+            "Exports users web client provider, workspace selector/tools shell components, and profile/workspace settings/members UI elements."
         }
       ],
       containerTokens: {
         server: [],
         client: [
           "users.web.workspace.selector",
+          "users.web.workspace.tools.widget",
           "users.web.shell.menu-link-item",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
@@ -54,7 +55,13 @@ export default Object.freeze({
     },
     ui: {
       placements: {
-        outlets: [],
+        outlets: [
+          {
+            slot: "workspace.primary-menu",
+            surfaces: ["admin"],
+            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+          }
+        ],
         contributions: [
           {
             id: "users.workspace.selector",
@@ -75,18 +82,26 @@ export default Object.freeze({
             source: "mutations.text#users-web-placement-block"
           },
           {
-            id: "users.admin.menu.workspace-settings",
-            slot: "app.primary-menu",
+            id: "users.workspace.tools.widget",
+            slot: "app.top-right",
             surface: "admin",
-            order: 410,
+            order: 900,
+            componentToken: "users.web.workspace.tools.widget",
+            source: "mutations.text#users-web-placement-block"
+          },
+          {
+            id: "users.workspace.menu.workspace-settings",
+            slot: "workspace.primary-menu",
+            surface: "admin",
+            order: 100,
             componentToken: "users.web.workspace-settings.menu-item",
             source: "mutations.text#users-web-placement-block"
           },
           {
-            id: "users.admin.menu.members",
-            slot: "app.primary-menu",
+            id: "users.workspace.menu.members",
+            slot: "workspace.primary-menu",
             surface: "admin",
-            order: 420,
+            order: 200,
             componentToken: "users.web.workspace-members.menu-item",
             source: "mutations.text#users-web-placement-block"
           }
@@ -97,6 +112,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@mdi/js": "^7.4.47",
         "@uppy/compressor": "^3.1.0",
         "@uppy/core": "^5.2.0",
         "@uppy/dashboard": "^5.1.1",
@@ -143,7 +159,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.admin.menu.workspace-settings\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 410,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.admin.menu.members\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 420,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  surface: \"admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
         reason: "Append users-web placement entries into app-owned placement registry.",
         category: "users-web",
         id: "users-web-placement-block"

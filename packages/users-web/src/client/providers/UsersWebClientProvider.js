@@ -1,4 +1,5 @@
 import UsersWorkspaceSelector from "../components/UsersWorkspaceSelector.vue";
+import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.vue";
 import UsersShellMenuLinkItem from "../components/UsersShellMenuLinkItem.vue";
 import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
 import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
@@ -7,6 +8,7 @@ import MembersAdminClientElement from "../components/MembersAdminClientElement.v
 import WorkspaceSettingsClientElement from "../components/WorkspaceSettingsClientElement.vue";
 
 const USERS_WEB_WORKSPACE_SELECTOR_TOKEN = "users.web.workspace.selector";
+const USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN = "users.web.workspace.tools.widget";
 const USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN = "users.web.shell.menu-link-item";
 const USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN = "users.web.workspace-settings.menu-item";
 const USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN = "users.web.workspace-members.menu-item";
@@ -23,6 +25,7 @@ class UsersWebClientProvider {
     }
 
     app.singleton(USERS_WEB_WORKSPACE_SELECTOR_TOKEN, () => UsersWorkspaceSelector);
+    app.singleton(USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN, () => UsersWorkspaceToolsWidget);
     app.singleton(USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN, () => UsersShellMenuLinkItem);
     app.singleton(USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN, () => UsersWorkspaceSettingsMenuItem);
     app.singleton(USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN, () => UsersWorkspaceMembersMenuItem);
@@ -35,6 +38,7 @@ class UsersWebClientProvider {
 export {
   UsersWebClientProvider,
   USERS_WEB_WORKSPACE_SELECTOR_TOKEN,
+  USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN,
   USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN,

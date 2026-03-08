@@ -5,7 +5,6 @@ import {
   ref,
   watch
 } from "vue";
-import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
   useWebPlacementContext,
@@ -46,8 +45,16 @@ const client = createHttpClient({
 
 const permissions = ref([]);
 const loadingPermissions = ref(false);
-const route = useRoute();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+
+function readCurrentPath() {
+  if (typeof window !== "object" || !window?.location) {
+    return "/";
+  }
+
+  const pathname = String(window.location.pathname || "").trim();
+  return pathname || "/";
+}
 
 function readShellPermissions() {
   const context = placementContext.value;
@@ -96,9 +103,10 @@ async function loadPermissions() {
 
   loadingPermissions.value = true;
   try {
-    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path);
+    const currentPath = readCurrentPath();
+    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath);
     const workspaceSlug = String(
-      extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId, route.path) || ""
+      extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId, currentPath) || ""
     ).trim();
     const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
 
@@ -133,7 +141,7 @@ onMounted(() => {
 });
 
 watch(
-  () => route.fullPath,
+  () => placementContext.value?.workspace?.slug,
   () => {
     void loadPermissions();
   }

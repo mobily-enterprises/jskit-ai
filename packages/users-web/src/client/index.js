@@ -3,6 +3,7 @@ import { UsersWebClientProvider } from "./providers/UsersWebClientProvider.js";
 export {
   UsersWebClientProvider,
   USERS_WEB_WORKSPACE_SELECTOR_TOKEN,
+  USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN,
   USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN,
@@ -12,6 +13,7 @@ export {
 } from "./providers/UsersWebClientProvider.js";
 
 export { default as UsersWorkspaceSelector } from "./components/UsersWorkspaceSelector.vue";
+export { default as UsersWorkspaceToolsWidget } from "./components/UsersWorkspaceToolsWidget.vue";
 export { default as UsersShellMenuLinkItem } from "./components/UsersShellMenuLinkItem.vue";
 export { default as UsersWorkspaceSettingsMenuItem } from "./components/UsersWorkspaceSettingsMenuItem.vue";
 export { default as UsersWorkspaceMembersMenuItem } from "./components/UsersWorkspaceMembersMenuItem.vue";
