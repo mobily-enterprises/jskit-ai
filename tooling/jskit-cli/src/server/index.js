@@ -4777,12 +4777,6 @@ async function commandDoctor({ cwd, options, stdout }) {
       const absolutePath = path.join(appRoot, relativePath);
       if (!(await fileExists(absolutePath))) {
         issues.push(`${packageId}: managed file missing: ${relativePath}`);
-        continue;
-      }
-      const content = await readFile(absolutePath);
-      const actualHash = hashBuffer(content);
-      if (actualHash !== String(changeRecord.hash || "")) {
-        issues.push(`${packageId}: managed file changed outside jskit: ${relativePath}`);
       }
     }
   }

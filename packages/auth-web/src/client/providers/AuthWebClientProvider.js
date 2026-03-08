@@ -1,6 +1,7 @@
 import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
+import AuthSurfaceSwitchMenuItem from "../views/AuthSurfaceSwitchMenuItem.vue";
 import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
@@ -12,6 +13,7 @@ import {
 
 const AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN = "auth.web.profile.widget";
 const AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN = "auth.web.profile.menu.link-item";
+const AUTH_WEB_PROFILE_MENU_SURFACE_SWITCH_COMPONENT_TOKEN = "auth.web.profile.menu.surface-switch-item";
 
 class AuthWebClientProvider {
   static id = "auth.web.client";
@@ -25,6 +27,7 @@ class AuthWebClientProvider {
     app.singleton("auth.login.useLoginView", () => useLoginView);
     app.singleton(AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN, () => AuthProfileWidget);
     app.singleton(AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN, () => AuthProfileMenuLinkItem);
+    app.singleton(AUTH_WEB_PROFILE_MENU_SURFACE_SWITCH_COMPONENT_TOKEN, () => AuthSurfaceSwitchMenuItem);
     app.singleton(AUTH_GUARD_RUNTIME_CLIENT_TOKEN, () => {
       if (!app.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN)) {
         throw new Error("AuthWebClientProvider requires shell-web placement runtime.");

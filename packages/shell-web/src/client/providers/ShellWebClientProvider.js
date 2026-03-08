@@ -1,13 +1,18 @@
-import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import {
+  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN
+} from "@jskit-ai/kernel/client/moduleBootstrap";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   WEB_PLACEMENT_RUNTIME_INJECTION_KEY
 } from "../placement/tokens.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
+import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
+const SURFACE_CONTEXT_SOURCE = "shell-web.surface-config";
 
 function createProviderLogger(app) {
   return Object.freeze({
@@ -78,8 +83,8 @@ class ShellWebClientProvider {
   }
 
   async boot(app) {
-    if (!app || typeof app.make !== "function") {
-      throw new Error("ShellWebClientProvider requires application make().");
+    if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
+      throw new Error("ShellWebClientProvider requires application make()/has().");
     }
 
     const logger = createProviderLogger(app);
@@ -87,6 +92,18 @@ class ShellWebClientProvider {
     if (runtime && typeof runtime.replacePlacements === "function") {
       const placements = await loadAppPlacementDefinitions(logger);
       runtime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
+      const surfaceRuntime = app.has(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
+        ? app.make(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
+        : null;
+      const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime);
+      runtime.setContext(
+        {
+          surfaceConfig
+        },
+        {
+          source: SURFACE_CONTEXT_SOURCE
+        }
+      );
     }
 
     if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {

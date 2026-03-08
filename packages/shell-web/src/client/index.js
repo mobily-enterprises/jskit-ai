@@ -19,5 +19,13 @@ export {
   EMPTY_WEB_PLACEMENT_CONTEXT,
   EMPTY_WEB_PLACEMENT_RUNTIME,
   useWebPlacementRuntime,
-  useWebPlacementContext
+  useWebPlacementContext,
+  EMPTY_SURFACE_CONFIG,
+  buildSurfaceConfigContext,
+  readPlacementSurfaceConfig,
+  resolveSurfaceDefinitionFromPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext,
+  joinSurfacePath,
+  resolveSurfaceRootPathFromPlacementContext,
+  resolveSurfacePathFromPlacementContext
 } from "./placement/index.js";

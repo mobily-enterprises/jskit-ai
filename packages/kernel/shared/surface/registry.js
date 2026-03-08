@@ -1,4 +1,4 @@
-function normalizePrefix(prefixLike) {
+function normalizeSurfacePrefix(prefixLike) {
   const rawPrefix = String(prefixLike || "").trim();
   if (!rawPrefix || rawPrefix === "/") {
     return "";
@@ -33,7 +33,7 @@ function createSurfaceRegistry(options = {}) {
         normalizedId,
         Object.freeze({
           id: normalizedId,
-          prefix: normalizePrefix(value?.prefix),
+          prefix: normalizeSurfacePrefix(value?.prefix),
           requiresWorkspace: Boolean(value?.requiresWorkspace)
         })
       ];
@@ -82,4 +82,4 @@ function createSurfaceRegistry(options = {}) {
   });
 }
 
-export { createSurfaceRegistry, normalizeSurfaceId };
+export { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix };

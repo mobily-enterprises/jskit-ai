@@ -28,3 +28,14 @@ export {
   useWebPlacementRuntime,
   useWebPlacementContext
 } from "./inject.js";
+
+export {
+  EMPTY_SURFACE_CONFIG,
+  buildSurfaceConfigContext,
+  readPlacementSurfaceConfig,
+  resolveSurfaceDefinitionFromPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext,
+  joinSurfacePath,
+  resolveSurfaceRootPathFromPlacementContext,
+  resolveSurfacePathFromPlacementContext
+} from "./surfaceContext.js";

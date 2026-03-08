@@ -67,6 +67,9 @@ function createSurfaceRuntime(options = {}) {
   });
 
   const enabledSurfaceIds = surfaceIds.filter((surfaceId) => normalizedSurfaces[surfaceId]?.enabled !== false);
+  const defaultSurfaceDefinition = Object.freeze({
+    ...(normalizedSurfaces[registry.DEFAULT_SURFACE_ID] || {})
+  });
 
   function normalizeSurfaceMode(value) {
     const normalized = normalizeSurfaceId(value);
@@ -81,6 +84,31 @@ function createSurfaceRuntime(options = {}) {
     return [...enabledSurfaceIds];
   }
 
+  function getSurfaceDefinition(surfaceId) {
+    const normalizedSurfaceId = registry.normalizeSurfaceId(surfaceId);
+    const definition = normalizedSurfaces[normalizedSurfaceId];
+    if (!definition) {
+      return null;
+    }
+
+    return Object.freeze({
+      ...definition
+    });
+  }
+
+  function listSurfaceDefinitions({ enabledOnly = false } = {}) {
+    const ids = enabledOnly ? enabledSurfaceIds : surfaceIds;
+    return ids.map((surfaceId) =>
+      Object.freeze({
+        ...(normalizedSurfaces[surfaceId] || {})
+      })
+    );
+  }
+
+  function surfaceRequiresWorkspace(surfaceId) {
+    return Boolean(getSurfaceDefinition(surfaceId)?.requiresWorkspace);
+  }
+
   function isSurfaceEnabled(surfaceId) {
     const normalizedSurface = normalizeSurfaceMode(surfaceId);
     if (normalizedSurface === allMode) {
@@ -93,8 +121,13 @@ function createSurfaceRuntime(options = {}) {
   return {
     SURFACE_MODE_ALL: allMode,
     SURFACE_IDS: [...surfaceIds],
+    DEFAULT_SURFACE_ID: registry.DEFAULT_SURFACE_ID,
+    DEFAULT_SURFACE: defaultSurfaceDefinition,
     normalizeSurfaceMode,
     resolveSurfaceFromPathname: pathHelpers.resolveSurfaceFromPathname,
+    getSurfaceDefinition,
+    listSurfaceDefinitions,
+    surfaceRequiresWorkspace,
     listEnabledSurfaceIds,
     isSurfaceEnabled
   };

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useWebPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 const props = defineProps({
   surface: {
@@ -23,7 +23,7 @@ const errorMessage = ref("");
 const authenticated = ref(false);
 const activeWorkspace = ref(null);
 const workspaces = ref([]);
-const { mergeContext: mergePlacementContext } = useWebPlacementContext();
+const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
 function normalizeWorkspace(entry) {
   if (!entry || typeof entry !== "object") {
@@ -52,9 +52,9 @@ function applyShellWorkspaceContext(payload = {}) {
 
   mergePlacementContext(
     {
-    workspace: payload.activeWorkspace || null,
-    workspaces: payload.workspaces || [],
-    permissions: permissionList
+      workspace: payload.activeWorkspace || null,
+      workspaces: payload.workspaces || [],
+      permissions: permissionList
     },
     "users-web.workspace-selector"
   );
@@ -115,7 +115,13 @@ async function selectWorkspace(slug) {
   }
 }
 
-const isVisible = computed(() => authenticated.value && workspaces.value.length > 0);
+const surfaceRequiresWorkspace = computed(() =>
+  surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, props.surface)
+);
+
+const isVisible = computed(
+  () => surfaceRequiresWorkspace.value && authenticated.value && workspaces.value.length > 0
+);
 
 const activeWorkspaceLabel = computed(() => {
   const active = activeWorkspace.value;

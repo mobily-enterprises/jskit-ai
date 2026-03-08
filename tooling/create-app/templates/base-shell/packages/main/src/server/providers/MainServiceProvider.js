@@ -1,5 +1,5 @@
-import { config as publicConfig } from "../../../../../config/public.js";
-import { config as serverConfig } from "../../../../../config/server.js";
+import { config as publicConfig } from "../../../../../../config/public.js";
+import { config as serverConfig } from "../../../../../../config/server.js";
 
 const appConfig = Object.freeze({
   ...(publicConfig && typeof publicConfig === "object" ? publicConfig : {}),

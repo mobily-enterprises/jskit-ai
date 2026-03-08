@@ -6,7 +6,7 @@ import {
   watch
 } from "vue";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useWebPlacementContext, resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   hasPermission,
   normalizePermissionList
@@ -19,11 +19,15 @@ const props = defineProps({
   },
   to: {
     type: String,
-    default: "/admin/workspace/settings"
+    default: ""
   },
   icon: {
     type: String,
     default: "mdi-cog-outline"
+  },
+  surface: {
+    type: String,
+    default: "*"
   }
 });
 
@@ -61,6 +65,15 @@ const canViewWorkspaceSettings = computed(() => {
     hasPermission(permissions.value, "workspace.settings.view") ||
     hasPermission(permissions.value, "workspace.settings.update")
   );
+});
+
+const resolvedTo = computed(() => {
+  const explicitTarget = String(props.to || "").trim();
+  if (explicitTarget) {
+    return explicitTarget;
+  }
+
+  return resolveSurfacePathFromPlacementContext(placementContext.value, props.surface, "/workspace/settings");
 });
 
 async function loadPermissions() {
@@ -110,7 +123,7 @@ onMounted(() => {
   <v-list-item
     v-if="canViewWorkspaceSettings"
     :title="props.label || undefined"
-    :to="props.to || undefined"
+    :to="resolvedTo || undefined"
     :prepend-icon="props.icon || undefined"
   />
 </template>

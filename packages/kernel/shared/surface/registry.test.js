@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
+import { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix } from "./registry.js";
 
 test("normalizeSurfaceId lowercases and trims", () => {
   assert.equal(normalizeSurfaceId(" Admin "), "admin");
   assert.equal(normalizeSurfaceId(""), "");
   assert.equal(normalizeSurfaceId(null), "");
+});
+
+test("normalizeSurfacePrefix normalizes slash style and root prefix", () => {
+  assert.equal(normalizeSurfacePrefix(" admin "), "/admin");
+  assert.equal(normalizeSurfacePrefix("/admin///"), "/admin");
+  assert.equal(normalizeSurfacePrefix("/"), "");
+  assert.equal(normalizeSurfacePrefix(""), "");
 });
 
 test("createSurfaceRegistry keeps registered normalization with fallback", () => {

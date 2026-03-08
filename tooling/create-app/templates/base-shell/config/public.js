@@ -8,18 +8,21 @@ config.surfaceDefinitions = {
     id: "app",
     prefix: "/app",
     enabled: true,
-    requiresAuth: false
+    requiresAuth: false,
+    requiresWorkspace: false
   },
   admin: {
     id: "admin",
     prefix: "/admin",
     enabled: true,
-    requiresAuth: false
+    requiresAuth: false,
+    requiresWorkspace: false
   },
   console: {
     id: "console",
     prefix: "/console",
     enabled: true,
-    requiresAuth: false
+    requiresAuth: false,
+    requiresWorkspace: false
   }
 };

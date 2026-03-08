@@ -19,6 +19,13 @@ test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () =>
   assert.deepEqual(runtime.listEnabledSurfaceIds(), ["app", "admin"]);
   assert.equal(runtime.isSurfaceEnabled("console"), false);
   assert.equal(runtime.isSurfaceEnabled("admin"), true);
+  assert.equal(runtime.DEFAULT_SURFACE_ID, "app");
+  assert.equal(runtime.surfaceRequiresWorkspace("app"), false);
+  assert.equal(runtime.surfaceRequiresWorkspace("missing"), false);
+  assert.deepEqual(
+    runtime.listSurfaceDefinitions({ enabledOnly: true }).map((entry) => entry.id),
+    ["app", "admin"]
+  );
 });
 
 test("createSurfaceRuntime resolves pathname by surface prefix", () => {

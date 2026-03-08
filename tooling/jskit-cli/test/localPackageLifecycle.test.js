@@ -101,3 +101,52 @@ test("doctor accepts installed app-local packages", async () => {
     assert.ok(payload.installedPackages.includes(packageId));
   });
 });
+
+test("doctor allows app-owned managed files to change", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-managed-file-app");
+    await createMinimalApp(appRoot, { name: "doctor-managed-file-app" });
+
+    await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
+    await mkdir(path.join(appRoot, "src"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/placement.js"),
+      "export default [];\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(appRoot, ".jskit", "lock.json"),
+      `${JSON.stringify(
+        {
+          lockVersion: 1,
+          installedPackages: {
+            "@jskit-ai/shell-web": {
+              managed: {
+                files: [
+                  {
+                    path: "src/placement.js",
+                    hash: "stale-hash-value"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
+    assert.ok(Array.isArray(payload.installedPackages));
+    assert.ok(payload.installedPackages.includes("@jskit-ai/shell-web"));
+  });
+});

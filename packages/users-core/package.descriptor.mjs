@@ -86,7 +86,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.tenancyMode =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nif (config.surfaceDefinitions.admin) {\n  config.surfaceDefinitions.admin.requiresWorkspace = true;\n}\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"
