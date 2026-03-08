@@ -1,5 +1,10 @@
 <script setup>
-import { computed } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref
+} from "vue";
 import { useWebPlacementRuntime } from "../placement/inject.js";
 
 const props = defineProps({
@@ -18,8 +23,30 @@ const props = defineProps({
 });
 
 const placementRuntime = useWebPlacementRuntime();
+const revision = ref(
+  typeof placementRuntime.getRevision === "function" ? placementRuntime.getRevision() : 0
+);
+let unsubscribe = null;
+
+onMounted(() => {
+  if (typeof placementRuntime.subscribe !== "function") {
+    return;
+  }
+  unsubscribe = placementRuntime.subscribe((event) => {
+    const next = Number(event?.revision);
+    revision.value = Number.isInteger(next) ? next : revision.value + 1;
+  });
+});
+
+onBeforeUnmount(() => {
+  if (typeof unsubscribe === "function") {
+    unsubscribe();
+    unsubscribe = null;
+  }
+});
 
 const placements = computed(() => {
+  void revision.value;
   return placementRuntime.getPlacements({
     surface: props.surface,
     slot: props.placement,

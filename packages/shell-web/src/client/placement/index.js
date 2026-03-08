@@ -24,5 +24,7 @@ export {
 
 export {
   EMPTY_WEB_PLACEMENT_RUNTIME,
-  useWebPlacementRuntime
+  EMPTY_WEB_PLACEMENT_CONTEXT,
+  useWebPlacementRuntime,
+  useWebPlacementContext
 } from "./inject.js";

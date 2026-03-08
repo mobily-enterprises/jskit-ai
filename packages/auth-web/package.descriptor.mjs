@@ -69,8 +69,7 @@ export default Object.freeze({
           "auth.login.component",
           "auth.login.useLoginView",
           "auth.web.profile.widget",
-          "auth.web.profile.menu.link-item",
-          "auth.web.placement.context"
+          "auth.web.profile.menu.link-item"
         ]
       }
     },

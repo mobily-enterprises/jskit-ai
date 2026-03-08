@@ -1,0 +1,26 @@
+{
+  "name": "@jskit-ai/users-routes",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./server/providers/UsersRouteServiceProvider": "./src/server/providers/UsersRouteServiceProvider.js",
+    "./server/controllers/UsersWorkspaceController": "./src/server/controllers/UsersWorkspaceController.js",
+    "./server/controllers/UsersSettingsController": "./src/server/controllers/UsersSettingsController.js",
+    "./server/routes/workspaceRoutes": "./src/server/routes/workspaceRoutes.js",
+    "./server/routes/settingsRoutes": "./src/server/routes/settingsRoutes.js",
+    "./server/schema/workspaceSchema": "./src/server/schema/workspaceSchema.js",
+    "./server/schema/settingsSchema": "./src/server/schema/settingsSchema.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@jskit-ai/auth-core": "0.1.0",
+    "@jskit-ai/http-runtime": "0.1.0",
+    "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/users-core": "0.1.0"
+  }
+}

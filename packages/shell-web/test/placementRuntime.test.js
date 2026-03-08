@@ -103,6 +103,76 @@ test("web placement runtime applies context contributors and placement when() pr
   assert.deepEqual(menu.map((entry) => entry.id), ["auth.item"]);
 });
 
+test("web placement runtime uses runtime context and local context overrides contributor values", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.allowed": () => null
+    },
+    contextContributors: [
+      () => ({
+        auth: {
+          authenticated: false
+        }
+      })
+    ]
+  });
+
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacements([
+    definePlacement({
+      id: "allowed",
+      slot: "avatar.primary-menu",
+      surface: "*",
+      componentToken: "component.allowed",
+      when: ({ auth }) => Boolean(auth?.authenticated)
+    })
+  ]);
+
+  runtime.setContext({
+    auth: {
+      authenticated: true
+    }
+  });
+  const fromRuntime = runtime.getPlacements({ surface: "app", slot: "avatar.primary-menu" });
+  assert.deepEqual(fromRuntime.map((entry) => entry.id), ["allowed"]);
+
+  const fromLocalOverride = runtime.getPlacements({
+    surface: "app",
+    slot: "avatar.primary-menu",
+    context: {
+      auth: {
+        authenticated: false
+      }
+    }
+  });
+  assert.deepEqual(fromLocalOverride.map((entry) => entry.id), []);
+});
+
+test("web placement runtime notifies subscribers on placement and context updates", () => {
+  const app = createAppStub();
+  const runtime = createWebPlacementRuntime({ app });
+  const events = [];
+  const unsubscribe = runtime.subscribe((event) => {
+    events.push(event.type);
+  });
+
+  runtime.replacePlacements([]);
+  runtime.setContext({
+    auth: {
+      authenticated: true
+    }
+  });
+
+  unsubscribe();
+  runtime.setContext({
+    auth: {
+      authenticated: false
+    }
+  });
+
+  assert.deepEqual(events, ["placements.replaced", "context.updated"]);
+});
+
 test("web placement runtime rejects duplicate placement ids", () => {
   const app = createAppStub();
   const runtime = createWebPlacementRuntime({ app });

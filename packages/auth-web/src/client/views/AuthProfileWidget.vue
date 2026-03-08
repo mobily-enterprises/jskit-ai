@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   getAuthGuardState,
   refreshAuthGuardState
@@ -14,23 +15,15 @@ const props = defineProps({
 });
 
 const authState = ref(getAuthGuardState());
+const { context: placementContext } = useWebPlacementContext();
 
-function readShellUserContext() {
-  if (typeof globalThis !== "object" || !globalThis) {
-    return {};
-  }
-  const context = globalThis.__JSKIT_WEB_SHELL_CONTEXT__;
-  if (!context || typeof context !== "object") {
-    return {};
-  }
-  const user = context.user;
+const shellUser = computed(() => {
+  const user = placementContext.value?.user;
   if (!user || typeof user !== "object") {
     return {};
   }
   return user;
-}
-
-const shellUser = computed(() => readShellUserContext());
+});
 
 const displayName = computed(() => {
   const fromContext = String(shellUser.value.displayName || shellUser.value.name || "").trim();

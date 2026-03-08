@@ -1,5 +1,4 @@
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
-const GLOBAL_SHELL_CONTEXT_KEY = "__JSKIT_WEB_SHELL_CONTEXT__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = "/api/session";
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
@@ -11,6 +10,7 @@ const DEFAULT_AUTH_STATE = Object.freeze({
 });
 
 let authState = DEFAULT_AUTH_STATE;
+let activePlacementRuntime = null;
 
 function asGlobalObject() {
   if (typeof globalThis !== "object" || !globalThis) {
@@ -70,19 +70,25 @@ function normalizeAuthState(payload = {}) {
   });
 }
 
-function applyAuthContext(nextState) {
-  const root = asGlobalObject();
-  if (!root) {
-    return;
+function isPlacementRuntime(value) {
+  return Boolean(value && typeof value.getContext === "function" && typeof value.setContext === "function");
+}
+
+function resolvePlacementRuntime(value = null) {
+  if (isPlacementRuntime(value)) {
+    activePlacementRuntime = value;
+    return value;
   }
+  if (isPlacementRuntime(activePlacementRuntime)) {
+    return activePlacementRuntime;
+  }
+  throw new Error("Auth guard runtime requires a web placement runtime with getContext()/setContext().");
+}
 
-  const currentContext =
-    root[GLOBAL_SHELL_CONTEXT_KEY] && typeof root[GLOBAL_SHELL_CONTEXT_KEY] === "object"
-      ? root[GLOBAL_SHELL_CONTEXT_KEY]
-      : {};
-
+function applyAuthContext(nextState, placementRuntime) {
+  const currentContext = placementRuntime.getContext();
   const nextContext = {
-    ...currentContext,
+    ...(currentContext && typeof currentContext === "object" ? currentContext : {}),
     auth: {
       authenticated: nextState.authenticated,
       oauthDefaultProvider: nextState.oauthDefaultProvider,
@@ -96,9 +102,14 @@ function applyAuthContext(nextState) {
       name: currentContext?.user?.name || nextState.username,
       displayName: currentContext?.user?.displayName || nextState.username
     };
+  } else {
+    delete nextContext.user;
   }
 
-  root[GLOBAL_SHELL_CONTEXT_KEY] = nextContext;
+  placementRuntime.setContext(nextContext, {
+    replace: true,
+    source: "auth-web"
+  });
 }
 
 async function readSessionState(sessionPath = DEFAULT_SESSION_PATH) {
@@ -192,10 +203,12 @@ function installGuardEvaluator(loginRoute = DEFAULT_LOGIN_ROUTE) {
 
 async function initializeAuthGuardRuntime({
   sessionPath = DEFAULT_SESSION_PATH,
-  loginRoute = DEFAULT_LOGIN_ROUTE
+  loginRoute = DEFAULT_LOGIN_ROUTE,
+  placementRuntime = null
 } = {}) {
+  const runtime = resolvePlacementRuntime(placementRuntime);
   authState = await readSessionState(sessionPath);
-  applyAuthContext(authState);
+  applyAuthContext(authState, runtime);
   installGuardEvaluator(loginRoute);
   return authState;
 }

@@ -1,0 +1,25 @@
+{
+  "name": "@jskit-ai/users-web",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/providers/UsersWebClientProvider": "./src/client/providers/UsersWebClientProvider.js",
+    "./client/components/UsersWorkspaceSelector": "./src/client/components/UsersWorkspaceSelector.vue",
+    "./client/components/UsersShellMenuLinkItem": "./src/client/components/UsersShellMenuLinkItem.vue",
+    "./client/components/UsersWorkspaceSettingsMenuItem": "./src/client/components/UsersWorkspaceSettingsMenuItem.vue",
+    "./client/components/ProfileClientElement": "./src/client/components/ProfileClientElement.vue",
+    "./client/components/MembersAdminClientElement": "./src/client/components/MembersAdminClientElement.vue",
+    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue"
+  },
+  "dependencies": {
+    "@jskit-ai/http-runtime": "0.1.0",
+    "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/shell-web": "0.1.0",
+    "@jskit-ai/users-routes": "0.1.0",
+    "vuetify": "^4.0.0"
+  }
+}

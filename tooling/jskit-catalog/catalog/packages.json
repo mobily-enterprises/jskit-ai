@@ -390,8 +390,7 @@
                 "auth.login.component",
                 "auth.login.useLoginView",
                 "auth.web.profile.widget",
-                "auth.web.profile.menu.link-item",
-                "auth.web.placement.context"
+                "auth.web.profile.menu.link-item"
               ]
             }
           },
@@ -1058,6 +1057,454 @@
               "reason": "Install shell-driven console page starter.",
               "category": "shell-web",
               "id": "shell-web-page-console"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/users-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/users-core",
+        "version": "0.1.0",
+        "description": "Users/workspace domain runtime: profiles, tenancy/workspace logic, and settings actions.",
+        "dependsOn": [
+          "@jskit-ai/action-runtime-core",
+          "@jskit-ai/database-runtime"
+        ],
+        "capabilities": {
+          "provides": [
+            "users.core"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/UsersCoreServiceProvider.js",
+                "export": "UsersCoreServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports UsersCoreServiceProvider, users/workspace repositories/services, and workspace/settings action contributors."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared users/workspace role and settings defaults."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "users.core",
+                "users.workspace.service",
+                "users.workspace.admin.service",
+                "users.settings.service"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/action-runtime-core": "0.1.0",
+              "@jskit-ai/database-runtime": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/users_core_initial.cjs",
+              "toDir": "migrations",
+              "slug": "users_core_initial",
+              "extension": ".cjs",
+              "reason": "Install users/workspace core schema migration.",
+              "category": "migration",
+              "id": "users-core-initial-schema"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/users-routes",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/users-routes",
+        "version": "0.1.0",
+        "description": "Fastify transport adapter for users/workspace/settings HTTP routes.",
+        "dependsOn": [
+          "@jskit-ai/users-core",
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/auth-core"
+        ],
+        "capabilities": {
+          "provides": [
+            "users.server-routes"
+          ],
+          "requires": [
+            "users.core",
+            "runtime.actions",
+            "auth.policy"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/UsersRouteServiceProvider.js",
+                "export": "UsersRouteServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports users workspace/settings controllers, schema modules, route builders, and UsersRouteServiceProvider."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [],
+              "client": []
+            }
+          },
+          "server": {
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/bootstrap",
+                "summary": "Get bootstrap payload with profile/workspace context."
+              },
+              {
+                "method": "GET",
+                "path": "/api/workspaces",
+                "summary": "List workspaces visible to authenticated user."
+              },
+              {
+                "method": "POST",
+                "path": "/api/workspaces/select",
+                "summary": "Select active workspace by slug or id."
+              },
+              {
+                "method": "GET",
+                "path": "/api/workspace/invitations/pending",
+                "summary": "List pending workspace invitations for authenticated user."
+              },
+              {
+                "method": "POST",
+                "path": "/api/workspace/invitations/redeem",
+                "summary": "Accept or refuse a workspace invitation using an invite token."
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/workspace/settings",
+                "summary": "Get active workspace settings and role catalog."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/admin/workspace/settings",
+                "summary": "Update active workspace settings."
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/workspace/roles",
+                "summary": "Get workspace role catalog."
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/workspace/members",
+                "summary": "List active members for active workspace."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/admin/workspace/members/:memberUserId/role",
+                "summary": "Update member role in active workspace."
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/workspace/invites",
+                "summary": "List pending invites for active workspace."
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/workspace/invites",
+                "summary": "Create invite for active workspace."
+              },
+              {
+                "method": "DELETE",
+                "path": "/api/admin/workspace/invites/:inviteId",
+                "summary": "Revoke pending invite in active workspace."
+              },
+              {
+                "method": "GET",
+                "path": "/api/settings",
+                "summary": "Get authenticated user settings."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/settings/profile",
+                "summary": "Update profile settings."
+              },
+              {
+                "method": "POST",
+                "path": "/api/settings/profile/avatar",
+                "summary": "Upload profile avatar."
+              },
+              {
+                "method": "DELETE",
+                "path": "/api/settings/profile/avatar",
+                "summary": "Delete profile avatar."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/settings/preferences",
+                "summary": "Update user preferences."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/settings/notifications",
+                "summary": "Update notification settings."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/settings/chat",
+                "summary": "Update chat settings."
+              },
+              {
+                "method": "POST",
+                "path": "/api/settings/security/change-password",
+                "summary": "Set or change password for authenticated user."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/settings/security/methods/password",
+                "summary": "Enable or disable password sign-in method."
+              },
+              {
+                "method": "GET",
+                "path": "/api/settings/security/oauth/:provider/start",
+                "summary": "Start linking an OAuth provider for authenticated user."
+              },
+              {
+                "method": "DELETE",
+                "path": "/api/settings/security/oauth/:provider",
+                "summary": "Unlink an OAuth provider from authenticated account."
+              },
+              {
+                "method": "POST",
+                "path": "/api/settings/security/logout-others",
+                "summary": "Sign out from other active sessions."
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@fastify/type-provider-typebox": "^6.1.0",
+              "@jskit-ai/auth-core": "0.1.0",
+              "@jskit-ai/http-runtime": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/users-core": "0.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/users-web",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/users-web",
+        "version": "0.1.0",
+        "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
+        "dependsOn": [
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/shell-web",
+          "@jskit-ai/users-routes"
+        ],
+        "capabilities": {
+          "provides": [
+            "users.web"
+          ],
+          "requires": [
+            "runtime.web-placement",
+            "users.server-routes"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/UsersWebClientProvider.js",
+                "export": "UsersWebClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports users web client provider, workspace selector shell components, and profile/workspace settings/members UI elements."
+              }
+            ],
+            "containerTokens": {
+              "server": [],
+              "client": [
+                "users.web.workspace.selector",
+                "users.web.shell.menu-link-item",
+                "users.web.workspace-settings.menu-item",
+                "users.web.profile.element",
+                "users.web.members-admin.element",
+                "users.web.workspace-settings.element"
+              ]
+            }
+          },
+          "ui": {
+            "placements": {
+              "outlets": [],
+              "contributions": [
+                {
+                  "id": "users.workspace.selector.app",
+                  "slot": "app.top-left",
+                  "surface": "app",
+                  "order": 200,
+                  "componentToken": "users.web.workspace.selector",
+                  "source": "mutations.text#users-web-placement-block"
+                },
+                {
+                  "id": "users.workspace.selector.admin",
+                  "slot": "app.top-left",
+                  "surface": "admin",
+                  "order": 200,
+                  "componentToken": "users.web.workspace.selector",
+                  "source": "mutations.text#users-web-placement-block"
+                },
+                {
+                  "id": "users.profile.menu.settings",
+                  "slot": "avatar.primary-menu",
+                  "surface": "*",
+                  "order": 500,
+                  "componentToken": "users.web.shell.menu-link-item",
+                  "when": "auth.authenticated === true",
+                  "source": "mutations.text#users-web-placement-block"
+                },
+                {
+                  "id": "users.admin.menu.workspace-settings",
+                  "slot": "app.primary-menu",
+                  "surface": "admin",
+                  "order": 410,
+                  "componentToken": "users.web.workspace-settings.menu-item",
+                  "source": "mutations.text#users-web-placement-block"
+                },
+                {
+                  "id": "users.admin.menu.members",
+                  "slot": "app.primary-menu",
+                  "surface": "admin",
+                  "order": 420,
+                  "componentToken": "users.web.shell.menu-link-item",
+                  "source": "mutations.text#users-web-placement-block"
+                }
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/http-runtime": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/shell-web": "0.1.0",
+              "@jskit-ai/users-routes": "0.1.0",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "from": "templates/src/pages/app/settings/index.vue",
+              "to": "src/pages/app/settings/index.vue",
+              "reason": "Install app settings starter page scaffold for users-web profile/settings UI.",
+              "category": "users-web",
+              "id": "users-web-page-app-settings"
+            },
+            {
+              "from": "templates/src/pages/admin/members/index.vue",
+              "to": "src/pages/admin/members/index.vue",
+              "reason": "Install admin members starter page scaffold for users-web members UI.",
+              "category": "users-web",
+              "id": "users-web-page-admin-members"
+            },
+            {
+              "from": "templates/src/pages/admin/workspace/settings/index.vue",
+              "to": "src/pages/admin/workspace/settings/index.vue",
+              "reason": "Install workspace settings page scaffold for users-web workspace admin UI.",
+              "category": "users-web",
+              "id": "users-web-page-admin-workspace-settings"
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"users.workspace.selector.app\"",
+              "value": "\naddPlacement({\n  id: \"users.workspace.selector.app\",\n  slot: \"app.top-left\",\n  surface: \"app\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\"\n});\n\naddPlacement({\n  id: \"users.workspace.selector.admin\",\n  slot: \"app.top-left\",\n  surface: \"admin\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\"\n});\n\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/app/settings\",\n    icon: \"$menuSettings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.admin.menu.workspace-settings\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 410,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.admin.menu.members\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 420,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Members\",\n    to: \"/admin/members\",\n    icon: \"$consoleMembers\"\n  }\n});\n",
+              "reason": "Append users-web placement entries into app-owned placement registry.",
+              "category": "users-web",
+              "id": "users-web-placement-block"
             }
           ]
         }

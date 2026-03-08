@@ -16,6 +16,8 @@ export {
   normalizeSurface,
   createPlacementRegistry,
   createWebPlacementRuntime,
+  EMPTY_WEB_PLACEMENT_CONTEXT,
   EMPTY_WEB_PLACEMENT_RUNTIME,
-  useWebPlacementRuntime
+  useWebPlacementRuntime,
+  useWebPlacementContext
 } from "./placement/index.js";

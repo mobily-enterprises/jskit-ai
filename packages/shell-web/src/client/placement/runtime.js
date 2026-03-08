@@ -187,13 +187,76 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
   const missingTokens = new Set();
   const invalidComponentTokens = new Set();
   const failedTokens = new Set();
+  const listeners = new Set();
   let placementDefinitions = Object.freeze([]);
+  let sharedContext = Object.freeze({});
+  let revision = 0;
+
+  function notify(event = {}) {
+    revision += 1;
+    for (const listener of listeners) {
+      try {
+        listener(
+          Object.freeze({
+            revision,
+            ...event
+          })
+        );
+      } catch (error) {
+        runtimeLogger.warn(
+          {
+            error: String(error?.message || error || "unknown error")
+          },
+          "Web placement runtime listener threw during notification."
+        );
+      }
+    }
+  }
 
   function replacePlacements(entries = [], { source = "app placement registry" } = {}) {
     missingTokens.clear();
     invalidComponentTokens.clear();
     failedTokens.clear();
     placementDefinitions = Object.freeze(normalizePlacementList(entries, { source }));
+    notify({
+      type: "placements.replaced",
+      source
+    });
+  }
+
+  function getContext() {
+    return sharedContext;
+  }
+
+  function setContext(value = {}, { replace = false, source = "placement-context" } = {}) {
+    const next = isRecord(value) ? { ...value } : {};
+    sharedContext = Object.freeze(
+      replace
+        ? next
+        : {
+            ...sharedContext,
+            ...next
+          }
+    );
+    notify({
+      type: "context.updated",
+      source
+    });
+    return sharedContext;
+  }
+
+  function subscribe(listener) {
+    if (typeof listener !== "function") {
+      return () => {};
+    }
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
+  function getRevision() {
+    return revision;
   }
 
   function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, slot = "", context = {} } = {}) {
@@ -204,18 +267,24 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
     const normalizedSurface = normalizeSurface(surface);
     const baseContext = isRecord(context) ? { ...context } : {};
-    const placementContext = {
-      ...baseContext,
-      ...resolveContextContributors(
+    const contextFromRuntime = isRecord(sharedContext) ? sharedContext : {};
+    const contextFromContributors = resolveContextContributors(
+      app,
+      {
         app,
-        {
-          app,
-          surface: normalizedSurface,
-          slot: normalizedSlot,
-          context: baseContext
-        },
-        runtimeLogger
-      ),
+        surface: normalizedSurface,
+        slot: normalizedSlot,
+        context: {
+          ...contextFromRuntime,
+          ...baseContext
+        }
+      },
+      runtimeLogger
+    );
+    const placementContext = {
+      ...contextFromContributors,
+      ...contextFromRuntime,
+      ...baseContext,
       app,
       surface: normalizedSurface,
       slot: normalizedSlot
@@ -258,7 +327,11 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
   return Object.freeze({
     replacePlacements,
-    getPlacements
+    getPlacements,
+    getContext,
+    setContext,
+    subscribe,
+    getRevision
   });
 }
 

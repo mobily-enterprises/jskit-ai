@@ -234,9 +234,20 @@ function writeWrappedItems({ stdout, heading, items, lineIndent = "  ", wrapWidt
 
 function normalizeFileMutationRecord(value) {
   const record = ensureObject(value);
+  const op = String(record.op || "copy-file").trim().toLowerCase() || "copy-file";
+  const extension = String(record.extension || "").trim();
   return {
+    op,
     from: String(record.from || "").trim(),
     to: String(record.to || "").trim(),
+    toDir: String(record.toDir || "").trim(),
+    slug: String(record.slug || "").trim(),
+    extension: extension
+      ? extension.startsWith(".")
+        ? extension
+        : `.${extension}`
+      : "",
+    preserveOnRemove: record.preserveOnRemove === true,
     id: String(record.id || "").trim(),
     category: String(record.category || "").trim(),
     reason: String(record.reason || "").trim()
@@ -249,7 +260,11 @@ function buildFileWriteGroups(fileMutations) {
 
   for (const mutation of ensureArray(fileMutations)) {
     const normalized = normalizeFileMutationRecord(mutation);
-    if (!normalized.from || !normalized.to) {
+    if (normalized.op === "install-migration") {
+      if (!normalized.from || !normalized.slug) {
+        continue;
+      }
+    } else if (!normalized.from || !normalized.to) {
       continue;
     }
 
@@ -276,6 +291,16 @@ function buildFileWriteGroups(fileMutations) {
       if (!group.reason && normalized.reason) {
         group.reason = normalized.reason;
       }
+    }
+
+    if (normalized.op === "install-migration") {
+      const toDir = normalized.toDir || "migrations";
+      const extension = normalized.extension || ".cjs";
+      group.files.push({
+        from: normalized.from,
+        to: `${toDir}/<timestamp>_${normalized.slug}${extension}`
+      });
+      continue;
     }
 
     group.files.push({
@@ -305,6 +330,81 @@ function hashBuffer(buffer) {
 
 function sortStrings(values) {
   return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+function formatMigrationTimestamp(date = new Date()) {
+  const source = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const year = source.getUTCFullYear();
+  const month = String(source.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(source.getUTCDate()).padStart(2, "0");
+  const hours = String(source.getUTCHours()).padStart(2, "0");
+  const minutes = String(source.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(source.getUTCSeconds()).padStart(2, "0");
+  return `${year}${month}${day}${hours}${minutes}${seconds}`;
+}
+
+function normalizeMigrationSlug(value, packageId) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!normalized) {
+    throw createCliError(`Invalid install-migration mutation in ${packageId}: \"slug\" is required.`);
+  }
+  return normalized;
+}
+
+function normalizeMigrationExtension(value = "", fallback = ".cjs") {
+  const normalizedFallback = String(fallback || ".cjs").trim() || ".cjs";
+  const raw = String(value || "").trim();
+  const candidate = raw ? (raw.startsWith(".") ? raw : `.${raw}`) : normalizedFallback;
+  if (!/^\.[a-z0-9]+$/i.test(candidate)) {
+    throw createCliError(`Invalid install-migration extension: ${candidate}`);
+  }
+  return candidate.toLowerCase();
+}
+
+const JSKIT_MIGRATION_ID_PATTERN = /JSKIT_MIGRATION_ID:\s*([A-Za-z0-9._-]+)/i;
+
+function extractMigrationIdFromSource(source) {
+  const content = String(source || "");
+  const match = content.match(JSKIT_MIGRATION_ID_PATTERN);
+  if (!match) {
+    return "";
+  }
+  return String(match[1] || "").trim();
+}
+
+async function findExistingMigrationById({ appRoot, migrationsDirectory, migrationId }) {
+  const normalizedMigrationId = String(migrationId || "").trim();
+  if (!normalizedMigrationId) {
+    return null;
+  }
+
+  const absoluteDirectory = path.join(appRoot, migrationsDirectory);
+  if (!(await fileExists(absoluteDirectory))) {
+    return null;
+  }
+
+  const entries = await readdir(absoluteDirectory, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue;
+    }
+    const absolutePath = path.join(absoluteDirectory, entry.name);
+    const fileContent = await readFile(absolutePath, "utf8").catch(() => "");
+    const fileMigrationId = extractMigrationIdFromSource(fileContent);
+    if (!fileMigrationId || fileMigrationId !== normalizedMigrationId) {
+      continue;
+    }
+
+    return {
+      path: normalizeRelativePath(appRoot, absolutePath)
+    };
+  }
+
+  return null;
 }
 
 function toScopedPackageId(input) {
@@ -2840,7 +2940,8 @@ function createManagedRecordBase(packageEntry, options) {
         scripts: {}
       },
       text: {},
-      files: []
+      files: [],
+      migrations: []
     },
     options,
     installedAt: new Date().toISOString()
@@ -2940,12 +3041,108 @@ async function cleanupMaterializedPackageRoots() {
   MATERIALIZED_PACKAGE_ROOTS.clear();
 }
 
-async function applyFileMutations(packageEntry, appRoot, fileMutations, managedFiles, touchedFiles) {
-  for (const mutation of fileMutations) {
-    const from = String(mutation?.from || "").trim();
-    const to = String(mutation?.to || "").trim();
+async function applyFileMutations(
+  packageEntry,
+  appRoot,
+  fileMutations,
+  managedFiles,
+  managedMigrations,
+  touchedFiles,
+  warnings = []
+) {
+  for (const mutationValue of fileMutations) {
+    const mutation = normalizeFileMutationRecord(mutationValue);
+    const operation = mutation.op || "copy-file";
+
+    if (operation === "install-migration") {
+      const rawMutation = ensureObject(mutationValue);
+      if (Object.hasOwn(rawMutation, "preserveOnRemove")) {
+        warnings.push(
+          `${packageEntry.packageId}: install-migration ignores preserveOnRemove (migrations are always preserved on remove).`
+        );
+      }
+
+      const from = mutation.from;
+      const toDir = mutation.toDir || "migrations";
+      if (!from) {
+        throw createCliError(`Invalid install-migration mutation in ${packageEntry.packageId}: \"from\" is required.`);
+      }
+
+      const slug = normalizeMigrationSlug(mutation.slug, packageEntry.packageId);
+      const sourcePath = path.join(packageEntry.rootDir, from);
+      if (!(await fileExists(sourcePath))) {
+        throw createCliError(`Missing migration template source ${sourcePath} for ${packageEntry.packageId}.`);
+      }
+
+      const sourceContent = await readFile(sourcePath, "utf8");
+      const sourceExtension = normalizeMigrationExtension(path.extname(from), ".cjs");
+      const extension = normalizeMigrationExtension(mutation.extension, sourceExtension);
+      const migrationId =
+        String(mutation.id || "").trim() ||
+        extractMigrationIdFromSource(sourceContent) ||
+        `${packageEntry.packageId}:${slug}`;
+      const existingMigration = await findExistingMigrationById({
+        appRoot,
+        migrationsDirectory: toDir,
+        migrationId
+      });
+
+      if (existingMigration) {
+        warnings.push(
+          `${packageEntry.packageId}: skipped migration ${migrationId} (already installed at ${existingMigration.path}).`
+        );
+        managedMigrations.push({
+          id: migrationId,
+          path: existingMigration.path,
+          skipped: true,
+          reason: mutation.reason,
+          category: mutation.category
+        });
+        continue;
+      }
+
+      const migrationsDirectoryAbsolute = path.join(appRoot, toDir);
+      await mkdir(migrationsDirectoryAbsolute, { recursive: true });
+
+      const baseNow = Date.now();
+      let targetPath = "";
+      let offsetSeconds = 0;
+      while (offsetSeconds < 86400) {
+        const timestamp = formatMigrationTimestamp(new Date(baseNow + offsetSeconds * 1000));
+        const fileName = `${timestamp}_${slug}${extension}`;
+        const candidatePath = path.join(migrationsDirectoryAbsolute, fileName);
+        if (!(await fileExists(candidatePath))) {
+          targetPath = candidatePath;
+          break;
+        }
+        offsetSeconds += 1;
+      }
+
+      if (!targetPath) {
+        throw createCliError(`Unable to allocate migration filename for ${packageEntry.packageId}:${migrationId}.`);
+      }
+
+      await copyFile(sourcePath, targetPath);
+      const relativePath = normalizeRelativePath(appRoot, targetPath);
+      touchedFiles.add(relativePath);
+      managedMigrations.push({
+        id: migrationId,
+        path: relativePath,
+        skipped: false,
+        reason: mutation.reason,
+        category: mutation.category
+      });
+      continue;
+    }
+
+    if (operation !== "copy-file") {
+      throw createCliError(`Unsupported files mutation op \"${operation}\" in ${packageEntry.packageId}.`);
+    }
+
+    const from = mutation.from;
+    const to = mutation.to;
     if (!from || !to) {
-      throw createCliError(`Invalid files mutation in ${packageEntry.packageId}: "from" and "to" are required.`);
+      throw createCliError(`Invalid files mutation in ${packageEntry.packageId}: \"from\" and \"to\" are required.`);
     }
 
     const sourcePath = path.join(packageEntry.rootDir, from);
@@ -2964,9 +3161,10 @@ async function applyFileMutations(packageEntry, appRoot, fileMutations, managedF
       hash: hashBuffer(nextBuffer),
       hadPrevious: previous.exists,
       previousContentBase64: previous.exists ? previous.buffer.toString("base64") : "",
-      reason: String(mutation?.reason || ""),
-      category: String(mutation?.category || ""),
-      id: String(mutation?.id || "")
+      preserveOnRemove: mutation.preserveOnRemove,
+      reason: mutation.reason,
+      category: mutation.category,
+      id: mutation.id
     });
     touchedFiles.add(normalizeRelativePath(appRoot, targetPath));
   }
@@ -3068,6 +3266,7 @@ async function applyPackageInstall({
   touchedFiles
 }) {
   const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
+  const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
   const packageEntryForMutations =
@@ -3131,7 +3330,9 @@ async function applyPackageInstall({
     appRoot,
     ensureArray(mutations.files),
     managedRecord.managed.files,
-    touchedFiles
+    managedRecord.managed.migrations,
+    touchedFiles,
+    mutationWarnings
   );
 
   await applyTextMutations(
@@ -3144,6 +3345,9 @@ async function applyPackageInstall({
   );
 
   lock.installedPackages[packageEntry.packageId] = managedRecord;
+  if (mutationWarnings.length > 0) {
+    managedRecord.warnings = mutationWarnings;
+  }
   return managedRecord;
 }
 
@@ -4097,7 +4301,8 @@ async function commandCreate({ positional, options, cwd, io }) {
         scripts: {}
       },
       text: {},
-      files: []
+      files: [],
+      migrations: []
     },
     options: {},
     installedAt: new Date().toISOString()
@@ -4250,6 +4455,10 @@ async function commandAdd({ positional, options, cwd, io }) {
 
   const touchedFileList = sortStrings([...touchedFiles]);
   const successLabel = targetType === "bundle" ? "Added bundle" : "Added package";
+  const installWarnings = installedPackageRecords
+    .flatMap((record) => ensureArray(ensureObject(record).warnings))
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
 
   if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
@@ -4268,7 +4477,8 @@ async function commandAdd({ positional, options, cwd, io }) {
       lockPath: normalizeRelativePath(appRoot, lockPath),
       externalDependencies,
       dryRun: options.dryRun,
-      installed: installedPackageRecords
+      installed: installedPackageRecords,
+      warnings: installWarnings
     }, null, 2)}\n`);
   } else {
     io.stdout.write(
@@ -4282,6 +4492,12 @@ async function commandAdd({ positional, options, cwd, io }) {
         externalDependencies
       )}\n`
     );
+    if (installWarnings.length > 0) {
+      io.stdout.write(`Warnings (${installWarnings.length}):\n`);
+      for (const warning of installWarnings) {
+        io.stdout.write(`- ${warning}\n`);
+      }
+    }
     if (options.dryRun) {
       io.stdout.write("Dry run enabled: no files were written.\n");
     }
@@ -4398,6 +4614,9 @@ async function commandRemove({ positional, options, cwd, io }) {
 
   for (const fileChange of ensureArray(managed.files)) {
     const changeRecord = ensureObject(fileChange);
+    if (changeRecord.preserveOnRemove === true) {
+      continue;
+    }
     const relativeFile = String(changeRecord.path || "").trim();
     if (!relativeFile) {
       continue;

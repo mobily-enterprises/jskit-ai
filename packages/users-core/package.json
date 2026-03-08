@@ -1,0 +1,32 @@
+{
+  "name": "@jskit-ai/users-core",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./server/providers/UsersCoreServiceProvider": "./src/server/providers/UsersCoreServiceProvider.js",
+    "./server/actions/workspaceActionContributor": "./src/server/actions/workspaceActionContributor.js",
+    "./server/actions/settingsActionContributor": "./src/server/actions/settingsActionContributor.js",
+    "./server/services/workspaceService": "./src/server/services/workspaceService.js",
+    "./server/services/workspaceAdminService": "./src/server/services/workspaceAdminService.js",
+    "./server/services/settingsService": "./src/server/services/settingsService.js",
+    "./server/repositories/userProfiles": "./src/server/repositories/userProfiles.repository.js",
+    "./server/repositories/userSettings": "./src/server/repositories/userSettings.repository.js",
+    "./server/repositories/workspaces": "./src/server/repositories/workspaces.repository.js",
+    "./server/repositories/memberships": "./src/server/repositories/memberships.repository.js",
+    "./server/repositories/workspaceSettings": "./src/server/repositories/workspaceSettings.repository.js",
+    "./server/repositories/workspaceInvites": "./src/server/repositories/workspaceInvites.repository.js",
+    "./shared": "./src/shared/index.js",
+    "./shared/roles": "./src/shared/roles.js",
+    "./shared/settings": "./src/shared/settings.js"
+  },
+  "dependencies": {
+    "@jskit-ai/action-runtime-core": "0.1.0",
+    "@jskit-ai/database-runtime": "0.1.0",
+    "@jskit-ai/kernel": "0.1.0"
+  }
+}

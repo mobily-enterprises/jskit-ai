@@ -54,4 +54,6 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   assert.equal(app.provided.length, 1);
   assert.equal(app.provided[0].key, WEB_PLACEMENT_RUNTIME_INJECTION_KEY);
   assert.equal(typeof app.provided[0].value.getPlacements, "function");
+  assert.equal(typeof app.provided[0].value.getContext, "function");
+  assert.equal(typeof app.provided[0].value.setContext, "function");
 });
