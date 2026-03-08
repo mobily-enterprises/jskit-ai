@@ -1,75 +1,90 @@
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
 class AuthWebService {
-  constructor({ authService, actionExecutor } = {}) {
+  constructor({ authService } = {}) {
     if (!authService) {
       throw new Error("authService is required.");
     }
-    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
-      throw new Error("actionExecutor.execute is required.");
-    }
     this.authService = authService;
-    this.actionExecutor = actionExecutor;
   }
 
   static get actionIds() {
     return AUTH_ACTION_IDS;
   }
 
-  async executeAction(actionId, request, input = {}) {
-    return this.actionExecutor.execute({
-      actionId,
-      input,
-      context: {
-        requestMeta: { request },
-        request,
-        channel: "api"
-      }
+  async register(request, payload) {
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.REGISTER,
+      input: payload
     });
   }
 
-  async register(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.REGISTER, request, payload);
-  }
-
   async login(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGIN_PASSWORD, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGIN_PASSWORD,
+      input: payload
+    });
   }
 
   async requestOtpLogin(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGIN_OTP_REQUEST, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGIN_OTP_REQUEST,
+      input: payload
+    });
   }
 
   async verifyOtpLogin(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGIN_OTP_VERIFY, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGIN_OTP_VERIFY,
+      input: payload
+    });
   }
 
   async oauthStart(request, input) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGIN_OAUTH_START, request, input);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGIN_OAUTH_START,
+      input
+    });
   }
 
   async oauthComplete(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGIN_OAUTH_COMPLETE, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGIN_OAUTH_COMPLETE,
+      input: payload
+    });
   }
 
   async logout(request) {
-    return this.executeAction(AUTH_ACTION_IDS.LOGOUT, request);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.LOGOUT
+    });
   }
 
   async session(request) {
-    return this.executeAction(AUTH_ACTION_IDS.SESSION_READ, request);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.SESSION_READ
+    });
   }
 
   async requestPasswordReset(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.PASSWORD_RESET_REQUEST, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.PASSWORD_RESET_REQUEST,
+      input: payload
+    });
   }
 
   async completePasswordRecovery(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.PASSWORD_RECOVERY_COMPLETE, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.PASSWORD_RECOVERY_COMPLETE,
+      input: payload
+    });
   }
 
   async resetPassword(request, payload) {
-    return this.executeAction(AUTH_ACTION_IDS.PASSWORD_RESET, request, payload);
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.PASSWORD_RESET,
+      input: payload
+    });
   }
 
   writeSessionCookies(reply, session) {

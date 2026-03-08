@@ -6,14 +6,16 @@ class AuthWebServiceProvider {
   static dependsOn = ["auth.provider"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("AuthWebServiceProvider requires application singleton().");
+    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
+      throw new Error("AuthWebServiceProvider requires application singleton()/has().");
+    }
+    if (!app.has("actionExecutor")) {
+      throw new Error("AuthWebServiceProvider requires actionExecutor binding.");
     }
 
     app.singleton("auth.web.service", (scope) => {
       const authService = scope.make("authService");
-      const actionExecutor = scope.make("actionExecutor");
-      return new AuthWebService({ authService, actionExecutor });
+      return new AuthWebService({ authService });
     });
   }
 }

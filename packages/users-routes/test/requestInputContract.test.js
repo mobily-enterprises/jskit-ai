@@ -41,6 +41,13 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
+function createActionRequest({ input = {}, executeAction }) {
+  return {
+    input,
+    executeAction
+  };
+}
+
 test("workspace and settings routes attach input normalizers where controller reads request.input", () => {
   const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy());
   const settingsRoutes = buildSettingsRoutes(createControllerProxy());
@@ -79,62 +86,66 @@ test("workspace controller methods use request.input payloads", async () => {
   const calls = [];
   const controller = new UsersWorkspaceController({
     authService: {},
-    actionExecutor: {
-      async execute(payload) {
-        calls.push(payload);
-        return {};
-      }
-    },
     consoleService: null
   });
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
 
   await controller.selectWorkspace(
-    {
+    createActionRequest({
       input: {
         body: { workspaceSlug: "acme" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.respondToPendingInviteByToken(
-    {
+    createActionRequest({
       input: {
         body: { token: "token-1", decision: "accept" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.updateWorkspaceSettings(
-    {
+    createActionRequest({
       input: {
         body: { name: "Acme Workspace" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.updateWorkspaceMemberRole(
-    {
+    createActionRequest({
       input: {
         params: { memberUserId: "12" },
         body: { roleId: "admin" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.createWorkspaceInvite(
-    {
+    createActionRequest({
       input: {
         body: { email: "user@example.com", roleId: "member" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.revokeWorkspaceInvite(
-    {
+    createActionRequest({
       input: {
         params: { inviteId: "55" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
 
@@ -151,91 +162,97 @@ test("settings controller methods use request.input payloads", async () => {
   const controller = new UsersSettingsController({
     authService: {
       writeSessionCookies() {}
-    },
-    actionExecutor: {
-      async execute(payload) {
-        calls.push(payload);
-        if (payload.actionId === "settings.security.oauth.link.start") {
-          return { url: "/oauth/link" };
-        }
-        if (payload.actionId === "settings.profile.update") {
-          return { settings: {}, session: null };
-        }
-        if (payload.actionId === "settings.security.password.change") {
-          return { message: "ok", session: null };
-        }
-        return {};
-      }
     }
   });
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    if (payload.actionId === "settings.security.oauth.link.start") {
+      return { url: "/oauth/link" };
+    }
+    if (payload.actionId === "settings.profile.update") {
+      return { settings: {}, session: null };
+    }
+    if (payload.actionId === "settings.security.password.change") {
+      return { message: "ok", session: null };
+    }
+    return {};
+  };
 
   await controller.updateProfile(
-    {
+    createActionRequest({
       input: {
         body: { displayName: "Merc" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.updatePreferences(
-    {
+    createActionRequest({
       input: {
         body: { locale: "en-US" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.updateNotifications(
-    {
+    createActionRequest({
       input: {
         body: { email: true }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.updateChat(
-    {
+    createActionRequest({
       input: {
         body: { compactMode: true }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.changePassword(
-    {
+    createActionRequest({
       input: {
         body: {
           currentPassword: "old-password",
           newPassword: "new-password-123",
           confirmPassword: "new-password-123"
         }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.setPasswordMethodEnabled(
-    {
+    createActionRequest({
       input: {
         body: { enabled: true }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.startOAuthProviderLink(
-    {
+    createActionRequest({
       input: {
         params: { provider: "github" },
         query: { returnTo: "/app/settings" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
   await controller.unlinkOAuthProvider(
-    {
+    createActionRequest({
       input: {
         params: { provider: "github" }
-      }
-    },
+      },
+      executeAction
+    }),
     createReplyDouble()
   );
 

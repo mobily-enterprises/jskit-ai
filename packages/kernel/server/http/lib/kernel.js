@@ -253,6 +253,11 @@ function normalizeRequestScopeProperty(value) {
   return normalized || "scope";
 }
 
+function normalizeRequestActionExecutorProperty(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "executeAction";
+}
+
 function attachRequestScope({
   app = null,
   request = null,
@@ -286,6 +291,162 @@ function attachRequestScope({
   }
 
   return scope;
+}
+
+function normalizePermissions(value) {
+  const source = Array.isArray(value) ? value : [];
+  return source.map((entry) => normalizeText(entry)).filter(Boolean);
+}
+
+function resolveRequestPathname(request) {
+  const rawPathname = normalizeText(request?.raw?.url || request?.url || "/");
+  const noHash = rawPathname.split("#")[0] || "/";
+  return (noHash.split("?")[0] || "/").trim() || "/";
+}
+
+function resolveSurfaceFromRequest(request, explicitSurface = "") {
+  const normalizedExplicitSurface = normalizeText(explicitSurface).toLowerCase();
+  if (normalizedExplicitSurface) {
+    return normalizedExplicitSurface;
+  }
+
+  const normalizedRouteSurface = normalizeText(request?.routeOptions?.config?.workspaceSurface).toLowerCase();
+  if (normalizedRouteSurface) {
+    return normalizedRouteSurface;
+  }
+
+  const pathname = resolveRequestPathname(request).toLowerCase();
+  if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
+    return "admin";
+  }
+  if (pathname === "/api/console" || pathname.startsWith("/api/console/")) {
+    return "console";
+  }
+
+  return "app";
+}
+
+function buildActionExecutionContext({ request = null, context = {}, channel = "api" } = {}) {
+  const source = normalizeObject(context);
+  const sourceRequestMeta = normalizeObject(source.requestMeta);
+
+  const resolvedContext = {
+    ...source,
+    channel: normalizeText(source.channel || channel).toLowerCase() || "api",
+    surface: resolveSurfaceFromRequest(request, source.surface),
+    requestMeta: {
+      ...sourceRequestMeta,
+      request
+    }
+  };
+
+  if (!Object.prototype.hasOwnProperty.call(source, "actor")) {
+    resolvedContext.actor = request?.user || null;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(source, "workspace")) {
+    resolvedContext.workspace = request?.workspace || null;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(source, "membership")) {
+    resolvedContext.membership = request?.membership || null;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(source, "permissions")) {
+    resolvedContext.permissions = normalizePermissions(request?.permissions);
+  }
+
+  return resolvedContext;
+}
+
+function resolveActionExecutorScope({ app = null, request = null, requestScopeProperty = "scope" } = {}) {
+  const normalizedScopeProperty = normalizeRequestScopeProperty(requestScopeProperty);
+  const requestScope =
+    request && typeof request === "object" && request[normalizedScopeProperty] && typeof request[normalizedScopeProperty] === "object"
+      ? request[normalizedScopeProperty]
+      : null;
+
+  if (requestScope && typeof requestScope.make === "function") {
+    return requestScope;
+  }
+
+  if (app && typeof app.make === "function") {
+    return app;
+  }
+
+  return null;
+}
+
+function attachRequestActionExecutor({
+  app = null,
+  request = null,
+  requestScopeProperty = "scope",
+  requestActionExecutorProperty = "executeAction",
+  actionExecutorToken = "actionExecutor",
+  defaultChannel = "api"
+} = {}) {
+  if (!request || typeof request !== "object") {
+    return null;
+  }
+
+  const normalizedProperty = normalizeRequestActionExecutorProperty(requestActionExecutorProperty);
+  if (typeof request[normalizedProperty] === "function") {
+    return request[normalizedProperty];
+  }
+
+  const normalizedActionExecutorToken = normalizeText(actionExecutorToken) || "actionExecutor";
+  const normalizedDefaultChannel = normalizeText(defaultChannel).toLowerCase() || "api";
+  const initialResolutionScope = resolveActionExecutorScope({
+    app,
+    request,
+    requestScopeProperty
+  });
+
+  if (!initialResolutionScope || typeof initialResolutionScope.has !== "function" || typeof initialResolutionScope.make !== "function") {
+    return null;
+  }
+
+  const executeAction = async (payload = {}) => {
+    const source = normalizeObject(payload);
+    const resolutionScope = resolveActionExecutorScope({
+      app,
+      request,
+      requestScopeProperty
+    });
+
+    if (!resolutionScope || typeof resolutionScope.has !== "function" || typeof resolutionScope.make !== "function") {
+      throw new RouteRegistrationError("request.executeAction requires a container scope with has()/make().");
+    }
+    if (!resolutionScope.has(normalizedActionExecutorToken)) {
+      throw new RouteRegistrationError(`request.executeAction requires "${normalizedActionExecutorToken}" binding.`);
+    }
+
+    const actionExecutor = resolutionScope.make(normalizedActionExecutorToken);
+    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+      throw new RouteRegistrationError(`"${normalizedActionExecutorToken}" must provide execute().`);
+    }
+
+    return actionExecutor.execute({
+      actionId: source.actionId,
+      version: source.version == null ? null : source.version,
+      input: normalizeObject(source.input),
+      context: buildActionExecutionContext({
+        request,
+        context: normalizeObject(source.context),
+        channel: normalizeText(source.channel || normalizedDefaultChannel).toLowerCase() || normalizedDefaultChannel
+      }),
+      deps: normalizeObject(source.deps)
+    });
+  };
+
+  Object.defineProperty(request, normalizedProperty, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: executeAction
+  });
+
+  return request[normalizedProperty];
 }
 
 function normalizeRouteInputTransforms(route) {
@@ -346,6 +507,9 @@ function registerRoutes(
     missingHandler = defaultMissingHandler,
     enableRequestScope = true,
     requestScopeProperty = "scope",
+    requestActionExecutorProperty = "executeAction",
+    actionExecutorToken = "actionExecutor",
+    requestActionDefaultChannel = "api",
     requestScopeIdPrefix = "http",
     requestIdResolver = null,
     middleware = {}
@@ -380,6 +544,15 @@ function registerRoutes(
             requestIdResolver
           });
         }
+
+        attachRequestActionExecutor({
+          app,
+          request,
+          requestScopeProperty,
+          requestActionExecutorProperty,
+          actionExecutorToken,
+          defaultChannel: requestActionDefaultChannel
+        });
 
         if (routeInputTransforms) {
           request.input = buildRequestInput({
@@ -475,6 +648,8 @@ export {
   defaultMissingHandler,
   defaultApplyRoutePolicy,
   normalizeRoutePolicyConfig,
+  buildActionExecutionContext,
+  attachRequestActionExecutor,
   registerRoutes,
   registerHttpRuntime,
   createHttpRuntime

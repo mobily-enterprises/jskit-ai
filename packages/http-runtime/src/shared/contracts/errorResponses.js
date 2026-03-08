@@ -14,6 +14,7 @@ const apiErrorDetailsSchema = Type.Object(
 const apiErrorResponseSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
     details: Type.Optional(apiErrorDetailsSchema),
     fieldErrors: Type.Optional(fieldErrorsSchema)
   },
@@ -25,6 +26,7 @@ const apiErrorResponseSchema = Type.Object(
 const apiValidationErrorResponseSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
     fieldErrors: fieldErrorsSchema,
     details: Type.Object(
       {

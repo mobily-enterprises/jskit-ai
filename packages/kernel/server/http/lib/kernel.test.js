@@ -89,6 +89,108 @@ test("registerRoutes attaches request scope and request context tokens", async (
   assert.equal(observed.handlerRequestId, "req-123");
 });
 
+test("registerRoutes attaches request.executeAction with request-derived action context", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const observed = [];
+
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return {
+        ok: true
+      };
+    }
+  });
+
+  registerRoutes(fastify, {
+    app,
+    routes: [
+      {
+        method: "GET",
+        path: "/action-helper",
+        middleware: [
+          (request) => {
+            request.user = {
+              id: 7,
+              email: "user@example.com"
+            };
+            request.permissions = ["settings.read"];
+            request.workspace = {
+              id: 10,
+              slug: "main"
+            };
+            request.membership = {
+              roleId: "owner"
+            };
+          }
+        ],
+        handler: async (request, reply) => {
+          await request.executeAction({
+            actionId: "settings.read",
+            input: {
+              locale: "en-US"
+            },
+            context: {
+              requestMeta: {
+                commandId: "cmd-1"
+              }
+            }
+          });
+
+          await request.executeAction({
+            actionId: "settings.override",
+            context: {
+              actor: {
+                id: 99
+              },
+              permissions: ["*"],
+              surface: "console",
+              channel: "internal"
+            }
+          });
+
+          reply.code(200).send({
+            ok: true
+          });
+        }
+      }
+    ]
+  });
+
+  const request = {
+    id: "req-55",
+    raw: {
+      url: "/api/admin/workspace/settings?mode=full"
+    }
+  };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(typeof request.executeAction, "function");
+  assert.equal(Object.prototype.propertyIsEnumerable.call(request, "executeAction"), false);
+  assert.equal(observed.length, 2);
+
+  assert.equal(observed[0].actionId, "settings.read");
+  assert.deepEqual(observed[0].input, { locale: "en-US" });
+  assert.equal(observed[0].context.actor?.id, 7);
+  assert.deepEqual(observed[0].context.permissions, ["settings.read"]);
+  assert.equal(observed[0].context.workspace?.id, 10);
+  assert.equal(observed[0].context.membership?.roleId, "owner");
+  assert.equal(observed[0].context.surface, "admin");
+  assert.equal(observed[0].context.channel, "api");
+  assert.equal(observed[0].context.requestMeta.commandId, "cmd-1");
+  assert.equal(observed[0].context.requestMeta.request, request);
+
+  assert.equal(observed[1].actionId, "settings.override");
+  assert.equal(observed[1].context.actor?.id, 99);
+  assert.deepEqual(observed[1].context.permissions, ["*"]);
+  assert.equal(observed[1].context.surface, "console");
+  assert.equal(observed[1].context.channel, "internal");
+});
+
 test("registerRoutes can disable request scope attachment", async () => {
   const fastify = createFastifyStub();
   const app = createApplication();

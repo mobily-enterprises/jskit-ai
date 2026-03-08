@@ -23,7 +23,7 @@ const props = defineProps({
   },
   icon: {
     type: String,
-    default: "$menuSettings"
+    default: "mdi-cog-outline"
   }
 });
 

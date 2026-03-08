@@ -26,18 +26,15 @@ class UsersRouteServiceProvider {
     }
 
     const router = app.make(KERNEL_TOKENS.HttpRouter);
-    const actionExecutor = app.make("actionExecutor");
     const authService = app.make("authService");
     const consoleService = app.has("consoleService") ? app.make("consoleService") : null;
 
     const workspaceController = new UsersWorkspaceController({
       authService,
-      actionExecutor,
       consoleService
     });
     const settingsController = new UsersSettingsController({
-      authService,
-      actionExecutor
+      authService
     });
 
     const routes = [

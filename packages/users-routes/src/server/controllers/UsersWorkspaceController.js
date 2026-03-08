@@ -19,20 +19,6 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
-async function executeAction(actionExecutor, { actionId, request, input = {}, context = {} }) {
-  return actionExecutor.execute({
-    actionId,
-    input,
-    context: {
-      requestMeta: {
-        request
-      },
-      channel: "api",
-      ...(context && typeof context === "object" ? context : {})
-    }
-  });
-}
-
 function getOAuthProviderCatalogPayload(authService) {
   if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
     return {
@@ -59,25 +45,20 @@ function getOAuthProviderCatalogPayload(authService) {
 }
 
 class UsersWorkspaceController {
-  constructor({ authService, actionExecutor, consoleService = null } = {}) {
+  constructor({ authService, consoleService = null } = {}) {
     if (!authService) {
       throw new Error("UsersWorkspaceController requires authService.");
     }
-    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
-      throw new Error("UsersWorkspaceController requires actionExecutor.execute().");
-    }
 
     this.authService = authService;
-    this.actionExecutor = actionExecutor;
     this.consoleService = consoleService;
   }
 
   async bootstrap(request, reply) {
     const oauthCatalogPayload = getOAuthProviderCatalogPayload(this.authService);
 
-    const authResult = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.AUTH_SESSION_READ,
-      request
+    const authResult = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.AUTH_SESSION_READ
     });
 
     if (authResult?.clearSession === true && typeof this.authService.clearSessionCookies === "function") {
@@ -103,9 +84,8 @@ class UsersWorkspaceController {
       await this.consoleService.ensureInitialConsoleMember(authResult.profile.id);
     }
 
-    const payload = await executeAction(this.actionExecutor, {
+    const payload = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.BOOTSTRAP_READ,
-      request,
       input: {
         user: authResult?.authenticated ? authResult.profile : null
       },
@@ -126,76 +106,67 @@ class UsersWorkspaceController {
   }
 
   async listWorkspaces(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.WORKSPACES_LIST,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.WORKSPACES_LIST
     });
     reply.code(200).send(response);
   }
 
   async selectWorkspace(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.SELECT,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async listPendingInvites(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST
     });
     reply.code(200).send(response);
   }
 
   async respondToPendingInviteByToken(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_REDEEM,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async getWorkspaceSettings(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ
     });
     reply.code(200).send(response);
   }
 
   async updateWorkspaceSettings(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.SETTINGS_UPDATE,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async listWorkspaceRoles(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.ROLES_LIST
     });
     reply.code(200).send(response);
   }
 
   async listWorkspaceMembers(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST
     });
     reply.code(200).send(response);
   }
 
   async updateWorkspaceMemberRole(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
-      request,
       input: {
         memberUserId: request.input.params.memberUserId,
         roleId: request.input.body.roleId
@@ -205,26 +176,23 @@ class UsersWorkspaceController {
   }
 
   async listWorkspaceInvites(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
-      request
+    const response = await request.executeAction({
+      actionId: WORKSPACE_ACTION_IDS.INVITES_LIST
     });
     reply.code(200).send(response);
   }
 
   async createWorkspaceInvite(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async revokeWorkspaceInvite(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
-      request,
       input: {
         inviteId: request.input.params.inviteId
       }

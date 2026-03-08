@@ -170,12 +170,12 @@ class AuthController {
   }
 }
 
-function createController({ service, authService, actionExecutor } = {}) {
+function createController({ service, authService } = {}) {
   if (!service) {
     if (!authService) {
       throw new Error("createController requires either service or authService.");
     }
-    service = new AuthWebService({ authService, actionExecutor });
+    service = new AuthWebService({ authService });
   }
   return new AuthController({ service });
 }

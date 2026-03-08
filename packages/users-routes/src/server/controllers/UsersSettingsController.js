@@ -15,44 +15,25 @@ const SETTINGS_ACTION_IDS = Object.freeze({
   SESSIONS_LOGOUT_OTHERS: "settings.security.sessions.logout_others"
 });
 
-async function executeAction(actionExecutor, { actionId, request, input = {} }) {
-  return actionExecutor.execute({
-    actionId,
-    input,
-    context: {
-      requestMeta: {
-        request
-      },
-      channel: "api"
-    }
-  });
-}
-
 class UsersSettingsController {
-  constructor({ authService, actionExecutor } = {}) {
+  constructor({ authService } = {}) {
     if (!authService) {
       throw new Error("UsersSettingsController requires authService.");
     }
-    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
-      throw new Error("UsersSettingsController requires actionExecutor.execute().");
-    }
 
     this.authService = authService;
-    this.actionExecutor = actionExecutor;
   }
 
   async get(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: SETTINGS_ACTION_IDS.READ,
-      request
+    const response = await request.executeAction({
+      actionId: SETTINGS_ACTION_IDS.READ
     });
     reply.code(200).send(response);
   }
 
   async updateProfile(request, reply) {
-    const result = await executeAction(this.actionExecutor, {
+    const result = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.PROFILE_UPDATE,
-      request,
       input: request.input.body
     });
 
@@ -64,27 +45,24 @@ class UsersSettingsController {
   }
 
   async updatePreferences(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.PREFERENCES_UPDATE,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async updateNotifications(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.NOTIFICATIONS_UPDATE,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
   }
 
   async updateChat(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.CHAT_UPDATE,
-      request,
       input: request.input.body
     });
     reply.code(200).send(response);
@@ -103,9 +81,8 @@ class UsersSettingsController {
     }
 
     const uploadDimension = filePart.fields?.uploadDimension?.value;
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_UPLOAD,
-      request,
       input: {
         stream: filePart.file,
         mimeType: filePart.mimetype,
@@ -118,17 +95,15 @@ class UsersSettingsController {
   }
 
   async deleteAvatar(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_DELETE,
-      request
+    const response = await request.executeAction({
+      actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_DELETE
     });
     reply.code(200).send(response);
   }
 
   async changePassword(request, reply) {
-    const result = await executeAction(this.actionExecutor, {
+    const result = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.PASSWORD_CHANGE,
-      request,
       input: request.input.body
     });
 
@@ -143,9 +118,8 @@ class UsersSettingsController {
   }
 
   async setPasswordMethodEnabled(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.PASSWORD_METHOD_TOGGLE,
-      request,
       input: request.input.body
     });
 
@@ -153,9 +127,8 @@ class UsersSettingsController {
   }
 
   async startOAuthProviderLink(request, reply) {
-    const result = await executeAction(this.actionExecutor, {
+    const result = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.OAUTH_LINK_START,
-      request,
       input: {
         provider: request.input.params.provider,
         returnTo: request.input.query.returnTo
@@ -166,9 +139,8 @@ class UsersSettingsController {
   }
 
   async unlinkOAuthProvider(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
+    const response = await request.executeAction({
       actionId: SETTINGS_ACTION_IDS.OAUTH_UNLINK,
-      request,
       input: {
         provider: request.input.params.provider
       }
@@ -178,9 +150,8 @@ class UsersSettingsController {
   }
 
   async logoutOtherSessions(request, reply) {
-    const response = await executeAction(this.actionExecutor, {
-      actionId: SETTINGS_ACTION_IDS.SESSIONS_LOGOUT_OTHERS,
-      request
+    const response = await request.executeAction({
+      actionId: SETTINGS_ACTION_IDS.SESSIONS_LOGOUT_OTHERS
     });
     reply.code(200).send(response);
   }
