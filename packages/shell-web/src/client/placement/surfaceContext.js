@@ -1,6 +1,14 @@
-import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface";
+import {
+  normalizeSurfaceId,
+  normalizeSurfacePrefix,
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
+  normalizeTenancyMode
+} from "@jskit-ai/kernel/shared/surface";
 
 const EMPTY_SURFACE_CONFIG = Object.freeze({
+  tenancyMode: TENANCY_MODE_NONE,
   defaultSurfaceId: "",
   enabledSurfaceIds: Object.freeze([]),
   workspaceSurfaceIds: Object.freeze([]),
@@ -27,6 +35,30 @@ function normalizeSurfaceIdList(value) {
     normalized.push(surfaceId);
   }
   return normalized;
+}
+
+function normalizePathname(pathname) {
+  const rawValue = String(pathname || "/").trim();
+  if (!rawValue) {
+    return "/";
+  }
+
+  const withoutQuery = rawValue.split("?")[0].split("#")[0];
+  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
+  if (squashed === "/") {
+    return "/";
+  }
+
+  return squashed.replace(/\/+$/, "") || "/";
+}
+
+function normalizeWorkspaceSuffix(suffix) {
+  const rawSuffix = String(suffix || "/").trim();
+  if (!rawSuffix || rawSuffix === "/") {
+    return "/";
+  }
+  return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
 }
 
 function normalizeSurfaceConfig(surfaceConfig = {}) {
@@ -69,6 +101,7 @@ function normalizeSurfaceConfig(surfaceConfig = {}) {
     : derivedEnabledSurfaceIds[0] || Object.keys(normalizedSurfacesById)[0] || "";
 
   return Object.freeze({
+    tenancyMode: normalizeTenancyMode(source.tenancyMode),
     defaultSurfaceId: resolvedDefaultSurfaceId,
     enabledSurfaceIds: Object.freeze([...derivedEnabledSurfaceIds]),
     workspaceSurfaceIds: Object.freeze([...workspaceSurfaceIds]),
@@ -99,6 +132,7 @@ function buildSurfaceConfigContext(surfaceRuntime = null) {
   }
 
   return normalizeSurfaceConfig({
+    tenancyMode: surfaceRuntime.TENANCY_MODE,
     defaultSurfaceId: surfaceRuntime.DEFAULT_SURFACE_ID,
     enabledSurfaceIds:
       typeof surfaceRuntime.listEnabledSurfaceIds === "function" ? surfaceRuntime.listEnabledSurfaceIds() : [],
@@ -151,13 +185,90 @@ function resolveSurfacePathFromPlacementContext(contextValue = null, surfaceId =
   return joinSurfacePath(surfaceDefinition?.prefix, pathname);
 }
 
+function resolveSurfaceWorkspacesPathFromPlacementContext(contextValue = null, surfaceId = "") {
+  return resolveSurfacePathFromPlacementContext(contextValue, surfaceId, "/workspaces");
+}
+
+function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, surfaceId = "", workspaceSlug = "", suffix = "/") {
+  const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
+  if (!normalizedWorkspaceSlug) {
+    return resolveSurfaceWorkspacesPathFromPlacementContext(contextValue, surfaceId);
+  }
+  const normalizedSuffix = normalizeWorkspaceSuffix(suffix);
+  const relativePath =
+    normalizedSuffix === "/" ? `/w/${normalizedWorkspaceSlug}` : `/w/${normalizedWorkspaceSlug}${normalizedSuffix}`;
+  return resolveSurfacePathFromPlacementContext(contextValue, surfaceId, relativePath);
+}
+
+function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "") {
+  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
+  const normalizedPathname =
+    normalizePathname(pathname) ||
+    (typeof window === "object" && window?.location?.pathname ? normalizePathname(window.location.pathname) : "/");
+  const enabledSurfaces = surfaceConfig.enabledSurfaceIds
+    .map((surfaceId) => surfaceConfig.surfacesById[surfaceId])
+    .filter(Boolean)
+    .sort((left, right) => String(right.prefix || "").length - String(left.prefix || "").length);
+
+  for (const surfaceDefinition of enabledSurfaces) {
+    const normalizedPrefix = normalizeSurfacePrefix(surfaceDefinition.prefix);
+    if (!normalizedPrefix) {
+      continue;
+    }
+
+    if (normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`)) {
+      return surfaceDefinition.id;
+    }
+  }
+
+  return surfaceConfig.defaultSurfaceId || enabledSurfaces[0]?.id || "";
+}
+
+function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId = "", pathname = "") {
+  const normalizedPathname = normalizePathname(
+    pathname || (typeof window === "object" && window?.location?.pathname ? window.location.pathname : "/")
+  );
+  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
+  if (!surfaceDefinition) {
+    return "";
+  }
+
+  const workspaceBasePath = joinSurfacePath(surfaceDefinition.prefix, "/w");
+  if (!normalizedPathname.startsWith(`${workspaceBasePath}/`)) {
+    return "";
+  }
+
+  const trailingPath = normalizedPathname.slice(`${workspaceBasePath}/`.length);
+  const [workspaceSlug] = trailingPath.split("/");
+  return String(workspaceSlug || "").trim();
+}
+
+function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "", apiBasePath = "/api") {
+  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
+  const normalizedApiBasePath = normalizePathname(apiBasePath);
+  const prefixedApiBasePath = joinSurfacePath(normalizedApiBasePath, surfaceDefinition?.prefix);
+  const normalizedPathname = String(pathname || "").trim();
+  if (!normalizedPathname) {
+    return prefixedApiBasePath;
+  }
+  return joinSurfacePath(prefixedApiBasePath, normalizedPathname);
+}
+
 export {
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
   EMPTY_SURFACE_CONFIG,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceWorkspacesPathFromPlacementContext,
+  resolveSurfaceWorkspacePathFromPlacementContext,
+  extractWorkspaceSlugFromSurfacePathname,
+  resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 };

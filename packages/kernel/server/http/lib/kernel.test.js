@@ -122,6 +122,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
       {
         method: "GET",
         path: "/action-helper",
+        workspaceSurface: "coffie",
         middleware: [
           (request) => {
             request.user = {
@@ -192,7 +193,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
   assert.deepEqual(observed[0].context.permissions, ["settings.read"]);
   assert.equal(observed[0].context.workspace?.id, 10);
   assert.equal(observed[0].context.membership?.roleId, "owner");
-  assert.equal(observed[0].context.surface, "admin");
+  assert.equal(observed[0].context.surface, "coffie");
   assert.equal(observed[0].context.channel, "api");
   assert.equal(observed[0].context.requestMeta.commandId, "cmd-1");
   assert.equal(observed[0].context.requestMeta.request, request);

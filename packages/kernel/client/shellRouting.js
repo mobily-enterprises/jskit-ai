@@ -6,6 +6,137 @@ const AUTH_POLICY_PUBLIC = "public";
 const WEB_ROOT_ALLOW_YES = "yes";
 const WEB_ROOT_ALLOW_NO = "no";
 
+function normalizePathname(pathname) {
+  const rawValue = String(pathname || "/").trim();
+  if (!rawValue) {
+    return "/";
+  }
+
+  const withoutQuery = rawValue.split("?")[0].split("#")[0];
+  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
+  if (squashed === "/") {
+    return "/";
+  }
+
+  return squashed.replace(/\/+$/, "") || "/";
+}
+
+function resolveRouteScope(route) {
+  const source = route && typeof route === "object" ? route : {};
+  const metaJskit =
+    source.meta && typeof source.meta === "object" && source.meta.jskit && typeof source.meta.jskit === "object"
+      ? source.meta.jskit
+      : {};
+  const normalizedScope = String(source.scope || metaJskit.scope || "surface")
+    .trim()
+    .toLowerCase();
+  return normalizedScope === "global" ? "global" : "surface";
+}
+
+function resolveRouteSurface(route, surfaceRuntime) {
+  const source = route && typeof route === "object" ? route : {};
+  const metaJskit =
+    source.meta && typeof source.meta === "object" && source.meta.jskit && typeof source.meta.jskit === "object"
+      ? source.meta.jskit
+      : {};
+  const explicitSurface = String(source.surface || metaJskit.surface || "")
+    .trim()
+    .toLowerCase();
+  if (explicitSurface) {
+    return explicitSurface;
+  }
+
+  return surfaceRuntime.resolveSurfaceFromPathname(source.path || "/");
+}
+
+function resolveWorkspaceAliasPath(routePath, surfacePrefix) {
+  const normalizedRoutePath = normalizePathname(routePath);
+  const normalizedSurfacePrefix = normalizeSurfacePrefixValue(surfacePrefix);
+  const surfaceRootPath = normalizedSurfacePrefix || "/";
+  const workspacesPath = surfaceRootPath === "/" ? "/workspaces" : `${surfaceRootPath}/workspaces`;
+  if (normalizedRoutePath === workspacesPath) {
+    return "";
+  }
+
+  const workspacePrefix = surfaceRootPath === "/" ? "/w/:workspaceSlug" : `${surfaceRootPath}/w/:workspaceSlug`;
+  if (normalizedRoutePath === workspacePrefix || normalizedRoutePath.startsWith(`${workspacePrefix}/`)) {
+    return "";
+  }
+
+  if (surfaceRootPath === "/") {
+    if (normalizedRoutePath === "/") {
+      return workspacePrefix;
+    }
+    return `${workspacePrefix}${normalizedRoutePath}`;
+  }
+
+  if (normalizedRoutePath !== surfaceRootPath && !normalizedRoutePath.startsWith(`${surfaceRootPath}/`)) {
+    return "";
+  }
+
+  const suffix = normalizedRoutePath === surfaceRootPath ? "" : normalizedRoutePath.slice(surfaceRootPath.length);
+  return `${workspacePrefix}${suffix}`;
+}
+
+function createWorkspaceAliasRoute(route, aliasPath) {
+  const source = route && typeof route === "object" ? route : {};
+  const routeName = String(source.name || "").trim();
+  const meta = source.meta && typeof source.meta === "object" ? source.meta : {};
+  const metaJskit = meta.jskit && typeof meta.jskit === "object" ? meta.jskit : {};
+
+  return Object.freeze({
+    ...source,
+    ...(routeName ? { name: `${routeName}__workspace` } : {}),
+    path: aliasPath,
+    meta: {
+      ...meta,
+      jskit: {
+        ...metaJskit,
+        workspaceAlias: true
+      }
+    }
+  });
+}
+
+function expandRoutesWithWorkspaceAliases(routes, surfaceRuntime) {
+  if (!surfaceRuntime || typeof surfaceRuntime.getSurfaceDefinition !== "function") {
+    return routes;
+  }
+
+  const sourceRoutes = Array.isArray(routes) ? routes : [];
+  const expandedRoutes = [];
+  const seenPaths = new Set();
+
+  for (const route of sourceRoutes) {
+    const normalizedRoutePath = normalizePathname(route?.path || "/");
+    if (!seenPaths.has(normalizedRoutePath)) {
+      seenPaths.add(normalizedRoutePath);
+      expandedRoutes.push(route);
+    }
+
+    if (resolveRouteScope(route) === "global") {
+      continue;
+    }
+
+    const routeSurface = resolveRouteSurface(route, surfaceRuntime);
+    const surfaceDefinition = surfaceRuntime.getSurfaceDefinition(routeSurface);
+    if (!surfaceDefinition || surfaceDefinition.requiresWorkspace !== true) {
+      continue;
+    }
+
+    const workspaceAliasPath = resolveWorkspaceAliasPath(route?.path || "/", surfaceDefinition.prefix);
+    if (!workspaceAliasPath || seenPaths.has(workspaceAliasPath)) {
+      continue;
+    }
+
+    seenPaths.add(workspaceAliasPath);
+    expandedRoutes.push(createWorkspaceAliasRoute(route, workspaceAliasPath));
+  }
+
+  return expandedRoutes;
+}
+
 function createFallbackNotFoundRoute(component) {
   if (!component) {
     throw new Error("createFallbackNotFoundRoute requires a component.");
@@ -37,7 +168,8 @@ function buildSurfaceAwareRoutes({
   if (!effectiveFallback) {
     throw new TypeError("buildSurfaceAwareRoutes requires fallbackRoute or notFoundComponent.");
   }
-  return filterRoutesBySurface([...routes, effectiveFallback], {
+  const expandedRoutes = expandRoutesWithWorkspaceAliases([...routes, effectiveFallback], surfaceRuntime);
+  return filterRoutesBySurface(expandedRoutes, {
     surfaceRuntime,
     surfaceMode
   });

@@ -16,14 +16,13 @@ const ACTION_DOMAINS = Object.freeze([
   "deg2rad_history"
 ]);
 const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "internal", "worker"]);
-const ACTION_SURFACES = Object.freeze(["app", "admin", "console"]);
+const ACTION_SURFACES = Object.freeze(["<dynamic-from-app-config>"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_VISIBILITY_SET = new Set(ACTION_VISIBILITY_LEVELS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_DOMAIN_SET = new Set(ACTION_DOMAINS);
 const ACTION_CHANNEL_SET = new Set(ACTION_CHANNELS);
-const ACTION_SURFACE_SET = new Set(ACTION_SURFACES);
 
 class ActionRuntimeError extends Error {
   constructor(status, message, options = {}) {
@@ -224,8 +223,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   });
 
   const surfaces = normalizeStringArray(source.surfaces, {
-    fieldName: "surfaces",
-    allowedSet: ACTION_SURFACE_SET
+    fieldName: "surfaces"
   });
 
   const visibility = normalizeText(source.visibility || "public").toLowerCase();

@@ -16,7 +16,7 @@ function asGlobalObject() {
   return globalThis;
 }
 
-function normalizePathname(pathname, fallback = "/app") {
+function normalizePathname(pathname, fallback = "/") {
   const raw = String(pathname || "").trim();
   if (!raw || !raw.startsWith("/")) {
     return fallback;
@@ -135,7 +135,7 @@ async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImple
 function resolveReturnToPath(context) {
   const pathname = normalizePathname(
     context?.location?.pathname || (typeof window === "object" ? window.location?.pathname : "") || "",
-    "/app"
+    "/"
   );
   const search = String(
     context?.location?.search || (typeof window === "object" ? window.location?.search : "") || ""

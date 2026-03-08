@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { USERS_SURFACE_RUNTIME_TOKEN } from "@jskit-ai/users-core/server/providers/UsersCoreServiceProvider";
 import { UsersWorkspaceController } from "../controllers/UsersWorkspaceController.js";
 import { UsersSettingsController } from "../controllers/UsersSettingsController.js";
 import { buildRoutes as buildWorkspaceRoutes } from "../routes/workspaceRoutes.js";
@@ -18,6 +19,9 @@ class UsersRouteServiceProvider {
     if (!app.has("actionExecutor")) {
       throw new Error("UsersRouteServiceProvider requires actionExecutor binding.");
     }
+    if (!app.has(USERS_SURFACE_RUNTIME_TOKEN)) {
+      throw new Error(`UsersRouteServiceProvider requires ${USERS_SURFACE_RUNTIME_TOKEN} binding.`);
+    }
   }
 
   boot(app) {
@@ -28,6 +32,17 @@ class UsersRouteServiceProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const authService = app.make("authService");
     const consoleService = app.has("consoleService") ? app.make("consoleService") : null;
+    const surfaceRuntime = app.make(USERS_SURFACE_RUNTIME_TOKEN);
+    const workspaceSurfaceDefinitions =
+      typeof surfaceRuntime.listSurfaceDefinitions === "function"
+        ? surfaceRuntime
+            .listSurfaceDefinitions({ enabledOnly: true })
+            .filter((definition) => Boolean(definition?.requiresWorkspace))
+            .map((definition) => ({
+              id: definition.id,
+              prefix: definition.prefix
+            }))
+        : [];
 
     const workspaceController = new UsersWorkspaceController({
       authService,
@@ -38,7 +53,9 @@ class UsersRouteServiceProvider {
     });
 
     const routes = [
-      ...buildWorkspaceRoutes(workspaceController),
+      ...buildWorkspaceRoutes(workspaceController, {
+        workspaceSurfaceDefinitions
+      }),
       ...buildSettingsRoutes(settingsController)
     ];
 

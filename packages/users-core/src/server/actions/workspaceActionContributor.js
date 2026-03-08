@@ -86,8 +86,34 @@ const WORKSPACE_INVITE_CREATE_TOOL_SCHEMA = Object.freeze({
   }
 });
 
-function createWorkspaceActionContributor({ workspaceService, workspaceAdminService } = {}) {
+function resolveRuntimeSurfaceIds(surfaceRuntime) {
+  if (
+    !surfaceRuntime ||
+    typeof surfaceRuntime.listEnabledSurfaceIds !== "function" ||
+    typeof surfaceRuntime.listWorkspaceSurfaceIds !== "function"
+  ) {
+    throw new Error("users.workspace action contributor requires surfaceRuntime capability helpers.");
+  }
+
+  const enabledSurfaceIds = surfaceRuntime.listEnabledSurfaceIds();
+  const workspaceSurfaceIds = surfaceRuntime.listWorkspaceSurfaceIds();
+  const workspaceSurfaceSet = new Set(workspaceSurfaceIds);
+  const nonWorkspaceSurfaceIds = enabledSurfaceIds.filter((surfaceId) => !workspaceSurfaceSet.has(surfaceId));
+
+  if (enabledSurfaceIds.length < 1) {
+    throw new Error("users.workspace action contributor requires at least one enabled surface.");
+  }
+
+  return Object.freeze({
+    enabledSurfaceIds: Object.freeze([...enabledSurfaceIds]),
+    workspaceSurfaceIds: Object.freeze([...workspaceSurfaceIds]),
+    nonWorkspaceSurfaceIds: Object.freeze([...nonWorkspaceSurfaceIds])
+  });
+}
+
+function createWorkspaceActionContributor({ workspaceService, workspaceAdminService, surfaceRuntime } = {}) {
   const contributorId = "users.workspace";
+  const runtimeSurfaces = resolveRuntimeSurfaceIds(surfaceRuntime);
 
   requireServiceMethod(workspaceService, "buildBootstrapPayload", contributorId);
   requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId);
@@ -109,7 +135,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin", "console"],
+      surfaces: runtimeSurfaces.enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: allowPublic,
@@ -130,7 +156,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: runtimeSurfaces.enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -152,7 +178,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: runtimeSurfaces.enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -175,7 +201,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: runtimeSurfaces.enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -195,7 +221,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.roles.view"],
@@ -215,7 +241,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireWorkspaceSettingsReadPermission,
@@ -235,7 +261,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "assistant_tool", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.settings.update"],
@@ -257,7 +283,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.view"],
@@ -275,7 +301,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.manage"],
@@ -297,7 +323,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.view"],
@@ -315,7 +341,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "assistant_tool", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.invite"],
@@ -341,7 +367,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["admin"],
+      surfaces: runtimeSurfaces.workspaceSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.invites.revoke"],
@@ -363,7 +389,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: runtimeSurfaces.enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -381,7 +407,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
         });
       }
     }
-  ];
+  ].filter((action) => Array.isArray(action.surfaces) && action.surfaces.length > 0);
 
   return {
     contributorId,

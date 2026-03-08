@@ -1,5 +1,6 @@
 export const config = {};
 
+config.tenancyMode = "none";
 config.surfaceModeAll = "all";
 config.surfaceDefaultId = "app";
 config.webRootAllowed = "yes";

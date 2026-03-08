@@ -300,7 +300,7 @@ function resolveRequestPathname(request) {
   return (noHash.split("?")[0] || "/").trim() || "/";
 }
 
-function resolveSurfaceFromRequest(request, explicitSurface = "") {
+function resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurfaceId = "app") {
   const normalizedExplicitSurface = normalizeText(explicitSurface).toLowerCase();
   if (normalizedExplicitSurface) {
     return normalizedExplicitSurface;
@@ -311,25 +311,23 @@ function resolveSurfaceFromRequest(request, explicitSurface = "") {
     return normalizedRouteSurface;
   }
 
-  const pathname = resolveRequestPathname(request).toLowerCase();
-  if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
-    return "admin";
-  }
-  if (pathname === "/api/console" || pathname.startsWith("/api/console/")) {
-    return "console";
+  const normalizedRequestSurface = normalizeText(request?.surface).toLowerCase();
+  if (normalizedRequestSurface) {
+    return normalizedRequestSurface;
   }
 
-  return "app";
+  const normalizedDefaultSurface = normalizeText(defaultSurfaceId).toLowerCase();
+  return normalizedDefaultSurface || "app";
 }
 
-function buildActionExecutionContext({ request = null, context = {}, channel = "api" } = {}) {
+function buildActionExecutionContext({ request = null, context = {}, channel = "api", defaultSurfaceId = "app" } = {}) {
   const source = normalizeObject(context);
   const sourceRequestMeta = normalizeObject(source.requestMeta);
 
   const resolvedContext = {
     ...source,
     channel: normalizeText(source.channel || channel).toLowerCase() || "api",
-    surface: resolveSurfaceFromRequest(request, source.surface),
+    surface: resolveSurfaceFromRequest(request, source.surface, defaultSurfaceId),
     requestMeta: {
       ...sourceRequestMeta,
       request
@@ -437,7 +435,8 @@ function attachRequestActionExecutor({
   requestScopeProperty = "scope",
   requestActionExecutorProperty = "executeAction",
   actionExecutorToken = "actionExecutor",
-  defaultChannel = "api"
+  defaultChannel = "api",
+  defaultSurfaceId = "app"
 } = {}) {
   if (!request || typeof request !== "object") {
     return null;
@@ -486,7 +485,8 @@ function attachRequestActionExecutor({
     const baseContext = buildActionExecutionContext({
       request,
       context: normalizeObject(source.context),
-      channel: normalizedChannel
+      channel: normalizedChannel,
+      defaultSurfaceId
     });
     const executionContext = await enrichActionExecutionContext({
       resolutionScope,
@@ -579,6 +579,7 @@ function registerRoutes(
     requestActionExecutorProperty = "executeAction",
     actionExecutorToken = "actionExecutor",
     requestActionDefaultChannel = "api",
+    requestActionDefaultSurface = "app",
     requestScopeIdPrefix = "http",
     requestIdResolver = null,
     middleware = {}
@@ -599,6 +600,9 @@ function registerRoutes(
     const routeHandler = typeof route?.handler === "function" ? route.handler : fallbackHandler;
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeInputTransforms = normalizeRouteInputTransforms(route);
+    const routeActionDefaultSurface =
+      normalizeText(route?.workspaceSurface || routeOptions?.config?.workspaceSurface || requestActionDefaultSurface).toLowerCase() ||
+      "app";
 
     fastify.route({
       ...routeOptions,
@@ -620,7 +624,8 @@ function registerRoutes(
           requestScopeProperty,
           requestActionExecutorProperty,
           actionExecutorToken,
-          defaultChannel: requestActionDefaultChannel
+          defaultChannel: requestActionDefaultChannel,
+          defaultSurfaceId: routeActionDefaultSurface
         });
 
         if (routeInputTransforms) {
@@ -660,6 +665,10 @@ function registerHttpRuntime(app, options = {}) {
   const fastify = app.make(fastifyToken);
   const router = app.make(routerToken);
   const routes = typeof router?.list === "function" ? router.list() : [];
+  const appConfig =
+    typeof app.has === "function" && app.has("appConfig") && typeof app.make === "function" ? normalizeObject(app.make("appConfig")) : {};
+  const resolvedDefaultActionSurface =
+    normalizeText(routeRegistrationOptions.requestActionDefaultSurface || appConfig.surfaceDefaultId || "app").toLowerCase() || "app";
 
   if (autoRegisterApiErrorHandling !== false) {
     ensureApiErrorHandling(app, {
@@ -670,6 +679,7 @@ function registerHttpRuntime(app, options = {}) {
 
   return registerRoutes(fastify, {
     ...routeRegistrationOptions,
+    requestActionDefaultSurface: resolvedDefaultActionSurface,
     app,
     routes
   });

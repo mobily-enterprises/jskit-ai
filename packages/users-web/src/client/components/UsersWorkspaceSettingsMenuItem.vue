@@ -6,11 +6,14 @@ import {
   watch
 } from "vue";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { useWebPlacementContext, resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  useWebPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
+import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
 
 const props = defineProps({
   label: {
@@ -68,12 +71,14 @@ const canViewWorkspaceSettings = computed(() => {
 });
 
 const resolvedTo = computed(() => {
-  const explicitTarget = String(props.to || "").trim();
-  if (explicitTarget) {
-    return explicitTarget;
-  }
-
-  return resolveSurfacePathFromPlacementContext(placementContext.value, props.surface, "/workspace/settings");
+  const context = placementContext.value;
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: props.surface,
+    explicitTo: props.to,
+    workspaceSuffix: "/workspace/settings",
+    nonWorkspaceSuffix: "/workspace/settings"
+  });
 });
 
 async function loadPermissions() {

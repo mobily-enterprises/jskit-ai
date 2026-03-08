@@ -1,6 +1,11 @@
 import { createSurfacePathHelpers } from "./paths.js";
 import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 
+const TENANCY_MODE_NONE = "none";
+const TENANCY_MODE_PERSONAL = "personal";
+const TENANCY_MODE_WORKSPACE = "workspace";
+const TENANCY_MODES = Object.freeze([TENANCY_MODE_NONE, TENANCY_MODE_PERSONAL, TENANCY_MODE_WORKSPACE]);
+
 function uniqueSurfaceIds(ids) {
   const seen = new Set();
   const ordered = [];
@@ -29,8 +34,37 @@ function resolveSurfaceIds({ surfaces = {} } = {}) {
   throw new Error("createSurfaceRuntime requires at least one surface id.");
 }
 
+function normalizeTenancyMode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!TENANCY_MODES.includes(normalized)) {
+    return TENANCY_MODE_NONE;
+  }
+  return normalized;
+}
+
+function validateTenancyModeAgainstSurfaces({ tenancyMode, enabledSurfaceIds = [], normalizedSurfaces = {} } = {}) {
+  const workspaceEnabledSurfaceIds = enabledSurfaceIds.filter(
+    (surfaceId) => Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace)
+  );
+
+  if (tenancyMode === TENANCY_MODE_NONE && workspaceEnabledSurfaceIds.length > 0) {
+    throw new Error(
+      `createSurfaceRuntime invalid config: tenancyMode "${TENANCY_MODE_NONE}" cannot enable workspace surfaces (${workspaceEnabledSurfaceIds.join(", ")}).`
+    );
+  }
+
+  if (tenancyMode !== TENANCY_MODE_NONE && workspaceEnabledSurfaceIds.length < 1) {
+    throw new Error(
+      `createSurfaceRuntime invalid config: tenancyMode "${tenancyMode}" requires at least one enabled workspace surface.`
+    );
+  }
+}
+
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
+  const tenancyMode = normalizeTenancyMode(options?.tenancyMode);
   const sourceSurfaces = options?.surfaces && typeof options.surfaces === "object" ? options.surfaces : {};
   const surfaceIds = resolveSurfaceIds({
     surfaces: sourceSurfaces
@@ -67,6 +101,11 @@ function createSurfaceRuntime(options = {}) {
   });
 
   const enabledSurfaceIds = surfaceIds.filter((surfaceId) => normalizedSurfaces[surfaceId]?.enabled !== false);
+  validateTenancyModeAgainstSurfaces({
+    tenancyMode,
+    enabledSurfaceIds,
+    normalizedSurfaces
+  });
   const defaultSurfaceDefinition = Object.freeze({
     ...(normalizedSurfaces[registry.DEFAULT_SURFACE_ID] || {})
   });
@@ -85,7 +124,7 @@ function createSurfaceRuntime(options = {}) {
   }
 
   function getSurfaceDefinition(surfaceId) {
-    const normalizedSurfaceId = registry.normalizeSurfaceId(surfaceId);
+    const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
     const definition = normalizedSurfaces[normalizedSurfaceId];
     if (!definition) {
       return null;
@@ -109,6 +148,14 @@ function createSurfaceRuntime(options = {}) {
     return Boolean(getSurfaceDefinition(surfaceId)?.requiresWorkspace);
   }
 
+  function listWorkspaceSurfaceIds() {
+    return enabledSurfaceIds.filter((surfaceId) => Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace));
+  }
+
+  function listNonWorkspaceSurfaceIds() {
+    return enabledSurfaceIds.filter((surfaceId) => !Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace));
+  }
+
   function isSurfaceEnabled(surfaceId) {
     const normalizedSurface = normalizeSurfaceMode(surfaceId);
     if (normalizedSurface === allMode) {
@@ -119,6 +166,10 @@ function createSurfaceRuntime(options = {}) {
   }
 
   return {
+    TENANCY_MODE_NONE,
+    TENANCY_MODE_PERSONAL,
+    TENANCY_MODE_WORKSPACE,
+    TENANCY_MODE: tenancyMode,
     SURFACE_MODE_ALL: allMode,
     SURFACE_IDS: [...surfaceIds],
     DEFAULT_SURFACE_ID: registry.DEFAULT_SURFACE_ID,
@@ -128,6 +179,8 @@ function createSurfaceRuntime(options = {}) {
     getSurfaceDefinition,
     listSurfaceDefinitions,
     surfaceRequiresWorkspace,
+    listWorkspaceSurfaceIds,
+    listNonWorkspaceSurfaceIds,
     listEnabledSurfaceIds,
     isSurfaceEnabled
   };
@@ -327,4 +380,12 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   });
 }
 
-export { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes };
+export {
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
+  normalizeTenancyMode,
+  createSurfaceRuntime,
+  filterRoutesBySurface,
+  collectClientModuleRoutes
+};

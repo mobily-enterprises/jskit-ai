@@ -84,9 +84,9 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
-        skipIfContains: "config.tenancyMode =",
+        skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nif (config.surfaceDefinitions.admin) {\n  config.surfaceDefinitions.admin.requiresWorkspace = true;\n}\n",
+          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconst enabledSurfaceIds = Object.keys(config.surfaceDefinitions).filter(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false\n);\nconst preferredWorkspaceSurfaceId =\n  enabledSurfaceIds.find((surfaceId) => surfaceId !== config.surfaceDefaultId) ||\n  config.surfaceDefaultId ||\n  enabledSurfaceIds[0] ||\n  \"\";\nif (preferredWorkspaceSurfaceId && config.surfaceDefinitions[preferredWorkspaceSurfaceId]) {\n  config.surfaceDefinitions[preferredWorkspaceSurfaceId].requiresWorkspace = true;\n}\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"

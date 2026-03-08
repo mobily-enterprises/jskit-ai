@@ -3,7 +3,6 @@ import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
 import { useAuthGuardRuntime } from "./inject.js";
 
-const SUPPORTED_SURFACES = new Set(["app", "admin", "console"]);
 const SIGN_OUT_ENDPOINTS = Object.freeze(["/api/logout", "/api/v1/logout"]);
 const RETRYABLE_STATUS_CODES = new Set([404, 405, 501]);
 const SESSION_ENDPOINT = "/api/session";
@@ -12,14 +11,12 @@ function statusCodeOf(error) {
   return Number(error?.status || error?.statusCode || 0);
 }
 
-function resolveSurfaceId(rawSurfaceId) {
-  const normalizedSurfaceId = String(rawSurfaceId || "")
-    .trim()
-    .toLowerCase();
-  if (SUPPORTED_SURFACES.has(normalizedSurfaceId)) {
-    return normalizedSurfaceId;
+function normalizeReturnToPath(value, fallback = "/") {
+  const normalized = String(value || "").trim();
+  if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
+    return fallback;
   }
-  return "app";
+  return normalized;
 }
 
 async function readSessionState() {
@@ -114,7 +111,7 @@ async function performSignOutRequest({ authGuardRuntime } = {}) {
   return guardState;
 }
 
-function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime } = {}) {
+function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, returnTo = "", resolveReturnToPath = null } = {}) {
   if (typeof goToEntry !== "function") {
     throw new TypeError("createSignOutAction requires goToEntry().");
   }
@@ -123,9 +120,13 @@ function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime } = {
   }
 
   return async function signOut() {
-    const sourceSurfaceId = resolveSurfaceId(currentSurface?.value);
+    const resolvedByCallback =
+      typeof resolveReturnToPath === "function" ? normalizeReturnToPath(resolveReturnToPath(), "") : "";
+    const resolvedByOption = normalizeReturnToPath(returnTo, "");
+    const resolvedByCurrentSurface = normalizeReturnToPath(currentSurface?.value, "");
+    const resolvedReturnToPath = resolvedByCallback || resolvedByOption || resolvedByCurrentSurface || "/";
     const redirectParams = new URLSearchParams({
-      returnTo: `/${sourceSurfaceId}`
+      returnTo: resolvedReturnToPath
     });
     const redirectRoute = `/auth/login?${redirectParams.toString()}`;
 

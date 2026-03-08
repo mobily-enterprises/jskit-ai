@@ -6,6 +6,7 @@ import { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes 
 test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () => {
   const runtime = createSurfaceRuntime({
     allMode: "all",
+    tenancyMode: "none",
     defaultSurfaceId: "app",
     surfaces: {
       app: { id: "app", prefix: "", enabled: true },
@@ -22,6 +23,10 @@ test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () =>
   assert.equal(runtime.DEFAULT_SURFACE_ID, "app");
   assert.equal(runtime.surfaceRequiresWorkspace("app"), false);
   assert.equal(runtime.surfaceRequiresWorkspace("missing"), false);
+  assert.equal(runtime.getSurfaceDefinition("missing"), null);
+  assert.equal(runtime.TENANCY_MODE, "none");
+  assert.deepEqual(runtime.listWorkspaceSurfaceIds(), []);
+  assert.deepEqual(runtime.listNonWorkspaceSurfaceIds(), ["app", "admin"]);
   assert.deepEqual(
     runtime.listSurfaceDefinitions({ enabledOnly: true }).map((entry) => entry.id),
     ["app", "admin"]
@@ -30,6 +35,7 @@ test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () =>
 
 test("createSurfaceRuntime resolves pathname by surface prefix", () => {
   const runtime = createSurfaceRuntime({
+    tenancyMode: "none",
     defaultSurfaceId: "app",
     surfaces: {
       app: { id: "app", prefix: "", enabled: true },
@@ -45,6 +51,7 @@ test("createSurfaceRuntime resolves pathname by surface prefix", () => {
 
 test("filterRoutesBySurface keeps enabled routes for chosen mode", () => {
   const runtime = createSurfaceRuntime({
+    tenancyMode: "none",
     defaultSurfaceId: "app",
     surfaces: {
       app: { id: "app", prefix: "", enabled: true },
@@ -80,6 +87,7 @@ test("filterRoutesBySurface keeps enabled routes for chosen mode", () => {
 
 test("filterRoutesBySurface always keeps global routes", () => {
   const runtime = createSurfaceRuntime({
+    tenancyMode: "none",
     defaultSurfaceId: "app",
     surfaces: {
       app: { id: "app", prefix: "", enabled: true },
@@ -103,6 +111,51 @@ test("filterRoutesBySurface always keeps global routes", () => {
     filteredAdmin.map((route) => route.path),
     ["/auth/login", "/admin/users"]
   );
+});
+
+test("createSurfaceRuntime rejects workspace surfaces when tenancyMode is none", () => {
+  assert.throws(
+    () =>
+      createSurfaceRuntime({
+        tenancyMode: "none",
+        defaultSurfaceId: "app",
+        surfaces: {
+          app: { id: "app", prefix: "", enabled: true },
+          admin: { id: "admin", prefix: "/admin", enabled: true, requiresWorkspace: true }
+        }
+      }),
+    /tenancyMode "none" cannot enable workspace surfaces/
+  );
+});
+
+test("createSurfaceRuntime rejects non-none tenancy mode with no workspace surfaces", () => {
+  assert.throws(
+    () =>
+      createSurfaceRuntime({
+        tenancyMode: "workspace",
+        defaultSurfaceId: "app",
+        surfaces: {
+          app: { id: "app", prefix: "", enabled: true },
+          admin: { id: "admin", prefix: "/admin", enabled: true }
+        }
+      }),
+    /requires at least one enabled workspace surface/
+  );
+});
+
+test("createSurfaceRuntime accepts personal/workspace tenancy with workspace-enabled surface", () => {
+  const runtime = createSurfaceRuntime({
+    tenancyMode: "personal",
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "/app", enabled: true },
+      coffie: { id: "coffie", prefix: "/coffie", enabled: true, requiresWorkspace: true }
+    }
+  });
+
+  assert.equal(runtime.TENANCY_MODE, "personal");
+  assert.deepEqual(runtime.listWorkspaceSurfaceIds(), ["coffie"]);
+  assert.deepEqual(runtime.listNonWorkspaceSurfaceIds(), ["app"]);
 });
 
 test("collectClientModuleRoutes normalizes scope metadata", () => {

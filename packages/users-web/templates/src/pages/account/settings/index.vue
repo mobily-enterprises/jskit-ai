@@ -99,7 +99,7 @@ const client = createHttpClient({
 });
 const route = useRoute();
 
-function normalizeReturnToPath(value, fallback = "/app") {
+function normalizeReturnToPath(value, fallback = "/") {
   const source = Array.isArray(value) ? value[0] : value;
   const rawValue = String(source || "").trim();
   if (!rawValue || !rawValue.startsWith("/") || rawValue.startsWith("//")) {
@@ -115,7 +115,7 @@ function normalizeReturnToPath(value, fallback = "/app") {
   return rawValue;
 }
 
-const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "/app"));
+const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "/"));
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");

@@ -1,6 +1,9 @@
 <script setup>
 import { computed } from "vue";
-import { useWebPlacementContext, resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  useWebPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
+import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
 
 const props = defineProps({
   label: {
@@ -24,12 +27,14 @@ const props = defineProps({
 const { context: placementContext } = useWebPlacementContext();
 
 const resolvedTo = computed(() => {
-  const explicitTarget = String(props.to || "").trim();
-  if (explicitTarget) {
-    return explicitTarget;
-  }
-
-  return resolveSurfacePathFromPlacementContext(placementContext.value, props.surface, "/members");
+  const context = placementContext.value;
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: props.surface,
+    explicitTo: props.to,
+    workspaceSuffix: "/members",
+    nonWorkspaceSuffix: "/members"
+  });
 });
 </script>
 

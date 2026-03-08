@@ -17,6 +17,7 @@ import {
 import { config } from "../config/public.js";
 
 const surfaceRuntime = createSurfaceRuntime({
+  tenancyMode: config.tenancyMode,
   allMode: config.surfaceModeAll,
   surfaces: config.surfaceDefinitions,
   defaultSurfaceId: config.surfaceDefaultId

@@ -77,19 +77,17 @@ export default Object.freeze({
           {
             id: "users.admin.menu.workspace-settings",
             slot: "app.primary-menu",
-            surface: "*",
+            surface: "admin",
             order: 410,
             componentToken: "users.web.workspace-settings.menu-item",
-            when: "surfaceConfig.surfacesById[surface].requiresWorkspace === true",
             source: "mutations.text#users-web-placement-block"
           },
           {
             id: "users.admin.menu.members",
             slot: "app.primary-menu",
-            surface: "*",
+            surface: "admin",
             order: 420,
             componentToken: "users.web.workspace-members.menu-item",
-            when: "surfaceConfig.surfacesById[surface].requiresWorkspace === true",
             source: "mutations.text#users-web-placement-block"
           }
         ]

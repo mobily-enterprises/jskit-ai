@@ -1,6 +1,14 @@
 export { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix } from "./registry.js";
 export { createSurfacePathHelpers } from "./paths.js";
-export { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes } from "./runtime.js";
+export {
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
+  normalizeTenancyMode,
+  createSurfaceRuntime,
+  filterRoutesBySurface,
+  collectClientModuleRoutes
+} from "./runtime.js";
 export { escapeRegExp } from "./escapeRegExp.js";
 export {
   API_BASE_PATH,

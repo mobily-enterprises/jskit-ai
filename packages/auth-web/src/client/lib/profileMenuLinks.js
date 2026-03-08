@@ -1,7 +1,8 @@
 import {
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceRootPathFromPlacementContext
+  resolveSurfaceRootPathFromPlacementContext,
+  resolveSurfaceWorkspacePathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 
 function normalizeText(value) {
@@ -12,7 +13,7 @@ function normalizeText(value) {
 
 function hasConsoleAccess(permissions) {
   if (!Array.isArray(permissions)) {
-    return true;
+    return false;
   }
 
   const normalized = permissions.map((entry) => normalizeText(entry)).filter(Boolean);
@@ -33,7 +34,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const workspaceSurfaceId = enabledSurfaceIds.find(
     (surfaceId) => surfaceId !== currentSurfaceId && Boolean(surfaceConfig.surfacesById[surfaceId]?.requiresWorkspace)
   );
-  const fallbackNonWorkspaceSurfaceId = enabledSurfaceIds.find(
+  const nonWorkspaceSurfaceId = enabledSurfaceIds.find(
     (surfaceId) => surfaceId !== currentSurfaceId && !Boolean(surfaceConfig.surfacesById[surfaceId]?.requiresWorkspace)
   );
 
@@ -43,7 +44,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   if (currentSurface?.requiresWorkspace) {
     const appSurfaceId = defaultSurfaceIsAppLike && defaultSurfaceId !== currentSurfaceId
       ? defaultSurfaceId
-      : fallbackNonWorkspaceSurfaceId;
+      : nonWorkspaceSurfaceId;
     if (!appSurfaceId) {
       return null;
     }
@@ -55,23 +56,19 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     };
   }
 
-  if (currentSurfaceId && defaultSurfaceIsAppLike && currentSurfaceId !== defaultSurfaceId) {
-    return {
-      id: "surface-switch.primary",
-      label: "Go to app",
-      to: resolveSurfaceRootPathFromPlacementContext(source, defaultSurfaceId),
-      icon: "mdi-open-in-new"
-    };
-  }
-
   if (!workspaceSurfaceId) {
     return null;
   }
 
+  const workspaceSlug = String(source?.workspace?.slug || "").trim();
+  const workspaceTarget = workspaceSlug
+    ? resolveSurfaceWorkspacePathFromPlacementContext(source, workspaceSurfaceId, workspaceSlug)
+    : resolveSurfaceRootPathFromPlacementContext(source, workspaceSurfaceId);
+
   return {
     id: "surface-switch.primary",
     label: "Go to workspace",
-    to: resolveSurfaceRootPathFromPlacementContext(source, workspaceSurfaceId),
+    to: workspaceTarget,
     icon: "mdi-briefcase-outline"
   };
 }

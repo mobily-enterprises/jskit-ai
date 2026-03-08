@@ -7,8 +7,20 @@ import {
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 
-function createSettingsActionContributor({ settingsService } = {}) {
+function resolveEnabledSurfaceIds(surfaceRuntime) {
+  if (!surfaceRuntime || typeof surfaceRuntime.listEnabledSurfaceIds !== "function") {
+    throw new Error("users.settings action contributor requires surfaceRuntime.listEnabledSurfaceIds().");
+  }
+  const enabledSurfaceIds = surfaceRuntime.listEnabledSurfaceIds();
+  if (enabledSurfaceIds.length < 1) {
+    throw new Error("users.settings action contributor requires at least one enabled surface.");
+  }
+  return Object.freeze([...enabledSurfaceIds]);
+}
+
+function createSettingsActionContributor({ settingsService, surfaceRuntime } = {}) {
   const contributorId = "users.settings";
+  const enabledSurfaceIds = resolveEnabledSurfaceIds(surfaceRuntime);
 
   requireServiceMethod(settingsService, "getForUser", contributorId, {
     serviceLabel: "settingsService"
@@ -53,7 +65,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -71,7 +83,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -89,7 +101,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -107,7 +119,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -125,7 +137,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -143,7 +155,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -161,7 +173,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -179,7 +191,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -197,7 +209,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -215,7 +227,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -233,7 +245,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
@@ -251,7 +263,7 @@ function createSettingsActionContributor({ settingsService } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "internal"],
-      surfaces: ["app", "admin"],
+      surfaces: enabledSurfaceIds,
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,

@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  TENANCY_MODE_WORKSPACE,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceWorkspacesPathFromPlacementContext,
+  resolveSurfaceWorkspacePathFromPlacementContext,
+  extractWorkspaceSlugFromSurfacePathname,
+  resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 } from "../src/client/placement/surfaceContext.js";
 
 test("buildSurfaceConfigContext normalizes runtime definitions for placement context", () => {
   const surfaceConfig = buildSurfaceConfigContext({
+    TENANCY_MODE: TENANCY_MODE_WORKSPACE,
     DEFAULT_SURFACE_ID: "APP",
     listEnabledSurfaceIds() {
       return [" APP ", "admin"];
@@ -25,6 +32,7 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
   });
 
   assert.equal(surfaceConfig.defaultSurfaceId, "app");
+  assert.equal(surfaceConfig.tenancyMode, "workspace");
   assert.deepEqual(surfaceConfig.enabledSurfaceIds, ["app", "admin"]);
   assert.deepEqual(surfaceConfig.workspaceSurfaceIds, ["admin"]);
   assert.deepEqual(surfaceConfig.nonWorkspaceSurfaceIds, ["app"]);
@@ -45,6 +53,7 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
 test("readPlacementSurfaceConfig and workspace helpers normalize malformed context data", () => {
   const context = {
     surfaceConfig: {
+      tenancyMode: "workspace",
       defaultSurfaceId: " ADMIN ",
       enabledSurfaceIds: ["admin", "app", "app"],
       surfacesById: {
@@ -73,6 +82,7 @@ test("readPlacementSurfaceConfig and workspace helpers normalize malformed conte
 test("surface path helpers compose root and prefixed surface routes", () => {
   const context = {
     surfaceConfig: {
+      tenancyMode: "workspace",
       enabledSurfaceIds: ["app", "root"],
       surfacesById: {
         app: {
@@ -90,8 +100,19 @@ test("surface path helpers compose root and prefixed surface routes", () => {
   };
 
   assert.equal(joinSurfacePath("/admin/", "/members/"), "/admin/members");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/app/w/acme/workspace/settings"), "app");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/unknown"), "app");
   assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "app"), "/app");
   assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "root"), "/");
+  assert.equal(resolveSurfaceWorkspacesPathFromPlacementContext(context, "app"), "/app/workspaces");
+  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme"), "/app/w/acme");
+  assert.equal(
+    resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme", "/workspace/settings"),
+    "/app/w/acme/workspace/settings"
+  );
+  assert.equal(extractWorkspaceSlugFromSurfacePathname(context, "app", "/app/w/acme/workspace/settings"), "acme");
+  assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "app", "/workspace/settings"), "/api/app/workspace/settings");
+  assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "root", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "app", "/workspace/settings"), "/app/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "root", "members"), "/members");
 });

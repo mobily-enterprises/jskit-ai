@@ -49,7 +49,14 @@ function createActionRequest({ input = {}, executeAction }) {
 }
 
 test("workspace and settings routes attach input normalizers where controller reads request.input", () => {
-  const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy());
+  const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy(), {
+    workspaceSurfaceDefinitions: [
+      {
+        id: "coffie",
+        prefix: "/coffie"
+      }
+    ]
+  });
   const settingsRoutes = buildSettingsRoutes(createControllerProxy());
 
   const workspaceSelect = findRoute(workspaceRoutes, {
@@ -58,11 +65,11 @@ test("workspace and settings routes attach input normalizers where controller re
   });
   const workspaceMemberRole = findRoute(workspaceRoutes, {
     method: "PATCH",
-    path: "/api/admin/workspace/members/:memberUserId/role"
+    path: "/api/coffie/workspace/members/:memberUserId/role"
   });
   const workspaceInviteDelete = findRoute(workspaceRoutes, {
     method: "DELETE",
-    path: "/api/admin/workspace/invites/:inviteId"
+    path: "/api/coffie/workspace/invites/:inviteId"
   });
   const settingsProfilePatch = findRoute(settingsRoutes, {
     method: "PATCH",
@@ -80,6 +87,23 @@ test("workspace and settings routes attach input normalizers where controller re
   assert.equal(typeof settingsProfilePatch?.body?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.params?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.query?.normalize, "function");
+});
+
+test("workspace routes mount workspace-admin endpoints per workspace-enabled surface prefix", () => {
+  const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy(), {
+    workspaceSurfaceDefinitions: [
+      {
+        id: "coffie",
+        prefix: "/coffie"
+      }
+    ]
+  });
+  const workspaceSettings = findRoute(workspaceRoutes, {
+    method: "GET",
+    path: "/api/coffie/workspace/settings"
+  });
+
+  assert.equal(workspaceSettings?.workspaceSurface, "coffie");
 });
 
 test("workspace controller methods use request.input payloads", async () => {

@@ -112,7 +112,7 @@ function clearRememberedAccountHint() {
   }
 }
 
-function normalizeReturnToPath(value, fallback = "/app") {
+function normalizeReturnToPath(value, fallback = "/") {
   const raw = String(value || "").trim();
   if (
     !raw ||
@@ -354,8 +354,8 @@ export function useDefaultLoginView() {
 
   const requestedReturnTo = ref(
     normalizeReturnToPath(
-      typeof window === "object" ? new URLSearchParams(window.location.search || "").get("returnTo") : "/app",
-      "/app"
+      typeof window === "object" ? new URLSearchParams(window.location.search || "").get("returnTo") : "/",
+      "/"
     )
   );
 

@@ -30,12 +30,20 @@ export {
 } from "./inject.js";
 
 export {
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
   EMPTY_SURFACE_CONFIG,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceWorkspacesPathFromPlacementContext,
+  resolveSurfaceWorkspacePathFromPlacementContext,
+  extractWorkspaceSlugFromSurfacePathname,
+  resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 } from "./surfaceContext.js";

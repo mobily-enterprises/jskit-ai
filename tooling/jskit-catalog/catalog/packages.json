@@ -1282,8 +1282,8 @@
               "op": "append-text",
               "file": "config/public.js",
               "position": "bottom",
-              "skipIfContains": "config.tenancyMode =",
-              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nif (config.surfaceDefinitions.admin) {\n  config.surfaceDefinitions.admin.requiresWorkspace = true;\n}\n",
+              "skipIfContains": "config.workspaceSwitching =",
+              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconst enabledSurfaceIds = Object.keys(config.surfaceDefinitions).filter(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false\n);\nconst preferredWorkspaceSurfaceId =\n  enabledSurfaceIds.find((surfaceId) => surfaceId !== config.surfaceDefaultId) ||\n  config.surfaceDefaultId ||\n  enabledSurfaceIds[0] ||\n  \"\";\nif (preferredWorkspaceSurfaceId && config.surfaceDefinitions[preferredWorkspaceSurfaceId]) {\n  config.surfaceDefinitions[preferredWorkspaceSurfaceId].requiresWorkspace = true;\n}\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
               "category": "users-core",
               "id": "users-core-public-config"
@@ -1384,42 +1384,42 @@
               },
               {
                 "method": "GET",
-                "path": "/api/admin/workspace/settings",
+                "path": "/api/<workspace-surface-prefix>/workspace/settings",
                 "summary": "Get active workspace settings and role catalog."
               },
               {
                 "method": "PATCH",
-                "path": "/api/admin/workspace/settings",
+                "path": "/api/<workspace-surface-prefix>/workspace/settings",
                 "summary": "Update active workspace settings."
               },
               {
                 "method": "GET",
-                "path": "/api/admin/workspace/roles",
+                "path": "/api/<workspace-surface-prefix>/workspace/roles",
                 "summary": "Get workspace role catalog."
               },
               {
                 "method": "GET",
-                "path": "/api/admin/workspace/members",
+                "path": "/api/<workspace-surface-prefix>/workspace/members",
                 "summary": "List active members for active workspace."
               },
               {
                 "method": "PATCH",
-                "path": "/api/admin/workspace/members/:memberUserId/role",
+                "path": "/api/<workspace-surface-prefix>/workspace/members/:memberUserId/role",
                 "summary": "Update member role in active workspace."
               },
               {
                 "method": "GET",
-                "path": "/api/admin/workspace/invites",
+                "path": "/api/<workspace-surface-prefix>/workspace/invites",
                 "summary": "List pending invites for active workspace."
               },
               {
                 "method": "POST",
-                "path": "/api/admin/workspace/invites",
+                "path": "/api/<workspace-surface-prefix>/workspace/invites",
                 "summary": "Create invite for active workspace."
               },
               {
                 "method": "DELETE",
-                "path": "/api/admin/workspace/invites/:inviteId",
+                "path": "/api/<workspace-surface-prefix>/workspace/invites/:inviteId",
                 "summary": "Revoke pending invite in active workspace."
               },
               {
@@ -1585,19 +1585,17 @@
                 {
                   "id": "users.admin.menu.workspace-settings",
                   "slot": "app.primary-menu",
-                  "surface": "*",
+                  "surface": "admin",
                   "order": 410,
                   "componentToken": "users.web.workspace-settings.menu-item",
-                  "when": "surfaceConfig.surfacesById[surface].requiresWorkspace === true",
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
                   "id": "users.admin.menu.members",
                   "slot": "app.primary-menu",
-                  "surface": "*",
+                  "surface": "admin",
                   "order": 420,
                   "componentToken": "users.web.workspace-members.menu-item",
-                  "when": "surfaceConfig.surfacesById[surface].requiresWorkspace === true",
                   "source": "mutations.text#users-web-placement-block"
                 }
               ]

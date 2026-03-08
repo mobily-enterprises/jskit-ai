@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from "vue";
 import { performSignOutRequest } from "../runtime/useSignOut.js";
 import { useAuthGuardRuntime } from "../runtime/inject.js";
 
-function normalizeReturnToPath(rawValue, fallback = "/app") {
+function normalizeReturnToPath(rawValue, fallback = "/") {
   const normalized = String(rawValue || "").trim();
   if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
     return fallback;
@@ -18,10 +18,10 @@ function normalizeReturnToPath(rawValue, fallback = "/app") {
 
 function readReturnToPathFromLocation() {
   if (typeof window !== "object" || !window.location) {
-    return "/app";
+    return "/";
   }
   const params = new URLSearchParams(window.location.search || "");
-  return normalizeReturnToPath(params.get("returnTo"), "/app");
+  return normalizeReturnToPath(params.get("returnTo"), "/");
 }
 
 function navigateToPath(path, { replace = true } = {}) {
@@ -41,7 +41,7 @@ export function useDefaultSignOutView() {
   });
   const status = ref("pending");
   const errorMessage = ref("");
-  const returnToPath = ref("/app");
+  const returnToPath = ref("/");
 
   const loginRoute = computed(() => {
     const params = new URLSearchParams({

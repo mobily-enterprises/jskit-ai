@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
+  TENANCY_MODE_NONE,
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
+  normalizeTenancyMode
+} from "@jskit-ai/kernel/shared/surface";
+import {
   DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 } from "../../shared/settings.js";
@@ -157,7 +163,7 @@ function createService({
     socialEnabled: false,
     socialFederationEnabled: false
   });
-  const resolvedTenancyMode = normalizeLowerText(appConfig.tenancyMode) || "workspace";
+  const resolvedTenancyMode = normalizeTenancyMode(appConfig.tenancyMode);
   const resolvedWorkspaceColor = coerceWorkspaceColor(appConfig.workspaceColor);
   const resolvedAppFeatures = Object.freeze({
     workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, defaultAppFeatures.workspaceSwitching),
@@ -230,11 +236,26 @@ function createService({
       return [];
     }
 
+    if (resolvedTenancyMode === TENANCY_MODE_NONE) {
+      return [];
+    }
+
     await ensurePersonalWorkspaceForUser(normalizedUser, options);
     const list = await workspacesRepository.listForUserId(normalizedUser.id, options);
-    return list
+    const accessible = list
       .map((entry) => mapWorkspaceSummary(entry, { roleId: entry.roleId, status: entry.membershipStatus }))
       .filter((entry) => entry.isAccessible);
+
+    if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
+      const personalWorkspace = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
+      if (!personalWorkspace) {
+        return [];
+      }
+      const personalWorkspaceId = Number(personalWorkspace.id);
+      return accessible.filter((entry) => Number(entry.id) === personalWorkspaceId);
+    }
+
+    return accessible;
   }
 
   async function resolveActiveWorkspaceContext(user, options = {}) {
@@ -249,11 +270,54 @@ function createService({
       };
     }
 
+    if (resolvedTenancyMode === TENANCY_MODE_NONE) {
+      return {
+        activeWorkspace: null,
+        membership: null,
+        permissions: [],
+        workspaceSettings: null,
+        workspaces: []
+      };
+    }
+
     await ensurePersonalWorkspaceForUser(normalizedUser, options);
 
     const userSettings = await userSettingsRepository.ensureForUserId(normalizedUser.id, options);
     const workspaces = await workspacesRepository.listForUserId(normalizedUser.id, options);
     const accessible = workspaces.filter((workspace) => normalizeLowerText(workspace.membershipStatus) === "active");
+
+    if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
+      const personalWorkspace = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
+      if (!personalWorkspace) {
+        return {
+          activeWorkspace: null,
+          membership: null,
+          permissions: [],
+          workspaceSettings: null,
+          workspaces: []
+        };
+      }
+
+      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
+        personalWorkspace.id,
+        normalizedUser.id,
+        options
+      );
+      const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(personalWorkspace.id, options);
+      const permissions = buildPermissionsFromMembership(membership);
+
+      if (Number(userSettings.lastActiveWorkspaceId) !== Number(personalWorkspace.id)) {
+        await userSettingsRepository.updateLastActiveWorkspaceId(normalizedUser.id, personalWorkspace.id, options);
+      }
+
+      return {
+        activeWorkspace: personalWorkspace,
+        membership,
+        permissions,
+        workspaceSettings,
+        workspaces: accessible.filter((workspace) => Number(workspace.id) === Number(personalWorkspace.id))
+      };
+    }
 
     let activeWorkspace = null;
     if (userSettings.lastActiveWorkspaceId) {
@@ -383,16 +447,31 @@ function createService({
       throw new AppError(401, "Authentication required.");
     }
 
+    if (resolvedTenancyMode === TENANCY_MODE_NONE) {
+      throw new AppError(403, "Workspace selection is disabled.");
+    }
+
     const selector = normalizeText(workspaceSelector);
     if (!selector) {
       throw new AppError(400, "Workspace selection is required.");
     }
 
     let workspace = null;
-    if (/^\d+$/.test(selector)) {
-      workspace = await workspacesRepository.findById(Number(selector), options);
+    if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
+      workspace = await ensurePersonalWorkspaceForUser(normalizedUser, options);
+      const selectorIsNumeric = /^\d+$/.test(selector);
+      const selectorMatchesWorkspace = selectorIsNumeric
+        ? Number(selector) === Number(workspace.id)
+        : normalizeLowerText(selector) === normalizeLowerText(workspace.slug);
+      if (!selectorMatchesWorkspace) {
+        throw new AppError(403, "Only the personal workspace can be selected.");
+      }
     } else {
-      workspace = await workspacesRepository.findBySlug(selector, options);
+      if (/^\d+$/.test(selector)) {
+        workspace = await workspacesRepository.findById(Number(selector), options);
+      } else {
+        workspace = await workspacesRepository.findBySlug(selector, options);
+      }
     }
 
     if (!workspace) {
@@ -421,6 +500,10 @@ function createService({
   }
 
   async function listPendingInvitesForUser(user, options = {}) {
+    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
+      return [];
+    }
+
     const normalizedUser = normalizeUserProfile(user);
     if (!normalizedUser || !normalizedUser.email) {
       return [];
@@ -441,6 +524,10 @@ function createService({
   }
 
   async function redeemInviteByToken({ user, token, decision }, options = {}) {
+    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
+      throw new AppError(403, "Workspace invites are disabled.");
+    }
+
     const normalizedUser = normalizeUserProfile(user);
     if (!normalizedUser) {
       throw new AppError(401, "Authentication required.");

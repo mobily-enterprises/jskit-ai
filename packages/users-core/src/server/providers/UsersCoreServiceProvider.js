@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerActionContributor } from "@jskit-ai/kernel/server/actions";
+import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import * as usersShared from "../../shared/index.js";
 import { createRepository as createUserProfilesRepository } from "../repositories/userProfiles.repository.js";
 import { createRepository as createUserSettingsRepository } from "../repositories/userSettings.repository.js";
@@ -19,6 +20,7 @@ const USERS_CORE_API = Object.freeze({
 
 const USERS_WORKSPACE_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContributor";
 const USERS_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.settings.actionContributor";
+const USERS_SURFACE_RUNTIME_TOKEN = "users.core.surface.runtime";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -75,6 +77,16 @@ class UsersCoreServiceProvider {
       });
     });
 
+    app.singleton(USERS_SURFACE_RUNTIME_TOKEN, (scope) => {
+      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+      return createSurfaceRuntime({
+        tenancyMode: appConfig.tenancyMode,
+        allMode: appConfig.surfaceModeAll,
+        surfaces: appConfig.surfaceDefinitions,
+        defaultSurfaceId: appConfig.surfaceDefaultId
+      });
+    });
+
     app.singleton("users.workspace.admin.service", (scope) => {
       return createWorkspaceAdminService({
         workspacesRepository: scope.make("workspacesRepository"),
@@ -97,16 +109,18 @@ class UsersCoreServiceProvider {
     registerActionContributor(app, USERS_WORKSPACE_CONTRIBUTOR_TOKEN, (scope) => {
       return createWorkspaceActionContributor({
         workspaceService: scope.make("users.workspace.service"),
-        workspaceAdminService: scope.make("users.workspace.admin.service")
+        workspaceAdminService: scope.make("users.workspace.admin.service"),
+        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
       });
     });
 
     registerActionContributor(app, USERS_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
       return createSettingsActionContributor({
-        settingsService: scope.make("users.settings.service")
+        settingsService: scope.make("users.settings.service"),
+        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
       });
     });
   }
 }
 
-export { UsersCoreServiceProvider };
+export { UsersCoreServiceProvider, USERS_SURFACE_RUNTIME_TOKEN };

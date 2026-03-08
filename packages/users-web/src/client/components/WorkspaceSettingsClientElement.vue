@@ -122,8 +122,14 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  useWebPlacementContext,
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceApiPathFromPlacementContext,
+  extractWorkspaceSlugFromSurfacePathname
+} from "@jskit-ai/shell-web/client/placement";
 import {
   hasPermission,
   normalizePermissionList
@@ -142,7 +148,16 @@ const loadError = ref("");
 const workspaceMessage = ref("");
 const workspaceMessageType = ref("success");
 const permissions = ref([]);
-const { mergeContext: mergePlacementContext } = useWebPlacementContext();
+const route = useRoute();
+const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+
+const currentSurfaceId = computed(() => resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path));
+const workspaceSettingsApiPath = computed(() =>
+  resolveSurfaceApiPathFromPlacementContext(placementContext.value, currentSurfaceId.value, "/workspace/settings")
+);
+const routeWorkspaceSlug = computed(() =>
+  extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, route.path)
+);
 
 const fieldErrors = reactive({
   name: "",
@@ -299,13 +314,23 @@ async function loadWorkspaceSettings() {
   resetFieldErrors();
 
   try {
+    const workspaceSlugFromRoute = String(routeWorkspaceSlug.value || "").trim();
+    if (workspaceSlugFromRoute) {
+      await client.request("/api/workspaces/select", {
+        method: "POST",
+        body: {
+          workspaceSlug: workspaceSlugFromRoute
+        }
+      });
+    }
+
     await refreshPermissions();
 
     if (!canViewWorkspaceSettings.value) {
       return;
     }
 
-    const payload = await client.request("/api/admin/workspace/settings", {
+    const payload = await client.request(workspaceSettingsApiPath.value, {
       method: "GET"
     });
 
@@ -335,7 +360,7 @@ async function submitWorkspaceSettings() {
       return;
     }
 
-    const payload = await client.request("/api/admin/workspace/settings", {
+    const payload = await client.request(workspaceSettingsApiPath.value, {
       method: "PATCH",
       body: {
         name: workspaceForm.name,

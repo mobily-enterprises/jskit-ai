@@ -77,42 +77,42 @@ export default Object.freeze({
         },
         {
           method: "GET",
-          path: "/api/admin/workspace/settings",
+          path: "/api/<workspace-surface-prefix>/workspace/settings",
           summary: "Get active workspace settings and role catalog."
         },
         {
           method: "PATCH",
-          path: "/api/admin/workspace/settings",
+          path: "/api/<workspace-surface-prefix>/workspace/settings",
           summary: "Update active workspace settings."
         },
         {
           method: "GET",
-          path: "/api/admin/workspace/roles",
+          path: "/api/<workspace-surface-prefix>/workspace/roles",
           summary: "Get workspace role catalog."
         },
         {
           method: "GET",
-          path: "/api/admin/workspace/members",
+          path: "/api/<workspace-surface-prefix>/workspace/members",
           summary: "List active members for active workspace."
         },
         {
           method: "PATCH",
-          path: "/api/admin/workspace/members/:memberUserId/role",
+          path: "/api/<workspace-surface-prefix>/workspace/members/:memberUserId/role",
           summary: "Update member role in active workspace."
         },
         {
           method: "GET",
-          path: "/api/admin/workspace/invites",
+          path: "/api/<workspace-surface-prefix>/workspace/invites",
           summary: "List pending invites for active workspace."
         },
         {
           method: "POST",
-          path: "/api/admin/workspace/invites",
+          path: "/api/<workspace-surface-prefix>/workspace/invites",
           summary: "Create invite for active workspace."
         },
         {
           method: "DELETE",
-          path: "/api/admin/workspace/invites/:inviteId",
+          path: "/api/<workspace-surface-prefix>/workspace/invites/:inviteId",
           summary: "Revoke pending invite in active workspace."
         },
         {

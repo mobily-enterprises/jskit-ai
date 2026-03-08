@@ -1,7 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { useWebPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  useWebPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext,
+  extractWorkspaceSlugFromSurfacePathname
+} from "@jskit-ai/shell-web/client/placement";
 
 const props = defineProps({
   surface: {
@@ -23,7 +28,9 @@ const errorMessage = ref("");
 const authenticated = ref(false);
 const activeWorkspace = ref(null);
 const workspaces = ref([]);
+const syncingWorkspaceFromRoute = ref(false);
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+const route = useRoute();
 
 function normalizeWorkspace(entry) {
   if (!entry || typeof entry !== "object") {
@@ -115,12 +122,19 @@ async function selectWorkspace(slug) {
   }
 }
 
+const tenancyMode = computed(() => String(placementContext.value?.surfaceConfig?.tenancyMode || "").trim().toLowerCase());
+const tenancyAllowsWorkspaceRouting = computed(() => tenancyMode.value !== "none");
+
 const surfaceRequiresWorkspace = computed(() =>
   surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, props.surface)
 );
 
 const isVisible = computed(
-  () => surfaceRequiresWorkspace.value && authenticated.value && workspaces.value.length > 0
+  () =>
+    surfaceRequiresWorkspace.value &&
+    tenancyAllowsWorkspaceRouting.value &&
+    authenticated.value &&
+    workspaces.value.length > 0
 );
 
 const activeWorkspaceLabel = computed(() => {
@@ -131,8 +145,53 @@ const activeWorkspaceLabel = computed(() => {
   return "Workspace";
 });
 
+async function syncWorkspaceFromRoutePath() {
+  if (syncingWorkspaceFromRoute.value || selecting.value) {
+    return;
+  }
+  if (!surfaceRequiresWorkspace.value || !tenancyAllowsWorkspaceRouting.value || !authenticated.value) {
+    return;
+  }
+
+  const workspaceSlugFromPath = extractWorkspaceSlugFromSurfacePathname(placementContext.value, props.surface, route.path);
+  const normalizedWorkspaceSlug = String(workspaceSlugFromPath || "").trim();
+  if (!normalizedWorkspaceSlug) {
+    return;
+  }
+  if (activeWorkspace.value?.slug === normalizedWorkspaceSlug) {
+    return;
+  }
+  if (!workspaces.value.some((workspace) => workspace.slug === normalizedWorkspaceSlug)) {
+    return;
+  }
+
+  syncingWorkspaceFromRoute.value = true;
+  try {
+    await selectWorkspace(normalizedWorkspaceSlug);
+  } finally {
+    syncingWorkspaceFromRoute.value = false;
+  }
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    void syncWorkspaceFromRoutePath();
+  }
+);
+
+watch(
+  () => [surfaceRequiresWorkspace.value, tenancyAllowsWorkspaceRouting.value, authenticated.value],
+  () => {
+    void syncWorkspaceFromRoutePath();
+  }
+);
+
 onMounted(() => {
-  void refreshWorkspaceState();
+  void (async () => {
+    await refreshWorkspaceState();
+    await syncWorkspaceFromRoutePath();
+  })();
 });
 </script>
 
