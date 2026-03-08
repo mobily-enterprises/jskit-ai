@@ -64,8 +64,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return {
       id: "surface-switch.primary",
       label: "Go to app",
-      to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug),
-      icon: "mdi-open-in-new"
+      to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug)
     };
   }
 
@@ -78,8 +77,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   return {
     id: "surface-switch.primary",
     label: "Go to workspace",
-    to: workspaceTarget,
-    icon: "mdi-briefcase-outline"
+    to: workspaceTarget
   };
 }
 
@@ -103,8 +101,7 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
   return {
     id: "surface-switch.console",
     label: "Go to console",
-    to: resolveSurfaceRootPathFromPlacementContext(source, consoleSurfaceId),
-    icon: "mdi-console"
+    to: resolveSurfaceRootPathFromPlacementContext(source, consoleSurfaceId)
   };
 }
 

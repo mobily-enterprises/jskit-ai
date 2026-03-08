@@ -7,6 +7,14 @@ const props = defineProps({
   surface: {
     type: String,
     default: "*"
+  },
+  placement: {
+    type: String,
+    default: ""
+  },
+  placementId: {
+    type: String,
+    default: ""
   }
 });
 

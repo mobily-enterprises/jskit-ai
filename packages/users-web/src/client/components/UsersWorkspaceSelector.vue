@@ -43,6 +43,40 @@ const route = useRoute();
 const router = useRouter();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
+function resolveBrowserPath() {
+  if (typeof window !== "object" || !window || !window.location) {
+    return "/";
+  }
+  const pathname = String(window.location.pathname || "").trim();
+  return pathname || "/";
+}
+
+function resolveBrowserFullPath() {
+  if (typeof window !== "object" || !window || !window.location) {
+    return "/";
+  }
+  const pathname = String(window.location.pathname || "").trim() || "/";
+  const search = String(window.location.search || "").trim();
+  const hash = String(window.location.hash || "").trim();
+  return `${pathname}${search}${hash}`;
+}
+
+const currentPath = computed(() => {
+  const routePath = String(route?.path || "").trim();
+  if (routePath) {
+    return routePath;
+  }
+  return resolveBrowserPath();
+});
+
+const currentFullPath = computed(() => {
+  const routeFullPath = String(route?.fullPath || "").trim();
+  if (routeFullPath) {
+    return routeFullPath;
+  }
+  return resolveBrowserFullPath();
+});
+
 function normalizeWorkspace(entry) {
   if (!entry || typeof entry !== "object") {
     return null;
@@ -100,7 +134,7 @@ function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, per
 }
 
 const currentSurfaceId = computed(() => {
-  return resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path) || props.surface;
+  return resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) || props.surface;
 });
 
 function resolveTargetSurfaceId() {
@@ -129,11 +163,11 @@ const targetSurfaceId = computed(() => resolveTargetSurfaceId());
 
 const routeWorkspaceSlug = computed(() => {
   return String(
-    extractWorkspaceSlugFromSurfacePathname(
-      placementContext.value,
-      currentSurfaceId.value,
-      route.path
-    ) || ""
+      extractWorkspaceSlugFromSurfacePathname(
+        placementContext.value,
+        currentSurfaceId.value,
+        currentPath.value
+      ) || ""
   ).trim();
 });
 
@@ -200,8 +234,15 @@ async function navigateToWorkspace(slug) {
   errorMessage.value = "";
 
   try {
-    if (route.path !== targetPath) {
-      await router.push(targetPath);
+    if (currentPath.value !== targetPath) {
+      if (router && typeof router.push === "function") {
+        await router.push(targetPath);
+      } else if (typeof window === "object" && window && window.location) {
+        window.location.assign(targetPath);
+        return;
+      } else {
+        throw new Error("Router is unavailable.");
+      }
     }
 
     const nextWorkspace = findWorkspaceBySlug(workspaces.value, normalizedSlug);
@@ -244,7 +285,7 @@ const activeWorkspaceLabel = computed(() => {
 });
 
 watch(
-  () => route.fullPath,
+  () => currentFullPath.value,
   () => {
     void refreshWorkspaceState();
   }

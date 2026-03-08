@@ -23,6 +23,16 @@ const props = defineProps({
 
 const route = useRoute();
 
+function resolveFallbackReturnTo() {
+  if (typeof window !== "object" || !window || !window.location) {
+    return "/";
+  }
+  const pathname = String(window.location.pathname || "").trim() || "/";
+  const search = String(window.location.search || "").trim();
+  const hash = String(window.location.hash || "").trim();
+  return `${pathname}${search}${hash}`;
+}
+
 const resolvedTo = computed(() => {
   const target = String(props.to || "").trim();
   if (!target) {
@@ -35,7 +45,9 @@ const resolvedTo = computed(() => {
     return target;
   }
 
-  const returnTo = String(route.fullPath || route.path || "/").trim() || "/";
+  const routeFullPath = String(route?.fullPath || "").trim();
+  const routePath = String(route?.path || "").trim();
+  const returnTo = routeFullPath || routePath || resolveFallbackReturnTo();
   const queryParams = new URLSearchParams({
     returnTo
   });
