@@ -44,7 +44,10 @@ function findRoute(routes, { method, path }) {
 function createActionRequest({ input = {}, executeAction }) {
   return {
     input,
-    executeAction
+    executeAction,
+    user: {
+      id: 42
+    }
   };
 }
 
@@ -59,17 +62,21 @@ test("workspace and settings routes attach input normalizers where controller re
   });
   const settingsRoutes = buildSettingsRoutes(createControllerProxy());
 
-  const workspaceSelect = findRoute(workspaceRoutes, {
-    method: "POST",
-    path: "/api/workspaces/select"
+  const workspaceBootstrap = findRoute(workspaceRoutes, {
+    method: "GET",
+    path: "/api/bootstrap"
+  });
+  const workspaceSettings = findRoute(workspaceRoutes, {
+    method: "GET",
+    path: "/api/coffie/w/:workspaceSlug/workspace/settings"
   });
   const workspaceMemberRole = findRoute(workspaceRoutes, {
     method: "PATCH",
-    path: "/api/coffie/workspace/members/:memberUserId/role"
+    path: "/api/coffie/w/:workspaceSlug/workspace/members/:memberUserId/role"
   });
   const workspaceInviteDelete = findRoute(workspaceRoutes, {
     method: "DELETE",
-    path: "/api/coffie/workspace/invites/:inviteId"
+    path: "/api/coffie/w/:workspaceSlug/workspace/invites/:inviteId"
   });
   const settingsProfilePatch = findRoute(settingsRoutes, {
     method: "PATCH",
@@ -80,7 +87,8 @@ test("workspace and settings routes attach input normalizers where controller re
     path: "/api/settings/security/oauth/:provider/start"
   });
 
-  assert.equal(typeof workspaceSelect?.body?.normalize, "function");
+  assert.equal(typeof workspaceBootstrap?.query?.normalize, "function");
+  assert.equal(typeof workspaceSettings?.params?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.params?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.body?.normalize, "function");
   assert.equal(typeof workspaceInviteDelete?.params?.normalize, "function");
@@ -100,7 +108,7 @@ test("workspace routes mount workspace-admin endpoints per workspace-enabled sur
   });
   const workspaceSettings = findRoute(workspaceRoutes, {
     method: "GET",
-    path: "/api/coffie/workspace/settings"
+    path: "/api/coffie/w/:workspaceSlug/workspace/settings"
   });
 
   assert.equal(workspaceSettings?.workspaceSurface, "coffie");
@@ -110,6 +118,15 @@ test("workspace controller methods use request.input payloads", async () => {
   const calls = [];
   const controller = new UsersWorkspaceController({
     authService: {},
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(_user, _workspaceSlug) {
+        return {
+          workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
+          membership: { roleId: "owner", status: "active" },
+          permissions: ["workspace.settings.update"]
+        };
+      }
+    },
     consoleService: null
   });
   const executeAction = async (payload) => {
@@ -117,15 +134,6 @@ test("workspace controller methods use request.input payloads", async () => {
     return {};
   };
 
-  await controller.selectWorkspace(
-    createActionRequest({
-      input: {
-        body: { workspaceSlug: "acme" }
-      },
-      executeAction
-    }),
-    createReplyDouble()
-  );
   await controller.respondToPendingInviteByToken(
     createActionRequest({
       input: {
@@ -138,6 +146,7 @@ test("workspace controller methods use request.input payloads", async () => {
   await controller.updateWorkspaceSettings(
     createActionRequest({
       input: {
+        params: { workspaceSlug: "acme" },
         body: { name: "Acme Workspace" }
       },
       executeAction
@@ -147,7 +156,7 @@ test("workspace controller methods use request.input payloads", async () => {
   await controller.updateWorkspaceMemberRole(
     createActionRequest({
       input: {
-        params: { memberUserId: "12" },
+        params: { workspaceSlug: "acme", memberUserId: "12" },
         body: { roleId: "admin" }
       },
       executeAction
@@ -157,6 +166,7 @@ test("workspace controller methods use request.input payloads", async () => {
   await controller.createWorkspaceInvite(
     createActionRequest({
       input: {
+        params: { workspaceSlug: "acme" },
         body: { email: "user@example.com", roleId: "member" }
       },
       executeAction
@@ -166,19 +176,18 @@ test("workspace controller methods use request.input payloads", async () => {
   await controller.revokeWorkspaceInvite(
     createActionRequest({
       input: {
-        params: { inviteId: "55" }
+        params: { workspaceSlug: "acme", inviteId: "55" }
       },
       executeAction
     }),
     createReplyDouble()
   );
 
-  assert.deepEqual(calls[0].input, { workspaceSlug: "acme" });
-  assert.deepEqual(calls[1].input, { token: "token-1", decision: "accept" });
-  assert.deepEqual(calls[2].input, { name: "Acme Workspace" });
-  assert.deepEqual(calls[3].input, { memberUserId: "12", roleId: "admin" });
-  assert.deepEqual(calls[4].input, { email: "user@example.com", roleId: "member" });
-  assert.deepEqual(calls[5].input, { inviteId: "55" });
+  assert.deepEqual(calls[0].input, { token: "token-1", decision: "accept" });
+  assert.deepEqual(calls[1].input, { workspaceSlug: "acme", name: "Acme Workspace" });
+  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
+  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
+  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", inviteId: "55" });
 });
 
 test("settings controller methods use request.input payloads", async () => {

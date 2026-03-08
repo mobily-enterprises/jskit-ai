@@ -61,11 +61,6 @@ export default Object.freeze({
           summary: "List workspaces visible to authenticated user."
         },
         {
-          method: "POST",
-          path: "/api/workspaces/select",
-          summary: "Select active workspace by slug or id."
-        },
-        {
           method: "GET",
           path: "/api/workspace/invitations/pending",
           summary: "List pending workspace invitations for authenticated user."
@@ -77,43 +72,43 @@ export default Object.freeze({
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/workspace/settings",
-          summary: "Get active workspace settings and role catalog."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          summary: "Get workspace settings and role catalog by workspace slug."
         },
         {
           method: "PATCH",
-          path: "/api/<workspace-surface-prefix>/workspace/settings",
-          summary: "Update active workspace settings."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          summary: "Update workspace settings by workspace slug."
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/workspace/roles",
-          summary: "Get workspace role catalog."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/roles",
+          summary: "Get workspace role catalog by workspace slug."
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/workspace/members",
-          summary: "List active members for active workspace."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members",
+          summary: "List members by workspace slug."
         },
         {
           method: "PATCH",
-          path: "/api/<workspace-surface-prefix>/workspace/members/:memberUserId/role",
-          summary: "Update member role in active workspace."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members/:memberUserId/role",
+          summary: "Update workspace member role by workspace slug."
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/workspace/invites",
-          summary: "List pending invites for active workspace."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          summary: "List workspace invites by workspace slug."
         },
         {
           method: "POST",
-          path: "/api/<workspace-surface-prefix>/workspace/invites",
-          summary: "Create invite for active workspace."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          summary: "Create workspace invite by workspace slug."
         },
         {
           method: "DELETE",
-          path: "/api/<workspace-surface-prefix>/workspace/invites/:inviteId",
-          summary: "Revoke pending invite in active workspace."
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites/:inviteId",
+          summary: "Revoke workspace invite by workspace slug."
         },
         {
           method: "GET",

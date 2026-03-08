@@ -3,7 +3,7 @@ import test from "node:test";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
 import { buildSurfaceAwareRoutes } from "./shellRouting.js";
 
-test("buildSurfaceAwareRoutes adds workspace-scoped aliases only for workspace-enabled surfaces", () => {
+test("buildSurfaceAwareRoutes adds workspace-slug aliases for surface routes", () => {
   const surfaceRuntime = createSurfaceRuntime({
     tenancyMode: "workspace",
     defaultSurfaceId: "app",
@@ -51,5 +51,5 @@ test("buildSurfaceAwareRoutes adds workspace-scoped aliases only for workspace-e
   assert.equal(routePaths.includes("/coffie/w/:workspaceSlug"), true);
   assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/members"), true);
   assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/workspaces"), false);
-  assert.equal(routePaths.includes("/app/w/:workspaceSlug/home"), false);
+  assert.equal(routePaths.includes("/app/w/:workspaceSlug/home"), true);
 });

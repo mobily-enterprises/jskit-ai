@@ -121,7 +121,7 @@ function expandRoutesWithWorkspaceAliases(routes, surfaceRuntime) {
 
     const routeSurface = resolveRouteSurface(route, surfaceRuntime);
     const surfaceDefinition = surfaceRuntime.getSurfaceDefinition(routeSurface);
-    if (!surfaceDefinition || surfaceDefinition.requiresWorkspace !== true) {
+    if (!surfaceDefinition) {
       continue;
     }
 

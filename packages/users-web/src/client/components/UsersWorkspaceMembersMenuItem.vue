@@ -39,5 +39,10 @@ const resolvedTo = computed(() => {
 </script>
 
 <template>
-  <v-list-item :title="props.label || undefined" :to="resolvedTo || undefined" :prepend-icon="props.icon || undefined" />
+  <v-list-item
+    v-if="resolvedTo"
+    :title="props.label || undefined"
+    :to="resolvedTo || undefined"
+    :prepend-icon="props.icon || undefined"
+  />
 </template>

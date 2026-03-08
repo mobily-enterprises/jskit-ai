@@ -16,6 +16,9 @@ class UsersRouteServiceProvider {
     if (!app.has("authService")) {
       throw new Error("UsersRouteServiceProvider requires authService binding.");
     }
+    if (!app.has("users.workspace.service")) {
+      throw new Error("UsersRouteServiceProvider requires users.workspace.service binding.");
+    }
     if (!app.has("actionExecutor")) {
       throw new Error("UsersRouteServiceProvider requires actionExecutor binding.");
     }
@@ -31,6 +34,7 @@ class UsersRouteServiceProvider {
 
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const authService = app.make("authService");
+    const workspaceService = app.make("users.workspace.service");
     const consoleService = app.has("consoleService") ? app.make("consoleService") : null;
     const surfaceRuntime = app.make(USERS_SURFACE_RUNTIME_TOKEN);
     const workspaceSurfaceDefinitions =
@@ -46,6 +50,7 @@ class UsersRouteServiceProvider {
 
     const workspaceController = new UsersWorkspaceController({
       authService,
+      workspaceService,
       consoleService
     });
     const settingsController = new UsersSettingsController({

@@ -2,7 +2,6 @@ const WORKSPACE_ACTION_IDS = Object.freeze({
   AUTH_SESSION_READ: "auth.session.read",
   BOOTSTRAP_READ: "workspace.bootstrap.read",
   WORKSPACES_LIST: "workspace.workspaces.list",
-  SELECT: "workspace.select",
   INVITATIONS_PENDING_LIST: "workspace.invitations.pending.list",
   INVITE_REDEEM: "workspace.invite.redeem",
   ROLES_LIST: "workspace.roles.list",
@@ -17,6 +16,13 @@ const WORKSPACE_ACTION_IDS = Object.freeze({
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function normalizeObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value;
 }
 
 function getOAuthProviderCatalogPayload(authService) {
@@ -45,13 +51,39 @@ function getOAuthProviderCatalogPayload(authService) {
 }
 
 class UsersWorkspaceController {
-  constructor({ authService, consoleService = null } = {}) {
+  constructor({ authService, workspaceService, consoleService = null } = {}) {
     if (!authService) {
       throw new Error("UsersWorkspaceController requires authService.");
     }
+    if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
+      throw new Error("UsersWorkspaceController requires workspaceService.resolveWorkspaceContextForUserBySlug().");
+    }
 
     this.authService = authService;
+    this.workspaceService = workspaceService;
     this.consoleService = consoleService;
+  }
+
+  async resolveWorkspaceRequestContext(request) {
+    const params = normalizeObject(request?.input?.params);
+    const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+
+    const resolvedWorkspaceContext = await this.workspaceService.resolveWorkspaceContextForUserBySlug(
+      request?.user,
+      workspaceSlug,
+      {
+        request
+      }
+    );
+
+    return {
+      workspaceSlug,
+      context: {
+        workspace: resolvedWorkspaceContext.workspace,
+        membership: resolvedWorkspaceContext.membership,
+        permissions: resolvedWorkspaceContext.permissions
+      }
+    };
   }
 
   async bootstrap(request, reply) {
@@ -84,10 +116,13 @@ class UsersWorkspaceController {
       await this.consoleService.ensureInitialConsoleMember(authResult.profile.id);
     }
 
+    const bootstrapWorkspaceSlug = normalizeText(request?.input?.query?.workspaceSlug).toLowerCase();
+
     const payload = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.BOOTSTRAP_READ,
       input: {
-        user: authResult?.authenticated ? authResult.profile : null
+        user: authResult?.authenticated ? authResult.profile : null,
+        workspaceSlug: bootstrapWorkspaceSlug
       },
       context: {
         actor: authResult?.authenticated ? authResult.profile : null
@@ -112,14 +147,6 @@ class UsersWorkspaceController {
     reply.code(200).send(response);
   }
 
-  async selectWorkspace(request, reply) {
-    const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.SELECT,
-      input: request.input.body
-    });
-    reply.code(200).send(response);
-  }
-
   async listPendingInvites(request, reply) {
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST
@@ -136,66 +163,102 @@ class UsersWorkspaceController {
   }
 
   async getWorkspaceSettings(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ
+      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ,
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async updateWorkspaceSettings(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.SETTINGS_UPDATE,
-      input: request.input.body
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug,
+        ...normalizeObject(request.input.body)
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async listWorkspaceRoles(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.ROLES_LIST
+      actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async listWorkspaceMembers(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST
+      actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async updateWorkspaceMemberRole(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
       input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug,
         memberUserId: request.input.params.memberUserId,
         roleId: request.input.body.roleId
-      }
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async listWorkspaceInvites(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.INVITES_LIST
+      actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async createWorkspaceInvite(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
-      input: request.input.body
+      input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug,
+        ...normalizeObject(request.input.body)
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }
 
   async revokeWorkspaceInvite(request, reply) {
+    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
       input: {
+        workspaceSlug: workspaceRequestContext.workspaceSlug,
         inviteId: request.input.params.inviteId
-      }
+      },
+      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }

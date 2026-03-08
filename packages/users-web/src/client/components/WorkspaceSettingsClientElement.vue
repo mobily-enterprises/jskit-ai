@@ -121,7 +121,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
@@ -152,12 +152,22 @@ const route = useRoute();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
 const currentSurfaceId = computed(() => resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path));
-const workspaceSettingsApiPath = computed(() =>
-  resolveSurfaceApiPathFromPlacementContext(placementContext.value, currentSurfaceId.value, "/workspace/settings")
-);
 const routeWorkspaceSlug = computed(() =>
-  extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, route.path)
+  String(extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, route.path) || "").trim()
 );
+const workspaceSettingsApiPath = computed(() => {
+  const currentSurface = currentSurfaceId.value;
+  const workspaceSlug = routeWorkspaceSlug.value;
+  if (!currentSurface || !workspaceSlug) {
+    return "";
+  }
+
+  return resolveSurfaceApiPathFromPlacementContext(
+    placementContext.value,
+    currentSurface,
+    `/w/${workspaceSlug}/workspace/settings`
+  );
+});
 
 const fieldErrors = reactive({
   name: "",
@@ -298,27 +308,16 @@ const canManageWorkspaceSettings = computed(() => {
 });
 
 async function refreshPermissions() {
-  const payload = await client.request("/api/bootstrap", {
+  const workspaceSlug = routeWorkspaceSlug.value;
+  const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
+
+  const payload = await client.request(`/api/bootstrap${queryString}`, {
     method: "GET"
   });
 
   const nextPermissions = normalizePermissionList(payload?.permissions);
   permissions.value = nextPermissions;
   applyShellPermissions(nextPermissions);
-}
-
-async function selectWorkspaceFromRouteIfPresent() {
-  const workspaceSlugFromRoute = String(routeWorkspaceSlug.value || "").trim();
-  if (!workspaceSlugFromRoute) {
-    return;
-  }
-
-  await client.request("/api/workspaces/select", {
-    method: "POST",
-    body: {
-      workspaceSlug: workspaceSlugFromRoute
-    }
-  });
 }
 
 async function loadWorkspaceSettings() {
@@ -328,7 +327,10 @@ async function loadWorkspaceSettings() {
   resetFieldErrors();
 
   try {
-    await selectWorkspaceFromRouteIfPresent();
+    const workspaceSlugFromRoute = routeWorkspaceSlug.value;
+    if (!workspaceSlugFromRoute) {
+      throw new Error("Workspace slug is required in the URL.");
+    }
 
     await refreshPermissions();
 
@@ -336,7 +338,12 @@ async function loadWorkspaceSettings() {
       return;
     }
 
-    const payload = await client.request(workspaceSettingsApiPath.value, {
+    const apiPath = workspaceSettingsApiPath.value;
+    if (!apiPath) {
+      throw new Error("Workspace settings API path is not available.");
+    }
+
+    const payload = await client.request(apiPath, {
       method: "GET"
     });
 
@@ -358,6 +365,11 @@ async function submitWorkspaceSettings() {
   resetFieldErrors();
 
   try {
+    const apiPath = workspaceSettingsApiPath.value;
+    if (!apiPath) {
+      throw new Error("Workspace settings API path is not available.");
+    }
+
     const parsedDenyUserIds = parseDenyUserIdsInput(workspaceForm.appDenyUserIdsText);
     if (parsedDenyUserIds.invalid.length > 0) {
       fieldErrors.appDenyUserIds = `Invalid user IDs: ${parsedDenyUserIds.invalid.join(", ")}`;
@@ -366,7 +378,7 @@ async function submitWorkspaceSettings() {
       return;
     }
 
-    const payload = await client.request(workspaceSettingsApiPath.value, {
+    const payload = await client.request(apiPath, {
       method: "PATCH",
       body: {
         name: workspaceForm.name,
@@ -394,4 +406,11 @@ async function submitWorkspaceSettings() {
 onMounted(() => {
   void loadWorkspaceSettings();
 });
+
+watch(
+  () => route.fullPath,
+  () => {
+    void loadWorkspaceSettings();
+  }
+);
 </script>

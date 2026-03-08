@@ -1,11 +1,13 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
   useWebPlacementContext,
   TENANCY_MODE_NONE,
   surfaceRequiresWorkspaceFromPlacementContext,
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceWorkspacePathFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 
@@ -13,6 +15,14 @@ const props = defineProps({
   surface: {
     type: String,
     default: "*"
+  },
+  allowOnNonWorkspaceSurface: {
+    type: Boolean,
+    default: false
+  },
+  targetSurfaceId: {
+    type: String,
+    default: ""
   }
 });
 
@@ -24,14 +34,14 @@ const client = createHttpClient({
 });
 
 const loading = ref(false);
-const selecting = ref("");
+const navigatingToWorkspace = ref("");
 const errorMessage = ref("");
 const authenticated = ref(false);
 const activeWorkspace = ref(null);
 const workspaces = ref([]);
-const syncingWorkspaceFromRoute = ref(false);
-const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 const route = useRoute();
+const router = useRouter();
+const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
 function normalizeWorkspace(entry) {
   if (!entry || typeof entry !== "object") {
@@ -53,19 +63,90 @@ function normalizeWorkspace(entry) {
   });
 }
 
-function applyShellWorkspaceContext(payload = {}) {
-  const permissionList = Array.isArray(payload.permissions)
-    ? payload.permissions.map((entry) => String(entry || "").trim()).filter(Boolean)
-    : [];
+function normalizeWorkspaces(list) {
+  const source = Array.isArray(list) ? list : [];
+  return source.map(normalizeWorkspace).filter(Boolean);
+}
 
+function normalizePermissions(list) {
+  const source = Array.isArray(list) ? list : [];
+  return source.map((entry) => String(entry || "").trim()).filter(Boolean);
+}
+
+function findWorkspaceBySlug(list, slug) {
+  const normalizedSlug = String(slug || "").trim();
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  for (const workspace of list) {
+    if (workspace.slug === normalizedSlug) {
+      return workspace;
+    }
+  }
+
+  return null;
+}
+
+function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, permissions }) {
   mergePlacementContext(
     {
-      workspace: payload.activeWorkspace || null,
-      workspaces: payload.workspaces || [],
-      permissions: permissionList
+      workspace: currentWorkspace,
+      workspaces: availableWorkspaces,
+      permissions
     },
     "users-web.workspace-selector"
   );
+}
+
+const currentSurfaceId = computed(() => {
+  return resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path) || props.surface;
+});
+
+function resolveTargetSurfaceId() {
+  const surfaceConfig = placementContext.value?.surfaceConfig;
+  const enabledSurfaceIds = Array.isArray(surfaceConfig?.enabledSurfaceIds) ? surfaceConfig.enabledSurfaceIds : [];
+  const preferredSurfaceId = String(props.targetSurfaceId || "").trim().toLowerCase();
+
+  if (preferredSurfaceId && enabledSurfaceIds.includes(preferredSurfaceId)) {
+    return preferredSurfaceId;
+  }
+
+  const currentSurface = String(currentSurfaceId.value || "").trim().toLowerCase();
+  if (currentSurface && enabledSurfaceIds.includes(currentSurface)) {
+    return currentSurface;
+  }
+
+  const defaultSurfaceId = String(surfaceConfig?.defaultSurfaceId || "").trim().toLowerCase();
+  if (defaultSurfaceId && enabledSurfaceIds.includes(defaultSurfaceId)) {
+    return defaultSurfaceId;
+  }
+
+  return currentSurface || defaultSurfaceId || "app";
+}
+
+const targetSurfaceId = computed(() => resolveTargetSurfaceId());
+
+const routeWorkspaceSlug = computed(() => {
+  return String(
+    extractWorkspaceSlugFromSurfacePathname(
+      placementContext.value,
+      currentSurfaceId.value,
+      route.path
+    ) || ""
+  ).trim();
+});
+
+function resolveBootstrapApiPath() {
+  const workspaceSlug = routeWorkspaceSlug.value;
+  if (!workspaceSlug) {
+    return "/api/bootstrap";
+  }
+
+  const query = new URLSearchParams({
+    workspaceSlug
+  });
+  return `/api/bootstrap?${query.toString()}`;
 }
 
 async function refreshWorkspaceState() {
@@ -73,20 +154,22 @@ async function refreshWorkspaceState() {
   errorMessage.value = "";
 
   try {
-    const payload = await client.request("/api/bootstrap", {
+    const payload = await client.request(resolveBootstrapApiPath(), {
       method: "GET"
     });
 
     authenticated.value = Boolean(payload?.session?.authenticated);
-    activeWorkspace.value = normalizeWorkspace(payload?.activeWorkspace);
-    workspaces.value = (Array.isArray(payload?.workspaces) ? payload.workspaces : [])
-      .map(normalizeWorkspace)
-      .filter(Boolean);
+    const availableWorkspaces = normalizeWorkspaces(payload?.workspaces);
+    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, routeWorkspaceSlug.value);
+    const permissions = normalizePermissions(payload?.permissions);
+
+    workspaces.value = availableWorkspaces;
+    activeWorkspace.value = currentWorkspace;
 
     applyShellWorkspaceContext({
-      activeWorkspace: activeWorkspace.value,
-      workspaces: workspaces.value,
-      permissions: Array.isArray(payload?.permissions) ? payload.permissions : []
+      currentWorkspace,
+      availableWorkspaces,
+      permissions
     });
   } catch (error) {
     const message = String(error?.message || "").trim();
@@ -98,28 +181,36 @@ async function refreshWorkspaceState() {
   }
 }
 
-async function selectWorkspace(slug) {
+async function navigateToWorkspace(slug) {
   const normalizedSlug = String(slug || "").trim();
-  if (!normalizedSlug || selecting.value) {
+  if (!normalizedSlug) {
+    return;
+  }
+  if (navigatingToWorkspace.value) {
     return;
   }
 
-  selecting.value = normalizedSlug;
+  const targetPath = resolveSurfaceWorkspacePathFromPlacementContext(
+    placementContext.value,
+    targetSurfaceId.value,
+    normalizedSlug
+  );
+
+  navigatingToWorkspace.value = normalizedSlug;
   errorMessage.value = "";
 
   try {
-    await client.request("/api/workspaces/select", {
-      method: "POST",
-      body: {
-        workspaceSlug: normalizedSlug
-      }
-    });
+    if (route.path !== targetPath) {
+      await router.push(targetPath);
+    }
 
-    await refreshWorkspaceState();
+    const nextWorkspace = findWorkspaceBySlug(workspaces.value, normalizedSlug);
+    activeWorkspace.value = nextWorkspace;
   } catch (error) {
-    errorMessage.value = String(error?.message || "Unable to switch workspace.").trim();
+    const message = String(error?.message || "Unable to switch workspace.").trim();
+    errorMessage.value = message;
   } finally {
-    selecting.value = "";
+    navigatingToWorkspace.value = "";
   }
 }
 
@@ -127,16 +218,18 @@ const tenancyMode = computed(() => String(placementContext.value?.surfaceConfig?
 const tenancyAllowsWorkspaceRouting = computed(() => tenancyMode.value !== TENANCY_MODE_NONE);
 
 const surfaceRequiresWorkspace = computed(() =>
-  surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, props.surface)
+  surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, currentSurfaceId.value)
 );
-
-const routeWorkspaceSlug = computed(() =>
-  String(extractWorkspaceSlugFromSurfacePathname(placementContext.value, props.surface, route.path) || "").trim()
-);
+const selectorSurfaceAllowed = computed(() => {
+  if (surfaceRequiresWorkspace.value) {
+    return true;
+  }
+  return props.allowOnNonWorkspaceSurface === true;
+});
 
 const isVisible = computed(
   () =>
-    surfaceRequiresWorkspace.value &&
+    selectorSurfaceAllowed.value &&
     tenancyAllowsWorkspaceRouting.value &&
     authenticated.value &&
     workspaces.value.length > 0
@@ -150,87 +243,15 @@ const activeWorkspaceLabel = computed(() => {
   return "Workspace";
 });
 
-async function syncWorkspaceFromRoutePath() {
-  if (syncingWorkspaceFromRoute.value || selecting.value) {
-    return;
-  }
-  if (!isVisible.value) {
-    return;
-  }
-
-  const normalizedWorkspaceSlug = routeWorkspaceSlug.value;
-  if (!normalizedWorkspaceSlug) {
-    return;
-  }
-  if (activeWorkspace.value?.slug === normalizedWorkspaceSlug) {
-    return;
-  }
-  if (!hasWorkspaceWithSlug(normalizedWorkspaceSlug)) {
-    return;
-  }
-
-  syncingWorkspaceFromRoute.value = true;
-  try {
-    await selectWorkspace(normalizedWorkspaceSlug);
-  } finally {
-    syncingWorkspaceFromRoute.value = false;
-  }
-}
-
-function hasWorkspaceWithSlug(slug) {
-  const normalizedSlug = String(slug || "").trim();
-  if (!normalizedSlug) {
-    return false;
-  }
-
-  for (const workspace of workspaces.value) {
-    if (workspace.slug === normalizedSlug) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function requestWorkspaceRouteSync() {
-  void syncWorkspaceFromRoutePath();
-}
-
-async function initializeWorkspaceSelector() {
-  await refreshWorkspaceState();
-  await syncWorkspaceFromRoutePath();
-}
-
 watch(
   () => route.fullPath,
-  requestWorkspaceRouteSync
-);
-
-watch(
-  isVisible,
-  requestWorkspaceRouteSync
-);
-
-watch(
-  () => activeWorkspace.value?.slug || "",
-  requestWorkspaceRouteSync
-);
-
-watch(
-  () => selecting.value,
-  requestWorkspaceRouteSync
-);
-
-watch(
-  workspaces,
-  requestWorkspaceRouteSync,
-  {
-    deep: true
+  () => {
+    void refreshWorkspaceState();
   }
 );
 
 onMounted(() => {
-  void initializeWorkspaceSelector();
+  void refreshWorkspaceState();
 });
 </script>
 
@@ -256,8 +277,8 @@ onMounted(() => {
         :title="workspace.name"
         :subtitle="`/${workspace.slug}`"
         :active="workspace.slug === activeWorkspace?.slug"
-        :disabled="Boolean(selecting)"
-        @click="selectWorkspace(workspace.slug)"
+        :disabled="Boolean(navigatingToWorkspace)"
+        @click="navigateToWorkspace(workspace.slug)"
       >
         <template #prepend>
           <v-avatar size="24" color="primary" variant="tonal">
@@ -266,7 +287,7 @@ onMounted(() => {
         </template>
         <template #append>
           <v-progress-circular
-            v-if="selecting === workspace.slug"
+            v-if="navigatingToWorkspace === workspace.slug"
             indeterminate
             size="16"
             width="2"

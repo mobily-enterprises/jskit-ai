@@ -58,7 +58,7 @@ test("resolveProfileMenuLinks builds app target from workspace surface", () => {
   });
 
   assert.equal(links[0].label, "Go to app");
-  assert.equal(links[0].to, "/app");
+  assert.equal(links[0].to, "/app/w/acme");
   assert.equal(links[1].label, "Go to console");
   assert.equal(links[1].to, "/console");
 });

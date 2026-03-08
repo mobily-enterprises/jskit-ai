@@ -112,22 +112,11 @@ const workspacesListResponse = Type.Object(
   { additionalProperties: false }
 );
 
-const selectBody = Type.Object(
+const bootstrapQuery = Type.Object(
   {
-    workspaceSlug: Type.Optional(Type.String({ minLength: 1 })),
-    workspaceId: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.String({ minLength: 1 })]))
+    workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
-);
-
-const selectResponse = Type.Object(
-  {
-    workspace: workspaceSummary,
-    membership: membershipSummary,
-    permissions: Type.Array(Type.String()),
-    workspaceSettings
-  },
-  { additionalProperties: true }
 );
 
 const pendingInvitesResponse = Type.Object(
@@ -154,6 +143,7 @@ const memberRoleUpdateBody = Type.Object(
 
 const memberParams = Type.Object(
   {
+    workspaceSlug: Type.String({ minLength: 1 }),
     memberUserId: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
@@ -161,7 +151,15 @@ const memberParams = Type.Object(
 
 const inviteParams = Type.Object(
   {
+    workspaceSlug: Type.String({ minLength: 1 }),
     inviteId: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+const workspaceParams = Type.Object(
+  {
+    workspaceSlug: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
 );
@@ -186,21 +184,23 @@ const createInviteBody = Type.Object(
 );
 
 const schema = Object.freeze({
+  query: {
+    bootstrap: bootstrapQuery
+  },
   body: {
-    select: selectBody,
     redeemInvite: redeemInviteBody,
     memberRoleUpdate: memberRoleUpdateBody,
     settingsUpdate: settingsUpdateBody,
     createInvite: createInviteBody
   },
   params: {
+    workspace: workspaceParams,
     member: memberParams,
     invite: inviteParams
   },
   response: {
     bootstrap: bootstrapResponse,
     workspacesList: workspacesListResponse,
-    select: selectResponse,
     pendingInvites: pendingInvitesResponse,
     respondToInvite: Type.Object({}, { additionalProperties: true }),
     roles: Type.Object({}, { additionalProperties: true }),

@@ -1,8 +1,7 @@
 import {
   resolveSurfacePathFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
-  resolveSurfaceWorkspacesPathFromPlacementContext
+  resolveSurfaceWorkspacePathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 
 function resolveWorkspaceAwareMenuTarget({
@@ -19,10 +18,11 @@ function resolveWorkspaceAwareMenuTarget({
 
   if (surfaceRequiresWorkspaceFromPlacementContext(context, surface)) {
     const workspaceSlug = String(context?.workspace?.slug || "").trim();
-    if (workspaceSlug) {
-      return resolveSurfaceWorkspacePathFromPlacementContext(context, surface, workspaceSlug, workspaceSuffix);
+    if (!workspaceSlug) {
+      return "";
     }
-    return resolveSurfaceWorkspacesPathFromPlacementContext(context, surface);
+
+    return resolveSurfaceWorkspacePathFromPlacementContext(context, surface, workspaceSlug, workspaceSuffix);
   }
 
   return resolveSurfacePathFromPlacementContext(context, surface, nonWorkspaceSuffix);

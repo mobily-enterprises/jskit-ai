@@ -5,9 +5,12 @@ import {
   ref,
   watch
 } from "vue";
+import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
-  useWebPlacementContext
+  useWebPlacementContext,
+  resolveSurfaceIdFromPlacementPathname,
+  extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 import {
   hasPermission,
@@ -43,6 +46,7 @@ const client = createHttpClient({
 
 const permissions = ref([]);
 const loadingPermissions = ref(false);
+const route = useRoute();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
 function readShellPermissions() {
@@ -88,12 +92,17 @@ async function loadPermissions() {
   const fromShell = readShellPermissions();
   if (fromShell.length > 0) {
     permissions.value = fromShell;
-    return;
   }
 
   loadingPermissions.value = true;
   try {
-    const payload = await client.request("/api/bootstrap", {
+    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path);
+    const workspaceSlug = String(
+      extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId, route.path) || ""
+    ).trim();
+    const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
+
+    const payload = await client.request(`/api/bootstrap${queryString}`, {
       method: "GET"
     });
     const normalized = normalizePermissionList(payload?.permissions);
@@ -122,11 +131,18 @@ watch(
 onMounted(() => {
   void loadPermissions();
 });
+
+watch(
+  () => route.fullPath,
+  () => {
+    void loadPermissions();
+  }
+);
 </script>
 
 <template>
   <v-list-item
-    v-if="canViewWorkspaceSettings"
+    v-if="canViewWorkspaceSettings && resolvedTo"
     :title="props.label || undefined"
     :to="resolvedTo || undefined"
     :prepend-icon="props.icon || undefined"

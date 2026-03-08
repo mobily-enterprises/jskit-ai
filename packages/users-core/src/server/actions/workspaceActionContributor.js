@@ -90,8 +90,7 @@ const DEFAULT_WORKSPACE_CHANNELS = Object.freeze(["api", "internal"]);
 const WORKSPACE_SERVICE_METHODS = Object.freeze([
   "buildBootstrapPayload",
   "listWorkspacesForUser",
-  "listPendingInvitesForUser",
-  "selectWorkspaceForUser"
+  "listPendingInvitesForUser"
 ]);
 const WORKSPACE_ADMIN_SERVICE_METHODS = Object.freeze([
   "getRoleCatalog",
@@ -179,9 +178,11 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       surfaces: runtimeSurfaces.enabledSurfaceIds,
       permission: allowPublic,
       execute: async (input, context) => {
+        const payload = normalizeObject(input);
         return workspaceService.buildBootstrapPayload({
           request: resolveRequest(context),
-          user: resolveUser(context, input)
+          user: resolveUser(context, payload),
+          workspaceSlug: payload.workspaceSlug
         });
       }
     }),
@@ -195,20 +196,6 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
             request: resolveRequest(context)
           })
         };
-      }
-    }),
-    createWorkspaceActionDefinition({
-      id: "workspace.select",
-      kind: "command",
-      surfaces: runtimeSurfaces.enabledSurfaceIds,
-      permission: requireAuthenticated,
-      execute: async (input, context) => {
-        const payload = normalizeObject(input);
-        const workspaceSelector = payload.workspaceSlug || payload.slug || payload.workspaceId || "";
-
-        return workspaceService.selectWorkspaceForUser(resolveUser(context, payload), workspaceSelector, {
-          request: resolveRequest(context)
-        });
       }
     }),
     createWorkspaceActionDefinition({

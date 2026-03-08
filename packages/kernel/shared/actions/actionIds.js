@@ -160,7 +160,6 @@ const ACTION_IDS = Object.freeze({
   WORKSPACE_MEMBER_ROLE_UPDATE: "workspace.member.role.update",
   WORKSPACE_MEMBERS_LIST: "workspace.members.list",
   WORKSPACE_ROLES_LIST: "workspace.roles.list",
-  WORKSPACE_SELECT: "workspace.select",
   WORKSPACE_SMS_SEND: "workspace.sms.send",
   WORKSPACE_SETTINGS_READ: "workspace.settings.read",
   WORKSPACE_SETTINGS_UPDATE: "workspace.settings.update",

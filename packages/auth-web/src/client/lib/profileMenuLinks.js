@@ -1,7 +1,9 @@
 import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext
+  resolveSurfaceWorkspacePathFromPlacementContext,
+  resolveSurfaceIdFromPlacementPathname,
+  extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 
 function normalizeText(value) {
@@ -26,11 +28,28 @@ function hasConsoleAccess(permissions) {
   return normalized.includes("*") || normalized.includes("console.operator");
 }
 
+function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
+  const context = contextValue && typeof contextValue === "object" ? contextValue : {};
+  const workspaceSlugFromContext = String(context?.workspace?.slug || "").trim();
+  if (workspaceSlugFromContext) {
+    return workspaceSlugFromContext;
+  }
+
+  if (typeof window !== "object" || !window?.location?.pathname) {
+    return "";
+  }
+
+  const pathname = String(window.location.pathname || "").trim();
+  const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(context, pathname) || surfaceId;
+  return String(extractWorkspaceSlugFromSurfacePathname(context, currentSurfaceId, pathname) || "").trim();
+}
+
 function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
   const currentSurfaceIsWorkspace = isWorkspaceSurface(targets.currentSurface);
   const defaultSurfaceIsWorkspace = isWorkspaceSurface(targets.defaultSurface);
+  const workspaceSlug = resolveCurrentWorkspaceSlug(source, targets.currentSurfaceId || surface);
 
   if (currentSurfaceIsWorkspace) {
     let appSurfaceId = targets.nonWorkspaceSurfaceId;
@@ -38,27 +57,23 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
       appSurfaceId = targets.defaultSurfaceId;
     }
 
-    if (!appSurfaceId) {
+    if (!appSurfaceId || !workspaceSlug) {
       return null;
     }
 
     return {
       id: "surface-switch.primary",
       label: "Go to app",
-      to: resolveSurfaceRootPathFromPlacementContext(source, appSurfaceId),
+      to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug),
       icon: "mdi-open-in-new"
     };
   }
 
-  if (!targets.workspaceSurfaceId) {
+  if (!targets.workspaceSurfaceId || !workspaceSlug) {
     return null;
   }
 
-  const workspaceSlug = String(source?.workspace?.slug || "").trim();
-  let workspaceTarget = resolveSurfaceRootPathFromPlacementContext(source, targets.workspaceSurfaceId);
-  if (workspaceSlug) {
-    workspaceTarget = resolveSurfaceWorkspacePathFromPlacementContext(source, targets.workspaceSurfaceId, workspaceSlug);
-  }
+  const workspaceTarget = resolveSurfaceWorkspacePathFromPlacementContext(source, targets.workspaceSurfaceId, workspaceSlug);
 
   return {
     id: "surface-switch.primary",

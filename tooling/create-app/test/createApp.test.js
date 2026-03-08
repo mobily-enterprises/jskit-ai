@@ -162,8 +162,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(notFoundView, /The page you requested does not exist\./);
 
     const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.match(indexView, /const title = "It worked!";/);
-    assert.match(indexView, /const appTitle = "Sample App";/);
+    assert.match(indexView, /import ShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout";/);
+    assert.match(indexView, /title="welcome"/);
+    assert.doesNotMatch(indexView, /const appTitle =/);
 
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
@@ -343,7 +344,8 @@ test("create-app applies explicit app title when --title is provided", async () 
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);
 
     const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.match(indexView, /const appTitle = "Acme Starter";/);
+    assert.match(indexView, /import ShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout";/);
+    assert.match(indexView, /title="welcome"/);
   });
 });
 
