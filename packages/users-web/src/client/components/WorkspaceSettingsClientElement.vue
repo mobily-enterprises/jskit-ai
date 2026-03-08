@@ -307,6 +307,20 @@ async function refreshPermissions() {
   applyShellPermissions(nextPermissions);
 }
 
+async function selectWorkspaceFromRouteIfPresent() {
+  const workspaceSlugFromRoute = String(routeWorkspaceSlug.value || "").trim();
+  if (!workspaceSlugFromRoute) {
+    return;
+  }
+
+  await client.request("/api/workspaces/select", {
+    method: "POST",
+    body: {
+      workspaceSlug: workspaceSlugFromRoute
+    }
+  });
+}
+
 async function loadWorkspaceSettings() {
   loading.value = true;
   loadError.value = "";
@@ -314,15 +328,7 @@ async function loadWorkspaceSettings() {
   resetFieldErrors();
 
   try {
-    const workspaceSlugFromRoute = String(routeWorkspaceSlug.value || "").trim();
-    if (workspaceSlugFromRoute) {
-      await client.request("/api/workspaces/select", {
-        method: "POST",
-        body: {
-          workspaceSlug: workspaceSlugFromRoute
-        }
-      });
-    }
+    await selectWorkspaceFromRouteIfPresent();
 
     await refreshPermissions();
 

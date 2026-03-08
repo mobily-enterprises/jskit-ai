@@ -1,6 +1,5 @@
 import {
-  readPlacementSurfaceConfig,
-  resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfaceSwitchTargetsFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfaceWorkspacePathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
@@ -9,6 +8,10 @@ function normalizeText(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function isWorkspaceSurface(surfaceDefinition) {
+  return Boolean(surfaceDefinition && surfaceDefinition.requiresWorkspace === true);
 }
 
 function hasConsoleAccess(permissions) {
@@ -25,29 +28,20 @@ function hasConsoleAccess(permissions) {
 
 function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
-  const surfaceConfig = readPlacementSurfaceConfig(source);
-  const currentSurface = resolveSurfaceDefinitionFromPlacementContext(source, surface);
-  const currentSurfaceId = normalizeText(currentSurface?.id);
-  const defaultSurfaceId = normalizeText(surfaceConfig.defaultSurfaceId);
+  const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
+  const currentSurfaceIsWorkspace = isWorkspaceSurface(targets.currentSurface);
+  const defaultSurfaceIsWorkspace = isWorkspaceSurface(targets.defaultSurface);
 
-  const enabledSurfaceIds = Array.isArray(surfaceConfig.enabledSurfaceIds) ? surfaceConfig.enabledSurfaceIds : [];
-  const workspaceSurfaceId = enabledSurfaceIds.find(
-    (surfaceId) => surfaceId !== currentSurfaceId && Boolean(surfaceConfig.surfacesById[surfaceId]?.requiresWorkspace)
-  );
-  const nonWorkspaceSurfaceId = enabledSurfaceIds.find(
-    (surfaceId) => surfaceId !== currentSurfaceId && !Boolean(surfaceConfig.surfacesById[surfaceId]?.requiresWorkspace)
-  );
+  if (currentSurfaceIsWorkspace) {
+    let appSurfaceId = targets.nonWorkspaceSurfaceId;
+    if (!defaultSurfaceIsWorkspace && targets.defaultSurfaceId !== targets.currentSurfaceId) {
+      appSurfaceId = targets.defaultSurfaceId;
+    }
 
-  const defaultSurface = surfaceConfig.surfacesById[defaultSurfaceId] || null;
-  const defaultSurfaceIsAppLike = Boolean(defaultSurface) && !Boolean(defaultSurface?.requiresWorkspace);
-
-  if (currentSurface?.requiresWorkspace) {
-    const appSurfaceId = defaultSurfaceIsAppLike && defaultSurfaceId !== currentSurfaceId
-      ? defaultSurfaceId
-      : nonWorkspaceSurfaceId;
     if (!appSurfaceId) {
       return null;
     }
+
     return {
       id: "surface-switch.primary",
       label: "Go to app",
@@ -56,14 +50,15 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     };
   }
 
-  if (!workspaceSurfaceId) {
+  if (!targets.workspaceSurfaceId) {
     return null;
   }
 
   const workspaceSlug = String(source?.workspace?.slug || "").trim();
-  const workspaceTarget = workspaceSlug
-    ? resolveSurfaceWorkspacePathFromPlacementContext(source, workspaceSurfaceId, workspaceSlug)
-    : resolveSurfaceRootPathFromPlacementContext(source, workspaceSurfaceId);
+  let workspaceTarget = resolveSurfaceRootPathFromPlacementContext(source, targets.workspaceSurfaceId);
+  if (workspaceSlug) {
+    workspaceTarget = resolveSurfaceWorkspacePathFromPlacementContext(source, targets.workspaceSurfaceId, workspaceSlug);
+  }
 
   return {
     id: "surface-switch.primary",
@@ -80,11 +75,9 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
     return null;
   }
 
-  const surfaceConfig = readPlacementSurfaceConfig(source);
-  const currentSurface = resolveSurfaceDefinitionFromPlacementContext(source, surface);
-  const currentSurfaceId = normalizeText(currentSurface?.id);
-  const consoleSurfaceId = surfaceConfig.enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "console");
-  if (!consoleSurfaceId || currentSurfaceId === consoleSurfaceId) {
+  const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
+  const consoleSurfaceId = targets.surfaceConfig.enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "console");
+  if (!consoleSurfaceId || targets.currentSurfaceId === consoleSurfaceId) {
     return null;
   }
 

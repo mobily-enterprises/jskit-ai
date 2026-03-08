@@ -154,6 +154,53 @@ function resolveSurfaceDefinitionFromPlacementContext(contextValue = null, surfa
   return surfaceConfig.surfacesById[normalizedSurfaceId] || null;
 }
 
+function firstSurfaceIdByWorkspaceRequirement(surfaceConfig, {
+  excludeSurfaceId = "",
+  requiresWorkspace = false
+} = {}) {
+  const excludedSurfaceId = normalizeSurfaceId(excludeSurfaceId);
+  for (const surfaceId of surfaceConfig.enabledSurfaceIds) {
+    if (surfaceId === excludedSurfaceId) {
+      continue;
+    }
+
+    const definition = surfaceConfig.surfacesById[surfaceId];
+    if (!definition) {
+      continue;
+    }
+
+    if (Boolean(definition.requiresWorkspace) === Boolean(requiresWorkspace)) {
+      return surfaceId;
+    }
+  }
+
+  return "";
+}
+
+function resolveSurfaceSwitchTargetsFromPlacementContext(contextValue = null, surfaceId = "") {
+  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
+  const currentSurface = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
+  const currentSurfaceId = normalizeSurfaceId(currentSurface?.id);
+  const defaultSurfaceId = normalizeSurfaceId(surfaceConfig.defaultSurfaceId);
+  const defaultSurface = defaultSurfaceId ? surfaceConfig.surfacesById[defaultSurfaceId] || null : null;
+
+  return Object.freeze({
+    surfaceConfig,
+    currentSurfaceId,
+    currentSurface,
+    defaultSurfaceId,
+    defaultSurface,
+    workspaceSurfaceId: firstSurfaceIdByWorkspaceRequirement(surfaceConfig, {
+      excludeSurfaceId: currentSurfaceId,
+      requiresWorkspace: true
+    }),
+    nonWorkspaceSurfaceId: firstSurfaceIdByWorkspaceRequirement(surfaceConfig, {
+      excludeSurfaceId: currentSurfaceId,
+      requiresWorkspace: false
+    })
+  });
+}
+
 function surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "") {
   return Boolean(resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId)?.requiresWorkspace);
 }
@@ -262,6 +309,7 @@ export {
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,

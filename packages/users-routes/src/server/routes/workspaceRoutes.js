@@ -2,6 +2,11 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contra
 import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface";
 import { schema } from "../schema/workspaceSchema.js";
 
+const WORKSPACE_ROUTE_TAGS = Object.freeze(["workspace"]);
+const AUTH_REQUIRED = "required";
+const AUTH_PUBLIC = "public";
+const WORKSPACE_POLICY_REQUIRED = "required";
+
 function normalizeObjectInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -35,19 +40,20 @@ function normalizeMemberRoleBody(body) {
 
 function normalizeWorkspaceSurfaceDefinitions(value) {
   const source = Array.isArray(value) ? value : [];
-  const seen = new Set();
-  const normalized = [];
+  const seenSurfaceIds = new Set();
+  const normalizedSurfaces = [];
 
   for (const entry of source) {
     const record = entry && typeof entry === "object" ? entry : {};
     const surfaceId = normalizeSurfaceId(record.id);
     const surfacePrefix = normalizeSurfacePrefix(record.prefix);
-    if (!surfaceId || seen.has(surfaceId)) {
+
+    if (!surfaceId || seenSurfaceIds.has(surfaceId)) {
       continue;
     }
 
-    seen.add(surfaceId);
-    normalized.push(
+    seenSurfaceIds.add(surfaceId);
+    normalizedSurfaces.push(
       Object.freeze({
         id: surfaceId,
         prefix: surfacePrefix
@@ -55,100 +61,146 @@ function normalizeWorkspaceSurfaceDefinitions(value) {
     );
   }
 
-  return normalized;
+  return normalizedSurfaces;
 }
 
 function resolveWorkspaceApiBasePath(surfacePrefix = "") {
   const normalizedPrefix = normalizeSurfacePrefix(surfacePrefix);
-  return normalizedPrefix ? `/api${normalizedPrefix}` : "/api";
+  if (normalizedPrefix) {
+    return `/api${normalizedPrefix}`;
+  }
+  return "/api";
 }
 
-function createWorkspaceAdminRoutes({ handler, surfaceId, surfacePrefix }) {
-  const workspaceApiBasePath = resolveWorkspaceApiBasePath(surfacePrefix);
+function buildWorkspaceResponse(payloadSchema, includeValidation400 = false) {
+  const responseMap = {
+    200: payloadSchema
+  };
 
-  return [
-    {
+  if (includeValidation400) {
+    return withStandardErrorResponses(responseMap, {
+      includeValidation400: true
+    });
+  }
+
+  return withStandardErrorResponses(responseMap);
+}
+
+function createWorkspaceRoute(options = {}) {
+  const resolveHandler = options.resolveHandler;
+  if (typeof resolveHandler !== "function") {
+    throw new TypeError("createWorkspaceRoute requires resolveHandler().");
+  }
+
+  const route = {
+    path: options.path,
+    method: options.method,
+    auth: options.auth || AUTH_REQUIRED,
+    meta: {
+      tags: WORKSPACE_ROUTE_TAGS,
+      summary: options.summary
+    },
+    response: options.response,
+    handler: resolveHandler(options.handlerName)
+  };
+
+  if (options.permission) {
+    route.permission = options.permission;
+  }
+  if (options.workspacePolicy) {
+    route.workspacePolicy = options.workspacePolicy;
+  }
+  if (options.workspaceSurface) {
+    route.workspaceSurface = options.workspaceSurface;
+  }
+  if (options.params) {
+    route.params = options.params;
+  }
+  if (options.body) {
+    route.body = options.body;
+  }
+
+  return route;
+}
+
+function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }) {
+  const workspaceApiBasePath = resolveWorkspaceApiBasePath(surfacePrefix);
+  const routes = [];
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/settings`,
       method: "GET",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.settings.view",
-      meta: {
-        tags: ["workspace"],
-        summary: "Get active workspace settings and role catalog"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.settings
-      }),
-      handler: handler("getWorkspaceSettings")
-    },
-    {
+      summary: "Get active workspace settings and role catalog",
+      response: buildWorkspaceResponse(schema.response.settings),
+      handlerName: "getWorkspaceSettings"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/settings`,
       method: "PATCH",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.settings.update",
-      meta: {
-        tags: ["workspace"],
-        summary: "Update active workspace settings"
-      },
+      summary: "Update active workspace settings",
       body: {
         schema: schema.body.settingsUpdate,
         normalize: normalizeObjectInput
       },
-      response: withStandardErrorResponses(
-        {
-          200: schema.response.settings
-        },
-        { includeValidation400: true }
-      ),
-      handler: handler("updateWorkspaceSettings")
-    },
-    {
+      response: buildWorkspaceResponse(schema.response.settings, true),
+      handlerName: "updateWorkspaceSettings"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/roles`,
       method: "GET",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.roles.view",
-      meta: {
-        tags: ["workspace"],
-        summary: "Get workspace role catalog"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.roles
-      }),
-      handler: handler("listWorkspaceRoles")
-    },
-    {
+      summary: "Get workspace role catalog",
+      response: buildWorkspaceResponse(schema.response.roles),
+      handlerName: "listWorkspaceRoles"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/members`,
       method: "GET",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.members.view",
-      meta: {
-        tags: ["workspace"],
-        summary: "List active members for active workspace"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.members
-      }),
-      handler: handler("listWorkspaceMembers")
-    },
-    {
+      summary: "List active members for active workspace",
+      response: buildWorkspaceResponse(schema.response.members),
+      handlerName: "listWorkspaceMembers"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/members/:memberUserId/role`,
       method: "PATCH",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.members.manage",
-      meta: {
-        tags: ["workspace"],
-        summary: "Update member role in active workspace"
-      },
+      summary: "Update member role in active workspace",
       params: {
         schema: schema.params.member,
         normalize: normalizeMemberParams
@@ -157,74 +209,65 @@ function createWorkspaceAdminRoutes({ handler, surfaceId, surfacePrefix }) {
         schema: schema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
-      response: withStandardErrorResponses(
-        {
-          200: schema.response.members
-        },
-        { includeValidation400: true }
-      ),
-      handler: handler("updateWorkspaceMemberRole")
-    },
-    {
+      response: buildWorkspaceResponse(schema.response.members, true),
+      handlerName: "updateWorkspaceMemberRole"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/invites`,
       method: "GET",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.members.view",
-      meta: {
-        tags: ["workspace"],
-        summary: "List pending invites for active workspace"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.invites
-      }),
-      handler: handler("listWorkspaceInvites")
-    },
-    {
+      summary: "List pending invites for active workspace",
+      response: buildWorkspaceResponse(schema.response.invites),
+      handlerName: "listWorkspaceInvites"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/invites`,
       method: "POST",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.members.invite",
-      meta: {
-        tags: ["workspace"],
-        summary: "Create invite for active workspace"
-      },
+      summary: "Create invite for active workspace",
       body: {
         schema: schema.body.createInvite,
         normalize: normalizeObjectInput
       },
-      response: withStandardErrorResponses(
-        {
-          200: schema.response.invites
-        },
-        { includeValidation400: true }
-      ),
-      handler: handler("createWorkspaceInvite")
-    },
-    {
+      response: buildWorkspaceResponse(schema.response.invites, true),
+      handlerName: "createWorkspaceInvite"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: `${workspaceApiBasePath}/workspace/invites/:inviteId`,
       method: "DELETE",
-      auth: "required",
-      workspacePolicy: "required",
+      auth: AUTH_REQUIRED,
+      workspacePolicy: WORKSPACE_POLICY_REQUIRED,
       workspaceSurface: surfaceId,
       permission: "workspace.invites.revoke",
-      meta: {
-        tags: ["workspace"],
-        summary: "Revoke pending invite in active workspace"
-      },
+      summary: "Revoke pending invite in active workspace",
       params: {
         schema: schema.params.invite,
         normalize: normalizeInviteParams
       },
-      response: withStandardErrorResponses({
-        200: schema.response.invites
-      }),
-      handler: handler("revokeWorkspaceInvite")
-    }
-  ];
+      response: buildWorkspaceResponse(schema.response.invites),
+      handlerName: "revokeWorkspaceInvite"
+    })
+  );
+
+  return routes;
 }
 
 function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
@@ -232,99 +275,88 @@ function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
     throw new Error("Workspace routes require controller instance.");
   }
 
-  const handler = (name) => controller[name].bind(controller);
+  const resolveHandler = (name) => controller[name].bind(controller);
   const workspaceSurfaces = normalizeWorkspaceSurfaceDefinitions(workspaceSurfaceDefinitions);
+  const routes = [];
 
-  const routes = [
-    {
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: "/api/bootstrap",
       method: "GET",
-      auth: "public",
-      meta: {
-        tags: ["workspace"],
-        summary: "Get startup bootstrap payload with session, app, workspace, and settings context"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.bootstrap
-      }),
-      handler: handler("bootstrap")
-    },
-    {
+      auth: AUTH_PUBLIC,
+      summary: "Get startup bootstrap payload with session, app, workspace, and settings context",
+      response: buildWorkspaceResponse(schema.response.bootstrap),
+      handlerName: "bootstrap"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: "/api/workspaces",
       method: "GET",
-      auth: "required",
-      meta: {
-        tags: ["workspace"],
-        summary: "List workspaces visible to authenticated user"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.workspacesList
-      }),
-      handler: handler("listWorkspaces")
-    },
-    {
+      auth: AUTH_REQUIRED,
+      summary: "List workspaces visible to authenticated user",
+      response: buildWorkspaceResponse(schema.response.workspacesList),
+      handlerName: "listWorkspaces"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: "/api/workspaces/select",
       method: "POST",
-      auth: "required",
-      meta: {
-        tags: ["workspace"],
-        summary: "Select active workspace by slug or id"
-      },
+      auth: AUTH_REQUIRED,
+      summary: "Select active workspace by slug or id",
       body: {
         schema: schema.body.select,
         normalize: normalizeObjectInput
       },
-      response: withStandardErrorResponses(
-        {
-          200: schema.response.select
-        },
-        { includeValidation400: true }
-      ),
-      handler: handler("selectWorkspace")
-    },
-    {
+      response: buildWorkspaceResponse(schema.response.select, true),
+      handlerName: "selectWorkspace"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: "/api/workspace/invitations/pending",
       method: "GET",
-      auth: "required",
-      meta: {
-        tags: ["workspace"],
-        summary: "List pending workspace invitations for authenticated user"
-      },
-      response: withStandardErrorResponses({
-        200: schema.response.pendingInvites
-      }),
-      handler: handler("listPendingInvites")
-    },
-    {
+      auth: AUTH_REQUIRED,
+      summary: "List pending workspace invitations for authenticated user",
+      response: buildWorkspaceResponse(schema.response.pendingInvites),
+      handlerName: "listPendingInvites"
+    })
+  );
+
+  routes.push(
+    createWorkspaceRoute({
+      resolveHandler,
       path: "/api/workspace/invitations/redeem",
       method: "POST",
-      auth: "required",
-      meta: {
-        tags: ["workspace"],
-        summary: "Accept or refuse a workspace invitation using an invite token"
-      },
+      auth: AUTH_REQUIRED,
+      summary: "Accept or refuse a workspace invitation using an invite token",
       body: {
         schema: schema.body.redeemInvite,
         normalize: normalizeObjectInput
       },
-      response: withStandardErrorResponses(
-        {
-          200: schema.response.respondToInvite
-        },
-        { includeValidation400: true }
-      ),
-      handler: handler("respondToPendingInviteByToken")
-    }
-  ];
+      response: buildWorkspaceResponse(schema.response.respondToInvite, true),
+      handlerName: "respondToPendingInviteByToken"
+    })
+  );
 
   for (const workspaceSurface of workspaceSurfaces) {
-    routes.push(
-      ...createWorkspaceAdminRoutes({
-        handler,
-        surfaceId: workspaceSurface.id,
-        surfacePrefix: workspaceSurface.prefix
-      })
-    );
+    const adminRoutes = createWorkspaceAdminRoutes({
+      resolveHandler,
+      surfaceId: workspaceSurface.id,
+      surfacePrefix: workspaceSurface.prefix
+    });
+
+    for (const route of adminRoutes) {
+      routes.push(route);
+    }
   }
 
   return routes;

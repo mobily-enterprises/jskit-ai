@@ -5,6 +5,7 @@ import {
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   surfaceRequiresWorkspaceFromPlacementContext,
+  resolveSurfaceSwitchTargetsFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceWorkspacesPathFromPlacementContext,
@@ -115,4 +116,43 @@ test("surface path helpers compose root and prefixed surface routes", () => {
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "root", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "app", "/workspace/settings"), "/app/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "root", "members"), "/members");
+});
+
+test("resolveSurfaceSwitchTargetsFromPlacementContext picks workspace and app targets", () => {
+  const context = {
+    surfaceConfig: {
+      tenancyMode: "workspace",
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app", "coffie", "console"],
+      surfacesById: {
+        app: {
+          id: "app",
+          prefix: "/app",
+          requiresWorkspace: false
+        },
+        coffie: {
+          id: "coffie",
+          prefix: "/coffie",
+          requiresWorkspace: true
+        },
+        console: {
+          id: "console",
+          prefix: "/console",
+          requiresWorkspace: false
+        }
+      }
+    }
+  };
+
+  const fromApp = resolveSurfaceSwitchTargetsFromPlacementContext(context, "app");
+  assert.equal(fromApp.currentSurfaceId, "app");
+  assert.equal(fromApp.workspaceSurfaceId, "coffie");
+  assert.equal(fromApp.nonWorkspaceSurfaceId, "console");
+  assert.equal(fromApp.defaultSurfaceId, "app");
+
+  const fromWorkspace = resolveSurfaceSwitchTargetsFromPlacementContext(context, "coffie");
+  assert.equal(fromWorkspace.currentSurfaceId, "coffie");
+  assert.equal(fromWorkspace.workspaceSurfaceId, "");
+  assert.equal(fromWorkspace.nonWorkspaceSurfaceId, "app");
+  assert.equal(fromWorkspace.defaultSurfaceId, "app");
 });

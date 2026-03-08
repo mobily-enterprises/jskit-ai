@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
   useWebPlacementContext,
+  TENANCY_MODE_NONE,
   surfaceRequiresWorkspaceFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
@@ -123,10 +124,14 @@ async function selectWorkspace(slug) {
 }
 
 const tenancyMode = computed(() => String(placementContext.value?.surfaceConfig?.tenancyMode || "").trim().toLowerCase());
-const tenancyAllowsWorkspaceRouting = computed(() => tenancyMode.value !== "none");
+const tenancyAllowsWorkspaceRouting = computed(() => tenancyMode.value !== TENANCY_MODE_NONE);
 
 const surfaceRequiresWorkspace = computed(() =>
   surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, props.surface)
+);
+
+const routeWorkspaceSlug = computed(() =>
+  String(extractWorkspaceSlugFromSurfacePathname(placementContext.value, props.surface, route.path) || "").trim()
 );
 
 const isVisible = computed(
@@ -149,19 +154,18 @@ async function syncWorkspaceFromRoutePath() {
   if (syncingWorkspaceFromRoute.value || selecting.value) {
     return;
   }
-  if (!surfaceRequiresWorkspace.value || !tenancyAllowsWorkspaceRouting.value || !authenticated.value) {
+  if (!isVisible.value) {
     return;
   }
 
-  const workspaceSlugFromPath = extractWorkspaceSlugFromSurfacePathname(placementContext.value, props.surface, route.path);
-  const normalizedWorkspaceSlug = String(workspaceSlugFromPath || "").trim();
+  const normalizedWorkspaceSlug = routeWorkspaceSlug.value;
   if (!normalizedWorkspaceSlug) {
     return;
   }
   if (activeWorkspace.value?.slug === normalizedWorkspaceSlug) {
     return;
   }
-  if (!workspaces.value.some((workspace) => workspace.slug === normalizedWorkspaceSlug)) {
+  if (!hasWorkspaceWithSlug(normalizedWorkspaceSlug)) {
     return;
   }
 
@@ -173,25 +177,60 @@ async function syncWorkspaceFromRoutePath() {
   }
 }
 
+function hasWorkspaceWithSlug(slug) {
+  const normalizedSlug = String(slug || "").trim();
+  if (!normalizedSlug) {
+    return false;
+  }
+
+  for (const workspace of workspaces.value) {
+    if (workspace.slug === normalizedSlug) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function requestWorkspaceRouteSync() {
+  void syncWorkspaceFromRoutePath();
+}
+
+async function initializeWorkspaceSelector() {
+  await refreshWorkspaceState();
+  await syncWorkspaceFromRoutePath();
+}
+
 watch(
   () => route.fullPath,
-  () => {
-    void syncWorkspaceFromRoutePath();
-  }
+  requestWorkspaceRouteSync
 );
 
 watch(
-  () => [surfaceRequiresWorkspace.value, tenancyAllowsWorkspaceRouting.value, authenticated.value],
-  () => {
-    void syncWorkspaceFromRoutePath();
+  isVisible,
+  requestWorkspaceRouteSync
+);
+
+watch(
+  () => activeWorkspace.value?.slug || "",
+  requestWorkspaceRouteSync
+);
+
+watch(
+  () => selecting.value,
+  requestWorkspaceRouteSync
+);
+
+watch(
+  workspaces,
+  requestWorkspaceRouteSync,
+  {
+    deep: true
   }
 );
 
 onMounted(() => {
-  void (async () => {
-    await refreshWorkspaceState();
-    await syncWorkspaceFromRoutePath();
-  })();
+  void initializeWorkspaceSelector();
 });
 </script>
 

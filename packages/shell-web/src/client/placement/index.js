@@ -37,6 +37,7 @@ export {
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,

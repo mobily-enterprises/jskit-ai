@@ -86,6 +86,59 @@ const WORKSPACE_INVITE_CREATE_TOOL_SCHEMA = Object.freeze({
   }
 });
 
+const DEFAULT_WORKSPACE_CHANNELS = Object.freeze(["api", "internal"]);
+const WORKSPACE_SERVICE_METHODS = Object.freeze([
+  "buildBootstrapPayload",
+  "listWorkspacesForUser",
+  "listPendingInvitesForUser",
+  "selectWorkspaceForUser"
+]);
+const WORKSPACE_ADMIN_SERVICE_METHODS = Object.freeze([
+  "getRoleCatalog",
+  "getWorkspaceSettings",
+  "updateWorkspaceSettings",
+  "listMembers",
+  "updateMemberRole",
+  "listInvites",
+  "createInvite",
+  "revokeInvite",
+  "respondToPendingInviteByToken"
+]);
+
+function createWorkspaceActionDefinition({
+  id,
+  kind = "query",
+  channels = DEFAULT_WORKSPACE_CHANNELS,
+  surfaces = [],
+  permission = requireAuthenticated,
+  idempotency = "none",
+  assistantTool = null,
+  execute
+} = {}) {
+  const action = {
+    id,
+    version: 1,
+    kind,
+    channels,
+    surfaces,
+    visibility: "public",
+    inputSchema: OBJECT_INPUT_SCHEMA,
+    permission,
+    idempotency,
+    audit: {
+      actionName: id
+    },
+    observability: {},
+    execute
+  };
+
+  if (assistantTool) {
+    action.assistantTool = assistantTool;
+  }
+
+  return action;
+}
+
 function resolveRuntimeSurfaceIds(surfaceRuntime) {
   if (
     !surfaceRuntime ||
@@ -97,8 +150,6 @@ function resolveRuntimeSurfaceIds(surfaceRuntime) {
 
   const enabledSurfaceIds = surfaceRuntime.listEnabledSurfaceIds();
   const workspaceSurfaceIds = surfaceRuntime.listWorkspaceSurfaceIds();
-  const workspaceSurfaceSet = new Set(workspaceSurfaceIds);
-  const nonWorkspaceSurfaceIds = enabledSurfaceIds.filter((surfaceId) => !workspaceSurfaceSet.has(surfaceId));
 
   if (enabledSurfaceIds.length < 1) {
     throw new Error("users.workspace action contributor requires at least one enabled surface.");
@@ -106,8 +157,7 @@ function resolveRuntimeSurfaceIds(surfaceRuntime) {
 
   return Object.freeze({
     enabledSurfaceIds: Object.freeze([...enabledSurfaceIds]),
-    workspaceSurfaceIds: Object.freeze([...workspaceSurfaceIds]),
-    nonWorkspaceSurfaceIds: Object.freeze([...nonWorkspaceSurfaceIds])
+    workspaceSurfaceIds: Object.freeze([...workspaceSurfaceIds])
   });
 }
 
@@ -115,79 +165,44 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
   const contributorId = "users.workspace";
   const runtimeSurfaces = resolveRuntimeSurfaceIds(surfaceRuntime);
 
-  requireServiceMethod(workspaceService, "buildBootstrapPayload", contributorId);
-  requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId);
-  requireServiceMethod(workspaceService, "listPendingInvitesForUser", contributorId);
-  requireServiceMethod(workspaceService, "selectWorkspaceForUser", contributorId);
-  requireServiceMethod(workspaceAdminService, "getRoleCatalog", contributorId);
-  requireServiceMethod(workspaceAdminService, "getWorkspaceSettings", contributorId);
-  requireServiceMethod(workspaceAdminService, "updateWorkspaceSettings", contributorId);
-  requireServiceMethod(workspaceAdminService, "listMembers", contributorId);
-  requireServiceMethod(workspaceAdminService, "updateMemberRole", contributorId);
-  requireServiceMethod(workspaceAdminService, "listInvites", contributorId);
-  requireServiceMethod(workspaceAdminService, "createInvite", contributorId);
-  requireServiceMethod(workspaceAdminService, "revokeInvite", contributorId);
-  requireServiceMethod(workspaceAdminService, "respondToPendingInviteByToken", contributorId);
+  for (const methodName of WORKSPACE_SERVICE_METHODS) {
+    requireServiceMethod(workspaceService, methodName, contributorId);
+  }
+
+  for (const methodName of WORKSPACE_ADMIN_SERVICE_METHODS) {
+    requireServiceMethod(workspaceAdminService, methodName, contributorId);
+  }
 
   const actions = [
-    {
+    createWorkspaceActionDefinition({
       id: "workspace.bootstrap.read",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.enabledSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: allowPublic,
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.bootstrap.read"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceService.buildBootstrapPayload({
           request: resolveRequest(context),
           user: resolveUser(context, input)
         });
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.workspaces.list",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.enabledSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.workspaces.list"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return {
           workspaces: await workspaceService.listWorkspacesForUser(resolveUser(context, input), {
             request: resolveRequest(context)
           })
         };
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.select",
-      version: 1,
       kind: "command",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.enabledSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.select"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         const payload = normalizeObject(input);
         const workspaceSelector = payload.workspaceSlug || payload.slug || payload.workspaceId || "";
 
@@ -195,210 +210,122 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
           request: resolveRequest(context)
         });
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.invitations.pending.list",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.enabledSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.invitations.pending.list"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return {
           pendingInvites: await workspaceService.listPendingInvitesForUser(resolveUser(context, input))
         };
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.roles.list",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.roles.view"],
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.roles.list"
-      },
-      observability: {},
-      async execute() {
+      execute: async () => {
         return {
           roleCatalog: workspaceAdminService.getRoleCatalog()
         };
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.settings.read",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireWorkspaceSettingsReadPermission,
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.settings.read"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceAdminService.getWorkspaceSettings(resolveWorkspace(context, input), {
           includeAppSurfaceDenyLists: hasPermission(context?.permissions, "workspace.settings.update")
         });
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.settings.update",
-      version: 1,
       kind: "command",
       channels: ["api", "assistant_tool", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.settings.update"],
       idempotency: "optional",
-      audit: {
-        actionName: "workspace.settings.update"
-      },
-      observability: {},
       assistantTool: {
         description: "Update workspace settings.",
         inputJsonSchema: WORKSPACE_SETTINGS_UPDATE_TOOL_SCHEMA
       },
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceAdminService.updateWorkspaceSettings(resolveWorkspace(context, input), normalizeObject(input));
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.members.list",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.view"],
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.members.list"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceAdminService.listMembers(resolveWorkspace(context, input));
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.member.role.update",
-      version: 1,
       kind: "command",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.manage"],
       idempotency: "optional",
-      audit: {
-        actionName: "workspace.member.role.update"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         const payload = normalizeObject(input);
         return workspaceAdminService.updateMemberRole(resolveWorkspace(context, payload), {
           memberUserId: payload.memberUserId || payload.userId || payload.targetUserId || payload.params?.memberUserId,
           roleId: payload.roleId
         });
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.invites.list",
-      version: 1,
-      kind: "query",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.view"],
-      idempotency: "none",
-      audit: {
-        actionName: "workspace.invites.list"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceAdminService.listInvites(resolveWorkspace(context, input));
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.invite.create",
-      version: 1,
       kind: "command",
       channels: ["api", "assistant_tool", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.members.invite"],
       idempotency: "optional",
-      audit: {
-        actionName: "workspace.invite.create"
-      },
-      observability: {},
       assistantTool: {
         description: "Invite a person to the workspace.",
         inputJsonSchema: WORKSPACE_INVITE_CREATE_TOOL_SCHEMA
       },
-      async execute(input, context) {
+      execute: async (input, context) => {
         return workspaceAdminService.createInvite(
           resolveWorkspace(context, input),
           resolveUser(context, input),
           normalizeObject(input)
         );
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.invite.revoke",
-      version: 1,
       kind: "command",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: ["workspace.invites.revoke"],
       idempotency: "optional",
-      audit: {
-        actionName: "workspace.invite.revoke"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         const payload = normalizeObject(input);
         return workspaceAdminService.revokeInvite(
           resolveWorkspace(context, payload),
           payload.inviteId || payload.params?.inviteId
         );
       }
-    },
-    {
+    }),
+    createWorkspaceActionDefinition({
       id: "workspace.invite.redeem",
-      version: 1,
       kind: "command",
-      channels: ["api", "internal"],
       surfaces: runtimeSurfaces.enabledSurfaceIds,
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
       permission: requireAuthenticated,
       idempotency: "optional",
-      audit: {
-        actionName: "workspace.invite.redeem"
-      },
-      observability: {},
-      async execute(input, context) {
+      execute: async (input, context) => {
         const payload = normalizeObject(input);
         return workspaceAdminService.respondToPendingInviteByToken({
           user: resolveUser(context, payload),
@@ -406,13 +333,20 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
           decision: payload.decision
         });
       }
+    })
+  ];
+
+  const actionsWithVisibleSurfaces = [];
+  for (const action of actions) {
+    if (Array.isArray(action.surfaces) && action.surfaces.length > 0) {
+      actionsWithVisibleSurfaces.push(action);
     }
-  ].filter((action) => Array.isArray(action.surfaces) && action.surfaces.length > 0);
+  }
 
   return {
     contributorId,
     domain: "workspace",
-    actions: Object.freeze(actions)
+    actions: Object.freeze(actionsWithVisibleSurfaces)
   };
 }
 
