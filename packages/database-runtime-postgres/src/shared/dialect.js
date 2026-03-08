@@ -1,4 +1,4 @@
-const DIALECT_ID = "postgres";
+const DIALECT_ID = "pg";
 
 function getDialectId() {
   return DIALECT_ID;

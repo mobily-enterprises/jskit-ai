@@ -80,13 +80,13 @@ test("DatabaseRuntimeServiceProvider registers transaction manager when Knex is 
 
 test("DatabaseRuntimeServiceProvider driver token resolves to registered mysql driver", () => {
   const app = createSingletonApp();
-  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql" }));
+  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
 
   const provider = new DatabaseRuntimeServiceProvider();
   provider.register(app);
 
   const driver = app.make("runtime.database.driver");
-  assert.deepEqual(driver, { DIALECT_ID: "mysql" });
+  assert.deepEqual(driver, { DIALECT_ID: "mysql2" });
 });
 
 test("DatabaseRuntimeServiceProvider driver token throws when no driver registered", () => {
@@ -99,8 +99,8 @@ test("DatabaseRuntimeServiceProvider driver token throws when no driver register
 
 test("DatabaseRuntimeServiceProvider driver token throws when multiple drivers are registered", () => {
   const app = createSingletonApp();
-  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql" }));
-  app.instance("runtime.database.driver.postgres", Object.freeze({ DIALECT_ID: "postgres" }));
+  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
+  app.instance("runtime.database.driver.postgres", Object.freeze({ DIALECT_ID: "pg" }));
 
   const provider = new DatabaseRuntimeServiceProvider();
   provider.register(app);

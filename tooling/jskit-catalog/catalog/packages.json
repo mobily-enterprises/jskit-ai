@@ -387,6 +387,7 @@
                 "auth.web.service"
               ],
               "client": [
+                "runtime.auth-guard.client",
                 "auth.login.component",
                 "auth.login.useLoginView",
                 "auth.web.profile.widget",
@@ -685,10 +686,29 @@
             "dev": {}
           },
           "packageJson": {
-            "scripts": {}
+            "scripts": {
+              "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+              "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
+              "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
+            }
           },
           "procfile": {},
-          "files": []
+          "files": [
+            {
+              "from": "templates/knexfile.js",
+              "to": "knexfile.js",
+              "reason": "Install root Knex configuration so app scripts can run migrations through Knex CLI.",
+              "category": "database-runtime",
+              "id": "database-runtime-knexfile"
+            },
+            {
+              "from": "templates/migrations/.gitkeep",
+              "to": "migrations/.gitkeep",
+              "reason": "Ensure migrations directory exists so Knex migration commands can run before any module installs migrations.",
+              "category": "database-runtime",
+              "id": "database-runtime-migrations-dir"
+            }
+          ]
         }
       }
     },
@@ -802,7 +822,7 @@
               "file": ".env",
               "op": "upsert-env",
               "key": "DB_CLIENT",
-              "value": "mysql",
+              "value": "mysql2",
               "reason": "Configure database client driver for runtime wiring.",
               "category": "runtime-config",
               "id": "database-client-mysql"
@@ -966,7 +986,7 @@
               "file": ".env",
               "op": "upsert-env",
               "key": "DB_CLIENT",
-              "value": "postgres",
+              "value": "pg",
               "reason": "Configure database client driver for runtime wiring.",
               "category": "runtime-config",
               "id": "database-client-postgres"

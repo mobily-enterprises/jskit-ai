@@ -2,6 +2,7 @@ import {
   WEB_PLACEMENT_CONTEXT_CONTRIBUTOR_TAG,
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
+import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
@@ -27,7 +28,9 @@ function debugLog(message, payload = null) {
     console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}`);
     return;
   }
-  console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}`, payload);
+  const terminalPayload = explodePayload(payload, DEFAULT_DEBUG_DEPTH);
+  const rendered = JSON.stringify(terminalPayload, null, 2);
+  console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}\n${rendered}`);
 }
 
 function createRuntimeLogger(logger) {

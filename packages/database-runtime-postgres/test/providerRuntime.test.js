@@ -28,6 +28,6 @@ test("DatabaseRuntimePostgresServiceProvider registers postgres driver api", () 
 
   assert.equal(app.has("runtime.database.driver.postgres"), true);
   const api = app.make("runtime.database.driver.postgres");
-  assert.equal(api.DIALECT_ID, "postgres");
-  assert.equal(api.getDialectId(), "postgres");
+  assert.equal(api.DIALECT_ID, "pg");
+  assert.equal(api.getDialectId(), "pg");
 });

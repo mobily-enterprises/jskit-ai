@@ -1,4 +1,4 @@
-const DIALECT_ID = "mysql";
+const DIALECT_ID = "mysql2";
 
 function getDialectId() {
   return DIALECT_ID;

@@ -14,6 +14,7 @@ export {
   toDatabaseDateTimeUtc
 } from "./dateUtils.js";
 export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
+export { normalizeText, normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";
 export { isDuplicateEntryError } from "./duplicateEntry.js";
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";
 export {

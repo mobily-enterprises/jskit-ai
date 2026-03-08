@@ -22,7 +22,7 @@ test("server entrypoint exports mysql service provider only", () => {
 });
 
 test("shared entrypoint exports mysql dialect helpers", () => {
-  assert.equal(sharedApi.DIALECT_ID, "mysql");
-  assert.equal(sharedApi.getDialectId(), "mysql");
+  assert.equal(sharedApi.DIALECT_ID, "mysql2");
+  assert.equal(sharedApi.getDialectId(), "mysql2");
   assert.equal(typeof sharedApi.DatabaseRuntimeMysqlServiceProvider, "undefined");
 });

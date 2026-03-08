@@ -105,7 +105,7 @@ export default Object.freeze({
         file: ".env",
         op: "upsert-env",
         key: "DB_CLIENT",
-        value: "mysql",
+        value: "mysql2",
         reason: "Configure database client driver for runtime wiring.",
         category: "runtime-config",
         id: "database-client-mysql"

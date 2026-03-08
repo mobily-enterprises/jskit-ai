@@ -22,7 +22,7 @@ test("server entrypoint exports postgres service provider only", () => {
 });
 
 test("shared entrypoint exports postgres dialect helpers", () => {
-  assert.equal(sharedApi.DIALECT_ID, "postgres");
-  assert.equal(sharedApi.getDialectId(), "postgres");
+  assert.equal(sharedApi.DIALECT_ID, "pg");
+  assert.equal(sharedApi.getDialectId(), "pg");
   assert.equal(typeof sharedApi.DatabaseRuntimePostgresServiceProvider, "undefined");
 });

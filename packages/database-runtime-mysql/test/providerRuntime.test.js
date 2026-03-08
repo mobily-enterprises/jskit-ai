@@ -28,6 +28,6 @@ test("DatabaseRuntimeMysqlServiceProvider registers mysql driver api", () => {
 
   assert.equal(app.has("runtime.database.driver.mysql"), true);
   const api = app.make("runtime.database.driver.mysql");
-  assert.equal(api.DIALECT_ID, "mysql");
-  assert.equal(api.getDialectId(), "mysql");
+  assert.equal(api.DIALECT_ID, "mysql2");
+  assert.equal(api.getDialectId(), "mysql2");
 });

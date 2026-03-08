@@ -11,6 +11,7 @@
     "./server/providers/DatabaseRuntimeServiceProvider": "./src/server/providers/DatabaseRuntimeServiceProvider.js",
     "./shared": "./src/shared/index.js",
     "./shared/dateUtils": "./src/shared/dateUtils.js",
+    "./shared/databaseClient": "./src/shared/databaseClient.js",
     "./shared/dialect": "./src/shared/dialect.js",
     "./shared/duplicateEntry": "./src/shared/duplicateEntry.js",
     "./shared/json": "./src/shared/json.js",

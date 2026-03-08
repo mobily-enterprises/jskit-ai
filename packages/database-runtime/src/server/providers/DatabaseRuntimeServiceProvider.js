@@ -2,6 +2,11 @@ import { createRequire } from "node:module";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import * as databaseRuntime from "../../shared/index.js";
 import { createTransactionManager } from "../../shared/transactionManager.js";
+import {
+  normalizeText,
+  normalizeDatabaseClient,
+  toKnexClientId
+} from "../../shared/databaseClient.js";
 
 const require = createRequire(import.meta.url);
 
@@ -14,21 +19,6 @@ const DATABASE_RUNTIME_SERVER_API = Object.freeze({
   ...databaseRuntime
 });
 
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeDatabaseClient(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "pg" || normalized === "postgresql" || normalized === "postgres") {
-    return "postgres";
-  }
-  if (normalized === "mysql2" || normalized === "mysql" || normalized === "mariadb") {
-    return "mysql";
-  }
-  return "";
-}
-
 function resolveDatabaseEnv(scope) {
   const envFromScope = scope?.has?.(KERNEL_TOKENS.Env) ? scope.make(KERNEL_TOKENS.Env) : {};
   const source = envFromScope && typeof envFromScope === "object" ? envFromScope : {};
@@ -40,24 +30,18 @@ function resolveDatabaseEnv(scope) {
 
 function resolveDriverDialectId(driver) {
   const source = driver && typeof driver === "object" ? driver : {};
-  const fromConstant = normalizeDatabaseClient(source.DIALECT_ID || source.dialectId || source.dialect);
+  const fromConstant = normalizeDatabaseClient(source.DIALECT_ID || source.dialectId || source.dialect, {
+    allowEmpty: true
+  });
   if (fromConstant) {
     return fromConstant;
   }
   if (typeof source.getDialectId === "function") {
-    return normalizeDatabaseClient(source.getDialectId());
+    return normalizeDatabaseClient(source.getDialectId(), {
+      allowEmpty: true
+    });
   }
   return "";
-}
-
-function resolveKnexClientId(dialectId) {
-  if (dialectId === "postgres") {
-    return "pg";
-  }
-  if (dialectId === "mysql") {
-    return "mysql2";
-  }
-  throw new Error(`Unsupported database dialect "${dialectId}".`);
 }
 
 function resolveRequiredEnvString(env, key) {
@@ -109,9 +93,11 @@ function resolveRegisteredDriver(scope) {
   }
 
   const env = resolveDatabaseEnv(scope);
-  const preferredClient = normalizeDatabaseClient(env.DB_CLIENT);
+  const preferredClient = normalizeDatabaseClient(env.DB_CLIENT, {
+    allowEmpty: true
+  });
   if (!preferredClient) {
-    throw new Error("Multiple database drivers are registered. Set DB_CLIENT to mysql or postgres, or keep exactly one database runtime driver package installed.");
+    throw new Error("Multiple database drivers are registered. Set DB_CLIENT to mysql2 or pg, or keep exactly one database runtime driver package installed.");
   }
 
   const matched = drivers.find((driver) => resolveDriverDialectId(driver) === preferredClient) || null;
@@ -142,7 +128,9 @@ function resolveSingleRegisteredDriver(scope) {
 
 function createKnexConfig(scope) {
   const env = resolveDatabaseEnv(scope);
-  const configuredClient = normalizeDatabaseClient(env.DB_CLIENT);
+  const configuredClient = normalizeDatabaseClient(env.DB_CLIENT, {
+    allowEmpty: true
+  });
   const driver = resolveRegisteredDriver(scope);
   const dialectId = resolveDriverDialectId(driver);
 
@@ -154,8 +142,8 @@ function createKnexConfig(scope) {
     throw new Error(`DB_CLIENT="${configuredClient}" does not match installed database driver "${dialectId}".`);
   }
 
-  const client = resolveKnexClientId(dialectId);
-  const defaultPort = dialectId === "postgres" ? 5432 : 3306;
+  const client = toKnexClientId(dialectId);
+  const defaultPort = dialectId === "pg" ? 5432 : 3306;
 
   return {
     client,
