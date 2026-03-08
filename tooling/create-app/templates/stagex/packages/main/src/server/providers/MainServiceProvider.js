@@ -1,4 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { config as publicConfig } from "../../../../../config/public.js";
+import { config as serverConfig } from "../../../../../config/server.js";
 import { ContactController } from "../controllers/ContactController.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
@@ -17,11 +19,16 @@ const CONTACT_CREATE_ACTION = "local.main.contacts.actions.create";
 const CONTACT_PREVIEW_ACTION = "local.main.contacts.actions.preview";
 const CONTACT_GET_BY_ID_ACTION = "local.main.contacts.actions.getById";
 const CONTACT_CONTROLLER = "local.main.contacts.controller";
+const appConfig = Object.freeze({
+  ...(publicConfig && typeof publicConfig === "object" ? publicConfig : {}),
+  ...(serverConfig && typeof serverConfig === "object" ? serverConfig : {})
+});
 
 class MainServiceProvider {
   static id = "local.main";
 
   register(app) {
+    app.instance("appConfig", appConfig);
     app.singleton(CONTACT_REPOSITORY, () => new InMemoryContactRepository());
     app.singleton(CONTACT_QUALIFICATION_SERVICE, () => new ContactQualificationService());
 

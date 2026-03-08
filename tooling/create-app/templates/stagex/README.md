@@ -15,7 +15,11 @@ npm run dev
 npm run server
 ```
 
-Surface configuration lives in `config/surfaces.js`.
+App configuration files:
+
+- `config/surfaces.js` for surface routing/runtime mode.
+- `config/public.js` for client-visible feature toggles.
+- `config/server.js` for server-only toggles/secrets wiring.
 
 Contact API routes:
 

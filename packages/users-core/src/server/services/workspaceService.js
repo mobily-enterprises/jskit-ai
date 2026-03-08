@@ -112,6 +112,22 @@ function hashInviteToken(token) {
   return createHash("sha256").update(normalizeText(token)).digest("hex");
 }
 
+function normalizeBoolean(value, fallback) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = normalizeLowerText(value);
+    if (normalized === "true") {
+      return true;
+    }
+    if (normalized === "false") {
+      return false;
+    }
+  }
+  return fallback;
+}
+
 function createService({
   appConfig = {},
   workspacesRepository,
@@ -140,6 +156,17 @@ function createService({
     assistantRequiredPermission: "",
     socialEnabled: false,
     socialFederationEnabled: false
+  });
+  const resolvedTenancyMode = normalizeLowerText(appConfig.tenancyMode) || "workspace";
+  const resolvedWorkspaceColor = coerceWorkspaceColor(appConfig.workspaceColor);
+  const resolvedAppFeatures = Object.freeze({
+    workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, defaultAppFeatures.workspaceSwitching),
+    workspaceInvites: normalizeBoolean(appConfig.workspaceInvites, defaultAppFeatures.workspaceInvites),
+    workspaceCreateEnabled: normalizeBoolean(appConfig.workspaceCreateEnabled, defaultAppFeatures.workspaceCreateEnabled),
+    assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, defaultAppFeatures.assistantEnabled),
+    assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
+    socialEnabled: normalizeBoolean(appConfig.socialEnabled, defaultAppFeatures.socialEnabled),
+    socialFederationEnabled: normalizeBoolean(appConfig.socialFederationEnabled, defaultAppFeatures.socialFederationEnabled)
   });
 
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
@@ -187,7 +214,7 @@ function createService({
         ownerUserId: normalizedUser.id,
         isPersonal: true,
         avatarUrl: "",
-        color: coerceWorkspaceColor(appConfig?.defaults?.workspaceColor)
+        color: resolvedWorkspaceColor
       },
       options
     );
@@ -272,8 +299,8 @@ function createService({
         },
         profile: null,
         app: {
-          tenancyMode: "workspace",
-          features: { ...defaultAppFeatures }
+          tenancyMode: resolvedTenancyMode,
+          features: { ...resolvedAppFeatures }
         },
         workspaces: [],
         pendingInvites: [],
@@ -313,11 +340,8 @@ function createService({
         }
       },
       app: {
-        tenancyMode: "workspace",
-        features: {
-          ...defaultAppFeatures,
-          ...(appConfig?.features && typeof appConfig.features === "object" ? appConfig.features : {})
-        }
+        tenancyMode: resolvedTenancyMode,
+        features: { ...resolvedAppFeatures }
       },
       workspaces: context.workspaces.map((workspace) =>
         mapWorkspaceSummary(workspace, {

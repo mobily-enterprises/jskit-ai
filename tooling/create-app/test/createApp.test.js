@@ -88,6 +88,10 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
     assert.match(surfacesConfig, /requiresAuth:\s*false/);
+    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
+    assert.match(publicConfig, /export const config = \{\};/);
+    const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
+    assert.match(serverConfig, /export const config = \{\};/);
 
     const serverJs = await readFile(path.join(appRoot, "server.js"), "utf8");
     assert.match(serverJs, /globalUiPaths:\s*runtime\?\.globalUiPaths\s*\|\|\s*\[\]/);
@@ -117,7 +121,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
-    assert.match(localMainServiceProvider, /register\(\)\s*\{\}/);
+    assert.match(localMainServiceProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
+    assert.match(localMainServiceProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
+    assert.match(localMainServiceProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainServiceProvider, /boot\(\)\s*\{\}/);
     assert.match(localMainServiceProvider, /src\/shared\/schemas/);
 
@@ -185,6 +191,9 @@ test("create-app scaffolds stagex with main service provider and contact routes"
     );
     assert.match(localMainProvider, /class MainServiceProvider/);
     assert.match(localMainProvider, /static id = "local\.main";/);
+    assert.match(localMainProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
+    assert.match(localMainProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
+    assert.match(localMainProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainProvider, /\/api\/v1\/contacts\/intake/);
     assert.match(localMainProvider, /\/api\/v1\/contacts\/preview-followup/);
     assert.match(localMainProvider, /\/api\/v1\/contacts\/:contactId/);

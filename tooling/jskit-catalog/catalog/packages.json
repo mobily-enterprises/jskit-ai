@@ -1275,6 +1275,28 @@
               "category": "migration",
               "id": "users-core-initial-schema"
             }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.tenancyMode =",
+              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+              "reason": "Append default public users/workspace feature toggles into app-owned config.",
+              "category": "users-core",
+              "id": "users-core-public-config"
+            },
+            {
+              "op": "append-text",
+              "file": "config/server.js",
+              "position": "bottom",
+              "skipIfContains": "config.workspaceColor =",
+              "value": "\nconfig.workspaceColor = \"indigo\";\n",
+              "reason": "Append default server-only users/workspace settings into app-owned config.",
+              "category": "users-core",
+              "id": "users-core-server-config"
+            }
           ]
         }
       }

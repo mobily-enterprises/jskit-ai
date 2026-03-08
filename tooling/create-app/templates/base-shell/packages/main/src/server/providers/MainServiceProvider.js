@@ -1,8 +1,18 @@
+import { config as publicConfig } from "../../../../../config/public.js";
+import { config as serverConfig } from "../../../../../config/server.js";
+
+const appConfig = Object.freeze({
+  ...(publicConfig && typeof publicConfig === "object" ? publicConfig : {}),
+  ...(serverConfig && typeof serverConfig === "object" ? serverConfig : {})
+});
+
 class MainServiceProvider {
   static id = "local.main";
 
   // Optional: register container bindings here (services/singletons).
-  register() {}
+  register(app) {
+    app.instance("appConfig", appConfig);
+  }
 
   // Start backend features here:
   // 1) define shared contracts in `src/shared/schemas`
