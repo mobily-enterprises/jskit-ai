@@ -1,4 +1,6 @@
 <script setup>
+import { onMounted } from "vue";
+
 const props = defineProps({
   label: {
     type: String,
@@ -12,6 +14,14 @@ const props = defineProps({
     type: String,
     default: ""
   }
+});
+
+onMounted(() => {
+  console.log("[auth-profile-menu-item-debug] mounted", {
+    label: props.label,
+    to: props.to,
+    icon: props.icon
+  });
 });
 </script>
 

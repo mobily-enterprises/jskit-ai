@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useWebPlacementContext, useWebPlacementRuntime } from "@jskit-ai/shell-web/client/placement";
 import {
   getAuthGuardState,
   refreshAuthGuardState
@@ -16,6 +16,7 @@ const props = defineProps({
 
 const authState = ref(getAuthGuardState());
 const { context: shellPlacementContext } = useWebPlacementContext();
+const placementRuntime = useWebPlacementRuntime();
 
 const shellUser = computed(() => {
   const user = shellPlacementContext.value?.user;
@@ -70,12 +71,47 @@ const placementContext = computed(() => {
 });
 
 async function refreshProfileState() {
-  authState.value = await refreshAuthGuardState();
+  console.log("[auth-profile-widget-debug] refreshProfileState:start", {
+    currentAuthState: authState.value
+  });
+  authState.value = await refreshAuthGuardState({
+    placementRuntime
+  });
+  console.log("[auth-profile-widget-debug] refreshProfileState:done", {
+    nextAuthState: authState.value
+  });
 }
 
 onMounted(() => {
+  console.log("[auth-profile-widget-debug] mounted", {
+    authState: authState.value,
+    shellContext: shellPlacementContext.value,
+    computedPlacementContext: placementContext.value
+  });
   void refreshProfileState();
 });
+
+watch(
+  authState,
+  (nextValue, previousValue) => {
+    console.log("[auth-profile-widget-debug] authState changed", {
+      previousValue,
+      nextValue
+    });
+  },
+  { deep: true }
+);
+
+watch(
+  shellPlacementContext,
+  (nextValue, previousValue) => {
+    console.log("[auth-profile-widget-debug] shellPlacementContext changed", {
+      previousValue,
+      nextValue
+    });
+  },
+  { deep: true }
+);
 </script>
 
 <template>

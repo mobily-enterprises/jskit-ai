@@ -47,11 +47,19 @@ onBeforeUnmount(() => {
 
 const placements = computed(() => {
   void revision.value;
-  return placementRuntime.getPlacements({
+  const resolved = placementRuntime.getPlacements({
     surface: props.surface,
     slot: props.placement,
     context: props.context
   });
+  console.log("[shell-outlet-debug] resolved placements", {
+    surface: props.surface,
+    placement: props.placement,
+    count: resolved.length,
+    ids: resolved.map((entry) => entry.id),
+    context: props.context
+  });
+  return resolved;
 });
 </script>
 

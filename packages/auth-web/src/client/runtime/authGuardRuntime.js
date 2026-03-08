@@ -11,6 +11,15 @@ const DEFAULT_AUTH_STATE = Object.freeze({
 
 let authState = DEFAULT_AUTH_STATE;
 let activePlacementRuntime = null;
+const AUTH_DEBUG_PREFIX = "[auth-debug]";
+
+function debugLog(message, payload = null) {
+  if (payload === null || payload === undefined) {
+    console.log(`${AUTH_DEBUG_PREFIX} ${message}`);
+    return;
+  }
+  console.log(`${AUTH_DEBUG_PREFIX} ${message}`, payload);
+}
 
 function asGlobalObject() {
   if (typeof globalThis !== "object" || !globalThis) {
@@ -77,9 +86,11 @@ function isPlacementRuntime(value) {
 function resolvePlacementRuntime(value = null) {
   if (isPlacementRuntime(value)) {
     activePlacementRuntime = value;
+    debugLog("resolvePlacementRuntime: using provided runtime instance.");
     return value;
   }
   if (isPlacementRuntime(activePlacementRuntime)) {
+    debugLog("resolvePlacementRuntime: using cached runtime instance.");
     return activePlacementRuntime;
   }
   throw new Error("Auth guard runtime requires a web placement runtime with getContext()/setContext().");
@@ -106,6 +117,13 @@ function applyAuthContext(nextState, placementRuntime) {
     delete nextContext.user;
   }
 
+  debugLog("applyAuthContext: writing placement context.", {
+    previousAuth: currentContext?.auth || null,
+    nextAuth: nextContext.auth,
+    previousUser: currentContext?.user || null,
+    nextUser: nextContext.user || null
+  });
+
   placementRuntime.setContext(nextContext, {
     replace: true,
     source: "auth-web"
@@ -113,6 +131,9 @@ function applyAuthContext(nextState, placementRuntime) {
 }
 
 async function readSessionState(sessionPath = DEFAULT_SESSION_PATH) {
+  debugLog("readSessionState: requesting session.", {
+    sessionPath
+  });
   try {
     const response = await fetch(sessionPath, {
       method: "GET",
@@ -122,13 +143,21 @@ async function readSessionState(sessionPath = DEFAULT_SESSION_PATH) {
       }
     });
 
+    debugLog("readSessionState: response status.", {
+      status: response.status,
+      ok: response.ok
+    });
+
     if (!response.ok) {
+      debugLog("readSessionState: non-ok response, using default auth state.");
       return DEFAULT_AUTH_STATE;
     }
 
     const payload = await response.json();
+    debugLog("readSessionState: response payload.", payload);
     return normalizeAuthState(payload);
   } catch {
+    debugLog("readSessionState: request failed, using default auth state.");
     return DEFAULT_AUTH_STATE;
   }
 }
@@ -172,6 +201,11 @@ function evaluateAuthGuard({ guard, context, loginRoute }) {
   }
 
   if (authState.authenticated) {
+    debugLog("evaluateAuthGuard: allow authenticated route.", {
+      guardPolicy,
+      authenticated: authState.authenticated,
+      pathname: context?.location?.pathname || ""
+    });
     return {
       allow: true,
       redirectTo: "",
@@ -179,9 +213,17 @@ function evaluateAuthGuard({ guard, context, loginRoute }) {
     };
   }
 
+  const redirectTo = toLoginRedirect(loginRoute, context);
+  debugLog("evaluateAuthGuard: deny route, redirecting to login.", {
+    guardPolicy,
+    authenticated: authState.authenticated,
+    pathname: context?.location?.pathname || "",
+    redirectTo
+  });
+
   return {
     allow: false,
-    redirectTo: toLoginRedirect(loginRoute, context),
+    redirectTo,
     reason: "auth-required"
   };
 }
@@ -206,14 +248,21 @@ async function initializeAuthGuardRuntime({
   loginRoute = DEFAULT_LOGIN_ROUTE,
   placementRuntime = null
 } = {}) {
+  debugLog("initializeAuthGuardRuntime: start.", {
+    sessionPath,
+    loginRoute
+  });
   const runtime = resolvePlacementRuntime(placementRuntime);
   authState = await readSessionState(sessionPath);
+  debugLog("initializeAuthGuardRuntime: normalized auth state.", authState);
   applyAuthContext(authState, runtime);
   installGuardEvaluator(loginRoute);
+  debugLog("initializeAuthGuardRuntime: complete.");
   return authState;
 }
 
 async function refreshAuthGuardState(options = {}) {
+  debugLog("refreshAuthGuardState: invoked.", options);
   return initializeAuthGuardRuntime(options);
 }
 

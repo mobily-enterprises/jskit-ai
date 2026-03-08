@@ -20,6 +20,16 @@ function ensureArray(value) {
   return [value];
 }
 
+const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
+
+function debugLog(message, payload = null) {
+  if (payload === null || payload === undefined) {
+    console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}`);
+    return;
+  }
+  console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}`, payload);
+}
+
 function createRuntimeLogger(logger) {
   const runtimeLogger = isRecord(logger) ? logger : null;
   return Object.freeze({
@@ -194,6 +204,10 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
   function notify(event = {}) {
     revision += 1;
+    debugLog("notify", {
+      revision,
+      event
+    });
     for (const listener of listeners) {
       try {
         listener(
@@ -218,6 +232,11 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     invalidComponentTokens.clear();
     failedTokens.clear();
     placementDefinitions = Object.freeze(normalizePlacementList(entries, { source }));
+    debugLog("replacePlacements", {
+      source,
+      count: placementDefinitions.length,
+      ids: placementDefinitions.map((entry) => entry.id)
+    });
     notify({
       type: "placements.replaced",
       source
@@ -238,6 +257,11 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
             ...next
           }
     );
+    debugLog("setContext", {
+      replace,
+      source,
+      keys: Object.keys(sharedContext)
+    });
     notify({
       type: "context.updated",
       source
@@ -290,15 +314,31 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       slot: normalizedSlot
     };
 
+    debugLog("getPlacements:start", {
+      surface: normalizedSurface,
+      slot: normalizedSlot,
+      contextKeys: Object.keys(baseContext),
+      sharedContextKeys: Object.keys(contextFromRuntime),
+      placementCount: placementDefinitions.length
+    });
+
     const matches = [];
     for (const placement of placementDefinitions) {
       if (placement.slot !== normalizedSlot) {
         continue;
       }
       if (!matchesSurface(placement.surface, normalizedSurface)) {
+        debugLog("getPlacements:skip-surface", {
+          placementId: placement.id,
+          placementSurface: placement.surface,
+          requestedSurface: normalizedSurface
+        });
         continue;
       }
       if (!shouldIncludePlacement(placement, placementContext, runtimeLogger)) {
+        debugLog("getPlacements:skip-when", {
+          placementId: placement.id
+        });
         continue;
       }
 
@@ -311,8 +351,18 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
         failedTokens
       );
       if (!component) {
+        debugLog("getPlacements:skip-component", {
+          placementId: placement.id,
+          componentToken: placement.componentToken
+        });
         continue;
       }
+
+      debugLog("getPlacements:include", {
+        placementId: placement.id,
+        componentToken: placement.componentToken,
+        order: placement.order
+      });
 
       matches.push(
         Object.freeze({
@@ -321,6 +371,12 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
         })
       );
     }
+
+    debugLog("getPlacements:done", {
+      surface: normalizedSurface,
+      slot: normalizedSlot,
+      resultIds: matches.map((entry) => entry.id)
+    });
 
     return Object.freeze(matches);
   }
