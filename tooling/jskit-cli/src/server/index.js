@@ -117,6 +117,9 @@ const LOCK_VERSION = 1;
 const OPTION_INTERPOLATION_PATTERN = /\$\{(?:option:)?([a-z][a-z0-9-]*)\}/gi;
 const MATERIALIZED_PACKAGE_ROOTS = new Map();
 const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
+const BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
+  "runtime.actions": Object.freeze(["@jskit-ai/kernel"])
+});
 const KNOWN_COMMANDS = new Set([
   "help",
   "create",
@@ -1822,6 +1825,13 @@ function buildCapabilityGraph(packageRegistry) {
     }
   }
 
+  for (const [capabilityId, providers] of Object.entries(BUILTIN_CAPABILITY_PROVIDERS)) {
+    const node = ensureNode(capabilityId);
+    for (const providerId of ensureArray(providers).map((value) => String(value || "").trim()).filter(Boolean)) {
+      node.providers.add(providerId);
+    }
+  }
+
   const normalizedGraph = new Map();
   for (const [capabilityId, node] of graph.entries()) {
     normalizedGraph.set(capabilityId, {
@@ -2866,6 +2876,15 @@ function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
   );
   const selectedPackageSet = new Set(selectedPackageIds);
   const providersByCapability = new Map();
+
+  for (const [capabilityId, providers] of Object.entries(BUILTIN_CAPABILITY_PROVIDERS)) {
+    if (!providersByCapability.has(capabilityId)) {
+      providersByCapability.set(capabilityId, new Set());
+    }
+    for (const providerId of ensureArray(providers).map((value) => String(value || "").trim()).filter(Boolean)) {
+      providersByCapability.get(capabilityId).add(providerId);
+    }
+  }
 
   for (const packageId of selectedPackageIds) {
     const packageEntry = packageRegistry.get(packageId);

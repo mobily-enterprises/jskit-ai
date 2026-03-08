@@ -1,5 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { registerActionContributor } from "@jskit-ai/action-runtime-core/server";
+import { registerActionContributor } from "@jskit-ai/kernel/server/actions";
 import * as usersShared from "../../shared/index.js";
 import { createRepository as createUserProfilesRepository } from "../repositories/userProfiles.repository.js";
 import { createRepository as createUserSettingsRepository } from "../repositories/userSettings.repository.js";

@@ -4,7 +4,7 @@ import {
   requireAuthenticated,
   requireServiceMethod,
   OBJECT_INPUT_SCHEMA
-} from "@jskit-ai/action-runtime-core/shared/actionContributorHelpers";
+} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;

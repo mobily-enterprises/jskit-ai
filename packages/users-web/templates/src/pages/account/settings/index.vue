@@ -9,6 +9,7 @@ export const routeMeta = {
 <script setup>
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useTheme } from "vuetify";
+import { useRoute } from "vue-router";
 import Uppy from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
 import ImageEditor from "@uppy/image-editor";
@@ -96,6 +97,25 @@ const client = createHttpClient({
     sessionPath: "/api/session"
   }
 });
+const route = useRoute();
+
+function normalizeReturnToPath(value, fallback = "/app") {
+  const source = Array.isArray(value) ? value[0] : value;
+  const rawValue = String(source || "").trim();
+  if (!rawValue || !rawValue.startsWith("/") || rawValue.startsWith("//")) {
+    return fallback;
+  }
+
+  const normalizedPathname =
+    rawValue.split("?")[0].split("#")[0].replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
+  if (normalizedPathname === "/account/settings") {
+    return fallback;
+  }
+
+  return rawValue;
+}
+
+const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "/app"));
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");
@@ -650,6 +670,9 @@ onBeforeUnmount(() => {
       <v-card-item>
         <v-card-title class="panel-title">Account settings</v-card-title>
         <v-card-subtitle>Global profile, preferences, and notification controls.</v-card-subtitle>
+        <template #append>
+          <v-btn variant="text" color="secondary" :to="backTarget">Back</v-btn>
+        </template>
       </v-card-item>
       <v-divider />
 

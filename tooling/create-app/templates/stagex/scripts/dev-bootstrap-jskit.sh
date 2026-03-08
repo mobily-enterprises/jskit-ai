@@ -4,20 +4,28 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_LOCAL_REPO_ROOT="$HOME/Development/current/jskit-ai"
 LOCAL_REPO_ROOT="${JSKIT_REPO_ROOT:-$DEFAULT_LOCAL_REPO_ROOT}"
+BOOTSTRAP_MODE_RAW="${JSKIT_DEV_BOOTSTRAP:-auto}"
+BOOTSTRAP_MODE="$(echo "$BOOTSTRAP_MODE_RAW" | tr '[:upper:]' '[:lower:]')"
 
 is_valid_jskit_repo_root() {
   local candidate_root="$1"
   [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
 }
 
-if [[ "${JSKIT_DEV_BOOTSTRAP:-0}" != "1" ]]; then
-  echo "[dev-bootstrap] skipped (set JSKIT_DEV_BOOTSTRAP=1 to enable)."
+if [[ "$BOOTSTRAP_MODE" == "0" || "$BOOTSTRAP_MODE" == "false" || "$BOOTSTRAP_MODE" == "off" ]]; then
+  echo "[dev-bootstrap] skipped (JSKIT_DEV_BOOTSTRAP disabled)."
   exit 0
 fi
 
 if is_valid_jskit_repo_root "$LOCAL_REPO_ROOT"; then
   echo "[dev-bootstrap] using local JSKIT repo: $LOCAL_REPO_ROOT"
   JSKIT_REPO_ROOT="$LOCAL_REPO_ROOT" bash "$APP_ROOT/scripts/verdaccio-reset-and-publish-packages.sh"
+  exit 0
+fi
+
+if [[ "$BOOTSTRAP_MODE" != "1" && "$BOOTSTRAP_MODE" != "true" && "$BOOTSTRAP_MODE" != "on" ]]; then
+  echo "[dev-bootstrap] skipped (no local JSKIT repo at $LOCAL_REPO_ROOT)."
+  echo "[dev-bootstrap] set JSKIT_DEV_BOOTSTRAP=1 and JSKIT_GITHUB_TARBALL_URL to force remote bootstrap."
   exit 0
 fi
 

@@ -5,7 +5,7 @@ import {
   resolveRequest,
   resolveUser,
   OBJECT_INPUT_SCHEMA
-} from "@jskit-ai/action-runtime-core/shared/actionContributorHelpers";
+} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 
 function createSettingsActionContributor({ settingsService } = {}) {
   const contributorId = "users.settings";

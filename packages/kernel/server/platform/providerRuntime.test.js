@@ -49,8 +49,9 @@ test("createProviderRuntimeFromApp loads app local providers from src/server/pro
     assert.deepEqual(runtime.providerPackageOrder, []);
     assert.equal(runtime.appLocalProviderOrder.length, 1);
     assert.equal(runtime.appLocalProviderOrder[0], "app:src/server/providers/AlphaProvider.js");
-    assert.deepEqual(runtime.diagnostics.providerOrder, ["app.alpha"]);
+    assert.deepEqual(runtime.diagnostics.providerOrder, ["app.alpha", "runtime.actions"]);
     assert.equal(runtime.app.make("app.alpha.value"), 42);
+    assert.equal(typeof runtime.app.make("actionExecutor")?.execute, "function");
   } finally {
     await rm(appRoot, { recursive: true, force: true });
   }

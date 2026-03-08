@@ -1,7 +1,7 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
-import { registerActionContributor } from "@jskit-ai/action-runtime-core/server";
+import { registerActionContributor } from "@jskit-ai/kernel/server/actions";
 
 function splitCsv(value) {
   return String(value || "")

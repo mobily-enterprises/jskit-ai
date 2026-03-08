@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { OBJECT_INPUT_SCHEMA, allowPublic } from "../../shared/actions/actionContributorHelpers.js";
 import {
-  resolveActionContributors,
+  ActionRuntimeServiceProvider,
   registerActionContributor,
-  ActionRuntimeCoreServiceProvider
-} from "../src/server/providers/ActionRuntimeCoreServiceProvider.js";
-import { ActionRuntimeCoreClientProvider } from "../src/client/providers/ActionRuntimeCoreClientProvider.js";
-import { OBJECT_INPUT_SCHEMA, allowPublic } from "../src/shared/actionContributorHelpers.js";
+  registerActionContextContributor,
+  resolveActionContributors,
+  resolveActionContextContributors
+} from "./ActionRuntimeServiceProvider.js";
 
 function createSingletonApp() {
   const singletons = new Map();
@@ -59,19 +60,23 @@ function createSingletonApp() {
   };
 }
 
-test("ActionRuntimeCoreServiceProvider registers runtime actions api", () => {
+test("ActionRuntimeServiceProvider registers runtime actions api and action executor", () => {
   const app = createSingletonApp();
-  const provider = new ActionRuntimeCoreServiceProvider();
+  const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
   assert.equal(app.singletons.has("runtime.actions"), true);
+  assert.equal(app.singletons.has("actionRegistry"), true);
+  assert.equal(app.singletons.has("actionExecutor"), true);
+
   const api = app.make("runtime.actions");
   assert.equal(typeof api.createActionRegistry, "function");
+  assert.equal(typeof app.make("actionExecutor")?.execute, "function");
 });
 
-test("ActionRuntimeCoreServiceProvider builds actionExecutor from registered contributors", async () => {
+test("ActionRuntimeServiceProvider builds actionExecutor from registered contributors", async () => {
   const app = createSingletonApp();
-  const provider = new ActionRuntimeCoreServiceProvider();
+  const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
   registerActionContributor(app, "test.actionContributor", () => ({
@@ -121,12 +126,25 @@ test("registerActionContributor + resolveActionContributors provide canonical co
   );
 });
 
-test("ActionRuntimeCoreClientProvider registers runtime actions client api", () => {
+test("registerActionContextContributor + resolveActionContextContributors provide context contributor wiring", () => {
   const app = createSingletonApp();
-  const provider = new ActionRuntimeCoreClientProvider();
-  provider.register(app);
 
-  assert.equal(app.singletons.has("runtime.actions.client"), true);
-  const api = app.make("runtime.actions.client");
-  assert.equal(typeof api.createActionRegistry, "function");
+  registerActionContextContributor(app, "test.actionContextContributor.alpha", () => ({
+    contributorId: "alpha",
+    contribute() {
+      return { actor: null };
+    }
+  }));
+  registerActionContextContributor(app, "test.actionContextContributor.beta", () => ({
+    contributorId: "beta",
+    contribute() {
+      return { permissions: [] };
+    }
+  }));
+
+  const contributors = resolveActionContextContributors(app);
+  assert.deepEqual(
+    contributors.map((entry) => entry.contributorId).sort(),
+    ["alpha", "beta"]
+  );
 });

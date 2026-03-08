@@ -1,31 +1,6 @@
 {
   "lockVersion": 1,
   "installedPackages": {
-    "@jskit-ai/action-runtime-core": {
-      "packageId": "@jskit-ai/action-runtime-core",
-      "version": "0.1.0",
-      "source": {
-        "type": "packages-directory",
-        "descriptorPath": "packages/action-runtime-core/package.descriptor.mjs"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@jskit-ai/action-runtime-core": {
-              "hadPrevious": false,
-              "previousValue": "",
-              "value": "0.1.0"
-            }
-          },
-          "devDependencies": {},
-          "scripts": {}
-        },
-        "text": {},
-        "files": []
-      },
-      "options": {},
-      "installedAt": "2026-03-03T04:55:22.231Z"
-    },
     "@jskit-ai/auth-provider-supabase-core": {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
       "version": "0.1.0",

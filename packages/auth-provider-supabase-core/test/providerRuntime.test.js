@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/server/kernel";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { ActionRuntimeCoreServiceProvider } from "@jskit-ai/action-runtime-core/server";
+import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
 test("auth supabase provider registers authService and contributes auth actions", async () => {
@@ -21,7 +21,7 @@ test("auth supabase provider registers authService and contributes auth actions"
   });
 
   await app.start({
-    providers: [ActionRuntimeCoreServiceProvider, AuthSupabaseServiceProvider]
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
   });
 
   const authService = app.make("authService");

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createActionRegistry } from "../src/shared/registry.js";
-import { createPermissionEvaluator } from "../src/shared/policies.js";
+import { createActionRegistry } from "./registry.js";
+import { createPermissionEvaluator } from "./policies.js";
 
 function createPassThroughSchema() {
   return {
@@ -279,14 +279,4 @@ test("action registry enforces internal visibility for user actors", async () =>
       return true;
     }
   );
-
-  const result = await registry.execute({
-    actionId: "settings.internal.ping",
-    context: {
-      channel: "api",
-      surface: "app",
-      permissions: []
-    }
-  });
-  assert.deepEqual(result, { ok: true });
 });

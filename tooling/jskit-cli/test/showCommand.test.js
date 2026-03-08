@@ -108,16 +108,16 @@ test("show package --json includes exports, container bindings, and exported sym
 test("show package --json includes symbol summaries for direct export files", () => {
   const result = runCli({
     cwd: path.resolve(path.dirname(CLI_PATH), ".."),
-    args: ["show", "action-runtime-core", "--json"]
+    args: ["show", "auth-provider-supabase-core", "--json"]
   });
 
   assert.equal(result.status, 0, String(result.stderr || ""));
   const payload = JSON.parse(String(result.stdout || "{}"));
   const exportedSymbols = Array.isArray(payload.exportedSymbols) ? payload.exportedSymbols : [];
   const providerExport = exportedSymbols.find(
-    (record) => record && record.file === "src/client/providers/ActionRuntimeCoreClientProvider.js"
+    (record) => record && record.file === "src/server/providers/AuthSupabaseServiceProvider.js"
   );
   assert.ok(providerExport);
   const symbols = Array.isArray(providerExport.symbols) ? providerExport.symbols : [];
-  assert.ok(symbols.includes("ActionRuntimeCoreClientProvider"));
+  assert.ok(symbols.includes("AuthSupabaseServiceProvider"));
 });

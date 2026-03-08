@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
+import { registerActionContextContributor } from "../../actions/ActionRuntimeServiceProvider.js";
 import { createApplication } from "../../kernel/lib/index.js";
 import { createRouter } from "./router.js";
 import { createHttpRuntime, registerHttpRuntime, registerRoutes } from "./kernel.js";
@@ -89,10 +90,22 @@ test("registerRoutes attaches request scope and request context tokens", async (
   assert.equal(observed.handlerRequestId, "req-123");
 });
 
-test("registerRoutes attaches request.executeAction with request-derived action context", async () => {
+test("registerRoutes attaches request.executeAction and applies action context contributors", async () => {
   const fastify = createFastifyStub();
   const app = createApplication();
   const observed = [];
+
+  registerActionContextContributor(app, "test.auth.actionContextContributor", () => ({
+    contributorId: "test.auth",
+    contribute({ request }) {
+      return {
+        actor: request?.user || null,
+        permissions: Array.isArray(request?.permissions) ? request.permissions.slice() : [],
+        workspace: request?.workspace || null,
+        membership: request?.membership || null
+      };
+    }
+  }));
 
   app.instance("actionExecutor", {
     async execute(payload) {

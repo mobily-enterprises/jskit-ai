@@ -7,7 +7,7 @@ import {
   resolveWorkspace,
   allowPublic,
   OBJECT_INPUT_SCHEMA
-} from "@jskit-ai/action-runtime-core/shared/actionContributorHelpers";
+} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 
 function hasPermission(permissionSet, permission) {
   const requiredPermission = String(permission || "").trim();

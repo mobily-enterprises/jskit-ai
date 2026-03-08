@@ -1,6 +1,7 @@
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
+import { resolveActionContextContributors } from "../../actions/ActionRuntimeServiceProvider.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
 
@@ -293,11 +294,6 @@ function attachRequestScope({
   return scope;
 }
 
-function normalizePermissions(value) {
-  const source = Array.isArray(value) ? value : [];
-  return source.map((entry) => normalizeText(entry)).filter(Boolean);
-}
-
 function resolveRequestPathname(request) {
   const rawPathname = normalizeText(request?.raw?.url || request?.url || "/");
   const noHash = rawPathname.split("#")[0] || "/";
@@ -340,23 +336,81 @@ function buildActionExecutionContext({ request = null, context = {}, channel = "
     }
   };
 
-  if (!Object.prototype.hasOwnProperty.call(source, "actor")) {
-    resolvedContext.actor = request?.user || null;
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(source, "workspace")) {
-    resolvedContext.workspace = request?.workspace || null;
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(source, "membership")) {
-    resolvedContext.membership = request?.membership || null;
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(source, "permissions")) {
-    resolvedContext.permissions = normalizePermissions(request?.permissions);
-  }
-
   return resolvedContext;
+}
+
+function applyActionContextContributionDefaults(targetContext, contribution) {
+  const patch = normalizeObject(contribution);
+  if (Object.keys(patch).length < 1) {
+    return targetContext;
+  }
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "requestMeta") {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(targetContext, key)) {
+      continue;
+    }
+    targetContext[key] = value;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "requestMeta")) {
+    const targetRequestMeta = normalizeObject(targetContext.requestMeta);
+    const patchRequestMeta = normalizeObject(patch.requestMeta);
+    for (const [key, value] of Object.entries(patchRequestMeta)) {
+      if (Object.prototype.hasOwnProperty.call(targetRequestMeta, key)) {
+        continue;
+      }
+      targetRequestMeta[key] = value;
+    }
+    targetContext.requestMeta = targetRequestMeta;
+  }
+
+  return targetContext;
+}
+
+async function enrichActionExecutionContext({
+  resolutionScope = null,
+  request = null,
+  actionId = "",
+  version = null,
+  input = {},
+  deps = {},
+  channel = "api",
+  baseContext = {}
+} = {}) {
+  const contributors = resolveActionContextContributors(resolutionScope);
+  if (contributors.length < 1) {
+    return baseContext;
+  }
+
+  const normalizedActionId = normalizeText(actionId);
+  const normalizedChannel = normalizeText(channel).toLowerCase() || "api";
+  const normalizedInput = normalizeObject(input);
+  const normalizedDeps = normalizeObject(deps);
+  const mutableContext = normalizeObject(baseContext);
+
+  for (const contributor of contributors) {
+    if (!contributor || typeof contributor.contribute !== "function") {
+      continue;
+    }
+
+    const contribution = await contributor.contribute({
+      request,
+      actionId: normalizedActionId,
+      version: version == null ? null : version,
+      input: normalizedInput,
+      deps: normalizedDeps,
+      channel: normalizedChannel,
+      surface: mutableContext.surface,
+      context: { ...mutableContext }
+    });
+
+    applyActionContextContributionDefaults(mutableContext, contribution);
+  }
+
+  return mutableContext;
 }
 
 function resolveActionExecutorScope({ app = null, request = null, requestScopeProperty = "scope" } = {}) {
@@ -408,6 +462,9 @@ function attachRequestActionExecutor({
 
   const executeAction = async (payload = {}) => {
     const source = normalizeObject(payload);
+    const normalizedInput = normalizeObject(source.input);
+    const normalizedDeps = normalizeObject(source.deps);
+    const normalizedChannel = normalizeText(source.channel || normalizedDefaultChannel).toLowerCase() || normalizedDefaultChannel;
     const resolutionScope = resolveActionExecutorScope({
       app,
       request,
@@ -426,16 +483,28 @@ function attachRequestActionExecutor({
       throw new RouteRegistrationError(`"${normalizedActionExecutorToken}" must provide execute().`);
     }
 
+    const baseContext = buildActionExecutionContext({
+      request,
+      context: normalizeObject(source.context),
+      channel: normalizedChannel
+    });
+    const executionContext = await enrichActionExecutionContext({
+      resolutionScope,
+      request,
+      actionId: source.actionId,
+      version: source.version == null ? null : source.version,
+      input: normalizedInput,
+      deps: normalizedDeps,
+      channel: normalizedChannel,
+      baseContext
+    });
+
     return actionExecutor.execute({
       actionId: source.actionId,
       version: source.version == null ? null : source.version,
-      input: normalizeObject(source.input),
-      context: buildActionExecutionContext({
-        request,
-        context: normalizeObject(source.context),
-        channel: normalizeText(source.channel || normalizedDefaultChannel).toLowerCase() || normalizedDefaultChannel
-      }),
-      deps: normalizeObject(source.deps)
+      input: normalizedInput,
+      context: executionContext,
+      deps: normalizedDeps
     });
   };
 

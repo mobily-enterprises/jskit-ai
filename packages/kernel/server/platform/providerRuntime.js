@@ -1,10 +1,15 @@
 import { access, constants as fsConstants, readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { ActionRuntimeServiceProvider } from "../actions/ActionRuntimeServiceProvider.js";
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { readLockFromApp } from "../runtime/lib/lockfile.js";
+
+const KERNEL_BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
+  "runtime.actions": Object.freeze(["@jskit-ai/kernel"])
+});
 
 function isIdentifier(value) {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(value || ""));
@@ -170,20 +175,34 @@ function resolveDescriptorLoadOrder(descriptorEntries) {
   return ordered;
 }
 
-function validateDescriptorCapabilities(descriptorEntries) {
+function registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId) {
+  const normalizedCapabilityId = String(capabilityId || "").trim();
+  const normalizedProviderPackageId = String(providerPackageId || "").trim();
+  if (!normalizedCapabilityId || !normalizedProviderPackageId) {
+    return;
+  }
+
+  if (!providersByCapability.has(normalizedCapabilityId)) {
+    providersByCapability.set(normalizedCapabilityId, new Set());
+  }
+  providersByCapability.get(normalizedCapabilityId).add(normalizedProviderPackageId);
+}
+
+function validateDescriptorCapabilities(descriptorEntries, { builtinProvidersByCapability = {} } = {}) {
   const providersByCapability = new Map();
   for (const descriptorEntry of descriptorEntries) {
     for (const capabilityId of Array.isArray(descriptorEntry.descriptor?.capabilities?.provides)
       ? descriptorEntry.descriptor.capabilities.provides
       : []) {
-      const normalizedCapabilityId = String(capabilityId || "").trim();
-      if (!normalizedCapabilityId) {
-        continue;
-      }
-      if (!providersByCapability.has(normalizedCapabilityId)) {
-        providersByCapability.set(normalizedCapabilityId, new Set());
-      }
-      providersByCapability.get(normalizedCapabilityId).add(descriptorEntry.packageId);
+      registerCapabilityProvider(providersByCapability, capabilityId, descriptorEntry.packageId);
+    }
+  }
+
+  for (const [capabilityId, providerPackageIds] of Object.entries(
+    builtinProvidersByCapability && typeof builtinProvidersByCapability === "object" ? builtinProvidersByCapability : {}
+  )) {
+    for (const providerPackageId of Array.isArray(providerPackageIds) ? providerPackageIds : [providerPackageIds]) {
+      registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId);
     }
   }
 
@@ -565,7 +584,9 @@ async function createProviderRuntimeFromApp({
     appRoot,
     lock
   });
-  validateDescriptorCapabilities(descriptors);
+  validateDescriptorCapabilities(descriptors, {
+    builtinProvidersByCapability: KERNEL_BUILTIN_CAPABILITY_PROVIDERS
+  });
   const orderedDescriptors = resolveDescriptorLoadOrder(descriptors);
   const catalog = Object.freeze({
     packageOrder: Object.freeze(orderedDescriptors.map((entry) => entry.packageId)),
@@ -592,6 +613,15 @@ async function createProviderRuntimeFromApp({
         orderedProviderClasses
       });
     }
+  }
+
+  if (!seenProviderIds.has(ActionRuntimeServiceProvider.id)) {
+    registerProviderClass({
+      providerClass: ActionRuntimeServiceProvider,
+      sourceId: "@jskit-ai/kernel",
+      seenProviderIds,
+      orderedProviderClasses
+    });
   }
 
   const appLocalProviders = await loadAppLocalProviders({ appRoot });

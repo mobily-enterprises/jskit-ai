@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",
-    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/kernel": "0.1.0",
     "jose": "^6.1.0",
     "@supabase/supabase-js": "^2.57.4"

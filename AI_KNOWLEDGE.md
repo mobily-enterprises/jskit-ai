@@ -45,7 +45,6 @@ Primary references:
   - `/packages/kernel`
 - Runtime capability packages:
   - `/packages/auth-core`
-  - `/packages/action-runtime-core`
   - `/packages/auth-provider-supabase-core`
   - `/packages/auth-web`
   - `/packages/http-runtime`
@@ -186,8 +185,9 @@ References:
 
 - `auth-core`: auth access utilities + RBAC manifest model + Fastify auth policy runtime.
   - `/packages/auth-core/src/server/*`
-- `action-runtime-core`: action registry/contracts/pipeline/policies/idempotency/audit.
-  - `/packages/action-runtime-core/src/shared/*`
+- `kernel` also owns the action runtime (registry/contracts/pipeline/policies/idempotency/audit + runtime.actions provider + action context contributors).
+  - `/packages/kernel/shared/actions/*`
+  - `/packages/kernel/server/actions/*`
 - `auth-provider-supabase-core`: supabase auth service + auth action contributor.
   - `/packages/auth-provider-supabase-core/src/server/*`
 - `auth-web`: auth HTTP routes/controllers + client auth UI/runtime.

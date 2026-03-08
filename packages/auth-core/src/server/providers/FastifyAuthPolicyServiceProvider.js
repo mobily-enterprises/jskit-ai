@@ -1,5 +1,9 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
 import { authPolicyPlugin } from "../lib/plugin.js";
+import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
+
+const AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN = "auth.policy.actionContextContributor";
 
 function parseBoolean(value, fallback = false) {
   const raw = String(value || "").trim().toLowerCase();
@@ -37,6 +41,16 @@ class FastifyAuthPolicyServiceProvider {
   register(app) {
     if (!app || typeof app.has !== "function") {
       throw new Error("FastifyAuthPolicyServiceProvider requires application has().");
+    }
+
+    if (
+      !app.has(AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN) &&
+      typeof app.singleton === "function" &&
+      typeof app.tag === "function"
+    ) {
+      registerActionContextContributor(app, AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN, () =>
+        createAuthActionContextContributor()
+      );
     }
   }
 

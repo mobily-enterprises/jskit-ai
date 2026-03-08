@@ -25,7 +25,6 @@ export default Object.freeze({
   },
   "dependsOn": [
     "@jskit-ai/auth-core",
-    "@jskit-ai/action-runtime-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -81,7 +80,6 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@jskit-ai/auth-core": "0.1.0",
-        "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "dotenv": "^16.4.5",
         "@supabase/supabase-js": "^2.57.4",
