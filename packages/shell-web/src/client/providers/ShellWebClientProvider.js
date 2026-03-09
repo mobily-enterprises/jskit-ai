@@ -3,6 +3,7 @@ import {
   CLIENT_MODULE_VUE_APP_TOKEN
 } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   WEB_PLACEMENT_RUNTIME_INJECTION_KEY
@@ -13,6 +14,18 @@ import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
 const SURFACE_CONTEXT_SOURCE = "shell-web.surface-config";
+const SHELL_WEB_QUERY_CLIENT_TOKEN = "shell.web.query-client";
+
+function createShellWebQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: 1
+      }
+    }
+  });
+}
 
 function createProviderLogger(app) {
   return Object.freeze({
@@ -80,6 +93,7 @@ class ShellWebClientProvider {
 
     const logger = createProviderLogger(app);
     app.singleton(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
+    app.singleton(SHELL_WEB_QUERY_CLIENT_TOKEN, () => createShellWebQueryClient());
   }
 
   async boot(app) {
@@ -111,12 +125,18 @@ class ShellWebClientProvider {
     }
 
     const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
-    if (!vueApp || typeof vueApp.provide !== "function") {
+    if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
       return;
     }
 
+    vueApp.use(VueQueryPlugin, {
+      queryClient: app.make(SHELL_WEB_QUERY_CLIENT_TOKEN)
+    });
     vueApp.provide(WEB_PLACEMENT_RUNTIME_INJECTION_KEY, runtime);
   }
 }
 
-export { ShellWebClientProvider };
+export {
+  ShellWebClientProvider,
+  SHELL_WEB_QUERY_CLIENT_TOKEN
+};

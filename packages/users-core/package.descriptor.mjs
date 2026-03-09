@@ -63,7 +63,8 @@ export default Object.freeze({
       runtime: {
         "@jskit-ai/auth-core": "0.1.0",
         "@jskit-ai/database-runtime": "0.1.0",
-        "@jskit-ai/kernel": "0.1.0"
+        "@jskit-ai/kernel": "0.1.0",
+        "typebox": "^1.0.81"
       },
       dev: {}
     },

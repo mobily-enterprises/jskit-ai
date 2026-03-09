@@ -1,16 +1,29 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed } from "vue";
+import { useQuery } from "@tanstack/vue-query";
 
-const health = ref("loading...");
-
-onMounted(async () => {
-  try {
+const healthQuery = useQuery({
+  queryKey: ["shell-web", "health"],
+  queryFn: async () => {
     const response = await fetch("/api/v1/health");
-    const payload = await response.json();
-    health.value = payload?.ok ? "ok" : "unhealthy";
-  } catch {
-    health.value = "unreachable";
+    if (!response.ok) {
+      throw new Error("Health request failed.");
+    }
+    return response.json();
+  },
+  refetchOnWindowFocus: false
+});
+
+const health = computed(() => {
+  if (healthQuery.isPending.value || healthQuery.isFetching.value) {
+    return "loading...";
   }
+
+  if (healthQuery.error.value) {
+    return "unreachable";
+  }
+
+  return healthQuery.data.value?.ok ? "ok" : "unhealthy";
 });
 </script>
 

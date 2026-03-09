@@ -10,6 +10,7 @@ import {
   DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 } from "../../shared/settings.js";
+import { parseWorkspaceSettingsPatch } from "../../shared/workspaceSettingsPatch.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -23,72 +24,8 @@ function normalizeEmail(value) {
   return normalizeLowerText(value);
 }
 
-const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function isRecord(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeWorkspaceAvatarUrl(value) {
-  const trimmed = normalizeText(value);
-  if (!trimmed) {
-    return "";
-  }
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(trimmed);
-  } catch {
-    return null;
-  }
-
-  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    return null;
-  }
-
-  return parsedUrl.toString();
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-  return null;
-}
-
-function normalizeDenyEmails(value) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const normalized = [];
-  for (const rawEmail of value) {
-    const email = normalizeEmail(rawEmail);
-    if (!email || !BASIC_EMAIL_PATTERN.test(email)) {
-      return null;
-    }
-    normalized.push(email);
-  }
-
-  return Array.from(new Set(normalized));
-}
-
-function normalizeDenyUserIds(value) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const normalized = [];
-  for (const rawUserId of value) {
-    const numericUserId = Number(rawUserId);
-    if (!Number.isInteger(numericUserId) || numericUserId < 1) {
-      return null;
-    }
-    normalized.push(numericUserId);
-  }
-
-  return Array.from(new Set(normalized));
 }
 
 function normalizeWorkspaceFeatures(features) {
@@ -163,74 +100,6 @@ function mapInviteSummary(invite) {
     status: normalizeLowerText(invite.status || "pending") || "pending",
     expiresAt: invite.expiresAt,
     invitedByUserId: invite.invitedByUserId == null ? null : Number(invite.invitedByUserId)
-  };
-}
-
-function parseWorkspaceSettingsPatch(payload = {}) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const workspacePatch = {};
-  const settingsPatch = {};
-  const fieldErrors = {};
-
-  if (Object.hasOwn(source, "name")) {
-    const name = normalizeText(source.name);
-    if (!name) {
-      fieldErrors.name = "Workspace name is required.";
-    } else if (name.length > 160) {
-      fieldErrors.name = "Workspace name must be at most 160 characters.";
-    } else {
-      workspacePatch.name = name;
-    }
-  }
-
-  if (Object.hasOwn(source, "avatarUrl")) {
-    const avatarUrl = normalizeWorkspaceAvatarUrl(source.avatarUrl);
-    if (avatarUrl === null) {
-      fieldErrors.avatarUrl = "Workspace avatar URL must be a valid absolute URL (http:// or https://).";
-    } else {
-      workspacePatch.avatarUrl = avatarUrl;
-    }
-  }
-
-  if (Object.hasOwn(source, "color")) {
-    const color = normalizeWorkspaceColor(source.color);
-    if (!color) {
-      fieldErrors.color = "Workspace color must be a hex color like #0F6B54.";
-    } else {
-      workspacePatch.color = color;
-    }
-  }
-
-  if (Object.hasOwn(source, "invitesEnabled")) {
-    if (typeof source.invitesEnabled !== "boolean") {
-      fieldErrors.invitesEnabled = "invitesEnabled must be a boolean.";
-    } else {
-      settingsPatch.invitesEnabled = source.invitesEnabled;
-    }
-  }
-
-  if (Object.hasOwn(source, "appDenyEmails")) {
-    const denyEmails = normalizeDenyEmails(source.appDenyEmails);
-    if (!denyEmails) {
-      fieldErrors.appDenyEmails = "appDenyEmails must be an array of valid email addresses.";
-    } else {
-      settingsPatch.appDenyEmails = denyEmails;
-    }
-  }
-
-  if (Object.hasOwn(source, "appDenyUserIds")) {
-    const denyUserIds = normalizeDenyUserIds(source.appDenyUserIds);
-    if (!denyUserIds) {
-      fieldErrors.appDenyUserIds = "appDenyUserIds must be an array of positive integers.";
-    } else {
-      settingsPatch.appDenyUserIds = denyUserIds;
-    }
-  }
-
-  return {
-    workspacePatch,
-    settingsPatch,
-    fieldErrors
   };
 }
 

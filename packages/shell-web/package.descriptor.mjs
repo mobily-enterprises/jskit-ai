@@ -73,6 +73,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@tanstack/vue-query": "^5.90.5",
         "@jskit-ai/kernel": "0.1.0",
         "vuetify": "^4.0.0"
       },

@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
+import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import {
   useWebPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -9,28 +9,41 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
+import {
+  usersWebHttpClient,
+  useUsersWebBootstrapQuery,
+  normalizeWorkspaceList
+} from "@jskit-ai/users-web/client";
 
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
-
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
+const queryClient = useQueryClient();
+const bootstrapQuery = useUsersWebBootstrapQuery({
+  workspaceSlug: "",
+  enabled: true
+});
+const redeemInviteMutation = useMutation({
+  mutationFn: ({ token, decision }) =>
+    usersWebHttpClient.request("/api/workspace/invitations/redeem", {
+      method: "POST",
+      body: {
+        token,
+        decision
+      }
+    })
 });
 
 const message = ref("");
 const messageType = ref("error");
 const selectingWorkspaceSlug = ref("");
-const isBootstrapping = ref(true);
 const inviteAction = ref({
   token: "",
   decision: ""
 });
 const workspaceItems = ref([]);
 const pendingInvites = ref([]);
+const isBootstrapping = computed(() => Boolean(bootstrapQuery.query.isPending.value || bootstrapQuery.query.isFetching.value));
 
 function resolveCurrentPathname() {
   const routePath = String(route?.path || "").trim();
@@ -58,28 +71,6 @@ const workspaceSurfaceId = computed(() => {
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(placementContext.value, surfaceId);
   return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
 });
-
-function normalizeWorkspace(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = Number(entry.id);
-  const slug = String(entry.slug || "").trim();
-  if (!Number.isInteger(id) || id < 1 || !slug) {
-    return null;
-  }
-
-  return {
-    id,
-    slug,
-    name: String(entry.name || slug).trim() || slug,
-    color: String(entry.color || "").trim(),
-    avatarUrl: String(entry.avatarUrl || "").trim(),
-    roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
-    isAccessible: entry.isAccessible !== false
-  };
-}
 
 function normalizePendingInvite(entry) {
   if (!entry || typeof entry !== "object") {
@@ -184,15 +175,15 @@ async function respondToInvite(invite, decision) {
   message.value = "";
 
   try {
-    const response = await client.request("/api/workspace/invitations/redeem", {
-      method: "POST",
-      body: {
-        token,
-        decision: normalizedDecision
-      }
+    const response = await redeemInviteMutation.mutateAsync({
+      token,
+      decision: normalizedDecision
     });
 
     pendingInvites.value = pendingInvites.value.filter((entry) => entry.token !== token);
+    await queryClient.invalidateQueries({
+      queryKey: bootstrapQuery.queryKey.value
+    });
 
     if (normalizedDecision === "accept") {
       const nextWorkspaceSlug = String(response?.workspace?.slug || invite.workspaceSlug || "").trim();
@@ -217,39 +208,6 @@ async function respondToInvite(invite, decision) {
   }
 }
 
-async function loadWorkspaceView() {
-  isBootstrapping.value = true;
-
-  try {
-    const payload = await client.request("/api/bootstrap", {
-      method: "GET"
-    });
-
-    if (!payload?.session?.authenticated) {
-      await router.replace("/auth/login");
-      return;
-    }
-
-    workspaceItems.value = (Array.isArray(payload?.workspaces) ? payload.workspaces : [])
-      .map(normalizeWorkspace)
-      .filter(Boolean);
-
-    pendingInvites.value = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-      .map(normalizePendingInvite)
-      .filter(Boolean);
-
-    if (workspaceItems.value.length === 1 && pendingInvites.value.length < 1) {
-      await openWorkspace(workspaceItems.value[0].slug);
-      return;
-    }
-  } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to load workspaces.");
-  } finally {
-    isBootstrapping.value = false;
-  }
-}
-
 function acceptInvite(invite) {
   return respondToInvite(invite, "accept");
 }
@@ -258,9 +216,42 @@ function refuseInvite(invite) {
   return respondToInvite(invite, "refuse");
 }
 
-onMounted(() => {
-  void loadWorkspaceView();
-});
+watch(
+  () => bootstrapQuery.query.data.value,
+  async (payload) => {
+    if (!payload) {
+      return;
+    }
+
+    if (!payload?.session?.authenticated) {
+      await router.replace("/auth/login");
+      return;
+    }
+
+    workspaceItems.value = normalizeWorkspaceList(payload?.workspaces);
+    pendingInvites.value = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
+      .map(normalizePendingInvite)
+      .filter(Boolean);
+
+    if (workspaceItems.value.length === 1 && pendingInvites.value.length < 1) {
+      await openWorkspace(workspaceItems.value[0].slug);
+    }
+  },
+  {
+    immediate: true
+  }
+);
+
+watch(
+  () => bootstrapQuery.query.error.value,
+  (nextError) => {
+    if (!nextError) {
+      return;
+    }
+    messageType.value = "error";
+    message.value = String(nextError?.message || "Unable to load workspaces.");
+  }
+);
 </script>
 
 <template>

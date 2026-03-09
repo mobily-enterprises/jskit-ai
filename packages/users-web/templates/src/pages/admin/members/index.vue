@@ -19,29 +19,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
+import { computed, reactive, ref, watch } from "vue";
 import {
-  extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  useWebPlacementContext
-} from "@jskit-ai/shell-web/client/placement";
-import { MembersAdminClientElement } from "@jskit-ai/users-web/client";
-
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
-
-const route = useRoute();
-const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
-
-const loadError = ref("");
-const permissions = ref([]);
+  MembersAdminClientElement,
+  USERS_WEB_QUERY_KEYS,
+  useUsersWebEndpointResource,
+  useUsersWebListResource,
+  useUsersWebUiFeedback,
+  useUsersWebWorkspaceAccess,
+  useUsersWebWorkspaceRouteContext,
+  usersWebHttpClient
+} from "@jskit-ai/users-web/client";
 
 const forms = reactive({
   invite: {
@@ -71,56 +59,62 @@ const collections = reactive({
   invites: []
 });
 
-const feedback = reactive({
-  inviteMessage: "",
-  inviteMessageType: "success",
-  membersMessage: "",
-  membersMessageType: "success",
-  teamMessage: "",
-  teamMessageType: "success",
-  revokeInviteId: 0
+const inviteFeedback = useUsersWebUiFeedback();
+const membersFeedback = useUsersWebUiFeedback();
+const teamFeedback = useUsersWebUiFeedback();
+const revokeInviteId = ref(0);
+const feedback = Object.freeze({
+  inviteMessage: inviteFeedback.message,
+  inviteMessageType: inviteFeedback.messageType,
+  membersMessage: membersFeedback.message,
+  membersMessageType: membersFeedback.messageType,
+  teamMessage: teamFeedback.message,
+  teamMessageType: teamFeedback.messageType,
+  revokeInviteId
 });
 
-const status = reactive({
-  isCreatingInvite: false,
-  isRevokingInvite: false,
-  hasLoadedWorkspaceSettings: false,
-  hasLoadedMembersList: false,
-  hasLoadedInviteList: false
-});
+const { route, currentSurfaceId, workspaceSlugFromRoute, resolveWorkspaceApiPath, mergePlacementContext } =
+  useUsersWebWorkspaceRouteContext();
 
-const currentSurfaceId = computed(() => {
-  return resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path);
-});
-
-const workspaceSlugFromRoute = computed(() => {
-  const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
-    placementContext.value,
-    currentSurfaceId.value,
-    route.path
-  );
-  return String(workspaceSlug || "").trim();
-});
-
+const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceSettingsApiPath = computed(() => resolveWorkspaceApiPath("/settings"));
 const workspaceRolesApiPath = computed(() => resolveWorkspaceApiPath("/roles"));
 const workspaceMembersApiPath = computed(() => resolveWorkspaceApiPath("/members"));
 const workspaceInvitesApiPath = computed(() => resolveWorkspaceApiPath("/invites"));
 
+const workspaceSettingsQueryKey = computed(() =>
+  USERS_WEB_QUERY_KEYS.workspaceSettings(currentSurfaceId.value, workspaceSlugFromRoute.value)
+);
+const workspaceRolesQueryKey = computed(() =>
+  USERS_WEB_QUERY_KEYS.workspaceRoles(currentSurfaceId.value, workspaceSlugFromRoute.value)
+);
+const workspaceMembersQueryKey = computed(() =>
+  USERS_WEB_QUERY_KEYS.workspaceMembers(currentSurfaceId.value, workspaceSlugFromRoute.value)
+);
+const workspaceInvitesQueryKey = computed(() =>
+  USERS_WEB_QUERY_KEYS.workspaceInvites(currentSurfaceId.value, workspaceSlugFromRoute.value)
+);
+const access = useUsersWebWorkspaceAccess({
+  workspaceSlug: workspaceSlugFromRoute,
+  enabled: hasRouteWorkspaceSlug,
+  mergePlacementContext,
+  placementSource: "users-web.workspace-members-view"
+});
+
 const canViewMembers = computed(() => {
-  return hasPermission(permissions.value, "workspace.members.view") || hasPermission(permissions.value, "workspace.members.manage");
+  return access.canAny(["workspace.members.view", "workspace.members.manage"]);
 });
 
 const canInviteMembers = computed(() => {
-  return hasPermission(permissions.value, "workspace.members.invite");
+  return access.can("workspace.members.invite");
 });
 
 const canManageMembers = computed(() => {
-  return hasPermission(permissions.value, "workspace.members.manage");
+  return access.can("workspace.members.manage");
 });
 
 const canRevokeInvites = computed(() => {
-  return hasPermission(permissions.value, "workspace.invites.revoke");
+  return access.can("workspace.invites.revoke");
 });
 
 const permissionState = computed(() => {
@@ -132,64 +126,27 @@ const permissionState = computed(() => {
   };
 });
 
-const actions = Object.freeze({
-  submitInvite,
-  submitRevokeInvite,
-  submitMemberRoleUpdate
-});
-
-function normalizePermissionList(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      values
-        .map((entry) => String(entry || "").trim())
-        .filter(Boolean)
-    )
-  );
-}
-
-function hasPermission(permissionList, permission) {
-  const requiredPermission = String(permission || "").trim();
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const normalizedPermissions = Array.isArray(permissionList) ? permissionList : [];
-  return normalizedPermissions.includes("*") || normalizedPermissions.includes(requiredPermission);
-}
-
-function resolveWorkspaceApiPath(workspaceSuffix = "") {
-  const surfaceId = currentSurfaceId.value;
-  const workspaceSlug = workspaceSlugFromRoute.value;
-  const suffix = String(workspaceSuffix || "");
-
-  if (!surfaceId || !workspaceSlug) {
-    return "";
-  }
-
-  return resolveSurfaceApiPathFromPlacementContext(
-    placementContext.value,
-    surfaceId,
-    `/w/${workspaceSlug}/workspace${suffix}`
-  );
-}
-
 function resetMessages() {
-  feedback.inviteMessage = "";
-  feedback.inviteMessageType = "success";
-  feedback.membersMessage = "";
-  feedback.membersMessageType = "success";
-  feedback.teamMessage = "";
-  feedback.teamMessageType = "success";
+  inviteFeedback.clear();
+  membersFeedback.clear();
+  teamFeedback.clear();
 }
 
 function clearRoleOptions() {
   options.inviteRoleOptions = [];
   options.memberRoleOptions = [];
+}
+
+function resetViewState() {
+  resetMessages();
+  forms.invite.email = "";
+  forms.invite.roleId = "member";
+  forms.workspace.invitesEnabled = false;
+  forms.workspace.invitesAvailable = false;
+  collections.members = [];
+  collections.invites = [];
+  clearRoleOptions();
+  revokeInviteId.value = 0;
 }
 
 function toRoleTitle(roleId) {
@@ -291,260 +248,309 @@ function normalizeInvites(entries) {
   });
 }
 
-function applyShellPermissions(permissionList) {
-  mergePlacementContext(
-    {
-      permissions: permissionList
-    },
-    "users-web.workspace-members-view"
-  );
+function latestPage(pages) {
+  if (!Array.isArray(pages) || pages.length < 1) {
+    return null;
+  }
+
+  return pages[pages.length - 1];
 }
 
-async function refreshPermissions() {
-  const workspaceSlug = workspaceSlugFromRoute.value;
-  const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
-
-  const payload = await client.request(`/api/bootstrap${queryString}`, {
-    method: "GET"
-  });
-
-  const nextPermissions = normalizePermissionList(payload?.permissions);
-  permissions.value = nextPermissions;
-  applyShellPermissions(nextPermissions);
+function applyWorkspaceSettingsPolicy(payload = {}) {
+  const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+  forms.workspace.invitesEnabled = settings.invitesEnabled !== false;
+  forms.workspace.invitesAvailable = settings.invitesAvailable !== false;
 }
 
-async function loadWorkspaceSettingsPolicy() {
-  status.hasLoadedWorkspaceSettings = false;
+const workspaceSettingsResource = useUsersWebEndpointResource({
+  queryKey: workspaceSettingsQueryKey,
+  path: workspaceSettingsApiPath,
+  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceSettingsApiPath.value) && canInviteMembers.value),
+  client: usersWebHttpClient,
+  fallbackLoadError: "Unable to load workspace settings."
+});
 
-  try {
-    const apiPath = workspaceSettingsApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace settings API path is not available.");
+const workspaceRolesResource = useUsersWebEndpointResource({
+  queryKey: workspaceRolesQueryKey,
+  path: workspaceRolesApiPath,
+  enabled: computed(
+    () =>
+      hasRouteWorkspaceSlug.value &&
+      Boolean(workspaceRolesApiPath.value) &&
+      (canViewMembers.value || canInviteMembers.value || canManageMembers.value)
+  ),
+  client: usersWebHttpClient,
+  fallbackLoadError: "Unable to load workspace roles."
+});
+
+const workspaceMembersList = useUsersWebListResource({
+  queryKey: workspaceMembersQueryKey,
+  path: workspaceMembersApiPath,
+  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceMembersApiPath.value) && canViewMembers.value),
+  client: usersWebHttpClient,
+  selectItems: (payload) => normalizeMembers(payload?.members),
+  getNextPageParam: (payload) => payload?.nextCursor ?? null,
+  fallbackLoadError: "Unable to load workspace members."
+});
+
+const workspaceInvitesList = useUsersWebListResource({
+  queryKey: workspaceInvitesQueryKey,
+  path: workspaceInvitesApiPath,
+  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceInvitesApiPath.value) && canViewMembers.value),
+  client: usersWebHttpClient,
+  selectItems: (payload) => normalizeInvites(payload?.invites),
+  getNextPageParam: (payload) => payload?.nextCursor ?? null,
+  fallbackLoadError: "Unable to load workspace invites."
+});
+
+const inviteCreateAction = useUsersWebEndpointResource({
+  path: workspaceInvitesApiPath,
+  enabled: false,
+  client: usersWebHttpClient,
+  writeMethod: "POST",
+  fallbackSaveError: "Unable to send invite."
+});
+
+const revokeInviteAction = useUsersWebEndpointResource({
+  path: workspaceInvitesApiPath,
+  enabled: false,
+  client: usersWebHttpClient,
+  writeMethod: "DELETE",
+  fallbackSaveError: "Unable to revoke invite."
+});
+
+const memberRoleAction = useUsersWebEndpointResource({
+  path: workspaceMembersApiPath,
+  enabled: false,
+  client: usersWebHttpClient,
+  writeMethod: "PATCH",
+  fallbackSaveError: "Unable to update member role."
+});
+
+const status = computed(() => {
+  return {
+    isCreatingInvite: Boolean(inviteCreateAction.isSaving.value),
+    isRevokingInvite: Boolean(revokeInviteAction.isSaving.value),
+    hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsResource.isLoading.value,
+    hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isLoading.value,
+    hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isLoading.value
+  };
+});
+
+const loadError = computed(() => {
+  if (!hasRouteWorkspaceSlug.value) {
+    return "Workspace slug is required in the URL.";
+  }
+
+  return access.bootstrapError.value;
+});
+
+const actions = Object.freeze({
+  submitInvite,
+  submitRevokeInvite,
+  submitMemberRoleUpdate
+});
+
+watch(
+  () => `${currentSurfaceId.value}:${workspaceSlugFromRoute.value}`,
+  () => {
+    resetViewState();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => workspaceSettingsResource.data.value,
+  (payload) => {
+    if (!payload) {
+      return;
     }
+    applyWorkspaceSettingsPolicy(payload);
+  },
+  { immediate: true }
+);
 
-    const payload = await client.request(apiPath, {
-      method: "GET"
-    });
-
-    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    forms.workspace.invitesEnabled = settings.invitesEnabled !== false;
-    forms.workspace.invitesAvailable = settings.invitesAvailable !== false;
-  } catch {
+watch(
+  () => workspaceSettingsResource.loadError.value,
+  (nextLoadError) => {
+    if (!nextLoadError) {
+      return;
+    }
     forms.workspace.invitesEnabled = false;
     forms.workspace.invitesAvailable = false;
-  } finally {
-    status.hasLoadedWorkspaceSettings = true;
   }
-}
+);
 
-async function loadRoleCatalog() {
-  const apiPath = workspaceRolesApiPath.value;
-  if (!apiPath) {
+watch(
+  () => workspaceRolesResource.data.value,
+  (payload) => {
+    if (!payload) {
+      return;
+    }
+    applyRoleCatalog(payload);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => workspaceRolesResource.loadError.value,
+  (nextLoadError) => {
+    if (!nextLoadError) {
+      return;
+    }
     clearRoleOptions();
-    return;
   }
+);
 
-  try {
-    const payload = await client.request(apiPath, {
-      method: "GET"
-    });
-    applyRoleCatalog(payload);
-  } catch {
-    clearRoleOptions();
-  }
-}
+watch(
+  () => workspaceMembersList.items.value,
+  (nextMembers) => {
+    collections.members = Array.isArray(nextMembers) ? [...nextMembers] : [];
+  },
+  { immediate: true }
+);
 
-async function loadMembersList() {
-  status.hasLoadedMembersList = false;
-
-  try {
-    const apiPath = workspaceMembersApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace members API path is not available.");
+watch(
+  () => workspaceMembersList.pages.value,
+  (pages) => {
+    const payload = latestPage(pages);
+    if (!payload) {
+      return;
     }
-
-    const payload = await client.request(apiPath, {
-      method: "GET"
-    });
-
-    collections.members = normalizeMembers(payload?.members);
     applyRoleCatalog(payload);
-  } catch (error) {
-    collections.members = [];
-    feedback.membersMessageType = "error";
-    feedback.membersMessage = String(error?.message || "Unable to load workspace members.").trim();
-  } finally {
-    status.hasLoadedMembersList = true;
-  }
-}
+  },
+  { immediate: true }
+);
 
-async function loadInvitesList() {
-  status.hasLoadedInviteList = false;
-
-  try {
-    const apiPath = workspaceInvitesApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace invites API path is not available.");
+watch(
+  () => workspaceMembersList.loadError.value,
+  (nextLoadError) => {
+    if (!nextLoadError) {
+      membersFeedback.clear();
+      return;
     }
+    membersFeedback.error(null, nextLoadError);
+  }
+);
 
-    const payload = await client.request(apiPath, {
-      method: "GET"
-    });
+watch(
+  () => workspaceInvitesList.items.value,
+  (nextInvites) => {
+    collections.invites = Array.isArray(nextInvites) ? [...nextInvites] : [];
+  },
+  { immediate: true }
+);
 
-    collections.invites = normalizeInvites(payload?.invites);
+watch(
+  () => workspaceInvitesList.pages.value,
+  (pages) => {
+    const payload = latestPage(pages);
+    if (!payload) {
+      return;
+    }
     applyRoleCatalog(payload);
-  } catch (error) {
-    collections.invites = [];
-    feedback.teamMessageType = "error";
-    feedback.teamMessage = String(error?.message || "Unable to load workspace invites.").trim();
-  } finally {
-    status.hasLoadedInviteList = true;
-  }
-}
+  },
+  { immediate: true }
+);
 
-async function loadMembersPage() {
-  resetMessages();
-  loadError.value = "";
-  collections.members = [];
-  collections.invites = [];
-  clearRoleOptions();
-  forms.invite.email = "";
-  forms.invite.roleId = "member";
-  feedback.revokeInviteId = 0;
-
-  try {
-    if (!workspaceSlugFromRoute.value) {
-      throw new Error("Workspace slug is required in the URL.");
+watch(
+  () => workspaceInvitesList.loadError.value,
+  (nextLoadError) => {
+    if (!nextLoadError) {
+      teamFeedback.clear();
+      return;
     }
-
-    await refreshPermissions();
-    await Promise.all([
-      loadWorkspaceSettingsPolicy(),
-      loadRoleCatalog(),
-      loadMembersList(),
-      loadInvitesList()
-    ]);
-  } catch (error) {
-    loadError.value = String(error?.message || "Unable to load workspace members.").trim();
-    status.hasLoadedWorkspaceSettings = true;
-    status.hasLoadedMembersList = true;
-    status.hasLoadedInviteList = true;
+    teamFeedback.error(null, nextLoadError);
   }
-}
+);
+
+watch(
+  () => route.fullPath,
+  () => {
+    resetMessages();
+  }
+);
 
 async function submitInvite() {
-  if (status.isCreatingInvite) {
+  if (inviteCreateAction.isSaving.value || !canInviteMembers.value) {
     return;
   }
 
-  status.isCreatingInvite = true;
-  feedback.inviteMessage = "";
-  feedback.inviteMessageType = "success";
+  inviteFeedback.clear();
 
   try {
-    const apiPath = workspaceInvitesApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace invite API path is not available.");
-    }
-
-    const payload = await client.request(apiPath, {
-      method: "POST",
-      body: {
-        email: forms.invite.email,
-        roleId: forms.invite.roleId
-      }
+    await inviteCreateAction.save({
+      email: forms.invite.email,
+      roleId: forms.invite.roleId
     });
-
-    collections.invites = normalizeInvites(payload?.invites);
-    applyRoleCatalog(payload);
     forms.invite.email = "";
-
-    feedback.inviteMessageType = "success";
-    feedback.inviteMessage = "Invite sent.";
+    await Promise.all([
+      workspaceInvitesList.reload(),
+      workspaceRolesResource.reload()
+    ]);
+    inviteFeedback.success("Invite sent.");
   } catch (error) {
-    feedback.inviteMessageType = "error";
-    feedback.inviteMessage = String(error?.message || "Unable to send invite.").trim();
-  } finally {
-    status.isCreatingInvite = false;
+    inviteFeedback.error(error, "Unable to send invite.");
   }
 }
 
 async function submitRevokeInvite(inviteId) {
-  if (status.isRevokingInvite) {
+  if (revokeInviteAction.isSaving.value || !canRevokeInvites.value) {
     return;
   }
 
-  status.isRevokingInvite = true;
-  feedback.revokeInviteId = Number(inviteId || 0);
-  feedback.teamMessage = "";
-  feedback.teamMessageType = "success";
+  revokeInviteId.value = Number(inviteId || 0);
+  teamFeedback.clear();
 
   try {
-    const apiPath = workspaceInvitesApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace invite API path is not available.");
-    }
-
+    const invitePath = String(workspaceInvitesApiPath.value || "").trim();
     const encodedInviteId = encodeURIComponent(String(inviteId || ""));
-    const payload = await client.request(`${apiPath}/${encodedInviteId}`, {
-      method: "DELETE"
+    await revokeInviteAction.save(undefined, {
+      method: "DELETE",
+      path: `${invitePath}/${encodedInviteId}`
     });
-
-    collections.invites = normalizeInvites(payload?.invites);
-    applyRoleCatalog(payload);
-
-    feedback.teamMessageType = "success";
-    feedback.teamMessage = "Invite revoked.";
+    await Promise.all([
+      workspaceInvitesList.reload(),
+      workspaceRolesResource.reload()
+    ]);
+    teamFeedback.success("Invite revoked.");
   } catch (error) {
-    feedback.teamMessageType = "error";
-    feedback.teamMessage = String(error?.message || "Unable to revoke invite.").trim();
+    teamFeedback.error(error, "Unable to revoke invite.");
   } finally {
-    status.isRevokingInvite = false;
-    feedback.revokeInviteId = 0;
+    revokeInviteId.value = 0;
   }
 }
 
 async function submitMemberRoleUpdate(member, roleId) {
-  feedback.membersMessage = "";
-  feedback.membersMessageType = "success";
+  if (!canManageMembers.value) {
+    return;
+  }
+
+  membersFeedback.clear();
 
   try {
-    const apiPath = workspaceMembersApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace members API path is not available.");
-    }
-
     const memberUserId = Number(member?.userId || 0);
     if (!Number.isInteger(memberUserId) || memberUserId < 1) {
       throw new Error("Member user id is invalid.");
     }
 
-    const payload = await client.request(`${apiPath}/${memberUserId}/role`, {
-      method: "PATCH",
-      body: {
+    const membersPath = String(workspaceMembersApiPath.value || "").trim();
+    await memberRoleAction.save(
+      {
         roleId: String(roleId || "").trim().toLowerCase()
+      },
+      {
+        method: "PATCH",
+        path: `${membersPath}/${memberUserId}/role`
       }
-    });
-
-    collections.members = normalizeMembers(payload?.members);
-    applyRoleCatalog(payload);
-
-    feedback.membersMessageType = "success";
-    feedback.membersMessage = "Member role updated.";
+    );
+    await Promise.all([
+      workspaceMembersList.reload(),
+      workspaceRolesResource.reload()
+    ]);
+    membersFeedback.success("Member role updated.");
   } catch (error) {
-    feedback.membersMessageType = "error";
-    feedback.membersMessage = String(error?.message || "Unable to update member role.").trim();
+    membersFeedback.error(error, "Unable to update member role.");
   }
 }
-
-onMounted(() => {
-  void loadMembersPage();
-});
-
-watch(
-  () => route.fullPath,
-  () => {
-    void loadMembersPage();
-  }
-);
 </script>

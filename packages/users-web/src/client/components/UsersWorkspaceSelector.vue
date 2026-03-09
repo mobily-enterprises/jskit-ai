@@ -1,7 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
   useWebPlacementContext,
   TENANCY_MODE_NONE,
@@ -10,6 +9,9 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
+import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
+import { normalizePermissionList } from "../lib/permissions.js";
+import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
 
 const props = defineProps({
   surface: {
@@ -26,19 +28,8 @@ const props = defineProps({
   }
 });
 
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
-
-const loading = ref(false);
 const navigatingToWorkspace = ref("");
 const errorMessage = ref("");
-const authenticated = ref(false);
-const activeWorkspace = ref(null);
-const workspaces = ref([]);
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
@@ -77,51 +68,6 @@ const currentFullPath = computed(() => {
   return resolveBrowserFullPath();
 });
 
-function normalizeWorkspace(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = Number(entry.id);
-  const slug = String(entry.slug || "").trim();
-  if (!Number.isInteger(id) || id < 1 || !slug) {
-    return null;
-  }
-
-  return Object.freeze({
-    id,
-    slug,
-    name: String(entry.name || slug).trim() || slug,
-    color: String(entry.color || "").trim(),
-    avatarUrl: String(entry.avatarUrl || "").trim()
-  });
-}
-
-function normalizeWorkspaces(list) {
-  const source = Array.isArray(list) ? list : [];
-  return source.map(normalizeWorkspace).filter(Boolean);
-}
-
-function normalizePermissions(list) {
-  const source = Array.isArray(list) ? list : [];
-  return source.map((entry) => String(entry || "").trim()).filter(Boolean);
-}
-
-function findWorkspaceBySlug(list, slug) {
-  const normalizedSlug = String(slug || "").trim();
-  if (!normalizedSlug) {
-    return null;
-  }
-
-  for (const workspace of list) {
-    if (workspace.slug === normalizedSlug) {
-      return workspace;
-    }
-  }
-
-  return null;
-}
-
 function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, permissions }) {
   mergePlacementContext(
     {
@@ -151,57 +97,24 @@ const workspaceSwitchSurfaceId = computed(() => {
 
 const routeWorkspaceSlug = computed(() => {
   return String(
-      extractWorkspaceSlugFromSurfacePathname(
-        placementContext.value,
-        currentSurfaceId.value,
-        currentPath.value
-      ) || ""
+    extractWorkspaceSlugFromSurfacePathname(
+      placementContext.value,
+      currentSurfaceId.value,
+      currentPath.value
+    ) || ""
   ).trim();
 });
 
-function resolveBootstrapApiPath() {
-  const workspaceSlug = routeWorkspaceSlug.value;
-  if (!workspaceSlug) {
-    return "/api/bootstrap";
-  }
+const bootstrapQuery = useUsersWebBootstrapQuery({
+  workspaceSlug: routeWorkspaceSlug,
+  enabled: true
+});
 
-  const query = new URLSearchParams({
-    workspaceSlug
-  });
-  return `/api/bootstrap?${query.toString()}`;
-}
-
-async function refreshWorkspaceState() {
-  loading.value = true;
-  errorMessage.value = "";
-
-  try {
-    const payload = await client.request(resolveBootstrapApiPath(), {
-      method: "GET"
-    });
-
-    authenticated.value = Boolean(payload?.session?.authenticated);
-    const availableWorkspaces = normalizeWorkspaces(payload?.workspaces);
-    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, routeWorkspaceSlug.value);
-    const permissions = normalizePermissions(payload?.permissions);
-
-    workspaces.value = availableWorkspaces;
-    activeWorkspace.value = currentWorkspace;
-
-    applyShellWorkspaceContext({
-      currentWorkspace,
-      availableWorkspaces,
-      permissions
-    });
-  } catch (error) {
-    const message = String(error?.message || "").trim();
-    if (message) {
-      errorMessage.value = message;
-    }
-  } finally {
-    loading.value = false;
-  }
-}
+const loading = computed(() => Boolean(bootstrapQuery.query.isPending.value || bootstrapQuery.query.isFetching.value));
+const authenticated = computed(() => Boolean(bootstrapQuery.query.data.value?.session?.authenticated));
+const workspaces = computed(() => normalizeWorkspaceList(bootstrapQuery.query.data.value?.workspaces));
+const activeWorkspace = computed(() => findWorkspaceBySlug(workspaces.value, routeWorkspaceSlug.value));
+const permissions = computed(() => normalizePermissionList(bootstrapQuery.query.data.value?.permissions));
 
 async function navigateToWorkspace(slug) {
   const normalizedSlug = String(slug || "").trim();
@@ -240,9 +153,6 @@ async function navigateToWorkspace(slug) {
         throw new Error("Router is unavailable.");
       }
     }
-
-    const nextWorkspace = findWorkspaceBySlug(workspaces.value, normalizedSlug);
-    activeWorkspace.value = nextWorkspace;
   } catch (error) {
     const message = String(error?.message || "Unable to switch workspace.").trim();
     errorMessage.value = message;
@@ -278,7 +188,7 @@ const isVisible = computed(
 );
 
 const activeWorkspaceLabel = computed(() => {
-  const active = activeWorkspace.value;
+  const active = activeWorkspace.value || null;
   if (active?.name) {
     return active.name;
   }
@@ -286,15 +196,41 @@ const activeWorkspaceLabel = computed(() => {
 });
 
 watch(
-  () => currentFullPath.value,
-  () => {
-    void refreshWorkspaceState();
+  () => bootstrapQuery.query.data.value,
+  (payload) => {
+    const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
+    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, routeWorkspaceSlug.value);
+    applyShellWorkspaceContext({
+      currentWorkspace,
+      availableWorkspaces,
+      permissions: normalizePermissionList(payload?.permissions)
+    });
+  },
+  {
+    immediate: true
   }
 );
 
-onMounted(() => {
-  void refreshWorkspaceState();
-});
+watch(
+  () => bootstrapQuery.query.error.value,
+  (nextError) => {
+    if (!nextError) {
+      return;
+    }
+    const message = String(nextError?.message || "").trim();
+    if (message) {
+      errorMessage.value = message;
+    }
+  }
+);
+
+watch(
+  () => currentFullPath.value,
+  () => {
+    void bootstrapQuery.query.refetch();
+  }
+);
+
 </script>
 
 <template>

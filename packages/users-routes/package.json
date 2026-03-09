@@ -16,6 +16,7 @@
     "./server/routes/settingsRoutes": "./src/server/routes/settingsRoutes.js",
     "./server/routes/consoleSettingsRoutes": "./src/server/routes/consoleSettingsRoutes.js",
     "./server/schema/workspaceSchema": "./src/server/schema/workspaceSchema.js",
+    "./shared/schema/workspaceSchema": "./src/shared/schema/workspaceSchema.js",
     "./server/schema/settingsSchema": "./src/server/schema/settingsSchema.js",
     "./server/schema/consoleSettingsSchema": "./src/server/schema/consoleSettingsSchema.js"
   },

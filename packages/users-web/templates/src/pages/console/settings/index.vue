@@ -47,83 +47,74 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
-
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
+import { computed, reactive, watch } from "vue";
+import {
+  USERS_WEB_QUERY_KEYS,
+  useUsersWebAccess,
+  useUsersWebEndpointResource,
+  useUsersWebUiFeedback,
+  usersWebHttpClient
+} from "@jskit-ai/users-web/client";
 
 const form = reactive({
   assistantSystemPromptWorkspace: ""
 });
-const error = ref("");
-const message = ref("");
-const messageType = ref("success");
-const loading = ref(false);
-const saving = ref(false);
-
-const isLoading = computed(() => loading.value === true);
-const isSaving = computed(() => saving.value === true);
+const queryKey = USERS_WEB_QUERY_KEYS.consoleSettings();
+const access = useUsersWebAccess({
+  workspaceSlug: "",
+  enabled: true
+});
+const feedback = useUsersWebUiFeedback();
+const message = feedback.message;
+const messageType = feedback.messageType;
 const canManageSettings = computed(() => true);
+const settingsResource = useUsersWebEndpointResource({
+  queryKey,
+  path: "/api/console/settings",
+  enabled: true,
+  client: usersWebHttpClient,
+  writeMethod: "PATCH",
+  fallbackLoadError: "Unable to load console settings.",
+  fallbackSaveError: "Unable to update console settings."
+});
+const error = computed(() => access.bootstrapError.value || settingsResource.loadError.value);
+const isLoading = computed(() => Boolean(settingsResource.isLoading.value || access.isBootstrapping.value));
+const isSaving = settingsResource.isSaving;
+
+watch(
+  () => settingsResource.data.value,
+  (payload) => {
+    if (!payload) {
+      return;
+    }
+    applySettingsData(payload);
+  },
+  {
+    immediate: true
+  }
+);
 
 function applySettingsData(data) {
   const settings = data?.settings && typeof data.settings === "object" ? data.settings : {};
   form.assistantSystemPromptWorkspace = String(settings.assistantSystemPromptWorkspace || "");
 }
 
-async function loadSettings() {
-  loading.value = true;
-  error.value = "";
-
-  try {
-    const data = await client.request("/api/console/settings", {
-      method: "GET"
-    });
-
-    applySettingsData(data);
-  } catch (requestError) {
-    error.value = String(requestError?.message || "Unable to load console settings.");
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function submitSettings() {
-  if (!canManageSettings.value || saving.value) {
+  if (!canManageSettings.value || isSaving.value) {
     return;
   }
 
-  message.value = "";
-  saving.value = true;
-
+  feedback.clear();
   try {
-    const payload = {
+    const payload = await settingsResource.save({
       assistantSystemPromptWorkspace: form.assistantSystemPromptWorkspace
-    };
-
-    const data = await client.request("/api/console/settings", {
-      method: "PATCH",
-      body: payload
     });
-
-    applySettingsData(data);
-    messageType.value = "success";
-    message.value = "Console settings updated.";
+    applySettingsData(payload);
+    feedback.success("Console settings updated.");
   } catch (requestError) {
-    messageType.value = "error";
-    message.value = String(requestError?.message || "Unable to update console settings.");
-  } finally {
-    saving.value = false;
+    feedback.error(requestError, "Unable to update console settings.");
   }
 }
-
-onMounted(() => {
-  void loadSettings();
-});
 </script>
 
 <style scoped>

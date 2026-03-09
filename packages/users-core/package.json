@@ -25,11 +25,13 @@
     "./server/repositories/consoleSettings": "./src/server/repositories/consoleSettings.repository.js",
     "./shared": "./src/shared/index.js",
     "./shared/roles": "./src/shared/roles.js",
-    "./shared/settings": "./src/shared/settings.js"
+    "./shared/settings": "./src/shared/settings.js",
+    "./shared/workspaceSettingsPatch": "./src/shared/workspaceSettingsPatch.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",
     "@jskit-ai/database-runtime": "0.1.0",
-    "@jskit-ai/kernel": "0.1.0"
+    "@jskit-ai/kernel": "0.1.0",
+    "typebox": "^1.0.81"
   }
 }

@@ -7,16 +7,16 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-          {{ loadError }}
+        <v-alert v-if="addEdit.loadError" type="error" variant="tonal" class="mb-4">
+          {{ addEdit.loadError }}
         </v-alert>
 
-        <v-alert v-else-if="!canViewWorkspaceSettings" type="warning" variant="tonal" class="mb-4">
+        <v-alert v-else-if="!addEdit.canView" type="warning" variant="tonal" class="mb-4">
           You do not have permission to view workspace settings.
         </v-alert>
 
         <template v-else>
-          <v-form @submit.prevent="submitWorkspaceSettings" novalidate>
+          <v-form @submit.prevent="addEdit.submit" novalidate>
             <v-row>
               <v-col cols="12" md="5">
                 <v-text-field
@@ -24,8 +24,8 @@
                   label="Workspace name"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!canManageWorkspaceSettings || saving"
-                  :error-messages="fieldErrors.name ? [fieldErrors.name] : []"
+                  :readonly="!addEdit.canSave || addEdit.isSaving"
+                  :error-messages="addEdit.fieldErrors.name ? [addEdit.fieldErrors.name] : []"
                 />
               </v-col>
 
@@ -36,8 +36,8 @@
                   type="color"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!canManageWorkspaceSettings || saving"
-                  :error-messages="fieldErrors.color ? [fieldErrors.color] : []"
+                  :readonly="!addEdit.canSave || addEdit.isSaving"
+                  :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
                 />
               </v-col>
 
@@ -47,11 +47,11 @@
                   label="Workspace avatar URL"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!canManageWorkspaceSettings || saving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving"
                   placeholder="https://..."
                   hint="Optional"
                   persistent-hint
-                  :error-messages="fieldErrors.avatarUrl ? [fieldErrors.avatarUrl] : []"
+                  :error-messages="addEdit.fieldErrors.avatarUrl ? [addEdit.fieldErrors.avatarUrl] : []"
                 />
               </v-col>
 
@@ -61,7 +61,7 @@
                   color="primary"
                   hide-details
                   label="Enable invites"
-                  :disabled="!canManageWorkspaceSettings || !workspaceForm.invitesAvailable || saving"
+                  :disabled="!addEdit.canSave || !workspaceForm.invitesAvailable || addEdit.isSaving"
                 />
               </v-col>
 
@@ -71,12 +71,12 @@
                   label="App surface deny list (emails)"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!canManageWorkspaceSettings || saving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving"
                   hint="Optional. One email per line. Denied users cannot access this workspace on the app surface."
                   persistent-hint
                   rows="4"
                   auto-grow
-                  :error-messages="fieldErrors.appDenyEmails ? [fieldErrors.appDenyEmails] : []"
+                  :error-messages="addEdit.fieldErrors.appDenyEmails ? [addEdit.fieldErrors.appDenyEmails] : []"
                 />
               </v-col>
 
@@ -86,23 +86,23 @@
                   label="App surface deny list (user IDs)"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!canManageWorkspaceSettings || saving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving"
                   hint="Optional. One user ID per line. Denied users cannot access this workspace on the app surface."
                   persistent-hint
                   rows="3"
                   auto-grow
-                  :error-messages="fieldErrors.appDenyUserIds ? [fieldErrors.appDenyUserIds] : []"
+                  :error-messages="addEdit.fieldErrors.appDenyUserIds ? [addEdit.fieldErrors.appDenyUserIds] : []"
                 />
               </v-col>
 
               <v-col cols="12" class="d-flex align-center justify-end ga-3">
-                <v-progress-circular v-if="loading" size="18" indeterminate />
+                <v-progress-circular v-if="addEdit.isLoading" size="18" indeterminate />
                 <v-btn
-                  v-if="canManageWorkspaceSettings"
+                  v-if="addEdit.canSave"
                   type="submit"
                   color="primary"
-                  :loading="saving"
-                  :disabled="loading"
+                  :loading="addEdit.isSaving"
+                  :disabled="addEdit.isLoading"
                 >
                   Save workspace settings
                 </v-btn>
@@ -111,8 +111,8 @@
             </v-row>
           </v-form>
 
-          <v-alert v-if="workspaceMessage" :type="workspaceMessageType" variant="tonal" class="mt-4 mb-0">
-            {{ workspaceMessage }}
+          <v-alert v-if="addEdit.message" :type="addEdit.messageType" variant="tonal" class="mt-4 mb-0">
+            {{ addEdit.message }}
           </v-alert>
         </template>
       </v-card-text>
@@ -121,90 +121,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import {
-  useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceApiPathFromPlacementContext,
-  extractWorkspaceSlugFromSurfacePathname
-} from "@jskit-ai/shell-web/client/placement";
-import {
-  hasPermission,
-  normalizePermissionList
-} from "../lib/permissions.js";
+import { reactive } from "vue";
+import { parseWorkspaceSettingsPatch } from "@jskit-ai/users-core/shared/workspaceSettingsPatch";
+import { USERS_WEB_QUERY_KEYS } from "../lib/queryKeys.js";
+import { useAddEditScreen } from "../composables/useAddEditScreen.js";
 
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
-const loading = ref(false);
-const saving = ref(false);
-const loadError = ref("");
-const workspaceMessage = ref("");
-const workspaceMessageType = ref("success");
-const permissions = ref([]);
-const route = useRoute();
-const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
-
-const currentSurfaceId = computed(() => resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path));
-const routeWorkspaceSlug = computed(() =>
-  String(extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, route.path) || "").trim()
-);
-const workspaceSettingsApiPath = computed(() => {
-  const currentSurface = currentSurfaceId.value;
-  const workspaceSlug = routeWorkspaceSlug.value;
-  if (!currentSurface || !workspaceSlug) {
-    return "";
-  }
-
-  return resolveSurfaceApiPathFromPlacementContext(
-    placementContext.value,
-    currentSurface,
-    `/w/${workspaceSlug}/workspace/settings`
-  );
-});
-
-const fieldErrors = reactive({
-  name: "",
-  avatarUrl: "",
-  color: "",
-  appDenyEmails: "",
-  appDenyUserIds: ""
-});
-
-const workspaceForm = reactive({
-  name: "",
-  color: "#0F6B54",
-  avatarUrl: "",
-  invitesEnabled: false,
-  invitesAvailable: false,
-  appDenyEmailsText: "",
-  appDenyUserIdsText: ""
-});
-
-function resetFieldErrors() {
-  fieldErrors.name = "";
-  fieldErrors.avatarUrl = "";
-  fieldErrors.color = "";
-  fieldErrors.appDenyEmails = "";
-  fieldErrors.appDenyUserIds = "";
-}
-
-function applyFieldErrors(source = {}) {
-  const fieldErrorMap = source && typeof source === "object" ? source : {};
-  fieldErrors.name = String(fieldErrorMap.name || "");
-  fieldErrors.avatarUrl = String(fieldErrorMap.avatarUrl || "");
-  fieldErrors.color = String(fieldErrorMap.color || "");
-  fieldErrors.appDenyEmails = String(fieldErrorMap.appDenyEmails || "");
-  fieldErrors.appDenyUserIds = String(fieldErrorMap.appDenyUserIds || "");
-}
-
-function parseDenyEmailsInput(value) {
+function parseTextList(value) {
   return Array.from(
     new Set(
       String(value || "")
@@ -215,202 +139,65 @@ function parseDenyEmailsInput(value) {
   );
 }
 
-function parseDenyUserIdsInput(value) {
-  const rawValues = String(value || "")
-    .split(/[\n,;]+/)
-    .map((entry) => String(entry || "").trim())
-    .filter(Boolean);
-
-  const valid = [];
-  const invalid = [];
-
-  for (const rawValue of rawValues) {
-    if (!/^[1-9]\d*$/.test(rawValue)) {
-      invalid.push(rawValue);
-      continue;
-    }
-
-    const numeric = Number(rawValue);
-    if (!Number.isSafeInteger(numeric) || numeric < 1) {
-      invalid.push(rawValue);
-      continue;
-    }
-
-    valid.push(numeric);
-  }
-
-  return Object.freeze({
-    valid: Array.from(new Set(valid)),
-    invalid: Array.from(new Set(invalid))
-  });
-}
-
-function formatDenyEmails(value) {
-  if (!Array.isArray(value)) {
-    return "";
-  }
-
-  return value
-    .map((entry) => String(entry || "").trim().toLowerCase())
-    .filter(Boolean)
-    .join("\n");
-}
-
-function formatDenyUserIds(value) {
-  if (!Array.isArray(value)) {
-    return "";
-  }
-
-  return value
-    .map((entry) => Number(entry))
-    .filter((entry) => Number.isInteger(entry) && entry > 0)
-    .join("\n");
-}
-
-function applyShellPermissions(permissionList) {
-  mergePlacementContext(
-    {
-      permissions: permissionList
-    },
-    "users-web.workspace-settings-view"
-  );
-}
-
-function applyWorkspaceSettingsPayload(payload = {}) {
-  const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : {};
-  const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-
-  const appSurfaceAccess =
-    settings.appSurfaceAccess && typeof settings.appSurfaceAccess === "object" ? settings.appSurfaceAccess : {};
-
-  workspaceForm.name = String(workspace.name || "");
-  workspaceForm.color = String(workspace.color || "#0F6B54");
-  workspaceForm.avatarUrl = String(workspace.avatarUrl || "");
-  workspaceForm.invitesEnabled = settings.invitesEnabled !== false;
-  workspaceForm.invitesAvailable = settings.invitesAvailable !== false;
-  workspaceForm.appDenyEmailsText = formatDenyEmails(
-    Array.isArray(settings.appDenyEmails) ? settings.appDenyEmails : appSurfaceAccess.denyEmails
-  );
-  workspaceForm.appDenyUserIdsText = formatDenyUserIds(
-    Array.isArray(settings.appDenyUserIds) ? settings.appDenyUserIds : appSurfaceAccess.denyUserIds
-  );
-}
-
-const canViewWorkspaceSettings = computed(() => {
-  return (
-    hasPermission(permissions.value, "workspace.settings.view") ||
-    hasPermission(permissions.value, "workspace.settings.update")
-  );
+const workspaceForm = reactive({
+  name: "",
+  color: DEFAULT_WORKSPACE_COLOR,
+  avatarUrl: "",
+  invitesEnabled: false,
+  invitesAvailable: false,
+  appDenyEmailsText: "",
+  appDenyUserIdsText: ""
 });
 
-const canManageWorkspaceSettings = computed(() => {
-  return hasPermission(permissions.value, "workspace.settings.update");
+const addEdit = useAddEditScreen({
+  apiSuffix: "/settings",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceSettings,
+  viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
+  savePermissions: ["workspace.settings.update"],
+  placementSource: "users-web.workspace-settings-view",
+  missingWorkspaceSlugError: "Workspace slug is required in the URL.",
+  fallbackLoadError: "Unable to load workspace settings.",
+  fallbackSaveError: "Unable to update workspace settings.",
+  model: workspaceForm,
+  parseInput: parseWorkspaceSettingsPatch,
+  mapLoadedToModel: (model, payload = {}) => {
+    const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : {};
+    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+    const appSurfaceAccess =
+      settings.appSurfaceAccess && typeof settings.appSurfaceAccess === "object" ? settings.appSurfaceAccess : {};
+    const denyEmails = Array.isArray(settings.appDenyEmails) ? settings.appDenyEmails : appSurfaceAccess.denyEmails;
+    const denyUserIds = Array.isArray(settings.appDenyUserIds) ? settings.appDenyUserIds : appSurfaceAccess.denyUserIds;
+
+    model.name = String(workspace.name || "");
+    model.color = String(workspace.color || DEFAULT_WORKSPACE_COLOR);
+    model.avatarUrl = String(workspace.avatarUrl || "");
+    model.invitesEnabled = settings.invitesEnabled !== false;
+    model.invitesAvailable = settings.invitesAvailable !== false;
+    model.appDenyEmailsText = Array.isArray(denyEmails)
+      ? denyEmails
+          .map((entry) => String(entry || "").trim().toLowerCase())
+          .filter(Boolean)
+          .join("\n")
+      : "";
+    model.appDenyUserIdsText = Array.isArray(denyUserIds)
+      ? denyUserIds
+          .map((entry) => Number(entry))
+          .filter((entry) => Number.isInteger(entry) && entry > 0)
+          .join("\n")
+      : "";
+  },
+  buildRawPayload: (model) => ({
+    name: model.name,
+    color: model.color,
+    avatarUrl: model.avatarUrl,
+    invitesEnabled: model.invitesEnabled,
+    appDenyEmails: parseTextList(model.appDenyEmailsText),
+    appDenyUserIds: parseTextList(model.appDenyUserIdsText)
+  }),
+  messages: {
+    validation: "Fix invalid workspace settings values and try again.",
+    saveSuccess: "Workspace settings updated.",
+    saveError: "Unable to update workspace settings."
+  }
 });
-
-async function refreshPermissions() {
-  const workspaceSlug = routeWorkspaceSlug.value;
-  const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
-
-  const payload = await client.request(`/api/bootstrap${queryString}`, {
-    method: "GET"
-  });
-
-  const nextPermissions = normalizePermissionList(payload?.permissions);
-  permissions.value = nextPermissions;
-  applyShellPermissions(nextPermissions);
-}
-
-async function loadWorkspaceSettings() {
-  loading.value = true;
-  loadError.value = "";
-  workspaceMessage.value = "";
-  resetFieldErrors();
-
-  try {
-    const workspaceSlugFromRoute = routeWorkspaceSlug.value;
-    if (!workspaceSlugFromRoute) {
-      throw new Error("Workspace slug is required in the URL.");
-    }
-
-    await refreshPermissions();
-
-    if (!canViewWorkspaceSettings.value) {
-      return;
-    }
-
-    const apiPath = workspaceSettingsApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace settings API path is not available.");
-    }
-
-    const payload = await client.request(apiPath, {
-      method: "GET"
-    });
-
-    applyWorkspaceSettingsPayload(payload);
-  } catch (error) {
-    loadError.value = String(error?.message || "Unable to load workspace settings.").trim();
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function submitWorkspaceSettings() {
-  if (!canManageWorkspaceSettings.value || saving.value) {
-    return;
-  }
-
-  saving.value = true;
-  workspaceMessage.value = "";
-  resetFieldErrors();
-
-  try {
-    const apiPath = workspaceSettingsApiPath.value;
-    if (!apiPath) {
-      throw new Error("Workspace settings API path is not available.");
-    }
-
-    const parsedDenyUserIds = parseDenyUserIdsInput(workspaceForm.appDenyUserIdsText);
-    if (parsedDenyUserIds.invalid.length > 0) {
-      fieldErrors.appDenyUserIds = `Invalid user IDs: ${parsedDenyUserIds.invalid.join(", ")}`;
-      workspaceMessageType.value = "error";
-      workspaceMessage.value = "Fix invalid workspace deny-list user IDs and try again.";
-      return;
-    }
-
-    const payload = await client.request(apiPath, {
-      method: "PATCH",
-      body: {
-        name: workspaceForm.name,
-        color: workspaceForm.color,
-        avatarUrl: workspaceForm.avatarUrl,
-        invitesEnabled: workspaceForm.invitesEnabled,
-        appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
-        appDenyUserIds: parsedDenyUserIds.valid
-      }
-    });
-
-    applyWorkspaceSettingsPayload(payload);
-
-    workspaceMessageType.value = "success";
-    workspaceMessage.value = "Workspace settings updated.";
-  } catch (error) {
-    applyFieldErrors(error?.details?.fieldErrors);
-    workspaceMessageType.value = "error";
-    workspaceMessage.value = String(error?.message || "Unable to update workspace settings.").trim();
-  } finally {
-    saving.value = false;
-  }
-}
-
-onMounted(() => {
-  void loadWorkspaceSettings();
-});
-
-watch(
-  () => route.fullPath,
-  () => {
-    void loadWorkspaceSettings();
-  }
-);
 </script>

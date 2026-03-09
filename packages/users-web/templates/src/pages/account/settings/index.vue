@@ -8,6 +8,7 @@ export const routeMeta = {
 
 <script setup>
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
 import { useRoute } from "vue-router";
 import Uppy from "@uppy/core";
@@ -18,8 +19,11 @@ import XHRUpload from "@uppy/xhr-upload";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { ProfileClientElement } from "@jskit-ai/users-web/client";
+import {
+  ProfileClientElement,
+  USERS_WEB_QUERY_KEYS,
+  usersWebHttpClient
+} from "@jskit-ai/users-web/client";
 
 const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -91,13 +95,8 @@ const DEFAULTS = Object.freeze({
   }
 });
 
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
 const route = useRoute();
+const queryClient = useQueryClient();
 
 function normalizeReturnToPath(value, fallback = "/") {
   const source = Array.isArray(value) ? value[0] : value;
@@ -119,7 +118,6 @@ const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");
-const loadingSettings = ref(false);
 const loadError = ref("");
 
 const profileForm = reactive({
@@ -177,11 +175,50 @@ const preferencesMessage = ref("");
 const preferencesMessageType = ref("success");
 const notificationsMessage = ref("");
 const notificationsMessageType = ref("success");
+const settingsQueryKey = USERS_WEB_QUERY_KEYS.accountSettings();
+const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
 
-const profileMutationPending = ref(false);
-const avatarDeleteMutationPending = ref(false);
-const preferencesMutationPending = ref(false);
-const notificationsMutationPending = ref(false);
+const settingsQuery = useQuery({
+  queryKey: settingsQueryKey,
+  queryFn: () =>
+    usersWebHttpClient.request("/api/settings", {
+      method: "GET"
+    }),
+  refetchOnWindowFocus: false
+});
+
+const profileMutation = useMutation({
+  mutationFn: (payload) =>
+    usersWebHttpClient.request("/api/settings/profile", {
+      method: "PATCH",
+      body: payload
+    })
+});
+
+const avatarDeleteMutation = useMutation({
+  mutationFn: () =>
+    usersWebHttpClient.request("/api/settings/profile/avatar", {
+      method: "DELETE"
+    })
+});
+
+const preferencesMutation = useMutation({
+  mutationFn: (payload) =>
+    usersWebHttpClient.request("/api/settings/preferences", {
+      method: "PATCH",
+      body: payload
+    })
+});
+
+const notificationsMutation = useMutation({
+  mutationFn: (payload) =>
+    usersWebHttpClient.request("/api/settings/notifications", {
+      method: "PATCH",
+      body: payload
+    })
+});
+
+const loadingSettings = computed(() => Boolean(settingsQuery.isPending.value || settingsQuery.isFetching.value));
 
 const profileInitials = computed(() => {
   const source = String(profileForm.displayName || profileForm.email || "U").trim();
@@ -209,12 +246,8 @@ const profileState = reactive({
   profileFieldErrors,
   profileMessage,
   profileMessageType,
-  avatarDeleteMutation: {
-    isPending: avatarDeleteMutationPending
-  },
-  profileMutation: {
-    isPending: profileMutationPending
-  }
+  avatarDeleteMutation,
+  profileMutation
 });
 
 const profileActions = Object.freeze({
@@ -238,9 +271,7 @@ const preferences = Object.freeze({
     preferencesFieldErrors,
     preferencesMessage,
     preferencesMessageType,
-    preferencesMutation: {
-      isPending: preferencesMutationPending
-    }
+    preferencesMutation
   }),
   actions: {
     submitPreferences
@@ -252,9 +283,7 @@ const notifications = Object.freeze({
     notificationsForm,
     notificationsMessage,
     notificationsMessageType,
-    notificationsMutation: {
-      isPending: notificationsMutationPending
-    }
+    notificationsMutation
   }),
   actions: {
     submitNotifications
@@ -336,37 +365,40 @@ function applySettingsData(payload) {
   applyThemePreference(preferencesForm.theme);
 }
 
-async function loadSettings() {
-  loadingSettings.value = true;
-  loadError.value = "";
-
-  try {
-    const data = await client.request("/api/settings", {
-      method: "GET"
-    });
-
-    applySettingsData(data);
-  } catch (error) {
-    loadError.value = String(error?.message || "Unable to load settings.");
-  } finally {
-    loadingSettings.value = false;
+watch(
+  () => settingsQuery.data.value,
+  (payload) => {
+    if (!payload) {
+      return;
+    }
+    applySettingsData(payload);
+    loadError.value = "";
+  },
+  {
+    immediate: true
   }
-}
+);
+
+watch(
+  () => settingsQuery.error.value,
+  (nextError) => {
+    if (!nextError) {
+      return;
+    }
+    loadError.value = String(nextError?.message || "Unable to load settings.");
+  }
+);
 
 async function submitProfile() {
   clearFieldErrors(profileFieldErrors);
   profileMessage.value = "";
 
-  profileMutationPending.value = true;
   try {
-    const data = await client.request("/api/settings/profile", {
-      method: "PATCH",
-      body: {
-        displayName: profileForm.displayName
-      }
+    const data = await profileMutation.mutateAsync({
+      displayName: profileForm.displayName
     });
-
     applySettingsData(data);
+    queryClient.setQueryData(settingsQueryKey, data);
     profileMessageType.value = "success";
     profileMessage.value = "Profile updated.";
   } catch (error) {
@@ -376,14 +408,17 @@ async function submitProfile() {
 
     profileMessageType.value = "error";
     profileMessage.value = String(error?.message || "Unable to update profile.");
-  } finally {
-    profileMutationPending.value = false;
   }
 }
 
 async function resolveCsrfToken() {
-  const sessionPayload = await client.request("/api/session", {
-    method: "GET"
+  const sessionPayload = await queryClient.fetchQuery({
+    queryKey: sessionQueryKey,
+    queryFn: () =>
+      usersWebHttpClient.request("/api/session", {
+        method: "GET"
+      }),
+    staleTime: 60_000
   });
 
   const csrfToken = String(sessionPayload?.csrfToken || "");
@@ -563,20 +598,15 @@ async function openAvatarEditor() {
 async function submitAvatarDelete() {
   avatarMessage.value = "";
 
-  avatarDeleteMutationPending.value = true;
   try {
-    const data = await client.request("/api/settings/profile/avatar", {
-      method: "DELETE"
-    });
-
+    const data = await avatarDeleteMutation.mutateAsync();
     applySettingsData(data);
+    queryClient.setQueryData(settingsQueryKey, data);
     avatarMessageType.value = "success";
     avatarMessage.value = "Avatar removed.";
   } catch (error) {
     avatarMessageType.value = "error";
     avatarMessage.value = String(error?.message || "Unable to remove avatar.");
-  } finally {
-    avatarDeleteMutationPending.value = false;
   }
 }
 
@@ -584,22 +614,18 @@ async function submitPreferences() {
   clearFieldErrors(preferencesFieldErrors);
   preferencesMessage.value = "";
 
-  preferencesMutationPending.value = true;
   try {
-    const data = await client.request("/api/settings/preferences", {
-      method: "PATCH",
-      body: {
-        theme: preferencesForm.theme,
-        locale: preferencesForm.locale,
-        timeZone: preferencesForm.timeZone,
-        dateFormat: preferencesForm.dateFormat,
-        numberFormat: preferencesForm.numberFormat,
-        currencyCode: preferencesForm.currencyCode,
-        avatarSize: Number(preferencesForm.avatarSize)
-      }
+    const data = await preferencesMutation.mutateAsync({
+      theme: preferencesForm.theme,
+      locale: preferencesForm.locale,
+      timeZone: preferencesForm.timeZone,
+      dateFormat: preferencesForm.dateFormat,
+      numberFormat: preferencesForm.numberFormat,
+      currencyCode: preferencesForm.currencyCode,
+      avatarSize: Number(preferencesForm.avatarSize)
     });
-
     applySettingsData(data);
+    queryClient.setQueryData(settingsQueryKey, data);
     preferencesMessageType.value = "success";
     preferencesMessage.value = "Preferences updated.";
   } catch (error) {
@@ -613,33 +639,26 @@ async function submitPreferences() {
 
     preferencesMessageType.value = "error";
     preferencesMessage.value = String(error?.message || "Unable to update preferences.");
-  } finally {
-    preferencesMutationPending.value = false;
   }
 }
 
 async function submitNotifications() {
   notificationsMessage.value = "";
 
-  notificationsMutationPending.value = true;
   try {
-    const data = await client.request("/api/settings/notifications", {
-      method: "PATCH",
-      body: {
-        productUpdates: notificationsForm.productUpdates,
-        accountActivity: notificationsForm.accountActivity,
-        securityAlerts: true
-      }
+    const data = await notificationsMutation.mutateAsync({
+      productUpdates: notificationsForm.productUpdates,
+      accountActivity: notificationsForm.accountActivity,
+      securityAlerts: true
     });
 
     applySettingsData(data);
+    queryClient.setQueryData(settingsQueryKey, data);
     notificationsMessageType.value = "success";
     notificationsMessage.value = "Notification settings updated.";
   } catch (error) {
     notificationsMessageType.value = "error";
     notificationsMessage.value = String(error?.message || "Unable to update notifications.");
-  } finally {
-    notificationsMutationPending.value = false;
   }
 }
 
@@ -651,9 +670,8 @@ watch(
   { immediate: true }
 );
 
-onMounted(async () => {
+onMounted(() => {
   setupAvatarUploader();
-  await loadSettings();
 });
 
 onBeforeUnmount(() => {

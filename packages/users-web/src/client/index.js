@@ -22,6 +22,28 @@ export { default as UsersWorkspaceMembersMenuItem } from "./components/UsersWork
 export { default as ProfileClientElement } from "./components/ProfileClientElement.vue";
 export { default as MembersAdminClientElement } from "./components/MembersAdminClientElement.vue";
 export { default as WorkspaceSettingsClientElement } from "./components/WorkspaceSettingsClientElement.vue";
+export { usersWebHttpClient } from "./lib/httpClient.js";
+export { USERS_WEB_QUERY_KEYS } from "./lib/queryKeys.js";
+export {
+  buildBootstrapApiPath,
+  normalizeWorkspaceEntry,
+  normalizeWorkspaceList,
+  findWorkspaceBySlug
+} from "./lib/bootstrap.js";
+export {
+  normalizePermissionList,
+  hasPermission
+} from "./lib/permissions.js";
+export { useUsersWebBootstrapQuery } from "./composables/useUsersWebBootstrapQuery.js";
+export { useUsersWebAccess } from "./composables/useUsersWebAccess.js";
+export { useUsersWebWorkspaceRouteContext } from "./composables/useUsersWebWorkspaceRouteContext.js";
+export { useUsersWebWorkspaceAccess } from "./composables/useUsersWebWorkspaceAccess.js";
+export { useAddEditScreen } from "./composables/useAddEditScreen.js";
+export { useUsersWebEndpointResource } from "./composables/useUsersWebEndpointResource.js";
+export { useUsersWebListResource } from "./composables/useUsersWebListResource.js";
+export { useUsersWebUiFeedback } from "./composables/useUsersWebUiFeedback.js";
+export { useUsersWebFieldErrorBag } from "./composables/useUsersWebFieldErrorBag.js";
+export { useUsersWebSettingsResource } from "./composables/useUsersWebSettingsResource.js";
 
 const USERS_WEB_CLIENT_API = Object.freeze({
   clientProviders: Object.freeze([UsersWebClientProvider])

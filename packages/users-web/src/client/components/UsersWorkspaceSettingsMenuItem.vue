@@ -1,11 +1,8 @@
 <script setup>
 import {
   computed,
-  onMounted,
-  ref,
   watch
 } from "vue";
-import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import {
   useWebPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -16,6 +13,7 @@ import {
   normalizePermissionList
 } from "../lib/permissions.js";
 import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
+import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
 
 const props = defineProps({
   label: {
@@ -36,15 +34,6 @@ const props = defineProps({
   }
 });
 
-const client = createHttpClient({
-  credentials: "include",
-  csrf: {
-    sessionPath: "/api/session"
-  }
-});
-
-const permissions = ref([]);
-const loadingPermissions = ref(false);
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
 function readCurrentPath() {
@@ -56,15 +45,6 @@ function readCurrentPath() {
   return pathname || "/";
 }
 
-function readShellPermissions() {
-  const context = placementContext.value;
-  if (!context || typeof context !== "object") {
-    return [];
-  }
-
-  return normalizePermissionList(context.permissions);
-}
-
 function writeShellPermissions(permissionList) {
   mergePlacementContext(
     {
@@ -74,10 +54,33 @@ function writeShellPermissions(permissionList) {
   );
 }
 
+const currentSurfaceId = computed(() => {
+  return resolveSurfaceIdFromPlacementPathname(placementContext.value, readCurrentPath());
+});
+
+const workspaceSlug = computed(() => {
+  return String(
+    extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, readCurrentPath()) || ""
+  ).trim();
+});
+
+const bootstrapQuery = useUsersWebBootstrapQuery({
+  workspaceSlug,
+  enabled: true
+});
+
+const permissions = computed(() => {
+  const shellPermissions = normalizePermissionList(placementContext.value?.permissions);
+  if (shellPermissions.length > 0) {
+    return shellPermissions;
+  }
+  return normalizePermissionList(bootstrapQuery.query.data.value?.permissions);
+});
+
 const canViewWorkspaceSettings = computed(() => {
   return (
-    hasPermission(permissions.value, "workspace.settings.view") ||
-    hasPermission(permissions.value, "workspace.settings.update")
+    hasPermission(permissions.value || [], "workspace.settings.view") ||
+    hasPermission(permissions.value || [], "workspace.settings.update")
   );
 });
 
@@ -92,58 +95,20 @@ const resolvedTo = computed(() => {
   });
 });
 
-async function loadPermissions() {
-  if (loadingPermissions.value) {
-    return;
-  }
-  const fromShell = readShellPermissions();
-  if (fromShell.length > 0) {
-    permissions.value = fromShell;
-  }
-
-  loadingPermissions.value = true;
-  try {
-    const currentPath = readCurrentPath();
-    const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath);
-    const workspaceSlug = String(
-      extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId, currentPath) || ""
-    ).trim();
-    const queryString = workspaceSlug ? `?workspaceSlug=${encodeURIComponent(workspaceSlug)}` : "";
-
-    const payload = await client.request(`/api/bootstrap${queryString}`, {
-      method: "GET"
-    });
-    const normalized = normalizePermissionList(payload?.permissions);
-    permissions.value = normalized;
-    writeShellPermissions(normalized);
-  } catch {
-    permissions.value = [];
-  } finally {
-    loadingPermissions.value = false;
-  }
-}
-
 watch(
-  () => placementContext.value?.permissions,
+  () => bootstrapQuery.query.data.value?.permissions,
   (nextValue) => {
-    const nextPermissions = normalizePermissionList(nextValue);
-    if (nextPermissions.length > 0 || permissions.value.length < 1) {
-      permissions.value = nextPermissions;
+    const normalized = normalizePermissionList(nextValue);
+    if (normalized.length > 0) {
+      writeShellPermissions(normalized);
     }
-  },
-  {
-    immediate: true
   }
 );
-
-onMounted(() => {
-  void loadPermissions();
-});
 
 watch(
   () => placementContext.value?.workspace?.slug,
   () => {
-    void loadPermissions();
+    void bootstrapQuery.query.refetch();
   }
 );
 </script>

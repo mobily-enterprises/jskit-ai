@@ -238,6 +238,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@tanstack/vue-query": "^5.90.5",
         "@mdi/js": "^7.4.47",
         "@fastify/type-provider-typebox": "^6.1.0",
         "@jskit-ai/auth-core": "0.1.0",

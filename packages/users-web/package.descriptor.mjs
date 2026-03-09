@@ -6,6 +6,7 @@ export default Object.freeze({
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
+    "@jskit-ai/users-core",
     "@jskit-ai/users-routes"
   ],
   capabilities: {
@@ -122,6 +123,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@tanstack/vue-query": "^5.90.5",
         "@mdi/js": "^7.4.47",
         "@uppy/compressor": "^3.1.0",
         "@uppy/core": "^5.2.0",
@@ -131,6 +133,7 @@ export default Object.freeze({
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "@jskit-ai/shell-web": "0.1.0",
+        "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-routes": "0.1.0",
         "vuetify": "^4.0.0"
       },

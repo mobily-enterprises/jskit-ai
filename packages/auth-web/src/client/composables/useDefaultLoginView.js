@@ -1,4 +1,5 @@
 import { computed, onMounted, ref } from "vue";
+import { useQueryClient } from "@tanstack/vue-query";
 import { mdiGoogle } from "@mdi/js";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
@@ -210,6 +211,8 @@ function readOAuthCallbackParamsFromLocation() {
 }
 
 export function useDefaultLoginView() {
+  const queryClient = useQueryClient();
+  const sessionQueryKey = Object.freeze(["auth-web", "session"]);
   const mode = ref("login");
   const email = ref("");
   const password = ref("");
@@ -504,7 +507,11 @@ export function useDefaultLoginView() {
   }
 
   async function refreshSession() {
-    const session = await request("/api/session");
+    const session = await queryClient.fetchQuery({
+      queryKey: sessionQueryKey,
+      queryFn: () => request("/api/session"),
+      staleTime: 0
+    });
     applySessionPayload(session);
     return session;
   }

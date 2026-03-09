@@ -10,8 +10,13 @@ import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBoots
 function createAppDouble() {
   const singletons = new Map();
   const provided = [];
+  const plugins = [];
 
   const vueApp = {
+    use(plugin, options) {
+      plugins.push({ plugin, options });
+      return this;
+    },
     provide(key, value) {
       provided.push({ key, value });
     }
@@ -20,6 +25,7 @@ function createAppDouble() {
   return {
     singletons,
     provided,
+    plugins,
     vueApp,
     singleton(token, factory) {
       singletons.set(token, factory);
@@ -51,6 +57,9 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   assert.equal(app.singletons.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN), true);
 
   await provider.boot(app);
+  assert.equal(app.plugins.length, 1);
+  assert.equal(typeof app.plugins[0].plugin.install, "function");
+  assert.equal(typeof app.plugins[0].options?.queryClient, "object");
   assert.equal(app.provided.length, 1);
   assert.equal(app.provided[0].key, WEB_PLACEMENT_RUNTIME_INJECTION_KEY);
   assert.equal(typeof app.provided[0].value.getPlacements, "function");
