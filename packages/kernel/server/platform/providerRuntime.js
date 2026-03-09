@@ -15,6 +15,20 @@ function isIdentifier(value) {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(value || ""));
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function createWildcardMatcher(pattern) {
+  const rawPattern = String(pattern || "").trim();
+  if (!rawPattern) {
+    return null;
+  }
+
+  const escapedPattern = escapeRegExp(rawPattern).replace(/\\\*/g, ".*");
+  return new RegExp(`^${escapedPattern}$`);
+}
+
 function normalizeRelativePath(fromPath, targetPath) {
   const relative = path.relative(path.resolve(fromPath), path.resolve(targetPath));
   return relative.split(path.sep).join("/");
@@ -244,6 +258,48 @@ function normalizeServerProviderDefinitions(descriptor, packageId) {
     const entry = providerDefinition && typeof providerDefinition === "object" ? providerDefinition : {};
     const providerEntrypoint = String(entry.entrypoint || "").trim();
     const providerExport = String(entry.export || "").trim();
+    const discoverConfig =
+      entry.discover && typeof entry.discover === "object" && !Array.isArray(entry.discover) ? entry.discover : null;
+
+    if (discoverConfig) {
+      if (providerEntrypoint || providerExport) {
+        throw new Error(
+          `Package ${packageId} runtime.server.providers[] discover entries cannot include entrypoint/export fields.`
+        );
+      }
+
+      const discoverDir = String(discoverConfig.dir || "").trim();
+      if (!discoverDir) {
+        throw new Error(`Package ${packageId} runtime.server.providers[] discover.dir is required.`);
+      }
+      if (discoverDir.startsWith("/") || discoverDir.startsWith("//")) {
+        throw new Error(`Package ${packageId} runtime.server.providers[] discover.dir must be relative.`);
+      }
+      if (discoverDir.includes("*")) {
+        throw new Error(`Package ${packageId} runtime.server.providers[] discover.dir cannot contain wildcard "*".`);
+      }
+
+      const discoverPattern = String(discoverConfig.pattern || "*Provider.js").trim() || "*Provider.js";
+      if (discoverPattern.includes(path.sep) || discoverPattern.includes("/")) {
+        throw new Error(
+          `Package ${packageId} runtime.server.providers[] discover.pattern must match filenames only.`
+        );
+      }
+      if (!createWildcardMatcher(discoverPattern)) {
+        throw new Error(`Package ${packageId} runtime.server.providers[] discover.pattern is invalid.`);
+      }
+
+      const discoverRecursive = discoverConfig.recursive === true;
+      normalizedProviders.push(
+        Object.freeze({
+          type: "discover",
+          discoverDir,
+          discoverPattern,
+          discoverRecursive
+        })
+      );
+      continue;
+    }
 
     if (!providerEntrypoint) {
       throw new Error(`Package ${packageId} runtime.server.providers[] entrypoint is required.`);
@@ -257,6 +313,7 @@ function normalizeServerProviderDefinitions(descriptor, packageId) {
 
     normalizedProviders.push(
       Object.freeze({
+        type: "explicit",
         providerEntrypoint,
         providerExport
       })
@@ -333,20 +390,6 @@ function resolveProviderClassesFromModule(moduleNamespace, { packageId, provider
   return discovered;
 }
 
-function isProviderFilename(fileName) {
-  const normalized = String(fileName || "").trim();
-  if (!normalized) {
-    return false;
-  }
-  if (!/Provider\.(?:mjs|js)$/i.test(normalized)) {
-    return false;
-  }
-  if (/\.(?:test|spec)\.(?:mjs|js)$/i.test(normalized)) {
-    return false;
-  }
-  return true;
-}
-
 function toAbsoluteSortedUniquePaths(values) {
   const source = Array.isArray(values) ? values : [];
   return Object.freeze(
@@ -356,12 +399,23 @@ function toAbsoluteSortedUniquePaths(values) {
   );
 }
 
-async function collectAppLocalProviderModulePaths({ appRoot }) {
-  const appProvidersRoot = path.resolve(appRoot, "src", "server", "providers");
-  if (!(await fileExists(appProvidersRoot))) {
+async function collectDiscoveredProviderModulePaths({ descriptorEntry, providerDefinition }) {
+  const discoverRoot = path.resolve(descriptorEntry.packageRoot, providerDefinition.discoverDir);
+  if (!isInsidePackageRoot(descriptorEntry.packageRoot, discoverRoot)) {
+    throw new Error(
+      `Package ${descriptorEntry.packageId} runtime.server.providers[] discover.dir escapes package root: ${providerDefinition.discoverDir}`
+    );
+  }
+  if (!(await fileExists(discoverRoot))) {
     return Object.freeze([]);
   }
 
+  const patternMatcher = createWildcardMatcher(providerDefinition.discoverPattern);
+  if (!(patternMatcher instanceof RegExp)) {
+    throw new Error(
+      `Package ${descriptorEntry.packageId} runtime.server.providers[] discover.pattern is invalid: ${providerDefinition.discoverPattern}`
+    );
+  }
   const collectedPaths = [];
 
   async function walk(currentPath) {
@@ -379,7 +433,9 @@ async function collectAppLocalProviderModulePaths({ appRoot }) {
         if (entryName === "node_modules") {
           continue;
         }
-        await walk(absoluteEntryPath);
+        if (providerDefinition.discoverRecursive === true) {
+          await walk(absoluteEntryPath);
+        }
         continue;
       }
 
@@ -387,103 +443,14 @@ async function collectAppLocalProviderModulePaths({ appRoot }) {
         continue;
       }
 
-      if (isProviderFilename(entryName)) {
+      if (patternMatcher.test(entryName)) {
         collectedPaths.push(absoluteEntryPath);
       }
     }
   }
 
-  await walk(appProvidersRoot);
+  await walk(discoverRoot);
   return toAbsoluteSortedUniquePaths(collectedPaths);
-}
-
-function resolveAppLocalProviderExports(moduleNamespace, { appRoot, providerModulePath }) {
-  const namespace = moduleNamespace && typeof moduleNamespace === "object" ? moduleNamespace : {};
-  const relativeModulePath = normalizeRelativePath(appRoot, providerModulePath);
-  const fileBaseName = path.basename(providerModulePath).replace(/\.(?:mjs|js)$/i, "");
-  const sourceLabel = `app local provider module "${relativeModulePath}"`;
-
-  if (isProviderDefinition(namespace.default)) {
-    return normalizeProviderExportValue(namespace.default, {
-      packageId: sourceLabel,
-      label: "default export"
-    });
-  }
-
-  if (Object.prototype.hasOwnProperty.call(namespace, fileBaseName)) {
-    if (!isProviderDefinition(namespace[fileBaseName])) {
-      throw new Error(
-        `${sourceLabel} export "${fileBaseName}" must be a provider class/function when present.`
-      );
-    }
-
-    return normalizeProviderExportValue(namespace[fileBaseName], {
-      packageId: sourceLabel,
-      label: `export "${fileBaseName}"`
-    });
-  }
-
-  const discoveredProviderExports = [];
-  for (const [exportName, exportValue] of Object.entries(namespace)) {
-    if (exportName === "default") {
-      continue;
-    }
-    if (!isProviderDefinition(exportValue)) {
-      continue;
-    }
-    discoveredProviderExports.push([exportName, exportValue]);
-  }
-
-  if (discoveredProviderExports.length === 1) {
-    const [exportName, exportValue] = discoveredProviderExports[0];
-    return normalizeProviderExportValue(exportValue, {
-      packageId: sourceLabel,
-      label: `export "${exportName}"`
-    });
-  }
-
-  if (discoveredProviderExports.length < 1) {
-    throw new Error(
-      `${sourceLabel} must export a provider as default, as "${fileBaseName}", or as exactly one provider export.`
-    );
-  }
-
-  const exportNames = discoveredProviderExports.map(([exportName]) => exportName).sort((left, right) =>
-    left.localeCompare(right)
-  );
-  throw new Error(
-    `${sourceLabel} exports multiple providers (${exportNames.join(
-      ", "
-    )}). Use a default export or an export named "${fileBaseName}".`
-  );
-}
-
-async function loadAppLocalProviders({ appRoot }) {
-  const providerModulePaths = await collectAppLocalProviderModulePaths({ appRoot });
-  if (providerModulePaths.length < 1) {
-    return Object.freeze([]);
-  }
-
-  const providerEntries = [];
-  for (const providerModulePath of providerModulePaths) {
-    const providerModule = await import(pathToFileURL(providerModulePath).href + `?t=${Date.now()}_${Math.random()}`);
-    const providerClasses = resolveAppLocalProviderExports(providerModule, {
-      appRoot,
-      providerModulePath
-    });
-    const sourceId = `app:${normalizeRelativePath(appRoot, providerModulePath)}`;
-
-    for (const providerClass of providerClasses) {
-      providerEntries.push(
-        Object.freeze({
-          providerClass,
-          sourceId
-        })
-      );
-    }
-  }
-
-  return Object.freeze(providerEntries);
 }
 
 function registerProviderClass({ providerClass, sourceId, seenProviderIds, orderedProviderClasses }) {
@@ -505,6 +472,27 @@ async function loadPackageProviders({ descriptorEntry }) {
 
   const providerClasses = [];
   for (const providerDefinition of providerDefinitions) {
+    if (providerDefinition.type === "discover") {
+      const discoveredProviderPaths = await collectDiscoveredProviderModulePaths({
+        descriptorEntry,
+        providerDefinition
+      });
+
+      for (const discoveredProviderPath of discoveredProviderPaths) {
+        const providerModule = await import(pathToFileURL(discoveredProviderPath).href + `?t=${Date.now()}_${Math.random()}`);
+        providerClasses.push(
+          ...resolveProviderClassesFromModule(providerModule, {
+            packageId: `${descriptorEntry.packageId} (${normalizeRelativePath(
+              descriptorEntry.packageRoot,
+              discoveredProviderPath
+            )})`,
+            providerExport: ""
+          })
+        );
+      }
+      continue;
+    }
+
     const providerModulePath = path.resolve(descriptorEntry.packageRoot, providerDefinition.providerEntrypoint);
     if (!isInsidePackageRoot(descriptorEntry.packageRoot, providerModulePath)) {
       throw new Error(
@@ -624,16 +612,6 @@ async function createProviderRuntimeFromApp({
     });
   }
 
-  const appLocalProviders = await loadAppLocalProviders({ appRoot });
-  for (const appLocalProvider of appLocalProviders) {
-    registerProviderClass({
-      providerClass: appLocalProvider.providerClass,
-      sourceId: appLocalProvider.sourceId,
-      seenProviderIds,
-      orderedProviderClasses
-    });
-  }
-
   const envRecord = env && typeof env === "object" ? { ...env } : {};
   const loggerInstance = logger || console;
 
@@ -651,7 +629,7 @@ async function createProviderRuntimeFromApp({
     packageOrder: catalog.packageOrder,
     globalUiPaths: catalog.globalUiPaths,
     providerPackageOrder: Object.freeze(providerPackageIds),
-    appLocalProviderOrder: Object.freeze(appLocalProviders.map((entry) => entry.sourceId))
+    appLocalProviderOrder: Object.freeze([])
   });
 }
 

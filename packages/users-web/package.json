@@ -11,6 +11,7 @@
     "./client/components/UsersWorkspaceSelector": "./src/client/components/UsersWorkspaceSelector.vue",
     "./client/components/UsersWorkspaceToolsWidget": "./src/client/components/UsersWorkspaceToolsWidget.vue",
     "./client/components/UsersShellMenuLinkItem": "./src/client/components/UsersShellMenuLinkItem.vue",
+    "./client/components/UsersSurfaceAwareMenuLinkItem": "./src/client/components/UsersSurfaceAwareMenuLinkItem.vue",
     "./client/components/UsersWorkspaceSettingsMenuItem": "./src/client/components/UsersWorkspaceSettingsMenuItem.vue",
     "./client/components/ProfileClientElement": "./src/client/components/ProfileClientElement.vue",
     "./client/components/MembersAdminClientElement": "./src/client/components/MembersAdminClientElement.vue",

@@ -14,8 +14,10 @@ export default Object.freeze({
       providerEntrypoint: "src/server/index.js",
       providers: [
         {
-          entrypoint: "src/server/providers/MainServiceProvider.js",
-          export: "MainServiceProvider"
+          discover: {
+            dir: "src/server/providers",
+            pattern: "*Provider.js"
+          }
         }
       ]
     },

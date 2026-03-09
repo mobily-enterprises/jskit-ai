@@ -263,3 +263,39 @@ test("bootClientModules rejects non-declared programmatic routes", async () => {
     /must be declared in metadata\.ui\.routes/
   );
 });
+
+test("bootClientModules allows non-declared surface programmatic routes", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const dashboardComponent = {};
+
+  const result = await bootClientModules({
+    clientModules: [
+      {
+        packageId: "@example/surface-programmatic",
+        descriptorUiRoutes: [],
+        module: {
+          async bootClient(context) {
+            context.registerRoutes([
+              {
+                id: "admin.projects",
+                name: "admin-projects",
+                path: "/admin/projects",
+                scope: "surface",
+                component: dashboardComponent
+              }
+            ]);
+          }
+        }
+      }
+    ],
+    router,
+    surfaceRuntime,
+    surfaceMode: "admin",
+    logger: { info() {}, warn() {}, error() {} }
+  });
+
+  assert.equal(result.routeCount, 1);
+  assert.equal(router.routes.length, 1);
+  assert.equal(router.routes[0].path, "/admin/projects");
+});

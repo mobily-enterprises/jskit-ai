@@ -304,15 +304,18 @@ function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = 
   for (const descriptorRoute of descriptorRoutes) {
     const routeId = String(descriptorRoute.id || "").trim();
     const routePath = String(descriptorRoute.path || "").trim();
+    const routeScope = String(descriptorRoute.scope || "surface")
+      .trim()
+      .toLowerCase();
     if (!routeId || !routePath) {
       continue;
     }
 
     if (byId.has(routeId)) {
       const existingRoute = byId.get(routeId);
-      if (existingRoute.path !== routePath) {
+      if (existingRoute.path !== routePath || existingRoute.scope !== routeScope) {
         throw new Error(
-          `Descriptor ui routes for ${normalizedPackageId} define duplicate id "${routeId}" with conflicting paths ("${existingRoute.path}" vs "${routePath}").`
+          `Descriptor ui routes for ${normalizedPackageId} define duplicate id "${routeId}" with conflicting declarations.`
         );
       }
       continue;
@@ -322,7 +325,8 @@ function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = 
       routeId,
       Object.freeze({
         id: routeId,
-        path: routePath
+        path: routePath,
+        scope: routeScope
       })
     );
   }
@@ -347,15 +351,27 @@ function assertRoutesDeclaredInDescriptor({
   for (const route of normalizedRoutes) {
     const routeId = String(route?.id || "").trim();
     const routePath = String(route?.path || "").trim();
+    const routeScope = String(route?.scope || "surface")
+      .trim()
+      .toLowerCase();
+    if (routeScope !== "global") {
+      continue;
+    }
+
     const declaredRoute = byId.get(routeId);
     if (!declaredRoute) {
       throw new Error(
-        `Client route "${routeId}" from ${normalizedPackageId} (${source}) must be declared in metadata.ui.routes (id "${routeId}", path "${routePath}") with autoRegister:false.`
+        `Global client route "${routeId}" from ${normalizedPackageId} (${source}) must be declared in metadata.ui.routes (id "${routeId}", path "${routePath}") with scope:"global" and autoRegister:false.`
       );
     }
     if (String(declaredRoute.path || "").trim() !== routePath) {
       throw new Error(
-        `Client route "${routeId}" from ${normalizedPackageId} (${source}) path "${routePath}" does not match descriptor metadata.ui.routes path "${declaredRoute.path}".`
+        `Global client route "${routeId}" from ${normalizedPackageId} (${source}) path "${routePath}" does not match descriptor metadata.ui.routes path "${declaredRoute.path}".`
+      );
+    }
+    if (String(declaredRoute.scope || "").trim().toLowerCase() !== "global") {
+      throw new Error(
+        `Global client route "${routeId}" from ${normalizedPackageId} (${source}) must be declared with scope:"global" in metadata.ui.routes.`
       );
     }
   }

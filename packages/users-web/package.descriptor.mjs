@@ -45,6 +45,7 @@ export default Object.freeze({
           "users.web.workspace.selector",
           "users.web.workspace.tools.widget",
           "users.web.shell.menu-link-item",
+          "users.web.shell.surface-aware-menu-link-item",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
           "users.web.profile.element",

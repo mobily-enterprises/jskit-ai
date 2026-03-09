@@ -149,8 +149,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
     assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);
     assert.match(localMainDescriptor, /providerEntrypoint:\s*"src\/server\/index\.js"/);
-    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/providers\/MainServiceProvider\.js"/);
-    assert.match(localMainDescriptor, /export:\s*"MainServiceProvider"/);
+    assert.match(localMainDescriptor, /discover:\s*\{/);
+    assert.match(localMainDescriptor, /dir:\s*"src\/server\/providers"/);
+    assert.match(localMainDescriptor, /pattern:\s*"\*Provider\.js"/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@local/main"]);
@@ -202,7 +203,8 @@ test("create-app scaffolds stagex with main service provider and contact routes"
     assert.doesNotMatch(localMainProvider, /stage-7|Stage7|stage7/);
 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
-    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/providers\/MainServiceProvider\.js"/);
+    assert.match(localMainDescriptor, /discover:\s*\{/);
+    assert.match(localMainDescriptor, /dir:\s*"src\/server\/providers"/);
     assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/intake"/);
     assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/preview-followup"/);
     assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/:contactId"/);
