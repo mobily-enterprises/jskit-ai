@@ -124,7 +124,7 @@
 import { reactive } from "vue";
 import { parseWorkspaceSettingsPatch } from "@jskit-ai/users-core/shared/workspaceSettingsPatch";
 import { USERS_WEB_QUERY_KEYS } from "../lib/queryKeys.js";
-import { useAddEditScreen } from "../composables/useAddEditScreen.js";
+import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
@@ -149,7 +149,13 @@ const workspaceForm = reactive({
   appDenyUserIdsText: ""
 });
 
-const addEdit = useAddEditScreen({
+const WORKSPACE_SETTINGS_MESSAGES = Object.freeze({
+  validation: "Fix invalid workspace settings values and try again.",
+  saveSuccess: "Workspace settings updated.",
+  saveError: "Unable to update workspace settings."
+});
+
+const addEdit = useWorkspaceAddEdit({
   apiSuffix: "/settings",
   queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceSettings,
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
@@ -158,6 +164,7 @@ const addEdit = useAddEditScreen({
   missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
   fallbackSaveError: "Unable to update workspace settings.",
+  fieldErrorKeys: ["name", "avatarUrl", "color", "appDenyEmails", "appDenyUserIds"],
   model: workspaceForm,
   parseInput: parseWorkspaceSettingsPatch,
   mapLoadedToModel: (model, payload = {}) => {
@@ -194,10 +201,6 @@ const addEdit = useAddEditScreen({
     appDenyEmails: parseTextList(model.appDenyEmailsText),
     appDenyUserIds: parseTextList(model.appDenyUserIdsText)
   }),
-  messages: {
-    validation: "Fix invalid workspace settings values and try again.",
-    saveSuccess: "Workspace settings updated.",
-    saveError: "Unable to update workspace settings."
-  }
+  messages: WORKSPACE_SETTINGS_MESSAGES
 });
 </script>

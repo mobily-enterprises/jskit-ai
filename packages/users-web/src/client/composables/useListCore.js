@@ -1,6 +1,7 @@
 import { computed, unref } from "vue";
 import { useInfiniteQuery } from "@tanstack/vue-query";
 import { usersWebHttpClient } from "../lib/httpClient.js";
+import { asPlainObject } from "./scopeHelpers.js";
 
 function resolveEnabled(value) {
   if (value === undefined) {
@@ -36,14 +37,6 @@ function toErrorMessage(error, fallback) {
   return String(error?.message || fallback || "Unable to load list.").trim();
 }
 
-function asPlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
 function defaultSelectItems(page) {
   return Array.isArray(page?.items) ? page.items : [];
 }
@@ -52,7 +45,7 @@ function defaultGetNextPageParam(lastPage) {
   return lastPage?.nextCursor ?? null;
 }
 
-function useUsersWebListResource({
+function useListCore({
   queryKey,
   path = "",
   enabled = true,
@@ -66,13 +59,13 @@ function useUsersWebListResource({
   fallbackLoadError = "Unable to load list."
 } = {}) {
   if (!client || typeof client.request !== "function") {
-    throw new TypeError("useUsersWebListResource requires a client with request().");
+    throw new TypeError("useListCore requires a client with request().");
   }
   if (typeof getNextPageParam !== "function") {
-    throw new TypeError("useUsersWebListResource requires getNextPageParam().");
+    throw new TypeError("useListCore requires getNextPageParam().");
   }
   if (typeof selectItems !== "function") {
-    throw new TypeError("useUsersWebListResource requires selectItems().");
+    throw new TypeError("useListCore requires selectItems().");
   }
 
   const normalizedPath = computed(() => resolvePath(path));
@@ -145,4 +138,4 @@ function useUsersWebListResource({
   });
 }
 
-export { useUsersWebListResource };
+export { useListCore };

@@ -1,17 +1,12 @@
 import { computed } from "vue";
-import { useRoute } from "vue-router";
 import {
   extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  useWebPlacementContext
+  resolveSurfaceApiPathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
+import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 
 function useUsersWebWorkspaceRouteContext() {
-  const route = useRoute();
-  const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
-
-  const currentSurfaceId = computed(() => resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path));
+  const { route, placementContext, mergePlacementContext, currentSurfaceId } = useUsersWebSurfaceRouteContext();
   const workspaceSlugFromRoute = computed(() => {
     const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
       placementContext.value,

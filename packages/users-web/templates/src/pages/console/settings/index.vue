@@ -8,11 +8,14 @@
             Use this space for console-owned assistant behavior and global operations context.
           </p>
 
-          <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
-            {{ error }}
+          <v-alert v-if="addEdit.loadError" type="error" variant="tonal" class="mb-4">
+            {{ addEdit.loadError }}
+          </v-alert>
+          <v-alert v-else-if="!addEdit.canView" type="warning" variant="tonal" class="mb-4">
+            You do not have permission to view console settings.
           </v-alert>
 
-          <v-form @submit.prevent="submitSettings" novalidate>
+          <v-form @submit.prevent="addEdit.submit" novalidate>
             <v-textarea
               v-model="form.assistantSystemPromptWorkspace"
               label="Assistant system prompt (Workspace/Admin surface)"
@@ -20,8 +23,8 @@
               density="comfortable"
               rows="5"
               auto-grow
-              :readonly="!canManageSettings"
-              :loading="isLoading"
+              :readonly="!addEdit.canSave"
+              :loading="addEdit.isLoading"
               hint="Applied to admin/workspace assistant conversations across workspaces."
               persistent-hint
             />
@@ -29,16 +32,16 @@
               <v-btn
                 type="submit"
                 color="primary"
-                :loading="isSaving"
-                :disabled="!canManageSettings || isLoading"
+                :loading="addEdit.isSaving"
+                :disabled="!addEdit.canSave || addEdit.isLoading"
               >
                 Save console assistant settings
               </v-btn>
             </div>
           </v-form>
 
-          <v-alert v-if="message" :type="messageType" variant="tonal" class="mt-4 mb-0">
-            {{ message }}
+          <v-alert v-if="addEdit.message" :type="addEdit.messageType" variant="tonal" class="mt-4 mb-0">
+            {{ addEdit.message }}
           </v-alert>
         </v-sheet>
       </v-col>
@@ -47,74 +50,40 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch } from "vue";
+import { reactive } from "vue";
 import {
   USERS_WEB_QUERY_KEYS,
-  useUsersWebAccess,
-  useUsersWebEndpointResource,
-  useUsersWebUiFeedback,
-  usersWebHttpClient
+  useGlobalAddEdit
 } from "@jskit-ai/users-web/client";
 
 const form = reactive({
   assistantSystemPromptWorkspace: ""
 });
-const queryKey = USERS_WEB_QUERY_KEYS.consoleSettings();
-const access = useUsersWebAccess({
-  workspaceSlug: "",
-  enabled: true
+
+const CONSOLE_SETTINGS_MESSAGES = Object.freeze({
+  saveSuccess: "Console settings updated.",
+  saveError: "Unable to update console settings."
 });
-const feedback = useUsersWebUiFeedback();
-const message = feedback.message;
-const messageType = feedback.messageType;
-const canManageSettings = computed(() => true);
-const settingsResource = useUsersWebEndpointResource({
-  queryKey,
-  path: "/api/console/settings",
-  enabled: true,
-  client: usersWebHttpClient,
+
+const addEdit = useGlobalAddEdit({
+  apiSuffix: "/console/settings",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.consoleSettings,
+  viewPermissions: ["console.settings.read", "console.settings.update"],
+  savePermissions: ["console.settings.update"],
   writeMethod: "PATCH",
+  placementSource: "users-web.console-settings-view",
   fallbackLoadError: "Unable to load console settings.",
-  fallbackSaveError: "Unable to update console settings."
-});
-const error = computed(() => access.bootstrapError.value || settingsResource.loadError.value);
-const isLoading = computed(() => Boolean(settingsResource.isLoading.value || access.isBootstrapping.value));
-const isSaving = settingsResource.isSaving;
-
-watch(
-  () => settingsResource.data.value,
-  (payload) => {
-    if (!payload) {
-      return;
-    }
-    applySettingsData(payload);
+  fallbackSaveError: "Unable to update console settings.",
+  model: form,
+  mapLoadedToModel: (model, payload = {}) => {
+    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+    model.assistantSystemPromptWorkspace = String(settings.assistantSystemPromptWorkspace || "");
   },
-  {
-    immediate: true
-  }
-);
-
-function applySettingsData(data) {
-  const settings = data?.settings && typeof data.settings === "object" ? data.settings : {};
-  form.assistantSystemPromptWorkspace = String(settings.assistantSystemPromptWorkspace || "");
-}
-
-async function submitSettings() {
-  if (!canManageSettings.value || isSaving.value) {
-    return;
-  }
-
-  feedback.clear();
-  try {
-    const payload = await settingsResource.save({
-      assistantSystemPromptWorkspace: form.assistantSystemPromptWorkspace
-    });
-    applySettingsData(payload);
-    feedback.success("Console settings updated.");
-  } catch (requestError) {
-    feedback.error(requestError, "Unable to update console settings.");
-  }
-}
+  buildRawPayload: (model) => ({
+    assistantSystemPromptWorkspace: model.assistantSystemPromptWorkspace
+  }),
+  messages: CONSOLE_SETTINGS_MESSAGES
+});
 </script>
 
 <style scoped>

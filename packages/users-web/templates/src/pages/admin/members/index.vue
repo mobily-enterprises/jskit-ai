@@ -23,12 +23,12 @@ import { computed, reactive, ref, watch } from "vue";
 import {
   MembersAdminClientElement,
   USERS_WEB_QUERY_KEYS,
-  useUsersWebEndpointResource,
-  useUsersWebListResource,
+  useWorkspaceCommand,
+  useWorkspaceList,
+  useWorkspaceView,
   useUsersWebUiFeedback,
   useUsersWebWorkspaceAccess,
   useUsersWebWorkspaceRouteContext,
-  usersWebHttpClient
 } from "@jskit-ai/users-web/client";
 
 const forms = reactive({
@@ -77,23 +77,8 @@ const { route, currentSurfaceId, workspaceSlugFromRoute, resolveWorkspaceApiPath
   useUsersWebWorkspaceRouteContext();
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
-const workspaceSettingsApiPath = computed(() => resolveWorkspaceApiPath("/settings"));
-const workspaceRolesApiPath = computed(() => resolveWorkspaceApiPath("/roles"));
 const workspaceMembersApiPath = computed(() => resolveWorkspaceApiPath("/members"));
 const workspaceInvitesApiPath = computed(() => resolveWorkspaceApiPath("/invites"));
-
-const workspaceSettingsQueryKey = computed(() =>
-  USERS_WEB_QUERY_KEYS.workspaceSettings(currentSurfaceId.value, workspaceSlugFromRoute.value)
-);
-const workspaceRolesQueryKey = computed(() =>
-  USERS_WEB_QUERY_KEYS.workspaceRoles(currentSurfaceId.value, workspaceSlugFromRoute.value)
-);
-const workspaceMembersQueryKey = computed(() =>
-  USERS_WEB_QUERY_KEYS.workspaceMembers(currentSurfaceId.value, workspaceSlugFromRoute.value)
-);
-const workspaceInvitesQueryKey = computed(() =>
-  USERS_WEB_QUERY_KEYS.workspaceInvites(currentSurfaceId.value, workspaceSlugFromRoute.value)
-);
 const access = useUsersWebWorkspaceAccess({
   workspaceSlug: workspaceSlugFromRoute,
   enabled: hasRouteWorkspaceSlug,
@@ -262,76 +247,99 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
   forms.workspace.invitesAvailable = settings.invitesAvailable !== false;
 }
 
-const workspaceSettingsResource = useUsersWebEndpointResource({
-  queryKey: workspaceSettingsQueryKey,
-  path: workspaceSettingsApiPath,
-  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceSettingsApiPath.value) && canInviteMembers.value),
-  client: usersWebHttpClient,
+const workspaceSettingsView = useWorkspaceView({
+  apiSuffix: "/settings",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceSettings,
+  viewPermissions: ["workspace.members.invite"],
   fallbackLoadError: "Unable to load workspace settings."
 });
 
-const workspaceRolesResource = useUsersWebEndpointResource({
-  queryKey: workspaceRolesQueryKey,
-  path: workspaceRolesApiPath,
-  enabled: computed(
-    () =>
-      hasRouteWorkspaceSlug.value &&
-      Boolean(workspaceRolesApiPath.value) &&
-      (canViewMembers.value || canInviteMembers.value || canManageMembers.value)
-  ),
-  client: usersWebHttpClient,
+const workspaceRolesView = useWorkspaceView({
+  apiSuffix: "/roles",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceRoles,
+  viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
   fallbackLoadError: "Unable to load workspace roles."
 });
 
-const workspaceMembersList = useUsersWebListResource({
-  queryKey: workspaceMembersQueryKey,
-  path: workspaceMembersApiPath,
-  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceMembersApiPath.value) && canViewMembers.value),
-  client: usersWebHttpClient,
+const workspaceMembersList = useWorkspaceList({
+  apiSuffix: "/members",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceMembers,
+  viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   selectItems: (payload) => normalizeMembers(payload?.members),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace members."
 });
 
-const workspaceInvitesList = useUsersWebListResource({
-  queryKey: workspaceInvitesQueryKey,
-  path: workspaceInvitesApiPath,
-  enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(workspaceInvitesApiPath.value) && canViewMembers.value),
-  client: usersWebHttpClient,
+const workspaceInvitesList = useWorkspaceList({
+  apiSuffix: "/invites",
+  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceInvites,
+  viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   selectItems: (payload) => normalizeInvites(payload?.invites),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace invites."
 });
 
-const inviteCreateAction = useUsersWebEndpointResource({
-  path: workspaceInvitesApiPath,
-  enabled: false,
-  client: usersWebHttpClient,
+const inviteCreateCommand = useWorkspaceCommand({
+  apiSuffix: "/invites",
+  runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
-  fallbackSaveError: "Unable to send invite."
+  fallbackRunError: "Unable to send invite.",
+  buildRawPayload: () => ({
+    email: forms.invite.email,
+    roleId: forms.invite.roleId
+  }),
+  messages: {
+    success: "Invite sent.",
+    error: "Unable to send invite."
+  }
 });
 
-const revokeInviteAction = useUsersWebEndpointResource({
-  path: workspaceInvitesApiPath,
-  enabled: false,
-  client: usersWebHttpClient,
+const revokeInviteCommand = useWorkspaceCommand({
+  apiSuffix: "/invites",
+  runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
-  fallbackSaveError: "Unable to revoke invite."
+  fallbackRunError: "Unable to revoke invite.",
+  buildRawPayload: () => ({}),
+  buildCommandPayload: () => undefined,
+  buildCommandOptions: (_parsed, { context }) => {
+    const encodedInviteId = encodeURIComponent(String(context?.inviteId || ""));
+    return {
+      method: "DELETE",
+      path: `${workspaceInvitesApiPath.value}/${encodedInviteId}`
+    };
+  },
+  messages: {
+    success: "Invite revoked.",
+    error: "Unable to revoke invite."
+  }
 });
 
-const memberRoleAction = useUsersWebEndpointResource({
-  path: workspaceMembersApiPath,
-  enabled: false,
-  client: usersWebHttpClient,
+const memberRoleCommand = useWorkspaceCommand({
+  apiSuffix: "/members",
+  runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",
-  fallbackSaveError: "Unable to update member role."
+  fallbackRunError: "Unable to update member role.",
+  buildRawPayload: (_model, { context }) => ({
+    roleId: String(context?.roleId || "").trim().toLowerCase()
+  }),
+  buildCommandOptions: (_parsed, { context }) => {
+    const memberUserId = Number(context?.memberUserId || 0);
+    return {
+      method: "PATCH",
+      path: `${workspaceMembersApiPath.value}/${memberUserId}/role`
+    };
+  },
+  messages: {
+    success: "Member role updated.",
+    error: "Unable to update member role."
+  }
 });
 
 const status = computed(() => {
   return {
-    isCreatingInvite: Boolean(inviteCreateAction.isSaving.value),
-    isRevokingInvite: Boolean(revokeInviteAction.isSaving.value),
-    hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsResource.isLoading.value,
+    isCreatingInvite: Boolean(inviteCreateCommand.isRunning.value),
+    isRevokingInvite: Boolean(revokeInviteCommand.isRunning.value),
+    hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading.value,
     hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isLoading.value,
     hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isLoading.value
   };
@@ -360,7 +368,7 @@ watch(
 );
 
 watch(
-  () => workspaceSettingsResource.data.value,
+  () => workspaceSettingsView.record.value,
   (payload) => {
     if (!payload) {
       return;
@@ -371,7 +379,7 @@ watch(
 );
 
 watch(
-  () => workspaceSettingsResource.loadError.value,
+  () => workspaceSettingsView.loadError.value,
   (nextLoadError) => {
     if (!nextLoadError) {
       return;
@@ -382,7 +390,7 @@ watch(
 );
 
 watch(
-  () => workspaceRolesResource.data.value,
+  () => workspaceRolesView.record.value,
   (payload) => {
     if (!payload) {
       return;
@@ -393,7 +401,7 @@ watch(
 );
 
 watch(
-  () => workspaceRolesResource.loadError.value,
+  () => workspaceRolesView.loadError.value,
   (nextLoadError) => {
     if (!nextLoadError) {
       return;
@@ -472,21 +480,18 @@ watch(
 );
 
 async function submitInvite() {
-  if (inviteCreateAction.isSaving.value || !canInviteMembers.value) {
+  if (inviteCreateCommand.isRunning.value || !canInviteMembers.value) {
     return;
   }
 
   inviteFeedback.clear();
 
   try {
-    await inviteCreateAction.save({
-      email: forms.invite.email,
-      roleId: forms.invite.roleId
-    });
+    await inviteCreateCommand.run();
     forms.invite.email = "";
     await Promise.all([
       workspaceInvitesList.reload(),
-      workspaceRolesResource.reload()
+      workspaceRolesView.refresh()
     ]);
     inviteFeedback.success("Invite sent.");
   } catch (error) {
@@ -495,7 +500,7 @@ async function submitInvite() {
 }
 
 async function submitRevokeInvite(inviteId) {
-  if (revokeInviteAction.isSaving.value || !canRevokeInvites.value) {
+  if (revokeInviteCommand.isRunning.value || !canRevokeInvites.value) {
     return;
   }
 
@@ -503,15 +508,12 @@ async function submitRevokeInvite(inviteId) {
   teamFeedback.clear();
 
   try {
-    const invitePath = String(workspaceInvitesApiPath.value || "").trim();
-    const encodedInviteId = encodeURIComponent(String(inviteId || ""));
-    await revokeInviteAction.save(undefined, {
-      method: "DELETE",
-      path: `${invitePath}/${encodedInviteId}`
+    await revokeInviteCommand.run({
+      inviteId
     });
     await Promise.all([
       workspaceInvitesList.reload(),
-      workspaceRolesResource.reload()
+      workspaceRolesView.refresh()
     ]);
     teamFeedback.success("Invite revoked.");
   } catch (error) {
@@ -534,19 +536,13 @@ async function submitMemberRoleUpdate(member, roleId) {
       throw new Error("Member user id is invalid.");
     }
 
-    const membersPath = String(workspaceMembersApiPath.value || "").trim();
-    await memberRoleAction.save(
-      {
-        roleId: String(roleId || "").trim().toLowerCase()
-      },
-      {
-        method: "PATCH",
-        path: `${membersPath}/${memberUserId}/role`
-      }
-    );
+    await memberRoleCommand.run({
+      memberUserId,
+      roleId
+    });
     await Promise.all([
       workspaceMembersList.reload(),
-      workspaceRolesResource.reload()
+      workspaceRolesView.refresh()
     ]);
     membersFeedback.success("Member role updated.");
   } catch (error) {
