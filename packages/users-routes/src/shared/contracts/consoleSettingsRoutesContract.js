@@ -1,6 +1,6 @@
 import { consoleSettingsSchema as consoleSettingsResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/consoleSettingsSchema";
 
-const schema = Object.freeze({
+const consoleSettingsRoutesContract = Object.freeze({
   body: {
     update: consoleSettingsResourceSchema.operations.replace.body.schema
   },
@@ -13,4 +13,4 @@ const schema = Object.freeze({
   commands: {}
 });
 
-export { schema };
+export { consoleSettingsRoutesContract };

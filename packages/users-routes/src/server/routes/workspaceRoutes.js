@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface";
-import { schema } from "../../shared/schema/workspaceSchema.js";
+import { workspaceRoutesContract as schema } from "../../shared/contracts/workspaceRoutesContract.js";
 
 const WORKSPACE_ROUTE_TAGS = Object.freeze(["workspace"]);
 const AUTH_REQUIRED = "required";

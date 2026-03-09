@@ -1,5 +1,5 @@
 <script setup>
-const componentImport = "@jskit-ai/users-web/client";
+const componentImport = "@jskit-ai/users-web/client/components/ProfileClientElement";
 const componentSymbol = "ProfileClientElement";
 </script>
 

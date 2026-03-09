@@ -15,9 +15,9 @@
     "./server/routes/workspaceRoutes": "./src/server/routes/workspaceRoutes.js",
     "./server/routes/settingsRoutes": "./src/server/routes/settingsRoutes.js",
     "./server/routes/consoleSettingsRoutes": "./src/server/routes/consoleSettingsRoutes.js",
-    "./shared/schema/workspaceSchema": "./src/shared/schema/workspaceSchema.js",
-    "./shared/schema/settingsSchema": "./src/shared/schema/settingsSchema.js",
-    "./shared/schema/consoleSettingsSchema": "./src/shared/schema/consoleSettingsSchema.js"
+    "./shared/contracts/workspaceRoutesContract": "./src/shared/contracts/workspaceRoutesContract.js",
+    "./shared/contracts/settingsRoutesContract": "./src/shared/contracts/settingsRoutesContract.js",
+    "./shared/contracts/consoleSettingsRoutesContract": "./src/shared/contracts/consoleSettingsRoutesContract.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

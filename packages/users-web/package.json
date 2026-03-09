@@ -6,16 +6,10 @@
     "test": "node --test"
   },
   "exports": {
-    "./client": "./src/client/index.js",
-    "./client/providers/UsersWebClientProvider": "./src/client/providers/UsersWebClientProvider.js",
-    "./client/components/UsersWorkspaceSelector": "./src/client/components/UsersWorkspaceSelector.vue",
-    "./client/components/UsersWorkspaceToolsWidget": "./src/client/components/UsersWorkspaceToolsWidget.vue",
-    "./client/components/UsersShellMenuLinkItem": "./src/client/components/UsersShellMenuLinkItem.vue",
-    "./client/components/UsersSurfaceAwareMenuLinkItem": "./src/client/components/UsersSurfaceAwareMenuLinkItem.vue",
-    "./client/components/UsersWorkspaceSettingsMenuItem": "./src/client/components/UsersWorkspaceSettingsMenuItem.vue",
-    "./client/components/ProfileClientElement": "./src/client/components/ProfileClientElement.vue",
-    "./client/components/MembersAdminClientElement": "./src/client/components/MembersAdminClientElement.vue",
-    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue"
+    "./client/components/*": "./src/client/components/*.vue",
+    "./client/composables/*": "./src/client/composables/*.js",
+    "./client/lib/*": "./src/client/lib/*.js",
+    "./client/providers/*": "./src/client/providers/*.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",

@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import {
+  createOperationMessages,
+  normalizeObjectInput
+} from "../contractUtils.js";
 
 const workspaceInviteRedeemInputSchema = Type.Object(
   {
@@ -11,10 +14,25 @@ const workspaceInviteRedeemInputSchema = Type.Object(
 
 const workspaceInviteRedeemOutputSchema = Type.Object({}, { additionalProperties: true });
 
+const WORKSPACE_INVITE_REDEEM_MESSAGES = createOperationMessages({
+  fields: {
+    token: {
+      required: "Invite token is required.",
+      minLength: "Invite token is required.",
+      default: "Invite token is invalid."
+    },
+    decision: {
+      required: "Decision is required.",
+      default: "Decision must be accept or refuse."
+    }
+  }
+});
+
 const workspaceInviteRedeemCommand = Object.freeze({
   command: "workspace.invite.redeem",
   operation: Object.freeze({
     method: "POST",
+    messages: WORKSPACE_INVITE_REDEEM_MESSAGES,
     body: Object.freeze({
       schema: workspaceInviteRedeemInputSchema,
       normalize: normalizeObjectInput
@@ -34,5 +52,6 @@ const workspaceInviteRedeemCommand = Object.freeze({
 export {
   workspaceInviteRedeemInputSchema,
   workspaceInviteRedeemOutputSchema,
+  WORKSPACE_INVITE_REDEEM_MESSAGES,
   workspaceInviteRedeemCommand
 };

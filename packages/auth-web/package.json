@@ -9,7 +9,6 @@
     "./server": "./src/server/index.js",
     "./server/controllers/AuthController": "./src/server/controllers/AuthController.js",
     "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
-    "./server/schema/index": "./src/server/schema/index.js",
     "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",
     "./client": "./src/client/index.js",
     "./client/routes": "./src/client/routes/registerClientRoutes.js",

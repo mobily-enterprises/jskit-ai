@@ -4,7 +4,7 @@ import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
-} from "@jskit-ai/auth-core/server/authMethods";
+} from "@jskit-ai/auth-core/shared/authMethods";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { validators } from "@jskit-ai/auth-core/server/validators";
 import {

@@ -19,14 +19,12 @@ import XHRUpload from "@uppy/xhr-upload";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
-import {
-  ProfileClientElement,
-  USERS_WEB_QUERY_KEYS,
-  useAccountAddEdit,
-  useAccountCommand,
-  useAccountView,
-  usersWebHttpClient
-} from "@jskit-ai/users-web/client";
+import ProfileClientElement from "@jskit-ai/users-web/client/components/ProfileClientElement";
+import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { usersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+import { useAccountAddEdit } from "@jskit-ai/users-web/client/composables/useAccountAddEdit";
+import { useAccountCommand } from "@jskit-ai/users-web/client/composables/useAccountCommand";
+import { useAccountView } from "@jskit-ai/users-web/client/composables/useAccountView";
 
 const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;

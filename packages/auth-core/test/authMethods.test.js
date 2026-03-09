@@ -10,12 +10,12 @@ import {
   buildOAuthMethodId,
   findAuthMethodDefinition,
   parseAuthMethodId
-} from "../src/server/authMethods.js";
+} from "../src/shared/authMethods.js";
 import {
   isValidOAuthProviderId,
   normalizeOAuthProviderId,
   normalizeOAuthProviderList
-} from "../src/server/oauthProviders.js";
+} from "../src/shared/oauthProviders.js";
 
 test("oauth provider helpers normalize ids and lists", () => {
   assert.equal(normalizeOAuthProviderId(" Google "), "google");

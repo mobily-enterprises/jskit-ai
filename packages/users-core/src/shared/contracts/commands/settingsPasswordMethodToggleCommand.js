@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import {
+  createOperationMessages,
+  normalizeObjectInput
+} from "../contractUtils.js";
 
 const settingsPasswordMethodToggleInputSchema = Type.Object(
   {
@@ -10,10 +13,20 @@ const settingsPasswordMethodToggleInputSchema = Type.Object(
 
 const settingsPasswordMethodToggleOutputSchema = Type.Object({}, { additionalProperties: true });
 
+const SETTINGS_PASSWORD_METHOD_TOGGLE_MESSAGES = createOperationMessages({
+  fields: {
+    enabled: {
+      required: "enabled is required.",
+      default: "enabled must be a boolean."
+    }
+  }
+});
+
 const settingsPasswordMethodToggleCommand = Object.freeze({
   command: "settings.security.password_method.toggle",
   operation: Object.freeze({
     method: "PATCH",
+    messages: SETTINGS_PASSWORD_METHOD_TOGGLE_MESSAGES,
     body: Object.freeze({
       schema: settingsPasswordMethodToggleInputSchema,
       normalize: normalizeObjectInput
@@ -29,5 +42,6 @@ const settingsPasswordMethodToggleCommand = Object.freeze({
 export {
   settingsPasswordMethodToggleInputSchema,
   settingsPasswordMethodToggleOutputSchema,
+  SETTINGS_PASSWORD_METHOD_TOGGLE_MESSAGES,
   settingsPasswordMethodToggleCommand
 };

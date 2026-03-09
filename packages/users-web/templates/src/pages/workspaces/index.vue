@@ -8,12 +8,10 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import {
-  USERS_WEB_QUERY_KEYS,
-  normalizeWorkspaceList,
-  useGlobalCommand,
-  useGlobalView
-} from "@jskit-ai/users-web/client";
+import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { normalizeWorkspaceList } from "@jskit-ai/users-web/client/lib/bootstrap";
+import { useGlobalCommand } from "@jskit-ai/users-web/client/composables/useGlobalCommand";
+import { useGlobalView } from "@jskit-ai/users-web/client/composables/useGlobalView";
 
 const route = useRoute();
 const router = useRouter();

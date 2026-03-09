@@ -9,7 +9,6 @@
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
-    "./shared/contracts": "./src/shared/contracts/index.js",
     "./shared/contracts/errorResponses": "./src/shared/contracts/errorResponses.js",
     "./shared/contracts/paginationQuery": "./src/shared/contracts/paginationQuery.js",
     "./shared/contracts/commandSchemaContract": "./src/shared/contracts/commandSchemaContract.js",

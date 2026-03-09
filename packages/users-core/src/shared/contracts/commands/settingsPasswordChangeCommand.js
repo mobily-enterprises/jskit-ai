@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import {
+  createOperationMessages,
+  normalizeObjectInput
+} from "../contractUtils.js";
 
 const settingsPasswordChangeInputSchema = Type.Object(
   {
@@ -18,10 +21,29 @@ const settingsPasswordChangeOutputSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const SETTINGS_PASSWORD_CHANGE_MESSAGES = createOperationMessages({
+  fields: {
+    currentPassword: {
+      default: "Current password is invalid."
+    },
+    newPassword: {
+      required: "New password is required.",
+      minLength: "New password must be at least 8 characters.",
+      default: "New password must be at least 8 characters."
+    },
+    confirmPassword: {
+      required: "Confirm password is required.",
+      minLength: "Confirm password is required.",
+      default: "Confirm password is required."
+    }
+  }
+});
+
 const settingsPasswordChangeCommand = Object.freeze({
   command: "settings.security.password.change",
   operation: Object.freeze({
     method: "POST",
+    messages: SETTINGS_PASSWORD_CHANGE_MESSAGES,
     body: Object.freeze({
       schema: settingsPasswordChangeInputSchema,
       normalize: normalizeObjectInput
@@ -37,5 +59,6 @@ const settingsPasswordChangeCommand = Object.freeze({
 export {
   settingsPasswordChangeInputSchema,
   settingsPasswordChangeOutputSchema,
+  SETTINGS_PASSWORD_CHANGE_MESSAGES,
   settingsPasswordChangeCommand
 };

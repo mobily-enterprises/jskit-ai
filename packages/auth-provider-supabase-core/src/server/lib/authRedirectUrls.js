@@ -2,8 +2,8 @@ import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "@jskit-ai/auth-core/server/oauthCallbackParams";
-import { normalizeOAuthProviderList } from "@jskit-ai/auth-core/server/oauthProviders";
+} from "@jskit-ai/auth-core/shared/oauthCallbackParams";
+import { normalizeOAuthProviderList } from "@jskit-ai/auth-core/shared/oauthProviders";
 import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 

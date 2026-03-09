@@ -5,6 +5,16 @@ import {
   requireServiceMethod,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
+import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordRecoveryCompleteCommand";
+import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetCommand";
 
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;
@@ -15,8 +25,95 @@ function requireRequestContext(context, actionId) {
   throw new Error(`${actionId} requires request context.`);
 }
 
+function toValidationErrors(parsedResult = {}) {
+  const fieldErrors = parsedResult?.fieldErrors && typeof parsedResult.fieldErrors === "object"
+    ? parsedResult.fieldErrors
+    : {};
+  if (Object.keys(fieldErrors).length > 0) {
+    return fieldErrors;
+  }
+
+  const globalErrors = Array.isArray(parsedResult?.globalErrors) ? parsedResult.globalErrors : [];
+  if (globalErrors.length > 0) {
+    return {
+      input: String(globalErrors[0] || "Validation failed.")
+    };
+  }
+
+  return {
+    input: "Validation failed."
+  };
+}
+
+function createBodyInputSchema(commandContract) {
+  return function parseBodyInput(rawInput) {
+    const parsed = validateOperationSection({
+      operation: commandContract.operation,
+      section: "body",
+      value: rawInput
+    });
+
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        errors: toValidationErrors(parsed)
+      };
+    }
+
+    return {
+      ok: true,
+      value: parsed.value
+    };
+  };
+}
+
+function parseOAuthStartInput(rawInput) {
+  const source = normalizeObject(rawInput);
+  const parsedParams = validateOperationSection({
+    operation: authLoginOAuthStartCommand.operation,
+    section: "params",
+    value: {
+      provider: source.provider
+    }
+  });
+  const parsedQuery = validateOperationSection({
+    operation: authLoginOAuthStartCommand.operation,
+    section: "query",
+    value: {
+      returnTo: source.returnTo
+    }
+  });
+
+  if (!parsedParams.ok || !parsedQuery.ok) {
+    const errors = {
+      ...(parsedParams.ok ? {} : toValidationErrors(parsedParams)),
+      ...(parsedQuery.ok ? {} : toValidationErrors(parsedQuery))
+    };
+    return {
+      ok: false,
+      errors
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      provider: parsedParams.value.provider,
+      returnTo: parsedQuery.value.returnTo
+    }
+  };
+}
+
 function createAuthActionContributor({ authService } = {}) {
   const contributorId = "auth.supabase";
+  const authRegisterInputSchema = createBodyInputSchema(authRegisterCommand);
+  const authLoginPasswordInputSchema = createBodyInputSchema(authLoginPasswordCommand);
+  const authLoginOtpRequestInputSchema = createBodyInputSchema(authLoginOtpRequestCommand);
+  const authLoginOtpVerifyInputSchema = createBodyInputSchema(authLoginOtpVerifyCommand);
+  const authLoginOAuthCompleteInputSchema = createBodyInputSchema(authLoginOAuthCompleteCommand);
+  const authPasswordResetRequestInputSchema = createBodyInputSchema(authPasswordResetRequestCommand);
+  const authPasswordRecoveryCompleteInputSchema = createBodyInputSchema(authPasswordRecoveryCompleteCommand);
+  const authPasswordResetInputSchema = createBodyInputSchema(authPasswordResetCommand);
 
   const requireAuthServiceMethod = (methodName) =>
     requireServiceMethod(authService, methodName, contributorId, { serviceLabel: "authService" });
@@ -43,7 +140,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authRegisterInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -61,7 +158,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authLoginPasswordInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -79,7 +176,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authLoginOtpRequestInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -97,7 +194,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authLoginOtpVerifyInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -115,7 +212,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: parseOAuthStartInput,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -133,7 +230,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authLoginOAuthCompleteInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -151,7 +248,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authPasswordResetRequestInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -169,7 +266,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authPasswordRecoveryCompleteInputSchema,
         permission: allowPublic,
         idempotency: "none",
         audit: {
@@ -187,7 +284,7 @@ function createAuthActionContributor({ authService } = {}) {
         channels: ["api", "internal"],
         surfaces: ["app", "admin", "console"],
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        inputSchema: authPasswordResetInputSchema,
         permission: requireAuthenticated,
         idempotency: "none",
         audit: {

@@ -3,8 +3,8 @@ import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "@jskit-ai/auth-core/server/authConstraints";
-import { normalizeOAuthProviderList } from "@jskit-ai/auth-core/server/oauthProviders";
+} from "@jskit-ai/auth-core/shared/authConstraints";
+import { normalizeOAuthProviderList } from "@jskit-ai/auth-core/shared/oauthProviders";
 import { validators } from "@jskit-ai/auth-core/server/validators";
 import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { validationError } from "./authErrorMappers.js";

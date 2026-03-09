@@ -18,7 +18,7 @@ import { settingsLogoutOtherSessionsCommand } from "@jskit-ai/users-core/shared/
 import { settingsAvatarUploadCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsAvatarUploadCommand";
 import { settingsAvatarDeleteCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsAvatarDeleteCommand";
 
-const schema = Object.freeze({
+const settingsRoutesContract = Object.freeze({
   body: {
     profile: userProfileResourceSchema.operations.replace.body.schema,
     preferences: preferencesPatchBodySchema,
@@ -57,4 +57,4 @@ const schema = Object.freeze({
   }
 });
 
-export { schema };
+export { settingsRoutesContract };

@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import {
   buildResourceRequiredMetadata,
   normalizeObjectInput
@@ -190,12 +190,14 @@ const workspaceSettingsSchema = Object.freeze({
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_SETTINGS_PATCH_MESSAGES,
       response: Object.freeze({
         schema: workspaceSettingsRecordSchema
       })
     }),
     list: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_SETTINGS_PATCH_MESSAGES,
       response: Object.freeze({
         schema: workspaceSettingsListSchema
       })

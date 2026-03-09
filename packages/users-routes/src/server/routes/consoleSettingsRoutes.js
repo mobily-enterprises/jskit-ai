@@ -1,5 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { schema as consoleSettingsSchema } from "../../shared/schema/consoleSettingsSchema.js";
+import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../../shared/contracts/consoleSettingsRoutesContract.js";
 
 function normalizeObjectInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

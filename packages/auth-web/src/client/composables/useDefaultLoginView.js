@@ -1,10 +1,18 @@
 import { computed, onMounted, ref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { mdiGoogle } from "@mdi/js";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "@jskit-ai/auth-core/server/oauthCallbackParams";
+} from "@jskit-ai/auth-core/shared/oauthCallbackParams";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
 import { authHttpRequest } from "../runtime/authHttpClient.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
@@ -210,6 +218,76 @@ function readOAuthCallbackParamsFromLocation() {
   };
 }
 
+function validateCommandBody(commandContract, payload) {
+  if (!commandContract || !commandContract.operation) {
+    return {
+      ok: true,
+      fieldErrors: {},
+      globalErrors: []
+    };
+  }
+
+  return validateOperationSection({
+    operation: commandContract.operation,
+    section: "body",
+    value: payload
+  });
+}
+
+function validateCommandParams(commandContract, payload) {
+  if (!commandContract || !commandContract.operation) {
+    return {
+      ok: true,
+      fieldErrors: {},
+      globalErrors: []
+    };
+  }
+
+  return validateOperationSection({
+    operation: commandContract.operation,
+    section: "params",
+    value: payload
+  });
+}
+
+function validateCommandQuery(commandContract, payload) {
+  if (!commandContract || !commandContract.operation) {
+    return {
+      ok: true,
+      fieldErrors: {},
+      globalErrors: []
+    };
+  }
+
+  return validateOperationSection({
+    operation: commandContract.operation,
+    section: "query",
+    value: payload
+  });
+}
+
+function resolveValidationMessage(validationResult, fallbackMessage = "Validation failed.") {
+  if (!validationResult || validationResult.ok) {
+    return "";
+  }
+
+  const fieldErrors = validationResult.fieldErrors && typeof validationResult.fieldErrors === "object"
+    ? validationResult.fieldErrors
+    : {};
+  const firstFieldError = Object.values(fieldErrors).find((entry) => String(entry || "").trim().length > 0);
+  if (firstFieldError) {
+    return String(firstFieldError);
+  }
+
+  const globalErrors = Array.isArray(validationResult.globalErrors) ? validationResult.globalErrors : [];
+  const firstGlobalError = globalErrors.find((entry) => String(entry || "").trim().length > 0);
+  if (firstGlobalError) {
+    return String(firstGlobalError);
+  }
+
+  return String(fallbackMessage || "Validation failed.");
+}
+
 export function useDefaultLoginView() {
   const queryClient = useQueryClient();
   const sessionQueryKey = Object.freeze(["auth-web", "session"]);
@@ -291,12 +369,26 @@ export function useDefaultLoginView() {
       return [];
     }
 
-    const value = String(email.value || "").trim();
-    if (!value) {
-      return ["Email is required."];
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      return ["Enter a valid email address."];
+    const normalizedEmail = String(email.value || "").trim().toLowerCase();
+    const command = isRegister.value
+      ? authRegisterCommand
+      : isForgot.value
+        ? authPasswordResetRequestCommand
+        : isOtp.value
+          ? authLoginOtpRequestCommand
+          : authLoginPasswordCommand;
+    const payload = isRegister.value || isLogin.value
+      ? {
+          email: normalizedEmail,
+          password: String(password.value || "")
+        }
+      : {
+          email: normalizedEmail
+        };
+    const parsed = validateCommandBody(command, payload);
+    const message = parsed.fieldErrors?.email;
+    if (message) {
+      return [String(message)];
     }
     return [];
   });
@@ -306,12 +398,18 @@ export function useDefaultLoginView() {
     if (!shouldValidate || isForgot.value || isOtp.value) {
       return [];
     }
-    if (!String(password.value || "").trim()) {
-      return ["Password is required."];
+
+    const normalizedEmail = String(email.value || "").trim().toLowerCase();
+    const command = isRegister.value ? authRegisterCommand : authLoginPasswordCommand;
+    const parsed = validateCommandBody(command, {
+      email: normalizedEmail,
+      password: String(password.value || "")
+    });
+    const message = parsed.fieldErrors?.password;
+    if (message) {
+      return [String(message)];
     }
-    if (isRegister.value && String(password.value || "").trim().length < 8) {
-      return ["Password must be at least 8 characters."];
-    }
+
     return [];
   });
 
@@ -331,9 +429,15 @@ export function useDefaultLoginView() {
     if (!shouldValidate || !isOtp.value) {
       return [];
     }
-    if (!String(otpCode.value || "").trim()) {
-      return ["One-time code is required."];
+
+    const parsed = validateCommandBody(authLoginOtpVerifyCommand, {
+      token: String(otpCode.value || "").trim()
+    });
+    const message = parsed.fieldErrors?.token;
+    if (message) {
+      return [String(message)];
     }
+
     return [];
   });
 
@@ -568,6 +672,11 @@ export function useDefaultLoginView() {
         payload.refreshToken = callbackParams.refreshToken;
       }
 
+      const parsedPayload = validateCommandBody(authLoginOAuthCompleteCommand, payload);
+      if (!parsedPayload.ok) {
+        throw new Error(resolveValidationMessage(parsedPayload, "Invalid OAuth callback payload."));
+      }
+
       const oauthResult = await request("/api/oauth/complete", {
         method: "POST",
         body: payload
@@ -604,12 +713,18 @@ export function useDefaultLoginView() {
       const shouldRememberAccount = rememberAccountOnDevice.value !== false;
 
       if (isRegister.value) {
+        const registerPayload = {
+          email: normalizedEmail,
+          password: String(password.value || "")
+        };
+        const parsedRegister = validateCommandBody(authRegisterCommand, registerPayload);
+        if (!parsedRegister.ok) {
+          throw new Error(resolveValidationMessage(parsedRegister, "Unable to register."));
+        }
+
         const registerResult = await request("/api/register", {
           method: "POST",
-          body: {
-            email: normalizedEmail,
-            password: String(password.value || "")
-          }
+          body: registerPayload
         });
         applyRememberedAccountPreference({
           email: normalizedEmail,
@@ -621,22 +736,34 @@ export function useDefaultLoginView() {
       }
 
       if (isForgot.value) {
+        const forgotPayload = { email: normalizedEmail };
+        const parsedForgot = validateCommandBody(authPasswordResetRequestCommand, forgotPayload);
+        if (!parsedForgot.ok) {
+          throw new Error(resolveValidationMessage(parsedForgot, "Unable to request password reset."));
+        }
+
         await request("/api/password/forgot", {
           method: "POST",
-          body: { email: normalizedEmail }
+          body: forgotPayload
         });
         infoMessage.value = "Password reset instructions sent.";
         return;
       }
 
       if (isOtp.value) {
+        const otpPayload = {
+          email: normalizedEmail,
+          token: String(otpCode.value || "").trim(),
+          type: "email"
+        };
+        const parsedOtp = validateCommandBody(authLoginOtpVerifyCommand, otpPayload);
+        if (!parsedOtp.ok) {
+          throw new Error(resolveValidationMessage(parsedOtp, "Unable to verify one-time code."));
+        }
+
         const otpResult = await request("/api/login/otp/verify", {
           method: "POST",
-          body: {
-            email: normalizedEmail,
-            token: String(otpCode.value || "").trim(),
-            type: "email"
-          }
+          body: otpPayload
         });
         applyRememberedAccountPreference({
           email: normalizedEmail,
@@ -647,12 +774,18 @@ export function useDefaultLoginView() {
         return;
       }
 
+      const loginPayload = {
+        email: normalizedEmail,
+        password: String(password.value || "")
+      };
+      const parsedLogin = validateCommandBody(authLoginPasswordCommand, loginPayload);
+      if (!parsedLogin.ok) {
+        throw new Error(resolveValidationMessage(parsedLogin, "Unable to sign in."));
+      }
+
       const loginResult = await request("/api/login", {
         method: "POST",
-        body: {
-          email: normalizedEmail,
-          password: String(password.value || "")
-        }
+        body: loginPayload
       });
       applyRememberedAccountPreference({
         email: normalizedEmail,
@@ -673,15 +806,17 @@ export function useDefaultLoginView() {
     infoMessage.value = "";
     try {
       const normalizedEmail = String(email.value || "").trim().toLowerCase();
-      if (!normalizedEmail) {
-        throw new Error("Email is required to request a one-time code.");
+      const otpRequestPayload = {
+        email: normalizedEmail,
+        returnTo: requestedReturnTo.value
+      };
+      const parsedRequest = validateCommandBody(authLoginOtpRequestCommand, otpRequestPayload);
+      if (!parsedRequest.ok) {
+        throw new Error(resolveValidationMessage(parsedRequest, "Unable to request one-time code."));
       }
       await request("/api/login/otp/request", {
         method: "POST",
-        body: {
-          email: normalizedEmail,
-          returnTo: requestedReturnTo.value
-        }
+        body: otpRequestPayload
       });
       infoMessage.value = "One-time code sent. Check your inbox.";
     } catch (error) {
@@ -697,9 +832,24 @@ export function useDefaultLoginView() {
       return;
     }
 
-    const params = new URLSearchParams({
+    const paramsPayload = {
+      provider
+    };
+    const queryPayload = {
       returnTo: requestedReturnTo.value
-    });
+    };
+    const parsedParams = validateCommandParams(authLoginOAuthStartCommand, paramsPayload);
+    if (!parsedParams.ok) {
+      errorMessage.value = resolveValidationMessage(parsedParams, "OAuth provider id is invalid.");
+      return;
+    }
+    const parsedQuery = validateCommandQuery(authLoginOAuthStartCommand, queryPayload);
+    if (!parsedQuery.ok) {
+      errorMessage.value = resolveValidationMessage(parsedQuery, "OAuth return path is invalid.");
+      return;
+    }
+
+    const params = new URLSearchParams(queryPayload);
     window.location.assign(`/api/oauth/${encodeURIComponent(provider)}/start?${params.toString()}`);
   }
 

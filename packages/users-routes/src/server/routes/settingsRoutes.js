@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { schema as settingsSchema } from "../../shared/schema/settingsSchema.js";
+import { settingsRoutesContract as settingsSchema } from "../../shared/contracts/settingsRoutesContract.js";
 
 function normalizeObjectInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

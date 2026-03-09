@@ -35,9 +35,20 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./client",
-          summary:
-            "Exports users web client provider, workspace selector/tools shell components, and profile/workspace settings/members UI elements."
+          subpath: "./client/providers/*",
+          summary: "Exports users-web client provider and tokens."
+        },
+        {
+          subpath: "./client/components/*",
+          summary: "Exports users-web Vue client components."
+        },
+        {
+          subpath: "./client/composables/*",
+          summary: "Exports users-web client composables."
+        },
+        {
+          subpath: "./client/lib/*",
+          summary: "Exports users-web client utility and query helpers."
         }
       ],
       containerTokens: {

@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import {
+  createOperationMessages,
+  normalizeObjectInput
+} from "../contractUtils.js";
 
 const settingsOAuthProviderSchema = Type.String({ minLength: 2, maxLength: 64 });
 const settingsOAuthReturnToSchema = Type.Optional(Type.String({ minLength: 1 }));
@@ -35,10 +38,23 @@ const settingsOAuthProviderQuerySchema = Type.Object(
   { additionalProperties: false }
 );
 
+const SETTINGS_OAUTH_LINK_START_MESSAGES = createOperationMessages({
+  fields: {
+    provider: {
+      required: "OAuth provider is required.",
+      default: "OAuth provider is invalid."
+    },
+    returnTo: {
+      default: "Return path is invalid."
+    }
+  }
+});
+
 const settingsOAuthLinkStartCommand = Object.freeze({
   command: "settings.security.oauth.link.start",
   operation: Object.freeze({
     method: "GET",
+    messages: SETTINGS_OAUTH_LINK_START_MESSAGES,
     params: Object.freeze({
       schema: settingsOAuthProviderParamsSchema,
       normalize: normalizeObjectInput
@@ -62,5 +78,6 @@ export {
   settingsOAuthProviderQuerySchema,
   settingsOAuthLinkStartInputSchema,
   settingsOAuthLinkStartOutputSchema,
+  SETTINGS_OAUTH_LINK_START_MESSAGES,
   settingsOAuthLinkStartCommand
 };

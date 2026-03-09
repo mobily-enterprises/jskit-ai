@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import {
   buildResourceRequiredMetadata,
+  createOperationMessages,
   normalizeObjectInput
 } from "../contractUtils.js";
 
@@ -38,23 +39,28 @@ const consoleSettingsListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const CONSOLE_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
+
 const consoleSettingsSchema = Object.freeze({
   resource: "consoleSettings",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",
+      messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: consoleSettingsRecordSchema
       })
     }),
     list: Object.freeze({
       method: "GET",
+      messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: consoleSettingsListSchema
       })
     }),
     create: Object.freeze({
       method: "POST",
+      messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: consoleSettingsCreateSchema,
         normalize: normalizeObjectInput
@@ -65,6 +71,7 @@ const consoleSettingsSchema = Object.freeze({
     }),
     replace: Object.freeze({
       method: "PUT",
+      messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: consoleSettingsReplaceSchema,
         normalize: normalizeObjectInput
@@ -75,6 +82,7 @@ const consoleSettingsSchema = Object.freeze({
     }),
     patch: Object.freeze({
       method: "PATCH",
+      messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: consoleSettingsPatchSchema,
         normalize: normalizeObjectInput

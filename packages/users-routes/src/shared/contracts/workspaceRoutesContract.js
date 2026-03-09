@@ -89,7 +89,7 @@ const workspaceParams = Type.Object(
   { additionalProperties: false }
 );
 
-const schema = Object.freeze({
+const workspaceRoutesContract = Object.freeze({
   query: {
     bootstrap: bootstrapQuery
   },
@@ -125,4 +125,4 @@ const schema = Object.freeze({
   }
 });
 
-export { schema };
+export { workspaceRoutesContract };

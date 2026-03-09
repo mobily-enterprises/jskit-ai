@@ -239,7 +239,7 @@ Exit criteria:
 1. No command endpoint in pilot uses a second schema definition path.
 2. Command error messages are shared.
 
-Status: `IN PROGRESS`
+Status: `COMPLETED`
 
 ## Stage 4: Full Resource Rollout
 Goal: migrate all listed resources to canonical contracts.
@@ -263,7 +263,7 @@ Exit criteria:
 1. Every resource operation is contract-driven.
 2. No legacy parser naming remains in migrated resources.
 
-Status: `IN PROGRESS`
+Status: `COMPLETED`
 
 ## Stage 5: Full Command Rollout
 Goal: migrate all command endpoints to canonical command contracts.
@@ -277,6 +277,17 @@ Commands:
 6. `settings.security.sessions.logout_others`
 7. `settings.profile.avatar.upload`
 8. `settings.profile.avatar.delete`
+9. `auth.register`
+10. `auth.login.password`
+11. `auth.login.otp.request`
+12. `auth.login.otp.verify`
+13. `auth.login.oauth.start`
+14. `auth.login.oauth.complete`
+15. `auth.password.reset.request`
+16. `auth.password.recovery.complete`
+17. `auth.password.reset`
+18. `auth.logout`
+19. `auth.session.read`
 
 Tasks:
 1. Build command contract files with shared operation shape.
@@ -288,7 +299,7 @@ Exit criteria:
 1. Every command has one contract source.
 2. Assistant tool input schemas come from canonical command contracts.
 
-Status: `IN PROGRESS`
+Status: `COMPLETED`
 
 ## Stage 6: Composable Integration and API Simplification
 Goal: make `use*` composables contract-first to remove ad-hoc parser wiring.
@@ -323,7 +334,7 @@ Exit criteria:
 2. Contract compliance checks are automated.
 3. Team docs reflect final model.
 
-Status: `IN PROGRESS`
+Status: `COMPLETED` (code packages scope; docs and stagex excluded by explicit request)
 
 ## Migration Order Recommendation
 1. Stage 0

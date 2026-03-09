@@ -1,6 +1,18 @@
-import { Type } from "@fastify/type-provider-typebox";
-import { schema } from "../schema/index.js";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
+import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordRecoveryCompleteCommand";
+import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetCommand";
+import { authLogoutCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLogoutCommand";
+import {
+  authSessionReadCommand,
+  authSessionReadUnavailableResponseSchema
+} from "@jskit-ai/auth-core/shared/contracts/commands/authSessionReadCommand";
 
 function buildRoutes(controller) {
   if (!controller) {
@@ -19,11 +31,12 @@ function buildRoutes(controller) {
         summary: "Register a new user"
       },
       body: {
-        schema: schema.register.body
+        schema: authRegisterCommand.operation.body.schema,
+        normalize: authRegisterCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          201: schema.register.response
+          201: authRegisterCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -42,11 +55,12 @@ function buildRoutes(controller) {
         summary: "Log in with configured credentials"
       },
       body: {
-        schema: schema.login.body
+        schema: authLoginPasswordCommand.operation.body.schema,
+        normalize: authLoginPasswordCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.login.response
+          200: authLoginPasswordCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -65,11 +79,12 @@ function buildRoutes(controller) {
         summary: "Request one-time email login code"
       },
       body: {
-        schema: schema.otpRequest.body
+        schema: authLoginOtpRequestCommand.operation.body.schema,
+        normalize: authLoginOtpRequestCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.otpRequest.response
+          200: authLoginOtpRequestCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -88,11 +103,12 @@ function buildRoutes(controller) {
         summary: "Verify one-time email login code and create session"
       },
       body: {
-        schema: schema.otpVerify.body
+        schema: authLoginOtpVerifyCommand.operation.body.schema,
+        normalize: authLoginOtpVerifyCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.otpVerify.response
+          200: authLoginOtpVerifyCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -112,14 +128,16 @@ function buildRoutes(controller) {
         summary: "Start OAuth login with configured provider"
       },
       params: {
-        schema: schema.oauthStart.params
+        schema: authLoginOAuthStartCommand.operation.params.schema,
+        normalize: authLoginOAuthStartCommand.operation.params.normalize
       },
       query: {
-        schema: schema.oauthStart.query
+        schema: authLoginOAuthStartCommand.operation.query.schema,
+        normalize: authLoginOAuthStartCommand.operation.query.normalize
       },
       response: withStandardErrorResponses(
         {
-          302: Type.Unknown()
+          302: authLoginOAuthStartCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -138,11 +156,12 @@ function buildRoutes(controller) {
         summary: "Complete OAuth code exchange and set session cookies"
       },
       body: {
-        schema: schema.oauthComplete.body
+        schema: authLoginOAuthCompleteCommand.operation.body.schema,
+        normalize: authLoginOAuthCompleteCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.oauthComplete.response
+          200: authLoginOAuthCompleteCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -161,11 +180,12 @@ function buildRoutes(controller) {
         summary: "Request a password reset email"
       },
       body: {
-        schema: schema.passwordForgot.body
+        schema: authPasswordResetRequestCommand.operation.body.schema,
+        normalize: authPasswordResetRequestCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.passwordForgot.response
+          200: authPasswordResetRequestCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -184,11 +204,12 @@ function buildRoutes(controller) {
         summary: "Complete password recovery link exchange"
       },
       body: {
-        schema: schema.passwordRecovery.body
+        schema: authPasswordRecoveryCompleteCommand.operation.body.schema,
+        normalize: authPasswordRecoveryCompleteCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.passwordRecovery.response
+          200: authPasswordRecoveryCompleteCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -207,11 +228,12 @@ function buildRoutes(controller) {
         summary: "Set a new password for authenticated recovery session"
       },
       body: {
-        schema: schema.passwordReset.body
+        schema: authPasswordResetCommand.operation.body.schema,
+        normalize: authPasswordResetCommand.operation.body.normalize
       },
       response: withStandardErrorResponses(
         {
-          200: schema.passwordReset.response
+          200: authPasswordResetCommand.operation.response.schema
         },
         { includeValidation400: true }
       ),
@@ -230,7 +252,7 @@ function buildRoutes(controller) {
         summary: "Log out and clear session cookies"
       },
       response: withStandardErrorResponses({
-        200: schema.logout.response
+        200: authLogoutCommand.operation.response.schema
       }),
       handler: handler("logout")
     },
@@ -243,8 +265,8 @@ function buildRoutes(controller) {
         summary: "Get current session status and CSRF token"
       },
       response: withStandardErrorResponses({
-        200: schema.session.response,
-        503: schema.session.unavailable
+        200: authSessionReadCommand.operation.response.schema,
+        503: authSessionReadUnavailableResponseSchema
       }),
       handler: handler("session")
     }

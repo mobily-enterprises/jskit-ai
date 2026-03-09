@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { schema as workspaceSchema } from "../src/shared/schema/workspaceSchema.js";
-import { schema as settingsSchema } from "../src/shared/schema/settingsSchema.js";
-import { schema as consoleSettingsSchema } from "../src/shared/schema/consoleSettingsSchema.js";
+import path from "node:path";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { workspaceRoutesContract as workspaceSchema } from "../src/shared/contracts/workspaceRoutesContract.js";
+import { settingsRoutesContract as settingsSchema } from "../src/shared/contracts/settingsRoutesContract.js";
+import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../src/shared/contracts/consoleSettingsRoutesContract.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -13,6 +16,11 @@ function assertResourceContract(contract, label) {
     const operation = contract.operations?.[operationName];
     assert.equal(typeof operation, "object", `${label}.operations.${operationName} must exist.`);
     assert.equal(typeof operation.method, "string", `${label}.operations.${operationName}.method must exist.`);
+    assert.equal(
+      typeof operation.messages,
+      "object",
+      `${label}.operations.${operationName}.messages must be an object.`
+    );
     assert.equal(typeof operation.response?.schema, "object", `${label}.operations.${operationName}.response.schema is required.`);
   }
 
@@ -29,6 +37,7 @@ function assertCommandContract(contract, label) {
   assert.equal(typeof contract, "object", `${label} contract must be an object.`);
   assert.equal(contract.command, label, `${label}.command must match command id.`);
   assert.equal(typeof contract.operation?.method, "string", `${label}.operation.method must exist.`);
+  assert.equal(typeof contract.operation?.messages, "object", `${label}.operation.messages must be an object.`);
   assert.equal(typeof contract.operation?.response?.schema, "object", `${label}.operation.response.schema must exist.`);
   assert.ok(Array.isArray(contract.operation?.invalidates), `${label}.operation.invalidates must be an array.`);
 
@@ -129,4 +138,11 @@ test("route schema building blocks are wired directly from canonical contracts",
     consoleSettingsSchema.response.settings,
     consoleSettingsSchema.resources.consoleSettings.operations.view.response.schema
   );
+});
+
+test("users-routes no longer contains legacy shared/schema directory", () => {
+  const testFilePath = fileURLToPath(import.meta.url);
+  const packageRoot = path.resolve(path.dirname(testFilePath), "..");
+  const legacySchemaDir = path.join(packageRoot, "src", "shared", "schema");
+  assert.equal(existsSync(legacySchemaDir), false, "src/shared/schema must not exist.");
 });

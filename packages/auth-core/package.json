@@ -10,10 +10,6 @@
     "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
     "./server/providers/RbacServiceProvider": "./src/server/providers/RbacServiceProvider.js",
     "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
-    "./server/authConstraints": "./src/server/authConstraints.js",
-    "./server/authMethods": "./src/server/authMethods.js",
-    "./server/oauthProviders": "./src/server/oauthProviders.js",
-    "./server/oauthCallbackParams": "./src/server/oauthCallbackParams.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
     "./server/inviteTokens": "./src/server/inviteTokens.js",
@@ -27,12 +23,29 @@
     "./client/signOutFlow": "./src/client/signOutFlow.js",
     "./shared": "./src/shared/index.js",
     "./shared/authApi": "./src/shared/authApi.js",
-    "./shared/signOutFlow": "./src/shared/signOutFlow.js"
+    "./shared/signOutFlow": "./src/shared/signOutFlow.js",
+    "./shared/authConstraints": "./src/shared/authConstraints.js",
+    "./shared/authMethods": "./src/shared/authMethods.js",
+    "./shared/oauthProviders": "./src/shared/oauthProviders.js",
+    "./shared/oauthCallbackParams": "./src/shared/oauthCallbackParams.js",
+    "./shared/contracts/contractUtils": "./src/shared/contracts/contractUtils.js",
+    "./shared/contracts/commands/authRegisterCommand": "./src/shared/contracts/commands/authRegisterCommand.js",
+    "./shared/contracts/commands/authLoginPasswordCommand": "./src/shared/contracts/commands/authLoginPasswordCommand.js",
+    "./shared/contracts/commands/authLoginOtpRequestCommand": "./src/shared/contracts/commands/authLoginOtpRequestCommand.js",
+    "./shared/contracts/commands/authLoginOtpVerifyCommand": "./src/shared/contracts/commands/authLoginOtpVerifyCommand.js",
+    "./shared/contracts/commands/authLoginOAuthStartCommand": "./src/shared/contracts/commands/authLoginOAuthStartCommand.js",
+    "./shared/contracts/commands/authLoginOAuthCompleteCommand": "./src/shared/contracts/commands/authLoginOAuthCompleteCommand.js",
+    "./shared/contracts/commands/authPasswordResetRequestCommand": "./src/shared/contracts/commands/authPasswordResetRequestCommand.js",
+    "./shared/contracts/commands/authPasswordRecoveryCompleteCommand": "./src/shared/contracts/commands/authPasswordRecoveryCompleteCommand.js",
+    "./shared/contracts/commands/authPasswordResetCommand": "./src/shared/contracts/commands/authPasswordResetCommand.js",
+    "./shared/contracts/commands/authLogoutCommand": "./src/shared/contracts/commands/authLogoutCommand.js",
+    "./shared/contracts/commands/authSessionReadCommand": "./src/shared/contracts/commands/authSessionReadCommand.js"
   },
   "dependencies": {
     "@jskit-ai/kernel": "0.1.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
-    "@fastify/rate-limit": "^10.3.0"
+    "@fastify/rate-limit": "^10.3.0",
+    "typebox": "^1.0.81"
   }
 }

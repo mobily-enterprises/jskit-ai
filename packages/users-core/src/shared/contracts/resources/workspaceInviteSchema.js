@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import {
   buildResourceRequiredMetadata,
+  createOperationMessages,
   normalizeObjectInput
 } from "../contractUtils.js";
 import {
@@ -53,23 +54,28 @@ const workspaceInviteListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const WORKSPACE_INVITE_OPERATION_MESSAGES = createOperationMessages();
+
 const workspaceInviteSchema = Object.freeze({
   resource: "workspaceInvite",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: workspaceInviteRecordSchema
       })
     }),
     list: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: workspaceInviteListSchema
       })
     }),
     create: Object.freeze({
       method: "POST",
+      messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspaceInviteCreateSchema,
         normalize: normalizeObjectInput
@@ -80,6 +86,7 @@ const workspaceInviteSchema = Object.freeze({
     }),
     replace: Object.freeze({
       method: "PUT",
+      messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspaceInviteReplaceSchema,
         normalize: normalizeObjectInput
@@ -90,6 +97,7 @@ const workspaceInviteSchema = Object.freeze({
     }),
     patch: Object.freeze({
       method: "PATCH",
+      messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspaceInvitePatchSchema,
         normalize: normalizeObjectInput

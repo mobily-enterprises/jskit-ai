@@ -1,7 +1,7 @@
-import * as authConstraints from "../authConstraints.js";
-import * as authMethods from "../authMethods.js";
-import * as oauthProviders from "../oauthProviders.js";
-import * as oauthCallbackParams from "../oauthCallbackParams.js";
+import * as authConstraints from "../../shared/authConstraints.js";
+import * as authMethods from "../../shared/authMethods.js";
+import * as oauthProviders from "../../shared/oauthProviders.js";
+import * as oauthCallbackParams from "../../shared/oauthCallbackParams.js";
 import * as membershipAccess from "../membershipAccess.js";
 import * as inviteTokens from "../inviteTokens.js";
 import * as utils from "../utils.js";

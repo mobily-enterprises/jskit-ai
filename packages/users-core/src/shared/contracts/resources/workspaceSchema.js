@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import {
   buildResourceRequiredMetadata,
+  createOperationMessages,
   normalizeObjectInput
 } from "../contractUtils.js";
 
@@ -72,23 +73,28 @@ const workspaceListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const WORKSPACE_OPERATION_MESSAGES = createOperationMessages();
+
 const workspaceSchema = Object.freeze({
   resource: "workspace",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: workspaceAdminSummarySchema
       })
     }),
     list: Object.freeze({
       method: "GET",
+      messages: WORKSPACE_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: workspaceListSchema
       })
     }),
     create: Object.freeze({
       method: "POST",
+      messages: WORKSPACE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspaceCreateSchema,
         normalize: normalizeObjectInput
@@ -99,6 +105,7 @@ const workspaceSchema = Object.freeze({
     }),
     replace: Object.freeze({
       method: "PUT",
+      messages: WORKSPACE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspaceReplaceSchema,
         normalize: normalizeObjectInput
@@ -109,6 +116,7 @@ const workspaceSchema = Object.freeze({
     }),
     patch: Object.freeze({
       method: "PATCH",
+      messages: WORKSPACE_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: workspacePatchSchema,
         normalize: normalizeObjectInput

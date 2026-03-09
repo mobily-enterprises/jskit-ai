@@ -4,7 +4,7 @@ import {
   AUTH_LOGIN_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH
-} from "./authConstraints.js";
+} from "../shared/authConstraints.js";
 import { normalizeEmail } from "./utils.js";
 
 function validateEmail(rawEmail) {

@@ -51,10 +51,8 @@
 
 <script setup>
 import { reactive } from "vue";
-import {
-  USERS_WEB_QUERY_KEYS,
-  useGlobalAddEdit
-} from "@jskit-ai/users-web/client";
+import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
 
 const form = reactive({
   assistantSystemPromptWorkspace: ""

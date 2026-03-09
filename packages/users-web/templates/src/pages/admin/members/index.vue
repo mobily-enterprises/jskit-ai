@@ -20,16 +20,14 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
-import {
-  MembersAdminClientElement,
-  USERS_WEB_QUERY_KEYS,
-  useWorkspaceCommand,
-  useWorkspaceList,
-  useWorkspaceView,
-  useUsersWebUiFeedback,
-  useUsersWebWorkspaceAccess,
-  useUsersWebWorkspaceRouteContext,
-} from "@jskit-ai/users-web/client";
+import MembersAdminClientElement from "@jskit-ai/users-web/client/components/MembersAdminClientElement";
+import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand";
+import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList";
+import { useWorkspaceView } from "@jskit-ai/users-web/client/composables/useWorkspaceView";
+import { useUsersWebUiFeedback } from "@jskit-ai/users-web/client/composables/useUsersWebUiFeedback";
+import { useUsersWebWorkspaceAccess } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceAccess";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 
 const forms = reactive({
   invite: {

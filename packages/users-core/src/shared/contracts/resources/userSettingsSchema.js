@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import {
   buildResourceRequiredMetadata,
+  createOperationMessages,
   normalizeObjectInput
 } from "../contractUtils.js";
 import { userProfileRecordSchema } from "./userProfileSchema.js";
@@ -116,23 +117,28 @@ const userSettingsListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
+
 const userSettingsSchema = Object.freeze({
   resource: "userSettings",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: userSettingsRecordSchema
       })
     }),
     list: Object.freeze({
       method: "GET",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
       response: Object.freeze({
         schema: userSettingsListSchema
       })
     }),
     create: Object.freeze({
       method: "POST",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: userSettingsCreateSchema,
         normalize: normalizeObjectInput
@@ -143,6 +149,7 @@ const userSettingsSchema = Object.freeze({
     }),
     replace: Object.freeze({
       method: "PUT",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: userSettingsReplaceSchema,
         normalize: normalizeObjectInput
@@ -153,6 +160,7 @@ const userSettingsSchema = Object.freeze({
     }),
     patch: Object.freeze({
       method: "PATCH",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
         schema: userSettingsPatchSchema,
         normalize: normalizeObjectInput
