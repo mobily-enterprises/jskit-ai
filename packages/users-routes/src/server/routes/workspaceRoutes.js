@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface";
-import { schema } from "../schema/workspaceSchema.js";
+import { schema } from "../../shared/schema/workspaceSchema.js";
 
 const WORKSPACE_ROUTE_TAGS = Object.freeze(["workspace"]);
 const AUTH_REQUIRED = "required";
@@ -150,7 +150,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.response.settings),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceSettings.record),
       handlerName: "getWorkspaceSettings"
     })
   );
@@ -169,10 +169,10 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         normalize: normalizeWorkspaceParams
       },
       body: {
-        schema: schema.body.settingsUpdate,
+        schema: schema.resourceContracts.workspaceSettings.patch,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.response.settings, true),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceSettings.record, true),
       handlerName: "updateWorkspaceSettings"
     })
   );
@@ -208,7 +208,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.response.members),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceMember.list),
       handlerName: "listWorkspaceMembers"
     })
   );
@@ -230,7 +230,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
-      response: buildWorkspaceResponse(schema.response.members, true),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceMember.list, true),
       handlerName: "updateWorkspaceMemberRole"
     })
   );
@@ -248,7 +248,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.response.invites),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list),
       handlerName: "listWorkspaceInvites"
     })
   );
@@ -267,10 +267,10 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         normalize: normalizeWorkspaceParams
       },
       body: {
-        schema: schema.body.createInvite,
+        schema: schema.resourceContracts.workspaceInvite.create,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.response.invites, true),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list, true),
       handlerName: "createWorkspaceInvite"
     })
   );
@@ -288,7 +288,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.invite,
         normalize: normalizeInviteParams
       },
-      response: buildWorkspaceResponse(schema.response.invites),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list),
       handlerName: "revokeWorkspaceInvite"
     })
   );
@@ -328,7 +328,7 @@ function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
       method: "GET",
       auth: AUTH_REQUIRED,
       summary: "List workspaces visible to authenticated user",
-      response: buildWorkspaceResponse(schema.response.workspacesList),
+      response: buildWorkspaceResponse(schema.resourceContracts.workspace.list),
       handlerName: "listWorkspaces"
     })
   );
@@ -353,10 +353,10 @@ function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
       auth: AUTH_REQUIRED,
       summary: "Accept or refuse a workspace invitation using an invite token",
       body: {
-        schema: schema.body.redeemInvite,
+        schema: schema.commandContracts["workspace.invite.redeem"].input,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.response.respondToInvite, true),
+      response: buildWorkspaceResponse(schema.commandContracts["workspace.invite.redeem"].output, true),
       handlerName: "respondToPendingInviteByToken"
     })
   );

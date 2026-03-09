@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { schema as settingsSchema } from "../schema/settingsSchema.js";
+import { schema as settingsSchema } from "../../shared/schema/settingsSchema.js";
 
 function normalizeObjectInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -43,7 +43,7 @@ function buildRoutes(controller) {
         summary: "Get authenticated user's settings"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.response
+        200: settingsSchema.resourceContracts.userSettings.record
       }),
       handler: handler("get")
     },
@@ -56,12 +56,12 @@ function buildRoutes(controller) {
         summary: "Update profile settings"
       },
       body: {
-        schema: settingsSchema.body.profile,
+        schema: settingsSchema.resourceContracts.userProfile.replace,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.resourceContracts.userSettings.record
         },
         { includeValidation400: true }
       ),
@@ -83,7 +83,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.commandContracts["settings.profile.avatar.upload"].output
         },
         { includeValidation400: true }
       ),
@@ -98,7 +98,7 @@ function buildRoutes(controller) {
         summary: "Delete profile avatar and fallback to gravatar"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.response
+        200: settingsSchema.commandContracts["settings.profile.avatar.delete"].output
       }),
       handler: handler("deleteAvatar")
     },
@@ -116,7 +116,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.resourceContracts.userSettings.record
         },
         { includeValidation400: true }
       ),
@@ -136,7 +136,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.resourceContracts.userSettings.record
         },
         { includeValidation400: true }
       ),
@@ -156,7 +156,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.resourceContracts.userSettings.record
         },
         { includeValidation400: true }
       ),
@@ -171,12 +171,12 @@ function buildRoutes(controller) {
         summary: "Set or change authenticated user's password"
       },
       body: {
-        schema: settingsSchema.body.changePassword,
+        schema: settingsSchema.commandContracts["settings.security.password.change"].input,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.commandContracts["settings.security.password.change"].output
         },
         { includeValidation400: true }
       ),
@@ -195,12 +195,12 @@ function buildRoutes(controller) {
         summary: "Enable or disable password sign-in method"
       },
       body: {
-        schema: settingsSchema.body.passwordMethodToggle,
+        schema: settingsSchema.commandContracts["settings.security.password_method.toggle"].input,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.commandContracts["settings.security.password_method.toggle"].output
         },
         { includeValidation400: true }
       ),
@@ -253,7 +253,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: settingsSchema.commandContracts["settings.security.oauth.unlink"].output
         },
         { includeValidation400: true }
       ),
@@ -272,7 +272,7 @@ function buildRoutes(controller) {
         summary: "Sign out from other active sessions"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.response
+        200: settingsSchema.commandContracts["settings.security.sessions.logout_others"].output
       }),
       rateLimit: {
         max: 20,

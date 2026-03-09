@@ -8,7 +8,7 @@ export const routeMeta = {
 
 <script setup>
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
 import { useRoute } from "vue-router";
 import Uppy from "@uppy/core";
@@ -22,6 +22,9 @@ import "@uppy/image-editor/css/style.min.css";
 import {
   ProfileClientElement,
   USERS_WEB_QUERY_KEYS,
+  useAccountAddEdit,
+  useAccountCommand,
+  useAccountView,
   usersWebHttpClient
 } from "@jskit-ai/users-web/client";
 
@@ -98,6 +101,10 @@ const DEFAULTS = Object.freeze({
 const route = useRoute();
 const queryClient = useQueryClient();
 
+function accountSettingsQueryKeyFactory() {
+  return USERS_WEB_QUERY_KEYS.accountSettings();
+}
+
 function normalizeReturnToPath(value, fallback = "/") {
   const source = Array.isArray(value) ? value[0] : value;
   const rawValue = String(source || "").trim();
@@ -118,7 +125,7 @@ const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");
-const loadError = ref("");
+const settingsRecord = reactive({});
 
 const profileForm = reactive({
   displayName: "",
@@ -152,142 +159,13 @@ const profileAvatar = reactive({
 
 const selectedAvatarFileName = ref("");
 const avatarUppy = ref(null);
+const loadError = ref("");
 
-const profileFieldErrors = reactive({
-  displayName: ""
-});
-
-const preferencesFieldErrors = reactive({
-  theme: "",
-  locale: "",
-  timeZone: "",
-  dateFormat: "",
-  numberFormat: "",
-  currencyCode: "",
-  avatarSize: ""
-});
-
-const profileMessage = ref("");
-const profileMessageType = ref("success");
-const avatarMessage = ref("");
-const avatarMessageType = ref("success");
-const preferencesMessage = ref("");
-const preferencesMessageType = ref("success");
-const notificationsMessage = ref("");
-const notificationsMessageType = ref("success");
-const settingsQueryKey = USERS_WEB_QUERY_KEYS.accountSettings();
 const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
-
-const settingsQuery = useQuery({
-  queryKey: settingsQueryKey,
-  queryFn: () =>
-    usersWebHttpClient.request("/api/settings", {
-      method: "GET"
-    }),
-  refetchOnWindowFocus: false
-});
-
-const profileMutation = useMutation({
-  mutationFn: (payload) =>
-    usersWebHttpClient.request("/api/settings/profile", {
-      method: "PATCH",
-      body: payload
-    })
-});
-
-const avatarDeleteMutation = useMutation({
-  mutationFn: () =>
-    usersWebHttpClient.request("/api/settings/profile/avatar", {
-      method: "DELETE"
-    })
-});
-
-const preferencesMutation = useMutation({
-  mutationFn: (payload) =>
-    usersWebHttpClient.request("/api/settings/preferences", {
-      method: "PATCH",
-      body: payload
-    })
-});
-
-const notificationsMutation = useMutation({
-  mutationFn: (payload) =>
-    usersWebHttpClient.request("/api/settings/notifications", {
-      method: "PATCH",
-      body: payload
-    })
-});
-
-const loadingSettings = computed(() => Boolean(settingsQuery.isPending.value || settingsQuery.isFetching.value));
 
 const profileInitials = computed(() => {
   const source = String(profileForm.displayName || profileForm.email || "U").trim();
   return source.slice(0, 2).toUpperCase() || "U";
-});
-
-const page = Object.freeze({
-  meta: {
-    settingsSections: SETTINGS_SECTIONS
-  },
-  state: reactive({
-    activeTab,
-    loadError
-  })
-});
-
-const profileState = reactive({
-  preferencesForm,
-  profileAvatar,
-  profileInitials,
-  selectedAvatarFileName,
-  avatarMessage,
-  avatarMessageType,
-  profileForm,
-  profileFieldErrors,
-  profileMessage,
-  profileMessageType,
-  avatarDeleteMutation,
-  profileMutation
-});
-
-const profileActions = Object.freeze({
-  submitProfile,
-  openAvatarEditor,
-  submitAvatarDelete
-});
-
-const preferences = Object.freeze({
-  meta: {
-    themeOptions: THEME_OPTIONS,
-    localeOptions: LOCALE_OPTIONS,
-    timeZoneOptions: TIME_ZONE_OPTIONS,
-    dateFormatOptions: DATE_FORMAT_OPTIONS,
-    numberFormatOptions: NUMBER_FORMAT_OPTIONS,
-    currencyOptions: CURRENCY_OPTIONS,
-    avatarSizeOptions: AVATAR_SIZE_OPTIONS
-  },
-  state: reactive({
-    preferencesForm,
-    preferencesFieldErrors,
-    preferencesMessage,
-    preferencesMessageType,
-    preferencesMutation
-  }),
-  actions: {
-    submitPreferences
-  }
-});
-
-const notifications = Object.freeze({
-  state: reactive({
-    notificationsForm,
-    notificationsMessage,
-    notificationsMessageType,
-    notificationsMutation
-  }),
-  actions: {
-    submitNotifications
-  }
 });
 
 function toObject(value) {
@@ -297,13 +175,6 @@ function toObject(value) {
 
   return value;
 }
-
-function clearFieldErrors(fieldErrors) {
-  for (const key of Object.keys(fieldErrors)) {
-    fieldErrors[key] = "";
-  }
-}
-
 function normalizeAvatarSize(value) {
   const numeric = Number(value);
   if (!Number.isInteger(numeric)) {
@@ -365,50 +236,187 @@ function applySettingsData(payload) {
   applyThemePreference(preferencesForm.theme);
 }
 
-watch(
-  () => settingsQuery.data.value,
-  (payload) => {
-    if (!payload) {
-      return;
-    }
+const settingsView = useAccountView({
+  apiSuffix: "/settings",
+  queryKeyFactory: accountSettingsQueryKeyFactory,
+  fallbackLoadError: "Unable to load settings.",
+  model: settingsRecord,
+  mapLoadedToModel: (_model, payload = {}) => {
     applySettingsData(payload);
-    loadError.value = "";
+  }
+});
+
+const profileAddEdit = useAccountAddEdit({
+  apiSuffix: "/settings/profile",
+  queryKeyFactory: accountSettingsQueryKeyFactory,
+  readEnabled: false,
+  writeMethod: "PATCH",
+  fallbackSaveError: "Unable to update profile.",
+  fieldErrorKeys: ["displayName"],
+  model: profileForm,
+  mapLoadedToModel: (_model, payload = {}) => {
+    applySettingsData(payload);
+  },
+  buildRawPayload: (model) => ({
+    displayName: String(model.displayName || "").trim()
+  }),
+  messages: {
+    saveSuccess: "Profile updated.",
+    saveError: "Unable to update profile."
+  }
+});
+
+const avatarDeleteCommand = useAccountCommand({
+  apiSuffix: "/settings/profile/avatar",
+  writeMethod: "DELETE",
+  fallbackRunError: "Unable to remove avatar.",
+  model: profileForm,
+  buildRawPayload: () => ({}),
+  buildCommandPayload: () => undefined,
+  onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
+    applySettingsData(payload);
+    commandQueryClient.setQueryData(USERS_WEB_QUERY_KEYS.accountSettings(), payload);
+  },
+  messages: {
+    success: "Avatar removed.",
+    error: "Unable to remove avatar."
+  }
+});
+
+const preferencesAddEdit = useAccountAddEdit({
+  apiSuffix: "/settings/preferences",
+  queryKeyFactory: accountSettingsQueryKeyFactory,
+  readEnabled: false,
+  writeMethod: "PATCH",
+  fallbackSaveError: "Unable to update preferences.",
+  fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
+  model: preferencesForm,
+  mapLoadedToModel: (_model, payload = {}) => {
+    applySettingsData(payload);
+  },
+  buildRawPayload: (model) => ({
+    theme: model.theme,
+    locale: model.locale,
+    timeZone: model.timeZone,
+    dateFormat: model.dateFormat,
+    numberFormat: model.numberFormat,
+    currencyCode: model.currencyCode,
+    avatarSize: Number(model.avatarSize)
+  }),
+  messages: {
+    saveSuccess: "Preferences updated.",
+    saveError: "Unable to update preferences."
+  }
+});
+
+const notificationsAddEdit = useAccountAddEdit({
+  apiSuffix: "/settings/notifications",
+  queryKeyFactory: accountSettingsQueryKeyFactory,
+  readEnabled: false,
+  writeMethod: "PATCH",
+  fallbackSaveError: "Unable to update notifications.",
+  model: notificationsForm,
+  mapLoadedToModel: (_model, payload = {}) => {
+    applySettingsData(payload);
+  },
+  buildRawPayload: (model) => ({
+    productUpdates: Boolean(model.productUpdates),
+    accountActivity: Boolean(model.accountActivity),
+    securityAlerts: true
+  }),
+  messages: {
+    saveSuccess: "Notification settings updated.",
+    saveError: "Unable to update notifications."
+  }
+});
+
+const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
+
+watch(
+  () => settingsView.loadError.value,
+  (nextError) => {
+    loadError.value = String(nextError || "").trim();
   },
   {
     immediate: true
   }
 );
 
-watch(
-  () => settingsQuery.error.value,
-  (nextError) => {
-    if (!nextError) {
-      return;
-    }
-    loadError.value = String(nextError?.message || "Unable to load settings.");
+const page = Object.freeze({
+  meta: {
+    settingsSections: SETTINGS_SECTIONS
+  },
+  state: reactive({
+    activeTab,
+    loadError
+  })
+});
+
+const profileState = reactive({
+  preferencesForm,
+  profileAvatar,
+  profileInitials,
+  selectedAvatarFileName,
+  avatarMessage: avatarDeleteCommand.message,
+  avatarMessageType: avatarDeleteCommand.messageType,
+  profileForm,
+  profileFieldErrors: profileAddEdit.fieldErrors,
+  profileMessage: profileAddEdit.message,
+  profileMessageType: profileAddEdit.messageType,
+  avatarDeleteMutation: markRaw({
+    isPending: avatarDeleteCommand.isRunning
+  }),
+  profileMutation: markRaw({
+    isPending: profileAddEdit.isSaving
+  })
+});
+
+const profileActions = Object.freeze({
+  submitProfile,
+  openAvatarEditor,
+  submitAvatarDelete
+});
+
+const preferences = Object.freeze({
+  meta: {
+    themeOptions: THEME_OPTIONS,
+    localeOptions: LOCALE_OPTIONS,
+    timeZoneOptions: TIME_ZONE_OPTIONS,
+    dateFormatOptions: DATE_FORMAT_OPTIONS,
+    numberFormatOptions: NUMBER_FORMAT_OPTIONS,
+    currencyOptions: CURRENCY_OPTIONS,
+    avatarSizeOptions: AVATAR_SIZE_OPTIONS
+  },
+  state: reactive({
+    preferencesForm,
+    preferencesFieldErrors: preferencesAddEdit.fieldErrors,
+    preferencesMessage: preferencesAddEdit.message,
+    preferencesMessageType: preferencesAddEdit.messageType,
+    preferencesMutation: markRaw({
+      isPending: preferencesAddEdit.isSaving
+    })
+  }),
+  actions: {
+    submitPreferences
   }
-);
+});
+
+const notifications = Object.freeze({
+  state: reactive({
+    notificationsForm,
+    notificationsMessage: notificationsAddEdit.message,
+    notificationsMessageType: notificationsAddEdit.messageType,
+    notificationsMutation: markRaw({
+      isPending: notificationsAddEdit.isSaving
+    })
+  }),
+  actions: {
+    submitNotifications
+  }
+});
 
 async function submitProfile() {
-  clearFieldErrors(profileFieldErrors);
-  profileMessage.value = "";
-
-  try {
-    const data = await profileMutation.mutateAsync({
-      displayName: profileForm.displayName
-    });
-    applySettingsData(data);
-    queryClient.setQueryData(settingsQueryKey, data);
-    profileMessageType.value = "success";
-    profileMessage.value = "Profile updated.";
-  } catch (error) {
-    if (error?.fieldErrors?.displayName) {
-      profileFieldErrors.displayName = String(error.fieldErrors.displayName);
-    }
-
-    profileMessageType.value = "error";
-    profileMessage.value = String(error?.message || "Unable to update profile.");
-  }
+  await profileAddEdit.submit();
 }
 
 async function resolveCsrfToken() {
@@ -527,20 +535,21 @@ function setupAvatarUploader() {
   uppy.on("upload-success", (_file, response) => {
     const data = response?.body;
     if (!data || typeof data !== "object") {
-      avatarMessageType.value = "error";
-      avatarMessage.value = "Avatar uploaded, but the response payload was invalid.";
+      avatarDeleteCommand.messageType.value = "error";
+      avatarDeleteCommand.message.value = "Avatar uploaded, but the response payload was invalid.";
       return;
     }
 
     applySettingsData(data);
+    queryClient.setQueryData(USERS_WEB_QUERY_KEYS.accountSettings(), data);
 
     const dashboard = uppy.getPlugin("Dashboard");
     if (dashboard && typeof dashboard.closeModal === "function") {
       dashboard.closeModal();
     }
 
-    avatarMessageType.value = "success";
-    avatarMessage.value = "Avatar uploaded.";
+    avatarDeleteCommand.messageType.value = "success";
+    avatarDeleteCommand.message.value = "Avatar uploaded.";
     selectedAvatarFileName.value = "";
   });
 
@@ -553,13 +562,15 @@ function setupAvatarUploader() {
           ? body.details.fieldErrors
           : {};
 
-    avatarMessageType.value = "error";
-    avatarMessage.value = String(fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar.");
+    avatarDeleteCommand.messageType.value = "error";
+    avatarDeleteCommand.message.value = String(
+      fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."
+    );
   });
 
   uppy.on("restriction-failed", (_file, error) => {
-    avatarMessageType.value = "error";
-    avatarMessage.value = String(error?.message || "Selected avatar file does not meet upload restrictions.");
+    avatarDeleteCommand.messageType.value = "error";
+    avatarDeleteCommand.message.value = String(error?.message || "Selected avatar file does not meet upload restrictions.");
   });
 
   uppy.on("complete", (result) => {
@@ -579,13 +590,13 @@ function setupAvatarUploader() {
 }
 
 async function openAvatarEditor() {
-  avatarMessage.value = "";
+  avatarDeleteCommand.message.value = "";
   setupAvatarUploader();
 
   const uppy = avatarUppy.value;
   if (!uppy) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = "Avatar editor is unavailable in this environment.";
+    avatarDeleteCommand.messageType.value = "error";
+    avatarDeleteCommand.message.value = "Avatar editor is unavailable in this environment.";
     return;
   }
 
@@ -596,70 +607,19 @@ async function openAvatarEditor() {
 }
 
 async function submitAvatarDelete() {
-  avatarMessage.value = "";
-
   try {
-    const data = await avatarDeleteMutation.mutateAsync();
-    applySettingsData(data);
-    queryClient.setQueryData(settingsQueryKey, data);
-    avatarMessageType.value = "success";
-    avatarMessage.value = "Avatar removed.";
-  } catch (error) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = String(error?.message || "Unable to remove avatar.");
+    await avatarDeleteCommand.run();
+  } catch {
+    // Error feedback is already handled in useAccountCommand.
   }
 }
 
 async function submitPreferences() {
-  clearFieldErrors(preferencesFieldErrors);
-  preferencesMessage.value = "";
-
-  try {
-    const data = await preferencesMutation.mutateAsync({
-      theme: preferencesForm.theme,
-      locale: preferencesForm.locale,
-      timeZone: preferencesForm.timeZone,
-      dateFormat: preferencesForm.dateFormat,
-      numberFormat: preferencesForm.numberFormat,
-      currencyCode: preferencesForm.currencyCode,
-      avatarSize: Number(preferencesForm.avatarSize)
-    });
-    applySettingsData(data);
-    queryClient.setQueryData(settingsQueryKey, data);
-    preferencesMessageType.value = "success";
-    preferencesMessage.value = "Preferences updated.";
-  } catch (error) {
-    if (error?.fieldErrors && typeof error.fieldErrors === "object") {
-      for (const key of Object.keys(preferencesFieldErrors)) {
-        if (error.fieldErrors[key]) {
-          preferencesFieldErrors[key] = String(error.fieldErrors[key]);
-        }
-      }
-    }
-
-    preferencesMessageType.value = "error";
-    preferencesMessage.value = String(error?.message || "Unable to update preferences.");
-  }
+  await preferencesAddEdit.submit();
 }
 
 async function submitNotifications() {
-  notificationsMessage.value = "";
-
-  try {
-    const data = await notificationsMutation.mutateAsync({
-      productUpdates: notificationsForm.productUpdates,
-      accountActivity: notificationsForm.accountActivity,
-      securityAlerts: true
-    });
-
-    applySettingsData(data);
-    queryClient.setQueryData(settingsQueryKey, data);
-    notificationsMessageType.value = "success";
-    notificationsMessage.value = "Notification settings updated.";
-  } catch (error) {
-    notificationsMessageType.value = "error";
-    notificationsMessage.value = String(error?.message || "Unable to update notifications.");
-  }
+  await notificationsAddEdit.submit();
 }
 
 watch(

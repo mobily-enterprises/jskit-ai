@@ -10,7 +10,3 @@ export {
 export { buildRoutes as buildWorkspaceRoutes } from "./routes/workspaceRoutes.js";
 export { buildRoutes as buildSettingsRoutes } from "./routes/settingsRoutes.js";
 export { buildRoutes as buildConsoleSettingsRoutes } from "./routes/consoleSettingsRoutes.js";
-
-export { schema as workspaceSchema } from "./schema/workspaceSchema.js";
-export { schema as settingsSchema } from "./schema/settingsSchema.js";
-export { schema as consoleSettingsSchema } from "./schema/consoleSettingsSchema.js";

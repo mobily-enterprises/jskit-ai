@@ -15,10 +15,9 @@
     "./server/routes/workspaceRoutes": "./src/server/routes/workspaceRoutes.js",
     "./server/routes/settingsRoutes": "./src/server/routes/settingsRoutes.js",
     "./server/routes/consoleSettingsRoutes": "./src/server/routes/consoleSettingsRoutes.js",
-    "./server/schema/workspaceSchema": "./src/server/schema/workspaceSchema.js",
     "./shared/schema/workspaceSchema": "./src/shared/schema/workspaceSchema.js",
-    "./server/schema/settingsSchema": "./src/server/schema/settingsSchema.js",
-    "./server/schema/consoleSettingsSchema": "./src/server/schema/consoleSettingsSchema.js"
+    "./shared/schema/settingsSchema": "./src/shared/schema/settingsSchema.js",
+    "./shared/schema/consoleSettingsSchema": "./src/shared/schema/consoleSettingsSchema.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

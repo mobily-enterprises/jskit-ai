@@ -1,5 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createResourceSchemaContract } from "@jskit-ai/http-runtime/shared/contracts";
+import {
+  createCommandContract,
+  createResourceSchemaContract
+} from "@jskit-ai/http-runtime/shared/contracts";
 import {
   workspaceSettingsCreateSchema,
   workspaceSettingsReplaceSchema,
@@ -15,6 +18,18 @@ const workspaceSummary = Type.Object(
     avatarUrl: Type.String(),
     roleId: Type.String({ minLength: 1 }),
     isAccessible: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const workspaceAdminSummary = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    slug: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    ownerUserId: Type.Integer({ minimum: 1 }),
+    avatarUrl: Type.String(),
+    color: Type.String({ minLength: 7, maxLength: 7 })
   },
   { additionalProperties: false }
 );
@@ -48,18 +63,6 @@ const workspaceSettings = Type.Object(
   { additionalProperties: false }
 );
 
-const workspaceAdminSummary = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    slug: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    ownerUserId: Type.Integer({ minimum: 1 }),
-    avatarUrl: Type.String(),
-    color: Type.String({ minLength: 7, maxLength: 7 })
-  },
-  { additionalProperties: false }
-);
-
 const roleCatalog = Type.Object(
   {
     collaborationEnabled: Type.Boolean(),
@@ -75,6 +78,98 @@ const workspaceSettingsResponse = Type.Object(
     workspace: workspaceAdminSummary,
     settings: workspaceSettings,
     roleCatalog
+  },
+  { additionalProperties: false }
+);
+
+const workspaceWriteCreateSchema = Type.Object(
+  {
+    slug: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    ownerUserId: Type.Integer({ minimum: 1 }),
+    avatarUrl: Type.String(),
+    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+    isPersonal: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+const workspaceWriteReplaceSchema = workspaceWriteCreateSchema;
+const workspaceWritePatchSchema = Type.Partial(workspaceWriteCreateSchema, { additionalProperties: false });
+
+const workspaceMemberRecord = Type.Object(
+  {
+    userId: Type.Integer({ minimum: 1 }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    displayName: Type.String(),
+    email: Type.String({ minLength: 1 }),
+    isOwner: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+const workspaceMemberCreateSchema = Type.Object(
+  {
+    userId: Type.Integer({ minimum: 1 }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+const workspaceMemberReplaceSchema = workspaceMemberCreateSchema;
+const workspaceMemberPatchSchema = Type.Partial(workspaceMemberCreateSchema, { additionalProperties: false });
+
+const workspaceInviteRecord = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    email: Type.String({ minLength: 3 }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    expiresAt: Type.String({ minLength: 1 }),
+    invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+  },
+  { additionalProperties: false }
+);
+const workspaceInviteCreateSchema = Type.Object(
+  {
+    email: Type.String({ minLength: 3 }),
+    roleId: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+const workspaceInviteReplaceSchema = Type.Object(
+  {
+    email: Type.String({ minLength: 3 }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    expiresAt: Type.String({ minLength: 1 }),
+    invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+  },
+  { additionalProperties: false }
+);
+const workspaceInvitePatchSchema = Type.Partial(workspaceInviteReplaceSchema, { additionalProperties: false });
+
+const workspacesListResponse = Type.Object(
+  {
+    workspaces: Type.Array(workspaceSummary)
+  },
+  { additionalProperties: false }
+);
+
+const membersListResponse = Type.Object(
+  {
+    workspace: workspaceAdminSummary,
+    members: Type.Array(workspaceMemberRecord),
+    roleCatalog
+  },
+  { additionalProperties: false }
+);
+
+const invitesListResponse = Type.Object(
+  {
+    workspace: workspaceAdminSummary,
+    invites: Type.Array(workspaceInviteRecord),
+    roleCatalog,
+    inviteTokenPreview: Type.Optional(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
 );
@@ -111,13 +206,6 @@ const bootstrapResponse = Type.Object(
   { additionalProperties: true }
 );
 
-const workspacesListResponse = Type.Object(
-  {
-    workspaces: Type.Array(workspaceSummary)
-  },
-  { additionalProperties: false }
-);
-
 const bootstrapQuery = Type.Object(
   {
     workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
@@ -140,9 +228,48 @@ const redeemInviteBody = Type.Object(
   { additionalProperties: false }
 );
 
+const workspaceResourceContract = createResourceSchemaContract({
+  record: workspaceAdminSummary,
+  create: workspaceWriteCreateSchema,
+  replace: workspaceWriteReplaceSchema,
+  patch: workspaceWritePatchSchema,
+  list: workspacesListResponse,
+  listItem: workspaceSummary
+});
+
+const workspaceSettingsResourceContract = createResourceSchemaContract({
+  record: workspaceSettingsResponse,
+  create: workspaceSettingsCreateSchema,
+  replace: workspaceSettingsReplaceSchema,
+  patch: workspaceSettingsPatchSchema
+});
+
+const workspaceMemberResourceContract = createResourceSchemaContract({
+  record: workspaceMemberRecord,
+  create: workspaceMemberCreateSchema,
+  replace: workspaceMemberReplaceSchema,
+  patch: workspaceMemberPatchSchema,
+  list: membersListResponse
+});
+
+const workspaceInviteResourceContract = createResourceSchemaContract({
+  record: workspaceInviteRecord,
+  create: workspaceInviteCreateSchema,
+  replace: workspaceInviteReplaceSchema,
+  patch: workspaceInvitePatchSchema,
+  list: invitesListResponse
+});
+
+const workspaceInviteRedeemCommandContract = createCommandContract({
+  input: redeemInviteBody,
+  output: Type.Object({}, { additionalProperties: true }),
+  idempotent: false,
+  invalidates: ["workspace.invitations.pending.list", "workspace.workspaces.list", "workspace.bootstrap.read"]
+});
+
 const memberRoleUpdateBody = Type.Object(
   {
-    roleId: Type.String({ minLength: 1 })
+    roleId: workspaceMemberResourceContract.patch.properties.roleId
   },
   { additionalProperties: false }
 );
@@ -170,32 +297,15 @@ const workspaceParams = Type.Object(
   { additionalProperties: false }
 );
 
-const settingsUpdateBody = workspaceSettingsPatchSchema;
-
-const workspaceSettingsResourceSchemaContract = createResourceSchemaContract({
-  record: workspaceSettings,
-  create: workspaceSettingsCreateSchema,
-  replace: workspaceSettingsReplaceSchema,
-  patch: workspaceSettingsPatchSchema
-});
-
-const createInviteBody = Type.Object(
-  {
-    email: Type.String({ minLength: 3 }),
-    roleId: Type.String({ minLength: 1 })
-  },
-  { additionalProperties: false }
-);
-
 const schema = Object.freeze({
   query: {
     bootstrap: bootstrapQuery
   },
   body: {
-    redeemInvite: redeemInviteBody,
+    redeemInvite: workspaceInviteRedeemCommandContract.input,
     memberRoleUpdate: memberRoleUpdateBody,
-    settingsUpdate: settingsUpdateBody,
-    createInvite: createInviteBody
+    settingsUpdate: workspaceSettingsResourceContract.patch,
+    createInvite: workspaceInviteResourceContract.create
   },
   params: {
     workspace: workspaceParams,
@@ -204,16 +314,22 @@ const schema = Object.freeze({
   },
   response: {
     bootstrap: bootstrapResponse,
-    workspacesList: workspacesListResponse,
+    workspacesList: workspaceResourceContract.list,
     pendingInvites: pendingInvitesResponse,
-    respondToInvite: Type.Object({}, { additionalProperties: true }),
+    respondToInvite: workspaceInviteRedeemCommandContract.output,
     roles: Type.Object({}, { additionalProperties: true }),
-    settings: workspaceSettingsResponse,
-    members: Type.Object({}, { additionalProperties: true }),
-    invites: Type.Object({}, { additionalProperties: true })
+    settings: workspaceSettingsResourceContract.record,
+    members: workspaceMemberResourceContract.list,
+    invites: workspaceInviteResourceContract.list
   },
   resourceContracts: {
-    workspaceSettings: workspaceSettingsResourceSchemaContract
+    workspace: workspaceResourceContract,
+    workspaceSettings: workspaceSettingsResourceContract,
+    workspaceMember: workspaceMemberResourceContract,
+    workspaceInvite: workspaceInviteResourceContract
+  },
+  commandContracts: {
+    "workspace.invite.redeem": workspaceInviteRedeemCommandContract
   }
 });
 

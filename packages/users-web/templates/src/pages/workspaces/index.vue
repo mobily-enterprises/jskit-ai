@@ -1,7 +1,6 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import {
   useWebPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -10,40 +9,71 @@ import {
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import {
-  usersWebHttpClient,
-  useUsersWebBootstrapQuery,
-  normalizeWorkspaceList
+  USERS_WEB_QUERY_KEYS,
+  normalizeWorkspaceList,
+  useGlobalCommand,
+  useGlobalView
 } from "@jskit-ai/users-web/client";
 
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
-const queryClient = useQueryClient();
-const bootstrapQuery = useUsersWebBootstrapQuery({
-  workspaceSlug: "",
-  enabled: true
-});
-const redeemInviteMutation = useMutation({
-  mutationFn: ({ token, decision }) =>
-    usersWebHttpClient.request("/api/workspace/invitations/redeem", {
-      method: "POST",
-      body: {
-        token,
-        decision
-      }
-    })
-});
 
 const message = ref("");
 const messageType = ref("error");
 const selectingWorkspaceSlug = ref("");
+const bootstrapModel = reactive({
+  sessionAuthenticated: false,
+  workspaces: [],
+  pendingInvites: []
+});
 const inviteAction = ref({
   token: "",
   decision: ""
 });
-const workspaceItems = ref([]);
-const pendingInvites = ref([]);
-const isBootstrapping = computed(() => Boolean(bootstrapQuery.query.isPending.value || bootstrapQuery.query.isFetching.value));
+const redeemInviteModel = reactive({
+  token: "",
+  decision: ""
+});
+
+const bootstrapView = useGlobalView({
+  apiSuffix: "/bootstrap",
+  queryKeyFactory: () => USERS_WEB_QUERY_KEYS.bootstrap(""),
+  fallbackLoadError: "Unable to load workspaces.",
+  model: bootstrapModel,
+  mapLoadedToModel: (model, payload = {}) => {
+    model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
+    model.workspaces = normalizeWorkspaceList(payload?.workspaces);
+    model.pendingInvites = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
+      .map(normalizePendingInvite)
+      .filter(Boolean);
+  }
+});
+
+const redeemInviteCommand = useGlobalCommand({
+  apiSuffix: "/workspace/invitations/redeem",
+  writeMethod: "POST",
+  fallbackRunError: "Unable to respond to invitation.",
+  model: redeemInviteModel,
+  buildRawPayload: (model) => ({
+    token: String(model.token || "").trim(),
+    decision: String(model.decision || "").trim().toLowerCase()
+  }),
+  messages: {
+    success: "",
+    error: "Unable to respond to invitation."
+  }
+});
+
+const workspaceItems = computed(() => {
+  return Array.isArray(bootstrapModel.workspaces) ? bootstrapModel.workspaces : [];
+});
+
+const pendingInvites = computed(() => {
+  return Array.isArray(bootstrapModel.pendingInvites) ? bootstrapModel.pendingInvites : [];
+});
+
+const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
 
 function resolveCurrentPathname() {
   const routePath = String(route?.path || "").trim();
@@ -172,21 +202,18 @@ async function respondToInvite(invite, decision) {
     token,
     decision: normalizedDecision
   };
+  redeemInviteModel.token = token;
+  redeemInviteModel.decision = normalizedDecision;
   message.value = "";
 
   try {
-    const response = await redeemInviteMutation.mutateAsync({
-      token,
-      decision: normalizedDecision
-    });
+    const response = await redeemInviteCommand.run();
 
-    pendingInvites.value = pendingInvites.value.filter((entry) => entry.token !== token);
-    await queryClient.invalidateQueries({
-      queryKey: bootstrapQuery.queryKey.value
-    });
+    bootstrapModel.pendingInvites = pendingInvites.value.filter((entry) => entry.token !== token);
+    await bootstrapView.refresh();
 
     if (normalizedDecision === "accept") {
-      const nextWorkspaceSlug = String(response?.workspace?.slug || invite.workspaceSlug || "").trim();
+      const nextWorkspaceSlug = String(response?.workspace?.slug || invite?.workspaceSlug || "").trim();
       if (nextWorkspaceSlug) {
         await openWorkspace(nextWorkspaceSlug);
       }
@@ -205,6 +232,8 @@ async function respondToInvite(invite, decision) {
       token: "",
       decision: ""
     };
+    redeemInviteModel.token = "";
+    redeemInviteModel.decision = "";
   }
 }
 
@@ -217,21 +246,16 @@ function refuseInvite(invite) {
 }
 
 watch(
-  () => bootstrapQuery.query.data.value,
+  () => bootstrapView.resource.data.value,
   async (payload) => {
     if (!payload) {
       return;
     }
 
-    if (!payload?.session?.authenticated) {
+    if (!bootstrapModel.sessionAuthenticated) {
       await router.replace("/auth/login");
       return;
     }
-
-    workspaceItems.value = normalizeWorkspaceList(payload?.workspaces);
-    pendingInvites.value = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-      .map(normalizePendingInvite)
-      .filter(Boolean);
 
     if (workspaceItems.value.length === 1 && pendingInvites.value.length < 1) {
       await openWorkspace(workspaceItems.value[0].slug);
@@ -243,13 +267,13 @@ watch(
 );
 
 watch(
-  () => bootstrapQuery.query.error.value,
+  () => bootstrapView.loadError.value,
   (nextError) => {
     if (!nextError) {
       return;
     }
     messageType.value = "error";
-    message.value = String(nextError?.message || "Unable to load workspaces.");
+    message.value = String(nextError || "Unable to load workspaces.");
   }
 );
 </script>

@@ -59,11 +59,17 @@ This document is the source of truth for the migration.
       1. `WorkspaceSettingsClientElement` -> `useWorkspaceAddEdit`
       2. `templates/console/settings` -> `useGlobalAddEdit`
       3. `templates/admin/members` -> workspace `view/list/command` wrappers
+   9. Added command contract primitive in `http-runtime`:
+      1. `createCommandContract`
+   10. Added full Stage-2 contracts in `users-routes` shared schemas:
+      1. 7 resource contracts (`workspace`, `workspaceSettings`, `workspaceMember`, `workspaceInvite`, `userProfile`, `userSettings`, `consoleSettings`)
+      2. 8 command contracts (all listed in this plan)
+   11. Wired route schemas directly from resource/command contracts.
+   12. Added strict Stage-2 tests to enforce resource+command contract presence and wiring.
 2. Not done:
-   1. Full repository-wide resource contract rollout.
-   2. Command contract standardization.
-   3. Final repository-wide migration to wrappers across all screens.
-   4. Remove remaining direct low-level endpoint plumbing in legacy screens.
+   1. Final repository-wide migration to wrappers across all screens.
+   2. Remove remaining direct low-level endpoint plumbing in legacy screens.
+   3. Final docs/template cleanup after migration.
 
 ## Repository Classification
 
@@ -206,7 +212,7 @@ Exit criteria:
 2. All 8 command contracts exist and are wired in routes.
 3. Tests enforce this (not convention-only).
 
-Status: `IN PROGRESS`
+Status: `COMPLETED`
 
 ## Stage 3: UI Migration + Cleanup
 Goal: all existing relevant screens use scope wrappers + shared cores, and old patterns are removed.
@@ -224,7 +230,7 @@ Exit criteria:
 2. No deprecated wrappers remain.
 3. Tests and smoke checks pass.
 
-Status: `NOT STARTED`
+Status: `IN PROGRESS`
 
 ## Progress Log
 1. 2026-03-09:
@@ -235,3 +241,17 @@ Status: `NOT STARTED`
    5. Elevated `view` to first-class planning scope (core + wrappers + migration contract).
    6. Implemented `useAddEditCore`, `useListCore`, `useViewCore`, `useCommandCore` and scope wrappers (`workspace/account/global`).
    7. Migrated initial users-web screens/templates to wrapper-based flows (workspace settings, console settings, workspace members).
+   8. Implemented Stage-2 contracts end-to-end:
+      1. `createCommandContract` in `http-runtime` + exports/tests.
+      2. 7 resource contracts + 8 command contracts in `users-routes` shared schemas.
+      3. Route schema wiring updated to consume contracts directly.
+      4. Strict `users-routes` contract tests enforcing coverage and wiring.
+   9. Started Stage-3 UI migration:
+      1. Migrated `templates/src/pages/account/settings/index.vue` to wrapper-based flows:
+         1. `useAccountView` for settings read.
+         2. `useAccountAddEdit` for profile/preferences/notifications update flows.
+         3. `useAccountCommand` for avatar delete command flow.
+      2. Migrated `templates/src/pages/workspaces/index.vue` to wrapper-based flows:
+         1. `useGlobalView` for bootstrap/workspace list read.
+         2. `useGlobalCommand` for invite redeem command flow.
+      3. Remaining direct low-level request in templates is `/api/session` for Uppy CSRF token fetch (avatar upload integration).

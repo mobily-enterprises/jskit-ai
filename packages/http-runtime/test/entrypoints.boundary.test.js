@@ -30,6 +30,7 @@ test("shared entrypoint exports shared contracts only", () => {
   assert.equal(typeof sharedApi.withStandardErrorResponses, "function");
   assert.equal(typeof sharedApi.enumSchema, "function");
   assert.equal(typeof sharedApi.createResourceSchemaContract, "function");
+  assert.equal(typeof sharedApi.createCommandContract, "function");
   assert.equal(typeof sharedApi.createHttpClient, "undefined");
   assert.equal(typeof sharedApi.HttpContractsServiceProvider, "undefined");
 });

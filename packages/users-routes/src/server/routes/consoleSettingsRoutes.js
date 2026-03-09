@@ -1,5 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { schema as consoleSettingsSchema } from "../schema/consoleSettingsSchema.js";
+import { schema as consoleSettingsSchema } from "../../shared/schema/consoleSettingsSchema.js";
 
 function normalizeObjectInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -29,7 +29,7 @@ function buildRoutes(controller) {
         summary: "Get console settings"
       },
       response: withStandardErrorResponses({
-        200: consoleSettingsSchema.response.settings
+        200: consoleSettingsSchema.resourceContracts.consoleSettings.record
       }),
       handler: handler("get")
     },
@@ -43,12 +43,12 @@ function buildRoutes(controller) {
         summary: "Update console settings"
       },
       body: {
-        schema: consoleSettingsSchema.body.update,
+        schema: consoleSettingsSchema.resourceContracts.consoleSettings.replace,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: consoleSettingsSchema.response.settings
+          200: consoleSettingsSchema.resourceContracts.consoleSettings.record
         },
         { includeValidation400: true }
       ),

@@ -12,6 +12,7 @@
     "./shared/contracts": "./src/shared/contracts/index.js",
     "./shared/contracts/errorResponses": "./src/shared/contracts/errorResponses.js",
     "./shared/contracts/paginationQuery": "./src/shared/contracts/paginationQuery.js",
+    "./shared/contracts/commandSchemaContract": "./src/shared/contracts/commandSchemaContract.js",
     "./shared/contracts/resourceSchemaContract": "./src/shared/contracts/resourceSchemaContract.js",
     "./shared/contracts/typeboxFormats": "./src/shared/contracts/typeboxFormats.js"
   },

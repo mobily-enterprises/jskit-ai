@@ -15,3 +15,4 @@ export {
   createCursorPagedListResponseSchema,
   createResourceSchemaContract
 } from "./resourceSchemaContract.js";
+export { createCommandContract } from "./commandSchemaContract.js";
