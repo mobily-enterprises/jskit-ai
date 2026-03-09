@@ -1,6 +1,7 @@
 export { KERNEL_TOKENS } from "./support/tokens.js";
 export {
   normalizeText,
+  normalizeQueryToken,
   normalizeObject,
   isRecord,
   normalizeArray,

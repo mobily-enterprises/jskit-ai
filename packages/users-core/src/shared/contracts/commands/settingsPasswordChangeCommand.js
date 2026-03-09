@@ -4,11 +4,37 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 
 const settingsPasswordChangeInputSchema = Type.Object(
   {
-    currentPassword: Type.Optional(Type.String({ minLength: 1 })),
-    newPassword: Type.String({ minLength: 8 }),
-    confirmPassword: Type.String({ minLength: 1 })
+    currentPassword: Type.Optional(
+      Type.String({
+        minLength: 1,
+        messages: {
+          default: "Current password is invalid."
+        }
+      })
+    ),
+    newPassword: Type.String({
+      minLength: 8,
+      messages: {
+        required: "New password is required.",
+        minLength: "New password must be at least 8 characters.",
+        default: "New password must be at least 8 characters."
+      }
+    }),
+    confirmPassword: Type.String({
+      minLength: 1,
+      messages: {
+        required: "Confirm password is required.",
+        minLength: "Confirm password is required.",
+        default: "Confirm password is required."
+      }
+    })
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const settingsPasswordChangeOutputSchema = Type.Object(
@@ -19,23 +45,7 @@ const settingsPasswordChangeOutputSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const SETTINGS_PASSWORD_CHANGE_MESSAGES = createOperationMessages({
-  fields: {
-    currentPassword: {
-      default: "Current password is invalid."
-    },
-    newPassword: {
-      required: "New password is required.",
-      minLength: "New password must be at least 8 characters.",
-      default: "New password must be at least 8 characters."
-    },
-    confirmPassword: {
-      required: "Confirm password is required.",
-      minLength: "Confirm password is required.",
-      default: "Confirm password is required."
-    }
-  }
-});
+const SETTINGS_PASSWORD_CHANGE_MESSAGES = createOperationMessages();
 
 const settingsPasswordChangeCommand = Object.freeze({
   command: "settings.security.password.change",

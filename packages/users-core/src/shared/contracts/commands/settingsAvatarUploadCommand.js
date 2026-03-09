@@ -4,28 +4,37 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 
 const settingsAvatarUploadInputSchema = Type.Object(
   {
-    mimeType: Type.Optional(Type.String({ minLength: 1 })),
-    fileName: Type.Optional(Type.String({ minLength: 1 })),
-    uploadDimension: Type.Optional(Type.String({ minLength: 1 }))
+    mimeType: Type.Optional(
+      Type.String({
+        minLength: 1,
+        messages: {
+          default: "Avatar mimeType is invalid."
+        }
+      })
+    ),
+    fileName: Type.Optional(
+      Type.String({
+        minLength: 1,
+        messages: {
+          default: "Avatar fileName is invalid."
+        }
+      })
+    ),
+    uploadDimension: Type.Optional(
+      Type.String({
+        minLength: 1,
+        messages: {
+          default: "Avatar uploadDimension is invalid."
+        }
+      })
+    )
   },
   { additionalProperties: true }
 );
 
 const settingsAvatarUploadOutputSchema = Type.Object({}, { additionalProperties: true });
 
-const SETTINGS_AVATAR_UPLOAD_MESSAGES = createOperationMessages({
-  fields: {
-    mimeType: {
-      default: "Avatar mimeType is invalid."
-    },
-    fileName: {
-      default: "Avatar fileName is invalid."
-    },
-    uploadDimension: {
-      default: "Avatar uploadDimension is invalid."
-    }
-  }
-});
+const SETTINGS_AVATAR_UPLOAD_MESSAGES = createOperationMessages();
 
 const settingsAvatarUploadCommand = Object.freeze({
   command: "settings.profile.avatar.upload",

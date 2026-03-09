@@ -8,13 +8,31 @@ import {
 
 const patchSchema = Type.Object(
   {
-    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
-    color: Type.Optional(Type.String({ pattern: "^#[0-9A-Fa-f]{6}$" })),
+    name: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 160,
+        messages: {
+          minLength: "Workspace name is required."
+        }
+      })
+    ),
+    color: Type.Optional(
+      Type.String({
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        messages: {
+          pattern: "Workspace color must be a hex value."
+        }
+      })
+    ),
     invitesEnabled: Type.Optional(Type.Boolean())
   },
   {
     additionalProperties: false,
-    minProperties: 1
+    minProperties: 1,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
   }
 );
 
@@ -36,19 +54,6 @@ const patchOperation = Object.freeze({
       }
 
       return normalized;
-    },
-    messages: {
-      fields: {
-        name: {
-          minLength: "Workspace name is required."
-        },
-        color: {
-          pattern: "Workspace color must be a hex value."
-        }
-      },
-      keywords: {
-        additionalProperties: "Unexpected field."
-      }
     }
   }
 });

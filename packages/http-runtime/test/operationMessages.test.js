@@ -4,17 +4,40 @@ import { Type } from "@fastify/type-provider-typebox";
 import { Errors } from "typebox/value";
 import {
   mapOperationIssues,
+  resolveFieldSchema,
   resolveIssueField,
-  resolveMissingRequiredFields
+  resolveMissingRequiredFields,
+  resolveSchemaMessages
 } from "../src/shared/contracts/operationMessages.js";
 
 const sampleSchema = Type.Object(
   {
-    name: Type.String({ minLength: 1 }),
-    color: Type.String({ pattern: "^#[0-9A-Fa-f]{6}$" }),
-    invitesEnabled: Type.Boolean()
+    name: Type.String({
+      minLength: 1,
+      messages: {
+        required: "Workspace name is required.",
+        minLength: "Workspace name is required.",
+        default: "Invalid workspace name."
+      }
+    }),
+    color: Type.String({
+      pattern: "^#[0-9A-Fa-f]{6}$",
+      messages: {
+        pattern: "Workspace color must be a hex value."
+      }
+    }),
+    invitesEnabled: Type.Boolean({
+      messages: {
+        default: "invitesEnabled must be true or false."
+      }
+    })
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 test("resolveIssueField resolves missing and nested fields", () => {
@@ -43,20 +66,7 @@ test("resolveIssueField resolves missing and nested fields", () => {
 
 test("mapOperationIssues applies field message overrides by keyword", () => {
   const issues = [...Errors(sampleSchema, { name: "", color: "oops", invitesEnabled: "yes" })];
-  const mapped = mapOperationIssues(issues, {
-    fields: {
-      name: {
-        minLength: "Workspace name is required.",
-        default: "Invalid workspace name."
-      },
-      color: {
-        pattern: "Workspace color must be a hex value."
-      },
-      invitesEnabled: {
-        default: "invitesEnabled must be true or false."
-      }
-    }
-  });
+  const mapped = mapOperationIssues(issues, sampleSchema);
 
   assert.equal(mapped.fieldErrors.name, "Workspace name is required.");
   assert.equal(mapped.fieldErrors.color, "Workspace color must be a hex value.");
@@ -66,12 +76,18 @@ test("mapOperationIssues applies field message overrides by keyword", () => {
 
 test("mapOperationIssues falls back to keyword/global messages", () => {
   const issues = [...Errors(sampleSchema, { color: "#0F6B54", invitesEnabled: true, extra: "x" })];
-  const mapped = mapOperationIssues(issues, {
-    keywords: {
-      additionalProperties: "Unexpected field."
-    },
-    default: "Invalid value."
-  });
+  const mapped = mapOperationIssues(issues, sampleSchema);
 
   assert.equal(mapped.fieldErrors.extra, "Unexpected field.");
+});
+
+test("schema message helpers resolve field and root messages", () => {
+  const nameSchema = resolveFieldSchema(sampleSchema, "name");
+  assert.equal(typeof nameSchema, "object");
+
+  const nameMessages = resolveSchemaMessages(nameSchema);
+  const rootMessages = resolveSchemaMessages(sampleSchema);
+
+  assert.equal(nameMessages.minLength, "Workspace name is required.");
+  assert.equal(rootMessages.additionalProperties, "Unexpected field.");
 });

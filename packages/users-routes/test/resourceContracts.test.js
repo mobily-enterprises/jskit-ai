@@ -17,10 +17,14 @@ function assertResourceContract(contract, label) {
     const operation = contract.operations?.[operationName];
     assert.equal(typeof operation, "object", `${label}.operations.${operationName} must exist.`);
     assert.equal(typeof operation.method, "string", `${label}.operations.${operationName}.method must exist.`);
+    const resolvedMessages =
+      operation?.messages && typeof operation.messages === "object"
+        ? operation.messages
+        : contract?.operationMessages;
     assert.equal(
-      typeof operation.messages,
+      typeof resolvedMessages,
       "object",
-      `${label}.operations.${operationName}.messages must be an object.`
+      `${label}.operations.${operationName} must resolve messages from operation.messages or contract.operationMessages.`
     );
     assert.equal(typeof operation.response?.schema, "object", `${label}.operations.${operationName}.response.schema is required.`);
   }

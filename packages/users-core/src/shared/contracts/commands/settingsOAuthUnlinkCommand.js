@@ -4,21 +4,26 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 
 const settingsOAuthUnlinkInputSchema = Type.Object(
   {
-    provider: Type.String({ minLength: 2, maxLength: 64 })
+    provider: Type.String({
+      minLength: 2,
+      maxLength: 64,
+      messages: {
+        required: "OAuth provider is required.",
+        default: "OAuth provider is invalid."
+      }
+    })
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const settingsOAuthUnlinkOutputSchema = Type.Object({}, { additionalProperties: true });
 
-const SETTINGS_OAUTH_UNLINK_MESSAGES = createOperationMessages({
-  fields: {
-    provider: {
-      required: "OAuth provider is required.",
-      default: "OAuth provider is invalid."
-    }
-  }
-});
+const SETTINGS_OAUTH_UNLINK_MESSAGES = createOperationMessages();
 
 const settingsOAuthUnlinkCommand = Object.freeze({
   command: "settings.security.oauth.unlink",

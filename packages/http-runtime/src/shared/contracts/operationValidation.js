@@ -54,10 +54,7 @@ function validateOperationSection({
 
   const normalized = normalize(value, context);
   const issues = Check(schema, normalized) ? [] : [...Errors(schema, normalized)];
-  const mapped = mapOperationIssues(
-    issues,
-    isRecord(sectionDefinition.messages) ? sectionDefinition.messages : operation.messages
-  );
+  const mapped = mapOperationIssues(issues, schema);
 
   return {
     ok: issues.length < 1,

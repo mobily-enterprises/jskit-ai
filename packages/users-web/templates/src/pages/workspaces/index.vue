@@ -8,7 +8,7 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeWorkspaceList } from "@jskit-ai/users-web/client/lib/bootstrap";
 import { useGlobalCommand } from "@jskit-ai/users-web/client/composables/useGlobalCommand";
 import { useGlobalView } from "@jskit-ai/users-web/client/composables/useGlobalView";
@@ -36,7 +36,7 @@ const redeemInviteModel = reactive({
 
 const bootstrapView = useGlobalView({
   apiSuffix: "/bootstrap",
-  queryKeyFactory: () => USERS_WEB_QUERY_KEYS.bootstrap(""),
+  queryKeyFactory: () => ["users-web", "bootstrap", normalizeQueryToken("")],
   fallbackLoadError: "Unable to load workspaces.",
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {

@@ -17,10 +17,11 @@ import {
 } from "../../shared/contracts/resourceSchemaContract.js";
 import { createCommandContract } from "../../shared/contracts/commandSchemaContract.js";
 import {
-  normalizeMessages,
+  resolveSchemaMessages,
+  resolveFieldSchema,
   resolveIssueField,
   resolveMissingRequiredFields,
-  resolveIssueMessage,
+  resolveIssueMessageFromSchema,
   mapOperationIssues
 } from "../../shared/contracts/operationMessages.js";
 import {
@@ -44,10 +45,11 @@ const HTTP_CONTRACTS_API = Object.freeze({
   createCursorPagedListResponseSchema,
   createResourceSchemaContract,
   createCommandContract,
-  normalizeMessages,
+  resolveSchemaMessages,
+  resolveFieldSchema,
   resolveIssueField,
   resolveMissingRequiredFields,
-  resolveIssueMessage,
+  resolveIssueMessageFromSchema,
   mapOperationIssues,
   validateOperationSection,
   validateOperationInput

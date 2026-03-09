@@ -4,27 +4,32 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 
 const workspaceInviteRedeemInputSchema = Type.Object(
   {
-    token: Type.String({ minLength: 1 }),
-    decision: Type.Union([Type.Literal("accept"), Type.Literal("refuse")])
+    token: Type.String({
+      minLength: 1,
+      messages: {
+        required: "Invite token is required.",
+        minLength: "Invite token is required.",
+        default: "Invite token is invalid."
+      }
+    }),
+    decision: Type.Union([Type.Literal("accept"), Type.Literal("refuse")], {
+      messages: {
+        required: "Decision is required.",
+        default: "Decision must be accept or refuse."
+      }
+    })
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const workspaceInviteRedeemOutputSchema = Type.Object({}, { additionalProperties: true });
 
-const WORKSPACE_INVITE_REDEEM_MESSAGES = createOperationMessages({
-  fields: {
-    token: {
-      required: "Invite token is required.",
-      minLength: "Invite token is required.",
-      default: "Invite token is invalid."
-    },
-    decision: {
-      required: "Decision is required.",
-      default: "Decision must be accept or refuse."
-    }
-  }
-});
+const WORKSPACE_INVITE_REDEEM_MESSAGES = createOperationMessages();
 
 const workspaceInviteRedeemCommand = Object.freeze({
   command: "workspace.invite.redeem",

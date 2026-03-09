@@ -2,15 +2,34 @@ import { Type } from "typebox";
 import { createOperationMessages } from "../contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
-const settingsOAuthProviderSchema = Type.String({ minLength: 2, maxLength: 64 });
-const settingsOAuthReturnToSchema = Type.Optional(Type.String({ minLength: 1 }));
+const settingsOAuthProviderSchema = Type.String({
+  minLength: 2,
+  maxLength: 64,
+  messages: {
+    required: "OAuth provider is required.",
+    default: "OAuth provider is invalid."
+  }
+});
+const settingsOAuthReturnToSchema = Type.Optional(
+  Type.String({
+    minLength: 1,
+    messages: {
+      default: "Return path is invalid."
+    }
+  })
+);
 
 const settingsOAuthLinkStartInputSchema = Type.Object(
   {
     provider: settingsOAuthProviderSchema,
     returnTo: settingsOAuthReturnToSchema
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const settingsOAuthLinkStartOutputSchema = Type.Object(
@@ -26,27 +45,27 @@ const settingsOAuthProviderParamsSchema = Type.Object(
   {
     provider: settingsOAuthProviderSchema
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const settingsOAuthProviderQuerySchema = Type.Object(
   {
     returnTo: settingsOAuthReturnToSchema
   },
-  { additionalProperties: false }
-);
-
-const SETTINGS_OAUTH_LINK_START_MESSAGES = createOperationMessages({
-  fields: {
-    provider: {
-      required: "OAuth provider is required.",
-      default: "OAuth provider is invalid."
-    },
-    returnTo: {
-      default: "Return path is invalid."
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
     }
   }
-});
+);
+
+const SETTINGS_OAUTH_LINK_START_MESSAGES = createOperationMessages();
 
 const settingsOAuthLinkStartCommand = Object.freeze({
   command: "settings.security.oauth.link.start",

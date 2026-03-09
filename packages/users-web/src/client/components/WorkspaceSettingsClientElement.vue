@@ -123,8 +123,8 @@
 <script setup>
 import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
-import { USERS_WEB_QUERY_KEYS } from "../lib/queryKeys.js";
 import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
@@ -166,23 +166,26 @@ const workspaceForm = reactive({
   appDenyUserIdsText: ""
 });
 
-const WORKSPACE_SETTINGS_PATCH_OPERATION = workspaceSettingsSchema.operations.patch;
-const WORKSPACE_SETTINGS_MESSAGES = WORKSPACE_SETTINGS_PATCH_OPERATION.messages;
-
 const addEdit = useWorkspaceAddEdit({
   apiSuffix: "/settings",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceSettings,
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    "users-web",
+    "settings",
+    "workspace",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ],
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-settings-view",
   missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
-  fallbackSaveError: String(WORKSPACE_SETTINGS_MESSAGES.saveError || "Unable to update workspace settings."),
+  fallbackSaveError: String(workspaceSettingsSchema.operationMessages?.saveError || "Unable to update workspace settings."),
   fieldErrorKeys: ["name", "avatarUrl", "color", "appDenyEmails", "appDenyUserIds"],
   model: workspaceForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
-      operation: WORKSPACE_SETTINGS_PATCH_OPERATION,
+      operation: workspaceSettingsSchema.operations.patch,
       section: "body",
       value: rawPayload
     }),
@@ -218,6 +221,6 @@ const addEdit = useWorkspaceAddEdit({
     appDenyEmails: parseLowercaseTextList(model.appDenyEmailsText),
     appDenyUserIds: parsePositiveIntegerList(model.appDenyUserIdsText)
   }),
-  messages: WORKSPACE_SETTINGS_MESSAGES
+  messages: workspaceSettingsSchema.operationMessages || {}
 });
 </script>

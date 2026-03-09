@@ -59,10 +59,10 @@ const responseRecordSchema = Type.Object(
       {
         id: Type.Integer({ minimum: 1 }),
         slug: Type.String({ minLength: 1 }),
-        name: Type.String({ minLength: 1 }),
+        name: Type.String({ minLength: 1, maxLength: 160 }),
         ownerUserId: Type.Integer({ minimum: 1 }),
         avatarUrl: Type.String(),
-        color: Type.String({ minLength: 7, maxLength: 7 })
+        color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" })
       },
       { additionalProperties: false }
     ),
@@ -91,71 +91,82 @@ const responseRecordSchema = Type.Object(
 
 const createRequestBodySchema = Type.Object(
   {
-    name: Type.String({ minLength: 1, maxLength: 160 }),
-    avatarUrl: Type.Optional(Type.String({ pattern: "^(https?://.+)?$" })),
-    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
-    invitesEnabled: Type.Boolean(),
-    appDenyEmails: Type.Optional(Type.Array(Type.String({ minLength: 1, format: "email" }))),
-    appDenyUserIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 })))
+    name: Type.String({
+      minLength: 1,
+      maxLength: 160,
+      messages: {
+        required: "Workspace name is required.",
+        minLength: "Workspace name is required.",
+        maxLength: "Workspace name must be at most 160 characters.",
+        default: "Workspace name is required."
+      }
+    }),
+    avatarUrl: Type.Optional(
+      Type.String({
+        pattern: "^(https?://.+)?$",
+        messages: {
+          pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
+          default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+        }
+      })
+    ),
+    color: Type.String({
+      minLength: 7,
+      maxLength: 7,
+      pattern: "^#[0-9A-Fa-f]{6}$",
+      messages: {
+        required: "Workspace color is required.",
+        pattern: "Workspace color must be a hex color like #0F6B54.",
+        default: "Workspace color must be a hex color like #0F6B54."
+      }
+    }),
+    invitesEnabled: Type.Boolean({
+      messages: {
+        required: "invitesEnabled is required.",
+        default: "invitesEnabled must be a boolean."
+      }
+    }),
+    appDenyEmails: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, format: "email" }), {
+        messages: {
+          default: "appDenyEmails must be an array of valid email addresses."
+        }
+      })
+    ),
+    appDenyUserIds: Type.Optional(
+      Type.Array(Type.Integer({ minimum: 1 }), {
+        messages: {
+          default: "appDenyUserIds must be an array of positive integers."
+        }
+      })
+    )
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field.",
+      default: "Invalid value."
+    }
+  }
 );
 
-const patchRequestBodySchema = Type.Partial(createRequestBodySchema, {
-  additionalProperties: false
-});
-
-const operationMessages = {
-  validation: "Fix invalid workspace settings values and try again.",
-  saveSuccess: "Workspace settings updated.",
-  saveError: "Unable to update workspace settings.",
-  apiValidation: "Validation failed.",
-  fields: {
-    name: {
-      required: "Workspace name is required.",
-      minLength: "Workspace name is required.",
-      maxLength: "Workspace name must be at most 160 characters.",
-      default: "Workspace name is required."
-    },
-    avatarUrl: {
-      pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
-      default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
-    },
-    color: {
-      required: "Workspace color is required.",
-      pattern: "Workspace color must be a hex color like #0F6B54.",
-      default: "Workspace color must be a hex color like #0F6B54."
-    },
-    invitesEnabled: {
-      required: "invitesEnabled is required.",
-      default: "invitesEnabled must be a boolean."
-    },
-    appDenyEmails: {
-      default: "appDenyEmails must be an array of valid email addresses."
-    },
-    appDenyUserIds: {
-      default: "appDenyUserIds must be an array of positive integers."
-    }
-  },
-  keywords: {
-    additionalProperties: "Unexpected field."
-  },
-  default: "Invalid value."
-};
-
-const workspaceSettingsSchema = {
+const schema = {
   resource: "workspaceSettings",
+  operationMessages: {
+    validation: "Fix invalid workspace settings values and try again.",
+    saveSuccess: "Workspace settings updated.",
+    saveError: "Unable to update workspace settings.",
+    apiValidation: "Validation failed."
+  },
   operations: {
     view: {
       method: "GET",
-      messages: operationMessages,
       response: {
         schema: responseRecordSchema
       }
     },
     list: {
       method: "GET",
-      messages: operationMessages,
       response: {
         schema: Type.Object(
           {
@@ -168,7 +179,6 @@ const workspaceSettingsSchema = {
     },
     create: {
       method: "POST",
-      messages: operationMessages,
       body: {
         schema: createRequestBodySchema,
         normalize: normalizeInput
@@ -179,7 +189,6 @@ const workspaceSettingsSchema = {
     },
     replace: {
       method: "PUT",
-      messages: operationMessages,
       body: {
         schema: createRequestBodySchema,
         normalize: normalizeInput
@@ -190,10 +199,8 @@ const workspaceSettingsSchema = {
     },
     patch: {
       method: "PATCH",
-      messages: operationMessages,
       body: {
-        schema: patchRequestBodySchema,
-        normalize: normalizeInput
+        schema: Type.Partial(createRequestBodySchema, { additionalProperties: false })
       },
       response: {
         schema: responseRecordSchema
@@ -202,4 +209,4 @@ const workspaceSettingsSchema = {
   }
 };
 
-export { workspaceSettingsSchema };
+export { schema as workspaceSettingsSchema };

@@ -20,7 +20,6 @@ import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
 import ProfileClientElement from "@jskit-ai/users-web/client/components/ProfileClientElement";
-import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
 import { usersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
 import { useAccountAddEdit } from "@jskit-ai/users-web/client/composables/useAccountAddEdit";
 import { useAccountCommand } from "@jskit-ai/users-web/client/composables/useAccountCommand";
@@ -99,9 +98,7 @@ const DEFAULTS = Object.freeze({
 const route = useRoute();
 const queryClient = useQueryClient();
 
-function accountSettingsQueryKeyFactory() {
-  return USERS_WEB_QUERY_KEYS.accountSettings();
-}
+const accountSettingsQueryKey = ["users-web", "settings", "account"];
 
 function normalizeReturnToPath(value, fallback = "/") {
   const source = Array.isArray(value) ? value[0] : value;
@@ -236,7 +233,7 @@ function applySettingsData(payload) {
 
 const settingsView = useAccountView({
   apiSuffix: "/settings",
-  queryKeyFactory: accountSettingsQueryKeyFactory,
+  queryKeyFactory: () => accountSettingsQueryKey,
   fallbackLoadError: "Unable to load settings.",
   model: settingsRecord,
   mapLoadedToModel: (_model, payload = {}) => {
@@ -246,7 +243,7 @@ const settingsView = useAccountView({
 
 const profileAddEdit = useAccountAddEdit({
   apiSuffix: "/settings/profile",
-  queryKeyFactory: accountSettingsQueryKeyFactory,
+  queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
   writeMethod: "PATCH",
   fallbackSaveError: "Unable to update profile.",
@@ -273,7 +270,7 @@ const avatarDeleteCommand = useAccountCommand({
   buildCommandPayload: () => undefined,
   onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
     applySettingsData(payload);
-    commandQueryClient.setQueryData(USERS_WEB_QUERY_KEYS.accountSettings(), payload);
+    commandQueryClient.setQueryData(accountSettingsQueryKey, payload);
   },
   messages: {
     success: "Avatar removed.",
@@ -283,7 +280,7 @@ const avatarDeleteCommand = useAccountCommand({
 
 const preferencesAddEdit = useAccountAddEdit({
   apiSuffix: "/settings/preferences",
-  queryKeyFactory: accountSettingsQueryKeyFactory,
+  queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
   writeMethod: "PATCH",
   fallbackSaveError: "Unable to update preferences.",
@@ -309,7 +306,7 @@ const preferencesAddEdit = useAccountAddEdit({
 
 const notificationsAddEdit = useAccountAddEdit({
   apiSuffix: "/settings/notifications",
-  queryKeyFactory: accountSettingsQueryKeyFactory,
+  queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
   writeMethod: "PATCH",
   fallbackSaveError: "Unable to update notifications.",
@@ -539,7 +536,7 @@ function setupAvatarUploader() {
     }
 
     applySettingsData(data);
-    queryClient.setQueryData(USERS_WEB_QUERY_KEYS.accountSettings(), data);
+    queryClient.setQueryData(accountSettingsQueryKey, data);
 
     const dashboard = uppy.getPlugin("Dashboard");
     if (dashboard && typeof dashboard.closeModal === "function") {

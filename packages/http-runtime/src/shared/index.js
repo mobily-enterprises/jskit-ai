@@ -17,10 +17,11 @@ export {
 } from "./contracts/resourceSchemaContract.js";
 export { createCommandContract } from "./contracts/commandSchemaContract.js";
 export {
-  normalizeMessages,
+  resolveSchemaMessages,
+  resolveFieldSchema,
   resolveIssueField,
   resolveMissingRequiredFields,
-  resolveIssueMessage,
+  resolveIssueMessageFromSchema,
   mapOperationIssues
 } from "./contracts/operationMessages.js";
 export {

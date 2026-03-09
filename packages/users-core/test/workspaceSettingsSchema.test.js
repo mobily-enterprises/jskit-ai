@@ -11,14 +11,14 @@ function parseBody(operation, payload = {}) {
   });
 }
 
-test("workspace settings patch body normalizes valid payload", () => {
+test("workspace settings patch body validates valid payload without normalization", () => {
   const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
-    name: "  Team Mercury  ",
-    avatarUrl: " https://example.com/avatar.png ",
-    color: "#0f6b54",
+    name: "Team Mercury",
+    avatarUrl: "https://example.com/avatar.png",
+    color: "#0F6B54",
     invitesEnabled: false,
-    appDenyEmails: ["  FOO@Example.com ", "foo@example.com", "bar@example.com"],
-    appDenyUserIds: ["1", 2, "2", "003"]
+    appDenyEmails: ["foo@example.com", "bar@example.com"],
+    appDenyUserIds: [1, 2, 3]
   });
 
   assert.equal(parsed.ok, true);

@@ -211,7 +211,7 @@ function createService({
   async function updateWorkspaceSettings(workspaceContext, payload = {}, options = {}) {
     const parsed = parseWorkspaceSettingsUpdatePayload(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
-      const operationMessages = workspaceSettingsSchema.operations.patch.messages || {};
+      const operationMessages = workspaceSettingsSchema.operationMessages || {};
       throw new AppError(
         400,
         String(operationMessages.apiValidation || operationMessages.validation || "Validation failed."),

@@ -59,42 +59,46 @@ function resolveMissingRequiredFields(issue = {}) {
     .filter(Boolean);
 }
 
-function normalizeMessages(messages = {}) {
-  const source = isRecord(messages) ? messages : {};
-  const fields = isRecord(source.fields) ? source.fields : {};
-  const keywords = isRecord(source.keywords) ? source.keywords : {};
-  const fallback = normalizeText(source.default) || "Invalid value.";
-
-  return {
-    fields,
-    keywords,
-    default: fallback
-  };
+function resolveSchemaMessages(schema = {}) {
+  const source = isRecord(schema) ? schema : {};
+  const messages = source.messages;
+  return isRecord(messages) ? messages : {};
 }
 
-function resolveIssueMessage(field, issue, messages = {}) {
-  const normalizedMessages = normalizeMessages(messages);
+function resolveFieldSchema(schema = {}, field = "") {
+  const source = isRecord(schema) ? schema : {};
+  const properties = isRecord(source.properties) ? source.properties : {};
+  const fieldSchema = properties[field];
+  return isRecord(fieldSchema) ? fieldSchema : null;
+}
+
+function resolveIssueMessageFromSchema(field, issue, schema = {}) {
   const keyword = normalizeText(issue?.keyword);
 
   if (field) {
-    const fieldMessages = isRecord(normalizedMessages.fields[field])
-      ? normalizedMessages.fields[field]
-      : {};
+    const fieldSchema = resolveFieldSchema(schema, field);
+    const fieldMessages = resolveSchemaMessages(fieldSchema);
 
-    const keywordMessage = normalizeText(fieldMessages[keyword]);
-    if (keywordMessage) {
-      return keywordMessage;
+    const fieldKeywordMessage = normalizeText(fieldMessages[keyword]);
+    if (fieldKeywordMessage) {
+      return fieldKeywordMessage;
     }
 
-    const fieldDefault = normalizeText(fieldMessages.default);
-    if (fieldDefault) {
-      return fieldDefault;
+    const fieldDefaultMessage = normalizeText(fieldMessages.default);
+    if (fieldDefaultMessage) {
+      return fieldDefaultMessage;
     }
   }
 
-  const keywordFallback = normalizeText(normalizedMessages.keywords[keyword]);
-  if (keywordFallback) {
-    return keywordFallback;
+  const schemaMessages = resolveSchemaMessages(schema);
+  const schemaKeywordMessage = normalizeText(schemaMessages[keyword]);
+  if (schemaKeywordMessage) {
+    return schemaKeywordMessage;
+  }
+
+  const schemaDefaultMessage = normalizeText(schemaMessages.default);
+  if (schemaDefaultMessage) {
+    return schemaDefaultMessage;
   }
 
   const issueMessage = normalizeText(issue?.message);
@@ -102,10 +106,10 @@ function resolveIssueMessage(field, issue, messages = {}) {
     return issueMessage;
   }
 
-  return normalizedMessages.default;
+  return "Invalid value.";
 }
 
-function mapOperationIssues(issues = [], messages = {}) {
+function mapOperationIssues(issues = [], schema = {}) {
   const source = Array.isArray(issues) ? issues : [];
   const fieldErrors = {};
   const globalErrors = [];
@@ -118,7 +122,7 @@ function mapOperationIssues(issues = [], messages = {}) {
           continue;
         }
 
-        fieldErrors[field] = resolveIssueMessage(field, issue, messages);
+        fieldErrors[field] = resolveIssueMessageFromSchema(field, issue, schema);
       }
 
       continue;
@@ -127,12 +131,12 @@ function mapOperationIssues(issues = [], messages = {}) {
     const field = resolveIssueField(issue);
     if (field) {
       if (!Object.hasOwn(fieldErrors, field)) {
-        fieldErrors[field] = resolveIssueMessage(field, issue, messages);
+        fieldErrors[field] = resolveIssueMessageFromSchema(field, issue, schema);
       }
       continue;
     }
 
-    globalErrors.push(resolveIssueMessage("", issue, messages));
+    globalErrors.push(resolveIssueMessageFromSchema("", issue, schema));
   }
 
   return {
@@ -142,9 +146,10 @@ function mapOperationIssues(issues = [], messages = {}) {
 }
 
 export {
-  normalizeMessages,
+  resolveSchemaMessages,
+  resolveFieldSchema,
   resolveIssueField,
   resolveMissingRequiredFields,
-  resolveIssueMessage,
+  resolveIssueMessageFromSchema,
   mapOperationIssues
 };

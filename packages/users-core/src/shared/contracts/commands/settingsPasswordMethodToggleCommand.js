@@ -4,21 +4,24 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 
 const settingsPasswordMethodToggleInputSchema = Type.Object(
   {
-    enabled: Type.Boolean()
+    enabled: Type.Boolean({
+      messages: {
+        required: "enabled is required.",
+        default: "enabled must be a boolean."
+      }
+    })
   },
-  { additionalProperties: false }
+  {
+    additionalProperties: false,
+    messages: {
+      additionalProperties: "Unexpected field."
+    }
+  }
 );
 
 const settingsPasswordMethodToggleOutputSchema = Type.Object({}, { additionalProperties: true });
 
-const SETTINGS_PASSWORD_METHOD_TOGGLE_MESSAGES = createOperationMessages({
-  fields: {
-    enabled: {
-      required: "enabled is required.",
-      default: "enabled must be a boolean."
-    }
-  }
-});
+const SETTINGS_PASSWORD_METHOD_TOGGLE_MESSAGES = createOperationMessages();
 
 const settingsPasswordMethodToggleCommand = Object.freeze({
   command: "settings.security.password_method.toggle",

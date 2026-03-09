@@ -23,6 +23,24 @@ function assertOperationMessages(operation, label) {
   assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
 }
 
+function assertResourceOperationMessages(contract, operationName, label) {
+  const operation = contract?.operations?.[operationName];
+  assert.equal(typeof operation, "object", `${label}.operations.${operationName} must exist.`);
+
+  const operationMessages = operation?.messages;
+  const resourceMessages = contract?.operationMessages;
+  const resolvedMessages =
+    operationMessages && typeof operationMessages === "object"
+      ? operationMessages
+      : resourceMessages;
+
+  assert.equal(
+    typeof resolvedMessages,
+    "object",
+    `${label}.operations.${operationName} must resolve operation messages from operation.messages or contract.operationMessages.`
+  );
+}
+
 test("users-core resource contracts expose messages for all operations", () => {
   const resources = {
     workspace: workspaceSchema,
@@ -36,7 +54,7 @@ test("users-core resource contracts expose messages for all operations", () => {
 
   for (const [label, contract] of Object.entries(resources)) {
     for (const operationName of ["view", "list", "create", "replace", "patch"]) {
-      assertOperationMessages(contract.operations?.[operationName], `${label}.operations.${operationName}`);
+      assertResourceOperationMessages(contract, operationName, label);
     }
   }
 });

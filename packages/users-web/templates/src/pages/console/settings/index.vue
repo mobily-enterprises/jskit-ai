@@ -51,7 +51,6 @@
 
 <script setup>
 import { reactive } from "vue";
-import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
 import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
 
 const form = reactive({
@@ -65,7 +64,7 @@ const CONSOLE_SETTINGS_MESSAGES = Object.freeze({
 
 const addEdit = useGlobalAddEdit({
   apiSuffix: "/console/settings",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.consoleSettings,
+  queryKeyFactory: () => ["users-web", "settings", "console"],
   viewPermissions: ["console.settings.read", "console.settings.update"],
   savePermissions: ["console.settings.update"],
   writeMethod: "PATCH",

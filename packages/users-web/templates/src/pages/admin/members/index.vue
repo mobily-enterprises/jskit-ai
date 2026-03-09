@@ -21,7 +21,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
 import MembersAdminClientElement from "@jskit-ai/users-web/client/components/MembersAdminClientElement";
-import { USERS_WEB_QUERY_KEYS } from "@jskit-ai/users-web/client/lib/queryKeys";
+import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand";
 import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList";
 import { useWorkspaceView } from "@jskit-ai/users-web/client/composables/useWorkspaceView";
@@ -247,21 +247,39 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
 
 const workspaceSettingsView = useWorkspaceView({
   apiSuffix: "/settings",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceSettings,
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    "users-web",
+    "settings",
+    "workspace",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ],
   viewPermissions: ["workspace.members.invite"],
   fallbackLoadError: "Unable to load workspace settings."
 });
 
 const workspaceRolesView = useWorkspaceView({
   apiSuffix: "/roles",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceRoles,
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    "users-web",
+    "workspace",
+    "roles",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ],
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
   fallbackLoadError: "Unable to load workspace roles."
 });
 
 const workspaceMembersList = useWorkspaceList({
   apiSuffix: "/members",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceMembers,
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    "users-web",
+    "workspace",
+    "members",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ],
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   selectItems: (payload) => normalizeMembers(payload?.members),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,
@@ -270,7 +288,13 @@ const workspaceMembersList = useWorkspaceList({
 
 const workspaceInvitesList = useWorkspaceList({
   apiSuffix: "/invites",
-  queryKeyFactory: USERS_WEB_QUERY_KEYS.workspaceInvites,
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    "users-web",
+    "workspace",
+    "invites",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ],
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   selectItems: (payload) => normalizeInvites(payload?.invites),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,

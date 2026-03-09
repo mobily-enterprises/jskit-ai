@@ -3,6 +3,11 @@ function normalizeText(value, { fallback = "" } = {}) {
   return normalized || fallback;
 }
 
+function normalizeQueryToken(value, { fallback = "__none__" } = {}) {
+  const normalized = normalizeText(value).toLowerCase();
+  return normalized || fallback;
+}
+
 function normalizeObject(value, { fallback = {} } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { ...fallback };
@@ -44,6 +49,7 @@ function ensureNonEmptyText(value, label = "value") {
 
 export {
   normalizeText,
+  normalizeQueryToken,
   normalizeObject,
   isRecord,
   normalizeArray,
