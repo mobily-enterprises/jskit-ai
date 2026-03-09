@@ -1,9 +1,6 @@
 import { Type } from "typebox";
-import {
-  buildResourceRequiredMetadata,
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import {
   roleCatalogSchema,
   workspaceAdminSummarySchema
@@ -96,11 +93,6 @@ const workspaceMemberSchema = Object.freeze({
         schema: workspaceMemberRecordSchema
       })
     })
-  }),
-  required: buildResourceRequiredMetadata({
-    create: workspaceMemberCreateSchema,
-    replace: workspaceMemberReplaceSchema,
-    patch: workspaceMemberPatchSchema
   })
 });
 

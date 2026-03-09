@@ -1,12 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  parseWorkspaceSettingsCreate,
-  parseWorkspaceSettingsPatch
-} from "../src/shared/contracts/resources/workspaceSettingsSchema.js";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { workspaceSettingsSchema } from "../src/shared/schemas/resources/workspaceSettingsSchema.js";
 
-test("parseWorkspaceSettingsPatch normalizes valid patch payload", () => {
-  const parsed = parseWorkspaceSettingsPatch({
+function parseBody(operation, payload = {}) {
+  return validateOperationSection({
+    operation,
+    section: "body",
+    value: payload
+  });
+}
+
+test("workspace settings patch body normalizes valid payload", () => {
+  const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
     name: "  Team Mercury  ",
     avatarUrl: " https://example.com/avatar.png ",
     color: "#0f6b54",
@@ -15,59 +21,54 @@ test("parseWorkspaceSettingsPatch normalizes valid patch payload", () => {
     appDenyUserIds: ["1", 2, "2", "003"]
   });
 
+  assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
-  assert.deepEqual(parsed.workspacePatch, {
+  assert.deepEqual(parsed.value, {
     name: "Team Mercury",
     avatarUrl: "https://example.com/avatar.png",
-    color: "#0F6B54"
-  });
-  assert.deepEqual(parsed.settingsPatch, {
+    color: "#0F6B54",
     invitesEnabled: false,
     appDenyEmails: ["foo@example.com", "bar@example.com"],
     appDenyUserIds: [1, 2, 3]
   });
 });
 
-test("parseWorkspaceSettingsPatch returns field errors for invalid deny-list IDs", () => {
-  const parsed = parseWorkspaceSettingsPatch({
+test("workspace settings patch body returns field error for invalid deny-list IDs", () => {
+  const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
     appDenyUserIds: ["x", "3"]
   });
 
-  assert.deepEqual(parsed.workspacePatch, {});
-  assert.deepEqual(parsed.settingsPatch, {});
+  assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.appDenyUserIds, "appDenyUserIds must be an array of positive integers.");
 });
 
-test("parseWorkspaceSettingsPatch validates avatar URL protocol", () => {
-  const parsed = parseWorkspaceSettingsPatch({
+test("workspace settings patch body validates avatar URL protocol", () => {
+  const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
     avatarUrl: "ftp://example.com/avatar.png"
   });
 
-  assert.deepEqual(parsed.workspacePatch, {});
-  assert.deepEqual(parsed.settingsPatch, {});
+  assert.equal(parsed.ok, false);
   assert.equal(
     parsed.fieldErrors.avatarUrl,
     "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
   );
 });
 
-test("parseWorkspaceSettingsPatch keeps max-length name rule", () => {
-  const parsed = parseWorkspaceSettingsPatch({
+test("workspace settings patch body keeps max-length name rule", () => {
+  const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
     name: "x".repeat(161)
   });
 
-  assert.deepEqual(parsed.workspacePatch, {});
-  assert.deepEqual(parsed.settingsPatch, {});
+  assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.name, "Workspace name must be at most 160 characters.");
 });
 
-test("parseWorkspaceSettingsCreate requires full-write fields", () => {
-  const parsed = parseWorkspaceSettingsCreate({
+test("workspace settings create body requires full-write fields", () => {
+  const parsed = parseBody(workspaceSettingsSchema.operations.create, {
     name: "Mercury Workspace"
   });
 
-  assert.deepEqual(parsed.workspacePatch, {});
-  assert.deepEqual(parsed.settingsPatch, {});
+  assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.color, "Workspace color is required.");
   assert.equal(parsed.fieldErrors.invitesEnabled, "invitesEnabled is required.");
 });

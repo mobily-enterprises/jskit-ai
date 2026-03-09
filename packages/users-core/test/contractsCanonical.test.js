@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { workspaceSchema } from "../src/shared/contracts/resources/workspaceSchema.js";
-import { workspaceSettingsSchema } from "../src/shared/contracts/resources/workspaceSettingsSchema.js";
+import { workspaceSettingsSchema } from "../src/shared/schemas/resources/workspaceSettingsSchema.js";
 import { workspaceMemberSchema } from "../src/shared/contracts/resources/workspaceMemberSchema.js";
 import { workspaceInviteSchema } from "../src/shared/contracts/resources/workspaceInviteSchema.js";
 import { userProfileSchema } from "../src/shared/contracts/resources/userProfileSchema.js";

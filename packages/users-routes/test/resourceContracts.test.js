@@ -3,6 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/contracts/resourceRequiredMetadata";
 import { workspaceRoutesContract as workspaceSchema } from "../src/shared/contracts/workspaceRoutesContract.js";
 import { settingsRoutesContract as settingsSchema } from "../src/shared/contracts/settingsRoutesContract.js";
 import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../src/shared/contracts/consoleSettingsRoutesContract.js";
@@ -27,9 +28,11 @@ function assertResourceContract(contract, label) {
   assert.equal(typeof contract.operations.create.body?.schema, "object", `${label}.operations.create.body.schema is required.`);
   assert.equal(typeof contract.operations.replace.body?.schema, "object", `${label}.operations.replace.body.schema is required.`);
   assert.equal(typeof contract.operations.patch.body?.schema, "object", `${label}.operations.patch.body.schema is required.`);
-  assert.ok(Array.isArray(contract.required?.create), `${label}.required.create must be an array.`);
-  assert.ok(Array.isArray(contract.required?.replace), `${label}.required.replace must be an array.`);
-  assert.ok(Array.isArray(contract.required?.patch), `${label}.required.patch must be an array.`);
+
+  const requiredMetadata = deriveResourceRequiredMetadata(contract);
+  assert.ok(Array.isArray(requiredMetadata.create), `${label}.derivedRequired.create must be an array.`);
+  assert.ok(Array.isArray(requiredMetadata.replace), `${label}.derivedRequired.replace must be an array.`);
+  assert.ok(Array.isArray(requiredMetadata.patch), `${label}.derivedRequired.patch must be an array.`);
 }
 
 function assertCommandContract(contract, label) {

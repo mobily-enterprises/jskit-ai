@@ -1,9 +1,6 @@
 import { Type } from "typebox";
-import {
-  buildResourceRequiredMetadata,
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
 const profileAvatarSchema = Type.Object({}, { additionalProperties: true });
 
@@ -90,11 +87,6 @@ const userProfileSchema = Object.freeze({
         schema: userProfileRecordSchema
       })
     })
-  }),
-  required: buildResourceRequiredMetadata({
-    create: userProfileCreateSchema,
-    replace: userProfileReplaceSchema,
-    patch: userProfilePatchSchema
   })
 });
 

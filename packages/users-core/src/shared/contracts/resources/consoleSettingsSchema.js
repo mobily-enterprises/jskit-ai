@@ -1,9 +1,6 @@
 import { Type } from "typebox";
-import {
-  buildResourceRequiredMetadata,
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
 const consoleSettingsValueSchema = Type.Object(
   {
@@ -91,11 +88,6 @@ const consoleSettingsSchema = Object.freeze({
         schema: consoleSettingsRecordSchema
       })
     })
-  }),
-  required: buildResourceRequiredMetadata({
-    create: consoleSettingsCreateSchema,
-    replace: consoleSettingsReplaceSchema,
-    patch: consoleSettingsPatchSchema
   })
 });
 

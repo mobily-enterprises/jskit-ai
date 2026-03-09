@@ -122,22 +122,36 @@
 
 <script setup>
 import { reactive } from "vue";
-import {
-  parseWorkspaceSettingsPatch,
-  workspaceSettingsSchema
-} from "@jskit-ai/users-core/shared/contracts/resources/workspaceSettingsSchema";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
 import { USERS_WEB_QUERY_KEYS } from "../lib/queryKeys.js";
 import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
-function parseTextList(value) {
+function parseTextEntries(value) {
+  return String(value || "")
+    .split(/[\n,;]+/)
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+function parseLowercaseTextList(value) {
   return Array.from(
     new Set(
-      String(value || "")
-        .split(/[\n,;]+/)
-        .map((entry) => String(entry || "").trim().toLowerCase())
+      parseTextEntries(value)
+        .map((entry) => entry.toLowerCase())
         .filter(Boolean)
+    )
+  );
+}
+
+function parsePositiveIntegerList(value) {
+  return Array.from(
+    new Set(
+      parseTextEntries(value)
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isInteger(entry) && entry > 0)
     )
   );
 }
@@ -166,14 +180,17 @@ const addEdit = useWorkspaceAddEdit({
   fallbackSaveError: String(WORKSPACE_SETTINGS_MESSAGES.saveError || "Unable to update workspace settings."),
   fieldErrorKeys: ["name", "avatarUrl", "color", "appDenyEmails", "appDenyUserIds"],
   model: workspaceForm,
-  parseInput: parseWorkspaceSettingsPatch,
+  parseInput: (rawPayload) =>
+    validateOperationSection({
+      operation: WORKSPACE_SETTINGS_PATCH_OPERATION,
+      section: "body",
+      value: rawPayload
+    }),
   mapLoadedToModel: (model, payload = {}) => {
     const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : {};
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    const appSurfaceAccess =
-      settings.appSurfaceAccess && typeof settings.appSurfaceAccess === "object" ? settings.appSurfaceAccess : {};
-    const denyEmails = Array.isArray(settings.appDenyEmails) ? settings.appDenyEmails : appSurfaceAccess.denyEmails;
-    const denyUserIds = Array.isArray(settings.appDenyUserIds) ? settings.appDenyUserIds : appSurfaceAccess.denyUserIds;
+    const denyEmails = Array.isArray(settings.appDenyEmails) ? settings.appDenyEmails : [];
+    const denyUserIds = Array.isArray(settings.appDenyUserIds) ? settings.appDenyUserIds : [];
 
     model.name = String(workspace.name || "");
     model.color = String(workspace.color || DEFAULT_WORKSPACE_COLOR);
@@ -198,8 +215,8 @@ const addEdit = useWorkspaceAddEdit({
     color: model.color,
     avatarUrl: model.avatarUrl,
     invitesEnabled: model.invitesEnabled,
-    appDenyEmails: parseTextList(model.appDenyEmailsText),
-    appDenyUserIds: parseTextList(model.appDenyUserIdsText)
+    appDenyEmails: parseLowercaseTextList(model.appDenyEmailsText),
+    appDenyUserIds: parsePositiveIntegerList(model.appDenyUserIdsText)
   }),
   messages: WORKSPACE_SETTINGS_MESSAGES
 });

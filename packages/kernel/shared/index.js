@@ -8,6 +8,12 @@ export {
   ensureNonEmptyText
 } from "./support/normalize.js";
 export { sortStrings, sortById } from "./support/sorting.js";
+export { normalizeObjectInput } from "./contracts/inputNormalization.js";
+export {
+  normalizeRequiredFieldList,
+  deriveRequiredFieldsFromSchema,
+  deriveResourceRequiredMetadata
+} from "./contracts/resourceRequiredMetadata.js";
 
 export { createSurfaceRegistry, normalizeSurfaceId } from "./surface/registry.js";
 export { createSurfacePathHelpers } from "./surface/paths.js";

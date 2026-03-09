@@ -53,56 +53,6 @@ function resolveQueryKeyForScope(queryKeyFactory, surfaceId) {
   return queryKeyFactory(surfaceId);
 }
 
-function resolveSavePayload(buildSavePayload, parsed = {}, rawPayload = {}, context = {}) {
-  if (typeof buildSavePayload === "function") {
-    return buildSavePayload(parsed, {
-      rawPayload,
-      ...context
-    });
-  }
-
-  if (Object.hasOwn(parsed, "workspacePatch") || Object.hasOwn(parsed, "settingsPatch")) {
-    return {
-      ...asPlainObject(parsed.workspacePatch),
-      ...asPlainObject(parsed.settingsPatch)
-    };
-  }
-
-  if (Object.hasOwn(parsed, "payload")) {
-    return parsed.payload;
-  }
-
-  return rawPayload;
-}
-
-function resolveRunPayload(buildCommandPayload, parsed = {}, rawPayload = {}, context = {}) {
-  if (typeof buildCommandPayload === "function") {
-    return buildCommandPayload(parsed, {
-      rawPayload,
-      ...context
-    });
-  }
-
-  if (Object.hasOwn(parsed, "payload")) {
-    return parsed.payload;
-  }
-
-  return rawPayload;
-}
-
-function resolveFieldErrors(parsed = {}) {
-  const errors = parsed?.fieldErrors;
-  if (!errors || typeof errors !== "object" || Array.isArray(errors)) {
-    return {};
-  }
-
-  return errors;
-}
-
-function hasFieldErrors(parsed = {}) {
-  return Object.keys(resolveFieldErrors(parsed)).length > 0;
-}
-
 function normalizeApiPath(value) {
   const source = String(value || "").trim();
   if (!source) {
@@ -127,9 +77,5 @@ export {
   resolveEnabled,
   resolveQueryKeyForWorkspace,
   resolveQueryKeyForScope,
-  resolveSavePayload,
-  resolveRunPayload,
-  resolveFieldErrors,
-  hasFieldErrors,
   normalizeApiPath
 };

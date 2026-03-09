@@ -1,9 +1,6 @@
 import { Type } from "typebox";
-import {
-  buildResourceRequiredMetadata,
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
 const workspaceSummarySchema = Type.Object(
   {
@@ -126,12 +123,7 @@ const workspaceSchema = Object.freeze({
       })
     })
   }),
-  listItem: workspaceSummarySchema,
-  required: buildResourceRequiredMetadata({
-    create: workspaceCreateSchema,
-    replace: workspaceReplaceSchema,
-    patch: workspacePatchSchema
-  })
+  listItem: workspaceSummarySchema
 });
 
 export {

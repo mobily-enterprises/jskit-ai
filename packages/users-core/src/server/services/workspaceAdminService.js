@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import {
   listRoleDescriptors,
   resolveAssignableRoleIds,
@@ -11,9 +12,8 @@ import {
   coerceWorkspaceColor
 } from "../../shared/settings.js";
 import {
-  parseWorkspaceSettingsPatch,
   workspaceSettingsSchema
-} from "../../shared/contracts/resources/workspaceSettingsSchema.js";
+} from "../../shared/schemas/resources/workspaceSettingsSchema.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -62,10 +62,6 @@ function mapWorkspaceSettingsResponse(settings, options = {}) {
   if (includeAppSurfaceDenyLists) {
     response.appDenyEmails = [...appPolicy.denyEmails];
     response.appDenyUserIds = [...appPolicy.denyUserIds];
-    response.appSurfaceAccess = {
-      denyEmails: [...appPolicy.denyEmails],
-      denyUserIds: [...appPolicy.denyUserIds]
-    };
   }
 
   return response;
@@ -103,6 +99,52 @@ function mapInviteSummary(invite) {
     status: normalizeLowerText(invite.status || "pending") || "pending",
     expiresAt: invite.expiresAt,
     invitedByUserId: invite.invitedByUserId == null ? null : Number(invite.invitedByUserId)
+  };
+}
+
+function parseWorkspaceSettingsUpdatePayload(payload = {}) {
+  const operation = workspaceSettingsSchema.operations.patch;
+  const parsed = validateOperationSection({
+    operation,
+    section: "body",
+    value: payload
+  });
+
+  if (!parsed.ok) {
+    return {
+      workspacePatch: {},
+      settingsPatch: {},
+      fieldErrors: parsed.fieldErrors && typeof parsed.fieldErrors === "object" ? parsed.fieldErrors : {}
+    };
+  }
+
+  const normalized = parsed.value && typeof parsed.value === "object" ? parsed.value : {};
+  const workspacePatch = {};
+  const settingsPatch = {};
+
+  if (Object.hasOwn(normalized, "name")) {
+    workspacePatch.name = normalized.name;
+  }
+  if (Object.hasOwn(normalized, "avatarUrl")) {
+    workspacePatch.avatarUrl = normalized.avatarUrl;
+  }
+  if (Object.hasOwn(normalized, "color")) {
+    workspacePatch.color = normalized.color;
+  }
+  if (Object.hasOwn(normalized, "invitesEnabled")) {
+    settingsPatch.invitesEnabled = normalized.invitesEnabled;
+  }
+  if (Object.hasOwn(normalized, "appDenyEmails")) {
+    settingsPatch.appDenyEmails = [...normalized.appDenyEmails];
+  }
+  if (Object.hasOwn(normalized, "appDenyUserIds")) {
+    settingsPatch.appDenyUserIds = [...normalized.appDenyUserIds];
+  }
+
+  return {
+    workspacePatch,
+    settingsPatch,
+    fieldErrors: {}
   };
 }
 
@@ -167,7 +209,7 @@ function createService({
   }
 
   async function updateWorkspaceSettings(workspaceContext, payload = {}, options = {}) {
-    const parsed = parseWorkspaceSettingsPatch(payload);
+    const parsed = parseWorkspaceSettingsUpdatePayload(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
       const operationMessages = workspaceSettingsSchema.operations.patch.messages || {};
       throw new AppError(

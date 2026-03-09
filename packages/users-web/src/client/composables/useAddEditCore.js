@@ -1,10 +1,5 @@
 import { watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
-import {
-  hasFieldErrors,
-  resolveFieldErrors,
-  resolveSavePayload
-} from "./scopeHelpers.js";
 
 function useAddEditCore({
   model,
@@ -56,23 +51,37 @@ function useAddEditCore({
       resource
     }) : {};
 
-    const parsed = typeof parseInput === "function"
-      ? parseInput(rawPayload, {
-          queryClient,
-          resource
-        }) || {}
-      : rawPayload;
+    let parseResult = null;
+    if (typeof parseInput === "function") {
+      parseResult = parseInput(rawPayload, {
+        queryClient,
+        resource
+      });
 
-    if (hasFieldErrors(parsed)) {
-      fieldBag?.apply?.(resolveFieldErrors(parsed));
-      feedback?.error?.(null, String(messages.validation || "Validation failed."));
-      return;
+      if (!parseResult || typeof parseResult !== "object" || typeof parseResult.ok !== "boolean") {
+        throw new TypeError(
+          "parseInput(rawPayload, context) must return validateOperationSection-compatible result with boolean ok."
+        );
+      }
+
+      if (!parseResult.ok) {
+        const validationFieldErrors =
+          parseResult.fieldErrors && typeof parseResult.fieldErrors === "object" ? parseResult.fieldErrors : {};
+
+        fieldBag?.apply?.(validationFieldErrors);
+        feedback?.error?.(null, String(messages.validation || "Validation failed."));
+        return;
+      }
     }
 
-    const savePayload = resolveSavePayload(buildSavePayload, parsed, rawPayload, {
-      queryClient,
-      resource
-    });
+    const parsedInput = parseResult ? parseResult.value : rawPayload;
+    const savePayload = typeof buildSavePayload === "function"
+      ? buildSavePayload(parsedInput, {
+          rawPayload,
+          queryClient,
+          resource
+        })
+      : parsedInput;
 
     try {
       const payload = await resource.save(savePayload);
@@ -91,7 +100,8 @@ function useAddEditCore({
       if (typeof onSaveSuccess === "function") {
         onSaveSuccess(payload, {
           queryClient,
-          parsed,
+          parsed: parsedInput,
+          parseResult,
           rawPayload,
           savePayload,
           resource

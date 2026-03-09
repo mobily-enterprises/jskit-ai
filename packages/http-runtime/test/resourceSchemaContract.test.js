@@ -28,7 +28,7 @@ test("createResourceSchemaContract requires record/create/replace/patch schemas"
   );
 });
 
-test("createResourceSchemaContract derives required field lists and default list schema", () => {
+test("createResourceSchemaContract builds default list schema from record/listItem", () => {
   const recordSchema = Type.Object(
     {
       id: Type.Integer({ minimum: 1 }),
@@ -51,9 +51,6 @@ test("createResourceSchemaContract derives required field lists and default list
     patch: patchSchema
   });
 
-  assert.deepEqual(contract.required.create, ["name", "color"]);
-  assert.deepEqual(contract.required.replace, ["name", "color"]);
-  assert.deepEqual(contract.required.patch, []);
   assert.equal(contract.list.properties.items.items.type, "object");
 });
 

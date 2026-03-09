@@ -8,7 +8,7 @@ import {
   allowPublic,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspaceSettingsSchema } from "../../shared/contracts/resources/workspaceSettingsSchema.js";
+import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
 import { workspaceInviteSchema } from "../../shared/contracts/resources/workspaceInviteSchema.js";
 
 function hasPermission(permissionSet, permission) {

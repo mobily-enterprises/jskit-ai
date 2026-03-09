@@ -1,8 +1,6 @@
 import { Type } from "typebox";
-import {
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
 const settingsAvatarDeleteInputSchema = Type.Object({}, { additionalProperties: false });
 const settingsAvatarDeleteOutputSchema = Type.Object({}, { additionalProperties: true });

@@ -1,9 +1,6 @@
 import { Type } from "typebox";
-import {
-  buildResourceRequiredMetadata,
-  createOperationMessages,
-  normalizeObjectInput
-} from "../contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { userProfileRecordSchema } from "./userProfileSchema.js";
 
 function pickPatchBody(schema, keys = []) {
@@ -169,11 +166,6 @@ const userSettingsSchema = Object.freeze({
         schema: userSettingsRecordSchema
       })
     })
-  }),
-  required: buildResourceRequiredMetadata({
-    create: userSettingsCreateSchema,
-    replace: userSettingsReplaceSchema,
-    patch: userSettingsPatchSchema
   })
 });
 

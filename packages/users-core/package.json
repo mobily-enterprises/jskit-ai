@@ -28,7 +28,7 @@
     "./shared/settings": "./src/shared/settings.js",
     "./shared/contracts/contractUtils": "./src/shared/contracts/contractUtils.js",
     "./shared/contracts/resources/workspaceSchema": "./src/shared/contracts/resources/workspaceSchema.js",
-    "./shared/contracts/resources/workspaceSettingsSchema": "./src/shared/contracts/resources/workspaceSettingsSchema.js",
+    "./shared/schemas/resources/workspaceSettingsSchema": "./src/shared/schemas/resources/workspaceSettingsSchema.js",
     "./shared/contracts/resources/workspaceMemberSchema": "./src/shared/contracts/resources/workspaceMemberSchema.js",
     "./shared/contracts/resources/workspaceInviteSchema": "./src/shared/contracts/resources/workspaceInviteSchema.js",
     "./shared/contracts/resources/userProfileSchema": "./src/shared/contracts/resources/userProfileSchema.js",

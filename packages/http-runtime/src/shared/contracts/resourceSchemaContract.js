@@ -7,18 +7,6 @@ function asSchema(value, label) {
   return value;
 }
 
-function normalizeRequiredList(value) {
-  if (!Array.isArray(value)) {
-    return Object.freeze([]);
-  }
-
-  const normalized = value
-    .map((entry) => String(entry || "").trim())
-    .filter(Boolean);
-
-  return Object.freeze(Array.from(new Set(normalized)));
-}
-
 function createCursorPagedListResponseSchema(itemSchema) {
   const normalizedItemSchema = asSchema(itemSchema, "itemSchema");
   return Type.Object(
@@ -51,12 +39,7 @@ function createResourceSchemaContract({
     replace: normalizedReplaceSchema,
     patch: normalizedPatchSchema,
     listItem: normalizedListItemSchema,
-    list: normalizedListSchema,
-    required: Object.freeze({
-      create: normalizeRequiredList(normalizedCreateSchema.required),
-      replace: normalizeRequiredList(normalizedReplaceSchema.required),
-      patch: normalizeRequiredList(normalizedPatchSchema.required)
-    })
+    list: normalizedListSchema
   });
 }
 
