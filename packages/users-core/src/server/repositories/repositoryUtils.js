@@ -1,4 +1,4 @@
-import { toDatabaseDateTimeUtc, toIsoString } from "@jskit-ai/database-runtime/shared/dateUtils";
+import { toInsertDateTime, toNullableDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 
 function normalizeText(value) {
@@ -10,7 +10,7 @@ function normalizeLowerText(value) {
 }
 
 function nowDb() {
-  return toDatabaseDateTimeUtc(new Date());
+  return toInsertDateTime();
 }
 
 function toNullableIso(value) {
@@ -44,7 +44,7 @@ function toDbJson(value, fallback = {}) {
 }
 
 export {
-  toDatabaseDateTimeUtc,
+  toNullableDateTime,
   toIsoString,
   isDuplicateEntryError,
   normalizeText,

@@ -167,6 +167,13 @@ export default Object.freeze({
         reason: "Install console settings page scaffold for users-web console UI.",
         category: "users-web",
         id: "users-web-page-console-settings"
+      },
+      {
+        from: "templates/src/pages/workspaces/index.vue",
+        to: "src/pages/workspaces/index.vue",
+        reason: "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
+        category: "users-web",
+        id: "users-web-page-workspaces"
       }
     ],
     text: [

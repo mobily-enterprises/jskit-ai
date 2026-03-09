@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  encodeInviteTokenHash,
+  resolveInviteTokenHash
+} from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   TENANCY_MODE_NONE,
@@ -418,7 +422,7 @@ function createService({
       roleId: invite.roleId,
       status: invite.status,
       expiresAt: invite.expiresAt,
-      token: ""
+      token: encodeInviteTokenHash(invite.tokenHash)
     }));
   }
 
@@ -442,7 +446,12 @@ function createService({
       throw new AppError(400, "Invite token is required.");
     }
 
-    const invite = await workspaceInvitesRepository.findPendingByTokenHash(hashInviteToken(normalizedToken), options);
+    const tokenHash = resolveInviteTokenHash(normalizedToken);
+    if (!tokenHash) {
+      throw new AppError(400, "Invite token is invalid.");
+    }
+
+    const invite = await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
     if (!invite) {
       throw new AppError(404, "Invitation not found or already handled.");
     }

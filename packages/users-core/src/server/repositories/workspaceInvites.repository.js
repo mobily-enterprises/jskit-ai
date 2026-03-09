@@ -3,6 +3,7 @@ import {
   normalizeText,
   toIsoString,
   toNullableIso,
+  toNullableDateTime,
   nowDb,
   isDuplicateEntryError
 } from "./repositoryUtils.js";
@@ -114,7 +115,7 @@ function createRepository(knex) {
       status: normalizeLowerText(source.status || "pending") || "pending",
       token_hash: normalizeText(source.tokenHash),
       invited_by_user_id: source.invitedByUserId == null ? null : Number(source.invitedByUserId),
-      expires_at: source.expiresAt ? source.expiresAt : null,
+      expires_at: toNullableDateTime(source.expiresAt),
       accepted_at: null,
       revoked_at: null,
       created_at: nowDb(),

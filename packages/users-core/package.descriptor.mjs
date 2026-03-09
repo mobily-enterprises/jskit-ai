@@ -4,6 +4,7 @@ export default Object.freeze({
   version: "0.1.0",
   description: "Users/workspace domain runtime: profiles, tenancy/workspace logic, and settings actions.",
   dependsOn: [
+    "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime"
   ],
   capabilities: {
@@ -60,6 +61,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@jskit-ai/auth-core": "0.1.0",
         "@jskit-ai/database-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0"
       },

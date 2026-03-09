@@ -10,6 +10,7 @@ export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
 export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
 export { useDefaultLoginView } from "./composables/useDefaultLoginView.js";
 export { useDefaultSignOutView } from "./composables/useDefaultSignOutView.js";
+export { resolveSurfaceLinkTarget } from "./lib/surfaceLinkTarget.js";
 export { authHttpRequest, clearAuthCsrfTokenCache } from "./api/AuthHttpClient.js";
 export { useSignOut, createSignOutAction, performSignOutRequest } from "./composables/useSignOut.js";
 export { registerClientRoutes } from "./routes/registerClientRoutes.js";
