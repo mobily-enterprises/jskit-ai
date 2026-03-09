@@ -47,28 +47,62 @@ function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
 function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
-  const currentSurfaceIsWorkspace = isWorkspaceSurface(targets.currentSurface);
-  const defaultSurfaceIsWorkspace = isWorkspaceSurface(targets.defaultSurface);
   const workspaceSlug = resolveCurrentWorkspaceSlug(source, targets.currentSurfaceId || surface);
+  const enabledSurfaceIds = Array.isArray(targets?.surfaceConfig?.enabledSurfaceIds)
+    ? targets.surfaceConfig.enabledSurfaceIds
+    : [];
+  const appSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "app") || "";
+  const adminSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "admin") || "";
+  const appSurface = appSurfaceId ? targets.surfaceConfig.surfacesById[appSurfaceId] : null;
+  const adminSurface = adminSurfaceId ? targets.surfaceConfig.surfacesById[adminSurfaceId] : null;
+  const appSurfaceIsWorkspace = isWorkspaceSurface(appSurface);
+  const adminSurfaceIsWorkspace = isWorkspaceSurface(adminSurface);
 
-  if (currentSurfaceIsWorkspace) {
-    let appSurfaceId = targets.nonWorkspaceSurfaceId;
-    if (!defaultSurfaceIsWorkspace && targets.defaultSurfaceId !== targets.currentSurfaceId) {
-      appSurfaceId = targets.defaultSurfaceId;
+  if (workspaceSlug) {
+    if (targets.currentSurfaceId === appSurfaceId && adminSurfaceId && adminSurfaceIsWorkspace) {
+      return {
+        id: "surface-switch.primary",
+        label: "Go to admin",
+        to: resolveSurfaceWorkspacePathFromPlacementContext(source, adminSurfaceId, workspaceSlug)
+      };
     }
 
-    if (!appSurfaceId || !workspaceSlug) {
+    if (targets.currentSurfaceId === adminSurfaceId && appSurfaceId && appSurfaceIsWorkspace) {
+      return {
+        id: "surface-switch.primary",
+        label: "Go to app",
+        to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug)
+      };
+    }
+  }
+
+  if (appSurfaceId && appSurfaceIsWorkspace && workspaceSlug) {
+    if (targets.currentSurfaceId === appSurfaceId) {
       return null;
     }
-
     return {
       id: "surface-switch.primary",
-      label: "Go to app",
+      label: "Go to workspace",
       to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug)
     };
   }
 
+  if (appSurfaceId && !appSurfaceIsWorkspace) {
+    if (targets.currentSurfaceId === appSurfaceId) {
+      return null;
+    }
+    return {
+      id: "surface-switch.primary",
+      label: "Go to app",
+      to: resolveSurfaceRootPathFromPlacementContext(source, appSurfaceId)
+    };
+  }
+
   if (!targets.workspaceSurfaceId || !workspaceSlug) {
+    return null;
+  }
+
+  if (targets.currentSurfaceId === targets.workspaceSurfaceId) {
     return null;
   }
 

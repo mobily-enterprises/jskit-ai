@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 
 const health = ref("loading...");
 
@@ -16,17 +15,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <ShellLayout
-    surface="app"
-    surface-label="App"
-    title="App surface is ready."
-    subtitle="Primary workspace container for day-to-day product workflows."
-  >
-    <v-card rounded="lg" border elevation="0">
-      <v-card-text class="d-flex align-center ga-2">
-        <span class="text-medium-emphasis">Service health:</span>
-        <v-chip size="small" color="info" variant="tonal" label>{{ health }}</v-chip>
-      </v-card-text>
-    </v-card>
-  </ShellLayout>
+  <v-card rounded="lg" border elevation="0">
+    <v-card-text class="d-flex align-center ga-2">
+      <span class="text-medium-emphasis">Service health:</span>
+      <v-chip size="small" color="info" variant="tonal" label>{{ health }}</v-chip>
+    </v-card-text>
+  </v-card>
 </template>

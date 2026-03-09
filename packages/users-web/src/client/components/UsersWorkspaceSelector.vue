@@ -137,29 +137,17 @@ const currentSurfaceId = computed(() => {
   return resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) || props.surface;
 });
 
-function resolveTargetSurfaceId() {
-  const surfaceConfig = placementContext.value?.surfaceConfig;
-  const enabledSurfaceIds = Array.isArray(surfaceConfig?.enabledSurfaceIds) ? surfaceConfig.enabledSurfaceIds : [];
-  const preferredSurfaceId = String(props.targetSurfaceId || "").trim().toLowerCase();
-
-  if (preferredSurfaceId && enabledSurfaceIds.includes(preferredSurfaceId)) {
-    return preferredSurfaceId;
+const targetSurfaceId = computed(() => String(props.targetSurfaceId || "").trim().toLowerCase());
+const workspaceSwitchSurfaceId = computed(() => {
+  const normalizedCurrentSurfaceId = String(currentSurfaceId.value || "").trim().toLowerCase();
+  if (
+    normalizedCurrentSurfaceId &&
+    surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, normalizedCurrentSurfaceId)
+  ) {
+    return normalizedCurrentSurfaceId;
   }
-
-  const currentSurface = String(currentSurfaceId.value || "").trim().toLowerCase();
-  if (currentSurface && enabledSurfaceIds.includes(currentSurface)) {
-    return currentSurface;
-  }
-
-  const defaultSurfaceId = String(surfaceConfig?.defaultSurfaceId || "").trim().toLowerCase();
-  if (defaultSurfaceId && enabledSurfaceIds.includes(defaultSurfaceId)) {
-    return defaultSurfaceId;
-  }
-
-  return currentSurface || defaultSurfaceId || "app";
-}
-
-const targetSurfaceId = computed(() => resolveTargetSurfaceId());
+  return targetSurfaceId.value;
+});
 
 const routeWorkspaceSlug = computed(() => {
   return String(
@@ -223,10 +211,18 @@ async function navigateToWorkspace(slug) {
   if (navigatingToWorkspace.value) {
     return;
   }
+  if (!workspaceSwitchSurfaceId.value) {
+    errorMessage.value = "Workspace selector target surface is not configured.";
+    return;
+  }
+  if (!workspaceSwitchSurfaceRequiresWorkspace.value) {
+    errorMessage.value = "Workspace selector target surface must require a workspace.";
+    return;
+  }
 
   const targetPath = resolveSurfaceWorkspacePathFromPlacementContext(
     placementContext.value,
-    targetSurfaceId.value,
+    workspaceSwitchSurfaceId.value,
     normalizedSlug
   );
 
@@ -261,6 +257,9 @@ const tenancyAllowsWorkspaceRouting = computed(() => tenancyMode.value !== TENAN
 const surfaceRequiresWorkspace = computed(() =>
   surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, currentSurfaceId.value)
 );
+const workspaceSwitchSurfaceRequiresWorkspace = computed(() =>
+  surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, workspaceSwitchSurfaceId.value)
+);
 const selectorSurfaceAllowed = computed(() => {
   if (surfaceRequiresWorkspace.value) {
     return true;
@@ -270,6 +269,8 @@ const selectorSurfaceAllowed = computed(() => {
 
 const isVisible = computed(
   () =>
+    Boolean(workspaceSwitchSurfaceId.value) &&
+    workspaceSwitchSurfaceRequiresWorkspace.value &&
     selectorSurfaceAllowed.value &&
     tenancyAllowsWorkspaceRouting.value &&
     authenticated.value &&

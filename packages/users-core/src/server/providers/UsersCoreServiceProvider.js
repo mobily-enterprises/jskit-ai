@@ -8,11 +8,14 @@ import { createRepository as createWorkspacesRepository } from "../repositories/
 import { createRepository as createWorkspaceMembershipsRepository } from "../repositories/memberships.repository.js";
 import { createRepository as createWorkspaceSettingsRepository } from "../repositories/workspaceSettings.repository.js";
 import { createRepository as createWorkspaceInvitesRepository } from "../repositories/workspaceInvites.repository.js";
+import { createRepository as createConsoleSettingsRepository } from "../repositories/consoleSettings.repository.js";
 import { createService as createWorkspaceService } from "../services/workspaceService.js";
 import { createService as createWorkspaceAdminService } from "../services/workspaceAdminService.js";
 import { createService as createSettingsService } from "../services/settingsService.js";
+import { createService as createConsoleSettingsService } from "../services/consoleSettingsService.js";
 import { createWorkspaceActionContributor } from "../actions/workspaceActionContributor.js";
 import { createSettingsActionContributor } from "../actions/settingsActionContributor.js";
+import { createConsoleSettingsActionContributor } from "../actions/consoleSettingsActionContributor.js";
 
 const USERS_CORE_API = Object.freeze({
   ...usersShared
@@ -20,6 +23,7 @@ const USERS_CORE_API = Object.freeze({
 
 const USERS_WORKSPACE_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContributor";
 const USERS_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.settings.actionContributor";
+const USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.console.settings.actionContributor";
 const USERS_SURFACE_RUNTIME_TOKEN = "users.core.surface.runtime";
 
 class UsersCoreServiceProvider {
@@ -64,6 +68,11 @@ class UsersCoreServiceProvider {
       return createWorkspaceInvitesRepository(knex);
     });
 
+    app.singleton("consoleSettingsRepository", (scope) => {
+      const knex = scope.make(KERNEL_TOKENS.Knex);
+      return createConsoleSettingsRepository(knex);
+    });
+
     app.singleton("users.workspace.service", (scope) => {
       const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
       return createWorkspaceService({
@@ -106,6 +115,12 @@ class UsersCoreServiceProvider {
       });
     });
 
+    app.singleton("users.console.settings.service", (scope) => {
+      return createConsoleSettingsService({
+        consoleSettingsRepository: scope.make("consoleSettingsRepository")
+      });
+    });
+
     registerActionContributor(app, USERS_WORKSPACE_CONTRIBUTOR_TOKEN, (scope) => {
       return createWorkspaceActionContributor({
         workspaceService: scope.make("users.workspace.service"),
@@ -117,6 +132,13 @@ class UsersCoreServiceProvider {
     registerActionContributor(app, USERS_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
       return createSettingsActionContributor({
         settingsService: scope.make("users.settings.service"),
+        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
+      });
+    });
+
+    registerActionContributor(app, USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
+      return createConsoleSettingsActionContributor({
+        consoleSettingsService: scope.make("users.console.settings.service"),
         surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
       });
     });

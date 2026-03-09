@@ -33,7 +33,8 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server",
-          summary: "Exports UsersCoreServiceProvider, users/workspace repositories/services, and workspace/settings action contributors."
+          summary:
+            "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, and workspace/settings/console action contributors."
         },
         {
           subpath: "./shared",
@@ -49,7 +50,8 @@ export default Object.freeze({
           "users.core",
           "users.workspace.service",
           "users.workspace.admin.service",
-          "users.settings.service"
+          "users.settings.service",
+          "users.console.settings.service"
         ],
         client: []
       }
@@ -86,7 +88,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconst enabledSurfaceIds = Object.keys(config.surfaceDefinitions).filter(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false\n);\nconst preferredWorkspaceSurfaceId =\n  enabledSurfaceIds.find((surfaceId) => surfaceId !== config.surfaceDefaultId) ||\n  config.surfaceDefaultId ||\n  enabledSurfaceIds[0] ||\n  \"\";\nif (preferredWorkspaceSurfaceId && config.surfaceDefinitions[preferredWorkspaceSurfaceId]) {\n  config.surfaceDefinitions[preferredWorkspaceSurfaceId].requiresWorkspace = true;\n}\n",
+          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconst enabledSurfaceIds = Object.keys(config.surfaceDefinitions).filter(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false\n);\nconst preferredWorkspaceSurfaceIds = [\"app\", \"admin\"];\nfor (const surfaceId of preferredWorkspaceSurfaceIds) {\n  if (config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false) {\n    config.surfaceDefinitions[surfaceId].requiresWorkspace = true;\n  }\n}\nconst hasWorkspaceSurface = enabledSurfaceIds.some(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].requiresWorkspace === true\n);\nif (!hasWorkspaceSurface && enabledSurfaceIds.length > 0) {\n  config.surfaceDefinitions[enabledSurfaceIds[0]].requiresWorkspace = true;\n}\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"

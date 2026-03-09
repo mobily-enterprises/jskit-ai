@@ -169,6 +169,16 @@ export default Object.freeze({
           method: "POST",
           path: "/api/settings/security/logout-others",
           summary: "Sign out from other active sessions."
+        },
+        {
+          method: "GET",
+          path: "/api/console/settings",
+          summary: "Get console settings."
+        },
+        {
+          method: "PATCH",
+          path: "/api/console/settings",
+          summary: "Update console settings."
         }
       ]
     }

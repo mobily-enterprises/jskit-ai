@@ -2,8 +2,10 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { USERS_SURFACE_RUNTIME_TOKEN } from "@jskit-ai/users-core/server/providers/UsersCoreServiceProvider";
 import { UsersWorkspaceController } from "../controllers/UsersWorkspaceController.js";
 import { UsersSettingsController } from "../controllers/UsersSettingsController.js";
+import { UsersConsoleSettingsController } from "../controllers/UsersConsoleSettingsController.js";
 import { buildRoutes as buildWorkspaceRoutes } from "../routes/workspaceRoutes.js";
 import { buildRoutes as buildSettingsRoutes } from "../routes/settingsRoutes.js";
+import { buildRoutes as buildConsoleSettingsRoutes } from "../routes/consoleSettingsRoutes.js";
 
 class UsersRouteServiceProvider {
   static id = "users.routes";
@@ -56,12 +58,14 @@ class UsersRouteServiceProvider {
     const settingsController = new UsersSettingsController({
       authService
     });
+    const consoleSettingsController = new UsersConsoleSettingsController();
 
     const routes = [
       ...buildWorkspaceRoutes(workspaceController, {
         workspaceSurfaceDefinitions
       }),
-      ...buildSettingsRoutes(settingsController)
+      ...buildSettingsRoutes(settingsController),
+      ...buildConsoleSettingsRoutes(consoleSettingsController)
     ];
 
     for (const route of routes) {

@@ -14,17 +14,17 @@ function createPlacementContext() {
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
-      enabledSurfaceIds: ["app", "coffie", "console"],
+      enabledSurfaceIds: ["app", "admin", "console"],
       surfacesById: {
         app: {
           id: "app",
           prefix: "/app",
           enabled: true,
-          requiresWorkspace: false
+          requiresWorkspace: true
         },
-        coffie: {
-          id: "coffie",
-          prefix: "/coffie",
+        admin: {
+          id: "admin",
+          prefix: "/admin",
           enabled: true,
           requiresWorkspace: true
         },
@@ -39,26 +39,37 @@ function createPlacementContext() {
   };
 }
 
-test("resolveProfileMenuLinks builds workspace-aware target from non-workspace surface", () => {
+test("resolveProfileMenuLinks builds admin target from app workspace surface", () => {
   const links = resolveProfileMenuLinks({
     context: createPlacementContext(),
     surface: "app"
   });
 
-  assert.equal(links[0].label, "Go to workspace");
-  assert.equal(links[0].to, "/coffie/w/acme");
+  assert.equal(links[0].label, "Go to admin");
+  assert.equal(links[0].to, "/admin/w/acme");
   assert.equal(links[1].label, "Go to console");
   assert.equal(links[1].to, "/console");
 });
 
-test("resolveProfileMenuLinks builds app target from workspace surface", () => {
+test("resolveProfileMenuLinks builds app target from admin workspace surface", () => {
   const links = resolveProfileMenuLinks({
     context: createPlacementContext(),
-    surface: "coffie"
+    surface: "admin"
   });
 
   assert.equal(links[0].label, "Go to app");
   assert.equal(links[0].to, "/app/w/acme");
   assert.equal(links[1].label, "Go to console");
   assert.equal(links[1].to, "/console");
+});
+
+test("resolveProfileMenuLinks builds workspace target from console surface", () => {
+  const links = resolveProfileMenuLinks({
+    context: createPlacementContext(),
+    surface: "console"
+  });
+
+  assert.equal(links.length, 1);
+  assert.equal(links[0].label, "Go to workspace");
+  assert.equal(links[0].to, "/app/w/acme");
 });

@@ -318,13 +318,13 @@ function normalizeVariantValue(value, supported, fallback) {
   return normalized;
 }
 
-const forms = props.forms;
-const options = props.options;
-const collections = props.collections;
-const permissions = props.permissions;
-const feedback = props.feedback;
-const status = props.status;
-const actions = props.actions;
+const forms = computed(() => toRecord(props.forms));
+const options = computed(() => toRecord(props.options));
+const collections = computed(() => toRecord(props.collections));
+const permissions = computed(() => toRecord(props.permissions));
+const feedback = computed(() => toRecord(props.feedback));
+const status = computed(() => toRecord(props.status));
+const actions = computed(() => toRecord(props.actions));
 
 const resolvedMode = computed(() => {
   const mode = String(props.mode || "").trim().toLowerCase();
@@ -394,50 +394,50 @@ const rootClasses = computed(() => [
   `members-admin-client-element--tone-${resolvedVariant.value.tone}`
 ]);
 
-const inviteForm = computed(() => toRecord(forms.invite));
-const workspaceForm = computed(() => toRecord(forms.workspace));
+const inviteForm = computed(() => toRecord(forms.value.invite));
+const workspaceForm = computed(() => toRecord(forms.value.workspace));
 const memberRows = computed(() => {
-  const source = collections.members ?? collections.list ?? [];
+  const source = collections.value.members ?? collections.value.list ?? [];
   return Array.isArray(unref(source)) ? unref(source) : [];
 });
 const inviteRows = computed(() => {
-  const source = collections.invites ?? [];
+  const source = collections.value.invites ?? [];
   return Array.isArray(unref(source)) ? unref(source) : [];
 });
 
 const inviteRoleOptions = computed(() => {
-  const source = options.inviteRoleOptions ?? options.inviteRoles ?? [];
+  const source = options.value.inviteRoleOptions ?? options.value.inviteRoles ?? [];
   return Array.isArray(unref(source)) ? unref(source) : [];
 });
 
 const memberRoleOptions = computed(() => {
-  const source = options.memberRoleOptions ?? options.memberRoles ?? [];
+  const source = options.value.memberRoleOptions ?? options.value.memberRoles ?? [];
   return Array.isArray(unref(source)) ? unref(source) : [];
 });
 
-const canViewMembers = computed(() => Boolean(unref(permissions.canViewMembers)));
-const canInviteMembers = computed(() => Boolean(unref(permissions.canInviteMembers)));
-const canManageMembers = computed(() => Boolean(unref(permissions.canManageMembers)));
-const canRevokeInvites = computed(() => Boolean(unref(permissions.canRevokeInvites)));
-const isCreatingInvite = computed(() => Boolean(unref(status.isCreatingInvite)));
-const isRevokingInvite = computed(() => Boolean(unref(status.isRevokingInvite)));
-const workspaceInvitePolicyLoaded = computed(() => resolveLoadedState(status.hasLoadedWorkspaceSettings));
+const canViewMembers = computed(() => Boolean(unref(permissions.value.canViewMembers)));
+const canInviteMembers = computed(() => Boolean(unref(permissions.value.canInviteMembers)));
+const canManageMembers = computed(() => Boolean(unref(permissions.value.canManageMembers)));
+const canRevokeInvites = computed(() => Boolean(unref(permissions.value.canRevokeInvites)));
+const isCreatingInvite = computed(() => Boolean(unref(status.value.isCreatingInvite)));
+const isRevokingInvite = computed(() => Boolean(unref(status.value.isRevokingInvite)));
+const workspaceInvitePolicyLoaded = computed(() => resolveLoadedState(status.value.hasLoadedWorkspaceSettings));
 const showWorkspaceInviteLoadingSkeleton = computed(
   () => isWorkspaceMode.value && canInviteMembers.value && !workspaceInvitePolicyLoaded.value
 );
 const showMembersLoadingSkeleton = computed(
   () =>
     canViewMembers.value &&
-    (!resolveLoadedState(status.hasLoadedMembersList) || !resolveLoadedState(status.hasLoadedInviteList))
+    (!resolveLoadedState(status.value.hasLoadedMembersList) || !resolveLoadedState(status.value.hasLoadedInviteList))
 );
 
-const inviteMessage = computed(() => String(unref(feedback.inviteMessage) || ""));
-const inviteMessageType = computed(() => String(unref(feedback.inviteMessageType) || "success"));
-const membersMessage = computed(() => String(unref(feedback.membersMessage) || ""));
-const membersMessageType = computed(() => String(unref(feedback.membersMessageType) || "success"));
-const teamMessage = computed(() => String(unref(feedback.teamMessage) || ""));
-const teamMessageType = computed(() => String(unref(feedback.teamMessageType) || "success"));
-const revokeInviteId = computed(() => Number(unref(feedback.revokeInviteId) || 0));
+const inviteMessage = computed(() => String(unref(feedback.value.inviteMessage) || ""));
+const inviteMessageType = computed(() => String(unref(feedback.value.inviteMessageType) || "success"));
+const membersMessage = computed(() => String(unref(feedback.value.membersMessage) || ""));
+const membersMessageType = computed(() => String(unref(feedback.value.membersMessageType) || "success"));
+const teamMessage = computed(() => String(unref(feedback.value.teamMessage) || ""));
+const teamMessageType = computed(() => String(unref(feedback.value.teamMessageType) || "success"));
+const revokeInviteId = computed(() => Number(unref(feedback.value.revokeInviteId) || 0));
 
 const workspaceInvitesAvailable = computed(() => Boolean(unref(workspaceForm.value.invitesAvailable)));
 const workspaceInvitesEnabled = computed(() => Boolean(unref(workspaceForm.value.invitesEnabled)));
@@ -498,8 +498,8 @@ async function invokeAction(actionName, payload, callback) {
 }
 
 function formatDateTime(value) {
-  if (typeof options.formatDateTime === "function") {
-    return options.formatDateTime(value);
+  if (typeof options.value.formatDateTime === "function") {
+    return options.value.formatDateTime(value);
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -537,8 +537,8 @@ async function guardedSubmitInvite() {
     return;
   }
 
-  if (typeof actions.submitInvite === "function") {
-    await actions.submitInvite();
+  if (typeof actions.value.submitInvite === "function") {
+    await actions.value.submitInvite();
   }
 }
 
@@ -547,8 +547,8 @@ async function guardedSubmitRevokeInvite(inviteId) {
     return;
   }
 
-  if (typeof actions.submitRevokeInvite === "function") {
-    await actions.submitRevokeInvite(inviteId);
+  if (typeof actions.value.submitRevokeInvite === "function") {
+    await actions.value.submitRevokeInvite(inviteId);
   }
 }
 
@@ -557,13 +557,13 @@ async function guardedSubmitMemberRoleUpdate(member, roleId) {
     return;
   }
 
-  if (typeof actions.submitMemberRoleUpdate === "function") {
-    await actions.submitMemberRoleUpdate(member, roleId);
+  if (typeof actions.value.submitMemberRoleUpdate === "function") {
+    await actions.value.submitMemberRoleUpdate(member, roleId);
   }
 }
 
 const guardedActions = computed(() => ({
-  ...actions,
+  ...actions.value,
   submitInvite: guardedSubmitInvite,
   submitRevokeInvite: guardedSubmitRevokeInvite,
   submitMemberRoleUpdate: guardedSubmitMemberRoleUpdate

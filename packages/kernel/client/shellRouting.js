@@ -50,18 +50,13 @@ function resolveRouteSurface(route, surfaceRuntime) {
   return surfaceRuntime.resolveSurfaceFromPathname(source.path || "/");
 }
 
-function resolveWorkspaceAliasPath(routePath, surfacePrefix) {
+function resolveWorkspaceCanonicalPath(routePath, surfacePrefix) {
   const normalizedRoutePath = normalizePathname(routePath);
   const normalizedSurfacePrefix = normalizeSurfacePrefixValue(surfacePrefix);
   const surfaceRootPath = normalizedSurfacePrefix || "/";
-  const workspacesPath = surfaceRootPath === "/" ? "/workspaces" : `${surfaceRootPath}/workspaces`;
-  if (normalizedRoutePath === workspacesPath) {
-    return "";
-  }
-
   const workspacePrefix = surfaceRootPath === "/" ? "/w/:workspaceSlug" : `${surfaceRootPath}/w/:workspaceSlug`;
   if (normalizedRoutePath === workspacePrefix || normalizedRoutePath.startsWith(`${workspacePrefix}/`)) {
-    return "";
+    return normalizedRoutePath;
   }
 
   if (surfaceRootPath === "/") {
@@ -72,69 +67,51 @@ function resolveWorkspaceAliasPath(routePath, surfacePrefix) {
   }
 
   if (normalizedRoutePath !== surfaceRootPath && !normalizedRoutePath.startsWith(`${surfaceRootPath}/`)) {
-    return "";
+    return normalizedRoutePath;
   }
 
   const suffix = normalizedRoutePath === surfaceRootPath ? "" : normalizedRoutePath.slice(surfaceRootPath.length);
   return `${workspacePrefix}${suffix}`;
 }
 
-function createWorkspaceAliasRoute(route, aliasPath) {
+function rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime) {
   const source = route && typeof route === "object" ? route : {};
-  const routeName = String(source.name || "").trim();
-  const meta = source.meta && typeof source.meta === "object" ? source.meta : {};
-  const metaJskit = meta.jskit && typeof meta.jskit === "object" ? meta.jskit : {};
+  if (resolveRouteScope(source) === "global") {
+    return source;
+  }
+
+  const routeSurface = resolveRouteSurface(source, surfaceRuntime);
+  if (!surfaceRuntime.surfaceRequiresWorkspace(routeSurface)) {
+    return source;
+  }
+
+  const surfaceDefinition = surfaceRuntime.getSurfaceDefinition(routeSurface);
+  if (!surfaceDefinition) {
+    return source;
+  }
+
+  const canonicalPath = resolveWorkspaceCanonicalPath(source.path || "/", surfaceDefinition.prefix);
+  if (canonicalPath === normalizePathname(source.path || "/")) {
+    return source;
+  }
 
   return Object.freeze({
     ...source,
-    ...(routeName ? { name: `${routeName}__workspace` } : {}),
-    path: aliasPath,
-    meta: {
-      ...meta,
-      jskit: {
-        ...metaJskit,
-        workspaceAlias: true
-      }
-    }
+    path: canonicalPath
   });
 }
 
-function expandRoutesWithWorkspaceAliases(routes, surfaceRuntime) {
-  if (!surfaceRuntime || typeof surfaceRuntime.getSurfaceDefinition !== "function") {
+function mapRoutesToCanonicalWorkspacePaths(routes, surfaceRuntime) {
+  if (
+    !surfaceRuntime ||
+    typeof surfaceRuntime.getSurfaceDefinition !== "function" ||
+    typeof surfaceRuntime.surfaceRequiresWorkspace !== "function"
+  ) {
     return routes;
   }
 
   const sourceRoutes = Array.isArray(routes) ? routes : [];
-  const expandedRoutes = [];
-  const seenPaths = new Set();
-
-  for (const route of sourceRoutes) {
-    const normalizedRoutePath = normalizePathname(route?.path || "/");
-    if (!seenPaths.has(normalizedRoutePath)) {
-      seenPaths.add(normalizedRoutePath);
-      expandedRoutes.push(route);
-    }
-
-    if (resolveRouteScope(route) === "global") {
-      continue;
-    }
-
-    const routeSurface = resolveRouteSurface(route, surfaceRuntime);
-    const surfaceDefinition = surfaceRuntime.getSurfaceDefinition(routeSurface);
-    if (!surfaceDefinition) {
-      continue;
-    }
-
-    const workspaceAliasPath = resolveWorkspaceAliasPath(route?.path || "/", surfaceDefinition.prefix);
-    if (!workspaceAliasPath || seenPaths.has(workspaceAliasPath)) {
-      continue;
-    }
-
-    seenPaths.add(workspaceAliasPath);
-    expandedRoutes.push(createWorkspaceAliasRoute(route, workspaceAliasPath));
-  }
-
-  return expandedRoutes;
+  return sourceRoutes.map((route) => rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime));
 }
 
 function createFallbackNotFoundRoute(component) {
@@ -168,8 +145,8 @@ function buildSurfaceAwareRoutes({
   if (!effectiveFallback) {
     throw new TypeError("buildSurfaceAwareRoutes requires fallbackRoute or notFoundComponent.");
   }
-  const expandedRoutes = expandRoutesWithWorkspaceAliases([...routes, effectiveFallback], surfaceRuntime);
-  return filterRoutesBySurface(expandedRoutes, {
+  const canonicalRoutes = mapRoutesToCanonicalWorkspacePaths([...routes, effectiveFallback], surfaceRuntime);
+  return filterRoutesBySurface(canonicalRoutes, {
     surfaceRuntime,
     surfaceMode
   });

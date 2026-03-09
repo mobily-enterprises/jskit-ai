@@ -3,13 +3,14 @@ import test from "node:test";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
 import { buildSurfaceAwareRoutes } from "./shellRouting.js";
 
-test("buildSurfaceAwareRoutes adds workspace-slug aliases for surface routes", () => {
+test("buildSurfaceAwareRoutes rewrites workspace-required surfaces to canonical slug paths", () => {
   const surfaceRuntime = createSurfaceRuntime({
     tenancyMode: "workspace",
     defaultSurfaceId: "app",
     surfaces: {
       app: { id: "app", prefix: "/app", enabled: true, requiresWorkspace: false },
-      coffie: { id: "coffie", prefix: "/coffie", enabled: true, requiresWorkspace: true }
+      coffie: { id: "coffie", prefix: "/coffie", enabled: true, requiresWorkspace: true },
+      console: { id: "console", prefix: "/console", enabled: true, requiresWorkspace: false }
     }
   });
 
@@ -36,6 +37,11 @@ test("buildSurfaceAwareRoutes adds workspace-slug aliases for surface routes", (
         component: {}
       },
       {
+        path: "/console/settings",
+        name: "console-settings",
+        component: {}
+      },
+      {
         path: "/auth/login",
         name: "auth-login",
         scope: "global",
@@ -48,8 +54,15 @@ test("buildSurfaceAwareRoutes adds workspace-slug aliases for surface routes", (
   });
 
   const routePaths = routes.map((route) => route.path);
+  assert.equal(routePaths.includes("/coffie"), false);
+  assert.equal(routePaths.includes("/coffie/members"), false);
+  assert.equal(routePaths.includes("/coffie/workspaces"), false);
   assert.equal(routePaths.includes("/coffie/w/:workspaceSlug"), true);
   assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/members"), true);
-  assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/workspaces"), false);
-  assert.equal(routePaths.includes("/app/w/:workspaceSlug/home"), true);
+  assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/workspaces"), true);
+  assert.equal(routePaths.includes("/app/home"), true);
+  assert.equal(routePaths.includes("/app/w/:workspaceSlug/home"), false);
+  assert.equal(routePaths.includes("/console/settings"), true);
+  assert.equal(routePaths.includes("/console/w/:workspaceSlug/settings"), false);
+  assert.equal(routePaths.includes("/auth/login"), true);
 });

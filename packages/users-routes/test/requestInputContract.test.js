@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildRoutes as buildWorkspaceRoutes } from "../src/server/routes/workspaceRoutes.js";
 import { buildRoutes as buildSettingsRoutes } from "../src/server/routes/settingsRoutes.js";
+import { buildRoutes as buildConsoleSettingsRoutes } from "../src/server/routes/consoleSettingsRoutes.js";
 import { UsersWorkspaceController } from "../src/server/controllers/UsersWorkspaceController.js";
 import { UsersSettingsController } from "../src/server/controllers/UsersSettingsController.js";
+import { UsersConsoleSettingsController } from "../src/server/controllers/UsersConsoleSettingsController.js";
 
 function createReplyDouble() {
   return {
@@ -61,6 +63,7 @@ test("workspace and settings routes attach input normalizers where controller re
     ]
   });
   const settingsRoutes = buildSettingsRoutes(createControllerProxy());
+  const consoleSettingsRoutes = buildConsoleSettingsRoutes(createControllerProxy());
 
   const workspaceBootstrap = findRoute(workspaceRoutes, {
     method: "GET",
@@ -86,6 +89,10 @@ test("workspace and settings routes attach input normalizers where controller re
     method: "GET",
     path: "/api/settings/security/oauth/:provider/start"
   });
+  const consoleSettingsPatch = findRoute(consoleSettingsRoutes, {
+    method: "PATCH",
+    path: "/api/console/settings"
+  });
 
   assert.equal(typeof workspaceBootstrap?.query?.normalize, "function");
   assert.equal(typeof workspaceSettings?.params?.normalize, "function");
@@ -95,6 +102,7 @@ test("workspace and settings routes attach input normalizers where controller re
   assert.equal(typeof settingsProfilePatch?.body?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.params?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.query?.normalize, "function");
+  assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
 });
 
 test("workspace routes mount workspace-admin endpoints per workspace-enabled surface prefix", () => {
@@ -301,4 +309,44 @@ test("settings controller methods use request.input payloads", async () => {
   assert.deepEqual(calls[5].input, { enabled: true });
   assert.deepEqual(calls[6].input, { provider: "github", returnTo: "/app/settings" });
   assert.deepEqual(calls[7].input, { provider: "github" });
+});
+
+test("console settings controller methods use request.input payloads", async () => {
+  const calls = [];
+  const controller = new UsersConsoleSettingsController();
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {
+      settings: {
+        assistantSystemPromptWorkspace: String(payload?.input?.assistantSystemPromptWorkspace || "")
+      }
+    };
+  };
+
+  await controller.get(
+    createActionRequest({
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  await controller.update(
+    createActionRequest({
+      input: {
+        body: {
+          assistantSystemPromptWorkspace: "Prompt"
+        }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  assert.equal(calls[0].actionId, "console.settings.read");
+  assert.deepEqual(calls[1], {
+    actionId: "console.settings.update",
+    input: {
+      assistantSystemPromptWorkspace: "Prompt"
+    }
+  });
 });
