@@ -122,7 +122,10 @@
 
 <script setup>
 import { reactive } from "vue";
-import { parseWorkspaceSettingsPatch } from "@jskit-ai/users-core/shared/workspaceSettingsPatch";
+import {
+  parseWorkspaceSettingsPatch,
+  workspaceSettingsSchema
+} from "@jskit-ai/users-core/shared/contracts/resources/workspaceSettingsSchema";
 import { USERS_WEB_QUERY_KEYS } from "../lib/queryKeys.js";
 import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
@@ -149,11 +152,8 @@ const workspaceForm = reactive({
   appDenyUserIdsText: ""
 });
 
-const WORKSPACE_SETTINGS_MESSAGES = Object.freeze({
-  validation: "Fix invalid workspace settings values and try again.",
-  saveSuccess: "Workspace settings updated.",
-  saveError: "Unable to update workspace settings."
-});
+const WORKSPACE_SETTINGS_PATCH_OPERATION = workspaceSettingsSchema.operations.patch;
+const WORKSPACE_SETTINGS_MESSAGES = WORKSPACE_SETTINGS_PATCH_OPERATION.messages;
 
 const addEdit = useWorkspaceAddEdit({
   apiSuffix: "/settings",
@@ -163,7 +163,7 @@ const addEdit = useWorkspaceAddEdit({
   placementSource: "users-web.workspace-settings-view",
   missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
-  fallbackSaveError: "Unable to update workspace settings.",
+  fallbackSaveError: String(WORKSPACE_SETTINGS_MESSAGES.saveError || "Unable to update workspace settings."),
   fieldErrorKeys: ["name", "avatarUrl", "color", "appDenyEmails", "appDenyUserIds"],
   model: workspaceForm,
   parseInput: parseWorkspaceSettingsPatch,

@@ -10,7 +10,10 @@ import {
   DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 } from "../../shared/settings.js";
-import { parseWorkspaceSettingsPatch } from "../../shared/workspaceSettingsPatch.js";
+import {
+  parseWorkspaceSettingsPatch,
+  workspaceSettingsSchema
+} from "../../shared/contracts/resources/workspaceSettingsSchema.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -166,11 +169,16 @@ function createService({
   async function updateWorkspaceSettings(workspaceContext, payload = {}, options = {}) {
     const parsed = parseWorkspaceSettingsPatch(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw new AppError(400, "Validation failed.", {
+      const operationMessages = workspaceSettingsSchema.operations.patch.messages || {};
+      throw new AppError(
+        400,
+        String(operationMessages.apiValidation || operationMessages.validation || "Validation failed."),
+        {
         details: {
           fieldErrors: parsed.fieldErrors
         }
-      });
+      }
+      );
     }
 
     const workspace = await requireWorkspace(workspaceContext, options);

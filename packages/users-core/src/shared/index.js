@@ -15,16 +15,3 @@ export {
   DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 } from "./settings.js";
-
-export {
-  workspaceSettingsCreateSchema,
-  workspaceSettingsReplaceSchema,
-  workspaceSettingsPatchSchema,
-  parseWorkspaceSettingsCreate,
-  parseWorkspaceSettingsReplace,
-  parseWorkspaceSettingsPatch,
-  normalizeWorkspaceAvatarUrl,
-  normalizeWorkspaceColor,
-  normalizeDenyEmails,
-  normalizeDenyUserIds
-} from "./workspaceSettingsPatch.js";

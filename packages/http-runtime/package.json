@@ -14,7 +14,9 @@
     "./shared/contracts/paginationQuery": "./src/shared/contracts/paginationQuery.js",
     "./shared/contracts/commandSchemaContract": "./src/shared/contracts/commandSchemaContract.js",
     "./shared/contracts/resourceSchemaContract": "./src/shared/contracts/resourceSchemaContract.js",
-    "./shared/contracts/typeboxFormats": "./src/shared/contracts/typeboxFormats.js"
+    "./shared/contracts/typeboxFormats": "./src/shared/contracts/typeboxFormats.js",
+    "./shared/contracts/operationMessages": "./src/shared/contracts/operationMessages.js",
+    "./shared/contracts/operationValidation": "./src/shared/contracts/operationValidation.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   parseWorkspaceSettingsCreate,
   parseWorkspaceSettingsPatch
-} from "../src/shared/workspaceSettingsPatch.js";
+} from "../src/shared/contracts/resources/workspaceSettingsSchema.js";
 
 test("parseWorkspaceSettingsPatch normalizes valid patch payload", () => {
   const parsed = parseWorkspaceSettingsPatch({

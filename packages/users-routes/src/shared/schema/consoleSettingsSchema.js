@@ -1,47 +1,16 @@
-import { Type } from "@fastify/type-provider-typebox";
-import { createResourceSchemaContract } from "@jskit-ai/http-runtime/shared/contracts";
-
-const consoleSettingsValueSchema = Type.Object(
-  {
-    assistantSystemPromptWorkspace: Type.String()
-  },
-  { additionalProperties: false }
-);
-
-const consoleSettingsRecordSchema = Type.Object(
-  {
-    settings: consoleSettingsValueSchema
-  },
-  { additionalProperties: false }
-);
-
-const consoleSettingsCreateSchema = Type.Object(
-  {
-    assistantSystemPromptWorkspace: Type.String()
-  },
-  { additionalProperties: false }
-);
-const consoleSettingsReplaceSchema = consoleSettingsCreateSchema;
-const consoleSettingsPatchSchema = Type.Partial(consoleSettingsCreateSchema, { additionalProperties: false });
-
-const consoleSettingsResourceContract = createResourceSchemaContract({
-  record: consoleSettingsRecordSchema,
-  create: consoleSettingsCreateSchema,
-  replace: consoleSettingsReplaceSchema,
-  patch: consoleSettingsPatchSchema
-});
+import { consoleSettingsSchema as consoleSettingsResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/consoleSettingsSchema";
 
 const schema = Object.freeze({
   body: {
-    update: consoleSettingsResourceContract.replace
+    update: consoleSettingsResourceSchema.operations.replace.body.schema
   },
   response: {
-    settings: consoleSettingsResourceContract.record
+    settings: consoleSettingsResourceSchema.operations.view.response.schema
   },
-  resourceContracts: {
-    consoleSettings: consoleSettingsResourceContract
+  resources: {
+    consoleSettings: consoleSettingsResourceSchema
   },
-  commandContracts: {}
+  commands: {}
 });
 
 export { schema };

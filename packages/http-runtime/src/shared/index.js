@@ -16,3 +16,14 @@ export {
   createResourceSchemaContract
 } from "./contracts/resourceSchemaContract.js";
 export { createCommandContract } from "./contracts/commandSchemaContract.js";
+export {
+  normalizeMessages,
+  resolveIssueField,
+  resolveMissingRequiredFields,
+  resolveIssueMessage,
+  mapOperationIssues
+} from "./contracts/operationMessages.js";
+export {
+  validateOperationSection,
+  validateOperationInput
+} from "./contracts/operationValidation.js";

@@ -29,7 +29,7 @@ function buildRoutes(controller) {
         summary: "Get console settings"
       },
       response: withStandardErrorResponses({
-        200: consoleSettingsSchema.resourceContracts.consoleSettings.record
+        200: consoleSettingsSchema.response.settings
       }),
       handler: handler("get")
     },
@@ -43,12 +43,12 @@ function buildRoutes(controller) {
         summary: "Update console settings"
       },
       body: {
-        schema: consoleSettingsSchema.resourceContracts.consoleSettings.replace,
+        schema: consoleSettingsSchema.body.update,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: consoleSettingsSchema.resourceContracts.consoleSettings.record
+          200: consoleSettingsSchema.response.settings
         },
         { includeValidation400: true }
       ),

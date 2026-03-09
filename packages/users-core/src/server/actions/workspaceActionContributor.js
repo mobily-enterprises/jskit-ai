@@ -8,6 +8,8 @@ import {
   allowPublic,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { workspaceSettingsSchema } from "../../shared/contracts/resources/workspaceSettingsSchema.js";
+import { workspaceInviteSchema } from "../../shared/contracts/resources/workspaceInviteSchema.js";
 
 function hasPermission(permissionSet, permission) {
   const requiredPermission = String(permission || "").trim();
@@ -25,66 +27,6 @@ function requireWorkspaceSettingsReadPermission(context) {
     hasPermission(context?.permissions, "workspace.settings.update")
   );
 }
-
-const WORKSPACE_SETTINGS_UPDATE_TOOL_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: true,
-  properties: {
-    name: {
-      type: "string",
-      minLength: 1,
-      maxLength: 160,
-      description: "Workspace display name."
-    },
-    avatarUrl: {
-      type: "string",
-      description: "Workspace avatar URL."
-    },
-    color: {
-      type: "string",
-      pattern: "^#[0-9A-Fa-f]{6}$",
-      description: "Workspace color in #RRGGBB format."
-    },
-    invitesEnabled: {
-      type: "boolean",
-      description: "Whether workspace invites are enabled."
-    },
-    appDenyEmails: {
-      type: "array",
-      items: {
-        type: "string",
-        format: "email"
-      },
-      description: "App surface deny-list email addresses."
-    },
-    appDenyUserIds: {
-      type: "array",
-      items: {
-        type: "integer",
-        minimum: 1
-      },
-      description: "App surface deny-list user IDs."
-    }
-  }
-});
-
-const WORKSPACE_INVITE_CREATE_TOOL_SCHEMA = Object.freeze({
-  type: "object",
-  additionalProperties: true,
-  required: ["email", "roleId"],
-  properties: {
-    email: {
-      type: "string",
-      format: "email",
-      description: "Email address to invite."
-    },
-    roleId: {
-      type: "string",
-      minLength: 1,
-      description: "Workspace role id to grant."
-    }
-  }
-});
 
 const DEFAULT_WORKSPACE_CHANNELS = Object.freeze(["api", "internal"]);
 const WORKSPACE_SERVICE_METHODS = Object.freeze([
@@ -237,7 +179,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       idempotency: "optional",
       assistantTool: {
         description: "Update workspace settings.",
-        inputJsonSchema: WORKSPACE_SETTINGS_UPDATE_TOOL_SCHEMA
+        inputJsonSchema: workspaceSettingsSchema.operations.patch.body.schema
       },
       execute: async (input, context) => {
         return workspaceAdminService.updateWorkspaceSettings(resolveWorkspace(context, input), normalizeObject(input));
@@ -282,7 +224,7 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
       idempotency: "optional",
       assistantTool: {
         description: "Invite a person to the workspace.",
-        inputJsonSchema: WORKSPACE_INVITE_CREATE_TOOL_SCHEMA
+        inputJsonSchema: workspaceInviteSchema.operations.create.body.schema
       },
       execute: async (input, context) => {
         return workspaceAdminService.createInvite(

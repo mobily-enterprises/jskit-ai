@@ -150,7 +150,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceSettings.record),
+      response: buildWorkspaceResponse(schema.response.settings),
       handlerName: "getWorkspaceSettings"
     })
   );
@@ -169,10 +169,10 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         normalize: normalizeWorkspaceParams
       },
       body: {
-        schema: schema.resourceContracts.workspaceSettings.patch,
+        schema: schema.body.settingsUpdate,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceSettings.record, true),
+      response: buildWorkspaceResponse(schema.response.settings, true),
       handlerName: "updateWorkspaceSettings"
     })
   );
@@ -208,7 +208,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceMember.list),
+      response: buildWorkspaceResponse(schema.response.members),
       handlerName: "listWorkspaceMembers"
     })
   );
@@ -230,7 +230,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceMember.list, true),
+      response: buildWorkspaceResponse(schema.response.members, true),
       handlerName: "updateWorkspaceMemberRole"
     })
   );
@@ -248,7 +248,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.workspace,
         normalize: normalizeWorkspaceParams
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list),
+      response: buildWorkspaceResponse(schema.response.invites),
       handlerName: "listWorkspaceInvites"
     })
   );
@@ -267,10 +267,10 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         normalize: normalizeWorkspaceParams
       },
       body: {
-        schema: schema.resourceContracts.workspaceInvite.create,
+        schema: schema.body.createInvite,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list, true),
+      response: buildWorkspaceResponse(schema.response.invites, true),
       handlerName: "createWorkspaceInvite"
     })
   );
@@ -288,7 +288,7 @@ function createWorkspaceAdminRoutes({ resolveHandler, surfaceId, surfacePrefix }
         schema: schema.params.invite,
         normalize: normalizeInviteParams
       },
-      response: buildWorkspaceResponse(schema.resourceContracts.workspaceInvite.list),
+      response: buildWorkspaceResponse(schema.response.invites),
       handlerName: "revokeWorkspaceInvite"
     })
   );
@@ -328,7 +328,7 @@ function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
       method: "GET",
       auth: AUTH_REQUIRED,
       summary: "List workspaces visible to authenticated user",
-      response: buildWorkspaceResponse(schema.resourceContracts.workspace.list),
+      response: buildWorkspaceResponse(schema.response.workspacesList),
       handlerName: "listWorkspaces"
     })
   );
@@ -353,10 +353,10 @@ function buildRoutes(controller, { workspaceSurfaceDefinitions = [] } = {}) {
       auth: AUTH_REQUIRED,
       summary: "Accept or refuse a workspace invitation using an invite token",
       body: {
-        schema: schema.commandContracts["workspace.invite.redeem"].input,
+        schema: schema.body.redeemInvite,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(schema.commandContracts["workspace.invite.redeem"].output, true),
+      response: buildWorkspaceResponse(schema.response.respondToInvite, true),
       handlerName: "respondToPendingInviteByToken"
     })
   );

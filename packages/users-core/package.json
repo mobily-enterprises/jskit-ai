@@ -26,11 +26,27 @@
     "./shared": "./src/shared/index.js",
     "./shared/roles": "./src/shared/roles.js",
     "./shared/settings": "./src/shared/settings.js",
-    "./shared/workspaceSettingsPatch": "./src/shared/workspaceSettingsPatch.js"
+    "./shared/contracts/contractUtils": "./src/shared/contracts/contractUtils.js",
+    "./shared/contracts/resources/workspaceSchema": "./src/shared/contracts/resources/workspaceSchema.js",
+    "./shared/contracts/resources/workspaceSettingsSchema": "./src/shared/contracts/resources/workspaceSettingsSchema.js",
+    "./shared/contracts/resources/workspaceMemberSchema": "./src/shared/contracts/resources/workspaceMemberSchema.js",
+    "./shared/contracts/resources/workspaceInviteSchema": "./src/shared/contracts/resources/workspaceInviteSchema.js",
+    "./shared/contracts/resources/userProfileSchema": "./src/shared/contracts/resources/userProfileSchema.js",
+    "./shared/contracts/resources/userSettingsSchema": "./src/shared/contracts/resources/userSettingsSchema.js",
+    "./shared/contracts/resources/consoleSettingsSchema": "./src/shared/contracts/resources/consoleSettingsSchema.js",
+    "./shared/contracts/commands/workspaceInviteRedeemCommand": "./src/shared/contracts/commands/workspaceInviteRedeemCommand.js",
+    "./shared/contracts/commands/settingsPasswordChangeCommand": "./src/shared/contracts/commands/settingsPasswordChangeCommand.js",
+    "./shared/contracts/commands/settingsPasswordMethodToggleCommand": "./src/shared/contracts/commands/settingsPasswordMethodToggleCommand.js",
+    "./shared/contracts/commands/settingsOAuthLinkStartCommand": "./src/shared/contracts/commands/settingsOAuthLinkStartCommand.js",
+    "./shared/contracts/commands/settingsOAuthUnlinkCommand": "./src/shared/contracts/commands/settingsOAuthUnlinkCommand.js",
+    "./shared/contracts/commands/settingsLogoutOtherSessionsCommand": "./src/shared/contracts/commands/settingsLogoutOtherSessionsCommand.js",
+    "./shared/contracts/commands/settingsAvatarUploadCommand": "./src/shared/contracts/commands/settingsAvatarUploadCommand.js",
+    "./shared/contracts/commands/settingsAvatarDeleteCommand": "./src/shared/contracts/commands/settingsAvatarDeleteCommand.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",
     "@jskit-ai/database-runtime": "0.1.0",
+    "@jskit-ai/http-runtime": "0.1.0",
     "@jskit-ai/kernel": "0.1.0",
     "typebox": "^1.0.81"
   }
