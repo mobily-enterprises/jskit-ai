@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWorkspaceSettingsPatch } from "../src/shared/workspaceSettingsPatch.js";
+import {
+  parseWorkspaceSettingsCreate,
+  parseWorkspaceSettingsPatch
+} from "../src/shared/workspaceSettingsPatch.js";
 
 test("parseWorkspaceSettingsPatch normalizes valid patch payload", () => {
   const parsed = parseWorkspaceSettingsPatch({
@@ -56,4 +59,15 @@ test("parseWorkspaceSettingsPatch keeps max-length name rule", () => {
   assert.deepEqual(parsed.workspacePatch, {});
   assert.deepEqual(parsed.settingsPatch, {});
   assert.equal(parsed.fieldErrors.name, "Workspace name must be at most 160 characters.");
+});
+
+test("parseWorkspaceSettingsCreate requires full-write fields", () => {
+  const parsed = parseWorkspaceSettingsCreate({
+    name: "Mercury Workspace"
+  });
+
+  assert.deepEqual(parsed.workspacePatch, {});
+  assert.deepEqual(parsed.settingsPatch, {});
+  assert.equal(parsed.fieldErrors.color, "Workspace color is required.");
+  assert.equal(parsed.fieldErrors.invitesEnabled, "invitesEnabled is required.");
 });

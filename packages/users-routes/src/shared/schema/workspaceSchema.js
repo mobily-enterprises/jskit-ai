@@ -1,5 +1,10 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { workspaceSettingsPatchSchema } from "@jskit-ai/users-core/shared/workspaceSettingsPatch";
+import { createResourceSchemaContract } from "@jskit-ai/http-runtime/shared/contracts";
+import {
+  workspaceSettingsCreateSchema,
+  workspaceSettingsReplaceSchema,
+  workspaceSettingsPatchSchema
+} from "@jskit-ai/users-core/shared/workspaceSettingsPatch";
 
 const workspaceSummary = Type.Object(
   {
@@ -166,6 +171,14 @@ const workspaceParams = Type.Object(
 );
 
 const settingsUpdateBody = workspaceSettingsPatchSchema;
+
+const workspaceSettingsResourceSchemaContract = createResourceSchemaContract({
+  record: workspaceSettings,
+  create: workspaceSettingsCreateSchema,
+  replace: workspaceSettingsReplaceSchema,
+  patch: workspaceSettingsPatchSchema
+});
+
 const createInviteBody = Type.Object(
   {
     email: Type.String({ minLength: 3 }),
@@ -198,6 +211,9 @@ const schema = Object.freeze({
     settings: workspaceSettingsResponse,
     members: Type.Object({}, { additionalProperties: true }),
     invites: Type.Object({}, { additionalProperties: true })
+  },
+  resourceContracts: {
+    workspaceSettings: workspaceSettingsResourceSchemaContract
   }
 });
 

@@ -22,6 +22,7 @@ test("HttpContractsServiceProvider registers shared contracts api", () => {
   assert.equal(app.singletons.has("contracts.http"), true);
   const api = app.singletons.get("contracts.http");
   assert.equal(typeof api.withStandardErrorResponses, "function");
+  assert.equal(typeof api.createResourceSchemaContract, "function");
 });
 
 test("HttpContractsClientProvider registers client contracts api", () => {
@@ -32,4 +33,5 @@ test("HttpContractsClientProvider registers client contracts api", () => {
   assert.equal(app.singletons.has("contracts.http.client"), true);
   const api = app.singletons.get("contracts.http.client");
   assert.equal(typeof api.withStandardErrorResponses, "function");
+  assert.equal(typeof api.createResourceSchemaContract, "function");
 });

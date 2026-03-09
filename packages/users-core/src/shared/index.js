@@ -17,7 +17,11 @@ export {
 } from "./settings.js";
 
 export {
+  workspaceSettingsCreateSchema,
+  workspaceSettingsReplaceSchema,
   workspaceSettingsPatchSchema,
+  parseWorkspaceSettingsCreate,
+  parseWorkspaceSettingsReplace,
   parseWorkspaceSettingsPatch,
   normalizeWorkspaceAvatarUrl,
   normalizeWorkspaceColor,

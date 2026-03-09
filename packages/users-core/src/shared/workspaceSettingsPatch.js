@@ -1,27 +1,35 @@
 import { Type } from "typebox";
 import { Check, Errors } from "typebox/value";
 
-const workspaceSettingsPatchSchema = Type.Object(
+const workspaceSettingsCreateSchema = Type.Object(
   {
-    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
     avatarUrl: Type.Optional(Type.String()),
-    color: Type.Optional(Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" })),
-    invitesEnabled: Type.Optional(Type.Boolean()),
+    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+    invitesEnabled: Type.Boolean(),
     appDenyEmails: Type.Optional(Type.Array(Type.String({ minLength: 1, format: "email" }))),
     appDenyUserIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 })))
   },
   { additionalProperties: false }
 );
+const workspaceSettingsReplaceSchema = workspaceSettingsCreateSchema;
+const workspaceSettingsPatchSchema = Type.Partial(workspaceSettingsCreateSchema, { additionalProperties: false });
 
 const SCHEMA_FIELD_MESSAGES = Object.freeze({
   name: {
+    required: "Workspace name is required.",
     default: "Workspace name is required.",
     maxLength: "Workspace name must be at most 160 characters."
   },
+  avatarUrl: {
+    default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+  },
   color: {
+    required: "Workspace color is required.",
     default: "Workspace color must be a hex color like #0F6B54."
   },
   invitesEnabled: {
+    required: "invitesEnabled is required.",
     default: "invitesEnabled must be a boolean."
   },
   appDenyEmails: {
@@ -134,12 +142,29 @@ function resolveTopLevelField(issue = {}) {
     return missingProperty;
   }
 
+  const requiredProperties = Array.isArray(issue?.params?.requiredProperties)
+    ? issue.params.requiredProperties
+    : [];
+  if (requiredProperties.length > 0) {
+    return normalizeText(requiredProperties[0]);
+  }
+
   const additionalProperty = normalizeText(issue?.params?.additionalProperty);
   if (additionalProperty) {
     return additionalProperty;
   }
 
   return "";
+}
+
+function resolveMissingRequiredFields(issue = {}) {
+  const requiredProperties = Array.isArray(issue?.params?.requiredProperties)
+    ? issue.params.requiredProperties
+    : [];
+
+  return requiredProperties
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
 }
 
 function resolveSchemaFieldMessage(field, issue = {}) {
@@ -149,6 +174,9 @@ function resolveSchemaFieldMessage(field, issue = {}) {
   }
 
   const keyword = normalizeText(issue.keyword);
+  if (keyword === "required" && fieldMessages.required) {
+    return fieldMessages.required;
+  }
   if (keyword === "maxLength" && fieldMessages.maxLength) {
     return fieldMessages.maxLength;
   }
@@ -156,15 +184,26 @@ function resolveSchemaFieldMessage(field, issue = {}) {
   return fieldMessages.default || "Invalid value.";
 }
 
-function collectSchemaFieldErrors(value) {
-  if (Check(workspaceSettingsPatchSchema, value)) {
+function collectSchemaFieldErrors(value, schema) {
+  if (Check(schema, value)) {
     return {};
   }
 
-  const issues = [...Errors(workspaceSettingsPatchSchema, value)];
+  const issues = [...Errors(schema, value)];
   const fieldErrors = {};
 
   for (const issue of issues) {
+    const missingRequiredFields = resolveMissingRequiredFields(issue);
+    if (missingRequiredFields.length > 0) {
+      for (const field of missingRequiredFields) {
+        if (Object.hasOwn(fieldErrors, field)) {
+          continue;
+        }
+        fieldErrors[field] = resolveSchemaFieldMessage(field, issue);
+      }
+      continue;
+    }
+
     const field = resolveTopLevelField(issue);
     if (!field || Object.hasOwn(fieldErrors, field)) {
       continue;
@@ -175,9 +214,9 @@ function collectSchemaFieldErrors(value) {
   return fieldErrors;
 }
 
-function parseWorkspaceSettingsPatch(payload = {}) {
+function parseWorkspaceSettingsInput(payload = {}, schema) {
   const normalizedInput = normalizeWorkspaceSettingsPatchInput(payload);
-  const fieldErrors = collectSchemaFieldErrors(normalizedInput);
+  const fieldErrors = collectSchemaFieldErrors(normalizedInput, schema);
   const workspacePatch = {};
   const settingsPatch = {};
 
@@ -227,8 +266,24 @@ function parseWorkspaceSettingsPatch(payload = {}) {
   };
 }
 
+function parseWorkspaceSettingsCreate(payload = {}) {
+  return parseWorkspaceSettingsInput(payload, workspaceSettingsCreateSchema);
+}
+
+function parseWorkspaceSettingsReplace(payload = {}) {
+  return parseWorkspaceSettingsInput(payload, workspaceSettingsReplaceSchema);
+}
+
+function parseWorkspaceSettingsPatch(payload = {}) {
+  return parseWorkspaceSettingsInput(payload, workspaceSettingsPatchSchema);
+}
+
 export {
+  workspaceSettingsCreateSchema,
+  workspaceSettingsReplaceSchema,
   workspaceSettingsPatchSchema,
+  parseWorkspaceSettingsCreate,
+  parseWorkspaceSettingsReplace,
   parseWorkspaceSettingsPatch,
   normalizeWorkspaceAvatarUrl,
   normalizeWorkspaceColor,
