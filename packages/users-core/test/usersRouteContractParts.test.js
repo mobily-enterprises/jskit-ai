@@ -1,14 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
-import { routeParams } from "../src/server/common/contracts/routeParams.js";
+import { inputParts } from "../src/server/common/contracts/inputParts.js";
 import { routeQueries } from "../src/server/common/contracts/routeQueries.js";
 
-test("routeParams exposes first-class params contract parts", () => {
-  assert.equal(typeof routeParams.workspaceSlug.schema, "object");
-  assert.equal(typeof routeParams.memberUserId.schema, "object");
-  assert.equal(typeof routeParams.inviteId.schema, "object");
-  assert.equal(typeof routeParams.provider.schema, "object");
+test("inputParts exposes a shared route params contract part", () => {
+  assert.equal(typeof inputParts.routeParams.schema, "object");
+  assert.equal(typeof inputParts.routeParams.normalize, "function");
 });
 
 test("routeQueries exposes first-class query contract parts", () => {
@@ -18,16 +16,19 @@ test("routeQueries exposes first-class query contract parts", () => {
   assert.equal(typeof routeQueries.workspaceBootstrap.schema, "object");
 });
 
-test("route contract merges params and query contract part arrays automatically", () => {
+test("route contract uses the shared params contract part and merges query arrays automatically", () => {
   const compiled = compileRouteContract({
-    params: [routeParams.workspaceSlug, routeParams.inviteId],
+    params: inputParts.routeParams,
     query: [routeQueries.pagination, routeQueries.search]
   });
 
   assert.equal(compiled.schema.params.type, "object");
   assert.equal(compiled.schema.params.additionalProperties, false);
   assert.equal(typeof compiled.schema.params.properties.workspaceSlug, "object");
+  assert.equal(typeof compiled.schema.params.properties.memberUserId, "object");
   assert.equal(typeof compiled.schema.params.properties.inviteId, "object");
+  assert.equal(typeof compiled.schema.params.properties.provider, "object");
+  assert.equal(compiled.input.params({ workspaceSlug: "  ACME  " }).workspaceSlug, "acme");
 
   assert.equal(compiled.schema.querystring.type, "object");
   assert.equal(compiled.schema.querystring.additionalProperties, false);

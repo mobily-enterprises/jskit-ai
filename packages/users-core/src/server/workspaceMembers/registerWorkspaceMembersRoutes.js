@@ -2,7 +2,7 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contra
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
-import { routeParams } from "../common/contracts/routeParams.js";
+import { inputParts } from "../common/contracts/inputParts.js";
 
 function normalizeMemberRoleBody(body) {
   const source = normalizeObjectInput(body);
@@ -28,7 +28,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "Get workspace role catalog by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       response: withStandardErrorResponses({
         200: { schema: workspaceSchema.response.roles }
       })
@@ -54,7 +54,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "List members by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       response: withStandardErrorResponses({
         200: { schema: workspaceSchema.response.members }
       })
@@ -80,7 +80,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "Update workspace member role by workspace slug"
       },
-      params: [routeParams.workspaceSlug, routeParams.memberUserId],
+      params: inputParts.routeParams,
       body: {
         schema: workspaceSchema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
@@ -115,7 +115,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "List workspace invites by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       response: withStandardErrorResponses({
         200: { schema: workspaceSchema.response.invites }
       })
@@ -141,7 +141,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "Create workspace invite by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       body: {
         schema: workspaceSchema.body.createInvite,
         normalize: normalizeObjectInput
@@ -175,7 +175,7 @@ function registerWorkspaceMembersRoutes(app) {
         tags: ["workspace"],
         summary: "Revoke workspace invite by workspace slug"
       },
-      params: [routeParams.workspaceSlug, routeParams.inviteId],
+      params: inputParts.routeParams,
       response: withStandardErrorResponses({
         200: { schema: workspaceSchema.response.invites }
       })

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Type } from "typebox";
 
 import { createActionRegistry } from "./registry.js";
 import { createPermissionEvaluator } from "./policies.js";
@@ -29,7 +30,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             visibility: "public",
-            input: { schema: createPassThroughSchema() },
+            input: [{ schema: createPassThroughSchema() }],
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -51,7 +52,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             visibility: "public",
-            input: { schema: createPassThroughSchema() },
+            input: [{ schema: createPassThroughSchema() }],
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -86,6 +87,91 @@ test("action registry executes latest version by default", async () => {
   assert.deepEqual(calls, ["v2"]);
 });
 
+test("action registry merges action input contract parts", async () => {
+  const registry = createActionRegistry({
+    contributors: [
+      {
+        contributorId: "tests.workspace",
+        domain: "workspace",
+        actions: [
+          {
+            id: "workspace.settings.update",
+            version: 1,
+            domain: "workspace",
+            kind: "command",
+            channels: ["api"],
+            surfaces: ["app"],
+            visibility: "public",
+            input: [
+              {
+                schema: Type.Object(
+                  {
+                    workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
+                  },
+                  { additionalProperties: false }
+                ),
+                normalize(input = {}) {
+                  if (!Object.hasOwn(input, "workspaceSlug")) {
+                    return {};
+                  }
+
+                  return {
+                    workspaceSlug: String(input.workspaceSlug || "").trim().toLowerCase()
+                  };
+                }
+              },
+              {
+                schema: Type.Object(
+                  {
+                    invitesEnabled: Type.Optional(Type.Boolean())
+                  },
+                  { additionalProperties: false }
+                ),
+                normalize(input = {}) {
+                  if (!Object.hasOwn(input, "invitesEnabled")) {
+                    return {};
+                  }
+
+                  return {
+                    invitesEnabled: input.invitesEnabled === true
+                  };
+                }
+              }
+            ],
+            permission: () => true,
+            idempotency: "optional",
+            audit: {
+              actionName: "workspace.settings.update"
+            },
+            observability: {},
+            async execute(input) {
+              return input;
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  const result = await registry.execute({
+    actionId: "workspace.settings.update",
+    input: {
+      workspaceSlug: "  ACME  ",
+      invitesEnabled: true
+    },
+    context: {
+      channel: "api",
+      surface: "app",
+      permissions: []
+    }
+  });
+
+  assert.deepEqual(result, {
+    workspaceSlug: "acme",
+    invitesEnabled: true
+  });
+});
+
 test("action registry fails startup on duplicate action id + version", () => {
   assert.throws(
     () =>
@@ -103,7 +189,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 visibility: "public",
-                input: { schema: createPassThroughSchema() },
+                input: [{ schema: createPassThroughSchema() }],
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -130,7 +216,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 visibility: "public",
-                input: { schema: createPassThroughSchema() },
+                input: [{ schema: createPassThroughSchema() }],
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -194,7 +280,7 @@ test("action registry rejects invalid version requests", async () => {
             channels: ["api"],
             surfaces: ["app"],
             visibility: "public",
-            input: { schema: createPassThroughSchema() },
+            input: [{ schema: createPassThroughSchema() }],
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -247,7 +333,7 @@ test("action registry enforces internal visibility for user actors", async () =>
             channels: ["api", "internal"],
             surfaces: ["app"],
             visibility: "internal",
-            input: { schema: createPassThroughSchema() },
+            input: [{ schema: createPassThroughSchema() }],
             permission: () => true,
             idempotency: "none",
             audit: {

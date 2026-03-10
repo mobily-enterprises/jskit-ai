@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
-import { routeParams } from "../common/contracts/routeParams.js";
+import { inputParts } from "../common/contracts/inputParts.js";
 
 function registerWorkspaceSettingsRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -19,7 +19,7 @@ function registerWorkspaceSettingsRoutes(app) {
         tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       response: withStandardErrorResponses({
         200: workspaceSettingsSchema.operations.view.output
       })
@@ -44,7 +44,7 @@ function registerWorkspaceSettingsRoutes(app) {
         tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"
       },
-      params: routeParams.workspaceSlug,
+      params: inputParts.routeParams,
       body: {
         schema: workspaceSettingsSchema.operations.patch.body.schema
       },

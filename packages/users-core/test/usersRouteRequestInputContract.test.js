@@ -79,7 +79,7 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
   };
 }
 
-test("workspace and settings routes only attach request input normalizers where transport contracts still own normalization", () => {
+test("workspace and settings routes attach only the shared transport normalizers they actually use", () => {
   const routes = registerUsersRoutes();
 
   const workspaceBootstrap = findRoute(routes, {
@@ -116,13 +116,13 @@ test("workspace and settings routes only attach request input normalizers where 
   });
 
   assert.equal(workspaceBootstrap?.query?.normalize, undefined);
-  assert.equal(workspaceSettings?.params?.normalize, undefined);
+  assert.equal(typeof workspaceSettings?.params?.normalize, "function");
   assert.equal(workspaceSettingsPatch?.body?.normalize, undefined);
-  assert.equal(workspaceMemberRole?.params?.normalize, undefined);
+  assert.equal(typeof workspaceMemberRole?.params?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.body?.normalize, "function");
-  assert.equal(workspaceInviteDelete?.params?.normalize, undefined);
+  assert.equal(typeof workspaceInviteDelete?.params?.normalize, "function");
   assert.equal(typeof settingsProfilePatch?.body?.normalize, "function");
-  assert.equal(settingsOAuthStart?.params?.normalize, undefined);
+  assert.equal(typeof settingsOAuthStart?.params?.normalize, "function");
   assert.equal(settingsOAuthStart?.query?.normalize, undefined);
   assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
 });

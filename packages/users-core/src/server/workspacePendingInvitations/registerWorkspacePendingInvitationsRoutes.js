@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { workspaceInviteRedeemCommand } from "../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
 import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
 
 function registerWorkspacePendingInvitationsRoutes(app) {
@@ -40,13 +40,10 @@ function registerWorkspacePendingInvitationsRoutes(app) {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token"
       },
-      body: {
-        schema: workspaceSchema.body.redeemInvite,
-        normalize: normalizeObjectInput
-      },
+      body: workspaceInviteRedeemCommand.operation.body,
       response: withStandardErrorResponses(
         {
-          200: workspaceSchema.commands["workspace.invite.redeem"].operation.response
+          200: workspaceInviteRedeemCommand.operation.response
         },
         { includeValidation400: true }
       )

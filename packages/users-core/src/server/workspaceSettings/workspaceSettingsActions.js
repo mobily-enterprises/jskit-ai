@@ -1,24 +1,7 @@
-import { Type } from "typebox";
-import {
-  resolveWorkspace,
-  OBJECT_INPUT_SCHEMA
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { mergeObjectSchemas } from "@jskit-ai/kernel/shared/contracts/mergeObjectSchemas";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { resolveWorkspace } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog, hasPermission } from "../../shared/roles.js";
 import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
-
-const workspaceSlugInputSchema = Type.Object(
-  {
-    workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-  },
-  { additionalProperties: false }
-);
-
-const workspaceSettingsUpdateInputSchema = mergeObjectSchemas([
-  workspaceSlugInputSchema,
-  workspaceSettingsSchema.operations.patch.body.schema
-]);
+import { inputParts } from "../common/contracts/inputParts.js";
 
 function canReadWorkspaceSettings(context) {
   return (
@@ -42,20 +25,7 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: {
-      schema: workspaceSlugInputSchema,
-      normalize(input = {}) {
-        const source = OBJECT_INPUT_SCHEMA.parse(input);
-
-        return {
-          ...(Object.prototype.hasOwnProperty.call(source, "workspaceSlug")
-            ? {
-                workspaceSlug: normalizeLowerText(source.workspaceSlug)
-              }
-            : {})
-        };
-      }
-    },
+    input: [inputParts.routeParams],
     output: workspaceSettingsSchema.operations.view.output,
     permission: canReadWorkspaceSettings,
     idempotency: "none",
@@ -76,22 +46,7 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: {
-      schema: workspaceSettingsUpdateInputSchema,
-      normalize(input = {}) {
-        const source = OBJECT_INPUT_SCHEMA.parse(input);
-        const { workspaceSlug, ...workspaceSettingsPatch } = source;
-
-        return {
-          ...(Object.prototype.hasOwnProperty.call(source, "workspaceSlug")
-            ? {
-                workspaceSlug: normalizeLowerText(workspaceSlug)
-              }
-            : {}),
-          ...workspaceSettingsSchema.operations.patch.body.normalize(workspaceSettingsPatch)
-        };
-      }
-    },
+    input: [inputParts.routeParams, workspaceSettingsSchema.operations.patch.body],
     output: workspaceSettingsSchema.operations.patch.output,
     permission: ["workspace.settings.update"],
     idempotency: "optional",

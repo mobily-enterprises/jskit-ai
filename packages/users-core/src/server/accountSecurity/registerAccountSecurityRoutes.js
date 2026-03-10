@@ -4,7 +4,7 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { settingsRoutesContract as settingsSchema } from "../common/contracts/settingsRoutesContract.js";
-import { routeParams } from "../common/contracts/routeParams.js";
+import { inputParts } from "../common/contracts/inputParts.js";
 import { routeQueries } from "../common/contracts/routeQueries.js";
 
 function registerAccountSecurityRoutes(app) {
@@ -100,7 +100,7 @@ function registerAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      params: routeParams.provider,
+      params: inputParts.routeParams,
       query: routeQueries.oauthReturnTo,
       response: withStandardErrorResponses(
         {
@@ -116,7 +116,7 @@ function registerAccountSecurityRoutes(app) {
     async function (request, reply) {
       const params = normalizeObjectInput(request?.input?.params);
       const query = normalizeObjectInput(request?.input?.query);
-      const provider = normalizeText(params.provider);
+      const provider = params.provider;
       const returnTo = normalizeText(query.returnTo);
       const result = await request.executeAction({
         actionId: "settings.security.oauth.link.start",
@@ -139,7 +139,7 @@ function registerAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      params: routeParams.provider,
+      params: inputParts.routeParams,
       response: withStandardErrorResponses(
         {
           200: settingsSchema.commands["settings.security.oauth.unlink"].operation.response
@@ -153,7 +153,7 @@ function registerAccountSecurityRoutes(app) {
     },
     async function (request, reply) {
       const params = normalizeObjectInput(request?.input?.params);
-      const provider = normalizeText(params.provider);
+      const provider = params.provider;
       const response = await request.executeAction({
         actionId: "settings.security.oauth.unlink",
         input: {

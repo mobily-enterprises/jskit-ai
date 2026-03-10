@@ -1,4 +1,5 @@
 import {
+  EMPTY_INPUT_CONTRACT,
   normalizeObject,
   OBJECT_INPUT_SCHEMA,
   requireAuthenticated,
@@ -14,7 +15,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [EMPTY_INPUT_CONTRACT],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -32,7 +33,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [{ schema: OBJECT_INPUT_SCHEMA }],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -50,7 +51,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [{ schema: OBJECT_INPUT_SCHEMA }],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -68,7 +69,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [{ schema: OBJECT_INPUT_SCHEMA }],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -86,7 +87,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [{ schema: OBJECT_INPUT_SCHEMA }],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

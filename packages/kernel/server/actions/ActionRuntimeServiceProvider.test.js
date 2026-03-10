@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { OBJECT_INPUT_SCHEMA, allowPublic } from "../../shared/actions/actionContributorHelpers.js";
+import {
+  EMPTY_INPUT_CONTRACT,
+  OBJECT_INPUT_SCHEMA,
+  allowPublic
+} from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
   registerActionDefinitions,
@@ -109,7 +113,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for re
         channels: ["internal"],
         surfacesFrom: "workspace",
         visibility: "public",
-        input: { schema: OBJECT_INPUT_SCHEMA },
+        input: [{ schema: OBJECT_INPUT_SCHEMA }],
         permission: allowPublic,
         idempotency: "none",
         audit: { actionName: "test.echo" },
@@ -181,6 +185,62 @@ test("registerActionDefinitions skips disabled bundles", () => {
 
   const contributors = resolveActionContributors(app);
   assert.deepEqual(contributors, []);
+});
+
+test("EMPTY_INPUT_CONTRACT allows empty input and rejects unexpected fields", async () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["app"];
+    },
+    listWorkspaceSurfaceIds() {
+      return ["app"];
+    }
+  }));
+
+  registerActionDefinitions(app, "test.actionDefinitions.emptyInput", {
+    contributorId: "test.empty-input",
+    domain: "settings",
+    actions: [
+      {
+        id: "test.empty-input",
+        version: 1,
+        kind: "query",
+        channels: ["internal"],
+        surfaces: ["app"],
+        visibility: "public",
+        input: [EMPTY_INPUT_CONTRACT],
+        permission: allowPublic,
+        idempotency: "none",
+        audit: { actionName: "test.empty-input" },
+        observability: {},
+        async execute() {
+          return { ok: true };
+        }
+      }
+    ]
+  });
+
+  const actionExecutor = app.make("actionExecutor");
+
+  const okResult = await actionExecutor.execute({
+    actionId: "test.empty-input",
+    context: { channel: "internal", surface: "app" }
+  });
+  assert.deepEqual(okResult, { ok: true });
+
+  await assert.rejects(
+    () =>
+      actionExecutor.execute({
+        actionId: "test.empty-input",
+        input: { unexpected: true },
+        context: { channel: "internal", surface: "app" }
+      }),
+    (error) => error?.code === "ACTION_VALIDATION_FAILED"
+  );
 });
 
 test("registerActionContextContributor + resolveActionContextContributors provide context contributor wiring", () => {

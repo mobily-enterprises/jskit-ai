@@ -1,3 +1,4 @@
+import { Type } from "typebox";
 import { normalizeText } from "./textNormalization.js";
 
 function normalizeObject(value) {
@@ -62,6 +63,10 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const EMPTY_INPUT_CONTRACT = Object.freeze({
+  schema: Type.Object({}, { additionalProperties: false })
+});
+
 export {
   normalizeObject,
   toPositiveInteger,
@@ -72,5 +77,6 @@ export {
   allowPublic,
   requireAuthenticated,
   hasPermission,
+  EMPTY_INPUT_CONTRACT,
   OBJECT_INPUT_SCHEMA
 };

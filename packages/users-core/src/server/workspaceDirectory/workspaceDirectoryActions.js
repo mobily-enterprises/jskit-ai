@@ -1,5 +1,5 @@
 import {
-  OBJECT_INPUT_SCHEMA,
+  EMPTY_INPUT_CONTRACT,
   requireAuthenticated,
   resolveRequest,
   resolveUser
@@ -13,7 +13,7 @@ const workspaceDirectoryActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [EMPTY_INPUT_CONTRACT],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

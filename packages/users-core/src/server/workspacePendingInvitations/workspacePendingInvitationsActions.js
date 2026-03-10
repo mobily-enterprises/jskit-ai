@@ -1,9 +1,9 @@
 import {
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
+  EMPTY_INPUT_CONTRACT,
   requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { workspaceInviteRedeemCommand } from "../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
   {
@@ -13,7 +13,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [EMPTY_INPUT_CONTRACT],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -33,7 +33,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [workspaceInviteRedeemCommand.operation.body],
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -41,11 +41,10 @@ const workspacePendingInvitationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const payload = normalizeObject(input);
       return deps.workspacePendingInvitationsService.redeemInviteByToken({
-        user: resolveUser(context, payload),
-        inviteToken: payload.token || payload.inviteToken,
-        decision: payload.decision
+        user: resolveUser(context, input),
+        inviteToken: input.token,
+        decision: input.decision
       });
     }
   }

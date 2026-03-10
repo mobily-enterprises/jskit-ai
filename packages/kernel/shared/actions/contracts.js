@@ -1,3 +1,4 @@
+import { mergeObjectSchemas } from "../contracts/mergeObjectSchemas.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -79,7 +80,7 @@ function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false
   return normalized;
 }
 
-function normalizeActionContractPart(value, fieldName, { required = false } = {}) {
+function normalizeSingleActionContractPart(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -122,6 +123,97 @@ function normalizeActionContractPart(value, fieldName, { required = false } = {}
   return Object.freeze({
     schema: value.schema,
     ...(typeof value.normalize === "function" ? { normalize: value.normalize } : {})
+  });
+}
+
+function mergeNormalizedActionContractParts(parts, fieldName) {
+  const normalized = {};
+  const schemas = [];
+  const normalizers = [];
+
+  for (const part of parts) {
+    if (Object.prototype.hasOwnProperty.call(part, "schema")) {
+      schemas.push(part.schema);
+    }
+    if (typeof part.normalize === "function") {
+      normalizers.push(part.normalize);
+    }
+  }
+
+  if (schemas.length < 1) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema is required.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  normalized.schema = schemas.length === 1 ? schemas[0] : mergeObjectSchemas(schemas);
+
+  if (normalizers.length === 1) {
+    normalized.normalize = normalizers[0];
+  } else if (normalizers.length > 1) {
+    normalized.normalize = async function normalizeMergedActionContractParts(payload, meta) {
+      const merged = {};
+
+      for (const normalizer of normalizers) {
+        const result = await normalizer(payload, meta);
+        if (!isPlainObject(result)) {
+          throw createActionRuntimeError(500, `Action definition ${fieldName}.normalize must return an object.`, {
+            code: "ACTION_DEFINITION_INVALID"
+          });
+        }
+        Object.assign(merged, result);
+      }
+
+      return merged;
+    };
+  }
+
+  return Object.freeze(normalized);
+}
+
+function normalizeActionInputParts(value, fieldName, { required = false } = {}) {
+  if (value == null) {
+    if (!required) {
+      return null;
+    }
+
+    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (!Array.isArray(value)) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be an array.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (value.length < 1) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  const parts = value.map((entry, index) => {
+    const part = normalizeSingleActionContractPart(entry, `${fieldName}[${index}]`, {
+      required: true
+    });
+
+    if (!part) {
+      throw createActionRuntimeError(500, `Action definition ${fieldName}[${index}] is required.`, {
+        code: "ACTION_DEFINITION_INVALID"
+      });
+    }
+
+    return part;
+  });
+
+  return mergeNormalizedActionContractParts(parts, fieldName);
+}
+
+function normalizeActionContractPart(value, fieldName, { required = false } = {}) {
+  return normalizeSingleActionContractPart(value, fieldName, {
+    required
   });
 }
 
@@ -269,7 +361,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     channels,
     surfaces,
     visibility,
-    input: normalizeActionContractPart(source.input, "input", {
+    input: normalizeActionInputParts(source.input, "input", {
       required: true
     }),
     output: normalizeActionContractPart(source.output, "output", {
@@ -327,6 +419,8 @@ const __testables = {
   isPlainObject,
   normalizePositiveInteger,
   normalizeStringArray,
+  normalizeSingleActionContractPart,
+  normalizeActionInputParts,
   normalizeActionContractPart,
   normalizePermissionPolicy,
   normalizeAuditConfig,
