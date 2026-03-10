@@ -6,8 +6,7 @@ export default Object.freeze({
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
-    "@jskit-ai/users-core",
-    "@jskit-ai/users-routes"
+    "@jskit-ai/users-core"
   ],
   capabilities: {
     provides: [
@@ -145,7 +144,6 @@ export default Object.freeze({
         "@jskit-ai/kernel": "0.1.0",
         "@jskit-ai/shell-web": "0.1.0",
         "@jskit-ai/users-core": "0.1.0",
-        "@jskit-ai/users-routes": "0.1.0",
         "vuetify": "^4.0.0"
       },
       dev: {}

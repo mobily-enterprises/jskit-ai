@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
-import { routeParams } from "../src/shared/contracts/routeParams.js";
-import { routeQueries } from "../src/shared/contracts/routeQueries.js";
+import { routeParams } from "../src/server/common/contracts/routeParams.js";
+import { routeQueries } from "../src/server/common/contracts/routeQueries.js";
 
 test("routeParams exposes first-class params contract parts", () => {
   assert.equal(typeof routeParams.workspaceSlug.schema, "object");

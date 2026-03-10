@@ -1,10 +1,19 @@
 export { UsersCoreServiceProvider } from "./providers/UsersCoreServiceProvider.js";
+export { UsersRouteServiceProvider } from "./providers/UsersRouteServiceProvider.js";
 
 export { workspaceActions } from "./actions/workspaceActionContributor.js";
 export { workspaceSettingsActions } from "./actions/workspaceSettingsActions.js";
 export { createWorkspaceActionContextContributor } from "./actions/workspaceActionContextContributor.js";
 export { settingsActions } from "./actions/settingsActionContributor.js";
 export { consoleSettingsActions } from "./actions/consoleSettingsActionContributor.js";
+
+export { UsersWorkspaceController, WORKSPACE_ACTION_IDS } from "./controllers/UsersWorkspaceController.js";
+export { registerWorkspaceSettingsRoutes } from "./controllers/WorkspaceSettingsController.js";
+export { UsersSettingsController, SETTINGS_ACTION_IDS } from "./controllers/UsersSettingsController.js";
+export {
+  UsersConsoleSettingsController,
+  CONSOLE_SETTINGS_ACTION_IDS
+} from "./controllers/UsersConsoleSettingsController.js";
 
 export { createService as createWorkspaceService } from "./services/workspaceService.js";
 export { createService as createWorkspaceAdminService } from "./services/workspaceAdminService.js";

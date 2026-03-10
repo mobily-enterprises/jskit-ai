@@ -1,18 +1,18 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { userProfileSchema as userProfileResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/userProfileSchema";
+import { userProfileSchema as userProfileResourceSchema } from "../../../shared/contracts/resources/userProfileSchema.js";
 import {
   userSettingsSchema as userSettingsResourceSchema,
   preferencesPatchBodySchema,
   notificationsPatchBodySchema,
   chatPatchBodySchema
-} from "@jskit-ai/users-core/shared/contracts/resources/userSettingsSchema";
-import { settingsPasswordChangeCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsPasswordChangeCommand";
-import { settingsPasswordMethodToggleCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsPasswordMethodToggleCommand";
-import { settingsOAuthLinkStartCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsOAuthLinkStartCommand";
-import { settingsOAuthUnlinkCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsOAuthUnlinkCommand";
-import { settingsLogoutOtherSessionsCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsLogoutOtherSessionsCommand";
-import { settingsAvatarUploadCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsAvatarUploadCommand";
-import { settingsAvatarDeleteCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsAvatarDeleteCommand";
+} from "../../../shared/contracts/resources/userSettingsSchema.js";
+import { settingsPasswordChangeCommand } from "../../../shared/contracts/commands/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../../../shared/contracts/commands/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../../../shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
+import { settingsAvatarUploadCommand } from "../../../shared/contracts/commands/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
 
 const settingsRoutesContract = Object.freeze({
   body: {

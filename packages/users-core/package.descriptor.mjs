@@ -2,18 +2,22 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
   version: "0.1.0",
-  description: "Users/workspace domain runtime: profiles, tenancy/workspace logic, and settings actions.",
+  description: "Users/workspace domain runtime plus HTTP routes for bootstrap, workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",
-    "@jskit-ai/database-runtime"
+    "@jskit-ai/database-runtime",
+    "@jskit-ai/http-runtime"
   ],
   capabilities: {
     provides: [
-      "users.core"
+      "users.core",
+      "users.server-routes"
     ],
     requires: [
       "runtime.actions",
-      "runtime.database"
+      "runtime.database",
+      "auth.provider",
+      "auth.policy"
     ]
   },
   runtime: {
@@ -22,6 +26,10 @@ export default Object.freeze({
         {
           entrypoint: "src/server/providers/UsersCoreServiceProvider.js",
           export: "UsersCoreServiceProvider"
+        },
+        {
+          entrypoint: "src/server/providers/UsersRouteServiceProvider.js",
+          export: "UsersRouteServiceProvider"
         }
       ]
     },
@@ -35,7 +43,7 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary:
-            "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, and workspace/settings/console action definitions."
+            "Exports UsersCoreServiceProvider, UsersRouteServiceProvider, users/workspace/console repositories/services, route controllers, and action definitions."
         },
         {
           subpath: "./shared",
@@ -57,6 +65,140 @@ export default Object.freeze({
         ],
         client: []
       }
+    },
+    server: {
+      routes: [
+        {
+          method: "GET",
+          path: "/api/bootstrap",
+          summary: "Get bootstrap payload with profile/workspace context."
+        },
+        {
+          method: "GET",
+          path: "/api/workspaces",
+          summary: "List workspaces visible to authenticated user."
+        },
+        {
+          method: "GET",
+          path: "/api/workspace/invitations/pending",
+          summary: "List pending workspace invitations for authenticated user."
+        },
+        {
+          method: "POST",
+          path: "/api/workspace/invitations/redeem",
+          summary: "Accept or refuse a workspace invitation using an invite token."
+        },
+        {
+          method: "GET",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          summary: "Get workspace settings and role catalog by workspace slug."
+        },
+        {
+          method: "PATCH",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          summary: "Update workspace settings by workspace slug."
+        },
+        {
+          method: "GET",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/roles",
+          summary: "Get workspace role catalog by workspace slug."
+        },
+        {
+          method: "GET",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members",
+          summary: "List members by workspace slug."
+        },
+        {
+          method: "PATCH",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members/:memberUserId/role",
+          summary: "Update workspace member role by workspace slug."
+        },
+        {
+          method: "GET",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          summary: "List workspace invites by workspace slug."
+        },
+        {
+          method: "POST",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          summary: "Create workspace invite by workspace slug."
+        },
+        {
+          method: "DELETE",
+          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites/:inviteId",
+          summary: "Revoke workspace invite by workspace slug."
+        },
+        {
+          method: "GET",
+          path: "/api/settings",
+          summary: "Get authenticated user settings."
+        },
+        {
+          method: "PATCH",
+          path: "/api/settings/profile",
+          summary: "Update profile settings."
+        },
+        {
+          method: "POST",
+          path: "/api/settings/profile/avatar",
+          summary: "Upload profile avatar."
+        },
+        {
+          method: "DELETE",
+          path: "/api/settings/profile/avatar",
+          summary: "Delete profile avatar."
+        },
+        {
+          method: "PATCH",
+          path: "/api/settings/preferences",
+          summary: "Update user preferences."
+        },
+        {
+          method: "PATCH",
+          path: "/api/settings/notifications",
+          summary: "Update notification settings."
+        },
+        {
+          method: "PATCH",
+          path: "/api/settings/chat",
+          summary: "Update chat settings."
+        },
+        {
+          method: "POST",
+          path: "/api/settings/security/change-password",
+          summary: "Set or change password for authenticated user."
+        },
+        {
+          method: "PATCH",
+          path: "/api/settings/security/methods/password",
+          summary: "Enable or disable password sign-in method."
+        },
+        {
+          method: "GET",
+          path: "/api/settings/security/oauth/:provider/start",
+          summary: "Start linking an OAuth provider for authenticated user."
+        },
+        {
+          method: "DELETE",
+          path: "/api/settings/security/oauth/:provider",
+          summary: "Unlink an OAuth provider from authenticated account."
+        },
+        {
+          method: "POST",
+          path: "/api/settings/security/logout-others",
+          summary: "Sign out from other active sessions."
+        },
+        {
+          method: "GET",
+          path: "/api/console/settings",
+          summary: "Get console settings."
+        },
+        {
+          method: "PATCH",
+          path: "/api/console/settings",
+          summary: "Update console settings."
+        }
+      ]
     }
   },
   mutations: {
@@ -64,6 +206,7 @@ export default Object.freeze({
       runtime: {
         "@jskit-ai/auth-core": "0.1.0",
         "@jskit-ai/database-runtime": "0.1.0",
+        "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "typebox": "^1.0.81"
       },

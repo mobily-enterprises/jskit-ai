@@ -4,9 +4,9 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/contracts/resourceRequiredMetadata";
-import { workspaceRoutesContract as workspaceSchema } from "../src/shared/contracts/workspaceRoutesContract.js";
-import { settingsRoutesContract as settingsSchema } from "../src/shared/contracts/settingsRoutesContract.js";
-import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../src/shared/contracts/consoleSettingsRoutesContract.js";
+import { workspaceRoutesContract as workspaceSchema } from "../src/server/common/contracts/workspaceRoutesContract.js";
+import { settingsRoutesContract as settingsSchema } from "../src/server/common/contracts/settingsRoutesContract.js";
+import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../src/server/common/contracts/consoleSettingsRoutesContract.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -135,7 +135,7 @@ test("route schema building blocks are wired directly from canonical contracts",
   );
 });
 
-test("users-routes no longer contains legacy shared/schema directory", () => {
+test("users-core route contracts no longer live under a legacy shared/schema directory", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
   const legacySchemaDir = path.join(packageRoot, "src", "shared", "schema");

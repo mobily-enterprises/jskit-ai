@@ -1,4 +1,4 @@
-import { consoleSettingsSchema as consoleSettingsResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/consoleSettingsSchema";
+import { consoleSettingsSchema as consoleSettingsResourceSchema } from "../../../shared/contracts/resources/consoleSettingsSchema.js";
 
 const consoleSettingsRoutesContract = Object.freeze({
   body: {

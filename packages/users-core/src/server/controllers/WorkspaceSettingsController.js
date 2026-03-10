@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
-import { routeParams } from "../../shared/contracts/routeParams.js";
+import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
+import { routeParams } from "../common/contracts/routeParams.js";
 
 function registerWorkspaceSettingsRoutes(app) {
   if (!app || typeof app.make !== "function") {

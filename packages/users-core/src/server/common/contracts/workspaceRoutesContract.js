@@ -3,13 +3,13 @@ import {
   membershipSummarySchema,
   workspaceSchema as workspaceResourceSchema,
   workspaceSummarySchema
-} from "@jskit-ai/users-core/shared/contracts/resources/workspaceSchema";
+} from "../../../shared/contracts/resources/workspaceSchema.js";
 import {
   workspaceSettingsSchema as workspaceSettingsResourceSchema
-} from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
-import { workspaceMemberSchema as workspaceMemberResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/workspaceMemberSchema";
-import { workspaceInviteSchema as workspaceInviteResourceSchema } from "@jskit-ai/users-core/shared/contracts/resources/workspaceInviteSchema";
-import { workspaceInviteRedeemCommand } from "@jskit-ai/users-core/shared/contracts/commands/workspaceInviteRedeemCommand";
+} from "../../../shared/schemas/resources/workspaceSettingsSchema.js";
+import { workspaceMemberSchema as workspaceMemberResourceSchema } from "../../../shared/contracts/resources/workspaceMemberSchema.js";
+import { workspaceInviteSchema as workspaceInviteResourceSchema } from "../../../shared/contracts/resources/workspaceInviteSchema.js";
+import { workspaceInviteRedeemCommand } from "../../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
 
 const workspaceRoutesContract = Object.freeze({
   body: {

@@ -5,11 +5,11 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNor
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerWorkspaceSettingsRoutes } from "../controllers/WorkspaceSettingsController.js";
-import { workspaceRoutesContract as workspaceSchema } from "../../shared/contracts/workspaceRoutesContract.js";
-import { settingsRoutesContract as settingsSchema } from "../../shared/contracts/settingsRoutesContract.js";
-import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../../shared/contracts/consoleSettingsRoutesContract.js";
-import { routeParams } from "../../shared/contracts/routeParams.js";
-import { routeQueries } from "../../shared/contracts/routeQueries.js";
+import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
+import { settingsRoutesContract as settingsSchema } from "../common/contracts/settingsRoutesContract.js";
+import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../common/contracts/consoleSettingsRoutesContract.js";
+import { routeParams } from "../common/contracts/routeParams.js";
+import { routeQueries } from "../common/contracts/routeQueries.js";
 
 const WORKSPACE_ACTION_IDS = Object.freeze({
   AUTH_SESSION_READ: "auth.session.read",
@@ -72,6 +72,8 @@ function registerRoute(router, route) {
 
 class UsersRouteServiceProvider {
   static id = "users.routes";
+
+  static dependsOn = ["users.core", "auth.provider", "runtime.actions"];
 
   register(app) {
     if (!app || typeof app.has !== "function") {
