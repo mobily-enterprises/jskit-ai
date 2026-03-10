@@ -15,7 +15,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspaceSurface: "app",
       meta: {
         tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
@@ -41,66 +40,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspaceSurface: "app",
-      meta: {
-        tags: ["workspace"],
-        summary: "Update workspace settings by workspace slug"
-      },
-      params: routeParams.workspaceSlug,
-      body: {
-        schema: workspaceSettingsSchema.operations.patch.body.schema
-      },
-      response: withStandardErrorResponses(
-        {
-          200: workspaceSettingsSchema.operations.patch.output
-        },
-        { includeValidation400: true }
-      )
-    },
-    async function (request, reply) {
-      const response = await request.executeAction({
-        actionId: "workspace.settings.update",
-        input: {
-          workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.body
-        }
-      });
-      reply.code(200).send(response);
-    }
-  );
-
-  router.register(
-    "GET",
-    "/api/admin/w/:workspaceSlug/workspace/settings",
-    {
-      auth: "required",
-      workspaceSurface: "admin",
-      meta: {
-        tags: ["workspace"],
-        summary: "Get workspace settings and role catalog by workspace slug"
-      },
-      params: routeParams.workspaceSlug,
-      response: withStandardErrorResponses({
-        200: workspaceSettingsSchema.operations.view.output
-      })
-    },
-    async function (request, reply) {
-      const response = await request.executeAction({
-        actionId: "workspace.settings.read",
-        input: {
-          workspaceSlug: request.input.params.workspaceSlug
-        }
-      });
-      reply.code(200).send(response);
-    }
-  );
-
-  router.register(
-    "PATCH",
-    "/api/admin/w/:workspaceSlug/workspace/settings",
-    {
-      auth: "required",
-      workspaceSurface: "admin",
       meta: {
         tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"

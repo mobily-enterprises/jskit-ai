@@ -1,7 +1,6 @@
 import { computed } from "vue";
 import {
-  extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext
+  extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 
@@ -17,18 +16,14 @@ function useUsersWebWorkspaceRouteContext() {
   });
 
   function resolveWorkspaceApiPath(workspaceSuffix = "") {
-    const currentSurface = String(currentSurfaceId.value || "").trim();
     const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
-    const suffix = String(workspaceSuffix || "");
-    if (!currentSurface || !workspaceSlug) {
+    const rawSuffix = String(workspaceSuffix || "").trim();
+    const normalizedSuffix = rawSuffix ? (rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`) : "";
+    if (!workspaceSlug) {
       return "";
     }
 
-    return resolveSurfaceApiPathFromPlacementContext(
-      placementContext.value,
-      currentSurface,
-      `/w/${workspaceSlug}/workspace${suffix}`
-    );
+    return `/api/w/${workspaceSlug}/workspace${normalizedSuffix}`;
   }
 
   return Object.freeze({

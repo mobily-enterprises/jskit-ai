@@ -127,9 +127,9 @@ test("workspace and settings routes only attach request input normalizers where 
   assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
 });
 
-test("workspace routes mount explicit app/admin workspace-admin endpoints", () => {
+test("workspace settings routes mount one canonical workspace endpoint", () => {
   const routes = registerUsersRoutes();
-  const appWorkspaceSettings = findRoute(routes, {
+  const workspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
   });
@@ -142,8 +142,9 @@ test("workspace routes mount explicit app/admin workspace-admin endpoints", () =
     path: "/api/console/w/:workspaceSlug/workspace/settings"
   });
 
-  assert.equal(appWorkspaceSettings?.workspaceSurface, "app");
-  assert.equal(adminWorkspaceSettings?.workspaceSurface, "admin");
+  assert.ok(workspaceSettings);
+  assert.equal(workspaceSettings?.workspaceSurface, undefined);
+  assert.equal(adminWorkspaceSettings, null);
   assert.equal(consoleWorkspaceSettings, null);
 });
 

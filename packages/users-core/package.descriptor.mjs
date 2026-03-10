@@ -86,12 +86,12 @@ export default Object.freeze({
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          path: "/api/w/:workspaceSlug/workspace/settings",
           summary: "Get workspace settings and role catalog by workspace slug."
         },
         {
           method: "PATCH",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/settings",
+          path: "/api/w/:workspaceSlug/workspace/settings",
           summary: "Update workspace settings by workspace slug."
         },
         {
