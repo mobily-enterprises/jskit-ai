@@ -58,6 +58,16 @@ const USERS_ACCOUNT_CHAT_ACTION_DEFINITIONS_TOKEN = "users.core.accountChat.acti
 const USERS_ACCOUNT_SECURITY_ACTION_DEFINITIONS_TOKEN = "users.core.accountSecurity.actionDefinitions";
 const USERS_CONSOLE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.console.settings.actionDefinitions";
 
+function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
+  const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
+
+  if (typeof defaultInvitesEnabled !== "boolean") {
+    throw new TypeError("users.core requires appConfig.workspaceSettings.defaults.invitesEnabled.");
+  }
+
+  return defaultInvitesEnabled;
+}
+
 class UsersCoreServiceProvider {
   static id = "users.core";
 
@@ -92,7 +102,10 @@ class UsersCoreServiceProvider {
 
     app.singleton("workspaceSettingsRepository", (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
-      return createWorkspaceSettingsRepository(knex);
+      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+      return createWorkspaceSettingsRepository(knex, {
+        defaultInvitesEnabled: resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig)
+      });
     });
 
     app.singleton("workspaceInvitesRepository", (scope) => {

@@ -65,36 +65,6 @@
                 />
               </v-col>
 
-              <v-col cols="12">
-                <v-textarea
-                  v-model="workspaceForm.appDenyEmailsText"
-                  label="App surface deny list (emails)"
-                  variant="outlined"
-                  density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving"
-                  hint="Optional. One email per line. Denied users cannot access this workspace on the app surface."
-                  persistent-hint
-                  rows="4"
-                  auto-grow
-                  :error-messages="addEdit.fieldErrors.appDenyEmails ? [addEdit.fieldErrors.appDenyEmails] : []"
-                />
-              </v-col>
-
-              <v-col cols="12">
-                <v-textarea
-                  v-model="workspaceForm.appDenyUserIdsText"
-                  label="App surface deny list (user IDs)"
-                  variant="outlined"
-                  density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving"
-                  hint="Optional. One user ID per line. Denied users cannot access this workspace on the app surface."
-                  persistent-hint
-                  rows="3"
-                  auto-grow
-                  :error-messages="addEdit.fieldErrors.appDenyUserIds ? [addEdit.fieldErrors.appDenyUserIds] : []"
-                />
-              </v-col>
-
               <v-col cols="12" class="d-flex align-center justify-end ga-3">
                 <v-progress-circular v-if="addEdit.isLoading" size="18" indeterminate />
                 <v-btn
@@ -129,41 +99,12 @@ import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
-function parseTextEntries(value) {
-  return String(value || "")
-    .split(/[\n,;]+/)
-    .map((entry) => String(entry || "").trim())
-    .filter(Boolean);
-}
-
-function parseLowercaseTextList(value) {
-  return Array.from(
-    new Set(
-      parseTextEntries(value)
-        .map((entry) => entry.toLowerCase())
-        .filter(Boolean)
-    )
-  );
-}
-
-function parsePositiveIntegerList(value) {
-  return Array.from(
-    new Set(
-      parseTextEntries(value)
-        .map((entry) => Number(entry))
-        .filter((entry) => Number.isInteger(entry) && entry > 0)
-    )
-  );
-}
-
 const workspaceForm = reactive({
   name: "",
   color: DEFAULT_WORKSPACE_COLOR,
   avatarUrl: "",
   invitesEnabled: false,
-  invitesAvailable: false,
-  appDenyEmailsText: "",
-  appDenyUserIdsText: ""
+  invitesAvailable: false
 });
 
 const addEdit = useWorkspaceAddEdit({
@@ -181,7 +122,7 @@ const addEdit = useWorkspaceAddEdit({
   missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
   fallbackSaveError: String(workspaceSettingsSchema.operationMessages?.saveError || "Unable to update workspace settings."),
-  fieldErrorKeys: ["name", "avatarUrl", "color", "appDenyEmails", "appDenyUserIds"],
+  fieldErrorKeys: ["name", "avatarUrl", "color"],
   model: workspaceForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
@@ -192,34 +133,18 @@ const addEdit = useWorkspaceAddEdit({
   mapLoadedToModel: (model, payload = {}) => {
     const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : {};
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    const denyEmails = Array.isArray(settings.appDenyEmails) ? settings.appDenyEmails : [];
-    const denyUserIds = Array.isArray(settings.appDenyUserIds) ? settings.appDenyUserIds : [];
 
     model.name = String(workspace.name || "");
     model.color = String(workspace.color || DEFAULT_WORKSPACE_COLOR);
     model.avatarUrl = String(workspace.avatarUrl || "");
     model.invitesEnabled = settings.invitesEnabled !== false;
     model.invitesAvailable = settings.invitesAvailable !== false;
-    model.appDenyEmailsText = Array.isArray(denyEmails)
-      ? denyEmails
-          .map((entry) => String(entry || "").trim().toLowerCase())
-          .filter(Boolean)
-          .join("\n")
-      : "";
-    model.appDenyUserIdsText = Array.isArray(denyUserIds)
-      ? denyUserIds
-          .map((entry) => Number(entry))
-          .filter((entry) => Number.isInteger(entry) && entry > 0)
-          .join("\n")
-      : "";
   },
   buildRawPayload: (model) => ({
     name: model.name,
     color: model.color,
     avatarUrl: model.avatarUrl,
-    invitesEnabled: model.invitesEnabled,
-    appDenyEmails: parseLowercaseTextList(model.appDenyEmailsText),
-    appDenyUserIds: parsePositiveIntegerList(model.appDenyUserIdsText)
+    invitesEnabled: model.invitesEnabled
   }),
   messages: workspaceSettingsSchema.operationMessages || {}
 });

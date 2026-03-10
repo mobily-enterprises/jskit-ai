@@ -1,6 +1,5 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import { DEFAULT_WORKSPACE_SETTINGS } from "../../shared/settings.js";
 
 function requireResolvedWorkspace(workspace) {
   if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
@@ -22,18 +21,12 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
 
   async function getWorkspaceSettings(workspace, options = {}) {
     const resolvedWorkspace = requireResolvedWorkspace(workspace);
-    const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(
-      resolvedWorkspace.id,
-      DEFAULT_WORKSPACE_SETTINGS,
-      options
-    );
+    const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(resolvedWorkspace.id, options);
 
     return {
       workspace: resolvedWorkspace,
       settings: {
-        invitesEnabled: settingsRecord.invitesEnabled !== false,
-        appDenyEmails: settingsRecord.features.surfaceAccess.app.denyEmails,
-        appDenyUserIds: settingsRecord.features.surfaceAccess.app.denyUserIds
+        invitesEnabled: settingsRecord.invitesEnabled !== false
       }
     };
   }
@@ -42,7 +35,7 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
     const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const source = normalizeObjectInput(payload);
     const workspacePatch = pickOwnProperties(source, ["name", "avatarUrl", "color"]);
-    const settingsPatch = pickOwnProperties(source, ["invitesEnabled", "appDenyEmails", "appDenyUserIds"]);
+    const settingsPatch = pickOwnProperties(source, ["invitesEnabled"]);
     let nextWorkspace = resolvedWorkspace;
 
     if (Object.keys(workspacePatch).length > 0) {

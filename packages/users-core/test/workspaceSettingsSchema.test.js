@@ -16,9 +16,7 @@ test("workspace settings patch body normalizes valid payload before validation",
     name: "  Team Mercury  ",
     avatarUrl: "https://example.com/avatar.png",
     color: "#0f6b54",
-    invitesEnabled: false,
-    appDenyEmails: ["Foo@example.com", "bar@example.com", "foo@example.com"],
-    appDenyUserIds: [1, "2", 3]
+    invitesEnabled: false
   });
 
   assert.equal(parsed.ok, true);
@@ -27,19 +25,8 @@ test("workspace settings patch body normalizes valid payload before validation",
     name: "Team Mercury",
     avatarUrl: "https://example.com/avatar.png",
     color: "#0F6B54",
-    invitesEnabled: false,
-    appDenyEmails: ["foo@example.com", "bar@example.com"],
-    appDenyUserIds: [1, 2, 3]
+    invitesEnabled: false
   });
-});
-
-test("workspace settings patch body returns field error for invalid deny-list IDs", () => {
-  const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
-    appDenyUserIds: ["x", "3"]
-  });
-
-  assert.equal(parsed.ok, false);
-  assert.equal(parsed.fieldErrors.appDenyUserIds, "appDenyUserIds must be an array of positive integers.");
 });
 
 test("workspace settings patch body validates avatar URL protocol", () => {
@@ -84,9 +71,7 @@ test("workspace settings output normalizes raw service payloads", () => {
       color: "#0f6b54"
     },
     settings: {
-      invitesEnabled: false,
-      appDenyEmails: ["Foo@example.com", "bar@example.com", "foo@example.com"],
-      appDenyUserIds: [1, "2", 3]
+      invitesEnabled: false
     },
     roleCatalog: {
       collaborationEnabled: true,
@@ -108,9 +93,7 @@ test("workspace settings output normalizes raw service payloads", () => {
     settings: {
       invitesEnabled: false,
       invitesAvailable: true,
-      invitesEffective: false,
-      appDenyEmails: ["foo@example.com", "bar@example.com"],
-      appDenyUserIds: [1, 2, 3]
+      invitesEffective: false
     },
     roleCatalog: {
       collaborationEnabled: true,

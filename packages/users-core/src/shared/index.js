@@ -12,6 +12,5 @@ export {
 export {
   DEFAULT_WORKSPACE_COLOR,
   DEFAULT_USER_SETTINGS,
-  DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 } from "./settings.js";

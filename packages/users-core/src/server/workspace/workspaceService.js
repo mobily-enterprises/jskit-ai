@@ -10,10 +10,7 @@ import {
   TENANCY_MODE_WORKSPACE,
   normalizeTenancyMode
 } from "@jskit-ai/kernel/shared/surface";
-import {
-  DEFAULT_WORKSPACE_SETTINGS,
-  coerceWorkspaceColor
-} from "../../shared/settings.js";
+import { coerceWorkspaceColor } from "../../shared/settings.js";
 import {
   OWNER_ROLE_ID,
   resolveRolePermissions
@@ -193,14 +190,7 @@ function createService({
   }
 
   async function ensureWorkspaceSettingsForWorkspace(workspaceId, options = {}) {
-    return workspaceSettingsRepository.ensureForWorkspaceId(
-      workspaceId,
-      {
-        ...DEFAULT_WORKSPACE_SETTINGS,
-        invitesEnabled: true
-      },
-      options
-    );
+    return workspaceSettingsRepository.ensureForWorkspaceId(workspaceId, options);
   }
 
   async function ensurePersonalWorkspaceForUser(user, options = {}) {

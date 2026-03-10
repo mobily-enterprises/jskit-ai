@@ -45,7 +45,6 @@ exports.up = async function up(knex) {
   await knex.schema.createTable("workspace_settings", (table) => {
     table.integer("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
     table.boolean("invites_enabled").notNullable().defaultTo(true);
-    table.text("features_json").notNullable();
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
   });

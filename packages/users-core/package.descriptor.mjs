@@ -245,7 +245,18 @@ export default Object.freeze({
         reason: "Append default server-only users/workspace settings into app-owned config.",
         category: "users-core",
         id: "users-core-server-config"
-      }
+      },
+      {
+        op: "append-text",
+        file: "config/server.js",
+        position: "bottom",
+        skipIfContains: "config.workspaceSettings =",
+        value:
+          "\nconfig.workspaceSettings = {\n  defaults: {\n    invitesEnabled: true\n  }\n};\n",
+        reason: "Append app-owned workspace settings defaults into the server config.",
+        category: "users-core",
+        id: "users-core-workspace-settings-server-config"
+      },
     ]
   }
 });

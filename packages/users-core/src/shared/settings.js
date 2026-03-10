@@ -23,20 +23,6 @@ const DEFAULT_USER_SETTINGS = Object.freeze({
   }
 });
 
-const DEFAULT_WORKSPACE_SETTINGS = Object.freeze({
-  invitesEnabled: true,
-  invitesAvailable: true,
-  invitesEffective: true,
-  features: {
-    surfaceAccess: {
-      app: {
-        denyEmails: [],
-        denyUserIds: []
-      }
-    }
-  }
-});
-
 function coerceWorkspaceColor(value) {
   const normalized = String(value || "").trim();
   if (/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
@@ -48,6 +34,5 @@ function coerceWorkspaceColor(value) {
 export {
   DEFAULT_WORKSPACE_COLOR,
   DEFAULT_USER_SETTINGS,
-  DEFAULT_WORKSPACE_SETTINGS,
   coerceWorkspaceColor
 };

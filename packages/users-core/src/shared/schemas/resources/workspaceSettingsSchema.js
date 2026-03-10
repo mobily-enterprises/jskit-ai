@@ -1,8 +1,5 @@
 import { Type } from "typebox";
-import {
-  normalizeText,
-  normalizeLowerText
-} from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeText, normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { coerceWorkspaceColor } from "../../settings.js";
 
@@ -34,23 +31,6 @@ function normalizeInput(payload = {}) {
   if (Object.hasOwn(source, "invitesEnabled")) {
     normalized.invitesEnabled = source.invitesEnabled;
   }
-  if (Object.hasOwn(source, "appDenyEmails")) {
-    normalized.appDenyEmails = Array.isArray(source.appDenyEmails)
-      ? Array.from(
-          new Set(
-            source.appDenyEmails
-              .map((entry) => normalizeLowerText(entry))
-              .filter(Boolean)
-          )
-        )
-      : null;
-  }
-  if (Object.hasOwn(source, "appDenyUserIds")) {
-    normalized.appDenyUserIds = Array.isArray(source.appDenyUserIds)
-      ? Array.from(new Set(source.appDenyUserIds.map((entry) => Number(normalizeText(entry)))))
-      : null;
-  }
-
   return normalized;
 }
 
@@ -85,25 +65,6 @@ function normalizeOutput(payload = {}) {
   const invitesAvailable = settings.invitesAvailable !== false;
   const invitesEffective =
     typeof settings.invitesEffective === "boolean" ? settings.invitesEffective : invitesEnabled;
-  const appDenyEmails = Array.isArray(settings.appDenyEmails)
-    ? Array.from(
-        new Set(
-          settings.appDenyEmails
-            .map((entry) => normalizeLowerText(entry))
-            .filter(Boolean)
-        )
-      )
-    : null;
-  const appDenyUserIds = Array.isArray(settings.appDenyUserIds)
-    ? Array.from(
-        new Set(
-          settings.appDenyUserIds
-            .map((entry) => Number(entry))
-            .filter((entry) => Number.isInteger(entry) && entry > 0)
-        )
-      )
-    : null;
-
   const normalized = {
     workspace: {
       id: Number(workspace.id),
@@ -120,13 +81,6 @@ function normalizeOutput(payload = {}) {
     },
     roleCatalog: normalizeRoleCatalogOutput(source.roleCatalog)
   };
-
-  if (appDenyEmails) {
-    normalized.settings.appDenyEmails = appDenyEmails;
-  }
-  if (appDenyUserIds) {
-    normalized.settings.appDenyUserIds = appDenyUserIds;
-  }
 
   return normalized;
 }
@@ -148,9 +102,7 @@ const responseRecordSchema = Type.Object(
       {
         invitesEnabled: Type.Boolean(),
         invitesAvailable: Type.Boolean(),
-        invitesEffective: Type.Boolean(),
-        appDenyEmails: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
-        appDenyUserIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 })))
+        invitesEffective: Type.Boolean()
       },
       { additionalProperties: false }
     ),
@@ -203,21 +155,7 @@ const createRequestBodySchema = Type.Object(
         required: "invitesEnabled is required.",
         default: "invitesEnabled must be a boolean."
       }
-    }),
-    appDenyEmails: Type.Optional(
-      Type.Array(Type.String({ minLength: 1, format: "email" }), {
-        messages: {
-          default: "appDenyEmails must be an array of valid email addresses."
-        }
-      })
-    ),
-    appDenyUserIds: Type.Optional(
-      Type.Array(Type.Integer({ minimum: 1 }), {
-        messages: {
-          default: "appDenyUserIds must be an array of positive integers."
-        }
-      })
-    )
+    })
   },
   {
     additionalProperties: false,

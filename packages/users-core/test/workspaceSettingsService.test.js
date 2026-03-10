@@ -15,15 +15,7 @@ function createFixture() {
       color: "#0F6B54"
     },
     settings: {
-      invitesEnabled: true,
-      features: {
-        surfaceAccess: {
-          app: {
-            denyEmails: ["old@example.com"],
-            denyUserIds: [7]
-          }
-        }
-      }
+      invitesEnabled: true
     }
   };
 
@@ -45,40 +37,14 @@ function createFixture() {
     workspaceSettingsRepository: {
       async ensureForWorkspaceId(workspaceId) {
         assert.equal(Number(workspaceId), 7);
-        return {
-          ...state.settings,
-          features: {
-            ...state.settings.features,
-            surfaceAccess: {
-              ...state.settings.features.surfaceAccess,
-              app: {
-                ...state.settings.features.surfaceAccess.app
-              }
-            }
-          }
-        };
+        return { ...state.settings };
       },
       async updateSettingsByWorkspaceId(workspaceId, patch) {
         assert.equal(Number(workspaceId), 7);
-        state.settingsPatch = {
-          ...patch,
-          appDenyEmails: Array.isArray(patch.appDenyEmails) ? [...patch.appDenyEmails] : patch.appDenyEmails,
-          appDenyUserIds: Array.isArray(patch.appDenyUserIds) ? [...patch.appDenyUserIds] : patch.appDenyUserIds
-        };
+        state.settingsPatch = { ...patch };
         state.settings = {
           ...state.settings,
-          ...(Object.hasOwn(patch, "invitesEnabled") ? { invitesEnabled: patch.invitesEnabled } : {}),
-          features: {
-            ...state.settings.features,
-            surfaceAccess: {
-              ...state.settings.features.surfaceAccess,
-              app: {
-                ...state.settings.features.surfaceAccess.app,
-                ...(Object.hasOwn(patch, "appDenyEmails") ? { denyEmails: [...patch.appDenyEmails] } : {}),
-                ...(Object.hasOwn(patch, "appDenyUserIds") ? { denyUserIds: [...patch.appDenyUserIds] } : {})
-              }
-            }
-          }
+          ...(Object.hasOwn(patch, "invitesEnabled") ? { invitesEnabled: patch.invitesEnabled } : {})
         };
         return state.settings;
       }
@@ -88,15 +54,13 @@ function createFixture() {
   return { service, state };
 }
 
-test("workspaceSettingsService.getWorkspaceSettings always includes deny lists", async () => {
+test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEnabled flag", async () => {
   const { service, state } = createFixture();
 
   const response = await service.getWorkspaceSettings(state.workspace);
 
   assert.deepEqual(response.settings, {
-    invitesEnabled: true,
-    appDenyEmails: ["old@example.com"],
-    appDenyUserIds: [7]
+    invitesEnabled: true
   });
 });
 
@@ -107,9 +71,7 @@ test("workspaceSettingsService.updateWorkspaceSettings delegates workspace and s
     state.workspace,
     {
       name: "New Name",
-      invitesEnabled: false,
-      appDenyEmails: ["new@example.com"],
-      appDenyUserIds: [3, 4]
+      invitesEnabled: false
     }
   );
 
@@ -117,14 +79,10 @@ test("workspaceSettingsService.updateWorkspaceSettings delegates workspace and s
     name: "New Name"
   });
   assert.deepEqual(state.settingsPatch, {
-    invitesEnabled: false,
-    appDenyEmails: ["new@example.com"],
-    appDenyUserIds: [3, 4]
+    invitesEnabled: false
   });
   assert.equal(response.workspace.name, "New Name");
   assert.deepEqual(response.settings, {
-    invitesEnabled: false,
-    appDenyEmails: ["new@example.com"],
-    appDenyUserIds: [3, 4]
+    invitesEnabled: false
   });
 });
