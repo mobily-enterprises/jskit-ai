@@ -73,15 +73,19 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
     }
 
     if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = Type.Union([
-        apiValidationErrorResponseSchema,
-        apiErrorResponseSchema,
-        fastifyDefaultErrorResponseSchema
-      ]);
+      responses[statusCode] = {
+        schema: Type.Union([
+          apiValidationErrorResponseSchema,
+          apiErrorResponseSchema,
+          fastifyDefaultErrorResponseSchema
+        ])
+      };
       continue;
     }
 
-    responses[statusCode] = Type.Union([apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]);
+    responses[statusCode] = {
+      schema: Type.Union([apiErrorResponseSchema, fastifyDefaultErrorResponseSchema])
+    };
   }
 
   return responses;

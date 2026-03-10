@@ -1,6 +1,7 @@
 export { UsersCoreServiceProvider } from "./providers/UsersCoreServiceProvider.js";
 
 export { createWorkspaceActionContributor } from "./actions/workspaceActionContributor.js";
+export { createWorkspaceSettingsActionContributor } from "./actions/workspaceSettingsActions.js";
 export { createWorkspaceActionContextContributor } from "./actions/workspaceActionContextContributor.js";
 export { createSettingsActionContributor } from "./actions/settingsActionContributor.js";
 export { createConsoleSettingsActionContributor } from "./actions/consoleSettingsActionContributor.js";

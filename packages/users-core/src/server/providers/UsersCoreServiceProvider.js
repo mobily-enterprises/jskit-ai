@@ -17,6 +17,7 @@ import { createService as createWorkspaceAdminService } from "../services/worksp
 import { createService as createSettingsService } from "../services/settingsService.js";
 import { createService as createConsoleSettingsService } from "../services/consoleSettingsService.js";
 import { createWorkspaceActionContributor } from "../actions/workspaceActionContributor.js";
+import { createWorkspaceSettingsActionContributor } from "../actions/workspaceSettingsActions.js";
 import { createWorkspaceActionContextContributor } from "../actions/workspaceActionContextContributor.js";
 import { createSettingsActionContributor } from "../actions/settingsActionContributor.js";
 import { createConsoleSettingsActionContributor } from "../actions/consoleSettingsActionContributor.js";
@@ -26,6 +27,7 @@ const USERS_CORE_API = Object.freeze({
 });
 
 const USERS_WORKSPACE_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContributor";
+const USERS_WORKSPACE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.workspaceSettings.actionContributor";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 const USERS_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.settings.actionContributor";
 const USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.console.settings.actionContributor";
@@ -129,6 +131,13 @@ class UsersCoreServiceProvider {
     registerActionContributor(app, USERS_WORKSPACE_CONTRIBUTOR_TOKEN, (scope) => {
       return createWorkspaceActionContributor({
         workspaceService: scope.make("users.workspace.service"),
+        workspaceAdminService: scope.make("users.workspace.admin.service"),
+        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
+      });
+    });
+
+    registerActionContributor(app, USERS_WORKSPACE_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
+      return createWorkspaceSettingsActionContributor({
         workspaceAdminService: scope.make("users.workspace.admin.service"),
         surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
       });

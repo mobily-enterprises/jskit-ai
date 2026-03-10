@@ -112,6 +112,52 @@ function normalizeRouteContractPart(value, { context = "route contract part", al
   });
 }
 
+function normalizeResponseContractEntry(value, { context = "route contract response entry" } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RouteDefinitionError(`${context} must be an object.`);
+  }
+
+  const source = normalizeObject(value);
+  const normalized = {};
+
+  if (!Object.prototype.hasOwnProperty.call(source, "schema")) {
+    throw new RouteDefinitionError(`${context}.schema is required when using a response contract object.`);
+  }
+  normalized.schema = source.schema;
+
+  if (Object.prototype.hasOwnProperty.call(source, "normalize")) {
+    if (source.normalize != null && typeof source.normalize !== "function") {
+      throw new RouteDefinitionError(`${context}.normalize must be a function.`);
+    }
+    if (typeof source.normalize === "function") {
+      normalized.normalize = source.normalize;
+    }
+  }
+
+  return Object.freeze(normalized);
+}
+
+function normalizeResponseContractDefinition(value, { context = "route contract.response" } = {}) {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RouteDefinitionError(`${context} must be an object.`);
+  }
+
+  const source = normalizeObject(value);
+  const normalized = {};
+
+  for (const [statusCode, entry] of Object.entries(source)) {
+    normalized[statusCode] = normalizeResponseContractEntry(entry, {
+      context: `${context}.${statusCode}`
+    });
+  }
+
+  return Object.freeze(normalized);
+}
+
 function normalizeAdvancedFastifySchema(value, { context = "route contract" } = {}) {
   if (!Object.prototype.hasOwnProperty.call(value, "fastifySchema")) {
     return undefined;
@@ -249,7 +295,9 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
   };
 
   if (Object.prototype.hasOwnProperty.call(definition, "response")) {
-    normalized.response = definition.response;
+    normalized.response = normalizeResponseContractDefinition(definition.response, {
+      context: `${context}.response`
+    });
   }
 
   const fastifySchema = normalizeAdvancedFastifySchema(advancedSource, {
@@ -272,6 +320,7 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
 function compileNormalizedRouteContract(normalizedContract) {
   const schema = {};
   const input = {};
+  const output = {};
 
   if (Array.isArray(normalizedContract.meta?.tags) && normalizedContract.meta.tags.length > 0) {
     schema.tags = [...normalizedContract.meta.tags];
@@ -302,7 +351,16 @@ function compileNormalizedRouteContract(normalizedContract) {
   }
 
   if (Object.prototype.hasOwnProperty.call(normalizedContract, "response")) {
-    schema.response = normalizedContract.response;
+    const responseSchema = {};
+
+    for (const [statusCode, entry] of Object.entries(normalizedContract.response || {})) {
+      responseSchema[statusCode] = entry.schema;
+      if (typeof entry.normalize === "function") {
+        output[statusCode] = entry.normalize;
+      }
+    }
+
+    schema.response = responseSchema;
   }
 
   if (normalizedContract.fastifySchema) {
@@ -322,6 +380,11 @@ function compileNormalizedRouteContract(normalizedContract) {
   if (Object.keys(input).length > 0) {
     compiled.input = Object.freeze({
       ...input
+    });
+  }
+  if (Object.keys(output).length > 0) {
+    compiled.output = Object.freeze({
+      ...output
     });
   }
 

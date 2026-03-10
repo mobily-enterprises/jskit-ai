@@ -87,6 +87,7 @@ class HttpRouter {
       context: `Route ${input.method} ${input.path} middleware`
     });
     const routeInput = Object.prototype.hasOwnProperty.call(resolvedOptions, "input") ? resolvedOptions.input : null;
+    const routeOutput = Object.prototype.hasOwnProperty.call(resolvedOptions, "output") ? resolvedOptions.output : null;
 
     const route = Object.freeze({
       id: normalizeText(resolvedOptions.id),
@@ -94,6 +95,7 @@ class HttpRouter {
       path: joinPath(this._prefix, input.path),
       schema: resolvedOptions.schema,
       input: routeInput,
+      output: routeOutput,
       config: normalizeObject(resolvedOptions.config),
       auth: resolvedOptions.auth,
       workspacePolicy: resolvedOptions.workspacePolicy,

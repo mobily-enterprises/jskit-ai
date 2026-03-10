@@ -16,7 +16,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspacePolicy: "required",
       workspaceSurface: "app",
       meta: {
         tags: workspaceRouteTags,
@@ -24,7 +23,7 @@ function registerWorkspaceSettingsRoutes(app) {
       },
       params: routeParams.workspaceSlug,
       response: withStandardErrorResponses({
-        200: workspaceSettingsSchema.operations.view.output.schema
+        200: workspaceSettingsSchema.operations.view.output
       })
     },
     async function (request, reply) {
@@ -43,7 +42,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspacePolicy: "required",
       workspaceSurface: "app",
       meta: {
         tags: workspaceRouteTags,
@@ -53,7 +51,7 @@ function registerWorkspaceSettingsRoutes(app) {
       body: workspaceSettingsSchema.operations.patch.body,
       response: withStandardErrorResponses(
         {
-          200: workspaceSettingsSchema.operations.view.output.schema
+          200: workspaceSettingsSchema.operations.view.output
         },
         { includeValidation400: true }
       )
@@ -75,7 +73,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/admin/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspacePolicy: "required",
       workspaceSurface: "admin",
       meta: {
         tags: workspaceRouteTags,
@@ -83,7 +80,7 @@ function registerWorkspaceSettingsRoutes(app) {
       },
       params: routeParams.workspaceSlug,
       response: withStandardErrorResponses({
-        200: workspaceSettingsSchema.operations.view.output.schema
+        200: workspaceSettingsSchema.operations.view.output
       })
     },
     async function (request, reply) {
@@ -102,7 +99,6 @@ function registerWorkspaceSettingsRoutes(app) {
     "/api/admin/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
-      workspacePolicy: "required",
       workspaceSurface: "admin",
       meta: {
         tags: workspaceRouteTags,
@@ -112,7 +108,7 @@ function registerWorkspaceSettingsRoutes(app) {
       body: workspaceSettingsSchema.operations.patch.body,
       response: withStandardErrorResponses(
         {
-          200: workspaceSettingsSchema.operations.view.output.schema
+          200: workspaceSettingsSchema.operations.view.output
         },
         { includeValidation400: true }
       )

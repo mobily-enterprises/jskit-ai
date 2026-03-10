@@ -8,25 +8,7 @@ import {
   allowPublic,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
 import { workspaceInviteSchema } from "../../shared/contracts/resources/workspaceInviteSchema.js";
-
-function hasPermission(permissionSet, permission) {
-  const requiredPermission = String(permission || "").trim();
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const permissions = Array.isArray(permissionSet) ? permissionSet : [];
-  return permissions.includes("*") || permissions.includes(requiredPermission);
-}
-
-function requireWorkspaceSettingsReadPermission(context) {
-  return (
-    hasPermission(context?.permissions, "workspace.settings.view") ||
-    hasPermission(context?.permissions, "workspace.settings.update")
-  );
-}
 
 const DEFAULT_WORKSPACE_CHANNELS = Object.freeze(["api", "internal"]);
 const WORKSPACE_SERVICE_METHODS = Object.freeze([
@@ -36,8 +18,6 @@ const WORKSPACE_SERVICE_METHODS = Object.freeze([
 ]);
 const WORKSPACE_ADMIN_SERVICE_METHODS = Object.freeze([
   "getRoleCatalog",
-  "getWorkspaceSettings",
-  "updateWorkspaceSettings",
   "listMembers",
   "updateMemberRole",
   "listInvites",
@@ -158,31 +138,6 @@ function createWorkspaceActionContributor({ workspaceService, workspaceAdminServ
         return {
           roleCatalog: workspaceAdminService.getRoleCatalog()
         };
-      }
-    }),
-    createWorkspaceActionDefinition({
-      id: "workspace.settings.read",
-      surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      permission: requireWorkspaceSettingsReadPermission,
-      execute: async (input, context) => {
-        return workspaceAdminService.getWorkspaceSettings(resolveWorkspace(context, input), {
-          includeAppSurfaceDenyLists: hasPermission(context?.permissions, "workspace.settings.update")
-        });
-      }
-    }),
-    createWorkspaceActionDefinition({
-      id: "workspace.settings.update",
-      kind: "command",
-      channels: ["api", "assistant_tool", "internal"],
-      surfaces: runtimeSurfaces.workspaceSurfaceIds,
-      permission: ["workspace.settings.update"],
-      idempotency: "optional",
-      assistantTool: {
-        description: "Update workspace settings.",
-        inputJsonSchema: workspaceSettingsSchema.operations.patch.body.schema
-      },
-      execute: async (input, context) => {
-        return workspaceAdminService.updateWorkspaceSettings(resolveWorkspace(context, input), normalizeObject(input));
       }
     }),
     createWorkspaceActionDefinition({

@@ -16,7 +16,9 @@ test("defineRouteContract compiles body/query/params and maps query schema to qu
   };
   const responseSchema = {
     200: {
-      type: "object"
+      schema: {
+        type: "object"
+      }
     }
   };
   const headersSchema = {
@@ -62,7 +64,11 @@ test("defineRouteContract compiles body/query/params and maps query schema to qu
     body: bodySchema,
     querystring: querySchema,
     params: paramsSchema,
-    response: responseSchema,
+    response: {
+      200: {
+        type: "object"
+      }
+    },
     headers: headersSchema
   });
   assert.equal(compiled.input.body, normalizeBody);
@@ -89,6 +95,41 @@ test("compileRouteContract accepts plain contract objects", () => {
     querystring: querySchema
   });
   assert.equal(compiled.input.query, normalizeQuery);
+});
+
+test("compileRouteContract accepts response contract objects and preserves output normalizers", () => {
+  const responseBodySchema = {
+    type: "object"
+  };
+  const normalizeOutput = (payload) => ({
+    ...payload,
+    normalized: true
+  });
+
+  const compiled = compileRouteContract({
+    response: {
+      200: {
+        schema: responseBodySchema,
+        normalize: normalizeOutput
+      },
+      400: {
+        schema: {
+          type: "object"
+        }
+      }
+    }
+  });
+
+  assert.deepEqual(compiled.schema, {
+    response: {
+      200: responseBodySchema,
+      400: {
+        type: "object"
+      }
+    }
+  });
+  assert.equal(compiled.output["200"], normalizeOutput);
+  assert.equal(Object.prototype.hasOwnProperty.call(compiled.output, "400"), false);
 });
 
 test("compileRouteContract merges query contract arrays automatically", () => {

@@ -52,9 +52,9 @@ function normalizeMemberRoleBody(body) {
   };
 }
 
-function buildWorkspaceResponse(payloadSchema, includeValidation400 = false) {
+function buildWorkspaceResponse(successResponse, includeValidation400 = false) {
   const responseMap = {
-    200: payloadSchema
+    200: successResponse
   };
 
   if (includeValidation400) {
@@ -108,7 +108,7 @@ class UsersRouteServiceProvider {
         summary: "Get startup bootstrap payload with session, app, workspace, and settings context"
       },
       query: routeQueries.workspaceBootstrap,
-      response: buildWorkspaceResponse(workspaceSchema.response.bootstrap),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.bootstrap }),
       handler: async function (request, reply) {
         const oauthProviderCatalog = typeof authService.getOAuthProviderCatalog === "function" ? authService.getOAuthProviderCatalog() : null;
         const oauthProviders = Array.isArray(oauthProviderCatalog?.providers)
@@ -182,7 +182,7 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List workspaces visible to authenticated user"
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.workspacesList),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.workspacesList }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.WORKSPACES_LIST
@@ -199,7 +199,7 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List pending workspace invitations for authenticated user"
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.pendingInvites),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.pendingInvites }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST
@@ -220,7 +220,7 @@ class UsersRouteServiceProvider {
         schema: workspaceSchema.body.redeemInvite,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.respondToInvite, true),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.respondToInvite }, true),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_REDEEM,
@@ -243,7 +243,7 @@ class UsersRouteServiceProvider {
         summary: "Get workspace role catalog by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.roles),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.roles }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
@@ -266,7 +266,7 @@ class UsersRouteServiceProvider {
         summary: "List members by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.members),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.members }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
@@ -293,7 +293,7 @@ class UsersRouteServiceProvider {
         schema: workspaceSchema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.members, true),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.members }, true),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
@@ -318,7 +318,7 @@ class UsersRouteServiceProvider {
         summary: "List workspace invites by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.invites),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
@@ -345,7 +345,7 @@ class UsersRouteServiceProvider {
         schema: workspaceSchema.body.createInvite,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }, true),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
@@ -369,7 +369,7 @@ class UsersRouteServiceProvider {
         summary: "Revoke workspace invite by workspace slug"
       },
       params: [routeParams.workspaceSlug, routeParams.inviteId],
-      response: buildWorkspaceResponse(workspaceSchema.response.invites),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
@@ -393,7 +393,7 @@ class UsersRouteServiceProvider {
         summary: "Get workspace role catalog by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.roles),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.roles }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
@@ -416,7 +416,7 @@ class UsersRouteServiceProvider {
         summary: "List members by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.members),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.members }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
@@ -443,7 +443,7 @@ class UsersRouteServiceProvider {
         schema: workspaceSchema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.members, true),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.members }, true),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
@@ -468,7 +468,7 @@ class UsersRouteServiceProvider {
         summary: "List workspace invites by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      response: buildWorkspaceResponse(workspaceSchema.response.invites),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
@@ -495,7 +495,7 @@ class UsersRouteServiceProvider {
         schema: workspaceSchema.body.createInvite,
         normalize: normalizeObjectInput
       },
-      response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }, true),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
@@ -519,7 +519,7 @@ class UsersRouteServiceProvider {
         summary: "Revoke workspace invite by workspace slug"
       },
       params: [routeParams.workspaceSlug, routeParams.inviteId],
-      response: buildWorkspaceResponse(workspaceSchema.response.invites),
+      response: buildWorkspaceResponse({ schema: workspaceSchema.response.invites }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
@@ -541,7 +541,7 @@ class UsersRouteServiceProvider {
         summary: "Get authenticated user's settings"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.response
+        200: { schema: settingsSchema.response }
       }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
@@ -565,7 +565,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: { schema: settingsSchema.response }
         },
         { includeValidation400: true }
       ),
@@ -599,7 +599,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.profile.avatar.upload"].operation.response.schema
+          200: { schema: settingsSchema.commands["settings.profile.avatar.upload"].operation.response.schema }
         },
         { includeValidation400: true }
       ),
@@ -639,7 +639,7 @@ class UsersRouteServiceProvider {
         summary: "Delete profile avatar and fallback to gravatar"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.commands["settings.profile.avatar.delete"].operation.response.schema
+        200: { schema: settingsSchema.commands["settings.profile.avatar.delete"].operation.response.schema }
       }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
@@ -663,7 +663,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: { schema: settingsSchema.response }
         },
         { includeValidation400: true }
       ),
@@ -690,7 +690,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: { schema: settingsSchema.response }
         },
         { includeValidation400: true }
       ),
@@ -717,7 +717,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.response
+          200: { schema: settingsSchema.response }
         },
         { includeValidation400: true }
       ),
@@ -744,7 +744,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.password.change"].operation.response.schema
+          200: { schema: settingsSchema.commands["settings.security.password.change"].operation.response.schema }
         },
         { includeValidation400: true }
       ),
@@ -783,7 +783,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.password_method.toggle"].operation.response.schema
+          200: { schema: settingsSchema.commands["settings.security.password_method.toggle"].operation.response.schema }
         },
         { includeValidation400: true }
       ),
@@ -814,7 +814,7 @@ class UsersRouteServiceProvider {
       query: routeQueries.oauthReturnTo,
       response: withStandardErrorResponses(
         {
-          302: Type.Unknown()
+          302: { schema: Type.Unknown() }
         },
         { includeValidation400: true }
       ),
@@ -850,7 +850,7 @@ class UsersRouteServiceProvider {
       params: routeParams.provider,
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.oauth.unlink"].operation.response.schema
+          200: { schema: settingsSchema.commands["settings.security.oauth.unlink"].operation.response.schema }
         },
         { includeValidation400: true }
       ),
@@ -881,7 +881,7 @@ class UsersRouteServiceProvider {
         summary: "Sign out from other active sessions"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.commands["settings.security.sessions.logout_others"].operation.response.schema
+        200: { schema: settingsSchema.commands["settings.security.sessions.logout_others"].operation.response.schema }
       }),
       rateLimit: {
         max: 20,
@@ -905,7 +905,7 @@ class UsersRouteServiceProvider {
         summary: "Get console settings"
       },
       response: withStandardErrorResponses({
-        200: consoleSettingsSchema.response.settings
+        200: { schema: consoleSettingsSchema.response.settings }
       }),
       handler: async function (request, reply) {
         const response = await request.executeAction({
@@ -930,7 +930,7 @@ class UsersRouteServiceProvider {
       },
       response: withStandardErrorResponses(
         {
-          200: consoleSettingsSchema.response.settings
+          200: { schema: consoleSettingsSchema.response.settings }
         },
         { includeValidation400: true }
       ),
