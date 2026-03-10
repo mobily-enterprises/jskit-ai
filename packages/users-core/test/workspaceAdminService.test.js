@@ -56,14 +56,6 @@ function createFixture() {
         return null;
       },
       async revokeById() {}
-    },
-    workspaceService: {
-      hashInviteToken(value) {
-        return `hash:${value}`;
-      },
-      async redeemInviteByToken(payload) {
-        return payload;
-      }
     }
   });
 

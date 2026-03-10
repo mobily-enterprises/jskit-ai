@@ -22,7 +22,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        pendingInvites: await deps.workspaceService.listPendingInvitesForUser(resolveUser(context, input))
+        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
       };
     }
   },
@@ -42,7 +42,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const payload = normalizeObject(input);
-      return deps.workspaceAdminService.respondToPendingInviteByToken({
+      return deps.workspacePendingInvitationsService.redeemInviteByToken({
         user: resolveUser(context, payload),
         inviteToken: payload.token || payload.inviteToken,
         decision: payload.decision

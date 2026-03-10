@@ -1,8 +1,4 @@
 import { createHash } from "node:crypto";
-import {
-  encodeInviteTokenHash,
-  resolveInviteTokenHash
-} from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   TENANCY_MODE_NONE,
@@ -15,18 +11,15 @@ import {
   OWNER_ROLE_ID,
   resolveRolePermissions
 } from "../../shared/roles.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function normalizeEmail(value) {
-  return normalizeLowerText(value);
-}
+import {
+  mapMembershipSummary,
+  mapWorkspaceSettingsPublic,
+  mapWorkspaceSummary,
+  normalizeEmail,
+  normalizeLowerText,
+  normalizeText,
+  normalizeUserProfile
+} from "./workspaceMappings.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -60,56 +53,6 @@ function buildWorkspaceName(user = {}) {
   return "Workspace";
 }
 
-function normalizeUserProfile(profile) {
-  const source = profile && typeof profile === "object" ? profile : {};
-  const id = Number(source.id);
-  if (!Number.isInteger(id) || id < 1) {
-    return null;
-  }
-
-  return {
-    id,
-    email: normalizeEmail(source.email),
-    displayName: normalizeText(source.displayName) || normalizeEmail(source.email) || `User ${id}`,
-    authProvider: normalizeLowerText(source.authProvider),
-    authProviderUserId: normalizeText(source.authProviderUserId),
-    avatarStorageKey: source.avatarStorageKey ? normalizeText(source.avatarStorageKey) : null,
-    avatarVersion: source.avatarVersion == null ? null : String(source.avatarVersion)
-  };
-}
-
-function mapWorkspaceSummary(workspace, membership) {
-  return {
-    id: Number(workspace.id),
-    slug: normalizeText(workspace.slug),
-    name: normalizeText(workspace.name),
-    color: coerceWorkspaceColor(workspace.color),
-    avatarUrl: normalizeText(workspace.avatarUrl),
-    roleId: normalizeLowerText(membership?.roleId || "member") || "member",
-    isAccessible: normalizeLowerText(membership?.status || "active") === "active"
-  };
-}
-
-function mapWorkspaceSettingsPublic(workspaceSettings) {
-  const source = workspaceSettings && typeof workspaceSettings === "object" ? workspaceSettings : {};
-  return {
-    invitesEnabled: source.invitesEnabled !== false,
-    invitesAvailable: true,
-    invitesEffective: source.invitesEnabled !== false
-  };
-}
-
-function mapMembershipSummary(membership, workspace) {
-  if (!membership) {
-    return null;
-  }
-  return {
-    workspaceId: Number(workspace?.id || membership.workspaceId),
-    roleId: normalizeLowerText(membership.roleId || "member") || "member",
-    status: normalizeLowerText(membership.status || "active") || "active"
-  };
-}
-
 function buildPermissionsFromMembership(membership) {
   const roleId = normalizeLowerText(membership?.roleId || "member");
   return resolveRolePermissions(roleId);
@@ -140,7 +83,6 @@ function createService({
   workspacesRepository,
   workspaceMembershipsRepository,
   workspaceSettingsRepository,
-  workspaceInvitesRepository,
   userSettingsRepository,
   userProfilesRepository
 } = {}) {
@@ -148,7 +90,6 @@ function createService({
     !workspacesRepository ||
     !workspaceMembershipsRepository ||
     !workspaceSettingsRepository ||
-    !workspaceInvitesRepository ||
     !userSettingsRepository ||
     !userProfilesRepository
   ) {
@@ -302,7 +243,7 @@ function createService({
     };
   }
 
-  async function buildBootstrapPayload({ request = null, user = null, workspaceSlug = "" } = {}) {
+  async function buildBootstrapPayload({ request = null, user = null, workspaceSlug = "", pendingInvites = [] } = {}) {
     const normalizedUser = normalizeUserProfile(user);
     if (!normalizedUser) {
       return {
@@ -340,8 +281,6 @@ function createService({
     }
 
     const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
-    const pendingInvites = await listPendingInvitesForUser(latestProfile);
-
     return {
       session: {
         authenticated: true,
@@ -392,101 +331,6 @@ function createService({
     };
   }
 
-  async function listPendingInvitesForUser(user, options = {}) {
-    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
-      return [];
-    }
-
-    const normalizedUser = normalizeUserProfile(user);
-    if (!normalizedUser || !normalizedUser.email) {
-      return [];
-    }
-
-    const invites = await workspaceInvitesRepository.listPendingByEmail(normalizedUser.email, options);
-    return invites.map((invite) => ({
-      id: invite.id,
-      workspaceId: invite.workspaceId,
-      workspaceSlug: invite.workspaceSlug || "",
-      workspaceName: invite.workspaceName || invite.workspaceSlug || "Workspace",
-      workspaceAvatarUrl: invite.workspaceAvatarUrl || "",
-      roleId: invite.roleId,
-      status: invite.status,
-      expiresAt: invite.expiresAt,
-      token: encodeInviteTokenHash(invite.tokenHash)
-    }));
-  }
-
-  async function redeemInviteByToken({ user, token, decision }, options = {}) {
-    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
-      throw new AppError(403, "Workspace invites are disabled.");
-    }
-
-    const normalizedUser = normalizeUserProfile(user);
-    if (!normalizedUser) {
-      throw new AppError(401, "Authentication required.");
-    }
-
-    const normalizedDecision = normalizeLowerText(decision);
-    if (normalizedDecision !== "accept" && normalizedDecision !== "refuse") {
-      throw new AppError(400, "decision must be accept or refuse.");
-    }
-
-    const normalizedToken = normalizeText(token);
-    if (!normalizedToken) {
-      throw new AppError(400, "Invite token is required.");
-    }
-
-    const tokenHash = resolveInviteTokenHash(normalizedToken);
-    if (!tokenHash) {
-      throw new AppError(400, "Invite token is invalid.");
-    }
-
-    const invite = await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
-    if (!invite) {
-      throw new AppError(404, "Invitation not found or already handled.");
-    }
-
-    if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
-      await workspaceInvitesRepository.revokeById(invite.id, options);
-      throw new AppError(409, "Invitation has expired.");
-    }
-
-    if (normalizeLowerText(invite.email) !== normalizedUser.email) {
-      throw new AppError(403, "Invitation email does not match authenticated user.");
-    }
-
-    if (normalizedDecision === "accept") {
-      await workspaceMembershipsRepository.upsertMembership(
-        invite.workspaceId,
-        normalizedUser.id,
-        {
-          roleId: invite.roleId,
-          status: "active"
-        },
-        options
-      );
-      await workspaceInvitesRepository.markAcceptedById(invite.id, options);
-      const workspace = await workspacesRepository.findById(invite.workspaceId, options);
-      if (!workspace) {
-        throw new AppError(404, "Workspace not found.");
-      }
-      const acceptedWorkspace = await resolveWorkspaceContextForUserBySlug(normalizedUser, workspace.slug, options);
-
-      return {
-        decision: "accepted",
-        workspace: mapWorkspaceSummary(acceptedWorkspace.workspace, acceptedWorkspace.membership),
-        membership: mapMembershipSummary(acceptedWorkspace.membership, acceptedWorkspace.workspace),
-        permissions: acceptedWorkspace.permissions,
-        workspaceSettings: mapWorkspaceSettingsPublic(acceptedWorkspace.workspaceSettings)
-      };
-    }
-
-    await workspaceInvitesRepository.revokeById(invite.id, options);
-    return {
-      decision: "refused"
-    };
-  }
-
   return Object.freeze({
     toSlugPart,
     buildWorkspaceName,
@@ -495,9 +339,7 @@ function createService({
     ensurePersonalWorkspaceForUser,
     buildBootstrapPayload,
     listWorkspacesForUser,
-    resolveWorkspaceContextForUserBySlug,
-    listPendingInvitesForUser,
-    redeemInviteByToken
+    resolveWorkspaceContextForUserBySlug
   });
 }
 

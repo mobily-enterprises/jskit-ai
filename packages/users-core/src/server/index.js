@@ -21,6 +21,7 @@ export { workspaceDirectoryActions } from "./workspaceDirectory/workspaceDirecto
 
 export { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/registerWorkspacePendingInvitationsRoutes.js";
 export { workspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
+export { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 
 export { registerWorkspaceSettingsRoutes } from "./workspaceSettings/registerWorkspaceSettingsRoutes.js";
 export { workspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";

@@ -23,10 +23,13 @@ const workspaceBootstrapActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const payload = normalizeObject(input);
+      const user = resolveUser(context, payload);
+      const pendingInvites = await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user);
       return deps.workspaceService.buildBootstrapPayload({
         request: resolveRequest(context),
-        user: resolveUser(context, payload),
-        workspaceSlug: payload.workspaceSlug
+        user,
+        workspaceSlug: payload.workspaceSlug,
+        pendingInvites
       });
     }
   }

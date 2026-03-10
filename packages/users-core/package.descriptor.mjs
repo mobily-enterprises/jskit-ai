@@ -96,32 +96,32 @@ export default Object.freeze({
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/roles",
+          path: "/api/w/:workspaceSlug/workspace/roles",
           summary: "Get workspace role catalog by workspace slug."
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members",
+          path: "/api/w/:workspaceSlug/workspace/members",
           summary: "List members by workspace slug."
         },
         {
           method: "PATCH",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/members/:memberUserId/role",
+          path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role",
           summary: "Update workspace member role by workspace slug."
         },
         {
           method: "GET",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          path: "/api/w/:workspaceSlug/workspace/invites",
           summary: "List workspace invites by workspace slug."
         },
         {
           method: "POST",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites",
+          path: "/api/w/:workspaceSlug/workspace/invites",
           summary: "Create workspace invite by workspace slug."
         },
         {
           method: "DELETE",
-          path: "/api/<workspace-surface-prefix>/w/:workspaceSlug/workspace/invites/:inviteId",
+          path: "/api/w/:workspaceSlug/workspace/invites/:inviteId",
           summary: "Revoke workspace invite by workspace slug."
         },
         {

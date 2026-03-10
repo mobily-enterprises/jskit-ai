@@ -14,6 +14,7 @@ import { createRepository as createWorkspaceInvitesRepository } from "./workspac
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createService as createWorkspaceService } from "./workspace/workspaceService.js";
 import { createService as createWorkspaceAdminService } from "./workspace/workspaceAdminService.js";
+import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
 import { createService as createSettingsService } from "./account/accountSettingsService.js";
 import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
@@ -51,6 +52,7 @@ const USERS_WORKSPACE_PENDING_INVITATIONS_CONTRIBUTOR_TOKEN = "users.core.worksp
 const USERS_WORKSPACE_MEMBERS_CONTRIBUTOR_TOKEN = "users.core.workspaceMembers.actionDefinitions";
 const USERS_WORKSPACE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.workspaceSettings.actionDefinitions";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
+const USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN = "users.workspace.pending-invitations.service";
 const USERS_ACCOUNT_PROFILE_ACTION_DEFINITIONS_TOKEN = "users.core.accountProfile.actionDefinitions";
 const USERS_ACCOUNT_PREFERENCES_ACTION_DEFINITIONS_TOKEN = "users.core.accountPreferences.actionDefinitions";
 const USERS_ACCOUNT_NOTIFICATIONS_ACTION_DEFINITIONS_TOKEN = "users.core.accountNotifications.actionDefinitions";
@@ -125,7 +127,6 @@ class UsersCoreServiceProvider {
         workspacesRepository: scope.make("workspacesRepository"),
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
-        workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
         userSettingsRepository: scope.make("userSettingsRepository"),
         userProfilesRepository: scope.make("userProfilesRepository")
       });
@@ -144,7 +145,17 @@ class UsersCoreServiceProvider {
     app.singleton("users.workspace.admin.service", (scope) => {
       return createWorkspaceAdminService({
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
+        workspaceInvitesRepository: scope.make("workspaceInvitesRepository")
+      });
+    });
+
+    app.singleton(USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN, (scope) => {
+      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+      return createWorkspacePendingInvitationsService({
+        appConfig,
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
+        workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
+        workspacesRepository: scope.make("workspacesRepository"),
         workspaceService: scope.make("users.workspace.service")
       });
     });
@@ -175,7 +186,8 @@ class UsersCoreServiceProvider {
       contributorId: "users.workspace-bootstrap",
       domain: "workspace",
       dependencies: {
-        workspaceService: "users.workspace.service"
+        workspaceService: "users.workspace.service",
+        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
       },
       actions: workspaceBootstrapActions
     });
@@ -193,8 +205,7 @@ class UsersCoreServiceProvider {
       contributorId: "users.workspace-pending-invitations",
       domain: "workspace",
       dependencies: {
-        workspaceService: "users.workspace.service",
-        workspaceAdminService: "users.workspace.admin.service"
+        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
       },
       actions: workspacePendingInvitationsActions
     });

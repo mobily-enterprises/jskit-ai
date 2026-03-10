@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   listRoleDescriptors,
@@ -17,6 +17,10 @@ function normalizeLowerText(value) {
 
 function normalizeEmail(value) {
   return normalizeLowerText(value);
+}
+
+function hashInviteToken(token) {
+  return createHash("sha256").update(normalizeText(token)).digest("hex");
 }
 
 function mapWorkspaceAdminSummary(workspace) {
@@ -54,26 +58,12 @@ function mapInviteSummary(invite) {
   };
 }
 
-function requireResolvedWorkspace(workspace) {
-  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
-    throw new Error("workspaceAdminService requires a resolved workspace.");
-  }
-
-  const workspaceId = Number(workspace.id);
-  if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-    throw new Error("workspaceAdminService requires a resolved workspace.");
-  }
-
-  return workspace;
-}
-
 function createService({
   workspaceMembershipsRepository,
-  workspaceInvitesRepository,
-  workspaceService
+  workspaceInvitesRepository
 } = {}) {
-  if (!workspaceMembershipsRepository || !workspaceInvitesRepository || !workspaceService) {
-    throw new Error("workspaceAdminService requires membership/invite repositories and workspaceService.");
+  if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
+    throw new Error("workspaceAdminService requires membership and invite repositories.");
   }
 
   const roleDescriptors = listRoleDescriptors();
@@ -89,18 +79,16 @@ function createService({
   }
 
   async function listMembers(workspace, options = {}) {
-    const resolvedWorkspace = requireResolvedWorkspace(workspace);
-    const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(resolvedWorkspace.id, options);
+    const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(resolvedWorkspace),
-      members: members.map((member) => mapMemberSummary(member, resolvedWorkspace)),
+      workspace: mapWorkspaceAdminSummary(workspace),
+      members: members.map((member) => mapMemberSummary(member, workspace)),
       roleCatalog: getRoleCatalog()
     };
   }
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
-    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const memberUserId = Number(payload.memberUserId);
     if (!Number.isInteger(memberUserId) || memberUserId < 1) {
       throw new AppError(400, "Validation failed.", {
@@ -132,20 +120,16 @@ function createService({
       });
     }
 
-    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
-      resolvedWorkspace.id,
-      memberUserId,
-      options
-    );
+    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(resolvedWorkspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
+    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot change workspace owner role.");
     }
 
     await workspaceMembershipsRepository.upsertMembership(
-      resolvedWorkspace.id,
+      workspace.id,
       memberUserId,
       {
         roleId,
@@ -154,22 +138,20 @@ function createService({
       options
     );
 
-    return listMembers(resolvedWorkspace, options);
+    return listMembers(workspace, options);
   }
 
   async function listInvites(workspace, options = {}) {
-    const resolvedWorkspace = requireResolvedWorkspace(workspace);
-    const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(resolvedWorkspace.id, options);
+    const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(resolvedWorkspace),
+      workspace: mapWorkspaceAdminSummary(workspace),
       invites: invites.map(mapInviteSummary),
       roleCatalog: getRoleCatalog()
     };
   }
 
   async function createInvite(workspace, user, payload = {}, options = {}) {
-    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@")) {
       throw new AppError(400, "Validation failed.", {
@@ -193,11 +175,11 @@ function createService({
     }
 
     const token = randomBytes(24).toString("hex");
-    const tokenHash = workspaceService.hashInviteToken(token);
-    await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(resolvedWorkspace.id, email, options);
+    const tokenHash = hashInviteToken(token);
+    await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
     await workspaceInvitesRepository.insert(
       {
-        workspaceId: resolvedWorkspace.id,
+        workspaceId: workspace.id,
         email,
         roleId,
         status: "pending",
@@ -208,7 +190,7 @@ function createService({
       options
     );
 
-    const response = await listInvites(resolvedWorkspace, options);
+    const response = await listInvites(workspace, options);
     return {
       ...response,
       inviteTokenPreview: token
@@ -216,7 +198,6 @@ function createService({
   }
 
   async function revokeInvite(workspace, inviteId, options = {}) {
-    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const numericInviteId = Number(inviteId);
     if (!Number.isInteger(numericInviteId) || numericInviteId < 1) {
       throw new AppError(400, "Validation failed.", {
@@ -230,7 +211,7 @@ function createService({
 
     const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
       numericInviteId,
-      resolvedWorkspace.id,
+      workspace.id,
       options
     );
     if (!invite) {
@@ -238,40 +219,7 @@ function createService({
     }
 
     await workspaceInvitesRepository.revokeById(numericInviteId, options);
-    return listInvites(resolvedWorkspace, options);
-  }
-
-  async function respondToPendingInviteByToken({ user, inviteToken, decision } = {}, options = {}) {
-    const normalizedDecision = normalizeLowerText(decision);
-    if (normalizedDecision !== "accept" && normalizedDecision !== "refuse") {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            decision: "decision must be accept or refuse."
-          }
-        }
-      });
-    }
-
-    const token = normalizeText(inviteToken);
-    if (!token) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            token: "token is required."
-          }
-        }
-      });
-    }
-
-    return workspaceService.redeemInviteByToken(
-      {
-        user,
-        token,
-        decision: normalizedDecision
-      },
-      options
-    );
+    return listInvites(workspace, options);
   }
 
   return Object.freeze({
@@ -280,8 +228,7 @@ function createService({
     updateMemberRole,
     listInvites,
     createInvite,
-    revokeInvite,
-    respondToPendingInviteByToken
+    revokeInvite
   });
 }
 
