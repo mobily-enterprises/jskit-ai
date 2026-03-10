@@ -121,7 +121,7 @@
 </template>
 
 <script setup>
-import { reactive, watch } from "vue";
+import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
@@ -154,45 +154,6 @@ function parsePositiveIntegerList(value) {
         .filter((entry) => Number.isInteger(entry) && entry > 0)
     )
   );
-}
-
-function formatDebugPayload(value) {
-  const seen = new WeakSet();
-
-  try {
-    return JSON.stringify(
-      value,
-      (key, entry) => {
-        if (typeof entry === "function") {
-          return `[Function ${entry.name || "anonymous"}]`;
-        }
-
-        if (entry instanceof Error) {
-          return {
-            name: entry.name,
-            message: entry.message,
-            status: entry.status,
-            statusCode: entry.statusCode,
-            code: entry.code,
-            details: entry.details,
-            fieldErrors: entry.fieldErrors
-          };
-        }
-
-        if (entry && typeof entry === "object") {
-          if (seen.has(entry)) {
-            return "[Circular]";
-          }
-          seen.add(entry);
-        }
-
-        return entry;
-      },
-      2
-    );
-  } catch {
-    return String(value);
-  }
 }
 
 const workspaceForm = reactive({
@@ -262,42 +223,4 @@ const addEdit = useWorkspaceAddEdit({
   }),
   messages: workspaceSettingsSchema.operationMessages || {}
 });
-
-watch(
-  [
-    () => addEdit.canView,
-    () => addEdit.loadError,
-    () => addEdit.resource?.query?.error?.value,
-    () => addEdit.resource?.query?.data?.value,
-    () => addEdit.resource?.queryKey?.value,
-    () => addEdit.resource?.query?.isPending?.value,
-    () => addEdit.resource?.query?.isFetching?.value
-  ],
-  ([canView, loadError, error, data, queryKey, isPending, isFetching]) => {
-    console.log(
-      "[users-web-debug] workspace-settings-page",
-      formatDebugPayload({
-        canView,
-        loadError,
-        queryKey,
-        isPending,
-        isFetching,
-        error: error
-          ? {
-              name: error.name,
-              message: error.message,
-              status: error.status,
-              statusCode: error.statusCode,
-              code: error.code,
-              details: error.details,
-              fieldErrors: error.fieldErrors
-            }
-          : null,
-        hasData: Boolean(data),
-        dataKeys: data && typeof data === "object" ? Object.keys(data) : []
-      })
-    );
-  },
-  { immediate: true }
-);
 </script>
