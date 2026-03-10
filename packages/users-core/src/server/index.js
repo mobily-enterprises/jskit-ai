@@ -2,7 +2,6 @@ export { UsersCoreServiceProvider } from "./UsersCoreServiceProvider.js";
 
 export { createWorkspaceActionContextContributor } from "./workspace/workspaceActionContextContributor.js";
 export { createService as createWorkspaceService } from "./workspace/workspaceService.js";
-export { createService as createWorkspaceAdminService } from "./workspace/workspaceAdminService.js";
 export { createService as createSettingsService } from "./account/accountSettingsService.js";
 
 export { createRepository as createUserProfilesRepository } from "./account/userProfilesRepository.js";
@@ -30,6 +29,7 @@ export { createService as createWorkspaceSettingsService } from "./workspaceSett
 export { registerWorkspaceMembersRoutes } from "./workspaceMembers/registerWorkspaceMembersRoutes.js";
 
 export { workspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
+export { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
 export { registerAccountProfileRoutes } from "./accountProfile/registerAccountProfileRoutes.js";
 
 export { accountProfileActions } from "./accountProfile/accountProfileActions.js";

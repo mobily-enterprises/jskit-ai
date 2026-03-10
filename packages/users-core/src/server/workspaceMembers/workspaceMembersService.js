@@ -63,7 +63,7 @@ function createService({
   workspaceInvitesRepository
 } = {}) {
   if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
-    throw new Error("workspaceAdminService requires membership and invite repositories.");
+    throw new Error("workspaceMembersService requires membership and invite repositories.");
   }
 
   const roleDescriptors = listRoleDescriptors();

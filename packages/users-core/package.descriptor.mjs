@@ -54,7 +54,7 @@ export default Object.freeze({
         server: [
           "users.core",
           "users.workspace.service",
-          "users.workspace.admin.service",
+          "users.workspace.members.service",
           "users.workspace.settings.service",
           "users.settings.service",
           "users.console.settings.service"

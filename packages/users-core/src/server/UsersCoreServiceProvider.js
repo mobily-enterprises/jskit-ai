@@ -13,8 +13,8 @@ import { createRepository as createWorkspaceSettingsRepository } from "./workspa
 import { createRepository as createWorkspaceInvitesRepository } from "./workspace/workspaceInvitesRepository.js";
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createService as createWorkspaceService } from "./workspace/workspaceService.js";
-import { createService as createWorkspaceAdminService } from "./workspace/workspaceAdminService.js";
 import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
+import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
 import { createService as createSettingsService } from "./account/accountSettingsService.js";
 import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
@@ -50,6 +50,7 @@ const USERS_WORKSPACE_BOOTSTRAP_CONTRIBUTOR_TOKEN = "users.core.workspaceBootstr
 const USERS_WORKSPACE_DIRECTORY_CONTRIBUTOR_TOKEN = "users.core.workspaceDirectory.actionDefinitions";
 const USERS_WORKSPACE_PENDING_INVITATIONS_CONTRIBUTOR_TOKEN = "users.core.workspacePendingInvitations.actionDefinitions";
 const USERS_WORKSPACE_MEMBERS_CONTRIBUTOR_TOKEN = "users.core.workspaceMembers.actionDefinitions";
+const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 const USERS_WORKSPACE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.workspaceSettings.actionDefinitions";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 const USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN = "users.workspace.pending-invitations.service";
@@ -142,8 +143,8 @@ class UsersCoreServiceProvider {
       });
     });
 
-    app.singleton("users.workspace.admin.service", (scope) => {
-      return createWorkspaceAdminService({
+    app.singleton(USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN, (scope) => {
+      return createWorkspaceMembersService({
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository")
       });
@@ -214,7 +215,7 @@ class UsersCoreServiceProvider {
       contributorId: "users.workspace-members",
       domain: "workspace",
       dependencies: {
-        workspaceAdminService: "users.workspace.admin.service"
+        workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
       },
       actions: workspaceMembersActions
     });

@@ -24,7 +24,7 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     async execute(_input, _context, deps) {
       return {
-        roleCatalog: deps.workspaceAdminService.getRoleCatalog()
+        roleCatalog: deps.workspaceMembersService.getRoleCatalog()
       };
     }
   },
@@ -43,7 +43,7 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceAdminService.listMembers(resolveWorkspace(context, input));
+      return deps.workspaceMembersService.listMembers(resolveWorkspace(context, input));
     }
   },
   {
@@ -62,7 +62,7 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const payload = normalizeObject(input);
-      return deps.workspaceAdminService.updateMemberRole(resolveWorkspace(context, payload), {
+      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, payload), {
         memberUserId: payload.memberUserId || payload.userId || payload.targetUserId || payload.params?.memberUserId,
         roleId: payload.roleId
       });
@@ -83,7 +83,7 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceAdminService.listInvites(resolveWorkspace(context, input));
+      return deps.workspaceMembersService.listInvites(resolveWorkspace(context, input));
     }
   },
   {
@@ -105,7 +105,7 @@ const workspaceMembersActions = Object.freeze([
       inputJsonSchema: workspaceInviteSchema.operations.create.body.schema
     },
     async execute(input, context, deps) {
-      return deps.workspaceAdminService.createInvite(
+      return deps.workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveUser(context, input),
         normalizeObject(input)
@@ -128,7 +128,7 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const payload = normalizeObject(input);
-      return deps.workspaceAdminService.revokeInvite(
+      return deps.workspaceMembersService.revokeInvite(
         resolveWorkspace(context, payload),
         payload.inviteId || payload.params?.inviteId
       );

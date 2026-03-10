@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/server/workspace/workspaceAdminService.js";
+import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 
 function createFixture() {
   const workspace = {
@@ -62,7 +62,7 @@ function createFixture() {
   return { service, workspace };
 }
 
-test("workspaceAdminService.listMembers uses the resolved workspace directly", async () => {
+test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();
 
   const response = await service.listMembers(workspace);
@@ -79,7 +79,7 @@ test("workspaceAdminService.listMembers uses the resolved workspace directly", a
   assert.equal(response.members[0].displayName, "Alice");
 });
 
-test("workspaceAdminService.updateMemberRole returns the refreshed member list without re-fetching the workspace", async () => {
+test("workspaceMembersService.updateMemberRole returns the refreshed member list without re-fetching the workspace", async () => {
   const { service, workspace } = createFixture();
 
   const response = await service.updateMemberRole(workspace, {
