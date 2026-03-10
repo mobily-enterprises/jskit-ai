@@ -30,7 +30,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             visibility: "public",
-            input: [{ schema: createPassThroughSchema() }],
+            input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -52,7 +52,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             visibility: "public",
-            input: [{ schema: createPassThroughSchema() }],
+            input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -189,7 +189,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 visibility: "public",
-                input: [{ schema: createPassThroughSchema() }],
+                input: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -216,7 +216,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 visibility: "public",
-                input: [{ schema: createPassThroughSchema() }],
+                input: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -280,7 +280,7 @@ test("action registry rejects invalid version requests", async () => {
             channels: ["api"],
             surfaces: ["app"],
             visibility: "public",
-            input: [{ schema: createPassThroughSchema() }],
+            input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -333,7 +333,7 @@ test("action registry enforces internal visibility for user actors", async () =>
             channels: ["api", "internal"],
             surfaces: ["app"],
             visibility: "internal",
-            input: [{ schema: createPassThroughSchema() }],
+            input: { schema: createPassThroughSchema() },
             permission: () => true,
             idempotency: "none",
             audit: {

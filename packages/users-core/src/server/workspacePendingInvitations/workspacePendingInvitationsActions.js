@@ -13,7 +13,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: [EMPTY_INPUT_CONTRACT],
+    input: EMPTY_INPUT_CONTRACT,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -33,7 +33,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: [workspaceInviteRedeemCommand.operation.body],
+    input: workspaceInviteRedeemCommand.operation.body,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

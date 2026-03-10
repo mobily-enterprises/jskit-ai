@@ -113,7 +113,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authRegisterCommand) }],
+    input: { schema: createBodyInputSchema(authRegisterCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -131,7 +131,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authLoginPasswordCommand) }],
+    input: { schema: createBodyInputSchema(authLoginPasswordCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -149,7 +149,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authLoginOtpRequestCommand) }],
+    input: { schema: createBodyInputSchema(authLoginOtpRequestCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -167,7 +167,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authLoginOtpVerifyCommand) }],
+    input: { schema: createBodyInputSchema(authLoginOtpVerifyCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -185,7 +185,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: parseOAuthStartInput }],
+    input: { schema: parseOAuthStartInput },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -203,7 +203,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authLoginOAuthCompleteCommand) }],
+    input: { schema: createBodyInputSchema(authLoginOAuthCompleteCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -221,7 +221,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authPasswordResetRequestCommand) }],
+    input: { schema: createBodyInputSchema(authPasswordResetRequestCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -239,7 +239,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authPasswordRecoveryCompleteCommand) }],
+    input: { schema: createBodyInputSchema(authPasswordRecoveryCompleteCommand) },
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -257,7 +257,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [{ schema: createBodyInputSchema(authPasswordResetCommand) }],
+    input: { schema: createBodyInputSchema(authPasswordResetCommand) },
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -275,7 +275,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [EMPTY_INPUT_CONTRACT],
+    input: EMPTY_INPUT_CONTRACT,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -296,7 +296,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     visibility: "public",
-    input: [EMPTY_INPUT_CONTRACT],
+    input: EMPTY_INPUT_CONTRACT,
     permission: allowPublic,
     idempotency: "none",
     audit: {

@@ -13,7 +13,7 @@ const consoleSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "console",
     visibility: "public",
-    input: [EMPTY_INPUT_CONTRACT],
+    input: EMPTY_INPUT_CONTRACT,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -31,7 +31,7 @@ const consoleSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "console",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

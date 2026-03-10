@@ -171,7 +171,7 @@ function mergeNormalizedActionContractParts(parts, fieldName) {
   return Object.freeze(normalized);
 }
 
-function normalizeActionInputParts(value, fieldName, { required = false } = {}) {
+function normalizeActionContractParts(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -182,19 +182,15 @@ function normalizeActionInputParts(value, fieldName, { required = false } = {}) 
     });
   }
 
-  if (!Array.isArray(value)) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be an array.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
+  const partsSource = Array.isArray(value) ? value : [value];
 
-  if (value.length < 1) {
+  if (partsSource.length < 1) {
     throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  const parts = value.map((entry, index) => {
+  const parts = partsSource.map((entry, index) => {
     const part = normalizeSingleActionContractPart(entry, `${fieldName}[${index}]`, {
       required: true
     });
@@ -361,7 +357,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     channels,
     surfaces,
     visibility,
-    input: normalizeActionInputParts(source.input, "input", {
+    input: normalizeActionContractParts(source.input, "input", {
       required: true
     }),
     output: normalizeActionContractPart(source.output, "output", {
@@ -420,7 +416,7 @@ const __testables = {
   normalizePositiveInteger,
   normalizeStringArray,
   normalizeSingleActionContractPart,
-  normalizeActionInputParts,
+  normalizeActionContractParts,
   normalizeActionContractPart,
   normalizePermissionPolicy,
   normalizeAuditConfig,

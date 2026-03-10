@@ -25,7 +25,7 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [inputParts.routeParams],
+    input: inputParts.routeParams,
     output: workspaceSettingsSchema.operations.view.output,
     permission: canReadWorkspaceSettings,
     idempotency: "none",

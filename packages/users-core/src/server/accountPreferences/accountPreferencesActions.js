@@ -14,7 +14,7 @@ const accountPreferencesActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

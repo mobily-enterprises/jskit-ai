@@ -15,7 +15,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [EMPTY_INPUT_CONTRACT],
+    input: EMPTY_INPUT_CONTRACT,
     permission: ["workspace.roles.view"],
     idempotency: "none",
     audit: {
@@ -35,7 +35,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -53,7 +53,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: ["workspace.members.manage"],
     idempotency: "optional",
     audit: {
@@ -75,7 +75,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -93,7 +93,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: ["workspace.members.invite"],
     idempotency: "optional",
     audit: {
@@ -119,7 +119,7 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [{ schema: OBJECT_INPUT_SCHEMA }],
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: ["workspace.invites.revoke"],
     idempotency: "optional",
     audit: {
