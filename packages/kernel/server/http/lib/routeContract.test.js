@@ -97,6 +97,33 @@ test("compileRouteContract accepts plain contract objects", () => {
   assert.equal(compiled.input.query, normalizeQuery);
 });
 
+test("compileRouteContract creates pass-through request.input transforms for schema-only params and query", () => {
+  const querySchema = {
+    type: "object"
+  };
+  const paramsSchema = {
+    type: "object"
+  };
+
+  const compiled = compileRouteContract({
+    query: {
+      schema: querySchema
+    },
+    params: {
+      schema: paramsSchema
+    }
+  });
+
+  assert.deepEqual(compiled.schema, {
+    querystring: querySchema,
+    params: paramsSchema
+  });
+  assert.equal(typeof compiled.input.query, "function");
+  assert.equal(typeof compiled.input.params, "function");
+  assert.deepEqual(compiled.input.query({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
+  assert.deepEqual(compiled.input.params({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
+});
+
 test("compileRouteContract accepts response contract objects and preserves output normalizers", () => {
   const responseBodySchema = {
     type: "object"

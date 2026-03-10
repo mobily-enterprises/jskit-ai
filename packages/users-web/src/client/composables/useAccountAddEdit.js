@@ -1,4 +1,4 @@
-import { computed, watch } from "vue";
+import { computed, watch, proxyRefs } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
 import { useUsersWebAccess } from "./useUsersWebAccess.js";
@@ -133,7 +133,7 @@ function useAccountAddEdit({
 
   const isLoading = computed(() => Boolean(resource.isLoading.value || access.isBootstrapping.value));
 
-  return Object.freeze({
+  return proxyRefs({
     canView,
     canSave,
     loadError,

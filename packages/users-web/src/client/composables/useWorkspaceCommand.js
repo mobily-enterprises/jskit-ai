@@ -1,4 +1,4 @@
-import { computed, watch } from "vue";
+import { computed, watch, proxyRefs } from "vue";
 import { useCommandCore } from "./useCommandCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
 import { useUsersWebWorkspaceAccess } from "./useUsersWebWorkspaceAccess.js";
@@ -113,7 +113,7 @@ function useWorkspaceCommand({
 
   const isLoading = computed(() => Boolean(access.isBootstrapping.value));
 
-  return Object.freeze({
+  return proxyRefs({
     canRun,
     isLoading,
     loadError,

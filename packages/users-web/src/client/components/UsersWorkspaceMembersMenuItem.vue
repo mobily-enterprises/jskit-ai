@@ -1,6 +1,7 @@
 <script setup>
 import {
-  computed
+  computed,
+  watch
 } from "vue";
 import {
   useWebPlacementContext
@@ -47,6 +48,19 @@ const resolvedTo = computed(() => {
     nonWorkspaceSuffix: "/members"
   });
 });
+
+watch(
+  [() => normalizePermissionList(placementContext.value?.permissions), canViewMembers, resolvedTo],
+  ([nextPermissions, nextCanViewMembers, nextResolvedTo]) => {
+    console.log("[users-web-debug] workspace-members-menu-item", {
+      surface: props.surface,
+      permissions: nextPermissions,
+      canViewMembers: nextCanViewMembers,
+      resolvedTo: nextResolvedTo
+    });
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

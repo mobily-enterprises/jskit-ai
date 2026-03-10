@@ -111,6 +111,49 @@ watch(
     void bootstrapQuery.query.refetch();
   }
 );
+
+watch(
+  [
+    currentSurfaceId,
+    workspaceSlug,
+    permissions,
+    canViewWorkspaceSettings,
+    resolvedTo,
+    () => bootstrapQuery.query.error.value,
+    () => bootstrapQuery.query.data.value
+  ],
+  ([
+    nextCurrentSurfaceId,
+    nextWorkspaceSlug,
+    nextPermissions,
+    nextCanViewWorkspaceSettings,
+    nextResolvedTo,
+    nextBootstrapError,
+    nextBootstrapData
+  ]) => {
+    console.log("[users-web-debug] workspace-settings-menu-item", {
+      surface: props.surface,
+      currentSurfaceId: nextCurrentSurfaceId,
+      workspaceSlug: nextWorkspaceSlug,
+      permissions: nextPermissions,
+      canViewWorkspaceSettings: nextCanViewWorkspaceSettings,
+      resolvedTo: nextResolvedTo,
+      bootstrapError: nextBootstrapError
+        ? {
+            name: nextBootstrapError.name,
+            message: nextBootstrapError.message,
+            status: nextBootstrapError.status,
+            statusCode: nextBootstrapError.statusCode,
+            code: nextBootstrapError.code,
+            details: nextBootstrapError.details
+          }
+        : null,
+      bootstrapPermissions: Array.isArray(nextBootstrapData?.permissions) ? nextBootstrapData.permissions : [],
+      bootstrapActiveWorkspaceSlug: String(nextBootstrapData?.activeWorkspace?.slug || "").trim()
+    });
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

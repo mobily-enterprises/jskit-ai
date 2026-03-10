@@ -231,6 +231,20 @@ watch(
   }
 );
 
+watch(
+  [routeWorkspaceSlug, activeWorkspace, permissions, isVisible, workspaceSwitchSurfaceId],
+  ([nextWorkspaceSlug, nextActiveWorkspace, nextPermissions, nextIsVisible, nextWorkspaceSwitchSurfaceId]) => {
+    console.log("[users-web-debug] workspace-selector", {
+      routeWorkspaceSlug: nextWorkspaceSlug,
+      activeWorkspaceSlug: String(nextActiveWorkspace?.slug || "").trim(),
+      permissions: nextPermissions,
+      isVisible: nextIsVisible,
+      workspaceSwitchSurfaceId: nextWorkspaceSwitchSurfaceId
+    });
+  },
+  { immediate: true }
+);
+
 </script>
 
 <template>

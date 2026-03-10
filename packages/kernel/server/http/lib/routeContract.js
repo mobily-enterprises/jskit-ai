@@ -5,6 +5,10 @@ import { RouteDefinitionError } from "./errors.js";
 const ROUTE_CONTRACT_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeContract");
 const CONTRACT_OPTION_KEYS = Object.freeze(["meta", "body", "query", "params", "response", "advanced"]);
 
+function passThroughInputSection(value) {
+  return value;
+}
+
 function resolveRouteLabel({ method = "", path = "" } = {}) {
   const normalizedMethod = normalizeText(method, {
     fallback: "<unknown>"
@@ -331,23 +335,23 @@ function compileNormalizedRouteContract(normalizedContract) {
 
   if (Object.prototype.hasOwnProperty.call(normalizedContract.body, "schema")) {
     schema.body = normalizedContract.body.schema;
-  }
-  if (typeof normalizedContract.body.normalize === "function") {
-    input.body = normalizedContract.body.normalize;
+    input.body = typeof normalizedContract.body.normalize === "function"
+      ? normalizedContract.body.normalize
+      : passThroughInputSection;
   }
 
   if (Object.prototype.hasOwnProperty.call(normalizedContract.query, "schema")) {
     schema.querystring = normalizedContract.query.schema;
-  }
-  if (typeof normalizedContract.query.normalize === "function") {
-    input.query = normalizedContract.query.normalize;
+    input.query = typeof normalizedContract.query.normalize === "function"
+      ? normalizedContract.query.normalize
+      : passThroughInputSection;
   }
 
   if (Object.prototype.hasOwnProperty.call(normalizedContract.params, "schema")) {
     schema.params = normalizedContract.params.schema;
-  }
-  if (typeof normalizedContract.params.normalize === "function") {
-    input.params = normalizedContract.params.normalize;
+    input.params = typeof normalizedContract.params.normalize === "function"
+      ? normalizedContract.params.normalize
+      : passThroughInputSection;
   }
 
   if (Object.prototype.hasOwnProperty.call(normalizedContract, "response")) {
