@@ -1,3 +1,4 @@
+import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./contracts.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
@@ -169,6 +170,17 @@ function buildSchemaContractError({ phase, definition } = {}) {
   });
 }
 
+function normalizeTypeBoxValidationErrors(schema, payload) {
+  const issues = Check(schema, payload) ? [] : [...Errors(schema, payload)];
+  if (issues.length < 1) {
+    return null;
+  }
+
+  return normalizeSchemaValidationErrors({
+    errors: issues
+  });
+}
+
 function normalizeFunctionSchemaResult(result, payload, { phase, definition } = {}) {
   if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
     throw buildSchemaContractError({ phase, definition });
@@ -203,7 +215,28 @@ function normalizeFunctionSchemaResult(result, payload, { phase, definition } = 
   });
 }
 
+async function normalizeContractPayload(contract, payload, { phase, definition, context }) {
+  if (!contract || typeof contract !== "object") {
+    return payload;
+  }
+
+  if (typeof contract.normalize !== "function") {
+    return payload;
+  }
+
+  return await contract.normalize(payload, {
+    phase,
+    actionId: definition?.id,
+    version: definition?.version,
+    context
+  });
+}
+
 async function validateSchemaPayload(schema, payload, { phase, definition }) {
+  if (schema == null) {
+    return payload;
+  }
+
   if (typeof schema === "function") {
     const result = await schema(payload, {
       phase,
@@ -213,8 +246,8 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
     return normalizeFunctionSchemaResult(result, payload, { phase, definition });
   }
 
-  if (!schema || typeof schema !== "object") {
-    return payload;
+  if (typeof schema !== "object" || Array.isArray(schema)) {
+    throw buildSchemaContractError({ phase, definition });
   }
 
   if (typeof schema.parse === "function") {
@@ -249,12 +282,28 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
     return payload;
   }
 
-  return payload;
+  const fieldErrors = normalizeTypeBoxValidationErrors(schema, payload);
+  if (!fieldErrors) {
+    return payload;
+  }
+
+  throw createActionRuntimeError(400, "Validation failed.", {
+    code: "ACTION_VALIDATION_FAILED",
+    details: {
+      fieldErrors
+    }
+  });
 }
 
 async function normalizeActionInput(definition, input, context) {
   try {
-    return await validateSchemaPayload(definition?.inputSchema, input, {
+    const normalizedInput = await normalizeContractPayload(definition?.input, input, {
+      phase: "input",
+      definition,
+      context
+    });
+
+    return await validateSchemaPayload(definition?.input?.schema, normalizedInput, {
       phase: "input",
       definition,
       context
@@ -275,12 +324,18 @@ async function normalizeActionInput(definition, input, context) {
 }
 
 async function normalizeActionOutput(definition, output, context) {
-  if (!definition?.outputSchema) {
+  if (!definition?.output) {
     return output;
   }
 
   try {
-    return await validateSchemaPayload(definition.outputSchema, output, {
+    const normalizedOutput = await normalizeContractPayload(definition.output, output, {
+      phase: "output",
+      definition,
+      context
+    });
+
+    return await validateSchemaPayload(definition.output.schema, normalizedOutput, {
       phase: "output",
       definition,
       context
@@ -309,6 +364,8 @@ const __testables = {
   normalizeLowerText,
   defaultHasPermission,
   normalizeSchemaValidationErrors,
+  normalizeTypeBoxValidationErrors,
+  normalizeContractPayload,
   validateSchemaPayload
 };
 

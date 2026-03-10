@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { DEFAULT_USER_SETTINGS } from "../../shared/settings.js";
 import { normalizeIdentity } from "./userProfilesRepository.js";
 
@@ -75,14 +77,16 @@ function resolveAuthProfileContract(authService) {
 }
 
 function parsePreferencesPatch(payload = {}) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const patch = {};
-
-  for (const key of ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"]) {
-    if (Object.hasOwn(source, key)) {
-      patch[key] = source[key];
-    }
-  }
+  const source = normalizeObjectInput(payload);
+  const patch = pickOwnProperties(source, [
+    "theme",
+    "locale",
+    "timeZone",
+    "dateFormat",
+    "numberFormat",
+    "currencyCode",
+    "avatarSize"
+  ]);
 
   if (Object.keys(patch).length < 1) {
     throw createValidationError({
@@ -94,13 +98,15 @@ function parsePreferencesPatch(payload = {}) {
 }
 
 function parseNotificationsPatch(payload = {}) {
-  const source = payload && typeof payload === "object" ? payload : {};
+  const source = pickOwnProperties(normalizeObjectInput(payload), [
+    "productUpdates",
+    "accountActivity",
+    "securityAlerts"
+  ]);
   const patch = {};
 
-  for (const key of ["productUpdates", "accountActivity", "securityAlerts"]) {
-    if (Object.hasOwn(source, key)) {
-      patch[key] = source[key] === true;
-    }
+  for (const [key, value] of Object.entries(source)) {
+    patch[key] = value === true;
   }
 
   if (Object.keys(patch).length < 1) {
@@ -113,20 +119,14 @@ function parseNotificationsPatch(payload = {}) {
 }
 
 function parseChatPatch(payload = {}) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const patch = {};
-
-  for (const key of [
+  const source = normalizeObjectInput(payload);
+  const patch = pickOwnProperties(source, [
     "publicChatId",
     "allowWorkspaceDms",
     "allowGlobalDms",
     "requireSharedWorkspaceForGlobalDm",
     "discoverableByPublicChatId"
-  ]) {
-    if (Object.hasOwn(source, key)) {
-      patch[key] = source[key];
-    }
-  }
+  ]);
 
   if (Object.keys(patch).length < 1) {
     throw createValidationError({

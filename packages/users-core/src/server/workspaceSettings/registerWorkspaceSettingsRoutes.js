@@ -47,10 +47,12 @@ function registerWorkspaceSettingsRoutes(app) {
         summary: "Update workspace settings by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      body: workspaceSettingsSchema.operations.patch.body,
+      body: {
+        schema: workspaceSettingsSchema.operations.patch.body.schema
+      },
       response: withStandardErrorResponses(
         {
-          200: workspaceSettingsSchema.operations.view.output
+          200: workspaceSettingsSchema.operations.patch.output
         },
         { includeValidation400: true }
       )
@@ -104,10 +106,12 @@ function registerWorkspaceSettingsRoutes(app) {
         summary: "Update workspace settings by workspace slug"
       },
       params: routeParams.workspaceSlug,
-      body: workspaceSettingsSchema.operations.patch.body,
+      body: {
+        schema: workspaceSettingsSchema.operations.patch.body.schema
+      },
       response: withStandardErrorResponses(
         {
-          200: workspaceSettingsSchema.operations.view.output
+          200: workspaceSettingsSchema.operations.patch.output
         },
         { includeValidation400: true }
       )

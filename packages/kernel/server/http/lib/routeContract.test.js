@@ -124,7 +124,7 @@ test("compileRouteContract creates pass-through request.input transforms for sch
   assert.deepEqual(compiled.input.params({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
 });
 
-test("compileRouteContract accepts response contract objects and preserves output normalizers", () => {
+test("compileRouteContract accepts response contract objects and extracts only response schemas", () => {
   const responseBodySchema = {
     type: "object"
   };
@@ -155,8 +155,7 @@ test("compileRouteContract accepts response contract objects and preserves outpu
       }
     }
   });
-  assert.equal(compiled.output["200"], normalizeOutput);
-  assert.equal(Object.prototype.hasOwnProperty.call(compiled.output, "400"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(compiled, "output"), false);
 });
 
 test("compileRouteContract merges query contract arrays automatically", () => {

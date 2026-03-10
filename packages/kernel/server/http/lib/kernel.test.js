@@ -445,41 +445,6 @@ test("registerRoutes attaches request.input when route input transforms are conf
   assert.equal(reply.statusCode, 200);
 });
 
-test("registerRoutes applies response output normalizers before reply.send", async () => {
-  const fastify = createFastifyStub();
-
-  registerRoutes(fastify, {
-    routes: [
-      {
-        method: "GET",
-        path: "/response-transform",
-        output: {
-          200: (payload) => ({
-            ...payload,
-            normalized: true
-          })
-        },
-        handler: async (_request, reply) => {
-          reply.code(200).send({
-            ok: true
-          });
-        }
-      }
-    ]
-  });
-
-  const request = {};
-  const reply = createReplyStub();
-
-  await fastify.routes[0].handler(request, reply);
-
-  assert.equal(reply.statusCode, 200);
-  assert.deepEqual(reply.payload, {
-    ok: true,
-    normalized: true
-  });
-});
-
 test("registerRoutes leaves request.input undefined when route input is not configured", async () => {
   const fastify = createFastifyStub();
 

@@ -130,7 +130,6 @@ class UsersCoreServiceProvider {
 
     app.singleton("users.workspace.admin.service", (scope) => {
       return createWorkspaceAdminService({
-        workspacesRepository: scope.make("workspacesRepository"),
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
         workspaceService: scope.make("users.workspace.service")

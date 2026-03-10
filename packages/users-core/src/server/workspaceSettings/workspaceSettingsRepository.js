@@ -5,14 +5,33 @@ import {
   nowDb,
   isDuplicateEntryError
 } from "../common/repositories/repositoryUtils.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { DEFAULT_WORKSPACE_SETTINGS } from "../../shared/settings.js";
+
+function normalizeWorkspaceFeatures(features) {
+  const source = normalizeObjectInput(features);
+  const surfaceAccess = normalizeObjectInput(source.surfaceAccess);
+  const appSurfaceAccess = normalizeObjectInput(surfaceAccess.app);
+
+  return {
+    ...source,
+    surfaceAccess: {
+      ...surfaceAccess,
+      app: {
+        ...appSurfaceAccess,
+        denyEmails: Array.isArray(appSurfaceAccess.denyEmails) ? [...appSurfaceAccess.denyEmails] : [],
+        denyUserIds: Array.isArray(appSurfaceAccess.denyUserIds) ? [...appSurfaceAccess.denyUserIds] : []
+      }
+    }
+  };
+}
 
 function mapRow(row) {
   if (!row) {
     return null;
   }
 
-  const features = parseJson(row.features_json, DEFAULT_WORKSPACE_SETTINGS.features);
+  const features = normalizeWorkspaceFeatures(parseJson(row.features_json, DEFAULT_WORKSPACE_SETTINGS.features));
 
   return {
     workspaceId: Number(row.workspace_id),
@@ -65,10 +84,10 @@ function createRepository(knex) {
     return findByWorkspaceId(numericWorkspaceId, { trx: client });
   }
 
-  async function updateByWorkspaceId(workspaceId, patch = {}, options = {}) {
+  async function updateSettingsByWorkspaceId(workspaceId, patch = {}, options = {}) {
     const client = options?.trx || knex;
     const ensured = await ensureForWorkspaceId(workspaceId, {}, { trx: client });
-    const source = patch && typeof patch === "object" ? patch : {};
+    const source = normalizeObjectInput(patch);
     const dbPatch = {
       updated_at: nowDb()
     };
@@ -76,8 +95,26 @@ function createRepository(knex) {
     if (Object.hasOwn(source, "invitesEnabled")) {
       dbPatch.invites_enabled = source.invitesEnabled === true;
     }
-    if (Object.hasOwn(source, "features")) {
-      dbPatch.features_json = toDbJson(source.features, ensured.features);
+    if (Object.hasOwn(source, "appDenyEmails") || Object.hasOwn(source, "appDenyUserIds")) {
+      const nextFeatures = {
+        ...ensured.features,
+        surfaceAccess: {
+          ...ensured.features.surfaceAccess,
+          app: {
+            ...ensured.features.surfaceAccess.app
+          }
+        }
+      };
+
+      if (Object.hasOwn(source, "appDenyEmails")) {
+        nextFeatures.surfaceAccess.app.denyEmails = source.appDenyEmails;
+      }
+
+      if (Object.hasOwn(source, "appDenyUserIds")) {
+        nextFeatures.surfaceAccess.app.denyUserIds = source.appDenyUserIds;
+      }
+
+      dbPatch.features_json = toDbJson(nextFeatures, ensured.features);
     }
 
     await client("workspace_settings").where({ workspace_id: Number(workspaceId) }).update(dbPatch);
@@ -87,7 +124,7 @@ function createRepository(knex) {
   return Object.freeze({
     findByWorkspaceId,
     ensureForWorkspaceId,
-    updateByWorkspaceId
+    updateSettingsByWorkspaceId
   });
 }
 

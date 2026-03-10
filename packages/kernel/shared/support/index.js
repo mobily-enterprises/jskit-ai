@@ -8,4 +8,5 @@ export {
   normalizeInteger,
   ensureNonEmptyText
 } from "./normalize.js";
+export { pickOwnProperties } from "./pickOwnProperties.js";
 export { sortStrings, sortById } from "./sorting.js";

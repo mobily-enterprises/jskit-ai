@@ -79,26 +79,7 @@ function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false
   return normalized;
 }
 
-function isSchemaContract(value) {
-  if (!value) {
-    return false;
-  }
-  if (typeof value === "function") {
-    return true;
-  }
-  if (typeof value !== "object") {
-    return false;
-  }
-
-  return (
-    typeof value.parse === "function" ||
-    typeof value.validate === "function" ||
-    typeof value.assert === "function" ||
-    typeof value.check === "function"
-  );
-}
-
-function normalizeSchemaContract(value, fieldName, { required = false } = {}) {
+function normalizeActionContractPart(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -109,13 +90,39 @@ function normalizeSchemaContract(value, fieldName, { required = false } = {}) {
     });
   }
 
-  if (!isSchemaContract(value)) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a schema contract.`, {
+  if (!isPlainObject(value)) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be an object.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  return value;
+  if (!Object.prototype.hasOwnProperty.call(value, "schema")) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema is required.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (
+    value.schema == null ||
+    (typeof value.schema !== "function" && (typeof value.schema !== "object" || Array.isArray(value.schema)))
+  ) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema must be a function or object.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, "normalize")) {
+    if (value.normalize != null && typeof value.normalize !== "function") {
+      throw createActionRuntimeError(500, `Action definition ${fieldName}.normalize must be a function.`, {
+        code: "ACTION_DEFINITION_INVALID"
+      });
+    }
+  }
+
+  return Object.freeze({
+    schema: value.schema,
+    ...(typeof value.normalize === "function" ? { normalize: value.normalize } : {})
+  });
 }
 
 function normalizePermissionPolicy(permission) {
@@ -262,10 +269,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     channels,
     surfaces,
     visibility,
-    inputSchema: normalizeSchemaContract(source.inputSchema, "inputSchema", {
+    input: normalizeActionContractPart(source.input, "input", {
       required: true
     }),
-    outputSchema: normalizeSchemaContract(source.outputSchema, "outputSchema", {
+    output: normalizeActionContractPart(source.output, "output", {
       required: false
     }),
     permission: normalizePermissionPolicy(source.permission),
@@ -320,8 +327,7 @@ const __testables = {
   isPlainObject,
   normalizePositiveInteger,
   normalizeStringArray,
-  isSchemaContract,
-  normalizeSchemaContract,
+  normalizeActionContractPart,
   normalizePermissionPolicy,
   normalizeAuditConfig,
   normalizeObservabilityConfig,

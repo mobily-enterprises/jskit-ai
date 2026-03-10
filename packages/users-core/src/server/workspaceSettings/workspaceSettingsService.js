@@ -1,23 +1,18 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import { listRoleDescriptors, resolveAssignableRoleIds } from "../../shared/roles.js";
+import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { DEFAULT_WORKSPACE_SETTINGS } from "../../shared/settings.js";
 
-function normalizeWorkspaceFeatures(features) {
-  const source = normalizeObjectInput(features);
-  const surfaceAccess = normalizeObjectInput(source.surfaceAccess);
-  const appSurfaceAccess = normalizeObjectInput(surfaceAccess.app);
+function requireResolvedWorkspace(workspace) {
+  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
+    throw new Error("workspaceSettingsService requires a resolved workspace.");
+  }
 
-  return {
-    ...source,
-    surfaceAccess: {
-      ...surfaceAccess,
-      app: {
-        denyEmails: Array.isArray(appSurfaceAccess.denyEmails) ? [...appSurfaceAccess.denyEmails] : [],
-        denyUserIds: Array.isArray(appSurfaceAccess.denyUserIds) ? [...appSurfaceAccess.denyUserIds] : []
-      }
-    }
-  };
+  const workspaceId = Number(workspace.id);
+  if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+    throw new Error("workspaceSettingsService requires a resolved workspace.");
+  }
+
+  return workspace;
 }
 
 function createService({ workspacesRepository, workspaceSettingsRepository } = {}) {
@@ -25,135 +20,47 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
     throw new Error("workspaceSettingsService requires workspacesRepository and workspaceSettingsRepository.");
   }
 
-  const roleDescriptors = listRoleDescriptors();
-  const assignableRoleIds = resolveAssignableRoleIds();
-
-  async function requireWorkspace(workspaceContext, options = {}) {
-    const workspaceId = Number(workspaceContext?.id);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-      throw new AppError(409, "Workspace selection required.");
-    }
-
-    const workspace = await workspacesRepository.findById(workspaceId, options);
-    if (!workspace) {
-      throw new AppError(404, "Workspace not found.");
-    }
-
-    return workspace;
-  }
-
-  function getRoleCatalog() {
-    return {
-      collaborationEnabled: true,
-      defaultInviteRole: "member",
-      roles: roleDescriptors,
-      assignableRoleIds
-    };
-  }
-
-  async function getWorkspaceSettings(workspaceContext, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
-    const settings = await workspaceSettingsRepository.ensureForWorkspaceId(
-      workspace.id,
+  async function getWorkspaceSettings(workspace, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
+    const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(
+      resolvedWorkspace.id,
       DEFAULT_WORKSPACE_SETTINGS,
       options
     );
-    const normalizedFeatures = normalizeWorkspaceFeatures(settings.features);
-    const appSurfaceAccess = normalizedFeatures.surfaceAccess.app;
-    const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
-
-    const settingsView = {
-      invitesEnabled: settings?.invitesEnabled !== false
-    };
-
-    if (includeAppSurfaceDenyLists) {
-      settingsView.appDenyEmails = [...appSurfaceAccess.denyEmails];
-      settingsView.appDenyUserIds = [...appSurfaceAccess.denyUserIds];
-    }
 
     return {
-      workspace,
-      settings: settingsView,
-      roleCatalog: getRoleCatalog()
+      workspace: resolvedWorkspace,
+      settings: {
+        invitesEnabled: settingsRecord.invitesEnabled !== false,
+        appDenyEmails: settingsRecord.features.surfaceAccess.app.denyEmails,
+        appDenyUserIds: settingsRecord.features.surfaceAccess.app.denyUserIds
+      }
     };
   }
 
-  async function updateWorkspaceSettings(workspaceContext, payload = {}, options = {}) {
+  async function updateWorkspaceSettings(workspace, payload = {}, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const source = normalizeObjectInput(payload);
-    const workspacePatch = {};
-    const settingsPatch = {};
+    const workspacePatch = pickOwnProperties(source, ["name", "avatarUrl", "color"]);
+    const settingsPatch = pickOwnProperties(source, ["invitesEnabled", "appDenyEmails", "appDenyUserIds"]);
+    let nextWorkspace = resolvedWorkspace;
 
-    if (Object.hasOwn(source, "name")) {
-      workspacePatch.name = source.name;
-    }
-    if (Object.hasOwn(source, "avatarUrl")) {
-      workspacePatch.avatarUrl = source.avatarUrl;
-    }
-    if (Object.hasOwn(source, "color")) {
-      workspacePatch.color = source.color;
-    }
-    if (Object.hasOwn(source, "invitesEnabled")) {
-      settingsPatch.invitesEnabled = source.invitesEnabled;
-    }
-    if (Object.hasOwn(source, "appDenyEmails")) {
-      settingsPatch.appDenyEmails = Array.isArray(source.appDenyEmails) ? [...source.appDenyEmails] : [];
-    }
-    if (Object.hasOwn(source, "appDenyUserIds")) {
-      settingsPatch.appDenyUserIds = Array.isArray(source.appDenyUserIds) ? [...source.appDenyUserIds] : [];
-    }
-
-    const workspace = await requireWorkspace(workspaceContext, options);
     if (Object.keys(workspacePatch).length > 0) {
-      await workspacesRepository.updateById(workspace.id, workspacePatch, options);
+      nextWorkspace = await workspacesRepository.updateById(resolvedWorkspace.id, workspacePatch, options);
+
+      if (!nextWorkspace) {
+        throw new Error("workspaceSettingsService could not reload the updated workspace.");
+      }
     }
 
     if (Object.keys(settingsPatch).length > 0) {
-      const currentSettings = await workspaceSettingsRepository.ensureForWorkspaceId(
-        workspace.id,
-        DEFAULT_WORKSPACE_SETTINGS,
-        options
-      );
-      const normalizedFeatures = normalizeWorkspaceFeatures(currentSettings.features);
-      const nextFeatures = {
-        ...normalizedFeatures,
-        surfaceAccess: {
-          ...normalizedFeatures.surfaceAccess,
-          app: {
-            ...normalizedFeatures.surfaceAccess.app
-          }
-        }
-      };
-
-      if (Object.hasOwn(settingsPatch, "appDenyEmails")) {
-        nextFeatures.surfaceAccess.app.denyEmails = [...settingsPatch.appDenyEmails];
-      }
-      if (Object.hasOwn(settingsPatch, "appDenyUserIds")) {
-        nextFeatures.surfaceAccess.app.denyUserIds = [...settingsPatch.appDenyUserIds];
-      }
-
-      await workspaceSettingsRepository.updateByWorkspaceId(
-        workspace.id,
-        {
-          ...(Object.hasOwn(settingsPatch, "invitesEnabled")
-            ? { invitesEnabled: settingsPatch.invitesEnabled }
-            : {}),
-          features: nextFeatures
-        },
-        options
-      );
+      await workspaceSettingsRepository.updateSettingsByWorkspaceId(resolvedWorkspace.id, settingsPatch, options);
     }
 
-    return getWorkspaceSettings(
-      { id: workspace.id },
-      {
-        ...options,
-        includeAppSurfaceDenyLists: true
-      }
-    );
+    return getWorkspaceSettings(nextWorkspace, options);
   }
 
   return Object.freeze({
-    getRoleCatalog,
     getWorkspaceSettings,
     updateWorkspaceSettings
   });

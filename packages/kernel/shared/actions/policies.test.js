@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Type } from "typebox";
 
-import { normalizeActionInput } from "./policies.js";
+import { normalizeActionInput, normalizeActionOutput } from "./policies.js";
 
 test("function schema returns normalized value when ok", async () => {
   const definition = {
     id: "tests.ok",
     version: 1,
-    inputSchema: () => ({
-      ok: true,
-      value: {
-        normalized: true
-      }
-    })
+    input: {
+      schema: () => ({
+        ok: true,
+        value: {
+          normalized: true
+        }
+      })
+    }
   };
 
   const result = await normalizeActionInput(definition, { raw: true }, {});
@@ -23,7 +26,9 @@ test("function schema rejects non-contract results", async () => {
   const definition = {
     id: "tests.invalid",
     version: 1,
-    inputSchema: () => false
+    input: {
+      schema: () => false
+    }
   };
 
   await assert.rejects(
@@ -40,12 +45,14 @@ test("function schema propagates validation errors", async () => {
   const definition = {
     id: "tests.errors",
     version: 2,
-    inputSchema: () => ({
-      ok: false,
-      errors: {
-        input: "input is required"
-      }
-    })
+    input: {
+      schema: () => ({
+        ok: false,
+        errors: {
+          input: "input is required"
+        }
+      })
+    }
   };
 
   await assert.rejects(
@@ -58,4 +65,50 @@ test("function schema propagates validation errors", async () => {
       return true;
     }
   );
+});
+
+test("raw TypeBox action schemas validate normalized action input", async () => {
+  const definition = {
+    id: "tests.typebox",
+    version: 1,
+    input: {
+      schema: Type.Object(
+        {
+          workspaceSlug: Type.String({ minLength: 1 })
+        },
+        { additionalProperties: false }
+      ),
+      normalize(value = {}) {
+        return {
+          workspaceSlug: String(value.workspaceSlug || "").trim().toLowerCase()
+        };
+      }
+    }
+  };
+
+  const result = await normalizeActionInput(definition, { workspaceSlug: "  ACME  " }, {});
+  assert.deepEqual(result, { workspaceSlug: "acme" });
+});
+
+test("action output normalization runs before output validation", async () => {
+  const definition = {
+    id: "tests.output",
+    version: 1,
+    output: {
+      schema: Type.Object(
+        {
+          ok: Type.Boolean()
+        },
+        { additionalProperties: false }
+      ),
+      normalize(payload = {}) {
+        return {
+          ok: Boolean(payload.ok)
+        };
+      }
+    }
+  };
+
+  const result = await normalizeActionOutput(definition, { ok: 1 }, {});
+  assert.deepEqual(result, { ok: true });
 });

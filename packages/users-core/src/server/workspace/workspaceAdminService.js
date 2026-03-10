@@ -54,32 +54,30 @@ function mapInviteSummary(invite) {
   };
 }
 
+function requireResolvedWorkspace(workspace) {
+  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
+    throw new Error("workspaceAdminService requires a resolved workspace.");
+  }
+
+  const workspaceId = Number(workspace.id);
+  if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+    throw new Error("workspaceAdminService requires a resolved workspace.");
+  }
+
+  return workspace;
+}
+
 function createService({
-  workspacesRepository,
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
   workspaceService
 } = {}) {
-  if (!workspacesRepository || !workspaceMembershipsRepository || !workspaceInvitesRepository || !workspaceService) {
-    throw new Error("workspaceAdminService requires workspacesRepository, membership/invite repositories, and workspaceService.");
+  if (!workspaceMembershipsRepository || !workspaceInvitesRepository || !workspaceService) {
+    throw new Error("workspaceAdminService requires membership/invite repositories and workspaceService.");
   }
 
   const roleDescriptors = listRoleDescriptors();
   const assignableRoleIds = resolveAssignableRoleIds();
-
-  async function requireWorkspace(workspaceContext, options = {}) {
-    const workspaceId = Number(workspaceContext?.id);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-      throw new AppError(409, "Workspace selection required.");
-    }
-
-    const workspace = await workspacesRepository.findById(workspaceId, options);
-    if (!workspace) {
-      throw new AppError(404, "Workspace not found.");
-    }
-
-    return workspace;
-  }
 
   function getRoleCatalog() {
     return {
@@ -90,19 +88,19 @@ function createService({
     };
   }
 
-  async function listMembers(workspaceContext, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
-    const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
+  async function listMembers(workspace, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
+    const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(resolvedWorkspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(workspace),
-      members: members.map((member) => mapMemberSummary(member, workspace)),
+      workspace: mapWorkspaceAdminSummary(resolvedWorkspace),
+      members: members.map((member) => mapMemberSummary(member, resolvedWorkspace)),
       roleCatalog: getRoleCatalog()
     };
   }
 
-  async function updateMemberRole(workspaceContext, payload = {}, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
+  async function updateMemberRole(workspace, payload = {}, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const memberUserId = Number(payload.memberUserId);
     if (!Number.isInteger(memberUserId) || memberUserId < 1) {
       throw new AppError(400, "Validation failed.", {
@@ -135,19 +133,19 @@ function createService({
     }
 
     const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
-      workspace.id,
+      resolvedWorkspace.id,
       memberUserId,
       options
     );
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
+    if (Number(memberUserId) === Number(resolvedWorkspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot change workspace owner role.");
     }
 
     await workspaceMembershipsRepository.upsertMembership(
-      workspace.id,
+      resolvedWorkspace.id,
       memberUserId,
       {
         roleId,
@@ -156,22 +154,22 @@ function createService({
       options
     );
 
-    return listMembers({ id: workspace.id }, options);
+    return listMembers(resolvedWorkspace, options);
   }
 
-  async function listInvites(workspaceContext, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
-    const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
+  async function listInvites(workspace, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
+    const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(resolvedWorkspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(workspace),
+      workspace: mapWorkspaceAdminSummary(resolvedWorkspace),
       invites: invites.map(mapInviteSummary),
       roleCatalog: getRoleCatalog()
     };
   }
 
-  async function createInvite(workspaceContext, user, payload = {}, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
+  async function createInvite(workspace, user, payload = {}, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@")) {
       throw new AppError(400, "Validation failed.", {
@@ -196,10 +194,10 @@ function createService({
 
     const token = randomBytes(24).toString("hex");
     const tokenHash = workspaceService.hashInviteToken(token);
-    await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
+    await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(resolvedWorkspace.id, email, options);
     await workspaceInvitesRepository.insert(
       {
-        workspaceId: workspace.id,
+        workspaceId: resolvedWorkspace.id,
         email,
         roleId,
         status: "pending",
@@ -210,15 +208,15 @@ function createService({
       options
     );
 
-    const response = await listInvites({ id: workspace.id }, options);
+    const response = await listInvites(resolvedWorkspace, options);
     return {
       ...response,
       inviteTokenPreview: token
     };
   }
 
-  async function revokeInvite(workspaceContext, inviteId, options = {}) {
-    const workspace = await requireWorkspace(workspaceContext, options);
+  async function revokeInvite(workspace, inviteId, options = {}) {
+    const resolvedWorkspace = requireResolvedWorkspace(workspace);
     const numericInviteId = Number(inviteId);
     if (!Number.isInteger(numericInviteId) || numericInviteId < 1) {
       throw new AppError(400, "Validation failed.", {
@@ -230,13 +228,17 @@ function createService({
       });
     }
 
-    const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(numericInviteId, workspace.id, options);
+    const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
+      numericInviteId,
+      resolvedWorkspace.id,
+      options
+    );
     if (!invite) {
       throw new AppError(404, "Invite not found.");
     }
 
     await workspaceInvitesRepository.revokeById(numericInviteId, options);
-    return listInvites({ id: workspace.id }, options);
+    return listInvites(resolvedWorkspace, options);
   }
 
   async function respondToPendingInviteByToken({ user, inviteToken, decision } = {}, options = {}) {

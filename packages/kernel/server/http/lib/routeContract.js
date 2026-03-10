@@ -324,7 +324,6 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
 function compileNormalizedRouteContract(normalizedContract) {
   const schema = {};
   const input = {};
-  const output = {};
 
   if (Array.isArray(normalizedContract.meta?.tags) && normalizedContract.meta.tags.length > 0) {
     schema.tags = [...normalizedContract.meta.tags];
@@ -359,9 +358,6 @@ function compileNormalizedRouteContract(normalizedContract) {
 
     for (const [statusCode, entry] of Object.entries(normalizedContract.response || {})) {
       responseSchema[statusCode] = entry.schema;
-      if (typeof entry.normalize === "function") {
-        output[statusCode] = entry.normalize;
-      }
     }
 
     schema.response = responseSchema;
@@ -384,11 +380,6 @@ function compileNormalizedRouteContract(normalizedContract) {
   if (Object.keys(input).length > 0) {
     compiled.input = Object.freeze({
       ...input
-    });
-  }
-  if (Object.keys(output).length > 0) {
-    compiled.output = Object.freeze({
-      ...output
     });
   }
 

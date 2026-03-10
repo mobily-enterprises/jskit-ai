@@ -13,7 +13,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    inputSchema: OBJECT_INPUT_SCHEMA,
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -33,7 +33,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    inputSchema: OBJECT_INPUT_SCHEMA,
+    input: { schema: OBJECT_INPUT_SCHEMA },
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

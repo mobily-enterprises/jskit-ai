@@ -553,84 +553,6 @@ function normalizeRouteInputTransforms(route) {
   return Object.freeze(normalized);
 }
 
-function normalizeRouteOutputTransforms(route) {
-  const routeOutput = route?.output;
-  if (routeOutput == null) {
-    return null;
-  }
-
-  if (!routeOutput || typeof routeOutput !== "object" || Array.isArray(routeOutput)) {
-    throw new RouteRegistrationError(
-      `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} output must be an object.`
-    );
-  }
-
-  const normalized = {};
-  for (const [statusCode, transform] of Object.entries(routeOutput)) {
-    if (transform == null) {
-      continue;
-    }
-
-    if (typeof transform !== "function") {
-      throw new RouteRegistrationError(
-        `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} output.${statusCode} must be a function.`
-      );
-    }
-
-    normalized[String(statusCode)] = transform;
-  }
-
-  return Object.keys(normalized).length > 0 ? Object.freeze(normalized) : null;
-}
-
-function resolveReplyStatusCode(reply) {
-  const statusCode = Number(reply?.statusCode || 0);
-  if (Number.isInteger(statusCode) && statusCode >= 100) {
-    return statusCode;
-  }
-  return 200;
-}
-
-function resolveOutputTransform(outputTransforms, reply) {
-  if (!outputTransforms || typeof outputTransforms !== "object") {
-    return null;
-  }
-
-  const statusCode = resolveReplyStatusCode(reply);
-  const exactKey = String(statusCode);
-  if (typeof outputTransforms[exactKey] === "function") {
-    return outputTransforms[exactKey];
-  }
-
-  const familyKey = `${String(statusCode).charAt(0)}xx`;
-  if (typeof outputTransforms[familyKey] === "function") {
-    return outputTransforms[familyKey];
-  }
-
-  if (typeof outputTransforms.default === "function") {
-    return outputTransforms.default;
-  }
-
-  return null;
-}
-
-function attachReplyOutputTransforms({ reply = null, request = null, outputTransforms = null } = {}) {
-  if (!reply || typeof reply !== "object" || typeof reply.send !== "function") {
-    return;
-  }
-
-  if (!outputTransforms || typeof outputTransforms !== "object") {
-    return;
-  }
-
-  const originalSend = reply.send.bind(reply);
-  reply.send = function sendWithOutputNormalization(payload) {
-    const transform = resolveOutputTransform(outputTransforms, reply);
-    const nextPayload = typeof transform === "function" ? transform(payload, request, reply) : payload;
-    return originalSend(nextPayload);
-  };
-}
-
 function buildRequestInput({ request = null, inputTransforms = null } = {}) {
   const transforms = inputTransforms && typeof inputTransforms === "object" ? inputTransforms : {};
 
@@ -678,7 +600,6 @@ function registerRoutes(
     const routeHandler = typeof route?.handler === "function" ? route.handler : fallbackHandler;
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeInputTransforms = normalizeRouteInputTransforms(route);
-    const routeOutputTransforms = normalizeRouteOutputTransforms(route);
     const routeActionDefaultSurface =
       normalizeText(route?.workspaceSurface || routeOptions?.config?.workspaceSurface || requestActionDefaultSurface).toLowerCase() ||
       "app";
@@ -711,14 +632,6 @@ function registerRoutes(
           request.input = buildRequestInput({
             request,
             inputTransforms: routeInputTransforms
-          });
-        }
-
-        if (routeOutputTransforms) {
-          attachReplyOutputTransforms({
-            reply,
-            request,
-            outputTransforms: routeOutputTransforms
           });
         }
 

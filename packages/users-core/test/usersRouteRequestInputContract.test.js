@@ -117,7 +117,7 @@ test("workspace and settings routes only attach request input normalizers where 
 
   assert.equal(workspaceBootstrap?.query?.normalize, undefined);
   assert.equal(workspaceSettings?.params?.normalize, undefined);
-  assert.equal(typeof workspaceSettingsPatch?.body?.normalize, "function");
+  assert.equal(workspaceSettingsPatch?.body?.normalize, undefined);
   assert.equal(workspaceMemberRole?.params?.normalize, undefined);
   assert.equal(typeof workspaceMemberRole?.body?.normalize, "function");
   assert.equal(workspaceInviteDelete?.params?.normalize, undefined);

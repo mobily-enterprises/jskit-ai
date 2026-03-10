@@ -109,7 +109,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for re
         channels: ["internal"],
         surfacesFrom: "workspace",
         visibility: "public",
-        inputSchema: OBJECT_INPUT_SCHEMA,
+        input: { schema: OBJECT_INPUT_SCHEMA },
         permission: allowPublic,
         idempotency: "none",
         audit: { actionName: "test.echo" },

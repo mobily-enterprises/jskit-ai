@@ -58,6 +58,15 @@ function resolveAssignableRoleIds() {
   return ROLE_CATALOG.filter((role) => role.assignable).map((role) => role.id);
 }
 
+function createWorkspaceRoleCatalog() {
+  return {
+    collaborationEnabled: true,
+    defaultInviteRole: MEMBER_ROLE_ID,
+    roles: listRoleDescriptors(),
+    assignableRoleIds: resolveAssignableRoleIds()
+  };
+}
+
 function hasPermission(permissions = [], permission = "") {
   const required = String(permission || "").trim();
   if (!required) {
@@ -76,5 +85,6 @@ export {
   resolveRolePermissions,
   listRoleDescriptors,
   resolveAssignableRoleIds,
+  createWorkspaceRoleCatalog,
   hasPermission
 };
