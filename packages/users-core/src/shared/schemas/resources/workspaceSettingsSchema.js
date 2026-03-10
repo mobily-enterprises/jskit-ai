@@ -4,6 +4,7 @@ import {
   normalizeLowerText
 } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { coerceWorkspaceColor } from "../../settings.js";
 
 function normalizeInput(payload = {}) {
   const source = normalizeObjectInput(payload);
@@ -48,6 +49,83 @@ function normalizeInput(payload = {}) {
     normalized.appDenyUserIds = Array.isArray(source.appDenyUserIds)
       ? Array.from(new Set(source.appDenyUserIds.map((entry) => Number(normalizeText(entry)))))
       : null;
+  }
+
+  return normalized;
+}
+
+function normalizeRoleCatalogOutput(payload = {}) {
+  const source = normalizeObjectInput(payload);
+
+  return {
+    collaborationEnabled: source.collaborationEnabled !== false,
+    defaultInviteRole: normalizeLowerText(source.defaultInviteRole || "member") || "member",
+    roles: Array.isArray(source.roles)
+      ? source.roles
+          .map((entry) => normalizeObjectInput(entry))
+          .filter((entry) => Object.keys(entry).length > 0)
+      : [],
+    assignableRoleIds: Array.isArray(source.assignableRoleIds)
+      ? Array.from(
+          new Set(
+            source.assignableRoleIds
+              .map((entry) => normalizeLowerText(entry))
+              .filter(Boolean)
+          )
+        )
+      : []
+  };
+}
+
+function normalizeOutput(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  const workspace = normalizeObjectInput(source.workspace);
+  const settings = normalizeObjectInput(source.settings);
+  const invitesEnabled = settings.invitesEnabled !== false;
+  const invitesAvailable = settings.invitesAvailable !== false;
+  const invitesEffective =
+    typeof settings.invitesEffective === "boolean" ? settings.invitesEffective : invitesEnabled;
+  const appDenyEmails = Array.isArray(settings.appDenyEmails)
+    ? Array.from(
+        new Set(
+          settings.appDenyEmails
+            .map((entry) => normalizeLowerText(entry))
+            .filter(Boolean)
+        )
+      )
+    : null;
+  const appDenyUserIds = Array.isArray(settings.appDenyUserIds)
+    ? Array.from(
+        new Set(
+          settings.appDenyUserIds
+            .map((entry) => Number(entry))
+            .filter((entry) => Number.isInteger(entry) && entry > 0)
+        )
+      )
+    : null;
+
+  const normalized = {
+    workspace: {
+      id: Number(workspace.id),
+      slug: normalizeText(workspace.slug),
+      name: normalizeText(workspace.name),
+      ownerUserId: Number(workspace.ownerUserId),
+      avatarUrl: normalizeText(workspace.avatarUrl),
+      color: coerceWorkspaceColor(workspace.color)
+    },
+    settings: {
+      invitesEnabled,
+      invitesAvailable,
+      invitesEffective
+    },
+    roleCatalog: normalizeRoleCatalogOutput(source.roleCatalog)
+  };
+
+  if (appDenyEmails) {
+    normalized.settings.appDenyEmails = appDenyEmails;
+  }
+  if (appDenyUserIds) {
+    normalized.settings.appDenyUserIds = appDenyUserIds;
   }
 
   return normalized;
@@ -162,7 +240,8 @@ const schema = {
     view: {
       method: "GET",
       output: {
-        schema: responseRecordSchema
+        schema: responseRecordSchema,
+        normalize: normalizeOutput
       }
     },
     list: {
@@ -174,7 +253,15 @@ const schema = {
             nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
           },
           { additionalProperties: false }
-        )
+        ),
+        normalize(payload = {}) {
+          const source = normalizeObjectInput(payload);
+
+          return {
+            items: Array.isArray(source.items) ? source.items.map((entry) => normalizeOutput(entry)) : [],
+            nextCursor: normalizeText(source.nextCursor) || null
+          };
+        }
       }
     },
     create: {
@@ -184,7 +271,8 @@ const schema = {
         normalize: normalizeInput
       },
       output: {
-        schema: responseRecordSchema
+        schema: responseRecordSchema,
+        normalize: normalizeOutput
       }
     },
     replace: {
@@ -194,16 +282,19 @@ const schema = {
         normalize: normalizeInput
       },
       output: {
-        schema: responseRecordSchema
+        schema: responseRecordSchema,
+        normalize: normalizeOutput
       }
     },
     patch: {
       method: "PATCH",
       body: {
-        schema: Type.Partial(createRequestBodySchema, { additionalProperties: false })
+        schema: Type.Partial(createRequestBodySchema, { additionalProperties: false }),
+        normalize: normalizeInput
       },
       output: {
-        schema: responseRecordSchema
+        schema: responseRecordSchema,
+        normalize: normalizeOutput
       }
     }
   }

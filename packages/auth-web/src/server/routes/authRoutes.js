@@ -36,7 +36,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          201: authRegisterCommand.operation.response.schema
+          201: authRegisterCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -60,7 +60,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authLoginPasswordCommand.operation.response.schema
+          200: authLoginPasswordCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -84,7 +84,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authLoginOtpRequestCommand.operation.response.schema
+          200: authLoginOtpRequestCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -108,7 +108,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authLoginOtpVerifyCommand.operation.response.schema
+          200: authLoginOtpVerifyCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -137,7 +137,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          302: authLoginOAuthStartCommand.operation.response.schema
+          302: authLoginOAuthStartCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -161,7 +161,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authLoginOAuthCompleteCommand.operation.response.schema
+          200: authLoginOAuthCompleteCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -185,7 +185,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authPasswordResetRequestCommand.operation.response.schema
+          200: authPasswordResetRequestCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -209,7 +209,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authPasswordRecoveryCompleteCommand.operation.response.schema
+          200: authPasswordRecoveryCompleteCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -233,7 +233,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses(
         {
-          200: authPasswordResetCommand.operation.response.schema
+          200: authPasswordResetCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -252,7 +252,7 @@ function buildRoutes(controller) {
         summary: "Log out and clear session cookies"
       },
       response: withStandardErrorResponses({
-        200: authLogoutCommand.operation.response.schema
+        200: authLogoutCommand.operation.response
       }),
       handler: handler("logout")
     },
@@ -265,8 +265,10 @@ function buildRoutes(controller) {
         summary: "Get current session status and CSRF token"
       },
       response: withStandardErrorResponses({
-        200: authSessionReadCommand.operation.response.schema,
-        503: authSessionReadUnavailableResponseSchema
+        200: authSessionReadCommand.operation.response,
+        503: {
+          schema: authSessionReadUnavailableResponseSchema
+        }
       }),
       handler: handler("session")
     }

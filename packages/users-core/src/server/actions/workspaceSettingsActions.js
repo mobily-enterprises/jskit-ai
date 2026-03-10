@@ -29,9 +29,11 @@ const workspaceSettingsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
+      const response = await deps.workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
         includeAppSurfaceDenyLists: hasPermission(context?.permissions, "workspace.settings.update")
       });
+
+      return workspaceSettingsSchema.operations.view.output.normalize(response);
     }
   },
   {
@@ -53,10 +55,13 @@ const workspaceSettingsActions = Object.freeze([
       inputJsonSchema: workspaceSettingsSchema.operations.patch.body.schema
     },
     async execute(input, context, deps) {
-      return deps.workspaceSettingsService.updateWorkspaceSettings(
+      const { workspaceSlug: _workspaceSlug, ...workspaceSettingsPatch } = normalizeObject(input);
+      const response = await deps.workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
-        normalizeObject(input)
+        workspaceSettingsPatch
       );
+
+      return workspaceSettingsSchema.operations.patch.output.normalize(response);
     }
   }
 ]);

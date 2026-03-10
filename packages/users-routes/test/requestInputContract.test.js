@@ -89,6 +89,10 @@ test("workspace and settings routes only attach request input normalizers where 
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
   });
+  const workspaceSettingsPatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace/settings"
+  });
   const workspaceMemberRole = findRoute(routes, {
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
@@ -112,6 +116,7 @@ test("workspace and settings routes only attach request input normalizers where 
 
   assert.equal(workspaceBootstrap?.query?.normalize, undefined);
   assert.equal(workspaceSettings?.params?.normalize, undefined);
+  assert.equal(typeof workspaceSettingsPatch?.body?.normalize, "function");
   assert.equal(workspaceMemberRole?.params?.normalize, undefined);
   assert.equal(typeof workspaceMemberRole?.body?.normalize, "function");
   assert.equal(workspaceInviteDelete?.params?.normalize, undefined);

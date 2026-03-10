@@ -1,18 +1,12 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
-import { normalizeText, normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization.js";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { listRoleDescriptors, resolveAssignableRoleIds } from "../../shared/roles.js";
-import { DEFAULT_WORKSPACE_SETTINGS, coerceWorkspaceColor } from "../../shared/settings.js";
-import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
-
-function isRecord(value) {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
+import { DEFAULT_WORKSPACE_SETTINGS } from "../../shared/settings.js";
 
 function normalizeWorkspaceFeatures(features) {
-  const source = isRecord(features) ? features : {};
-  const surfaceAccess = isRecord(source.surfaceAccess) ? source.surfaceAccess : {};
-  const appSurfaceAccess = isRecord(surfaceAccess.app) ? surfaceAccess.app : {};
+  const source = normalizeObjectInput(features);
+  const surfaceAccess = normalizeObjectInput(source.surfaceAccess);
+  const appSurfaceAccess = normalizeObjectInput(surfaceAccess.app);
 
   return {
     ...source,
@@ -23,82 +17,6 @@ function normalizeWorkspaceFeatures(features) {
         denyUserIds: Array.isArray(appSurfaceAccess.denyUserIds) ? [...appSurfaceAccess.denyUserIds] : []
       }
     }
-  };
-}
-
-function mapWorkspaceAdminSummary(workspace) {
-  return {
-    id: Number(workspace.id),
-    slug: normalizeText(workspace.slug),
-    name: normalizeText(workspace.name),
-    ownerUserId: Number(workspace.ownerUserId),
-    avatarUrl: normalizeText(workspace.avatarUrl),
-    color: coerceWorkspaceColor(workspace.color)
-  };
-}
-
-function mapWorkspaceSettingsResponse(settings, options = {}) {
-  const normalizedFeatures = normalizeWorkspaceFeatures(settings?.features);
-  const appPolicy = normalizedFeatures.surfaceAccess.app;
-  const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
-
-  const response = {
-    invitesEnabled: settings?.invitesEnabled !== false,
-    invitesAvailable: true,
-    invitesEffective: settings?.invitesEnabled !== false
-  };
-
-  if (includeAppSurfaceDenyLists) {
-    response.appDenyEmails = [...appPolicy.denyEmails];
-    response.appDenyUserIds = [...appPolicy.denyUserIds];
-  }
-
-  return response;
-}
-
-function parseWorkspaceSettingsUpdatePayload(payload = {}) {
-  const operation = workspaceSettingsSchema.operations.patch;
-  const parsed = validateOperationSection({
-    operation,
-    section: "body",
-    value: payload
-  });
-
-  if (!parsed.ok) {
-    return {
-      workspacePatch: {},
-      settingsPatch: {},
-      fieldErrors: parsed.fieldErrors && typeof parsed.fieldErrors === "object" ? parsed.fieldErrors : {}
-    };
-  }
-
-  const normalized = parsed.value && typeof parsed.value === "object" ? parsed.value : {};
-  const workspacePatch = {};
-  const settingsPatch = {};
-
-  if (Object.hasOwn(normalized, "name")) {
-    workspacePatch.name = normalized.name;
-  }
-  if (Object.hasOwn(normalized, "avatarUrl")) {
-    workspacePatch.avatarUrl = normalized.avatarUrl;
-  }
-  if (Object.hasOwn(normalized, "color")) {
-    workspacePatch.color = normalized.color;
-  }
-  if (Object.hasOwn(normalized, "invitesEnabled")) {
-    settingsPatch.invitesEnabled = normalized.invitesEnabled;
-  }
-  if (Object.hasOwn(normalized, "appDenyEmails")) {
-    settingsPatch.appDenyEmails = [...normalized.appDenyEmails];
-  }
-  if (Object.hasOwn(normalized, "appDenyUserIds")) {
-    settingsPatch.appDenyUserIds = [...normalized.appDenyUserIds];
-  }
-
-  return {
-    workspacePatch,
-    settingsPatch,
-    fieldErrors: {}
   };
 }
 
@@ -140,37 +58,56 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
       DEFAULT_WORKSPACE_SETTINGS,
       options
     );
+    const normalizedFeatures = normalizeWorkspaceFeatures(settings.features);
+    const appSurfaceAccess = normalizedFeatures.surfaceAccess.app;
+    const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
+
+    const settingsView = {
+      invitesEnabled: settings?.invitesEnabled !== false
+    };
+
+    if (includeAppSurfaceDenyLists) {
+      settingsView.appDenyEmails = [...appSurfaceAccess.denyEmails];
+      settingsView.appDenyUserIds = [...appSurfaceAccess.denyUserIds];
+    }
 
     return {
-      workspace: mapWorkspaceAdminSummary(workspace),
-      settings: mapWorkspaceSettingsResponse(settings, {
-        includeAppSurfaceDenyLists: options.includeAppSurfaceDenyLists === true
-      }),
+      workspace,
+      settings: settingsView,
       roleCatalog: getRoleCatalog()
     };
   }
 
   async function updateWorkspaceSettings(workspaceContext, payload = {}, options = {}) {
-    const parsed = parseWorkspaceSettingsUpdatePayload(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      const operationMessages = workspaceSettingsSchema.operationMessages || {};
-      throw new AppError(
-        400,
-        String(operationMessages.apiValidation || operationMessages.validation || "Validation failed."),
-        {
-          details: {
-            fieldErrors: parsed.fieldErrors
-          }
-        }
-      );
+    const source = normalizeObjectInput(payload);
+    const workspacePatch = {};
+    const settingsPatch = {};
+
+    if (Object.hasOwn(source, "name")) {
+      workspacePatch.name = source.name;
+    }
+    if (Object.hasOwn(source, "avatarUrl")) {
+      workspacePatch.avatarUrl = source.avatarUrl;
+    }
+    if (Object.hasOwn(source, "color")) {
+      workspacePatch.color = source.color;
+    }
+    if (Object.hasOwn(source, "invitesEnabled")) {
+      settingsPatch.invitesEnabled = source.invitesEnabled;
+    }
+    if (Object.hasOwn(source, "appDenyEmails")) {
+      settingsPatch.appDenyEmails = Array.isArray(source.appDenyEmails) ? [...source.appDenyEmails] : [];
+    }
+    if (Object.hasOwn(source, "appDenyUserIds")) {
+      settingsPatch.appDenyUserIds = Array.isArray(source.appDenyUserIds) ? [...source.appDenyUserIds] : [];
     }
 
     const workspace = await requireWorkspace(workspaceContext, options);
-    if (Object.keys(parsed.workspacePatch).length > 0) {
-      await workspacesRepository.updateById(workspace.id, parsed.workspacePatch, options);
+    if (Object.keys(workspacePatch).length > 0) {
+      await workspacesRepository.updateById(workspace.id, workspacePatch, options);
     }
 
-    if (Object.keys(parsed.settingsPatch).length > 0) {
+    if (Object.keys(settingsPatch).length > 0) {
       const currentSettings = await workspaceSettingsRepository.ensureForWorkspaceId(
         workspace.id,
         DEFAULT_WORKSPACE_SETTINGS,
@@ -187,18 +124,18 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
         }
       };
 
-      if (Object.hasOwn(parsed.settingsPatch, "appDenyEmails")) {
-        nextFeatures.surfaceAccess.app.denyEmails = [...parsed.settingsPatch.appDenyEmails];
+      if (Object.hasOwn(settingsPatch, "appDenyEmails")) {
+        nextFeatures.surfaceAccess.app.denyEmails = [...settingsPatch.appDenyEmails];
       }
-      if (Object.hasOwn(parsed.settingsPatch, "appDenyUserIds")) {
-        nextFeatures.surfaceAccess.app.denyUserIds = [...parsed.settingsPatch.appDenyUserIds];
+      if (Object.hasOwn(settingsPatch, "appDenyUserIds")) {
+        nextFeatures.surfaceAccess.app.denyUserIds = [...settingsPatch.appDenyUserIds];
       }
 
       await workspaceSettingsRepository.updateByWorkspaceId(
         workspace.id,
         {
-          ...(Object.hasOwn(parsed.settingsPatch, "invitesEnabled")
-            ? { invitesEnabled: parsed.settingsPatch.invitesEnabled }
+          ...(Object.hasOwn(settingsPatch, "invitesEnabled")
+            ? { invitesEnabled: settingsPatch.invitesEnabled }
             : {}),
           features: nextFeatures
         },

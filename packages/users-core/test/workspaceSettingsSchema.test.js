@@ -11,14 +11,14 @@ function parseBody(operation, payload = {}) {
   });
 }
 
-test("workspace settings patch body validates valid payload without normalization", () => {
+test("workspace settings patch body normalizes valid payload before validation", () => {
   const parsed = parseBody(workspaceSettingsSchema.operations.patch, {
-    name: "Team Mercury",
+    name: "  Team Mercury  ",
     avatarUrl: "https://example.com/avatar.png",
-    color: "#0F6B54",
+    color: "#0f6b54",
     invitesEnabled: false,
-    appDenyEmails: ["foo@example.com", "bar@example.com"],
-    appDenyUserIds: [1, 2, 3]
+    appDenyEmails: ["Foo@example.com", "bar@example.com", "foo@example.com"],
+    appDenyUserIds: [1, "2", 3]
   });
 
   assert.equal(parsed.ok, true);
@@ -71,4 +71,52 @@ test("workspace settings create body requires full-write fields", () => {
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.color, "Workspace color is required.");
   assert.equal(parsed.fieldErrors.invitesEnabled, "invitesEnabled is required.");
+});
+
+test("workspace settings output normalizes raw service payloads", () => {
+  const normalized = workspaceSettingsSchema.operations.view.output.normalize({
+    workspace: {
+      id: "7",
+      slug: "  mercury  ",
+      name: "  Mercury Workspace  ",
+      ownerUserId: "9",
+      avatarUrl: "  https://example.com/avatar.png  ",
+      color: "#0f6b54"
+    },
+    settings: {
+      invitesEnabled: false,
+      appDenyEmails: ["Foo@example.com", "bar@example.com", "foo@example.com"],
+      appDenyUserIds: [1, "2", 3]
+    },
+    roleCatalog: {
+      collaborationEnabled: true,
+      defaultInviteRole: "MEMBER",
+      roles: [{ id: "member", label: "Member" }],
+      assignableRoleIds: ["Member", "admin", "member"]
+    }
+  });
+
+  assert.deepEqual(normalized, {
+    workspace: {
+      id: 7,
+      slug: "mercury",
+      name: "Mercury Workspace",
+      ownerUserId: 9,
+      avatarUrl: "https://example.com/avatar.png",
+      color: "#0F6B54"
+    },
+    settings: {
+      invitesEnabled: false,
+      invitesAvailable: true,
+      invitesEffective: false,
+      appDenyEmails: ["foo@example.com", "bar@example.com"],
+      appDenyUserIds: [1, 2, 3]
+    },
+    roleCatalog: {
+      collaborationEnabled: true,
+      defaultInviteRole: "member",
+      roles: [{ id: "member", label: "Member" }],
+      assignableRoleIds: ["member", "admin"]
+    }
+  });
 });

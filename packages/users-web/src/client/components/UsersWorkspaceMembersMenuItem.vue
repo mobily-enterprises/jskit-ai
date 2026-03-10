@@ -1,5 +1,7 @@
 <script setup>
-import { computed } from "vue";
+import {
+  computed
+} from "vue";
 import {
   useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
