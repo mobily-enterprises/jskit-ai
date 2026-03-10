@@ -112,7 +112,7 @@ test("surface path helpers compose root and prefixed surface routes", () => {
     "/app/w/acme/workspace/settings"
   );
   assert.equal(extractWorkspaceSlugFromSurfacePathname(context, "app", "/app/w/acme/workspace/settings"), "acme");
-  assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "app", "/workspace/settings"), "/api/app/workspace/settings");
+  assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "app", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "root", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "app", "/workspace/settings"), "/app/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "root", "members"), "/members");

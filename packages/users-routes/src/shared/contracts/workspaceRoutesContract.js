@@ -12,14 +12,6 @@ import { workspaceInviteSchema as workspaceInviteResourceSchema } from "@jskit-a
 import { workspaceInviteRedeemCommand } from "@jskit-ai/users-core/shared/contracts/commands/workspaceInviteRedeemCommand";
 
 const workspaceRoutesContract = Object.freeze({
-  query: {
-    bootstrap: Type.Object(
-      {
-        workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: false }
-    )
-  },
   body: {
     redeemInvite: workspaceInviteRedeemCommand.operation.body.schema,
     memberRoleUpdate: Type.Object(
@@ -28,30 +20,7 @@ const workspaceRoutesContract = Object.freeze({
       },
       { additionalProperties: false }
     ),
-    settingsUpdate: workspaceSettingsResourceSchema.operations.patch.body.schema,
     createInvite: workspaceInviteResourceSchema.operations.create.body.schema
-  },
-  params: {
-    workspace: Type.Object(
-      {
-        workspaceSlug: Type.String({ minLength: 1 })
-      },
-      { additionalProperties: false }
-    ),
-    member: Type.Object(
-      {
-        workspaceSlug: Type.String({ minLength: 1 }),
-        memberUserId: Type.String({ minLength: 1 })
-      },
-      { additionalProperties: false }
-    ),
-    invite: Type.Object(
-      {
-        workspaceSlug: Type.String({ minLength: 1 }),
-        inviteId: Type.String({ minLength: 1 })
-      },
-      { additionalProperties: false }
-    )
   },
   response: {
     bootstrap: Type.Object(
@@ -81,7 +50,7 @@ const workspaceRoutesContract = Object.freeze({
         membership: Type.Union([membershipSummarySchema, Type.Null()]),
         permissions: Type.Array(Type.String()),
         workspaceSettings: Type.Union([
-          workspaceSettingsResourceSchema.operations.view.response.schema.properties.settings,
+          workspaceSettingsResourceSchema.operations.view.output.schema.properties.settings,
           Type.Null()
         ]),
         userSettings: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()])
@@ -105,7 +74,6 @@ const workspaceRoutesContract = Object.freeze({
       },
       { additionalProperties: true }
     ),
-    settings: workspaceSettingsResourceSchema.operations.view.response.schema,
     members: workspaceMemberResourceSchema.operations.list.response.schema,
     invites: workspaceInviteResourceSchema.operations.list.response.schema
   },

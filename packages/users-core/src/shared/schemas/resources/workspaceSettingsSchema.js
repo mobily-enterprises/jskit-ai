@@ -161,13 +161,13 @@ const schema = {
   operations: {
     view: {
       method: "GET",
-      response: {
+      output: {
         schema: responseRecordSchema
       }
     },
     list: {
       method: "GET",
-      response: {
+      output: {
         schema: Type.Object(
           {
             items: Type.Array(responseRecordSchema),
@@ -183,7 +183,7 @@ const schema = {
         schema: createRequestBodySchema,
         normalize: normalizeInput
       },
-      response: {
+      output: {
         schema: responseRecordSchema
       }
     },
@@ -193,7 +193,7 @@ const schema = {
         schema: createRequestBodySchema,
         normalize: normalizeInput
       },
-      response: {
+      output: {
         schema: responseRecordSchema
       }
     },
@@ -202,7 +202,7 @@ const schema = {
       body: {
         schema: Type.Partial(createRequestBodySchema, { additionalProperties: false })
       },
-      response: {
+      output: {
         schema: responseRecordSchema
       }
     }

@@ -91,6 +91,133 @@ test("compileRouteContract accepts plain contract objects", () => {
   assert.equal(compiled.input.query, normalizeQuery);
 });
 
+test("compileRouteContract merges query contract arrays automatically", () => {
+  const paginationQuery = {
+    schema: {
+      type: "object",
+      properties: {
+        cursor: {
+          type: "string"
+        }
+      },
+      additionalProperties: false
+    }
+  };
+  const searchQuery = {
+    schema: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string"
+        }
+      },
+      additionalProperties: false
+    }
+  };
+
+  const compiled = compileRouteContract({
+    query: [paginationQuery, searchQuery]
+  });
+
+  assert.deepEqual(compiled.schema, {
+    querystring: {
+      type: "object",
+      properties: {
+        cursor: {
+          type: "string"
+        },
+        search: {
+          type: "string"
+        }
+      },
+      required: ["cursor", "search"],
+      additionalProperties: false
+    }
+  });
+});
+
+test("compileRouteContract merges params contract arrays automatically", () => {
+  const workspaceSlugParams = {
+    schema: {
+      type: "object",
+      properties: {
+        workspaceSlug: {
+          type: "string"
+        }
+      },
+      required: ["workspaceSlug"],
+      additionalProperties: false
+    }
+  };
+  const inviteIdParams = {
+    schema: {
+      type: "object",
+      properties: {
+        inviteId: {
+          type: "string"
+        }
+      },
+      required: ["inviteId"],
+      additionalProperties: false
+    }
+  };
+
+  const compiled = compileRouteContract({
+    params: [workspaceSlugParams, inviteIdParams]
+  });
+
+  assert.deepEqual(compiled.schema, {
+    params: {
+      type: "object",
+      properties: {
+        workspaceSlug: {
+          type: "string"
+        },
+        inviteId: {
+          type: "string"
+        }
+      },
+      required: ["workspaceSlug", "inviteId"],
+      additionalProperties: false
+    }
+  });
+});
+
+test("compileRouteContract rejects multiple query normalizers in contract arrays", () => {
+  assert.throws(
+    () =>
+      compileRouteContract({
+        query: [
+          {
+            schema: {
+              type: "object",
+              properties: {
+                cursor: {
+                  type: "string"
+                }
+              },
+              additionalProperties: false
+            },
+            normalize: (query) => query
+          },
+          {
+            schema: {
+              type: "object",
+              properties: {
+                search: {
+                  type: "string"
+                }
+              },
+              additionalProperties: false
+            },
+            normalize: (query) => query
+          }
+        ]
+      }),
+    /query cannot define multiple normalize functions when using an array/
+  );
+});
+
 test("resolveRouteContractOptions ignores legacy schema/input definitions", () => {
   const resolved = resolveRouteContractOptions({
     method: "POST",

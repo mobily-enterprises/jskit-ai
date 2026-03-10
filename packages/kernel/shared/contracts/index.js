@@ -1,4 +1,5 @@
 export { normalizeObjectInput } from "./inputNormalization.js";
+export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 export {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,

@@ -26,7 +26,11 @@ function assertResourceContract(contract, label) {
       "object",
       `${label}.operations.${operationName} must resolve messages from operation.messages or contract.operationMessages.`
     );
-    assert.equal(typeof operation.response?.schema, "object", `${label}.operations.${operationName}.response.schema is required.`);
+    assert.equal(
+      typeof (operation.output?.schema || operation.response?.schema),
+      "object",
+      `${label}.operations.${operationName} payload schema is required.`
+    );
   }
 
   assert.equal(typeof contract.operations.create.body?.schema, "object", `${label}.operations.create.body.schema is required.`);
@@ -88,10 +92,6 @@ test("workspace/settings schemas expose canonical command contracts", () => {
 
 test("route schema building blocks are wired directly from canonical contracts", () => {
   assert.equal(
-    workspaceSchema.body.settingsUpdate,
-    workspaceSchema.resources.workspaceSettings.operations.patch.body.schema
-  );
-  assert.equal(
     workspaceSchema.body.createInvite,
     workspaceSchema.resources.workspaceInvite.operations.create.body.schema
   );
@@ -102,10 +102,6 @@ test("route schema building blocks are wired directly from canonical contracts",
   assert.equal(
     workspaceSchema.response.workspacesList,
     workspaceSchema.resources.workspace.operations.list.response.schema
-  );
-  assert.equal(
-    workspaceSchema.response.settings,
-    workspaceSchema.resources.workspaceSettings.operations.view.response.schema
   );
   assert.equal(
     workspaceSchema.response.members,
@@ -127,14 +123,6 @@ test("route schema building blocks are wired directly from canonical contracts",
   assert.equal(
     settingsSchema.body.passwordMethodToggle,
     settingsSchema.commands["settings.security.password_method.toggle"].operation.body.schema
-  );
-  assert.equal(
-    settingsSchema.params.oauthProvider.properties.provider,
-    settingsSchema.commands["settings.security.oauth.link.start"].operation.params.schema.properties.provider
-  );
-  assert.equal(
-    settingsSchema.query.oauthProvider.properties.returnTo,
-    settingsSchema.commands["settings.security.oauth.link.start"].operation.query.schema.properties.returnTo
   );
 
   assert.equal(

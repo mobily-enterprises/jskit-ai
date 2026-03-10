@@ -1,65 +1,54 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { UsersWorkspaceController } from "../controllers/UsersWorkspaceController.js";
 import { registerWorkspaceSettingsRoutes } from "../controllers/WorkspaceSettingsController.js";
-import { UsersSettingsController } from "../controllers/UsersSettingsController.js";
-import { UsersConsoleSettingsController } from "../controllers/UsersConsoleSettingsController.js";
 import { workspaceRoutesContract as workspaceSchema } from "../../shared/contracts/workspaceRoutesContract.js";
 import { settingsRoutesContract as settingsSchema } from "../../shared/contracts/settingsRoutesContract.js";
 import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../../shared/contracts/consoleSettingsRoutesContract.js";
+import { routeParams } from "../../shared/contracts/routeParams.js";
+import { routeQueries } from "../../shared/contracts/routeQueries.js";
 
-function normalizeObjectInput(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
+const WORKSPACE_ACTION_IDS = Object.freeze({
+  AUTH_SESSION_READ: "auth.session.read",
+  BOOTSTRAP_READ: "workspace.bootstrap.read",
+  WORKSPACES_LIST: "workspace.workspaces.list",
+  INVITATIONS_PENDING_LIST: "workspace.invitations.pending.list",
+  INVITE_REDEEM: "workspace.invite.redeem",
+  ROLES_LIST: "workspace.roles.list",
+  MEMBERS_LIST: "workspace.members.list",
+  MEMBER_ROLE_UPDATE: "workspace.member.role.update",
+  INVITES_LIST: "workspace.invites.list",
+  INVITE_CREATE: "workspace.invite.create",
+  INVITE_REVOKE: "workspace.invite.revoke"
+});
 
-  return {
-    ...value
-  };
-}
+const SETTINGS_ACTION_IDS = Object.freeze({
+  READ: "settings.read",
+  PROFILE_UPDATE: "settings.profile.update",
+  PROFILE_AVATAR_UPLOAD: "settings.profile.avatar.upload",
+  PROFILE_AVATAR_DELETE: "settings.profile.avatar.delete",
+  PREFERENCES_UPDATE: "settings.preferences.update",
+  NOTIFICATIONS_UPDATE: "settings.notifications.update",
+  CHAT_UPDATE: "settings.chat.update",
+  PASSWORD_CHANGE: "settings.security.password.change",
+  PASSWORD_METHOD_TOGGLE: "settings.security.password_method.toggle",
+  OAUTH_LINK_START: "settings.security.oauth.link.start",
+  OAUTH_UNLINK: "settings.security.oauth.unlink",
+  SESSIONS_LOGOUT_OTHERS: "settings.security.sessions.logout_others"
+});
 
-function normalizeOauthProviderParams(params) {
-  const source = normalizeObjectInput(params);
-  return {
-    provider: source.provider
-  };
-}
-
-function normalizeWorkspaceParams(params) {
-  const source = normalizeObjectInput(params);
-  return {
-    workspaceSlug: source.workspaceSlug
-  };
-}
-
-function normalizeMemberParams(params) {
-  const source = normalizeObjectInput(params);
-  return {
-    workspaceSlug: source.workspaceSlug,
-    memberUserId: source.memberUserId
-  };
-}
-
-function normalizeInviteParams(params) {
-  const source = normalizeObjectInput(params);
-  return {
-    workspaceSlug: source.workspaceSlug,
-    inviteId: source.inviteId
-  };
-}
+const CONSOLE_SETTINGS_ACTION_IDS = Object.freeze({
+  READ: "console.settings.read",
+  UPDATE: "console.settings.update"
+});
 
 function normalizeMemberRoleBody(body) {
   const source = normalizeObjectInput(body);
   return {
     roleId: source.roleId
-  };
-}
-
-function normalizeOauthProviderQuery(query) {
-  const source = normalizeObjectInput(query);
-  return {
-    returnTo: source.returnTo
   };
 }
 
@@ -110,16 +99,6 @@ class UsersRouteServiceProvider {
     const workspaceService = app.make("users.workspace.service");
     const consoleService = app.has("consoleService") ? app.make("consoleService") : null;
 
-    const usersWorkspaceController = new UsersWorkspaceController({
-      authService: authService,
-      workspaceService: workspaceService,
-      consoleService: consoleService
-    });
-    const usersSettingsController = new UsersSettingsController({
-      authService: authService
-    });
-    const usersConsoleSettingsController = new UsersConsoleSettingsController();
-
     const workspaceRouteTags = ["workspace"];
     const settingsRouteTags = ["settings"];
     const consoleSettingsRouteTags = ["console", "settings"];
@@ -132,12 +111,71 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Get startup bootstrap payload with session, app, workspace, and settings context"
       },
-      query: {
-        schema: workspaceSchema.query.bootstrap,
-        normalize: normalizeObjectInput
-      },
+      query: routeQueries.workspaceBootstrap,
       response: buildWorkspaceResponse(workspaceSchema.response.bootstrap),
-      handler: usersWorkspaceController.bootstrap.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const oauthProviderCatalog = typeof authService.getOAuthProviderCatalog === "function" ? authService.getOAuthProviderCatalog() : null;
+        const oauthProviders = Array.isArray(oauthProviderCatalog?.providers)
+          ? oauthProviderCatalog.providers
+              .map((provider) => ({
+                id: normalizeText(provider?.id).toLowerCase(),
+                label: normalizeText(provider?.label)
+              }))
+              .filter((provider) => provider.id && provider.label)
+          : [];
+        const oauthDefaultProvider = normalizeText(oauthProviderCatalog?.defaultProvider).toLowerCase();
+
+        const authResult = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.AUTH_SESSION_READ
+        });
+
+        if (authResult?.clearSession === true && typeof authService.clearSessionCookies === "function") {
+          authService.clearSessionCookies(reply);
+        }
+        if (authResult?.session && typeof authService.writeSessionCookies === "function") {
+          authService.writeSessionCookies(reply, authResult.session);
+        }
+
+        if (authResult?.transientFailure === true) {
+          reply.code(503).send({
+            error: "Authentication service temporarily unavailable. Please retry."
+          });
+          return;
+        }
+
+        if (
+          authResult?.authenticated &&
+          authResult?.profile?.id != null &&
+          consoleService &&
+          typeof consoleService.ensureInitialConsoleMember === "function"
+        ) {
+          await consoleService.ensureInitialConsoleMember(authResult.profile.id);
+        }
+
+        const bootstrapWorkspaceSlug = normalizeText(request?.input?.query?.workspaceSlug).toLowerCase();
+        const payload = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.BOOTSTRAP_READ,
+          input: {
+            user: authResult?.authenticated ? authResult.profile : null,
+            workspaceSlug: bootstrapWorkspaceSlug
+          },
+          context: {
+            actor: authResult?.authenticated ? authResult.profile : null
+          }
+        });
+        const session = payload?.session && typeof payload.session === "object" ? payload.session : { authenticated: false };
+
+        reply.code(200).send({
+          ...payload,
+          session: {
+            ...session,
+            oauthProviders: oauthProviders,
+            oauthDefaultProvider: oauthProviders.some((provider) => provider.id === oauthDefaultProvider)
+              ? oauthDefaultProvider
+              : null
+          }
+        });
+      }
     });
 
     registerRoute(router, {
@@ -149,7 +187,12 @@ class UsersRouteServiceProvider {
         summary: "List workspaces visible to authenticated user"
       },
       response: buildWorkspaceResponse(workspaceSchema.response.workspacesList),
-      handler: usersWorkspaceController.listWorkspaces.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.WORKSPACES_LIST
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -161,7 +204,12 @@ class UsersRouteServiceProvider {
         summary: "List pending workspace invitations for authenticated user"
       },
       response: buildWorkspaceResponse(workspaceSchema.response.pendingInvites),
-      handler: usersWorkspaceController.listPendingInvites.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -177,13 +225,19 @@ class UsersRouteServiceProvider {
         normalize: normalizeObjectInput
       },
       response: buildWorkspaceResponse(workspaceSchema.response.respondToInvite, true),
-      handler: usersWorkspaceController.respondToPendingInviteByToken.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITE_REDEEM,
+          input: request.input.body
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerWorkspaceSettingsRoutes(app);
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/roles",
+      path: "/api/w/:workspaceSlug/workspace/roles",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -192,16 +246,32 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Get workspace role catalog by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.roles),
-      handler: usersWorkspaceController.listWorkspaceRoles.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/members",
+      path: "/api/w/:workspaceSlug/workspace/members",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -210,16 +280,32 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List members by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.members),
-      handler: usersWorkspaceController.listWorkspaceMembers.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/members/:memberUserId/role",
+      path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role",
       method: "PATCH",
       auth: "required",
       workspacePolicy: "required",
@@ -228,20 +314,39 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Update workspace member role by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.member,
-        normalize: normalizeMemberParams
-      },
+      params: [routeParams.workspaceSlug, routeParams.memberUserId],
       body: {
         schema: workspaceSchema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
       response: buildWorkspaceResponse(workspaceSchema.response.members, true),
-      handler: usersWorkspaceController.updateWorkspaceMemberRole.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const memberUserId = normalizeText(params.memberUserId);
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            memberUserId: memberUserId,
+            roleId: request.input.body.roleId
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/invites",
+      path: "/api/w/:workspaceSlug/workspace/invites",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -250,16 +355,32 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List workspace invites by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
-      handler: usersWorkspaceController.listWorkspaceInvites.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/invites",
+      path: "/api/w/:workspaceSlug/workspace/invites",
       method: "POST",
       auth: "required",
       workspacePolicy: "required",
@@ -268,20 +389,37 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Create workspace invite by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       body: {
         schema: workspaceSchema.body.createInvite,
         normalize: normalizeObjectInput
       },
       response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
-      handler: usersWorkspaceController.createWorkspaceInvite.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            ...normalizeObjectInput(request.input.body)
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
-      path: "/api/app/w/:workspaceSlug/workspace/invites/:inviteId",
+      path: "/api/w/:workspaceSlug/workspace/invites/:inviteId",
       method: "DELETE",
       auth: "required",
       workspacePolicy: "required",
@@ -290,12 +428,30 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Revoke workspace invite by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.invite,
-        normalize: normalizeInviteParams
-      },
+      params: [routeParams.workspaceSlug, routeParams.inviteId],
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
-      handler: usersWorkspaceController.revokeWorkspaceInvite.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const inviteId = normalizeText(params.inviteId);
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            inviteId: inviteId
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -308,12 +464,28 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Get workspace role catalog by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.roles),
-      handler: usersWorkspaceController.listWorkspaceRoles.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -326,12 +498,28 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List members by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.members),
-      handler: usersWorkspaceController.listWorkspaceMembers.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -344,16 +532,35 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Update workspace member role by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.member,
-        normalize: normalizeMemberParams
-      },
+      params: [routeParams.workspaceSlug, routeParams.memberUserId],
       body: {
         schema: workspaceSchema.body.memberRoleUpdate,
         normalize: normalizeMemberRoleBody
       },
       response: buildWorkspaceResponse(workspaceSchema.response.members, true),
-      handler: usersWorkspaceController.updateWorkspaceMemberRole.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const memberUserId = normalizeText(params.memberUserId);
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            memberUserId: memberUserId,
+            roleId: request.input.body.roleId
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -366,12 +573,28 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "List workspace invites by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
-      handler: usersWorkspaceController.listWorkspaceInvites.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
+          input: {
+            workspaceSlug: workspaceSlug
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -384,16 +607,33 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Create workspace invite by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.workspace,
-        normalize: normalizeWorkspaceParams
-      },
+      params: routeParams.workspaceSlug,
       body: {
         schema: workspaceSchema.body.createInvite,
         normalize: normalizeObjectInput
       },
       response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
-      handler: usersWorkspaceController.createWorkspaceInvite.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            ...normalizeObjectInput(request.input.body)
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -406,12 +646,30 @@ class UsersRouteServiceProvider {
         tags: workspaceRouteTags,
         summary: "Revoke workspace invite by workspace slug"
       },
-      params: {
-        schema: workspaceSchema.params.invite,
-        normalize: normalizeInviteParams
-      },
+      params: [routeParams.workspaceSlug, routeParams.inviteId],
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
-      handler: usersWorkspaceController.revokeWorkspaceInvite.bind(usersWorkspaceController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
+        const inviteId = normalizeText(params.inviteId);
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
+          request: request
+        });
+
+        const response = await request.executeAction({
+          actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
+          input: {
+            workspaceSlug: workspaceSlug,
+            inviteId: inviteId
+          },
+          context: {
+            workspace: resolvedWorkspaceContext.workspace,
+            membership: resolvedWorkspaceContext.membership,
+            permissions: resolvedWorkspaceContext.permissions
+          }
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -425,7 +683,12 @@ class UsersRouteServiceProvider {
       response: withStandardErrorResponses({
         200: settingsSchema.response
       }),
-      handler: usersSettingsController.get.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.READ
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -446,7 +709,18 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersSettingsController.updateProfile.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const result = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PROFILE_UPDATE,
+          input: request.input.body
+        });
+
+        if (result?.session && typeof authService.writeSessionCookies === "function") {
+          authService.writeSessionCookies(reply, result.session);
+        }
+
+        reply.code(200).send(result?.settings || result);
+      }
     });
 
     registerRoute(router, {
@@ -469,7 +743,31 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersSettingsController.uploadAvatar.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const filePart = await request.file();
+        if (!filePart) {
+          throw new AppError(400, "Validation failed.", {
+            details: {
+              fieldErrors: {
+                avatar: "Avatar file is required."
+              }
+            }
+          });
+        }
+
+        const uploadDimension = filePart.fields?.uploadDimension?.value;
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_UPLOAD,
+          input: {
+            stream: filePart.file,
+            mimeType: filePart.mimetype,
+            fileName: filePart.filename,
+            uploadDimension: uploadDimension
+          }
+        });
+
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -483,7 +781,12 @@ class UsersRouteServiceProvider {
       response: withStandardErrorResponses({
         200: settingsSchema.commands["settings.profile.avatar.delete"].operation.response.schema
       }),
-      handler: usersSettingsController.deleteAvatar.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_DELETE
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -504,7 +807,13 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersSettingsController.updatePreferences.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PREFERENCES_UPDATE,
+          input: request.input.body
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -525,7 +834,13 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersSettingsController.updateNotifications.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.NOTIFICATIONS_UPDATE,
+          input: request.input.body
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -546,7 +861,13 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersSettingsController.updateChat.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.CHAT_UPDATE,
+          input: request.input.body
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -571,7 +892,21 @@ class UsersRouteServiceProvider {
         max: 10,
         timeWindow: "1 minute"
       },
-      handler: usersSettingsController.changePassword.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const result = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PASSWORD_CHANGE,
+          input: request.input.body
+        });
+
+        if (result?.session && typeof authService.writeSessionCookies === "function") {
+          authService.writeSessionCookies(reply, result.session);
+        }
+
+        reply.code(200).send({
+          ok: true,
+          message: result?.message || "Password updated."
+        });
+      }
     });
 
     registerRoute(router, {
@@ -596,7 +931,14 @@ class UsersRouteServiceProvider {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: usersSettingsController.setPasswordMethodEnabled.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.PASSWORD_METHOD_TOGGLE,
+          input: request.input.body
+        });
+
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -608,14 +950,8 @@ class UsersRouteServiceProvider {
         tags: settingsRouteTags,
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      params: {
-        schema: settingsSchema.params.oauthProvider,
-        normalize: normalizeOauthProviderParams
-      },
-      query: {
-        schema: settingsSchema.query.oauthProvider,
-        normalize: normalizeOauthProviderQuery
-      },
+      params: routeParams.provider,
+      query: routeQueries.oauthReturnTo,
       response: withStandardErrorResponses(
         {
           302: Type.Unknown()
@@ -626,7 +962,21 @@ class UsersRouteServiceProvider {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: usersSettingsController.startOAuthProviderLink.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const query = normalizeObjectInput(request?.input?.query);
+        const provider = normalizeText(params.provider);
+        const returnTo = normalizeText(query.returnTo);
+        const result = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.OAUTH_LINK_START,
+          input: {
+            provider: provider,
+            returnTo: returnTo || undefined
+          }
+        });
+
+        reply.redirect(result.url);
+      }
     });
 
     registerRoute(router, {
@@ -637,10 +987,7 @@ class UsersRouteServiceProvider {
         tags: settingsRouteTags,
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      params: {
-        schema: settingsSchema.params.oauthProvider,
-        normalize: normalizeOauthProviderParams
-      },
+      params: routeParams.provider,
       response: withStandardErrorResponses(
         {
           200: settingsSchema.commands["settings.security.oauth.unlink"].operation.response.schema
@@ -651,7 +998,18 @@ class UsersRouteServiceProvider {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: usersSettingsController.unlinkOAuthProvider.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const params = normalizeObjectInput(request?.input?.params);
+        const provider = normalizeText(params.provider);
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.OAUTH_UNLINK,
+          input: {
+            provider: provider
+          }
+        });
+
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -669,7 +1027,12 @@ class UsersRouteServiceProvider {
         max: 20,
         timeWindow: "1 minute"
       },
-      handler: usersSettingsController.logoutOtherSessions.bind(usersSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: SETTINGS_ACTION_IDS.SESSIONS_LOGOUT_OTHERS
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -684,7 +1047,12 @@ class UsersRouteServiceProvider {
       response: withStandardErrorResponses({
         200: consoleSettingsSchema.response.settings
       }),
-      handler: usersConsoleSettingsController.get.bind(usersConsoleSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: CONSOLE_SETTINGS_ACTION_IDS.READ
+        });
+        reply.code(200).send(response);
+      }
     });
 
     registerRoute(router, {
@@ -706,7 +1074,13 @@ class UsersRouteServiceProvider {
         },
         { includeValidation400: true }
       ),
-      handler: usersConsoleSettingsController.update.bind(usersConsoleSettingsController)
+      handler: async function (request, reply) {
+        const response = await request.executeAction({
+          actionId: CONSOLE_SETTINGS_ACTION_IDS.UPDATE,
+          input: request.input.body
+        });
+        reply.code(200).send(response);
+      }
     });
   }
 }

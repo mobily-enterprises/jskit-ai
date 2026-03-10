@@ -8,11 +8,7 @@ import {
 } from "@jskit-ai/users-core/shared/contracts/resources/userSettingsSchema";
 import { settingsPasswordChangeCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsPasswordChangeCommand";
 import { settingsPasswordMethodToggleCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsPasswordMethodToggleCommand";
-import {
-  settingsOAuthLinkStartCommand,
-  settingsOAuthProviderParamsSchema,
-  settingsOAuthProviderQuerySchema
-} from "@jskit-ai/users-core/shared/contracts/commands/settingsOAuthLinkStartCommand";
+import { settingsOAuthLinkStartCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsOAuthLinkStartCommand";
 import { settingsOAuthUnlinkCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsOAuthUnlinkCommand";
 import { settingsLogoutOtherSessionsCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsLogoutOtherSessionsCommand";
 import { settingsAvatarUploadCommand } from "@jskit-ai/users-core/shared/contracts/commands/settingsAvatarUploadCommand";
@@ -26,12 +22,6 @@ const settingsRoutesContract = Object.freeze({
     chat: chatPatchBodySchema,
     changePassword: settingsPasswordChangeCommand.operation.body.schema,
     passwordMethodToggle: settingsPasswordMethodToggleCommand.operation.body.schema
-  },
-  params: {
-    oauthProvider: settingsOAuthProviderParamsSchema
-  },
-  query: {
-    oauthProvider: settingsOAuthProviderQuerySchema
   },
   response: userSettingsResourceSchema.operations.view.response.schema,
   resources: {

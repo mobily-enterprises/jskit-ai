@@ -293,7 +293,11 @@ function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId 
 function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "", apiBasePath = "/api") {
   const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
   const normalizedApiBasePath = normalizePathname(apiBasePath);
-  const prefixedApiBasePath = joinSurfacePath(normalizedApiBasePath, surfaceDefinition?.prefix);
+  const normalizedSurfacePrefix = normalizeSurfacePrefix(surfaceDefinition?.prefix);
+  const prefixedApiBasePath =
+    normalizedSurfacePrefix === "/app"
+      ? normalizedApiBasePath
+      : joinSurfacePath(normalizedApiBasePath, normalizedSurfacePrefix);
   const normalizedPathname = String(pathname || "").trim();
   if (!normalizedPathname) {
     return prefixedApiBasePath;

@@ -1,4 +1,5 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { mergeObjectSchemas } from "../../../shared/contracts/mergeObjectSchemas.js";
 import { RouteDefinitionError } from "./errors.js";
 
 const ROUTE_CONTRACT_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeContract");
@@ -14,13 +15,13 @@ function resolveRouteLabel({ method = "", path = "" } = {}) {
   return `${normalizedMethod} ${normalizedPath}`;
 }
 
-function normalizeRouteContractPart(value, { context = "route contract part", fieldName = "" } = {}) {
+function normalizeSingleRouteContractPart(value, { context = "route contract part" } = {}) {
   if (value == null) {
     return Object.freeze({});
   }
 
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new RouteDefinitionError(`${context}.${fieldName} must be an object.`);
+    throw new RouteDefinitionError(`${context} must be an object.`);
   }
 
   const source = normalizeObject(value);
@@ -32,7 +33,7 @@ function normalizeRouteContractPart(value, { context = "route contract part", fi
 
   if (Object.prototype.hasOwnProperty.call(source, "normalize")) {
     if (source.normalize != null && typeof source.normalize !== "function") {
-      throw new RouteDefinitionError(`${context}.${fieldName}.normalize must be a function.`);
+      throw new RouteDefinitionError(`${context}.normalize must be a function.`);
     }
     if (typeof source.normalize === "function") {
       normalized.normalize = source.normalize;
@@ -40,6 +41,75 @@ function normalizeRouteContractPart(value, { context = "route contract part", fi
   }
 
   return Object.freeze(normalized);
+}
+
+function mergeNormalizedRouteContractParts(parts, { context = "route contract part" } = {}) {
+  const normalized = {};
+  const schemas = [];
+  const normalizers = [];
+
+  for (const part of parts) {
+    if (Object.prototype.hasOwnProperty.call(part, "schema")) {
+      schemas.push(part.schema);
+    }
+    if (typeof part.normalize === "function") {
+      normalizers.push(part.normalize);
+    }
+  }
+
+  if (schemas.length === 1) {
+    normalized.schema = schemas[0];
+  } else if (schemas.length > 1) {
+    normalized.schema = mergeObjectSchemas(schemas);
+  }
+
+  if (normalizers.length > 1) {
+    throw new RouteDefinitionError(`${context} cannot define multiple normalize functions when using an array.`);
+  }
+  if (normalizers.length === 1) {
+    normalized.normalize = normalizers[0];
+  }
+
+  return Object.freeze(normalized);
+}
+
+function normalizeRouteContractPart(value, { context = "route contract part", allowArray = false } = {}) {
+  if (value == null) {
+    return Object.freeze({});
+  }
+
+  if (Array.isArray(value)) {
+    if (!allowArray) {
+      throw new RouteDefinitionError(`${context} does not support arrays.`);
+    }
+
+    if (value.length === 0) {
+      return Object.freeze({});
+    }
+
+    const parts = value.map((entry, index) => {
+      const part = normalizeSingleRouteContractPart(entry, {
+        context: `${context}[${index}]`
+      });
+
+      if (
+        !Object.prototype.hasOwnProperty.call(part, "schema") &&
+        !Object.prototype.hasOwnProperty.call(part, "normalize")
+      ) {
+        throw new RouteDefinitionError(`${context}[${index}] must define schema and/or normalize.`);
+      }
+
+      return part;
+    });
+
+    return mergeNormalizedRouteContractParts(parts, {
+      context
+    });
+  }
+
+  return normalizeSingleRouteContractPart(value, {
+    context
+  });
 }
 
 function normalizeAdvancedFastifySchema(value, { context = "route contract" } = {}) {
@@ -149,16 +219,15 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
     context
   });
   const body = normalizeRouteContractPart(definition.body, {
-    context,
-    fieldName: "body"
+    context: `${context}.body`
   });
   const query = normalizeRouteContractPart(definition.query, {
-    context,
-    fieldName: "query"
+    context: `${context}.query`,
+    allowArray: true
   });
   const params = normalizeRouteContractPart(definition.params, {
-    context,
-    fieldName: "params"
+    context: `${context}.params`,
+    allowArray: true
   });
 
   const advancedSource =
