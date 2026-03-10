@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRepository } from "../src/server/repositories/workspaceInvites.repository.js";
+import { createRepository } from "../src/server/workspace/workspaceInvitesRepository.js";
 
 function createKnexStub() {
   const state = {

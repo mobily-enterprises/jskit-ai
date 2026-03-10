@@ -6,7 +6,7 @@ import {
   toIsoString,
   nowDb,
   isDuplicateEntryError
-} from "./repositoryUtils.js";
+} from "../common/repositories/repositoryUtils.js";
 import { DEFAULT_USER_SETTINGS } from "../../shared/settings.js";
 
 function mapRow(row) {

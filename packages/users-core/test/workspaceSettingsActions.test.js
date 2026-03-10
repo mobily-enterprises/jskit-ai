@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { workspaceActions } from "../src/server/actions/workspaceActionContributor.js";
-import { workspaceSettingsActions } from "../src/server/actions/workspaceSettingsActions.js";
+import { workspaceBootstrapActions } from "../src/server/workspaceBootstrap/workspaceBootstrapActions.js";
+import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
+import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
+import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
+import { workspaceSettingsActions } from "../src/server/workspaceSettings/workspaceSettingsActions.js";
 
 test("workspace settings actions live in their own action array", () => {
   assert.deepEqual(
@@ -15,12 +18,19 @@ test("workspace settings actions live in their own action array", () => {
 });
 
 test("workspace actions array no longer owns workspace settings actions", () => {
+  const otherWorkspaceActionIds = [
+    ...workspaceBootstrapActions,
+    ...workspaceDirectoryActions,
+    ...workspacePendingInvitationsActions,
+    ...workspaceMembersActions
+  ].map((action) => action.id);
+
   assert.equal(
-    workspaceActions.some((action) => action.id === "workspace.settings.read"),
+    otherWorkspaceActionIds.includes("workspace.settings.read"),
     false
   );
   assert.equal(
-    workspaceActions.some((action) => action.id === "workspace.settings.update"),
+    otherWorkspaceActionIds.includes("workspace.settings.update"),
     false
   );
 });

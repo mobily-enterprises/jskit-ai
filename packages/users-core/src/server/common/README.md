@@ -3,10 +3,7 @@
 This directory is for server-only code shared by multiple feature slices in `users-core`.
 
 Subdirectories:
-- `contributors/`: shared runtime contributors such as action context contributors.
 - `contracts/`: shared server transport contracts and route contract parts.
-- `repositories/`: persistence boundaries used by multiple slices.
-- `services/`: cross-slice server services.
-- `support/`: low-level server-only helpers that do not belong to one feature.
+- `repositories/`: low-level repository helpers shared by multiple repositories.
 
-Do not put feature-specific actions or services here.
+Do not put feature-specific actions, services, repositories, or contributors here.

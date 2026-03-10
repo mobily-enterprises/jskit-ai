@@ -1,34 +1,50 @@
-export { UsersCoreServiceProvider } from "./providers/UsersCoreServiceProvider.js";
-export { UsersRouteServiceProvider } from "./providers/UsersRouteServiceProvider.js";
+export { UsersCoreServiceProvider } from "./UsersCoreServiceProvider.js";
 
-export { workspaceActions } from "./actions/workspaceActionContributor.js";
-export { workspaceSettingsActions } from "./actions/workspaceSettingsActions.js";
-export { createWorkspaceActionContextContributor } from "./actions/workspaceActionContextContributor.js";
-export { settingsActions } from "./actions/settingsActionContributor.js";
-export { consoleSettingsActions } from "./actions/consoleSettingsActionContributor.js";
+export { createWorkspaceActionContextContributor } from "./workspace/workspaceActionContextContributor.js";
+export { createService as createWorkspaceService } from "./workspace/workspaceService.js";
+export { createService as createWorkspaceAdminService } from "./workspace/workspaceAdminService.js";
+export { createService as createSettingsService } from "./account/accountSettingsService.js";
+
+export { createRepository as createUserProfilesRepository } from "./account/userProfilesRepository.js";
+export { createRepository as createUserSettingsRepository } from "./account/userSettingsRepository.js";
+export { createRepository as createWorkspacesRepository } from "./workspace/workspacesRepository.js";
+export { createRepository as createWorkspaceMembershipsRepository } from "./workspace/workspaceMembershipsRepository.js";
+export { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettings/workspaceSettingsRepository.js";
+export { createRepository as createWorkspaceInvitesRepository } from "./workspace/workspaceInvitesRepository.js";
+export { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 
 export { registerWorkspaceBootstrapRoutes } from "./workspaceBootstrap/registerWorkspaceBootstrapRoutes.js";
+export { workspaceBootstrapActions } from "./workspaceBootstrap/workspaceBootstrapActions.js";
+
 export { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/registerWorkspaceDirectoryRoutes.js";
+export { workspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
+
 export { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/registerWorkspacePendingInvitationsRoutes.js";
+export { workspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
+
 export { registerWorkspaceSettingsRoutes } from "./workspaceSettings/registerWorkspaceSettingsRoutes.js";
+export { workspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
+
+export { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
 export { registerWorkspaceMembersRoutes } from "./workspaceMembers/registerWorkspaceMembersRoutes.js";
+
+export { workspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
 export { registerAccountProfileRoutes } from "./accountProfile/registerAccountProfileRoutes.js";
+
+export { accountProfileActions } from "./accountProfile/accountProfileActions.js";
 export { registerAccountPreferencesRoutes } from "./accountPreferences/registerAccountPreferencesRoutes.js";
+
+export { accountPreferencesActions } from "./accountPreferences/accountPreferencesActions.js";
 export { registerAccountNotificationsRoutes } from "./accountNotifications/registerAccountNotificationsRoutes.js";
+
+export { accountNotificationsActions } from "./accountNotifications/accountNotificationsActions.js";
 export { registerAccountChatRoutes } from "./accountChat/registerAccountChatRoutes.js";
+
+export { accountChatActions } from "./accountChat/accountChatActions.js";
 export { registerAccountSecurityRoutes } from "./accountSecurity/registerAccountSecurityRoutes.js";
+
+export { accountSecurityActions } from "./accountSecurity/accountSecurityActions.js";
 export { registerConsoleSettingsRoutes } from "./consoleSettings/registerConsoleSettingsRoutes.js";
 
-export { createService as createWorkspaceService } from "./services/workspaceService.js";
-export { createService as createWorkspaceAdminService } from "./services/workspaceAdminService.js";
-export { createService as createWorkspaceSettingsService } from "./services/workspaceSettingsService.js";
-export { createService as createSettingsService } from "./services/settingsService.js";
-export { createService as createConsoleSettingsService } from "./services/consoleSettingsService.js";
-
-export { createRepository as createUserProfilesRepository } from "./repositories/userProfiles.repository.js";
-export { createRepository as createUserSettingsRepository } from "./repositories/userSettings.repository.js";
-export { createRepository as createWorkspacesRepository } from "./repositories/workspaces.repository.js";
-export { createRepository as createWorkspaceMembershipsRepository } from "./repositories/memberships.repository.js";
-export { createRepository as createWorkspaceSettingsRepository } from "./repositories/workspaceSettings.repository.js";
-export { createRepository as createWorkspaceInvitesRepository } from "./repositories/workspaceInvites.repository.js";
-export { createRepository as createConsoleSettingsRepository } from "./repositories/consoleSettings.repository.js";
+export { consoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
+export { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { UsersRouteServiceProvider } from "../src/server/providers/UsersRouteServiceProvider.js";
+import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
 
 function createReplyDouble() {
   return {
@@ -62,8 +62,7 @@ function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
     }
   };
 
-  const provider = new UsersRouteServiceProvider();
-  provider.register(app);
+  const provider = new UsersCoreServiceProvider();
   provider.boot(app);
 
   return registeredRoutes;

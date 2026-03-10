@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { DEFAULT_USER_SETTINGS } from "../../shared/settings.js";
-import { normalizeIdentity } from "../repositories/userProfiles.repository.js";
+import { normalizeIdentity } from "./userProfilesRepository.js";
 
 function normalizeText(value) {
   return String(value || "").trim();

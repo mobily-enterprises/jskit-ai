@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../common/contracts/consoleSettingsRoutesContract.js";
+import { consoleSettingsRoutes as consoleSettingsSchema } from "./consoleSettingsRoutes.js";
 
 function registerConsoleSettingsRoutes(app) {
   if (!app || typeof app.make !== "function") {

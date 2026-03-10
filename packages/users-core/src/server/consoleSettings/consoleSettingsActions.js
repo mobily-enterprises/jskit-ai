@@ -1,7 +1,7 @@
 import {
   normalizeObject,
-  requireAuthenticated,
-  OBJECT_INPUT_SCHEMA
+  OBJECT_INPUT_SCHEMA,
+  requireAuthenticated
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 
 const consoleSettingsActions = Object.freeze([

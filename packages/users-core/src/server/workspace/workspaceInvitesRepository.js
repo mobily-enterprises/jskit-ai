@@ -6,7 +6,7 @@ import {
   toNullableDateTime,
   nowDb,
   isDuplicateEntryError
-} from "./repositoryUtils.js";
+} from "../common/repositories/repositoryUtils.js";
 
 function mapRow(row) {
   if (!row) {

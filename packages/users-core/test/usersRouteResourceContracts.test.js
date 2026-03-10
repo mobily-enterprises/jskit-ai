@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/contracts/resourceRequiredMetadata";
 import { workspaceRoutesContract as workspaceSchema } from "../src/server/common/contracts/workspaceRoutesContract.js";
 import { settingsRoutesContract as settingsSchema } from "../src/server/common/contracts/settingsRoutesContract.js";
-import { consoleSettingsRoutesContract as consoleSettingsSchema } from "../src/server/common/contracts/consoleSettingsRoutesContract.js";
+import { consoleSettingsRoutes as consoleSettingsSchema } from "../src/server/consoleSettings/consoleSettingsRoutes.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);

@@ -1,24 +1,20 @@
 # `repositories/`
 
-Use this directory for persistence boundaries shared by more than one server feature slice.
+Use this directory for low-level repository helpers shared by more than one repository file.
 
 What belongs here:
-- database repositories
 - repository helpers that are part of persistence logic
 
 Examples:
-- `workspacesRepository`
-- `workspaceMembershipsRepository`
-- `workspaceInvitesRepository`
+- SQL/date/JSON helper functions reused by several repositories
 
 Do not put these here:
+- full repositories owned by one domain or feature
 - business logic
 - action definitions
 - transport validation
 - feature-specific response mapping
 
 Rule:
-- repositories read and write data
-- they do not decide permissions
-- they do not shape HTTP payloads
-- they do not contain feature workflow logic
+- if a helper is reused by multiple repository files, it can live here
+- if it is a real repository for one domain, keep it in that domain folder

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
-import { createService } from "../src/server/services/workspaceService.js";
+import { createService } from "../src/server/workspace/workspaceService.js";
 
 function createWorkspaceServiceFixture({
   tenancyMode = "workspace",

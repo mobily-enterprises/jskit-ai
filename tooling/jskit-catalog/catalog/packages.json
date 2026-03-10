@@ -1224,12 +1224,8 @@
           "server": {
             "providers": [
               {
-                "entrypoint": "src/server/providers/UsersCoreServiceProvider.js",
+                "entrypoint": "src/server/UsersCoreServiceProvider.js",
                 "export": "UsersCoreServiceProvider"
-              },
-              {
-                "entrypoint": "src/server/providers/UsersRouteServiceProvider.js",
-                "export": "UsersRouteServiceProvider"
               }
             ]
           },
@@ -1242,7 +1238,7 @@
             "surfaces": [
               {
                 "subpath": "./server",
-                "summary": "Exports UsersCoreServiceProvider, UsersRouteServiceProvider, users/workspace/console repositories/services, feature route registration modules, and action definitions."
+                "summary": "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, feature route registration modules, and action definitions."
               },
               {
                 "subpath": "./shared",

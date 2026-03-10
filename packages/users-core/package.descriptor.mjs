@@ -24,12 +24,8 @@ export default Object.freeze({
     server: {
       providers: [
         {
-          entrypoint: "src/server/providers/UsersCoreServiceProvider.js",
+          entrypoint: "src/server/UsersCoreServiceProvider.js",
           export: "UsersCoreServiceProvider"
-        },
-        {
-          entrypoint: "src/server/providers/UsersRouteServiceProvider.js",
-          export: "UsersRouteServiceProvider"
         }
       ]
     },
@@ -43,7 +39,7 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary:
-            "Exports UsersCoreServiceProvider, UsersRouteServiceProvider, users/workspace/console repositories/services, feature route registration modules, and action definitions."
+            "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, feature route registration modules, and action definitions."
         },
         {
           subpath: "./shared",

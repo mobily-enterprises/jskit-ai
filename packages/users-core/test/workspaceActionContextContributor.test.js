@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkspaceActionContextContributor } from "../src/server/actions/workspaceActionContextContributor.js";
+import { createWorkspaceActionContextContributor } from "../src/server/workspace/workspaceActionContextContributor.js";
 
 test("workspace action context contributor resolves workspace context for workspace actions", async () => {
   const calls = [];

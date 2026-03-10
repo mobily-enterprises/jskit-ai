@@ -1,6 +1,6 @@
-import { consoleSettingsSchema as consoleSettingsResourceSchema } from "../../../shared/contracts/resources/consoleSettingsSchema.js";
+import { consoleSettingsSchema as consoleSettingsResourceSchema } from "../../shared/contracts/resources/consoleSettingsSchema.js";
 
-const consoleSettingsRoutesContract = Object.freeze({
+const consoleSettingsRoutes = Object.freeze({
   body: {
     update: consoleSettingsResourceSchema.operations.replace.body.schema
   },
@@ -13,4 +13,4 @@ const consoleSettingsRoutesContract = Object.freeze({
   commands: {}
 });
 
-export { consoleSettingsRoutesContract };
+export { consoleSettingsRoutes };
