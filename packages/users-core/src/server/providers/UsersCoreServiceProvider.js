@@ -1,5 +1,8 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { registerActionContributor } from "@jskit-ai/kernel/server/actions";
+import {
+  registerActionContributor,
+  registerActionContextContributor
+} from "@jskit-ai/kernel/server/actions";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import * as usersShared from "../../shared/index.js";
 import { createRepository as createUserProfilesRepository } from "../repositories/userProfiles.repository.js";
@@ -14,6 +17,7 @@ import { createService as createWorkspaceAdminService } from "../services/worksp
 import { createService as createSettingsService } from "../services/settingsService.js";
 import { createService as createConsoleSettingsService } from "../services/consoleSettingsService.js";
 import { createWorkspaceActionContributor } from "../actions/workspaceActionContributor.js";
+import { createWorkspaceActionContextContributor } from "../actions/workspaceActionContextContributor.js";
 import { createSettingsActionContributor } from "../actions/settingsActionContributor.js";
 import { createConsoleSettingsActionContributor } from "../actions/consoleSettingsActionContributor.js";
 
@@ -22,6 +26,7 @@ const USERS_CORE_API = Object.freeze({
 });
 
 const USERS_WORKSPACE_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContributor";
+const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 const USERS_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.settings.actionContributor";
 const USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.console.settings.actionContributor";
 const USERS_SURFACE_RUNTIME_TOKEN = "users.core.surface.runtime";
@@ -126,6 +131,12 @@ class UsersCoreServiceProvider {
         workspaceService: scope.make("users.workspace.service"),
         workspaceAdminService: scope.make("users.workspace.admin.service"),
         surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
+      });
+    });
+
+    registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {
+      return createWorkspaceActionContextContributor({
+        workspaceService: scope.make("users.workspace.service")
       });
     });
 

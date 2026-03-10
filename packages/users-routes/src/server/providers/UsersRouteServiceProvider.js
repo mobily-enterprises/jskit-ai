@@ -81,9 +81,6 @@ class UsersRouteServiceProvider {
     if (!app.has("authService")) {
       throw new Error("UsersRouteServiceProvider requires authService binding.");
     }
-    if (!app.has("users.workspace.service")) {
-      throw new Error("UsersRouteServiceProvider requires users.workspace.service binding.");
-    }
     if (!app.has("actionExecutor")) {
       throw new Error("UsersRouteServiceProvider requires actionExecutor binding.");
     }
@@ -96,7 +93,6 @@ class UsersRouteServiceProvider {
 
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const authService = app.make("authService");
-    const workspaceService = app.make("users.workspace.service");
     const consoleService = app.has("consoleService") ? app.make("consoleService") : null;
 
     const workspaceRouteTags = ["workspace"];
@@ -249,21 +245,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.roles),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -283,21 +268,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.members),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -321,24 +295,12 @@ class UsersRouteServiceProvider {
       },
       response: buildWorkspaceResponse(workspaceSchema.response.members, true),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const memberUserId = normalizeText(params.memberUserId);
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
           input: {
-            workspaceSlug: workspaceSlug,
-            memberUserId: memberUserId,
+            workspaceSlug: request.input.params.workspaceSlug,
+            memberUserId: request.input.params.memberUserId,
             roleId: request.input.body.roleId
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
           }
         });
         reply.code(200).send(response);
@@ -358,21 +320,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -396,22 +347,11 @@ class UsersRouteServiceProvider {
       },
       response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
           input: {
-            workspaceSlug: workspaceSlug,
-            ...normalizeObjectInput(request.input.body)
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug,
+            ...request.input.body
           }
         });
         reply.code(200).send(response);
@@ -431,23 +371,11 @@ class UsersRouteServiceProvider {
       params: [routeParams.workspaceSlug, routeParams.inviteId],
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const inviteId = normalizeText(params.inviteId);
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
           input: {
-            workspaceSlug: workspaceSlug,
-            inviteId: inviteId
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug,
+            inviteId: request.input.params.inviteId
           }
         });
         reply.code(200).send(response);
@@ -467,21 +395,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.roles),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -501,21 +418,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.members),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -539,24 +445,12 @@ class UsersRouteServiceProvider {
       },
       response: buildWorkspaceResponse(workspaceSchema.response.members, true),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const memberUserId = normalizeText(params.memberUserId);
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
           input: {
-            workspaceSlug: workspaceSlug,
-            memberUserId: memberUserId,
+            workspaceSlug: request.input.params.workspaceSlug,
+            memberUserId: request.input.params.memberUserId,
             roleId: request.input.body.roleId
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
           }
         });
         reply.code(200).send(response);
@@ -576,21 +470,10 @@ class UsersRouteServiceProvider {
       params: routeParams.workspaceSlug,
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
           input: {
-            workspaceSlug: workspaceSlug
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug
           }
         });
         reply.code(200).send(response);
@@ -614,22 +497,11 @@ class UsersRouteServiceProvider {
       },
       response: buildWorkspaceResponse(workspaceSchema.response.invites, true),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
           input: {
-            workspaceSlug: workspaceSlug,
-            ...normalizeObjectInput(request.input.body)
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug,
+            ...request.input.body
           }
         });
         reply.code(200).send(response);
@@ -649,23 +521,11 @@ class UsersRouteServiceProvider {
       params: [routeParams.workspaceSlug, routeParams.inviteId],
       response: buildWorkspaceResponse(workspaceSchema.response.invites),
       handler: async function (request, reply) {
-        const params = normalizeObjectInput(request?.input?.params);
-        const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-        const inviteId = normalizeText(params.inviteId);
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(request?.user, workspaceSlug, {
-          request: request
-        });
-
         const response = await request.executeAction({
           actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
           input: {
-            workspaceSlug: workspaceSlug,
-            inviteId: inviteId
-          },
-          context: {
-            workspace: resolvedWorkspaceContext.workspace,
-            membership: resolvedWorkspaceContext.membership,
-            permissions: resolvedWorkspaceContext.permissions
+            workspaceSlug: request.input.params.workspaceSlug,
+            inviteId: request.input.params.inviteId
           }
         });
         reply.code(200).send(response);

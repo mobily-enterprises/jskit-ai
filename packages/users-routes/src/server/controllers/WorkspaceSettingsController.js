@@ -1,7 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
 import { routeParams } from "../../shared/contracts/routeParams.js";
 
@@ -11,7 +9,6 @@ function registerWorkspaceSettingsRoutes(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const workspaceService = app.make("users.workspace.service");
   const workspaceRouteTags = ["workspace"];
 
   router.register(
@@ -31,22 +28,10 @@ function registerWorkspaceSettingsRoutes(app) {
       })
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        request?.user,
-        workspaceSlug,
-        { request }
-      );
       const response = await request.executeAction({
         actionId: "workspace.settings.read",
         input: {
-          workspaceSlug: workspaceSlug
-        },
-        context: {
-          workspace: resolvedWorkspaceContext.workspace,
-          membership: resolvedWorkspaceContext.membership,
-          permissions: resolvedWorkspaceContext.permissions
+          workspaceSlug: request.input.params.workspaceSlug
         }
       });
       reply.code(200).send(response);
@@ -74,23 +59,11 @@ function registerWorkspaceSettingsRoutes(app) {
       )
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        request?.user,
-        workspaceSlug,
-        { request }
-      );
       const response = await request.executeAction({
         actionId: "workspace.settings.update",
         input: {
-          workspaceSlug: workspaceSlug,
-          ...normalizeObjectInput(request?.input?.body)
-        },
-        context: {
-          workspace: resolvedWorkspaceContext.workspace,
-          membership: resolvedWorkspaceContext.membership,
-          permissions: resolvedWorkspaceContext.permissions
+          workspaceSlug: request.input.params.workspaceSlug,
+          ...request.input.body
         }
       });
       reply.code(200).send(response);
@@ -114,22 +87,10 @@ function registerWorkspaceSettingsRoutes(app) {
       })
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        request?.user,
-        workspaceSlug,
-        { request }
-      );
       const response = await request.executeAction({
         actionId: "workspace.settings.read",
         input: {
-          workspaceSlug: workspaceSlug
-        },
-        context: {
-          workspace: resolvedWorkspaceContext.workspace,
-          membership: resolvedWorkspaceContext.membership,
-          permissions: resolvedWorkspaceContext.permissions
+          workspaceSlug: request.input.params.workspaceSlug
         }
       });
       reply.code(200).send(response);
@@ -157,23 +118,11 @@ function registerWorkspaceSettingsRoutes(app) {
       )
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const workspaceSlug = normalizeText(params.workspaceSlug).toLowerCase();
-      const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        request?.user,
-        workspaceSlug,
-        { request }
-      );
       const response = await request.executeAction({
         actionId: "workspace.settings.update",
         input: {
-          workspaceSlug: workspaceSlug,
-          ...normalizeObjectInput(request?.input?.body)
-        },
-        context: {
-          workspace: resolvedWorkspaceContext.workspace,
-          membership: resolvedWorkspaceContext.membership,
-          permissions: resolvedWorkspaceContext.permissions
+          workspaceSlug: request.input.params.workspaceSlug,
+          ...request.input.body
         }
       });
       reply.code(200).send(response);

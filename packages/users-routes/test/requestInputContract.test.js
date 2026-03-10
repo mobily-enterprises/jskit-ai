@@ -46,18 +46,6 @@ function registerUsersRoutes() {
   const bindings = new Map([
     [KERNEL_TOKENS.HttpRouter, router],
     ["authService", {}],
-    [
-      "users.workspace.service",
-      {
-        async resolveWorkspaceContextForUserBySlug() {
-          return {
-            workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
-            membership: { roleId: "owner", status: "active" },
-            permissions: ["workspace.settings.update"]
-          };
-        }
-      }
-    ],
     ["actionExecutor", {}],
   ]);
 
@@ -241,7 +229,43 @@ test("workspace settings route handlers build action input from request.input", 
     createReplyDouble()
   );
 
-  assert.deepEqual(calls[0].input, { workspaceSlug: "acme", name: "Acme Workspace" });
+  assert.deepEqual(calls[0], {
+    actionId: "workspace.settings.update",
+    input: { workspaceSlug: "acme", name: "Acme Workspace" }
+  });
+});
+
+test("workspace member role route handlers no longer pass manual workspace context", async () => {
+  const routes = registerUsersRoutes();
+  const workspaceMemberRolePatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
+  });
+  const calls = [];
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
+
+  await workspaceMemberRolePatch.handler(
+    createActionRequest({
+      input: {
+        params: { workspaceSlug: "acme", memberUserId: "12" },
+        body: { roleId: "admin" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0], {
+    actionId: "workspace.member.role.update",
+    input: {
+      workspaceSlug: "acme",
+      memberUserId: "12",
+      roleId: "admin"
+    }
+  });
 });
 
 test("settings controller methods use request.input payloads", async () => {

@@ -9,12 +9,26 @@ function createAuthActionContextContributor() {
   return Object.freeze({
     contributorId: "auth.policy.request-context",
     contribute({ request } = {}) {
-      return {
-        actor: request?.user || null,
-        workspace: request?.workspace || null,
-        membership: request?.membership || null,
-        permissions: normalizePermissions(request?.permissions)
-      };
+      const contribution = {};
+      const permissions = normalizePermissions(request?.permissions);
+
+      if (request?.user) {
+        contribution.actor = request.user;
+      }
+
+      if (request?.workspace) {
+        contribution.workspace = request.workspace;
+      }
+
+      if (request?.membership) {
+        contribution.membership = request.membership;
+      }
+
+      if (permissions.length > 0) {
+        contribution.permissions = permissions;
+      }
+
+      return contribution;
     }
   });
 }
