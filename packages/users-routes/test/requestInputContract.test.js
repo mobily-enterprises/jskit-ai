@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRoutes as buildWorkspaceRoutes } from "../src/server/routes/workspaceRoutes.js";
-import { buildRoutes as buildSettingsRoutes } from "../src/server/routes/settingsRoutes.js";
-import { buildRoutes as buildConsoleSettingsRoutes } from "../src/server/routes/consoleSettingsRoutes.js";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { UsersRouteServiceProvider } from "../src/server/providers/UsersRouteServiceProvider.js";
 import { UsersWorkspaceController } from "../src/server/controllers/UsersWorkspaceController.js";
+import { WorkspaceSettingsController } from "../src/server/controllers/WorkspaceSettingsController.js";
 import { UsersSettingsController } from "../src/server/controllers/UsersSettingsController.js";
 import { UsersConsoleSettingsController } from "../src/server/controllers/UsersConsoleSettingsController.js";
 
@@ -27,20 +27,58 @@ function createReplyDouble() {
   };
 }
 
-function createControllerProxy() {
-  const noop = async () => {};
-  return new Proxy(
-    {},
-    {
-      get() {
-        return noop;
-      }
-    }
-  );
-}
-
 function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
+}
+
+function registerUsersRoutes() {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        ...route,
+        method,
+        path,
+        handler
+      });
+    }
+  };
+
+  const bindings = new Map([
+    [KERNEL_TOKENS.HttpRouter, router],
+    ["authService", {}],
+    [
+      "users.workspace.service",
+      {
+        async resolveWorkspaceContextForUserBySlug() {
+          return {
+            workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
+            membership: { roleId: "owner", status: "active" },
+            permissions: ["workspace.settings.update"]
+          };
+        }
+      }
+    ],
+    ["actionExecutor", {}],
+  ]);
+
+  const app = {
+    has(token) {
+      return bindings.has(token);
+    },
+    make(token) {
+      if (!bindings.has(token)) {
+        throw new Error(`Missing test binding for token: ${String(token)}`);
+      }
+      return bindings.get(token);
+    }
+  };
+
+  const provider = new UsersRouteServiceProvider();
+  provider.register(app);
+  provider.boot(app);
+
+  return registeredRoutes;
 }
 
 function createActionRequest({ input = {}, executeAction }) {
@@ -54,42 +92,33 @@ function createActionRequest({ input = {}, executeAction }) {
 }
 
 test("workspace and settings routes attach input normalizers where controller reads request.input", () => {
-  const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy(), {
-    workspaceSurfaceDefinitions: [
-      {
-        id: "coffie",
-        prefix: "/coffie"
-      }
-    ]
-  });
-  const settingsRoutes = buildSettingsRoutes(createControllerProxy());
-  const consoleSettingsRoutes = buildConsoleSettingsRoutes(createControllerProxy());
+  const routes = registerUsersRoutes();
 
-  const workspaceBootstrap = findRoute(workspaceRoutes, {
+  const workspaceBootstrap = findRoute(routes, {
     method: "GET",
     path: "/api/bootstrap"
   });
-  const workspaceSettings = findRoute(workspaceRoutes, {
+  const workspaceSettings = findRoute(routes, {
     method: "GET",
-    path: "/api/coffie/w/:workspaceSlug/workspace/settings"
+    path: "/api/app/w/:workspaceSlug/workspace/settings"
   });
-  const workspaceMemberRole = findRoute(workspaceRoutes, {
+  const workspaceMemberRole = findRoute(routes, {
     method: "PATCH",
-    path: "/api/coffie/w/:workspaceSlug/workspace/members/:memberUserId/role"
+    path: "/api/app/w/:workspaceSlug/workspace/members/:memberUserId/role"
   });
-  const workspaceInviteDelete = findRoute(workspaceRoutes, {
+  const workspaceInviteDelete = findRoute(routes, {
     method: "DELETE",
-    path: "/api/coffie/w/:workspaceSlug/workspace/invites/:inviteId"
+    path: "/api/app/w/:workspaceSlug/workspace/invites/:inviteId"
   });
-  const settingsProfilePatch = findRoute(settingsRoutes, {
+  const settingsProfilePatch = findRoute(routes, {
     method: "PATCH",
     path: "/api/settings/profile"
   });
-  const settingsOAuthStart = findRoute(settingsRoutes, {
+  const settingsOAuthStart = findRoute(routes, {
     method: "GET",
     path: "/api/settings/security/oauth/:provider/start"
   });
-  const consoleSettingsPatch = findRoute(consoleSettingsRoutes, {
+  const consoleSettingsPatch = findRoute(routes, {
     method: "PATCH",
     path: "/api/console/settings"
   });
@@ -105,21 +134,24 @@ test("workspace and settings routes attach input normalizers where controller re
   assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
 });
 
-test("workspace routes mount workspace-admin endpoints per workspace-enabled surface prefix", () => {
-  const workspaceRoutes = buildWorkspaceRoutes(createControllerProxy(), {
-    workspaceSurfaceDefinitions: [
-      {
-        id: "coffie",
-        prefix: "/coffie"
-      }
-    ]
-  });
-  const workspaceSettings = findRoute(workspaceRoutes, {
+test("workspace routes mount explicit app/admin workspace-admin endpoints", () => {
+  const routes = registerUsersRoutes();
+  const appWorkspaceSettings = findRoute(routes, {
     method: "GET",
-    path: "/api/coffie/w/:workspaceSlug/workspace/settings"
+    path: "/api/app/w/:workspaceSlug/workspace/settings"
+  });
+  const adminWorkspaceSettings = findRoute(routes, {
+    method: "GET",
+    path: "/api/admin/w/:workspaceSlug/workspace/settings"
+  });
+  const consoleWorkspaceSettings = findRoute(routes, {
+    method: "GET",
+    path: "/api/console/w/:workspaceSlug/workspace/settings"
   });
 
-  assert.equal(workspaceSettings?.workspaceSurface, "coffie");
+  assert.equal(appWorkspaceSettings?.workspaceSurface, "app");
+  assert.equal(adminWorkspaceSettings?.workspaceSurface, "admin");
+  assert.equal(consoleWorkspaceSettings, null);
 });
 
 test("workspace controller methods use request.input payloads", async () => {
@@ -146,16 +178,6 @@ test("workspace controller methods use request.input payloads", async () => {
     createActionRequest({
       input: {
         body: { token: "token-1", decision: "accept" }
-      },
-      executeAction
-    }),
-    createReplyDouble()
-  );
-  await controller.updateWorkspaceSettings(
-    createActionRequest({
-      input: {
-        params: { workspaceSlug: "acme" },
-        body: { name: "Acme Workspace" }
       },
       executeAction
     }),
@@ -192,10 +214,41 @@ test("workspace controller methods use request.input payloads", async () => {
   );
 
   assert.deepEqual(calls[0].input, { token: "token-1", decision: "accept" });
-  assert.deepEqual(calls[1].input, { workspaceSlug: "acme", name: "Acme Workspace" });
-  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
-  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
-  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", inviteId: "55" });
+  assert.deepEqual(calls[1].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
+  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
+  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", inviteId: "55" });
+});
+
+test("workspace settings controller methods use request.input payloads", async () => {
+  const calls = [];
+  const controller = new WorkspaceSettingsController({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(_user, _workspaceSlug) {
+        return {
+          workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
+          membership: { roleId: "owner", status: "active" },
+          permissions: ["workspace.settings.update"]
+        };
+      }
+    }
+  });
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
+
+  await controller.updateWorkspaceSettings(
+    createActionRequest({
+      input: {
+        params: { workspaceSlug: "acme" },
+        body: { name: "Acme Workspace" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0].input, { workspaceSlug: "acme", name: "Acme Workspace" });
 });
 
 test("settings controller methods use request.input payloads", async () => {

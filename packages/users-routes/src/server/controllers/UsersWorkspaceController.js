@@ -5,8 +5,6 @@ const WORKSPACE_ACTION_IDS = Object.freeze({
   INVITATIONS_PENDING_LIST: "workspace.invitations.pending.list",
   INVITE_REDEEM: "workspace.invite.redeem",
   ROLES_LIST: "workspace.roles.list",
-  SETTINGS_READ: "workspace.settings.read",
-  SETTINGS_UPDATE: "workspace.settings.update",
   MEMBERS_LIST: "workspace.members.list",
   MEMBER_ROLE_UPDATE: "workspace.member.role.update",
   INVITES_LIST: "workspace.invites.list",
@@ -158,31 +156,6 @@ class UsersWorkspaceController {
     const response = await request.executeAction({
       actionId: WORKSPACE_ACTION_IDS.INVITE_REDEEM,
       input: request.input.body
-    });
-    reply.code(200).send(response);
-  }
-
-  async getWorkspaceSettings(request, reply) {
-    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
-    const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ,
-      input: {
-        workspaceSlug: workspaceRequestContext.workspaceSlug
-      },
-      context: workspaceRequestContext.context
-    });
-    reply.code(200).send(response);
-  }
-
-  async updateWorkspaceSettings(request, reply) {
-    const workspaceRequestContext = await this.resolveWorkspaceRequestContext(request);
-    const response = await request.executeAction({
-      actionId: WORKSPACE_ACTION_IDS.SETTINGS_UPDATE,
-      input: {
-        workspaceSlug: workspaceRequestContext.workspaceSlug,
-        ...normalizeObject(request.input.body)
-      },
-      context: workspaceRequestContext.context
     });
     reply.code(200).send(response);
   }

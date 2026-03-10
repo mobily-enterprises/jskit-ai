@@ -10,11 +10,9 @@
     "./server": "./src/server/index.js",
     "./server/providers/UsersRouteServiceProvider": "./src/server/providers/UsersRouteServiceProvider.js",
     "./server/controllers/UsersWorkspaceController": "./src/server/controllers/UsersWorkspaceController.js",
+    "./server/controllers/WorkspaceSettingsController": "./src/server/controllers/WorkspaceSettingsController.js",
     "./server/controllers/UsersSettingsController": "./src/server/controllers/UsersSettingsController.js",
     "./server/controllers/UsersConsoleSettingsController": "./src/server/controllers/UsersConsoleSettingsController.js",
-    "./server/routes/workspaceRoutes": "./src/server/routes/workspaceRoutes.js",
-    "./server/routes/settingsRoutes": "./src/server/routes/settingsRoutes.js",
-    "./server/routes/consoleSettingsRoutes": "./src/server/routes/consoleSettingsRoutes.js",
     "./shared/contracts/workspaceRoutesContract": "./src/shared/contracts/workspaceRoutesContract.js",
     "./shared/contracts/settingsRoutesContract": "./src/shared/contracts/settingsRoutesContract.js",
     "./shared/contracts/consoleSettingsRoutesContract": "./src/shared/contracts/consoleSettingsRoutesContract.js"
