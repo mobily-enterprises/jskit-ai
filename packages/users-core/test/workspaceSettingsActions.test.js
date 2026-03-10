@@ -1,95 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkspaceActionContributor } from "../src/server/actions/workspaceActionContributor.js";
-import { createWorkspaceSettingsActionContributor } from "../src/server/actions/workspaceSettingsActions.js";
+import { workspaceActions } from "../src/server/actions/workspaceActionContributor.js";
+import { workspaceSettingsActions } from "../src/server/actions/workspaceSettingsActions.js";
 
-function createSurfaceRuntimeDouble() {
-  return {
-    listEnabledSurfaceIds() {
-      return ["app", "admin", "console"];
-    },
-    listWorkspaceSurfaceIds() {
-      return ["app", "admin"];
-    }
-  };
-}
-
-function createWorkspaceAdminServiceDouble() {
-  return {
-    getRoleCatalog() {
-      return {};
-    },
-    getWorkspaceSettings() {
-      return {};
-    },
-    updateWorkspaceSettings() {
-      return {};
-    },
-    listMembers() {
-      return {};
-    },
-    updateMemberRole() {
-      return {};
-    },
-    listInvites() {
-      return {};
-    },
-    createInvite() {
-      return {};
-    },
-    revokeInvite() {
-      return {};
-    },
-    respondToPendingInviteByToken() {
-      return {};
-    }
-  };
-}
-
-function createWorkspaceServiceDouble() {
-  return {
-    buildBootstrapPayload() {
-      return {};
-    },
-    listWorkspacesForUser() {
-      return [];
-    },
-    listPendingInvitesForUser() {
-      return [];
-    }
-  };
-}
-
-test("workspace settings actions live in their own contributor", () => {
-  const contributor = createWorkspaceSettingsActionContributor({
-    workspaceAdminService: createWorkspaceAdminServiceDouble(),
-    surfaceRuntime: createSurfaceRuntimeDouble()
-  });
-
-  assert.equal(contributor.contributorId, "users.workspace-settings");
-  assert.equal(contributor.domain, "workspace-settings");
+test("workspace settings actions live in their own action array", () => {
   assert.deepEqual(
-    contributor.actions.map((action) => action.id),
+    workspaceSettingsActions.map((action) => action.id),
     ["workspace.settings.read", "workspace.settings.update"]
   );
-  assert.deepEqual(contributor.actions[0].surfaces, ["app", "admin"]);
-  assert.deepEqual(contributor.actions[1].channels, ["api", "assistant_tool", "internal"]);
-  assert.ok(contributor.actions[1].assistantTool?.inputJsonSchema);
+  assert.equal(workspaceSettingsActions[0].surfacesFrom, "workspace");
+  assert.equal(workspaceSettingsActions[1].surfacesFrom, "workspace");
+  assert.deepEqual(workspaceSettingsActions[1].channels, ["api", "assistant_tool", "internal"]);
+  assert.ok(workspaceSettingsActions[1].assistantTool?.inputJsonSchema);
 });
 
-test("workspace contributor no longer owns workspace settings actions", () => {
-  const contributor = createWorkspaceActionContributor({
-    workspaceService: createWorkspaceServiceDouble(),
-    workspaceAdminService: createWorkspaceAdminServiceDouble(),
-    surfaceRuntime: createSurfaceRuntimeDouble()
-  });
-
+test("workspace actions array no longer owns workspace settings actions", () => {
   assert.equal(
-    contributor.actions.some((action) => action.id === "workspace.settings.read"),
+    workspaceActions.some((action) => action.id === "workspace.settings.read"),
     false
   );
   assert.equal(
-    contributor.actions.some((action) => action.id === "workspace.settings.update"),
+    workspaceActions.some((action) => action.id === "workspace.settings.update"),
     false
   );
 });

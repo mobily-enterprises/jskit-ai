@@ -1,13 +1,14 @@
 export { UsersCoreServiceProvider } from "./providers/UsersCoreServiceProvider.js";
 
-export { createWorkspaceActionContributor } from "./actions/workspaceActionContributor.js";
-export { createWorkspaceSettingsActionContributor } from "./actions/workspaceSettingsActions.js";
+export { workspaceActions } from "./actions/workspaceActionContributor.js";
+export { workspaceSettingsActions } from "./actions/workspaceSettingsActions.js";
 export { createWorkspaceActionContextContributor } from "./actions/workspaceActionContextContributor.js";
-export { createSettingsActionContributor } from "./actions/settingsActionContributor.js";
-export { createConsoleSettingsActionContributor } from "./actions/consoleSettingsActionContributor.js";
+export { settingsActions } from "./actions/settingsActionContributor.js";
+export { consoleSettingsActions } from "./actions/consoleSettingsActionContributor.js";
 
 export { createService as createWorkspaceService } from "./services/workspaceService.js";
 export { createService as createWorkspaceAdminService } from "./services/workspaceAdminService.js";
+export { createService as createWorkspaceSettingsService } from "./services/workspaceSettingsService.js";
 export { createService as createSettingsService } from "./services/settingsService.js";
 export { createService as createConsoleSettingsService } from "./services/consoleSettingsService.js";
 

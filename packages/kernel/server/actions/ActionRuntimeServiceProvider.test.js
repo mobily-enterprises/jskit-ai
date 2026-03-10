@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { OBJECT_INPUT_SCHEMA, allowPublic } from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
-  registerActionContributor,
+  registerActionDefinitions,
   registerActionContextContributor,
   resolveActionContributors,
   resolveActionContextContributors
@@ -74,56 +75,112 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(typeof app.make("actionExecutor")?.execute, "function");
 });
 
-test("ActionRuntimeServiceProvider builds actionExecutor from registered contributors", async () => {
+test("ActionRuntimeServiceProvider materializes dependencies and surfaces for registered action bundles", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  registerActionContributor(app, "test.actionContributor", () => ({
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["app", "admin", "console"];
+    },
+    listWorkspaceSurfaceIds() {
+      return ["app", "admin"];
+    }
+  }));
+
+  app.singleton("test.echo.service", () => ({
+    echo(input) {
+      return { echoed: input, ok: true };
+    }
+  }));
+
+  registerActionDefinitions(app, "test.actionDefinitions", {
     contributorId: "test.actions",
-    domain: "auth",
+    domain: "workspace",
+    dependencies: {
+      echoService: "test.echo.service"
+    },
     actions: [
       {
         id: "test.echo",
         version: 1,
         kind: "query",
         channels: ["internal"],
-        surfaces: ["app"],
+        surfacesFrom: "workspace",
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: allowPublic,
         idempotency: "none",
         audit: { actionName: "test.echo" },
         observability: {},
-        async execute(input) {
-          return { echoed: input };
+        async execute(input, _context, deps) {
+          return deps.echoService.echo(input);
         }
       }
     ]
-  }));
+  });
 
   const actionExecutor = app.make("actionExecutor");
-  assert.equal(typeof actionExecutor?.execute, "function");
-  assert.equal(actionExecutor.listDefinitions().some((definition) => definition.id === "test.echo"), true);
+  const definitions = actionExecutor.listDefinitions();
+  assert.equal(definitions.some((definition) => definition.id === "test.echo"), true);
+  assert.deepEqual(definitions.find((definition) => definition.id === "test.echo")?.surfaces, ["app", "admin"]);
 
   const result = await actionExecutor.execute({
     actionId: "test.echo",
-    input: { value: "ok" }
+    input: { value: "ok" },
+    context: { channel: "internal", surface: "app" }
   });
-  assert.deepEqual(result, { echoed: { value: "ok" } });
+  assert.deepEqual(result, { echoed: { value: "ok" }, ok: true });
 });
 
-test("registerActionContributor + resolveActionContributors provide canonical contributor wiring", () => {
+test("registerActionDefinitions + resolveActionContributors provide canonical contributor wiring", () => {
   const app = createSingletonApp();
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["app", "admin", "console"];
+    },
+    listWorkspaceSurfaceIds() {
+      return ["app", "admin"];
+    }
+  }));
 
-  registerActionContributor(app, "test.actionContributor.alpha", () => ({ contributorId: "alpha", actions: [] }));
-  registerActionContributor(app, "test.actionContributor.beta", () => [{ contributorId: "beta", actions: [] }]);
+  registerActionDefinitions(app, "test.actionDefinitions.alpha", {
+    contributorId: "alpha",
+    domain: "settings",
+    actions: []
+  });
+  registerActionDefinitions(app, "test.actionDefinitions.beta", {
+    contributorId: "beta",
+    domain: "auth",
+    actions: []
+  });
 
   const contributors = resolveActionContributors(app);
   assert.deepEqual(
     contributors.map((entry) => entry.contributorId).sort(),
     ["alpha", "beta"]
   );
+});
+
+test("registerActionDefinitions skips disabled bundles", () => {
+  const app = createSingletonApp();
+  app.singleton("test.null.service", () => null);
+
+  registerActionDefinitions(app, "test.actionDefinitions.alpha", {
+    contributorId: "alpha",
+    domain: "auth",
+    dependencies: {
+      authService: "test.null.service"
+    },
+    enabled({ deps }) {
+      return deps.authService != null;
+    },
+    actions: []
+  });
+
+  const contributors = resolveActionContributors(app);
+  assert.deepEqual(contributors, []);
 });
 
 test("registerActionContextContributor + resolveActionContextContributors provide context contributor wiring", () => {

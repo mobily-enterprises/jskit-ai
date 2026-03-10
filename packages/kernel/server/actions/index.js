@@ -3,7 +3,7 @@ export {
   ACTION_CONTEXT_CONTRIBUTOR_TAG,
   resolveActionContributors,
   resolveActionContextContributors,
-  registerActionContributor,
+  registerActionDefinitions,
   registerActionContextContributor,
   ActionRuntimeServiceProvider
 } from "./ActionRuntimeServiceProvider.js";

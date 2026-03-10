@@ -1,7 +1,7 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createService } from "../lib/service.js";
-import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
-import { registerActionContributor } from "@jskit-ai/kernel/server/actions";
+import { authActions } from "../lib/actions/auth.contributor.js";
+import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 
 function splitCsv(value) {
   return String(value || "")
@@ -163,19 +163,16 @@ class AuthSupabaseServiceProvider {
 
     const contributorToken = "auth.provider.supabase.actionContributor";
     if (!app.has(contributorToken)) {
-      registerActionContributor(app, contributorToken, (scope) => {
-        const authService = scope.make("authService");
-        if (!authService) {
-          return null;
-        }
-
-        try {
-          return createAuthActionContributor({
-            authService
-          });
-        } catch {
-          return null;
-        }
+      registerActionDefinitions(app, contributorToken, {
+        contributorId: "auth.supabase",
+        domain: "auth",
+        dependencies: {
+          authService: "authService"
+        },
+        enabled({ deps }) {
+          return deps.authService != null;
+        },
+        actions: authActions
       });
     }
   }

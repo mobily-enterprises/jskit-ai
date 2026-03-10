@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
-  registerActionContributor,
+  registerActionDefinitions,
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
@@ -14,13 +14,14 @@ import { createRepository as createWorkspaceInvitesRepository } from "../reposit
 import { createRepository as createConsoleSettingsRepository } from "../repositories/consoleSettings.repository.js";
 import { createService as createWorkspaceService } from "../services/workspaceService.js";
 import { createService as createWorkspaceAdminService } from "../services/workspaceAdminService.js";
+import { createService as createWorkspaceSettingsService } from "../services/workspaceSettingsService.js";
 import { createService as createSettingsService } from "../services/settingsService.js";
 import { createService as createConsoleSettingsService } from "../services/consoleSettingsService.js";
-import { createWorkspaceActionContributor } from "../actions/workspaceActionContributor.js";
-import { createWorkspaceSettingsActionContributor } from "../actions/workspaceSettingsActions.js";
+import { workspaceActions } from "../actions/workspaceActionContributor.js";
+import { workspaceSettingsActions } from "../actions/workspaceSettingsActions.js";
 import { createWorkspaceActionContextContributor } from "../actions/workspaceActionContextContributor.js";
-import { createSettingsActionContributor } from "../actions/settingsActionContributor.js";
-import { createConsoleSettingsActionContributor } from "../actions/consoleSettingsActionContributor.js";
+import { settingsActions } from "../actions/settingsActionContributor.js";
+import { consoleSettingsActions } from "../actions/consoleSettingsActionContributor.js";
 
 const USERS_CORE_API = Object.freeze({
   ...usersShared
@@ -31,7 +32,6 @@ const USERS_WORKSPACE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.workspaceSettings
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 const USERS_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.settings.actionContributor";
 const USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN = "users.core.console.settings.actionContributor";
-const USERS_SURFACE_RUNTIME_TOKEN = "users.core.surface.runtime";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -93,7 +93,7 @@ class UsersCoreServiceProvider {
       });
     });
 
-    app.singleton(USERS_SURFACE_RUNTIME_TOKEN, (scope) => {
+    app.singleton(KERNEL_TOKENS.SurfaceRuntime, (scope) => {
       const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
       return createSurfaceRuntime({
         tenancyMode: appConfig.tenancyMode,
@@ -106,10 +106,16 @@ class UsersCoreServiceProvider {
     app.singleton("users.workspace.admin.service", (scope) => {
       return createWorkspaceAdminService({
         workspacesRepository: scope.make("workspacesRepository"),
-        workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
         workspaceService: scope.make("users.workspace.service")
+      });
+    });
+
+    app.singleton("users.workspace.settings.service", (scope) => {
+      return createWorkspaceSettingsService({
+        workspacesRepository: scope.make("workspacesRepository"),
+        workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
       });
     });
 
@@ -128,19 +134,23 @@ class UsersCoreServiceProvider {
       });
     });
 
-    registerActionContributor(app, USERS_WORKSPACE_CONTRIBUTOR_TOKEN, (scope) => {
-      return createWorkspaceActionContributor({
-        workspaceService: scope.make("users.workspace.service"),
-        workspaceAdminService: scope.make("users.workspace.admin.service"),
-        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
-      });
+    registerActionDefinitions(app, USERS_WORKSPACE_CONTRIBUTOR_TOKEN, {
+      contributorId: "users.workspace",
+      domain: "workspace",
+      dependencies: {
+        workspaceService: "users.workspace.service",
+        workspaceAdminService: "users.workspace.admin.service"
+      },
+      actions: workspaceActions
     });
 
-    registerActionContributor(app, USERS_WORKSPACE_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
-      return createWorkspaceSettingsActionContributor({
-        workspaceAdminService: scope.make("users.workspace.admin.service"),
-        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
-      });
+    registerActionDefinitions(app, USERS_WORKSPACE_SETTINGS_CONTRIBUTOR_TOKEN, {
+      contributorId: "users.workspace-settings",
+      domain: "workspace",
+      dependencies: {
+        workspaceSettingsService: "users.workspace.settings.service"
+      },
+      actions: workspaceSettingsActions
     });
 
     registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {
@@ -149,20 +159,24 @@ class UsersCoreServiceProvider {
       });
     });
 
-    registerActionContributor(app, USERS_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
-      return createSettingsActionContributor({
-        settingsService: scope.make("users.settings.service"),
-        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
-      });
+    registerActionDefinitions(app, USERS_SETTINGS_CONTRIBUTOR_TOKEN, {
+      contributorId: "users.settings",
+      domain: "settings",
+      dependencies: {
+        settingsService: "users.settings.service"
+      },
+      actions: settingsActions
     });
 
-    registerActionContributor(app, USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN, (scope) => {
-      return createConsoleSettingsActionContributor({
-        consoleSettingsService: scope.make("users.console.settings.service"),
-        surfaceRuntime: scope.make(USERS_SURFACE_RUNTIME_TOKEN)
-      });
+    registerActionDefinitions(app, USERS_CONSOLE_SETTINGS_CONTRIBUTOR_TOKEN, {
+      contributorId: "users.console-settings",
+      domain: "console",
+      dependencies: {
+        consoleSettingsService: "users.console.settings.service"
+      },
+      actions: consoleSettingsActions
     });
   }
 }
 
-export { UsersCoreServiceProvider, USERS_SURFACE_RUNTIME_TOKEN };
+export { UsersCoreServiceProvider };

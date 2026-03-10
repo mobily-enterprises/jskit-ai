@@ -1,4 +1,5 @@
 import * as actionRuntime from "../../shared/actions/index.js";
+import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 
 const ACTION_RUNTIME_API = Object.freeze({
   ...actionRuntime
@@ -6,12 +7,67 @@ const ACTION_RUNTIME_API = Object.freeze({
 const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
+const ACTION_DOMAIN_SET = new Set(actionRuntime.ACTION_DOMAINS);
+const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "workspace", "console"]);
 
 function normalizePlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
   return value;
+}
+
+function isContainerToken(value) {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  return typeof value === "symbol" || typeof value === "function";
+}
+
+function normalizeDependencyMap(value, { context = "action dependencies" } = {}) {
+  const source = normalizePlainObject(value);
+  const normalized = {};
+
+  for (const [key, token] of Object.entries(source)) {
+    const dependencyName = String(key || "").trim();
+    if (!dependencyName) {
+      throw new Error(`${context} keys must be non-empty strings.`);
+    }
+    if (!isContainerToken(token)) {
+      throw new Error(`${context}.${dependencyName} must be a valid container token.`);
+    }
+    normalized[dependencyName] = token;
+  }
+
+  return Object.freeze(normalized);
+}
+
+function normalizeActionBundleSpec(definitionSet, { context = "registerActionDefinitions" } = {}) {
+  const source = normalizePlainObject(definitionSet);
+  const contributorId = String(source.contributorId || "").trim();
+  const domain = String(source.domain || "").trim().toLowerCase();
+  const actions = Array.isArray(source.actions) ? [...source.actions] : [];
+  const enabled = source.enabled;
+
+  if (!contributorId) {
+    throw new Error(`${context} contributorId is required.`);
+  }
+  if (!ACTION_DOMAIN_SET.has(domain)) {
+    throw new Error(`${context} domain must be one of: ${actionRuntime.ACTION_DOMAINS.join(", ")}.`);
+  }
+  if (typeof enabled !== "undefined" && typeof enabled !== "function") {
+    throw new Error(`${context} enabled must be a function when provided.`);
+  }
+
+  return Object.freeze({
+    contributorId,
+    domain,
+    dependencies: normalizeDependencyMap(source.dependencies, {
+      context: `${context}.dependencies`
+    }),
+    enabled: typeof enabled === "function" ? enabled : null,
+    actions: Object.freeze(actions)
+  });
 }
 
 function normalizeContributorList(value) {
@@ -108,8 +164,125 @@ function registerTaggedContributor(app, token, factory, tagName, label) {
   app.tag(token, tagName);
 }
 
-function registerActionContributor(app, token, factory) {
-  registerTaggedContributor(app, token, factory, ACTION_RUNTIME_CONTRIBUTOR_TAG, "registerActionContributor");
+function resolveSurfaceRuntime(scope) {
+  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
+    throw new Error("Action definition materialization requires scope.has()/make().");
+  }
+  if (!scope.has(KERNEL_TOKENS.SurfaceRuntime)) {
+    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime.");
+  }
+  return scope.make(KERNEL_TOKENS.SurfaceRuntime);
+}
+
+function resolveSurfaceIdsFromSource(scope, sourceName, { context = "action.surfacesFrom" } = {}) {
+  const normalizedSource = String(sourceName || "").trim().toLowerCase();
+  if (!ACTION_SURFACE_SOURCE_SET.has(normalizedSource)) {
+    throw new Error(`${context} must be one of: enabled, workspace, console.`);
+  }
+
+  const surfaceRuntime = resolveSurfaceRuntime(scope);
+  if (normalizedSource === "enabled") {
+    return Object.freeze([...(surfaceRuntime.listEnabledSurfaceIds?.() || [])]);
+  }
+  if (normalizedSource === "workspace") {
+    return Object.freeze([...(surfaceRuntime.listWorkspaceSurfaceIds?.() || [])]);
+  }
+
+  return Object.freeze(
+    [...(surfaceRuntime.listEnabledSurfaceIds?.() || [])].filter(
+      (surfaceId) => String(surfaceId || "").trim().toLowerCase() === "console"
+    )
+  );
+}
+
+function materializeDependencies(scope, dependencyMap, { context = "action.dependencies" } = {}) {
+  const normalizedMap = normalizeDependencyMap(dependencyMap, { context });
+  const resolved = {};
+  for (const [name, token] of Object.entries(normalizedMap)) {
+    resolved[name] = scope.make(token);
+  }
+  return Object.freeze(resolved);
+}
+
+function materializeAction(scope, actionDefinition, bundleSpec, { bundleDependencies } = {}) {
+  const source = normalizePlainObject(actionDefinition);
+  const materialized = { ...source };
+  const actionDependencies = materializeDependencies(scope, source.dependencies, {
+    context: `action ${String(source.id || "<unknown>")}.dependencies`
+  });
+  const resolvedDependencies = Object.freeze({
+    ...bundleDependencies,
+    ...actionDependencies
+  });
+
+  if (Object.hasOwn(source, "surfaces") && Object.hasOwn(source, "surfacesFrom")) {
+    throw new Error(`Action ${String(source.id || "<unknown>")} cannot define both surfaces and surfacesFrom.`);
+  }
+
+  delete materialized.dependencies;
+  delete materialized.surfacesFrom;
+
+  if (!Object.hasOwn(materialized, "domain")) {
+    materialized.domain = bundleSpec.domain;
+  }
+
+  if (Object.hasOwn(source, "surfacesFrom")) {
+    const resolvedSurfaces = resolveSurfaceIdsFromSource(scope, source.surfacesFrom, {
+      context: `action ${String(source.id || "<unknown>")}.surfacesFrom`
+    });
+    if (resolvedSurfaces.length < 1) {
+      return null;
+    }
+    materialized.surfaces = resolvedSurfaces;
+  }
+
+  if (typeof source.execute === "function") {
+    materialized.execute = async function executeMaterializedAction(input, context) {
+      return source.execute(input, context, resolvedDependencies);
+    };
+  }
+
+  return Object.freeze(materialized);
+}
+
+function materializeActionBundle(scope, bundleSpec) {
+  const bundleDependencies = materializeDependencies(scope, bundleSpec.dependencies, {
+    context: `action bundle ${bundleSpec.contributorId}.dependencies`
+  });
+
+  if (bundleSpec.enabled && bundleSpec.enabled({ scope, deps: bundleDependencies }) !== true) {
+    return null;
+  }
+
+  const actions = [];
+  for (const actionDefinition of bundleSpec.actions) {
+    const materialized = materializeAction(scope, actionDefinition, bundleSpec, {
+      bundleDependencies
+    });
+    if (materialized) {
+      actions.push(materialized);
+    }
+  }
+
+  return {
+    contributorId: bundleSpec.contributorId,
+    domain: bundleSpec.domain,
+    actions: Object.freeze(actions)
+  };
+}
+
+function registerActionDefinitions(app, token, definitionSet) {
+  const bundleSpec = normalizeActionBundleSpec(definitionSet, {
+    context: `registerActionDefinitions(${String(token)})`
+  });
+
+  registerTaggedContributor(
+    app,
+    token,
+    (scope) => materializeActionBundle(scope, bundleSpec),
+    ACTION_RUNTIME_CONTRIBUTOR_TAG,
+    "registerActionDefinitions"
+  );
 }
 
 function registerActionContextContributor(app, token, factory) {
@@ -158,7 +331,7 @@ export {
   ACTION_CONTEXT_CONTRIBUTOR_TAG,
   resolveActionContributors,
   resolveActionContextContributors,
-  registerActionContributor,
+  registerActionDefinitions,
   registerActionContextContributor,
   ActionRuntimeServiceProvider
 };

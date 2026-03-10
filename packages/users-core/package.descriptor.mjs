@@ -35,7 +35,7 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary:
-            "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, and workspace/settings/console action contributors."
+            "Exports UsersCoreServiceProvider, users/workspace/console repositories/services, and workspace/settings/console action definitions."
         },
         {
           subpath: "./shared",
@@ -51,6 +51,7 @@ export default Object.freeze({
           "users.core",
           "users.workspace.service",
           "users.workspace.admin.service",
+          "users.workspace.settings.service",
           "users.settings.service",
           "users.console.settings.service"
         ],
