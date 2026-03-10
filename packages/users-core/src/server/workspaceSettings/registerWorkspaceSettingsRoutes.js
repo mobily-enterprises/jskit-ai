@@ -9,7 +9,6 @@ function registerWorkspaceSettingsRoutes(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const workspaceRouteTags = ["workspace"];
 
   router.register(
     "GET",
@@ -18,7 +17,7 @@ function registerWorkspaceSettingsRoutes(app) {
       auth: "required",
       workspaceSurface: "app",
       meta: {
-        tags: workspaceRouteTags,
+        tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
       },
       params: routeParams.workspaceSlug,
@@ -44,7 +43,7 @@ function registerWorkspaceSettingsRoutes(app) {
       auth: "required",
       workspaceSurface: "app",
       meta: {
-        tags: workspaceRouteTags,
+        tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"
       },
       params: routeParams.workspaceSlug,
@@ -75,7 +74,7 @@ function registerWorkspaceSettingsRoutes(app) {
       auth: "required",
       workspaceSurface: "admin",
       meta: {
-        tags: workspaceRouteTags,
+        tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
       },
       params: routeParams.workspaceSlug,
@@ -101,7 +100,7 @@ function registerWorkspaceSettingsRoutes(app) {
       auth: "required",
       workspaceSurface: "admin",
       meta: {
-        tags: workspaceRouteTags,
+        tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"
       },
       params: routeParams.workspaceSlug,
@@ -126,6 +125,4 @@ function registerWorkspaceSettingsRoutes(app) {
   );
 }
 
-export {
-  registerWorkspaceSettingsRoutes
-};
+export { registerWorkspaceSettingsRoutes };

@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { UsersRouteServiceProvider } from "../src/server/providers/UsersRouteServiceProvider.js";
-import { UsersWorkspaceController } from "../src/server/controllers/UsersWorkspaceController.js";
-import { UsersSettingsController } from "../src/server/controllers/UsersSettingsController.js";
-import { UsersConsoleSettingsController } from "../src/server/controllers/UsersConsoleSettingsController.js";
 
 function createReplyDouble() {
   return {
@@ -30,7 +27,7 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-function registerUsersRoutes() {
+function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -45,9 +42,13 @@ function registerUsersRoutes() {
 
   const bindings = new Map([
     [KERNEL_TOKENS.HttpRouter, router],
-    ["authService", {}],
-    ["actionExecutor", {}],
+    ["authService", authService],
+    ["actionExecutor", {}]
   ]);
+
+  if (consoleService) {
+    bindings.set("consoleService", consoleService);
+  }
 
   const app = {
     has(token) {
@@ -68,10 +69,11 @@ function registerUsersRoutes() {
   return registeredRoutes;
 }
 
-function createActionRequest({ input = {}, executeAction }) {
+function createActionRequest({ input = {}, executeAction, file = null }) {
   return {
     input,
     executeAction,
+    file,
     user: {
       id: 42
     }
@@ -146,27 +148,31 @@ test("workspace routes mount explicit app/admin workspace-admin endpoints", () =
   assert.equal(consoleWorkspaceSettings, null);
 });
 
-test("workspace controller methods use request.input payloads", async () => {
-  const calls = [];
-  const controller = new UsersWorkspaceController({
-    authService: {},
-    workspaceService: {
-      async resolveWorkspaceContextForUserBySlug(_user, _workspaceSlug) {
-        return {
-          workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
-          membership: { roleId: "owner", status: "active" },
-          permissions: ["workspace.settings.update"]
-        };
-      }
-    },
-    consoleService: null
+test("workspace invite and member handlers build action input from request.input", async () => {
+  const routes = registerUsersRoutes();
+  const workspaceInviteRedeem = findRoute(routes, {
+    method: "POST",
+    path: "/api/workspace/invitations/redeem"
   });
+  const workspaceMemberRolePatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
+  });
+  const workspaceInviteCreate = findRoute(routes, {
+    method: "POST",
+    path: "/api/w/:workspaceSlug/workspace/invites"
+  });
+  const workspaceInviteDelete = findRoute(routes, {
+    method: "DELETE",
+    path: "/api/w/:workspaceSlug/workspace/invites/:inviteId"
+  });
+  const calls = [];
   const executeAction = async (payload) => {
     calls.push(payload);
     return {};
   };
 
-  await controller.respondToPendingInviteByToken(
+  await workspaceInviteRedeem.handler(
     createActionRequest({
       input: {
         body: { token: "token-1", decision: "accept" }
@@ -175,7 +181,7 @@ test("workspace controller methods use request.input payloads", async () => {
     }),
     createReplyDouble()
   );
-  await controller.updateWorkspaceMemberRole(
+  await workspaceMemberRolePatch.handler(
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme", memberUserId: "12" },
@@ -185,7 +191,7 @@ test("workspace controller methods use request.input payloads", async () => {
     }),
     createReplyDouble()
   );
-  await controller.createWorkspaceInvite(
+  await workspaceInviteCreate.handler(
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme" },
@@ -195,7 +201,7 @@ test("workspace controller methods use request.input payloads", async () => {
     }),
     createReplyDouble()
   );
-  await controller.revokeWorkspaceInvite(
+  await workspaceInviteDelete.handler(
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme", inviteId: "55" }
@@ -240,46 +246,13 @@ test("workspace settings route handlers build action input from request.input", 
   });
 });
 
-test("workspace member role route handlers no longer pass manual workspace context", async () => {
-  const routes = registerUsersRoutes();
-  const workspaceMemberRolePatch = findRoute(routes, {
-    method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
-  });
-  const calls = [];
-  const executeAction = async (payload) => {
-    calls.push(payload);
-    return {};
-  };
-
-  await workspaceMemberRolePatch.handler(
-    createActionRequest({
-      input: {
-        params: { workspaceSlug: "acme", memberUserId: "12" },
-        body: { roleId: "admin" }
-      },
-      executeAction
-    }),
-    createReplyDouble()
-  );
-
-  assert.deepEqual(calls[0], {
-    actionId: "workspace.member.role.update",
-    input: {
-      workspaceSlug: "acme",
-      memberUserId: "12",
-      roleId: "admin"
-    }
-  });
-});
-
-test("settings controller methods use request.input payloads", async () => {
-  const calls = [];
-  const controller = new UsersSettingsController({
+test("account route handlers build action input from request.input", async () => {
+  const routes = registerUsersRoutes({
     authService: {
       writeSessionCookies() {}
     }
   });
+  const calls = [];
   const executeAction = async (payload) => {
     calls.push(payload);
     if (payload.actionId === "settings.security.oauth.link.start") {
@@ -294,43 +267,35 @@ test("settings controller methods use request.input payloads", async () => {
     return {};
   };
 
-  await controller.updateProfile(
+  await findRoute(routes, { method: "PATCH", path: "/api/settings/profile" }).handler(
     createActionRequest({
-      input: {
-        body: { displayName: "Merc" }
-      },
+      input: { body: { displayName: "Merc" } },
       executeAction
     }),
     createReplyDouble()
   );
-  await controller.updatePreferences(
+  await findRoute(routes, { method: "PATCH", path: "/api/settings/preferences" }).handler(
     createActionRequest({
-      input: {
-        body: { locale: "en-US" }
-      },
+      input: { body: { locale: "en-US" } },
       executeAction
     }),
     createReplyDouble()
   );
-  await controller.updateNotifications(
+  await findRoute(routes, { method: "PATCH", path: "/api/settings/notifications" }).handler(
     createActionRequest({
-      input: {
-        body: { email: true }
-      },
+      input: { body: { email: true } },
       executeAction
     }),
     createReplyDouble()
   );
-  await controller.updateChat(
+  await findRoute(routes, { method: "PATCH", path: "/api/settings/chat" }).handler(
     createActionRequest({
-      input: {
-        body: { compactMode: true }
-      },
+      input: { body: { compactMode: true } },
       executeAction
     }),
     createReplyDouble()
   );
-  await controller.changePassword(
+  await findRoute(routes, { method: "POST", path: "/api/settings/security/change-password" }).handler(
     createActionRequest({
       input: {
         body: {
@@ -343,16 +308,15 @@ test("settings controller methods use request.input payloads", async () => {
     }),
     createReplyDouble()
   );
-  await controller.setPasswordMethodEnabled(
+  await findRoute(routes, { method: "PATCH", path: "/api/settings/security/methods/password" }).handler(
     createActionRequest({
-      input: {
-        body: { enabled: true }
-      },
+      input: { body: { enabled: true } },
       executeAction
     }),
     createReplyDouble()
   );
-  await controller.startOAuthProviderLink(
+  const oauthReply = createReplyDouble();
+  await findRoute(routes, { method: "GET", path: "/api/settings/security/oauth/:provider/start" }).handler(
     createActionRequest({
       input: {
         params: { provider: "github" },
@@ -360,13 +324,17 @@ test("settings controller methods use request.input payloads", async () => {
       },
       executeAction
     }),
+    oauthReply
+  );
+  await findRoute(routes, { method: "DELETE", path: "/api/settings/security/oauth/:provider" }).handler(
+    createActionRequest({
+      input: { params: { provider: "github" } },
+      executeAction
+    }),
     createReplyDouble()
   );
-  await controller.unlinkOAuthProvider(
+  await findRoute(routes, { method: "POST", path: "/api/settings/security/logout-others" }).handler(
     createActionRequest({
-      input: {
-        params: { provider: "github" }
-      },
       executeAction
     }),
     createReplyDouble()
@@ -383,12 +351,14 @@ test("settings controller methods use request.input payloads", async () => {
   });
   assert.deepEqual(calls[5].input, { enabled: true });
   assert.deepEqual(calls[6].input, { provider: "github", returnTo: "/app/settings" });
+  assert.equal(oauthReply.redirectedTo, "/oauth/link");
   assert.deepEqual(calls[7].input, { provider: "github" });
+  assert.equal(calls[8].actionId, "settings.security.sessions.logout_others");
 });
 
-test("console settings controller methods use request.input payloads", async () => {
+test("console settings route handlers use request.input payloads", async () => {
+  const routes = registerUsersRoutes();
   const calls = [];
-  const controller = new UsersConsoleSettingsController();
   const executeAction = async (payload) => {
     calls.push(payload);
     return {
@@ -398,14 +368,12 @@ test("console settings controller methods use request.input payloads", async () 
     };
   };
 
-  await controller.get(
-    createActionRequest({
-      executeAction
-    }),
+  await findRoute(routes, { method: "GET", path: "/api/console/settings" }).handler(
+    createActionRequest({ executeAction }),
     createReplyDouble()
   );
 
-  await controller.update(
+  await findRoute(routes, { method: "PATCH", path: "/api/console/settings" }).handler(
     createActionRequest({
       input: {
         body: {

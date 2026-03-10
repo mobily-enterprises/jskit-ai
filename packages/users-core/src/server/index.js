@@ -7,13 +7,17 @@ export { createWorkspaceActionContextContributor } from "./actions/workspaceActi
 export { settingsActions } from "./actions/settingsActionContributor.js";
 export { consoleSettingsActions } from "./actions/consoleSettingsActionContributor.js";
 
-export { UsersWorkspaceController, WORKSPACE_ACTION_IDS } from "./controllers/UsersWorkspaceController.js";
-export { registerWorkspaceSettingsRoutes } from "./controllers/WorkspaceSettingsController.js";
-export { UsersSettingsController, SETTINGS_ACTION_IDS } from "./controllers/UsersSettingsController.js";
-export {
-  UsersConsoleSettingsController,
-  CONSOLE_SETTINGS_ACTION_IDS
-} from "./controllers/UsersConsoleSettingsController.js";
+export { registerWorkspaceBootstrapRoutes } from "./workspaceBootstrap/registerWorkspaceBootstrapRoutes.js";
+export { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/registerWorkspaceDirectoryRoutes.js";
+export { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/registerWorkspacePendingInvitationsRoutes.js";
+export { registerWorkspaceSettingsRoutes } from "./workspaceSettings/registerWorkspaceSettingsRoutes.js";
+export { registerWorkspaceMembersRoutes } from "./workspaceMembers/registerWorkspaceMembersRoutes.js";
+export { registerAccountProfileRoutes } from "./accountProfile/registerAccountProfileRoutes.js";
+export { registerAccountPreferencesRoutes } from "./accountPreferences/registerAccountPreferencesRoutes.js";
+export { registerAccountNotificationsRoutes } from "./accountNotifications/registerAccountNotificationsRoutes.js";
+export { registerAccountChatRoutes } from "./accountChat/registerAccountChatRoutes.js";
+export { registerAccountSecurityRoutes } from "./accountSecurity/registerAccountSecurityRoutes.js";
+export { registerConsoleSettingsRoutes } from "./consoleSettings/registerConsoleSettingsRoutes.js";
 
 export { createService as createWorkspaceService } from "./services/workspaceService.js";
 export { createService as createWorkspaceAdminService } from "./services/workspaceAdminService.js";

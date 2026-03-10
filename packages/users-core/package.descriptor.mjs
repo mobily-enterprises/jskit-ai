@@ -43,7 +43,7 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary:
-            "Exports UsersCoreServiceProvider, UsersRouteServiceProvider, users/workspace/console repositories/services, route controllers, and action definitions."
+            "Exports UsersCoreServiceProvider, UsersRouteServiceProvider, users/workspace/console repositories/services, feature route registration modules, and action definitions."
         },
         {
           subpath: "./shared",
