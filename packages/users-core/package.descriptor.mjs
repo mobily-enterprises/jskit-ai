@@ -257,6 +257,17 @@ export default Object.freeze({
         category: "users-core",
         id: "users-core-workspace-settings-server-config"
       },
+      {
+        op: "append-text",
+        file: "config/server.js",
+        position: "bottom",
+        skipIfContains: "config.workspaceMembers =",
+        value:
+          "\nconfig.workspaceMembers = {\n  defaults: {\n    inviteExpiresInMs: 604800000\n  }\n};\n",
+        reason: "Append app-owned workspace member invite policy defaults into the server config.",
+        category: "users-core",
+        id: "users-core-workspace-members-server-config"
+      },
     ]
   }
 });

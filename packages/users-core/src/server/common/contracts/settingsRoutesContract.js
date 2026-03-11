@@ -1,11 +1,11 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { userProfileResource } from "../../../shared/contracts/resources/userProfileResource.js";
+import { userProfileResource } from "../../../shared/resources/userProfileResource.js";
 import {
   userSettingsResource,
   preferencesPatchBodySchema,
   notificationsPatchBodySchema,
   chatPatchBodySchema
-} from "../../../shared/contracts/resources/userSettingsResource.js";
+} from "../../../shared/resources/userSettingsResource.js";
 import { settingsPasswordChangeCommand } from "../../../shared/contracts/commands/settingsPasswordChangeCommand.js";
 import { settingsPasswordMethodToggleCommand } from "../../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
 import { settingsOAuthLinkStartCommand } from "../../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";

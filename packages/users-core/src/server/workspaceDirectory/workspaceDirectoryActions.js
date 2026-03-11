@@ -4,6 +4,7 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 
 const workspaceDirectoryActions = Object.freeze([
   {
@@ -14,6 +15,7 @@ const workspaceDirectoryActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: EMPTY_INPUT_CONTRACT,
+    output: workspaceResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -22,9 +24,10 @@ const workspaceDirectoryActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        workspaces: await deps.workspaceService.listWorkspacesForUser(resolveUser(context, input), {
+        items: await deps.workspaceService.listWorkspacesForUser(resolveUser(context, input), {
           request: resolveRequest(context)
-        })
+        }),
+        nextCursor: null
       };
     }
   }

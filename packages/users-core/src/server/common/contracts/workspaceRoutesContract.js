@@ -1,14 +1,11 @@
 import { Type } from "@fastify/type-provider-typebox";
-import {
-  membershipSummarySchema,
-  workspaceResource,
-  workspaceSummarySchema
-} from "../../../shared/contracts/resources/workspaceResource.js";
+import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
+import { workspaceBootstrapResource } from "../../../shared/schemas/resources/workspaceBootstrapResource.js";
 import {
   workspaceSettingsResource as workspaceSettingsResourceSchema
 } from "../../../shared/schemas/resources/workspaceSettingsResource.js";
-import { workspaceMemberResource } from "../../../shared/contracts/resources/workspaceMemberResource.js";
-import { workspaceInviteResource } from "../../../shared/contracts/resources/workspaceInviteResource.js";
+import { workspaceMemberResource } from "../../../shared/resources/workspaceMemberResource.js";
+import { workspaceInviteResource } from "../../../shared/resources/workspaceInviteResource.js";
 import { workspaceInviteRedeemCommandResource } from "../../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
 
 const workspaceRoutesContract = Object.freeze({
@@ -23,41 +20,8 @@ const workspaceRoutesContract = Object.freeze({
     createInvite: workspaceInviteResource.operations.create.body.schema
   },
   response: {
-    bootstrap: Type.Object(
-      {
-        session: Type.Object(
-          {
-            authenticated: Type.Boolean(),
-            userId: Type.Optional(Type.Integer({ minimum: 1 }))
-          },
-          { additionalProperties: true }
-        ),
-        profile: Type.Union([
-          Type.Object(
-            {
-              displayName: Type.String(),
-              email: Type.String(),
-              avatar: Type.Optional(Type.Object({}, { additionalProperties: true }))
-            },
-            { additionalProperties: true }
-          ),
-          Type.Null()
-        ]),
-        app: Type.Object({}, { additionalProperties: true }),
-        workspaces: Type.Array(workspaceSummarySchema),
-        pendingInvites: Type.Array(Type.Object({}, { additionalProperties: true })),
-        activeWorkspace: Type.Union([workspaceSummarySchema, Type.Null()]),
-        membership: Type.Union([membershipSummarySchema, Type.Null()]),
-        permissions: Type.Array(Type.String()),
-        workspaceSettings: Type.Union([
-          workspaceSettingsResourceSchema.operations.view.output.schema.properties.settings,
-          Type.Null()
-        ]),
-        userSettings: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()])
-      },
-      { additionalProperties: true }
-    ),
-    workspacesList: workspaceResource.operations.list.response.schema,
+    bootstrap: workspaceBootstrapResource.operations.view.output.schema,
+    workspacesList: workspaceResource.operations.list.output.schema,
     pendingInvites: Type.Object(
       {
         pendingInvites: Type.Array(Type.Object({}, { additionalProperties: true }))

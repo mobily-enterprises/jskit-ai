@@ -13,7 +13,6 @@ test("routeQueries exposes first-class query contract parts", () => {
   assert.equal(typeof routeQueries.pagination.schema, "object");
   assert.equal(typeof routeQueries.search.schema, "object");
   assert.equal(typeof routeQueries.oauthReturnTo.schema, "object");
-  assert.equal(typeof routeQueries.workspaceBootstrap.schema, "object");
 });
 
 test("route contract uses the shared params contract part and merges query arrays automatically", () => {

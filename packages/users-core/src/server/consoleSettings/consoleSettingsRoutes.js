@@ -1,4 +1,4 @@
-import { consoleSettingsResource } from "../../shared/contracts/resources/consoleSettingsResource.js";
+import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
 const consoleSettingsRoutes = Object.freeze({
   body: {

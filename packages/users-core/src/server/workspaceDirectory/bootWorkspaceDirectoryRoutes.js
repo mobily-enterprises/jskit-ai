@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
+import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 
 function bootWorkspaceDirectoryRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -19,12 +19,13 @@ function bootWorkspaceDirectoryRoutes(app) {
         summary: "List workspaces visible to authenticated user"
       },
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.workspacesList }
+        200: workspaceResource.operations.list.output
       })
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "workspace.workspaces.list"
+        actionId: "workspace.workspaces.list",
+        input: {}
       });
       reply.code(200).send(response);
     }

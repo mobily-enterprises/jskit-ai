@@ -8,14 +8,12 @@ import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { createService as createWorkspaceService } from "./workspaceService.js";
 import { createWorkspaceActionContextContributor } from "./workspaceActionContextContributor.js";
 import { workspaceBootstrapActions } from "../workspaceBootstrap/workspaceBootstrapActions.js";
-import { workspaceDirectoryActions } from "../workspaceDirectory/workspaceDirectoryActions.js";
 import {
   USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
 } from "../common/diTokens.js";
 
 const USERS_WORKSPACE_BOOTSTRAP_CONTRIBUTOR_TOKEN = "users.core.workspaceBootstrap.actionDefinitions";
-const USERS_WORKSPACE_DIRECTORY_CONTRIBUTOR_TOKEN = "users.core.workspaceDirectory.actionDefinitions";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 
 function resolveWorkspaceTenancyEnabled(appConfig = {}) {
@@ -63,15 +61,6 @@ function registerWorkspaceCore(app) {
       workspaceTenancyEnabled: USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
     },
     actions: workspaceBootstrapActions
-  });
-
-  registerActionDefinitions(app, USERS_WORKSPACE_DIRECTORY_CONTRIBUTOR_TOKEN, {
-    contributorId: "users.workspace-directory",
-    domain: "workspace",
-    dependencies: {
-      workspaceService: "users.workspace.service"
-    },
-    actions: workspaceDirectoryActions
   });
 
   registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {

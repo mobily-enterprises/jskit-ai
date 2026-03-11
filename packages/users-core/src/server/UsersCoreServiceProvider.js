@@ -1,6 +1,7 @@
 import { USERS_SHARED_API } from "../shared/index.js";
 import { bootWorkspaceBootstrapRoutes } from "./workspaceBootstrap/bootWorkspaceBootstrapRoutes.js";
 import { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
+import { registerWorkspaceDirectory } from "./workspaceDirectory/registerWorkspaceDirectory.js";
 import {
   registerWorkspacePendingInvitations
 } from "./workspacePendingInvitations/registerWorkspacePendingInvitations.js";
@@ -33,6 +34,7 @@ class UsersCoreServiceProvider {
     registerUsersCoreApi(app, USERS_SHARED_API);
     registerCommonRepositories(app);
     registerWorkspaceCore(app);
+    registerWorkspaceDirectory(app);
     registerWorkspacePendingInvitations(app);
     registerWorkspaceMembers(app);
     registerWorkspaceSettings(app);

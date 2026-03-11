@@ -1,11 +1,10 @@
 import {
   allowPublic,
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspaceBootstrapResource } from "../../shared/schemas/resources/workspaceBootstrapResource.js";
 
 function normalizePendingInvites(invites) {
   return workspacePendingInvitationsResource.operations.list.output.normalize({
@@ -21,7 +20,8 @@ const workspaceBootstrapActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceBootstrapResource.operations.view.input,
+    output: workspaceBootstrapResource.operations.view.output,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -29,8 +29,7 @@ const workspaceBootstrapActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const payload = normalizeObject(input);
-      const user = resolveUser(context, payload);
+      const user = resolveUser(context, input);
       const pendingInvites =
         deps.workspaceTenancyEnabled && user
           ? normalizePendingInvites(await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user))
@@ -38,7 +37,7 @@ const workspaceBootstrapActions = Object.freeze([
       return deps.workspaceService.buildBootstrapPayload({
         request: resolveRequest(context),
         user,
-        workspaceSlug: payload.workspaceSlug,
+        workspaceSlug: input.workspaceSlug,
         pendingInvites
       });
     }

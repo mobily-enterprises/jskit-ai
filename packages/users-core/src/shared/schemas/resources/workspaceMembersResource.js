@@ -9,6 +9,42 @@ function toPositiveInteger(value) {
   return Number.isInteger(numeric) && numeric > 0 ? numeric : 0;
 }
 
+const workspaceSummaryOutputSchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    slug: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    ownerUserId: Type.Integer({ minimum: 1 }),
+    avatarUrl: Type.String(),
+    color: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+const memberSummaryOutputSchema = Type.Object(
+  {
+    userId: Type.Integer({ minimum: 1 }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    displayName: Type.String(),
+    email: Type.String({ minLength: 1 }),
+    isOwner: Type.Boolean()
+  },
+  { additionalProperties: false }
+);
+
+const inviteSummaryOutputSchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    email: Type.String({ minLength: 3, format: "email" }),
+    roleId: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    expiresAt: Type.String({ minLength: 1 }),
+    invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+  },
+  { additionalProperties: false }
+);
+
 function normalizeWorkspaceAdminSummary(workspace) {
   const source = normalizeObjectInput(workspace);
 
@@ -50,33 +86,39 @@ function normalizeInviteSummary(invite) {
   };
 }
 
-function normalizeWorkspaceMembersOutput(payload = {}) {
+function normalizeWorkspaceOutputEnvelope(
+  payload = {},
+  { itemsKey, normalizeItem, includeInviteTokenPreview = false } = {}
+) {
   const source = normalizeObjectInput(payload);
   const workspace = normalizeWorkspaceAdminSummary(source.workspace);
-  const members = Array.isArray(source.members) ? source.members : [];
-
-  return {
-    workspace,
-    members: members.map((member) => normalizeMemberSummary(member, workspace)),
-    roleCatalog: createWorkspaceRoleCatalog()
-  };
-}
-
-function normalizeWorkspaceInvitesOutput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const workspace = normalizeWorkspaceAdminSummary(source.workspace);
-  const invites = Array.isArray(source.invites) ? source.invites : [];
+  const items = Array.isArray(source[itemsKey]) ? source[itemsKey] : [];
   const normalized = {
     workspace,
-    invites: invites.map((invite) => normalizeInviteSummary(invite)),
+    [itemsKey]: items.map((item) => normalizeItem(item, workspace)),
     roleCatalog: createWorkspaceRoleCatalog()
   };
 
-  if (Object.hasOwn(source, "inviteTokenPreview")) {
+  if (includeInviteTokenPreview && Object.hasOwn(source, "inviteTokenPreview")) {
     normalized.inviteTokenPreview = normalizeText(source.inviteTokenPreview);
   }
 
   return normalized;
+}
+
+function normalizeWorkspaceMembersOutput(payload = {}) {
+  return normalizeWorkspaceOutputEnvelope(payload, {
+    itemsKey: "members",
+    normalizeItem: normalizeMemberSummary
+  });
+}
+
+function normalizeWorkspaceInvitesOutput(payload = {}) {
+  return normalizeWorkspaceOutputEnvelope(payload, {
+    itemsKey: "invites",
+    normalizeItem: normalizeInviteSummary,
+    includeInviteTokenPreview: true
+  });
 }
 
 const workspaceRoleCatalogOutputValidator = Object.freeze({
@@ -94,30 +136,8 @@ const workspaceRoleCatalogOutputValidator = Object.freeze({
 const workspaceMembersOutputValidator = Object.freeze({
   schema: Type.Object(
     {
-      workspace: Type.Object(
-        {
-          id: Type.Integer({ minimum: 1 }),
-          slug: Type.String({ minLength: 1 }),
-          name: Type.String({ minLength: 1 }),
-          ownerUserId: Type.Integer({ minimum: 1 }),
-          avatarUrl: Type.String(),
-          color: Type.String({ minLength: 1 })
-        },
-        { additionalProperties: false }
-      ),
-      members: Type.Array(
-        Type.Object(
-          {
-            userId: Type.Integer({ minimum: 1 }),
-            roleId: Type.String({ minLength: 1 }),
-            status: Type.String({ minLength: 1 }),
-            displayName: Type.String(),
-            email: Type.String({ minLength: 1 }),
-            isOwner: Type.Boolean()
-          },
-          { additionalProperties: false }
-        )
-      ),
+      workspace: workspaceSummaryOutputSchema,
+      members: Type.Array(memberSummaryOutputSchema),
       roleCatalog: workspaceRoleCatalogOutputValidator.schema
     },
     { additionalProperties: false }
@@ -128,30 +148,8 @@ const workspaceMembersOutputValidator = Object.freeze({
 const workspaceInvitesOutputValidator = Object.freeze({
   schema: Type.Object(
     {
-      workspace: Type.Object(
-        {
-          id: Type.Integer({ minimum: 1 }),
-          slug: Type.String({ minLength: 1 }),
-          name: Type.String({ minLength: 1 }),
-          ownerUserId: Type.Integer({ minimum: 1 }),
-          avatarUrl: Type.String(),
-          color: Type.String({ minLength: 1 })
-        },
-        { additionalProperties: false }
-      ),
-      invites: Type.Array(
-        Type.Object(
-          {
-            id: Type.Integer({ minimum: 1 }),
-            email: Type.String({ minLength: 3, format: "email" }),
-            roleId: Type.String({ minLength: 1 }),
-            status: Type.String({ minLength: 1 }),
-            expiresAt: Type.String({ minLength: 1 }),
-            invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
-          },
-          { additionalProperties: false }
-        )
-      ),
+      workspace: workspaceSummaryOutputSchema,
+      invites: Type.Array(inviteSummaryOutputSchema),
       roleCatalog: workspaceRoleCatalogOutputValidator.schema,
       inviteTokenPreview: Type.Optional(Type.String({ minLength: 1 }))
     },

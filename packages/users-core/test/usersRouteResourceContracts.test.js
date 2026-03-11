@@ -109,7 +109,7 @@ test("route schema building blocks are wired directly from canonical contracts",
   );
   assert.equal(
     workspaceSchema.response.workspacesList,
-    workspaceSchema.resources.workspace.operations.list.response.schema
+    workspaceSchema.resources.workspace.operations.list.output.schema
   );
   assert.equal(
     workspaceSchema.response.members,

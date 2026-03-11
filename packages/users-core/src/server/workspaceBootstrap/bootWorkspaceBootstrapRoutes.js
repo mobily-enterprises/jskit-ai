@@ -1,8 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
-import { routeQueries } from "../common/contracts/routeQueries.js";
+import { workspaceBootstrapResource } from "../../shared/schemas/resources/workspaceBootstrapResource.js";
 
 function getOAuthProviderCatalogPayload(authService) {
   if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
@@ -47,9 +46,9 @@ function bootWorkspaceBootstrapRoutes(app) {
         tags: ["workspace"],
         summary: "Get startup bootstrap payload with session, app, workspace, and settings context"
       },
-      query: routeQueries.workspaceBootstrap,
+      query: workspaceBootstrapResource.operations.view.query,
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.bootstrap }
+        200: workspaceBootstrapResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -81,12 +80,11 @@ function bootWorkspaceBootstrapRoutes(app) {
         await consoleService.ensureInitialConsoleMember(authResult.profile.id);
       }
 
-      const bootstrapWorkspaceSlug = normalizeText(request?.input?.query?.workspaceSlug).toLowerCase();
       const payload = await request.executeAction({
         actionId: "workspace.bootstrap.read",
         input: {
           user: authResult?.authenticated ? authResult.profile : null,
-          workspaceSlug: bootstrapWorkspaceSlug
+          workspaceSlug: request.input?.query?.workspaceSlug
         },
         context: {
           actor: authResult?.authenticated ? authResult.profile : null

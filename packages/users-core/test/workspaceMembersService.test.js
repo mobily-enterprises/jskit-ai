@@ -56,11 +56,56 @@ function createFixture() {
         return null;
       },
       async revokeById() {}
-    }
+    },
+    inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000
   });
 
   return { service, workspace };
 }
+
+test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", async () => {
+  const expiresAtValues = [];
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert(payload) {
+        expiresAtValues.push(payload.expiresAt);
+      },
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async findPendingByIdForWorkspace() {
+        return null;
+      },
+      async revokeById() {}
+    },
+    inviteExpiresInMs: 30 * 60 * 1000
+  });
+
+  const before = Date.now();
+  await service.createInvite(
+    {
+      id: 7,
+      ownerUserId: 9
+    },
+    { id: 11 },
+    {
+      email: "alice@example.com",
+      roleId: "member"
+    }
+  );
+  const after = Date.now();
+
+  assert.equal(expiresAtValues.length, 1);
+  const expiresAt = new Date(expiresAtValues[0]).getTime();
+  assert.ok(expiresAt >= before + 30 * 60 * 1000);
+  assert.ok(expiresAt <= after + 30 * 60 * 1000);
+});
 
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();

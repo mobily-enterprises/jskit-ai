@@ -1,10 +1,17 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contractUtils.js";
+import { createOperationMessages } from "../contracts/contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import {
-  roleCatalogSchema,
-  workspaceAdminSummarySchema
-} from "./workspaceResource.js";
+import { workspaceResource } from "./workspaceResource.js";
+
+const roleCatalogSchema = Type.Object(
+  {
+    collaborationEnabled: Type.Boolean(),
+    defaultInviteRole: Type.String({ minLength: 1 }),
+    roles: Type.Array(Type.Object({}, { additionalProperties: true })),
+    assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
+  },
+  { additionalProperties: true }
+);
 
 const workspaceInviteRecordSchema = Type.Object(
   {
@@ -43,7 +50,7 @@ const workspaceInvitePatchSchema = Type.Partial(workspaceInviteReplaceSchema, {
 
 const workspaceInviteListSchema = Type.Object(
   {
-    workspace: workspaceAdminSummarySchema,
+    workspace: workspaceResource.operations.view.output.schema,
     invites: Type.Array(workspaceInviteRecordSchema),
     roleCatalog: roleCatalogSchema,
     inviteTokenPreview: Type.Optional(Type.String({ minLength: 1 }))

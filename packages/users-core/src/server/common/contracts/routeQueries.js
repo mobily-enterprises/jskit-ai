@@ -29,14 +29,6 @@ const routeQueries = Object.freeze({
       },
       { additionalProperties: false }
     )
-  }),
-  workspaceBootstrap: Object.freeze({
-    schema: Type.Object(
-      {
-        workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: false }
-    )
   })
 });
 

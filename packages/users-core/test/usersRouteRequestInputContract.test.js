@@ -116,7 +116,7 @@ test("workspace and settings routes attach only the shared transport normalizers
     path: "/api/console/settings"
   });
 
-  assert.equal(workspaceBootstrap?.query?.normalize, undefined);
+  assert.equal(typeof workspaceBootstrap?.query?.normalize, "function");
   assert.equal(typeof workspaceSettings?.params?.normalize, "function");
   assert.equal(typeof workspaceSettingsPatch?.body?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.params?.normalize, "function");

@@ -15,6 +15,7 @@ export { createRepository as createConsoleSettingsRepository } from "./consoleSe
 export { bootWorkspaceBootstrapRoutes } from "./workspaceBootstrap/bootWorkspaceBootstrapRoutes.js";
 export { workspaceBootstrapActions } from "./workspaceBootstrap/workspaceBootstrapActions.js";
 
+export { registerWorkspaceDirectory } from "./workspaceDirectory/registerWorkspaceDirectory.js";
 export { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 export { workspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
 

@@ -144,7 +144,8 @@ function bootWorkspaceMembers(app) {
         actionId: "workspace.invite.create",
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.body
+          email: request.input.body.email,
+          roleId: request.input.body.roleId
         }
       });
       reply.code(200).send(response);

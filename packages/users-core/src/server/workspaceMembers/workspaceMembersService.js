@@ -4,10 +4,15 @@ import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
-  workspaceInvitesRepository
+  workspaceInvitesRepository,
+  inviteExpiresInMs
 } = {}) {
   if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
     throw new Error("workspaceMembersService requires membership and invite repositories.");
+  }
+  const resolvedInviteExpiresInMs = Number(inviteExpiresInMs);
+  if (!Number.isInteger(resolvedInviteExpiresInMs) || resolvedInviteExpiresInMs < 1) {
+    throw new Error("workspaceMembersService requires inviteExpiresInMs.");
   }
 
   const assignableRoleIds = ASSIGNABLE_ROLE_IDS;
@@ -88,7 +93,7 @@ function createService({
         status: "pending",
         tokenHash,
         invitedByUserId: Number(user?.id || 0) || null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        expiresAt: new Date(Date.now() + resolvedInviteExpiresInMs).toISOString()
       },
       options
     );

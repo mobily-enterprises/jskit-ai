@@ -5,6 +5,7 @@ import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/work
 import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
 import { workspaceSettingsActions } from "../src/server/workspaceSettings/workspaceSettingsActions.js";
+import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
 
 test("workspace settings actions live in their own action array", () => {
   assert.deepEqual(
@@ -33,4 +34,8 @@ test("workspace actions array no longer owns workspace settings actions", () => 
     otherWorkspaceActionIds.includes("workspace.settings.update"),
     false
   );
+});
+
+test("workspace directory actions use the canonical workspace list resource output", () => {
+  assert.equal(workspaceDirectoryActions[0].output, workspaceResource.operations.list.output);
 });
