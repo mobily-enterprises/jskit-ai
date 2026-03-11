@@ -3,6 +3,7 @@ import {
   registerActionDefinitions,
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
+import { TENANCY_MODE_WORKSPACE, normalizeTenancyMode } from "@jskit-ai/kernel/shared/surface";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import * as usersShared from "../shared/index.js";
 import { createRepository as createUserProfilesRepository } from "./account/userProfilesRepository.js";
@@ -54,6 +55,7 @@ const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 const USERS_WORKSPACE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.workspaceSettings.actionDefinitions";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 const USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN = "users.workspace.pending-invitations.service";
+const USERS_WORKSPACE_TENANCY_ENABLED_TOKEN = "users.workspace.tenancy.enabled";
 const USERS_ACCOUNT_PROFILE_ACTION_DEFINITIONS_TOKEN = "users.core.accountProfile.actionDefinitions";
 const USERS_ACCOUNT_PREFERENCES_ACTION_DEFINITIONS_TOKEN = "users.core.accountPreferences.actionDefinitions";
 const USERS_ACCOUNT_NOTIFICATIONS_ACTION_DEFINITIONS_TOKEN = "users.core.accountNotifications.actionDefinitions";
@@ -69,6 +71,10 @@ function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   }
 
   return defaultInvitesEnabled;
+}
+
+function resolveWorkspaceTenancyEnabled(appConfig = {}) {
+  return normalizeTenancyMode(appConfig.tenancyMode) === TENANCY_MODE_WORKSPACE;
 }
 
 class UsersCoreServiceProvider {
@@ -143,6 +149,11 @@ class UsersCoreServiceProvider {
       });
     });
 
+    app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
+      const appConfig = scope.make("appConfig");
+      return resolveWorkspaceTenancyEnabled(appConfig);
+    });
+
     app.singleton(USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN, (scope) => {
       return createWorkspaceMembersService({
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
@@ -151,13 +162,9 @@ class UsersCoreServiceProvider {
     });
 
     app.singleton(USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN, (scope) => {
-      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
       return createWorkspacePendingInvitationsService({
-        appConfig,
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
-        workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
-        workspacesRepository: scope.make("workspacesRepository"),
-        workspaceService: scope.make("users.workspace.service")
+        workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository")
       });
     });
 
@@ -188,7 +195,8 @@ class UsersCoreServiceProvider {
       domain: "workspace",
       dependencies: {
         workspaceService: "users.workspace.service",
-        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
+        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
+        workspaceTenancyEnabled: USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
       },
       actions: workspaceBootstrapActions
     });
@@ -206,8 +214,10 @@ class UsersCoreServiceProvider {
       contributorId: "users.workspace-pending-invitations",
       domain: "workspace",
       dependencies: {
-        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
+        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
+        workspaceTenancyEnabled: USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
       },
+      enabled: ({ deps }) => deps.workspaceTenancyEnabled === true,
       actions: workspacePendingInvitationsActions
     });
 
@@ -291,8 +301,8 @@ class UsersCoreServiceProvider {
   }
 
   boot(app) {
-    if (!app || typeof app.has !== "function") {
-      throw new Error("UsersCoreServiceProvider requires application has().");
+    if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
+      throw new Error("UsersCoreServiceProvider requires application has()/make().");
     }
 
     if (!app.has("authService")) {
@@ -304,7 +314,9 @@ class UsersCoreServiceProvider {
 
     registerWorkspaceBootstrapRoutes(app);
     registerWorkspaceDirectoryRoutes(app);
-    registerWorkspacePendingInvitationsRoutes(app);
+    if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
+      registerWorkspacePendingInvitationsRoutes(app);
+    }
     registerWorkspaceSettingsRoutes(app);
     registerWorkspaceMembersRoutes(app);
     registerAccountProfileRoutes(app);

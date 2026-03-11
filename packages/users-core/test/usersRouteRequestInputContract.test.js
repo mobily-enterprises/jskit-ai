@@ -43,7 +43,8 @@ function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
   const bindings = new Map([
     [KERNEL_TOKENS.HttpRouter, router],
     ["authService", authService],
-    ["actionExecutor", {}]
+    ["actionExecutor", {}],
+    ["users.workspace.tenancy.enabled", true]
   ]);
 
   if (consoleService) {

@@ -1,62 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
+import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import {
-  listRoleDescriptors,
-  resolveAssignableRoleIds,
-  OWNER_ROLE_ID
-} from "../../shared/roles.js";
-import { coerceWorkspaceColor } from "../../shared/settings.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function normalizeEmail(value) {
-  return normalizeLowerText(value);
-}
-
-function hashInviteToken(token) {
-  return createHash("sha256").update(normalizeText(token)).digest("hex");
-}
-
-function mapWorkspaceAdminSummary(workspace) {
-  return {
-    id: Number(workspace.id),
-    slug: normalizeText(workspace.slug),
-    name: normalizeText(workspace.name),
-    ownerUserId: Number(workspace.ownerUserId),
-    avatarUrl: normalizeText(workspace.avatarUrl),
-    color: coerceWorkspaceColor(workspace.color)
-  };
-}
-
-function mapMemberSummary(member, workspace) {
-  return {
-    userId: Number(member.userId),
-    roleId: normalizeLowerText(member.roleId || "member") || "member",
-    status: normalizeLowerText(member.status || "active") || "active",
-    displayName: normalizeText(member.displayName),
-    email: normalizeLowerText(member.email),
-    isOwner:
-      Number(member.userId) === Number(workspace.ownerUserId) ||
-      normalizeLowerText(member.roleId) === OWNER_ROLE_ID
-  };
-}
-
-function mapInviteSummary(invite) {
-  return {
-    id: Number(invite.id),
-    email: normalizeLowerText(invite.email),
-    roleId: normalizeLowerText(invite.roleId || "member") || "member",
-    status: normalizeLowerText(invite.status || "pending") || "pending",
-    expiresAt: invite.expiresAt,
-    invitedByUserId: invite.invitedByUserId == null ? null : Number(invite.invitedByUserId)
-  };
-}
+import { OWNER_ROLE_ID, resolveAssignableRoleIds } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
@@ -66,50 +10,20 @@ function createService({
     throw new Error("workspaceMembersService requires membership and invite repositories.");
   }
 
-  const roleDescriptors = listRoleDescriptors();
   const assignableRoleIds = resolveAssignableRoleIds();
-
-  function getRoleCatalog() {
-    return {
-      collaborationEnabled: true,
-      defaultInviteRole: "member",
-      roles: roleDescriptors,
-      assignableRoleIds
-    };
-  }
 
   async function listMembers(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(workspace),
-      members: members.map((member) => mapMemberSummary(member, workspace)),
-      roleCatalog: getRoleCatalog()
+      workspace,
+      members
     };
   }
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
-    const memberUserId = Number(payload.memberUserId);
-    if (!Number.isInteger(memberUserId) || memberUserId < 1) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            memberUserId: "memberUserId is required."
-          }
-        }
-      });
-    }
-
-    const roleId = normalizeLowerText(payload.roleId);
-    if (!roleId) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            roleId: "Role is required."
-          }
-        }
-      });
-    }
+    const memberUserId = payload.memberUserId;
+    const roleId = payload.roleId;
     if (!assignableRoleIds.includes(roleId)) {
       throw new AppError(400, "Validation failed.", {
         details: {
@@ -145,25 +59,14 @@ function createService({
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return {
-      workspace: mapWorkspaceAdminSummary(workspace),
-      invites: invites.map(mapInviteSummary),
-      roleCatalog: getRoleCatalog()
+      workspace,
+      invites
     };
   }
 
   async function createInvite(workspace, user, payload = {}, options = {}) {
-    const email = normalizeEmail(payload.email);
-    if (!email || !email.includes("@")) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            email: "Valid email is required."
-          }
-        }
-      });
-    }
-
-    const roleId = normalizeLowerText(payload.roleId || "member") || "member";
+    const email = payload.email;
+    const roleId = payload.roleId;
     if (!assignableRoleIds.includes(roleId)) {
       throw new AppError(400, "Validation failed.", {
         details: {
@@ -174,7 +77,7 @@ function createService({
       });
     }
 
-    const token = randomBytes(24).toString("hex");
+    const token = buildInviteToken();
     const tokenHash = hashInviteToken(token);
     await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
     await workspaceInvitesRepository.insert(
@@ -198,19 +101,8 @@ function createService({
   }
 
   async function revokeInvite(workspace, inviteId, options = {}) {
-    const numericInviteId = Number(inviteId);
-    if (!Number.isInteger(numericInviteId) || numericInviteId < 1) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            inviteId: "inviteId must be a positive integer."
-          }
-        }
-      });
-    }
-
     const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-      numericInviteId,
+      inviteId,
       workspace.id,
       options
     );
@@ -218,12 +110,11 @@ function createService({
       throw new AppError(404, "Invite not found.");
     }
 
-    await workspaceInvitesRepository.revokeById(numericInviteId, options);
+    await workspaceInvitesRepository.revokeById(inviteId, options);
     return listInvites(workspace, options);
   }
 
   return Object.freeze({
-    getRoleCatalog,
     listMembers,
     updateMemberRole,
     listInvites,

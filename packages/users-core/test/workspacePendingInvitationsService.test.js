@@ -4,25 +4,15 @@ import { encodeInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { createService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 
 function createFixture({
-  tenancyMode = "workspace",
   pendingInvitesByEmail = [],
   inviteByTokenHash = null
 } = {}) {
   const tokenHashCalls = [];
   const upsertCalls = [];
-
-  const workspace = {
-    id: 1,
-    slug: "tonymobily3",
-    name: "TonyMobily3",
-    avatarUrl: "",
-    color: "#0F6B54"
-  };
+  const revokeCalls = [];
+  const acceptCalls = [];
 
   const service = createService({
-    appConfig: {
-      tenancyMode
-    },
     workspaceInvitesRepository: {
       async listPendingByEmail() {
         return Array.isArray(pendingInvitesByEmail) ? [...pendingInvitesByEmail] : [];
@@ -35,8 +25,12 @@ function createFixture({
 
         return inviteByTokenHash[String(tokenHash || "")] || null;
       },
-      async revokeById() {},
-      async markAcceptedById() {}
+      async revokeById(inviteId) {
+        revokeCalls.push(Number(inviteId));
+      },
+      async markAcceptedById(inviteId) {
+        acceptCalls.push(Number(inviteId));
+      }
     },
     workspaceMembershipsRepository: {
       async upsertMembership(workspaceId, userId, payload) {
@@ -46,28 +40,6 @@ function createFixture({
           payload: payload && typeof payload === "object" ? { ...payload } : payload
         });
       }
-    },
-    workspacesRepository: {
-      async findById(id) {
-        return Number(id) === 1 ? workspace : null;
-      }
-    },
-    workspaceService: {
-      async resolveWorkspaceContextForUserBySlug() {
-        return {
-          workspace,
-          membership: {
-            workspaceId: 1,
-            userId: 7,
-            roleId: "member",
-            status: "active"
-          },
-          permissions: ["workspace.members.view"],
-          workspaceSettings: {
-            invitesEnabled: true
-          }
-        };
-      }
     }
   });
 
@@ -75,12 +47,14 @@ function createFixture({
     service,
     calls: {
       tokenHashCalls,
-      upsertCalls
+      upsertCalls,
+      revokeCalls,
+      acceptCalls
     }
   };
 }
 
-test("listPendingInvitesForUser returns opaque token generated from invite token hash", async () => {
+test("listPendingInvitesForUser returns raw pending invite rows for the action layer to shape", async () => {
   const tokenHash = "a".repeat(64);
   const { service } = createFixture({
     pendingInvitesByEmail: [
@@ -104,10 +78,11 @@ test("listPendingInvitesForUser returns opaque token generated from invite token
   });
 
   assert.equal(pendingInvites.length, 1);
-  assert.equal(pendingInvites[0].token, encodeInviteTokenHash(tokenHash));
+  assert.equal(pendingInvites[0].tokenHash, tokenHash);
+  assert.equal(pendingInvites[0].workspaceName, "TonyMobily3");
 });
 
-test("redeemInviteByToken accepts opaque invite token and resolves invite by decoded hash", async () => {
+test("acceptInviteByToken accepts opaque invite token and resolves invite by decoded hash", async () => {
   const tokenHash = "b".repeat(64);
   const encodedToken = encodeInviteTokenHash(tokenHash);
   const { service, calls } = createFixture({
@@ -124,18 +99,51 @@ test("redeemInviteByToken accepts opaque invite token and resolves invite by dec
     }
   });
 
-  const response = await service.redeemInviteByToken({
+  const response = await service.acceptInviteByToken({
     user: {
       id: 7,
       email: "chiaramobily@gmail.com",
       displayName: "Chiara"
     },
-    token: encodedToken,
-    decision: "accept"
+    token: encodedToken
   });
 
   assert.deepEqual(calls.tokenHashCalls, [tokenHash]);
   assert.equal(calls.upsertCalls.length, 1);
+  assert.deepEqual(calls.acceptCalls, [44]);
+  assert.deepEqual(calls.revokeCalls, []);
   assert.equal(response.decision, "accepted");
-  assert.equal(response.workspace.slug, "tonymobily3");
+});
+
+test("refuseInviteByToken revokes the invite and returns refused", async () => {
+  const tokenHash = "c".repeat(64);
+  const encodedToken = encodeInviteTokenHash(tokenHash);
+  const { service, calls } = createFixture({
+    inviteByTokenHash: {
+      [tokenHash]: {
+        id: 45,
+        workspaceId: 1,
+        email: "chiaramobily@gmail.com",
+        roleId: "member",
+        status: "pending",
+        tokenHash,
+        expiresAt: "2030-01-01T00:00:00.000Z"
+      }
+    }
+  });
+
+  const response = await service.refuseInviteByToken({
+    user: {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    token: encodedToken
+  });
+
+  assert.deepEqual(calls.tokenHashCalls, [tokenHash]);
+  assert.deepEqual(calls.acceptCalls, []);
+  assert.deepEqual(calls.revokeCalls, [45]);
+  assert.equal(calls.upsertCalls.length, 0);
+  assert.equal(response.decision, "refused");
 });

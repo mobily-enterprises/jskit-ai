@@ -1,0 +1,26 @@
+{
+  "name": "@jskit-ai/crud",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/contacts/*": "./src/client/contacts/*.vue",
+    "./server": "./src/server/index.js",
+    "./server/CrudServiceProvider": "./src/server/CrudServiceProvider.js",
+    "./shared": "./src/shared/index.js",
+    "./shared/contacts/*": "./src/shared/contacts/*.js"
+  },
+  "dependencies": {
+    "@jskit-ai/auth-core": "0.1.0",
+    "@jskit-ai/database-runtime": "0.1.0",
+    "@jskit-ai/http-runtime": "0.1.0",
+    "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/users-web": "0.1.0",
+    "@tanstack/vue-query": "^5.90.5",
+    "typebox": "^1.0.81",
+    "vuetify": "^4.0.0"
+  }
+}

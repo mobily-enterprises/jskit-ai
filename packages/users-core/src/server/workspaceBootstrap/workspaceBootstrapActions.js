@@ -5,6 +5,7 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { mapPendingInvites } from "../workspacePendingInvitations/workspacePendingInvitationsOutput.js";
 
 const workspaceBootstrapActions = Object.freeze([
   {
@@ -24,7 +25,10 @@ const workspaceBootstrapActions = Object.freeze([
     async execute(input, context, deps) {
       const payload = normalizeObject(input);
       const user = resolveUser(context, payload);
-      const pendingInvites = await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user);
+      const pendingInvites =
+        deps.workspaceTenancyEnabled && user
+          ? mapPendingInvites(await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user))
+          : [];
       return deps.workspaceService.buildBootstrapPayload({
         request: resolveRequest(context),
         user,

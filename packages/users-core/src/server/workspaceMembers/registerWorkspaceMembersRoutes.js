@@ -1,15 +1,13 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { workspaceRoutesContract as workspaceSchema } from "../common/contracts/workspaceRoutesContract.js";
 import { inputParts } from "../common/contracts/inputParts.js";
-
-function normalizeMemberRoleBody(body) {
-  const source = normalizeObjectInput(body);
-  return {
-    roleId: source.roleId
-  };
-}
+import {
+  workspaceInviteCreateBody,
+  workspaceInvitesOutput,
+  workspaceMemberRoleUpdateBody,
+  workspaceMembersOutput,
+  workspaceRoleCatalogOutput
+} from "./workspaceMembersContracts.js";
 
 function registerWorkspaceMembersRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -30,7 +28,7 @@ function registerWorkspaceMembersRoutes(app) {
       },
       params: inputParts.routeParams,
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.roles }
+        200: workspaceRoleCatalogOutput
       })
     },
     async function (request, reply) {
@@ -56,7 +54,7 @@ function registerWorkspaceMembersRoutes(app) {
       },
       params: inputParts.routeParams,
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.members }
+        200: workspaceMembersOutput
       })
     },
     async function (request, reply) {
@@ -81,13 +79,10 @@ function registerWorkspaceMembersRoutes(app) {
         summary: "Update workspace member role by workspace slug"
       },
       params: inputParts.routeParams,
-      body: {
-        schema: workspaceSchema.body.memberRoleUpdate,
-        normalize: normalizeMemberRoleBody
-      },
+      body: workspaceMemberRoleUpdateBody,
       response: withStandardErrorResponses(
         {
-          200: { schema: workspaceSchema.response.members }
+          200: workspaceMembersOutput
         },
         { includeValidation400: true }
       )
@@ -117,7 +112,7 @@ function registerWorkspaceMembersRoutes(app) {
       },
       params: inputParts.routeParams,
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.invites }
+        200: workspaceInvitesOutput
       })
     },
     async function (request, reply) {
@@ -142,13 +137,10 @@ function registerWorkspaceMembersRoutes(app) {
         summary: "Create workspace invite by workspace slug"
       },
       params: inputParts.routeParams,
-      body: {
-        schema: workspaceSchema.body.createInvite,
-        normalize: normalizeObjectInput
-      },
+      body: workspaceInviteCreateBody,
       response: withStandardErrorResponses(
         {
-          200: { schema: workspaceSchema.response.invites }
+          200: workspaceInvitesOutput
         },
         { includeValidation400: true }
       )
@@ -177,7 +169,7 @@ function registerWorkspaceMembersRoutes(app) {
       },
       params: inputParts.routeParams,
       response: withStandardErrorResponses({
-        200: { schema: workspaceSchema.response.invites }
+        200: workspaceInvitesOutput
       })
     },
     async function (request, reply) {

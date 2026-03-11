@@ -14,12 +14,14 @@ import {
 import {
   mapMembershipSummary,
   mapWorkspaceSettingsPublic,
-  mapWorkspaceSummary,
+  mapWorkspaceSummary
+} from "./workspaceMappings.js";
+import {
   normalizeEmail,
   normalizeLowerText,
   normalizeText,
   normalizeUserProfile
-} from "./workspaceMappings.js";
+} from "./workspaceSupport.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)

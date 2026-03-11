@@ -9,7 +9,7 @@ import {
 const workspaceInviteRecordSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
-    email: Type.String({ minLength: 3 }),
+    email: Type.String({ minLength: 3, format: "email" }),
     roleId: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     expiresAt: Type.String({ minLength: 1 }),
@@ -20,7 +20,7 @@ const workspaceInviteRecordSchema = Type.Object(
 
 const workspaceInviteCreateSchema = Type.Object(
   {
-    email: Type.String({ minLength: 3 }),
+    email: Type.String({ minLength: 3, format: "email" }),
     roleId: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
@@ -28,7 +28,7 @@ const workspaceInviteCreateSchema = Type.Object(
 
 const workspaceInviteReplaceSchema = Type.Object(
   {
-    email: Type.String({ minLength: 3 }),
+    email: Type.String({ minLength: 3, format: "email" }),
     roleId: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     expiresAt: Type.String({ minLength: 1 }),

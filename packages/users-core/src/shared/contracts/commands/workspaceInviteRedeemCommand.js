@@ -27,7 +27,12 @@ const workspaceInviteRedeemInputSchema = Type.Object(
   }
 );
 
-const workspaceInviteRedeemOutputSchema = Type.Object({}, { additionalProperties: true });
+const workspaceInviteRedeemOutputSchema = Type.Object(
+  {
+    decision: Type.Union([Type.Literal("accepted"), Type.Literal("refused")])
+  },
+  { additionalProperties: false }
+);
 
 const WORKSPACE_INVITE_REDEEM_MESSAGES = createOperationMessages();
 

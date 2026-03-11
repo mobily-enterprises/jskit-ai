@@ -4,6 +4,7 @@ import {
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceInviteRedeemCommand } from "../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
+import { mapPendingInvites } from "./workspacePendingInvitationsOutput.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
   {
@@ -22,7 +23,9 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
+        pendingInvites: mapPendingInvites(
+          await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
+        )
       };
     }
   },
@@ -41,10 +44,18 @@ const workspacePendingInvitationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspacePendingInvitationsService.redeemInviteByToken({
-        user: resolveUser(context, input),
-        inviteToken: input.token,
-        decision: input.decision
+      const user = resolveUser(context, input);
+
+      if (input.decision === "accept") {
+        return deps.workspacePendingInvitationsService.acceptInviteByToken({
+          user,
+          token: input.token
+        });
+      }
+
+      return deps.workspacePendingInvitationsService.refuseInviteByToken({
+        user,
+        token: input.token
       });
     }
   }

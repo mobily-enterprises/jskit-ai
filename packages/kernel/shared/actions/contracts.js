@@ -8,6 +8,7 @@ const ACTION_DOMAINS = Object.freeze([
   "auth",
   "settings",
   "workspace",
+  "contacts",
   "projects",
   "chat",
   "social",

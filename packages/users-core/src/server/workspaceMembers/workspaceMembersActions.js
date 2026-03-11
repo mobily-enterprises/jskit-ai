@@ -1,11 +1,17 @@
 import {
-  EMPTY_INPUT_CONTRACT,
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   resolveUser,
   resolveWorkspace
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspaceInviteSchema } from "../../shared/contracts/resources/workspaceInviteSchema.js";
+import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import {
+  workspaceInviteCreateActionInput,
+  workspaceInviteRevokeActionInput,
+  workspaceInvitesOutput,
+  workspaceMemberRoleUpdateActionInput,
+  workspaceMembersOutput,
+  workspaceRoleCatalogOutput,
+  workspaceScopeActionInput
+} from "./workspaceMembersContracts.js";
 
 const workspaceMembersActions = Object.freeze([
   {
@@ -15,17 +21,16 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: EMPTY_INPUT_CONTRACT,
+    input: workspaceScopeActionInput,
+    output: workspaceRoleCatalogOutput,
     permission: ["workspace.roles.view"],
     idempotency: "none",
     audit: {
       actionName: "workspace.roles.list"
     },
     observability: {},
-    async execute(_input, _context, deps) {
-      return {
-        roleCatalog: deps.workspaceMembersService.getRoleCatalog()
-      };
+    async execute() {
+      return createWorkspaceRoleCatalog();
     }
   },
   {
@@ -35,7 +40,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceScopeActionInput,
+    output: workspaceMembersOutput,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -53,7 +59,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceMemberRoleUpdateActionInput,
+    output: workspaceMembersOutput,
     permission: ["workspace.members.manage"],
     idempotency: "optional",
     audit: {
@@ -61,11 +68,7 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const payload = normalizeObject(input);
-      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, payload), {
-        memberUserId: payload.memberUserId || payload.userId || payload.targetUserId || payload.params?.memberUserId,
-        roleId: payload.roleId
-      });
+      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), input);
     }
   },
   {
@@ -75,7 +78,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceScopeActionInput,
+    output: workspaceInvitesOutput,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -93,7 +97,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceInviteCreateActionInput,
+    output: workspaceInvitesOutput,
     permission: ["workspace.members.invite"],
     idempotency: "optional",
     audit: {
@@ -102,13 +107,13 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Invite a person to the workspace.",
-      inputJsonSchema: workspaceInviteSchema.operations.create.body.schema
+      inputJsonSchema: workspaceInviteCreateActionInput.schema
     },
     async execute(input, context, deps) {
       return deps.workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveUser(context, input),
-        normalizeObject(input)
+        input
       );
     }
   },
@@ -119,7 +124,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: workspaceInviteRevokeActionInput,
+    output: workspaceInvitesOutput,
     permission: ["workspace.invites.revoke"],
     idempotency: "optional",
     audit: {
@@ -127,11 +133,7 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const payload = normalizeObject(input);
-      return deps.workspaceMembersService.revokeInvite(
-        resolveWorkspace(context, payload),
-        payload.inviteId || payload.params?.inviteId
-      );
+      return deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId);
     }
   }
 ]);

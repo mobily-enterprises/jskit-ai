@@ -205,13 +205,13 @@ async function respondToInvite(invite, decision) {
   message.value = "";
 
   try {
-    const response = await redeemInviteCommand.run();
+    await redeemInviteCommand.run();
 
     bootstrapModel.pendingInvites = pendingInvites.value.filter((entry) => entry.token !== token);
     await bootstrapView.refresh();
 
     if (normalizedDecision === "accept") {
-      const nextWorkspaceSlug = String(response?.workspace?.slug || invite?.workspaceSlug || "").trim();
+      const nextWorkspaceSlug = String(invite?.workspaceSlug || "").trim();
       if (nextWorkspaceSlug) {
         await openWorkspace(nextWorkspaceSlug);
       }
