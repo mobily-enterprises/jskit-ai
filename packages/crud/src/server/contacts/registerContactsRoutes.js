@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { contactsInputParts } from "./contactsInputParts.js";
-import { contactsSchema } from "../../shared/contacts/contactsSchema.js";
+import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 function registerContactsRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -21,7 +21,7 @@ function registerContactsRoutes(app) {
       },
       query: contactsInputParts.listQuery,
       response: withStandardErrorResponses({
-        200: contactsSchema.operations.list.output
+        200: contactsResource.operations.list.output
       })
     },
     async function (request, reply) {
@@ -45,7 +45,7 @@ function registerContactsRoutes(app) {
       },
       params: contactsInputParts.routeParams,
       response: withStandardErrorResponses({
-        200: contactsSchema.operations.view.output
+        200: contactsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -67,10 +67,10 @@ function registerContactsRoutes(app) {
         tags: ["contacts"],
         summary: "Create a contact."
       },
-      body: contactsSchema.operations.create.body,
+      body: contactsResource.operations.create.body,
       response: withStandardErrorResponses(
         {
-          201: contactsSchema.operations.create.output
+          201: contactsResource.operations.create.output
         },
         { includeValidation400: true }
       )
@@ -95,10 +95,10 @@ function registerContactsRoutes(app) {
         summary: "Update a contact."
       },
       params: contactsInputParts.routeParams,
-      body: contactsSchema.operations.patch.body,
+      body: contactsResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
-          200: contactsSchema.operations.patch.output
+          200: contactsResource.operations.patch.output
         },
         { includeValidation400: true }
       )
@@ -127,7 +127,7 @@ function registerContactsRoutes(app) {
       },
       params: contactsInputParts.routeParams,
       response: withStandardErrorResponses({
-        200: contactsSchema.operations.delete.output
+        200: contactsResource.operations.delete.output
       })
     },
     async function (request, reply) {

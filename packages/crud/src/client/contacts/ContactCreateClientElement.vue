@@ -67,7 +67,7 @@ import {
   parseCreateContactInput,
   resolveAdminContactViewPath,
   resolveAdminContactsListPath,
-  contactsSchema
+  contactsResource
 } from "./contactsClientSupport.js";
 
 const router = useRouter();
@@ -75,17 +75,17 @@ const listPath = resolveAdminContactsListPath();
 const contactForm = reactive(createContactForm());
 
 const addEdit = useGlobalAddEdit({
+  resource: contactsResource,
   apiSuffix: "/contacts",
   queryKeyFactory: (surfaceId = "") => [...contactsListQueryKey(surfaceId), "create"],
   readEnabled: false,
   writeMethod: "POST",
-  fallbackSaveError: String(contactsSchema.operationMessages?.saveError || "Unable to save contact."),
+  fallbackSaveError: "Unable to save contact.",
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
   parseInput: parseCreateContactInput,
   mapLoadedToModel: assignContactToForm,
   buildRawPayload: buildContactPayload,
-  messages: contactsSchema.operationMessages || {},
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
       queryKey: ["crud", "contacts"]

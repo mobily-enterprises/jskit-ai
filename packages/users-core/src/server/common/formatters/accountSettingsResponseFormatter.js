@@ -1,5 +1,5 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { DEFAULT_USER_SETTINGS } from "../../../../shared/settings.js";
+import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 

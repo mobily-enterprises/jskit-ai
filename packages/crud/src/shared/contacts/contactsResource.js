@@ -80,9 +80,9 @@ const contactRecordValidator = Object.freeze({
   normalize: normalizeContactRecord
 });
 
-const contactsSchema = {
+const contactsResource = {
   resource: "contacts",
-  operationMessages: {
+  messages: {
     validation: "Fix invalid contact values and try again.",
     saveSuccess: "Contact saved.",
     saveError: "Unable to save contact.",
@@ -137,4 +137,4 @@ const contactsSchema = {
   }
 };
 
-export { contactsSchema };
+export { contactsResource };

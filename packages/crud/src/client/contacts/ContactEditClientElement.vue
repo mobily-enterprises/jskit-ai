@@ -60,7 +60,7 @@ import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
 import {
-  contactsSchema,
+  contactsResource,
   contactViewQueryKey,
   createContactForm,
   assignContactToForm,
@@ -79,17 +79,17 @@ const contactId = computed(() => toRouteContactId(route.params.contactId));
 const detailPath = computed(() => resolveAdminContactViewPath(contactId.value));
 
 const addEdit = useGlobalAddEdit({
+  resource: contactsResource,
   apiSuffix: () => `/contacts/${contactId.value}`,
   queryKeyFactory: (surfaceId = "") => contactViewQueryKey(surfaceId, contactId.value),
   writeMethod: "PATCH",
   fallbackLoadError: "Unable to load contact.",
-  fallbackSaveError: String(contactsSchema.operationMessages?.saveError || "Unable to save contact."),
+  fallbackSaveError: "Unable to save contact.",
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
   parseInput: parsePatchContactInput,
   mapLoadedToModel: assignContactToForm,
   buildRawPayload: buildContactPayload,
-  messages: contactsSchema.operationMessages || {},
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
       queryKey: ["crud", "contacts"]

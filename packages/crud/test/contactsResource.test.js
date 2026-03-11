@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { contactsSchema } from "../src/shared/contacts/contactsSchema.js";
+import { contactsResource } from "../src/shared/contacts/contactsResource.js";
 
-test("contactsSchema normalizes create payload", () => {
-  const normalized = contactsSchema.operations.create.body.normalize({
+test("contactsResource normalizes create payload", () => {
+  const normalized = contactsResource.operations.create.body.normalize({
     name: "  Ada  ",
     surname: "  Lovelace  "
   });
@@ -14,8 +14,8 @@ test("contactsSchema normalizes create payload", () => {
   });
 });
 
-test("contactsSchema normalizes list output", () => {
-  const normalized = contactsSchema.operations.list.output.normalize({
+test("contactsResource normalizes list output", () => {
+  const normalized = contactsResource.operations.list.output.normalize({
     items: [
       {
         id: "7",

@@ -5,10 +5,10 @@ import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import {
   resolveUserProfile,
   resolveSecurityStatus
-} from "../account/common/services/accountContextService.js";
+} from "../common/services/accountContextService.js";
 import {
   accountSettingsResponseFormatter
-} from "../account/common/formatters/accountSettingsResponseFormatter.js";
+} from "../common/formatters/accountSettingsResponseFormatter.js";
 
 function parsePreferencesPatch(payload = {}) {
   const source = normalizeObjectInput(payload);

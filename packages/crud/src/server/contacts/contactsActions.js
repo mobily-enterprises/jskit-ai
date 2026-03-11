@@ -1,6 +1,6 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { contactsInputParts } from "./contactsInputParts.js";
-import { contactsSchema } from "../../shared/contacts/contactsSchema.js";
+import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 const contactsActions = Object.freeze([
   {
@@ -11,7 +11,7 @@ const contactsActions = Object.freeze([
     surfaces: ["admin"],
     visibility: "public",
     input: contactsInputParts.listQuery,
-    output: contactsSchema.operations.list.output,
+    output: contactsResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -30,7 +30,7 @@ const contactsActions = Object.freeze([
     surfaces: ["admin"],
     visibility: "public",
     input: contactsInputParts.routeParams,
-    output: contactsSchema.operations.view.output,
+    output: contactsResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -48,8 +48,8 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: contactsSchema.operations.create.body,
-    output: contactsSchema.operations.create.output,
+    input: contactsResource.operations.create.body,
+    output: contactsResource.operations.create.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -67,8 +67,8 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: [contactsInputParts.routeParams, contactsSchema.operations.patch.body],
-    output: contactsSchema.operations.patch.output,
+    input: [contactsInputParts.routeParams, contactsResource.operations.patch.body],
+    output: contactsResource.operations.patch.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -88,7 +88,7 @@ const contactsActions = Object.freeze([
     surfaces: ["admin"],
     visibility: "public",
     input: contactsInputParts.routeParams,
-    output: contactsSchema.operations.delete.output,
+    output: contactsResource.operations.delete.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

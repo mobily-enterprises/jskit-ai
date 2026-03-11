@@ -4,10 +4,10 @@ import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization
 import {
   resolveUserProfile,
   resolveSecurityStatus
-} from "../account/common/services/accountContextService.js";
+} from "../common/services/accountContextService.js";
 import {
   accountSettingsResponseFormatter
-} from "../account/common/formatters/accountSettingsResponseFormatter.js";
+} from "../common/formatters/accountSettingsResponseFormatter.js";
 
 function createService({
   userSettingsRepository,

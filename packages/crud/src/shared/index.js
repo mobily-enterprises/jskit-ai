@@ -1,1 +1,1 @@
-export { contactsSchema } from "./contacts/contactsSchema.js";
+export { contactsResource } from "./contacts/contactsResource.js";

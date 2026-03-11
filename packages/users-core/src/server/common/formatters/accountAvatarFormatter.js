@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { DEFAULT_USER_SETTINGS } from "../../../../shared/settings.js";
+import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
 function createGravatarUrl(email, size = 64) {
   const normalizedEmail = normalizeLowerText(email);

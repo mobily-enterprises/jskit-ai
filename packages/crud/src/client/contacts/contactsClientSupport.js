@@ -1,6 +1,6 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { contactsSchema } from "../../shared/contacts/contactsSchema.js";
+import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 function createContactForm() {
   return {
@@ -23,7 +23,7 @@ function buildContactPayload(model) {
 
 function parseCreateContactInput(rawPayload) {
   return validateOperationSection({
-    operation: contactsSchema.operations.create,
+    operation: contactsResource.operations.create,
     section: "body",
     value: rawPayload
   });
@@ -31,7 +31,7 @@ function parseCreateContactInput(rawPayload) {
 
 function parsePatchContactInput(rawPayload) {
   return validateOperationSection({
-    operation: contactsSchema.operations.patch,
+    operation: contactsResource.operations.patch,
     section: "body",
     value: rawPayload
   });
@@ -77,7 +77,7 @@ function toRouteContactId(value) {
 }
 
 export {
-  contactsSchema,
+  contactsResource,
   createContactForm,
   assignContactToForm,
   buildContactPayload,

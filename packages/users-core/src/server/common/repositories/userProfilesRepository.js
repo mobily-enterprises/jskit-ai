@@ -5,7 +5,7 @@ import {
   toIsoString,
   toNullableIso,
   nowDb
-} from "../common/repositories/repositoryUtils.js";
+} from "./repositoryUtils.js";
 
 function normalizeIdentity(identityLike) {
   const source = identityLike && typeof identityLike === "object" ? identityLike : {};

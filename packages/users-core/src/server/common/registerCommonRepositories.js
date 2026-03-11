@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { createRepository as createUserProfilesRepository } from "../account/userProfilesRepository.js";
-import { createRepository as createUserSettingsRepository } from "../account/userSettingsRepository.js";
+import { createRepository as createUserProfilesRepository } from "./repositories/userProfilesRepository.js";
+import { createRepository as createUserSettingsRepository } from "./repositories/userSettingsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./repositories/workspacesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./repositories/workspaceInvitesRepository.js";

@@ -1,4 +1,4 @@
-import { normalizeIdentity } from "../../userProfilesRepository.js";
+import { normalizeIdentity } from "../repositories/userProfilesRepository.js";
 
 async function resolveUserProfile(userProfilesRepository, user) {
   const identity = normalizeIdentity(user);
