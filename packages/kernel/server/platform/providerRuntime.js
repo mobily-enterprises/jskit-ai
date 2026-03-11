@@ -2,6 +2,7 @@ import { access, constants as fsConstants, readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ActionRuntimeServiceProvider } from "../actions/ActionRuntimeServiceProvider.js";
+import { ServerRuntimeCoreServiceProvider } from "../runtime/ServerRuntimeCoreServiceProvider.js";
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
@@ -606,6 +607,15 @@ async function createProviderRuntimeFromApp({
   if (!seenProviderIds.has(ActionRuntimeServiceProvider.id)) {
     registerProviderClass({
       providerClass: ActionRuntimeServiceProvider,
+      sourceId: "@jskit-ai/kernel",
+      seenProviderIds,
+      orderedProviderClasses
+    });
+  }
+
+  if (!seenProviderIds.has(ServerRuntimeCoreServiceProvider.id)) {
+    registerProviderClass({
+      providerClass: ServerRuntimeCoreServiceProvider,
       sourceId: "@jskit-ai/kernel",
       seenProviderIds,
       orderedProviderClasses

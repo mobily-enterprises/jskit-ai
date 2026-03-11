@@ -20,11 +20,12 @@ function normalizeActor(actor) {
 }
 
 function normalizeWorkspace(workspace) {
-  if (!workspace || typeof workspace !== "object") {
+  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
     return null;
   }
 
   return {
+    ...workspace,
     id: workspace.id == null ? null : workspace.id,
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name)

@@ -27,10 +27,6 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
         return {};
       }
 
-      if (context?.workspace) {
-        return {};
-      }
-
       const payload = normalizeObject(input);
       if (!Object.prototype.hasOwnProperty.call(payload, "workspaceSlug")) {
         return {};
@@ -42,11 +38,23 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
         { request }
       );
 
-      return {
-        workspace: resolvedWorkspaceContext.workspace,
-        membership: resolvedWorkspaceContext.membership,
-        permissions: resolvedWorkspaceContext.permissions
+      const contribution = {
+        requestMeta: {
+          resolvedWorkspaceContext
+        }
       };
+
+      if (!context?.workspace) {
+        contribution.workspace = resolvedWorkspaceContext.workspace;
+      }
+      if (!context?.membership) {
+        contribution.membership = resolvedWorkspaceContext.membership;
+      }
+      if (!Array.isArray(context?.permissions) || context.permissions.length < 1) {
+        contribution.permissions = resolvedWorkspaceContext.permissions;
+      }
+
+      return contribution;
     }
   });
 }

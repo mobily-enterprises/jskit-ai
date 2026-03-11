@@ -104,7 +104,7 @@ test("createProviderRuntimeFromApp discovers package providers from descriptor d
     assert.deepEqual(runtime.packageOrder, ["@local/example"]);
     assert.deepEqual(runtime.providerPackageOrder, ["@local/example"]);
     assert.equal(runtime.appLocalProviderOrder.length, 0);
-    assert.deepEqual(runtime.diagnostics.providerOrder, ["example.alpha", "runtime.actions"]);
+    assert.deepEqual(runtime.diagnostics.providerOrder, ["example.alpha", "runtime.actions", "runtime.server"]);
     assert.equal(runtime.app.make("example.alpha.value"), 42);
     assert.equal(typeof runtime.app.make("actionExecutor")?.execute, "function");
   } finally {
@@ -138,7 +138,7 @@ test("createProviderRuntimeFromApp ignores legacy app local src/server/providers
     assert.deepEqual(runtime.packageOrder, []);
     assert.deepEqual(runtime.providerPackageOrder, []);
     assert.equal(runtime.appLocalProviderOrder.length, 0);
-    assert.deepEqual(runtime.diagnostics.providerOrder, ["runtime.actions"]);
+    assert.deepEqual(runtime.diagnostics.providerOrder, ["runtime.actions", "runtime.server"]);
     assert.equal(runtime.app.has("legacy.value"), false);
   } finally {
     await rm(appRoot, { recursive: true, force: true });

@@ -57,6 +57,18 @@ test("workspace action context contributor resolves workspace context for worksp
     }
   ]);
   assert.deepEqual(contribution, {
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          id: 10,
+          slug: "acme"
+        },
+        membership: {
+          roleId: "owner"
+        },
+        permissions: ["workspace.settings.update"]
+      }
+    },
     workspace: {
       id: 10,
       slug: "acme"
@@ -88,14 +100,32 @@ test("workspace action context contributor ignores actions that do not require w
   assert.deepEqual(contribution, {});
 });
 
-test("workspace action context contributor does not re-resolve when workspace is already present", async () => {
+test("workspace action context contributor always resolves and stores resolved context", async () => {
+  const calls = [];
   const contributor = createWorkspaceActionContextContributor({
     workspaceService: {
-      async resolveWorkspaceContextForUserBySlug() {
-        throw new Error("should not be called");
+      async resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options) {
+        calls.push({ user, workspaceSlug, options });
+        return {
+          workspace: {
+            id: 10,
+            slug: "acme",
+            ownerUserId: 77
+          },
+          membership: {
+            roleId: "owner"
+          },
+          permissions: ["workspace.settings.update"]
+        };
       }
     }
   });
+
+  const request = {
+    user: {
+      id: 42
+    }
+  };
 
   const contribution = await contributor.contribute({
     actionId: "workspace.members.list",
@@ -105,9 +135,40 @@ test("workspace action context contributor does not re-resolve when workspace is
     context: {
       workspace: {
         id: 1
+      },
+      requestMeta: {
+        request
       }
-    }
+    },
+    request
   });
 
-  assert.deepEqual(contribution, {});
+  assert.deepEqual(calls, [
+    {
+      user: request.user,
+      workspaceSlug: "acme",
+      options: {
+        request
+      }
+    }
+  ]);
+  assert.deepEqual(contribution, {
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          id: 10,
+          slug: "acme",
+          ownerUserId: 77
+        },
+        membership: {
+          roleId: "owner"
+        },
+        permissions: ["workspace.settings.update"]
+      }
+    },
+    membership: {
+      roleId: "owner"
+    },
+    permissions: ["workspace.settings.update"]
+  });
 });

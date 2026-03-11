@@ -14,7 +14,9 @@ function normalizeRequestMeta(requestMeta = {}, { fields = DEFAULT_FIELDS, empty
     return normalized;
   };
 
-  const normalized = {};
+  const normalized = {
+    ...source
+  };
   for (const field of fieldList) {
     if (field === "request") {
       normalized.request = source.request || null;

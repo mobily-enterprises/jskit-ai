@@ -36,7 +36,16 @@ function resolveUser(context, input) {
 
 function resolveWorkspace(context, input) {
   const payload = normalizeObject(input);
-  return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
+  const requestMeta = normalizeObject(context?.requestMeta);
+  const resolvedWorkspaceContext = normalizeObject(requestMeta.resolvedWorkspaceContext);
+
+  return (
+    payload.workspace ||
+    resolvedWorkspaceContext.workspace ||
+    context?.workspace ||
+    resolveRequest(context)?.workspace ||
+    null
+  );
 }
 
 function allowPublic() {

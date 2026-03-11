@@ -1,4 +1,4 @@
-import { computed, watch, proxyRefs } from "vue";
+import { computed, watch, proxyRefs, unref } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
 import { useUsersWebWorkspaceAccess } from "./useUsersWebWorkspaceAccess.js";
@@ -75,19 +75,25 @@ function useWorkspaceAddEdit({
     resolveQueryKeyForWorkspace(queryKeyFactory, currentSurfaceId.value, workspaceSlugFromRoute.value)
   );
 
-  const access = useUsersWebWorkspaceAccess({
-    workspaceSlug: workspaceSlugFromRoute,
-    enabled: hasRouteWorkspaceSlug,
-    mergePlacementContext,
-    placementSource: String(placementSource || "users-web.workspace.add-edit")
-  });
+  const access =
+    useUsersWebWorkspaceAccess({
+      workspaceSlug: workspaceSlugFromRoute,
+      enabled: hasRouteWorkspaceSlug,
+      mergePlacementContext,
+      placementSource: String(placementSource || "users-web.workspace.add-edit")
+    }) || {};
+
+  const canAnyAccess = typeof access.canAny === "function" ? access.canAny.bind(access) : () => false;
+  const accessBootstrapError = computed(() => String(unref(access?.bootstrapError) || ""));
+  const accessIsBootstrapping = computed(() => Boolean(unref(access?.isBootstrapping)));
+  const hasEndpointPath = computed(() => Boolean(unref(workspaceApiPath)));
 
   const canView = computed(() => {
     if (normalizedViewPermissions.length < 1) {
       return true;
     }
 
-    return access.canAny(normalizedViewPermissions);
+    return canAnyAccess(normalizedViewPermissions);
   });
 
   const canSave = computed(() => {
@@ -95,15 +101,13 @@ function useWorkspaceAddEdit({
       return true;
     }
 
-    return access.canAny(normalizedSavePermissions);
+    return canAnyAccess(normalizedSavePermissions);
   });
 
   const endpointResource = useUsersWebEndpointResource({
     queryKey,
     path: workspaceApiPath,
-    enabled: computed(
-      () => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(workspaceApiPath.value) && canView.value
-    ),
+    enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && hasEndpointPath.value && canView.value),
     readMethod,
     writeMethod,
     fallbackLoadError,
@@ -143,14 +147,15 @@ function useWorkspaceAddEdit({
       throw new Error("useWorkspaceAddEdit requires route.params.workspaceSlug.");
     }
 
-    if (access.bootstrapError.value) {
-      return access.bootstrapError.value;
+    const bootstrapError = String(unref(accessBootstrapError) || "");
+    if (bootstrapError) {
+      return bootstrapError;
     }
 
-    return resource.loadError.value;
+    return String(unref(endpointResource?.loadError) || "");
   });
 
-  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(unref(endpointResource?.isLoading) || unref(accessIsBootstrapping)));
 
   return proxyRefs({
     canView,
