@@ -17,7 +17,7 @@ import {
   mapWorkspaceSummary
 } from "./workspaceMappings.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeUserProfile } from "./workspaceSupport.js";
+import { authenticatedUserValidator } from "../common/validators/authenticatedUserValidator.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -133,7 +133,7 @@ function createService({
   }
 
   async function ensurePersonalWorkspaceForUser(user, options = {}) {
-    const normalizedUser = normalizeUserProfile(user);
+    const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
       throw new AppError(400, "Invalid authenticated user payload.");
     }
@@ -164,7 +164,7 @@ function createService({
   }
 
   async function listWorkspacesForUser(user, options = {}) {
-    const normalizedUser = normalizeUserProfile(user);
+    const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
       return [];
     }
@@ -192,7 +192,7 @@ function createService({
   }
 
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
-    const normalizedUser = normalizeUserProfile(user);
+    const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
       throw new AppError(401, "Authentication required.");
     }
@@ -242,7 +242,7 @@ function createService({
   }
 
   async function buildBootstrapPayload({ request = null, user = null, workspaceSlug = "", pendingInvites = [] } = {}) {
-    const normalizedUser = normalizeUserProfile(user);
+    const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
       return {
         session: {
