@@ -10,8 +10,8 @@ import {
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
-import { useGlobalCommand } from "../composables/useGlobalCommand.js";
-import { useGlobalView } from "../composables/useGlobalView.js";
+import { useCommand } from "../composables/useCommand.js";
+import { useView } from "../composables/useView.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -34,7 +34,8 @@ const redeemInviteModel = reactive({
   decision: ""
 });
 
-const bootstrapView = useGlobalView({
+const bootstrapView = useView({
+  visibility: "public",
   apiSuffix: "/bootstrap",
   queryKeyFactory: () => ["users-web", "bootstrap", normalizeQueryToken("")],
   fallbackLoadError: "Unable to load workspaces.",
@@ -48,7 +49,8 @@ const bootstrapView = useGlobalView({
   }
 });
 
-const redeemInviteCommand = useGlobalCommand({
+const redeemInviteCommand = useCommand({
+  visibility: "public",
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
   fallbackRunError: "Unable to respond to invitation.",

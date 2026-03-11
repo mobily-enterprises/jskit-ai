@@ -2,10 +2,16 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createRepository as createContactsRepository } from "./contacts/contactsRepository.js";
 import { createService as createContactsService } from "./contacts/contactsService.js";
-import { contactsActions } from "./contacts/contactsActions.js";
+import { createContactsActions, createContactsActionIds } from "./contacts/contactsActions.js";
 import { registerContactsRoutes } from "./contacts/registerContactsRoutes.js";
+import { resolveContactsConfig } from "../shared/contacts/contactsModuleConfig.js";
 
-const CRUD_CONTACTS_ACTIONS_TOKEN = "crud.contacts.actionDefinitions";
+const CRUD_CONTACTS_CONFIG_TOKEN = "crud.contacts.config";
+
+function resolveCrudContactsConfig(app) {
+  const appConfig = app.has("appConfig") ? app.make("appConfig") : {};
+  return resolveContactsConfig(appConfig?.crud?.contacts);
+}
 
 class CrudServiceProvider {
   static id = "crud.contacts";
@@ -13,33 +19,41 @@ class CrudServiceProvider {
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("CrudServiceProvider requires application singleton().");
-    }
+    const contactsConfig = resolveCrudContactsConfig(app);
+    app.instance(CRUD_CONTACTS_CONFIG_TOKEN, contactsConfig);
 
-    app.singleton("crud.contacts.repository", (scope) => {
+    app.singleton(contactsConfig.repositoryToken, (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
-      return createContactsRepository(knex);
-    });
-
-    app.singleton("crud.contacts.service", (scope) => {
-      return createContactsService({
-        contactsRepository: scope.make("crud.contacts.repository")
+      return createContactsRepository(knex, {
+        tableName: contactsConfig.tableName
       });
     });
 
-    registerActionDefinitions(app, CRUD_CONTACTS_ACTIONS_TOKEN, {
-      contributorId: "crud.contacts",
-      domain: "contacts",
+    app.singleton(contactsConfig.serviceToken, (scope) => {
+      return createContactsService({
+        contactsRepository: scope.make(contactsConfig.repositoryToken)
+      });
+    });
+
+    registerActionDefinitions(app, contactsConfig.actionDefinitionsToken, {
+      contributorId: contactsConfig.contributorId,
+      domain: contactsConfig.domain,
       dependencies: {
-        contactsService: "crud.contacts.service"
+        contactsService: contactsConfig.serviceToken
       },
-      actions: contactsActions
+      actions: createContactsActions({
+        actionIdPrefix: contactsConfig.actionIdPrefix
+      })
     });
   }
 
   boot(app) {
-    registerContactsRoutes(app);
+    const contactsConfig = app.make(CRUD_CONTACTS_CONFIG_TOKEN);
+    registerContactsRoutes(app, {
+      routeBasePath: contactsConfig.apiBasePath,
+      routeVisibility: contactsConfig.visibility,
+      actionIds: createContactsActionIds(contactsConfig.actionIdPrefix)
+    });
   }
 }
 

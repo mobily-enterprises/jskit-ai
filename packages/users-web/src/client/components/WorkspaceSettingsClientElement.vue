@@ -95,7 +95,7 @@ import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsResource";
-import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
+import { useAddEdit } from "../composables/useAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
@@ -107,7 +107,8 @@ const workspaceForm = reactive({
   invitesAvailable: false
 });
 
-const addEdit = useWorkspaceAddEdit({
+const addEdit = useAddEdit({
+  visibility: "workspace",
   resource: workspaceSettingsResource,
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [

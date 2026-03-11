@@ -2,53 +2,75 @@ import { computed } from "vue";
 import { useViewCore } from "./useViewCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
 import { useUsersWebAccess } from "./useUsersWebAccess.js";
+import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 import {
   normalizePermissions,
   normalizeApiPath,
+  normalizeUsersVisibility,
+  isWorkspaceVisibility,
   resolveApiSuffix,
   resolveEnabled,
-  resolveQueryKeyForScope
+  resolveQueryKey
 } from "./scopeHelpers.js";
 
-function useAccountView({
+function useView({
+  visibility = "workspace",
   apiSuffix = "",
   queryKeyFactory = null,
   viewPermissions = [],
   readMethod = "GET",
   readEnabled = true,
-  placementSource = "users-web.account.view",
+  placementSource = "users-web.view",
   fallbackLoadError = "Unable to load resource.",
   notFoundStatuses = [404],
   notFoundMessage = "Record not found.",
   model,
   mapLoadedToModel
 } = {}) {
-  const { currentSurfaceId, mergePlacementContext } = useUsersWebSurfaceRouteContext();
+  const normalizedVisibility = normalizeUsersVisibility(visibility);
+  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
+  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
 
+  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
+  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
 
   const apiPath = computed(() => {
     const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: currentSurfaceId.value
+      surfaceId: routeContext.currentSurfaceId.value,
+      workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility
     });
+
+    if (workspaceScoped) {
+      return routeContext.resolveWorkspaceApiPath(suffix);
+    }
 
     return normalizeApiPath(suffix);
   });
 
   const queryEnabled = computed(() =>
     resolveEnabled(readEnabled, {
-      surfaceId: currentSurfaceId.value
+      surfaceId: routeContext.currentSurfaceId.value,
+      workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility
     })
   );
 
-  const queryKey = computed(() => resolveQueryKeyForScope(queryKeyFactory, currentSurfaceId.value));
+  const queryKey = computed(() =>
+    resolveQueryKey(queryKeyFactory, {
+      surfaceId: routeContext.currentSurfaceId.value,
+      workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility
+    })
+  );
 
   const access = useUsersWebAccess({
-    workspaceSlug: "",
-    enabled: true,
-    mergePlacementContext,
-    placementSource: String(placementSource || "users-web.account.view")
+    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
+    enabled: hasRouteWorkspaceSlug,
+    mergePlacementContext: routeContext.mergePlacementContext,
+    placementSource: String(placementSource || "users-web.view")
   });
 
   const canView = computed(() => {
@@ -62,7 +84,7 @@ function useAccountView({
   const resource = useUsersWebEndpointResource({
     queryKey,
     path: apiPath,
-    enabled: computed(() => queryEnabled.value && Boolean(apiPath.value) && canView.value),
+    enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
     readMethod,
     fallbackLoadError
   });
@@ -77,6 +99,10 @@ function useAccountView({
   });
 
   const loadError = computed(() => {
+    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
+      throw new Error("useView requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
+    }
+
     if (access.bootstrapError.value) {
       return access.bootstrapError.value;
     }
@@ -100,4 +126,4 @@ function useAccountView({
   });
 }
 
-export { useAccountView };
+export { useView };

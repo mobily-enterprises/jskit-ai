@@ -13,9 +13,9 @@ import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
 import ProfileClientElement from "./ProfileClientElement.vue";
 import { usersWebHttpClient } from "../lib/httpClient.js";
-import { useAccountAddEdit } from "../composables/useAccountAddEdit.js";
-import { useAccountCommand } from "../composables/useAccountCommand.js";
-import { useAccountView } from "../composables/useAccountView.js";
+import { useAddEdit } from "../composables/useAddEdit.js";
+import { useCommand } from "../composables/useCommand.js";
+import { useView } from "../composables/useView.js";
 
 const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -223,7 +223,8 @@ function applySettingsData(payload) {
   applyThemePreference(preferencesForm.theme);
 }
 
-const settingsView = useAccountView({
+const settingsView = useView({
+  visibility: "public",
   apiSuffix: "/settings",
   queryKeyFactory: () => accountSettingsQueryKey,
   fallbackLoadError: "Unable to load settings.",
@@ -233,7 +234,8 @@ const settingsView = useAccountView({
   }
 });
 
-const profileAddEdit = useAccountAddEdit({
+const profileAddEdit = useAddEdit({
+  visibility: "public",
   apiSuffix: "/settings/profile",
   queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
@@ -253,7 +255,8 @@ const profileAddEdit = useAccountAddEdit({
   }
 });
 
-const avatarDeleteCommand = useAccountCommand({
+const avatarDeleteCommand = useCommand({
+  visibility: "public",
   apiSuffix: "/settings/profile/avatar",
   writeMethod: "DELETE",
   fallbackRunError: "Unable to remove avatar.",
@@ -270,7 +273,8 @@ const avatarDeleteCommand = useAccountCommand({
   }
 });
 
-const preferencesAddEdit = useAccountAddEdit({
+const preferencesAddEdit = useAddEdit({
+  visibility: "public",
   apiSuffix: "/settings/preferences",
   queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
@@ -296,7 +300,8 @@ const preferencesAddEdit = useAccountAddEdit({
   }
 });
 
-const notificationsAddEdit = useAccountAddEdit({
+const notificationsAddEdit = useAddEdit({
+  visibility: "public",
   apiSuffix: "/settings/notifications",
   queryKeyFactory: () => accountSettingsQueryKey,
   readEnabled: false,
@@ -597,7 +602,7 @@ async function submitAvatarDelete() {
   try {
     await avatarDeleteCommand.run();
   } catch {
-    // Error feedback is already handled in useAccountCommand.
+    // Error feedback is already handled in useCommand.
   }
 }
 

@@ -59,21 +59,18 @@
 
 <script setup>
 import { computed, reactive } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand";
-import { useWorkspaceView } from "@jskit-ai/users-web/client/composables/useWorkspaceView";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { useRouter } from "vue-router";
+import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
+import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import {
-  contactViewQueryKey,
-  resolveAdminContactEditPath,
-  resolveAdminContactsListPath,
+  useContactsClientContext,
   toRouteContactId
 } from "./contactsClientSupport.js";
 
-const route = useRoute();
 const router = useRouter();
-const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
-const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
+const contactsContext = useContactsClientContext();
+const contactsConfig = contactsContext.contactsConfig;
+const listPath = contactsContext.listPath;
 const contact = reactive({
   id: 0,
   name: "",
@@ -82,20 +79,18 @@ const contact = reactive({
   updatedAt: ""
 });
 
-const contactId = computed(() => toRouteContactId(route.params.contactId));
-const editPath = computed(() =>
-  resolveAdminContactEditPath(contactId.value, placementContext.value, workspaceSlugFromRoute.value)
-);
+const contactId = computed(() => toRouteContactId(contactsContext.route.params.contactId));
+const editPath = computed(() => contactsContext.resolveEditPath(contactId.value));
 const title = computed(() => {
   const name = String(contact.name || "").trim();
   const surname = String(contact.surname || "").trim();
   return `${name} ${surname}`.trim() || "Contact";
 });
 
-const view = useWorkspaceView({
-  apiSuffix: () => `/contacts/${contactId.value}`,
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
-    contactViewQueryKey(surfaceId, workspaceSlug, contactId.value),
+const view = useView({
+  visibility: contactsConfig.visibility,
+  apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
+  queryKeyFactory: (surfaceId = "") => contactsContext.viewQueryKey(surfaceId, contactId.value),
   fallbackLoadError: "Unable to load contact.",
   notFoundMessage: "Contact not found.",
   model: contact,
@@ -112,8 +107,9 @@ const isNotFound = computed(() => view.isNotFound.value);
 const notFoundError = computed(() => view.notFoundError.value);
 const isLoading = computed(() => view.isLoading.value);
 
-const deleteCommand = useWorkspaceCommand({
-  apiSuffix: () => `/contacts/${contactId.value}`,
+const deleteCommand = useCommand({
+  visibility: contactsConfig.visibility,
+  apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete contact.",
   messages: {
@@ -122,7 +118,7 @@ const deleteCommand = useWorkspaceCommand({
   },
   onRunSuccess: async (_, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "contacts"]
+      queryKey: ["crud", "contacts", contactsConfig.namespace]
     });
 
     if (listPath.value) {

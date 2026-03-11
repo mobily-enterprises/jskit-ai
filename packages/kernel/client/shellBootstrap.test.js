@@ -6,6 +6,7 @@ import {
   createClientBootstrapLogger,
   createSurfaceShellRouter
 } from "./shellBootstrap.js";
+import { getClientAppConfig } from "./appConfig.js";
 
 function createSurfaceRuntimeFixture() {
   return createSurfaceRuntime({
@@ -130,6 +131,14 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
       return app;
     },
     rootComponent: "RootComponent",
+    appConfig: {
+      crud: {
+        contacts: {
+          namespace: "crm",
+          visibility: "workspace"
+        }
+      }
+    },
     appPlugins: [plugin],
     router,
     bootClientModules: async (context) => {
@@ -161,6 +170,10 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   });
 
   assert.equal(result.debugEnabled, true);
+  assert.deepEqual(getClientAppConfig().crud?.contacts, {
+    namespace: "crm",
+    visibility: "workspace"
+  });
   assert.equal(app.used[0], plugin);
   assert.equal(app.used[1], router);
   assert.equal(app.mountedAt, "#app");

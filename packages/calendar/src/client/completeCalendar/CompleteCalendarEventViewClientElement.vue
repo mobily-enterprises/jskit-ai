@@ -97,9 +97,9 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useWorkspaceAddEdit } from "@jskit-ai/users-web/client/composables/useWorkspaceAddEdit.js";
-import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand.js";
-import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList.js";
+import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit.js";
+import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand.js";
+import { useList } from "@jskit-ai/users-web/client/composables/useList.js";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext.js";
 import {
   assignCalendarEventToForm,
@@ -129,7 +129,8 @@ const eventId = computed(() => toRouteEventId(route.params.eventId));
 const listPath = computed(() => resolveAdminCalendarWeekPath(placementContext.value, workspaceSlugFromRoute.value));
 const title = computed(() => String(form.title || "").trim() || "Calendar event");
 
-const contactsList = useWorkspaceList({
+const contactsList = useList({
+  visibility: "workspace",
   apiSuffix: "/contacts?limit=200",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "calendar",
@@ -142,7 +143,8 @@ const contactsList = useWorkspaceList({
   fallbackLoadError: "Unable to load contacts."
 });
 
-const addEdit = useWorkspaceAddEdit({
+const addEdit = useAddEdit({
+  visibility: "workspace",
   resource: completeCalendarResource,
   apiSuffix: () => `/calendar/events/${eventId.value}`,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
@@ -161,7 +163,8 @@ const addEdit = useWorkspaceAddEdit({
   }
 });
 
-const deleteCommand = useWorkspaceCommand({
+const deleteCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: () => `/calendar/events/${eventId.value}`,
   writeMethod: "DELETE",
   placementSource: "calendar.completeCalendar.event-delete",

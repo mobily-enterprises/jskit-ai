@@ -110,9 +110,9 @@ import FullCalendar from "@fullcalendar/vue3";
 import interactionPlugin from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import { useRouter } from "vue-router";
-import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand.js";
-import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList.js";
-import { useWorkspaceView } from "@jskit-ai/users-web/client/composables/useWorkspaceView.js";
+import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand.js";
+import { useList } from "@jskit-ai/users-web/client/composables/useList.js";
+import { useView } from "@jskit-ai/users-web/client/composables/useView.js";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext.js";
 import {
   buildCalendarEventPayload,
@@ -147,7 +147,8 @@ const moveState = reactive({
   endsAt: ""
 });
 
-const weekView = useWorkspaceView({
+const weekView = useView({
+  visibility: "workspace",
   apiSuffix: () => {
     const search = new URLSearchParams();
     search.set("weekStart", weekStart.value);
@@ -169,7 +170,8 @@ const weekView = useWorkspaceView({
   }
 });
 
-const contactsList = useWorkspaceList({
+const contactsList = useList({
+  visibility: "workspace",
   apiSuffix: "/contacts?limit=200",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "calendar",
@@ -182,7 +184,8 @@ const contactsList = useWorkspaceList({
   fallbackLoadError: "Unable to load contacts."
 });
 
-const createCommand = useWorkspaceCommand({
+const createCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: "/calendar/events",
   writeMethod: "POST",
   placementSource: "calendar.completeCalendar.create",
@@ -205,7 +208,8 @@ const createCommand = useWorkspaceCommand({
   }
 });
 
-const moveCommand = useWorkspaceCommand({
+const moveCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: () => `/calendar/events/${moveState.eventId}`,
   writeMethod: "PATCH",
   placementSource: "calendar.completeCalendar.move",

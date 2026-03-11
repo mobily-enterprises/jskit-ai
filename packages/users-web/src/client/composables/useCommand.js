@@ -4,18 +4,22 @@ import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
 import { useUsersWebAccess } from "./useUsersWebAccess.js";
 import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
 import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
+import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 import {
   normalizePermissions,
   normalizeApiPath,
+  normalizeUsersVisibility,
+  isWorkspaceVisibility,
   resolveApiSuffix
 } from "./scopeHelpers.js";
 
-function useAccountCommand({
+function useCommand({
+  visibility = "workspace",
   apiSuffix = "",
   runPermissions = [],
   writeMethod = "POST",
-  placementSource = "users-web.account.command",
+  placementSource = "users-web.command",
   fallbackRunError = "Unable to complete action.",
   fieldErrorKeys = [],
   clearOnRouteChange = true,
@@ -28,24 +32,34 @@ function useAccountCommand({
   onRunError,
   messages = {}
 } = {}) {
-  const { route, currentSurfaceId, mergePlacementContext } = useUsersWebSurfaceRouteContext();
+  const normalizedVisibility = normalizeUsersVisibility(visibility);
+  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
+  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
 
+  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
+  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
   const normalizedPermissions = normalizePermissions(runPermissions);
 
   const apiPath = computed(() => {
     const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: currentSurfaceId.value,
+      surfaceId: routeContext.currentSurfaceId.value,
+      workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility,
       model
     });
+
+    if (workspaceScoped) {
+      return routeContext.resolveWorkspaceApiPath(suffix);
+    }
 
     return normalizeApiPath(suffix);
   });
 
   const access = useUsersWebAccess({
-    workspaceSlug: "",
-    enabled: true,
-    mergePlacementContext,
-    placementSource: String(placementSource || "users-web.account.command")
+    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
+    enabled: hasRouteWorkspaceSlug,
+    mergePlacementContext: routeContext.mergePlacementContext,
+    placementSource: String(placementSource || "users-web.command")
   });
 
   const canRun = computed(() => {
@@ -88,7 +102,7 @@ function useAccountCommand({
 
   if (clearOnRouteChange) {
     watch(
-      () => route.fullPath,
+      () => routeContext.route.fullPath,
       () => {
         feedback.clear();
         fieldBag.clear();
@@ -97,6 +111,10 @@ function useAccountCommand({
   }
 
   const loadError = computed(() => {
+    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
+      throw new Error("useCommand requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
+    }
+
     if (access.bootstrapError.value) {
       return access.bootstrapError.value;
     }
@@ -119,4 +137,4 @@ function useAccountCommand({
   });
 }
 
-export { useAccountCommand };
+export { useCommand };

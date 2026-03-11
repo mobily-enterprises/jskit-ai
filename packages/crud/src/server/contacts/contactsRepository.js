@@ -29,10 +29,12 @@ function normalizeListLimit(value) {
   return Math.min(parsed, MAX_LIST_LIMIT);
 }
 
-function createRepository(knex) {
+function createRepository(knex, { tableName = "contacts" } = {}) {
   if (typeof knex !== "function") {
     throw new TypeError("contactsRepository requires knex.");
   }
+
+  const resolvedTableName = String(tableName || "").trim() || "contacts";
 
   async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT } = {}, options = {}) {
     const client = options?.trx || knex;
@@ -40,7 +42,7 @@ function createRepository(knex) {
     const normalizedLimit = normalizeListLimit(limit);
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
-    let query = client("contacts")
+    let query = client(resolvedTableName)
       .select("id", "name", "surname", "created_at", "updated_at")
       .where(visible)
       .orderBy("id", "asc")
@@ -64,7 +66,7 @@ function createRepository(knex) {
   async function findById(contactId, options = {}) {
     const client = options?.trx || knex;
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
-    const row = await client("contacts")
+    const row = await client(resolvedTableName)
       .select("id", "name", "surname", "created_at", "updated_at")
       .where(visible)
       .where({ id: Number(contactId) })
@@ -86,7 +88,7 @@ function createRepository(knex) {
       },
       options.visibilityContext
     );
-    const [contactId] = await client("contacts").insert({
+    const [contactId] = await client(resolvedTableName).insert({
       ...insertPayload
     });
 
@@ -109,7 +111,7 @@ function createRepository(knex) {
       });
     }
 
-    await client("contacts")
+    await client(resolvedTableName)
       .where(visible)
       .where({ id: Number(contactId) })
       .update({
@@ -135,7 +137,7 @@ function createRepository(knex) {
       return null;
     }
 
-    await client("contacts").where(visible).where({ id: Number(contactId) }).delete();
+    await client(resolvedTableName).where(visible).where({ id: Number(contactId) }).delete();
 
     return {
       id: existing.id,

@@ -4,7 +4,6 @@ import { existsSync } from "node:fs";
 import {
   access,
   constants as fsConstants,
-  copyFile,
   mkdtemp,
   mkdir,
   readFile,
@@ -114,7 +113,7 @@ function resolveCatalogPackagesPath() {
 const CATALOG_PACKAGES_PATH = resolveCatalogPackagesPath();
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 1;
-const OPTION_INTERPOLATION_PATTERN = /\$\{(?:option:)?([a-z][a-z0-9-]*)\}/gi;
+const OPTION_INTERPOLATION_PATTERN = /\$\{option:([a-z][a-z0-9-]*)\}/gi;
 const MATERIALIZED_PACKAGE_ROOTS = new Map();
 const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
 const BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
@@ -254,8 +253,62 @@ function normalizeFileMutationRecord(value) {
     preserveOnRemove: record.preserveOnRemove === true,
     id: String(record.id || "").trim(),
     category: String(record.category || "").trim(),
-    reason: String(record.reason || "").trim()
+    reason: String(record.reason || "").trim(),
+    when: normalizeMutationWhen(record.when)
   };
+}
+
+function normalizeMutationWhen(value) {
+  const source = ensureObject(value);
+  const option = String(source.option || "").trim();
+  const equals = String(source.equals || "").trim();
+  const notEquals = String(source.notEquals || "").trim();
+  const includes = ensureArray(source.in).map((entry) => String(entry || "").trim()).filter(Boolean);
+  const excludes = ensureArray(source.notIn).map((entry) => String(entry || "").trim()).filter(Boolean);
+
+  if (!option) {
+    return null;
+  }
+
+  return {
+    option,
+    equals,
+    notEquals,
+    includes,
+    excludes
+  };
+}
+
+function shouldApplyMutationWhen(when, options = {}) {
+  if (!when || typeof when !== "object") {
+    return true;
+  }
+
+  const optionName = String(when.option || "").trim();
+  if (!optionName) {
+    return true;
+  }
+
+  const optionValue = String(options[optionName] || "").trim();
+  const equals = String(when.equals || "").trim();
+  const notEquals = String(when.notEquals || "").trim();
+  const includes = ensureArray(when.includes).map((entry) => String(entry || "").trim()).filter(Boolean);
+  const excludes = ensureArray(when.excludes).map((entry) => String(entry || "").trim()).filter(Boolean);
+
+  if (equals && optionValue !== equals) {
+    return false;
+  }
+  if (notEquals && optionValue === notEquals) {
+    return false;
+  }
+  if (includes.length > 0 && !includes.includes(optionValue)) {
+    return false;
+  }
+  if (excludes.length > 0 && excludes.includes(optionValue)) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildFileWriteGroups(fileMutations) {
@@ -867,6 +920,19 @@ function appendTextSnippet(content, snippet, position = "bottom") {
     changed: true,
     content: nextContent
   };
+}
+
+function normalizeSkipChecks(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (value == null) {
+    return [];
+  }
+
+  const one = String(value || "").trim();
+  return one ? [one] : [];
 }
 
 function interpolateOptionValue(rawValue, options, ownerId, key) {
@@ -3111,8 +3177,37 @@ async function cleanupMaterializedPackageRoots() {
   MATERIALIZED_PACKAGE_ROOTS.clear();
 }
 
+function interpolateFileMutationRecord(mutation, options, packageId) {
+  const mutationKey = String(mutation?.id || mutation?.slug || mutation?.to || mutation?.from || "files").trim();
+  const interpolate = (value, field) =>
+    interpolateOptionValue(String(value || ""), options, packageId, `${mutationKey}.${field}`);
+
+  return {
+    ...mutation,
+    from: interpolate(mutation.from, "from"),
+    to: interpolate(mutation.to, "to"),
+    toDir: interpolate(mutation.toDir, "toDir"),
+    slug: interpolate(mutation.slug, "slug"),
+    extension: interpolate(mutation.extension, "extension"),
+    id: interpolate(mutation.id, "id"),
+    category: interpolate(mutation.category, "category"),
+    reason: interpolate(mutation.reason, "reason")
+  };
+}
+
+async function copyTemplateFile(sourcePath, targetPath, options, packageId, interpolationKey) {
+  const sourceContent = await readFile(sourcePath, "utf8");
+  const renderedContent = sourceContent.includes("${")
+    ? interpolateOptionValue(sourceContent, options, packageId, interpolationKey)
+    : sourceContent;
+
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, renderedContent, "utf8");
+}
+
 async function applyFileMutations(
   packageEntry,
+  options,
   appRoot,
   fileMutations,
   managedFiles,
@@ -3121,7 +3216,12 @@ async function applyFileMutations(
   warnings = []
 ) {
   for (const mutationValue of fileMutations) {
-    const mutation = normalizeFileMutationRecord(mutationValue);
+    const normalizedMutation = normalizeFileMutationRecord(mutationValue);
+    if (!shouldApplyMutationWhen(normalizedMutation.when, options)) {
+      continue;
+    }
+
+    const mutation = interpolateFileMutationRecord(normalizedMutation, options, packageEntry.packageId);
     const operation = mutation.op || "copy-file";
 
     if (operation === "install-migration") {
@@ -3145,11 +3245,14 @@ async function applyFileMutations(
       }
 
       const sourceContent = await readFile(sourcePath, "utf8");
+      const renderedSourceContent = sourceContent.includes("${")
+        ? interpolateOptionValue(sourceContent, options, packageEntry.packageId, `${mutation.id || slug}.source`)
+        : sourceContent;
       const sourceExtension = normalizeMigrationExtension(path.extname(from), ".cjs");
       const extension = normalizeMigrationExtension(mutation.extension, sourceExtension);
       const migrationId =
         String(mutation.id || "").trim() ||
-        extractMigrationIdFromSource(sourceContent) ||
+        extractMigrationIdFromSource(renderedSourceContent) ||
         `${packageEntry.packageId}:${slug}`;
       const existingMigration = await findExistingMigrationById({
         appRoot,
@@ -3192,7 +3295,7 @@ async function applyFileMutations(
         throw createCliError(`Unable to allocate migration filename for ${packageEntry.packageId}:${migrationId}.`);
       }
 
-      await copyFile(sourcePath, targetPath);
+      await writeFile(targetPath, renderedSourceContent, "utf8");
       const relativePath = normalizeRelativePath(appRoot, targetPath);
       touchedFiles.add(relativePath);
       managedMigrations.push({
@@ -3222,8 +3325,13 @@ async function applyFileMutations(
 
     const targetPath = path.join(appRoot, to);
     const previous = await readFileBufferIfExists(targetPath);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await copyFile(sourcePath, targetPath);
+    await copyTemplateFile(
+      sourcePath,
+      targetPath,
+      options,
+      packageEntry.packageId,
+      `${mutation.id || to || from}.source`
+    );
     const nextBuffer = await readFile(targetPath);
 
     managedFiles.push({
@@ -3242,6 +3350,11 @@ async function applyFileMutations(
 
 async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
   for (const mutation of textMutations) {
+    const when = normalizeMutationWhen(mutation?.when);
+    if (!shouldApplyMutationWhen(when, options)) {
+      continue;
+    }
+
     const operation = String(mutation?.op || "").trim();
     if (operation === "upsert-env") {
       const relativeFile = String(mutation?.file || "").trim();
@@ -3291,7 +3404,7 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
       const mutationId = String(mutation?.id || "").trim() || "append-text";
       const resolvedSnippet = interpolateOptionValue(snippet, options, packageEntry.packageId, mutationId);
-      const skipChecks = ensureArray(mutation?.skipIfContains)
+      const skipChecks = normalizeSkipChecks(mutation?.skipIfContains)
         .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
         .filter((entry) => String(entry || "").trim().length > 0);
 
@@ -3397,6 +3510,7 @@ async function applyPackageInstall({
 
   await applyFileMutations(
     packageEntryForMutations,
+    packageOptions,
     appRoot,
     ensureArray(mutations.files),
     managedRecord.managed.files,

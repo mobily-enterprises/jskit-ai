@@ -1,4 +1,9 @@
 export {
+  CLIENT_APP_CONFIG_GLOBAL_KEY,
+  setClientAppConfig,
+  getClientAppConfig
+} from "./appConfig.js";
+export {
   AUTH_POLICY_AUTHENTICATED,
   AUTH_POLICY_PUBLIC,
   WEB_ROOT_ALLOW_YES,

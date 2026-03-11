@@ -1,21 +1,41 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
+import { createContactsActionIds } from "./contactsActions.js";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
-function registerContactsRoutes(app) {
+function joinRoutePath(basePath = "", suffix = "") {
+  const base = String(basePath || "").trim().replace(/\/+$/g, "");
+  const end = String(suffix || "").trim();
+  if (!end) {
+    return base;
+  }
+
+  return `${base}/${end.replace(/^\/+/, "")}`;
+}
+
+function registerContactsRoutes(
+  app,
+  {
+    routeBasePath = "/api/w/:workspaceSlug/workspace/contacts",
+    routeVisibility = "workspace",
+    actionIds = createContactsActionIds()
+  } = {}
+) {
   if (!app || typeof app.make !== "function") {
     throw new Error("registerContactsRoutes requires application make().");
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const routeBase = String(routeBasePath || "").trim() || "/api/w/:workspaceSlug/workspace/contacts";
+  const visibility = String(routeVisibility || "").trim() || "workspace";
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/contacts",
+    routeBase,
     {
       auth: "required",
-      visibility: "workspace",
+      visibility,
       meta: {
         tags: ["contacts"],
         summary: "List contacts."
@@ -28,7 +48,7 @@ function registerContactsRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "contacts.list",
+        actionId: actionIds.list,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -41,10 +61,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
+    joinRoutePath(routeBase, ":contactId"),
     {
       auth: "required",
-      visibility: "workspace",
+      visibility,
       meta: {
         tags: ["contacts"],
         summary: "View a contact."
@@ -56,7 +76,7 @@ function registerContactsRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "contacts.view",
+        actionId: actionIds.view,
         context: { surface: "admin" },
         input: request.input.params
       });
@@ -66,10 +86,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "POST",
-    "/api/w/:workspaceSlug/workspace/contacts",
+    routeBase,
     {
       auth: "required",
-      visibility: "workspace",
+      visibility,
       meta: {
         tags: ["contacts"],
         summary: "Create a contact."
@@ -85,7 +105,7 @@ function registerContactsRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "contacts.create",
+        actionId: actionIds.create,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -98,10 +118,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "PATCH",
-    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
+    joinRoutePath(routeBase, ":contactId"),
     {
       auth: "required",
-      visibility: "workspace",
+      visibility,
       meta: {
         tags: ["contacts"],
         summary: "Update a contact."
@@ -117,7 +137,7 @@ function registerContactsRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "contacts.update",
+        actionId: actionIds.update,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -130,10 +150,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "DELETE",
-    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
+    joinRoutePath(routeBase, ":contactId"),
     {
       auth: "required",
-      visibility: "workspace",
+      visibility,
       meta: {
         tags: ["contacts"],
         summary: "Delete a contact."
@@ -145,7 +165,7 @@ function registerContactsRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "contacts.delete",
+        actionId: actionIds.delete,
         context: { surface: "admin" },
         input: request.input.params
       });

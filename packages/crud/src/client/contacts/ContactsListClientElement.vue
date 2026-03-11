@@ -36,11 +36,7 @@
               <td>{{ contact.surname }}</td>
               <td>{{ formatDateTime(contact.updatedAt) }}</td>
               <td class="text-right">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  :to="resolveAdminContactViewPath(contact.id, placementContext.value, workspaceSlugFromRoute.value) || undefined"
-                >
+                <v-btn size="small" variant="text" :to="contactsContext.resolveViewPath(contact.id) || undefined">
                   Open
                 </v-btn>
               </td>
@@ -57,28 +53,27 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import {
-  contactsListQueryKey,
-  resolveAdminContactNewPath,
-  resolveAdminContactViewPath
+  useContactsClientContext
 } from "./contactsClientSupport.js";
 
-const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
-const createPath = computed(() => resolveAdminContactNewPath(placementContext.value, workspaceSlugFromRoute.value));
+const contactsContext = useContactsClientContext();
+const contactsConfig = contactsContext.contactsConfig;
+const createPath = contactsContext.createPath;
 
-const contacts = useWorkspaceList({
-  apiSuffix: "/contacts",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => contactsListQueryKey(surfaceId, workspaceSlug),
+const contacts = useList({
+  visibility: contactsConfig.visibility,
+  apiSuffix: contactsConfig.relativePath,
+  queryKeyFactory: (surfaceId = "") => contactsContext.listQueryKey(surfaceId),
   fallbackLoadError: "Unable to load contacts."
 });
-const items = computed(() => contacts.items.value);
-const loadError = computed(() => contacts.loadError.value);
-const isLoading = computed(() => contacts.isLoading.value);
-const hasMore = computed(() => contacts.hasMore.value);
-const isLoadingMore = computed(() => contacts.isLoadingMore.value);
+
+const items = contacts.items;
+const loadError = contacts.loadError;
+const isLoading = contacts.isLoading;
+const hasMore = contacts.hasMore;
+const isLoadingMore = contacts.isLoadingMore;
 
 function formatDateTime(value) {
   const parsedDate = new Date(value);

@@ -1,12 +1,31 @@
-// JSKIT_MIGRATION_ID: crud_contacts_initial
+// JSKIT_MIGRATION_ID: crud_contacts_initial_${option:namespace}
+
+const RAW_NAMESPACE = "${option:namespace}";
+
+function resolveTableName() {
+  const normalizedNamespace = String(RAW_NAMESPACE || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!normalizedNamespace) {
+    return "contacts";
+  }
+
+  return normalizedNamespace.replace(/-/g, "_") + "_contacts";
+}
+
+const TABLE_NAME = resolveTableName();
 
 exports.up = async function up(knex) {
-  const hasContactsTable = await knex.schema.hasTable("contacts");
+  const hasContactsTable = await knex.schema.hasTable(TABLE_NAME);
   if (hasContactsTable) {
     return;
   }
 
-  await knex.schema.createTable("contacts", (table) => {
+  await knex.schema.createTable(TABLE_NAME, (table) => {
     table.increments("id").unsigned().primary();
     table.integer("workspace_owner_id").unsigned().nullable().index();
     table.integer("user_owner_id").unsigned().nullable().index();
@@ -18,5 +37,5 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.dropTableIfExists("contacts");
+  await knex.schema.dropTableIfExists(TABLE_NAME);
 };

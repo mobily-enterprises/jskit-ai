@@ -22,9 +22,9 @@
 import { computed, reactive, ref, watch } from "vue";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { useWorkspaceCommand } from "../composables/useWorkspaceCommand.js";
-import { useWorkspaceList } from "../composables/useWorkspaceList.js";
-import { useWorkspaceView } from "../composables/useWorkspaceView.js";
+import { useCommand } from "../composables/useCommand.js";
+import { useList } from "../composables/useList.js";
+import { useView } from "../composables/useView.js";
 import { useUsersWebUiFeedback } from "../composables/useUsersWebUiFeedback.js";
 import { useUsersWebWorkspaceAccess } from "../composables/useUsersWebWorkspaceAccess.js";
 import { useUsersWebWorkspaceRouteContext } from "../composables/useUsersWebWorkspaceRouteContext.js";
@@ -245,7 +245,8 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
   forms.workspace.invitesAvailable = settings.invitesAvailable !== false;
 }
 
-const workspaceSettingsView = useWorkspaceView({
+const workspaceSettingsView = useView({
+  visibility: "workspace",
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "users-web",
@@ -258,7 +259,8 @@ const workspaceSettingsView = useWorkspaceView({
   fallbackLoadError: "Unable to load workspace settings."
 });
 
-const workspaceRolesView = useWorkspaceView({
+const workspaceRolesView = useView({
+  visibility: "workspace",
   apiSuffix: "/roles",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "users-web",
@@ -271,7 +273,8 @@ const workspaceRolesView = useWorkspaceView({
   fallbackLoadError: "Unable to load workspace roles."
 });
 
-const workspaceMembersList = useWorkspaceList({
+const workspaceMembersList = useList({
+  visibility: "workspace",
   apiSuffix: "/members",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "users-web",
@@ -286,7 +289,8 @@ const workspaceMembersList = useWorkspaceList({
   fallbackLoadError: "Unable to load workspace members."
 });
 
-const workspaceInvitesList = useWorkspaceList({
+const workspaceInvitesList = useList({
+  visibility: "workspace",
   apiSuffix: "/invites",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "users-web",
@@ -301,7 +305,8 @@ const workspaceInvitesList = useWorkspaceList({
   fallbackLoadError: "Unable to load workspace invites."
 });
 
-const inviteCreateCommand = useWorkspaceCommand({
+const inviteCreateCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: "/invites",
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
@@ -316,7 +321,8 @@ const inviteCreateCommand = useWorkspaceCommand({
   }
 });
 
-const revokeInviteCommand = useWorkspaceCommand({
+const revokeInviteCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: "/invites",
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
@@ -336,7 +342,8 @@ const revokeInviteCommand = useWorkspaceCommand({
   }
 });
 
-const memberRoleCommand = useWorkspaceCommand({
+const memberRoleCommand = useCommand({
+  visibility: "workspace",
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",

@@ -1,19 +1,24 @@
 import { computed, watch, proxyRefs, unref } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebWorkspaceAccess } from "./useUsersWebWorkspaceAccess.js";
+import { useUsersWebAccess } from "./useUsersWebAccess.js";
 import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
 import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
 import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
+import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 import {
   normalizePermissions,
+  normalizeApiPath,
+  normalizeUsersVisibility,
+  isWorkspaceVisibility,
   resolveApiSuffix,
   resolveEnabled,
-  resolveQueryKeyForWorkspace,
+  resolveQueryKey,
   resolveResourceMessages
 } from "./scopeHelpers.js";
 
-function useWorkspaceAddEdit({
+function useAddEdit({
+  visibility = "workspace",
   resource = null,
   apiSuffix = "",
   queryKeyFactory = null,
@@ -22,7 +27,7 @@ function useWorkspaceAddEdit({
   readMethod = "GET",
   readEnabled = true,
   writeMethod = "PATCH",
-  placementSource = "users-web.workspace.add-edit",
+  placementSource = "users-web.add-edit",
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource.",
   fieldErrorKeys = [],
@@ -35,8 +40,12 @@ function useWorkspaceAddEdit({
   onSaveSuccess,
   messages = {}
 } = {}) {
-  const { route, currentSurfaceId, workspaceSlugFromRoute, resolveWorkspaceApiPath, mergePlacementContext } =
-    useUsersWebWorkspaceRouteContext();
+  const normalizedVisibility = normalizeUsersVisibility(visibility);
+  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
+  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
+
+  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
+  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
 
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
   const normalizedSavePermissions = normalizePermissions(savePermissions);
@@ -51,42 +60,50 @@ function useWorkspaceAddEdit({
     ...customMessages
   };
 
-  const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
-
-  const workspaceApiPath = computed(() => {
+  const apiPath = computed(() => {
     const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: currentSurfaceId.value,
+      surfaceId: routeContext.currentSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility,
       model
     });
 
-    return resolveWorkspaceApiPath(suffix);
+    if (workspaceScoped) {
+      return routeContext.resolveWorkspaceApiPath(suffix);
+    }
+
+    return normalizeApiPath(suffix);
   });
 
   const queryEnabled = computed(() =>
     resolveEnabled(readEnabled, {
-      surfaceId: currentSurfaceId.value,
+      surfaceId: routeContext.currentSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility,
       model
     })
   );
 
   const queryKey = computed(() =>
-    resolveQueryKeyForWorkspace(queryKeyFactory, currentSurfaceId.value, workspaceSlugFromRoute.value)
+    resolveQueryKey(queryKeyFactory, {
+      surfaceId: routeContext.currentSurfaceId.value,
+      workspaceSlug: workspaceSlugFromRoute.value,
+      visibility: normalizedVisibility
+    })
   );
 
   const access =
-    useUsersWebWorkspaceAccess({
-      workspaceSlug: workspaceSlugFromRoute,
+    useUsersWebAccess({
+      workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
       enabled: hasRouteWorkspaceSlug,
-      mergePlacementContext,
-      placementSource: String(placementSource || "users-web.workspace.add-edit")
+      mergePlacementContext: routeContext.mergePlacementContext,
+      placementSource: String(placementSource || "users-web.add-edit")
     }) || {};
 
   const canAnyAccess = typeof access.canAny === "function" ? access.canAny.bind(access) : () => false;
   const accessBootstrapError = computed(() => String(unref(access?.bootstrapError) || ""));
   const accessIsBootstrapping = computed(() => Boolean(unref(access?.isBootstrapping)));
-  const hasEndpointPath = computed(() => Boolean(unref(workspaceApiPath)));
+  const hasEndpointPath = computed(() => Boolean(unref(apiPath)));
 
   const canView = computed(() => {
     if (normalizedViewPermissions.length < 1) {
@@ -106,7 +123,7 @@ function useWorkspaceAddEdit({
 
   const endpointResource = useUsersWebEndpointResource({
     queryKey,
-    path: workspaceApiPath,
+    path: apiPath,
     enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && hasEndpointPath.value && canView.value),
     readMethod,
     writeMethod,
@@ -134,7 +151,7 @@ function useWorkspaceAddEdit({
 
   if (clearOnRouteChange) {
     watch(
-      () => route.fullPath,
+      () => routeContext.route.fullPath,
       () => {
         feedback.clear();
         fieldBag.clear();
@@ -143,8 +160,8 @@ function useWorkspaceAddEdit({
   }
 
   const loadError = computed(() => {
-    if (!hasRouteWorkspaceSlug.value) {
-      throw new Error("useWorkspaceAddEdit requires route.params.workspaceSlug.");
+    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
+      throw new Error("useAddEdit requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
     }
 
     const bootstrapError = String(unref(accessBootstrapError) || "");
@@ -172,4 +189,4 @@ function useWorkspaceAddEdit({
   });
 }
 
-export { useWorkspaceAddEdit };
+export { useAddEdit };

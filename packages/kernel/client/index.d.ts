@@ -1,3 +1,7 @@
+export const CLIENT_APP_CONFIG_GLOBAL_KEY: "__JSKIT_CLIENT_APP_CONFIG__";
+export function setClientAppConfig(source?: Record<string, any>): Readonly<Record<string, any>>;
+export function getClientAppConfig(): Readonly<Record<string, any>>;
+
 export const AUTH_POLICY_AUTHENTICATED: "authenticated";
 export const AUTH_POLICY_PUBLIC: "public";
 export const WEB_ROOT_ALLOW_YES: "yes";
@@ -130,6 +134,7 @@ export const createShellRouter: typeof createSurfaceShellRouter;
 export function bootstrapClientShellApp(options?: {
   createApp: (rootComponent: any) => any;
   rootComponent: any;
+  appConfig?: Record<string, any>;
   appPlugins?: any[];
   router: any;
   bootClientModules: (context: any) => Promise<any>;

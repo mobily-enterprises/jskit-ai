@@ -1,5 +1,7 @@
 import { unref } from "vue";
 
+const USERS_VISIBILITY_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
+
 function asPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -37,20 +39,31 @@ function resolveEnabled(value, context = {}) {
   return Boolean(unref(value));
 }
 
-function resolveQueryKeyForWorkspace(queryKeyFactory, surfaceId, workspaceSlug) {
-  if (typeof queryKeyFactory !== "function") {
-    throw new TypeError("queryKeyFactory(surfaceId, workspaceSlug) is required.");
+function normalizeUsersVisibility(value = "workspace") {
+  const normalized = String(value || "workspace").trim().toLowerCase();
+  if (USERS_VISIBILITY_VALUES.includes(normalized)) {
+    return normalized;
   }
 
-  return queryKeyFactory(surfaceId, workspaceSlug);
+  throw new TypeError(
+    `visibility must be one of: ${USERS_VISIBILITY_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
+  );
 }
 
-function resolveQueryKeyForScope(queryKeyFactory, surfaceId) {
+function isWorkspaceVisibility(visibility) {
+  return visibility === "workspace" || visibility === "workspace_user";
+}
+
+function resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", visibility = "workspace" } = {}) {
   if (typeof queryKeyFactory !== "function") {
-    throw new TypeError("queryKeyFactory(surfaceId) is required.");
+    throw new TypeError("queryKeyFactory is required.");
   }
 
-  return queryKeyFactory(surfaceId);
+  if (isWorkspaceVisibility(visibility)) {
+    return queryKeyFactory(surfaceId, workspaceSlug, visibility);
+  }
+
+  return queryKeyFactory(surfaceId, visibility);
 }
 
 function normalizeApiPath(value) {
@@ -85,8 +98,9 @@ export {
   normalizePermissions,
   resolveApiSuffix,
   resolveEnabled,
-  resolveQueryKeyForWorkspace,
-  resolveQueryKeyForScope,
+  normalizeUsersVisibility,
+  isWorkspaceVisibility,
+  resolveQueryKey,
   normalizeApiPath,
   resolveResourceMessages
 };

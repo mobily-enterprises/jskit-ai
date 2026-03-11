@@ -78,6 +78,7 @@ const vuetify = createVuetify({
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
+  appConfig: config,
   appPlugins: [vuetify],
   router,
   bootClientModules: bootInstalledClientModules,

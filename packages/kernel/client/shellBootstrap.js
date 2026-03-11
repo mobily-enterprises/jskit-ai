@@ -1,5 +1,6 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { setClientAppConfig } from "./appConfig.js";
 
 function createBaseLogger(logger = console) {
   if (isRecord(logger)) {
@@ -138,6 +139,7 @@ function createSurfaceShellRouter({
 async function bootstrapClientShellApp({
   createApp,
   rootComponent,
+  appConfig = {},
   appPlugins = [],
   router,
   bootClientModules,
@@ -169,6 +171,7 @@ async function bootstrapClientShellApp({
   }
 
   installAppPlugins(app, appPlugins);
+  setClientAppConfig(appConfig);
 
   const resolvedLogger =
     typeof createBootstrapLogger === "function"

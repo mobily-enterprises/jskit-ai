@@ -56,45 +56,50 @@
 </template>
 
 <script setup>
-import { computed, reactive } from "vue";
+import { reactive } from "vue";
 import { useRouter } from "vue-router";
-import { useWorkspaceAddEdit } from "@jskit-ai/users-web/client/composables/useWorkspaceAddEdit";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
-  contactsListQueryKey,
-  createContactForm,
-  buildContactPayload,
-  parseCreateContactInput,
-  resolveAdminContactViewPath,
-  resolveAdminContactsListPath,
+  useContactsClientContext,
   contactsResource
 } from "./contactsClientSupport.js";
 
 const router = useRouter();
-const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
-const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
-const contactForm = reactive(createContactForm());
+const contactsContext = useContactsClientContext();
+const contactsConfig = contactsContext.contactsConfig;
+const listPath = contactsContext.listPath;
+const contactForm = reactive({
+  name: "",
+  surname: ""
+});
 
-const addEdit = useWorkspaceAddEdit({
+const addEdit = useAddEdit({
+  visibility: contactsConfig.visibility,
   resource: contactsResource,
-  apiSuffix: "/contacts",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    ...contactsListQueryKey(surfaceId, workspaceSlug),
-    "create"
-  ],
+  apiSuffix: contactsConfig.relativePath,
+  queryKeyFactory: (surfaceId = "") => [...contactsContext.listQueryKey(surfaceId), "create"],
   readEnabled: false,
   writeMethod: "POST",
   fallbackSaveError: "Unable to save contact.",
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
-  parseInput: parseCreateContactInput,
-  buildRawPayload: buildContactPayload,
+  parseInput: (rawPayload) =>
+    validateOperationSection({
+      operation: contactsResource.operations.create,
+      section: "body",
+      value: rawPayload
+    }),
+  buildRawPayload: (model) => ({
+    name: model.name,
+    surname: model.surname
+  }),
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "contacts"]
+      queryKey: ["crud", "contacts", contactsConfig.namespace]
     });
 
-    const targetPath = resolveAdminContactViewPath(payload?.id, placementContext.value, workspaceSlugFromRoute.value);
+    const targetPath = contactsContext.resolveViewPath(payload?.id);
     if (targetPath) {
       await router.push(targetPath);
     }

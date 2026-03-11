@@ -51,7 +51,7 @@
 
 <script setup>
 import { reactive } from "vue";
-import { useGlobalAddEdit } from "../composables/useGlobalAddEdit.js";
+import { useAddEdit } from "../composables/useAddEdit.js";
 
 const form = reactive({
   assistantSystemPromptWorkspace: ""
@@ -62,7 +62,8 @@ const CONSOLE_SETTINGS_MESSAGES = Object.freeze({
   saveError: "Unable to update console settings."
 });
 
-const addEdit = useGlobalAddEdit({
+const addEdit = useAddEdit({
+  visibility: "public",
   apiSuffix: "/console/settings",
   queryKeyFactory: () => ["users-web", "settings", "console"],
   viewPermissions: ["console.settings.read", "console.settings.update"],
