@@ -9,8 +9,8 @@ const contactsActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfaces: ["admin"],
-    visibility: "public",
-    input: contactsInputPartsValidator.listQuery,
+    consoleUsersOnly: false,
+    input: [contactsInputPartsValidator.workspaceParams, contactsInputPartsValidator.listQuery],
     output: contactsResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
@@ -19,7 +19,9 @@ const contactsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.contactsService.listContacts(input);
+      return deps.contactsService.listContacts(input, {
+        visibilityContext: context?.visibilityContext
+      });
     }
   },
   {
@@ -28,7 +30,7 @@ const contactsActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfaces: ["admin"],
-    visibility: "public",
+    consoleUsersOnly: false,
     input: contactsInputPartsValidator.routeParams,
     output: contactsResource.operations.view.output,
     permission: requireAuthenticated,
@@ -38,7 +40,9 @@ const contactsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.contactsService.getContact(input.contactId);
+      return deps.contactsService.getContact(input.contactId, {
+        visibilityContext: context?.visibilityContext
+      });
     }
   },
   {
@@ -47,8 +51,8 @@ const contactsActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfaces: ["admin"],
-    visibility: "public",
-    input: contactsResource.operations.create.body,
+    consoleUsersOnly: false,
+    input: [contactsInputPartsValidator.workspaceParams, contactsResource.operations.create.body],
     output: contactsResource.operations.create.output,
     permission: requireAuthenticated,
     idempotency: "optional",
@@ -57,7 +61,9 @@ const contactsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.contactsService.createContact(input);
+      return deps.contactsService.createContact(input, {
+        visibilityContext: context?.visibilityContext
+      });
     }
   },
   {
@@ -66,7 +72,7 @@ const contactsActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfaces: ["admin"],
-    visibility: "public",
+    consoleUsersOnly: false,
     input: [contactsInputPartsValidator.routeParams, contactsResource.operations.patch.body],
     output: contactsResource.operations.patch.output,
     permission: requireAuthenticated,
@@ -77,7 +83,9 @@ const contactsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const { contactId, ...patch } = input;
-      return deps.contactsService.updateContact(contactId, patch);
+      return deps.contactsService.updateContact(contactId, patch, {
+        visibilityContext: context?.visibilityContext
+      });
     }
   },
   {
@@ -86,7 +94,7 @@ const contactsActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfaces: ["admin"],
-    visibility: "public",
+    consoleUsersOnly: false,
     input: contactsInputPartsValidator.routeParams,
     output: contactsResource.operations.delete.output,
     permission: requireAuthenticated,
@@ -96,7 +104,9 @@ const contactsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.contactsService.deleteContact(input.contactId);
+      return deps.contactsService.deleteContact(input.contactId, {
+        visibilityContext: context?.visibilityContext
+      });
     }
   }
 ]);

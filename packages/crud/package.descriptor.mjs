@@ -8,11 +8,12 @@ export default Object.freeze({
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
+    "@jskit-ai/users-core",
     "@jskit-ai/users-web"
   ],
   capabilities: {
     provides: ["crud.contacts"],
-    requires: ["runtime.actions", "runtime.database", "auth.policy", "users.web", "shell.web"]
+    requires: ["runtime.actions", "runtime.database", "auth.policy", "users.core", "users.web", "shell.web"]
   },
   runtime: {
     server: {
@@ -50,11 +51,11 @@ export default Object.freeze({
     },
     server: {
       routes: [
-        { method: "GET", path: "/api/contacts", summary: "List contacts." },
-        { method: "GET", path: "/api/contacts/:contactId", summary: "View a contact." },
-        { method: "POST", path: "/api/contacts", summary: "Create a contact." },
-        { method: "PATCH", path: "/api/contacts/:contactId", summary: "Update a contact." },
-        { method: "DELETE", path: "/api/contacts/:contactId", summary: "Delete a contact." }
+        { method: "GET", path: "/api/w/:workspaceSlug/workspace/contacts", summary: "List contacts." },
+        { method: "GET", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "View a contact." },
+        { method: "POST", path: "/api/w/:workspaceSlug/workspace/contacts", summary: "Create a contact." },
+        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "Update a contact." },
+        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "Delete a contact." }
       ]
     }
   },
@@ -66,6 +67,7 @@ export default Object.freeze({
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "@jskit-ai/shell-web": "0.1.0",
+        "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
         "@tanstack/vue-query": "^5.90.5",
         "typebox": "^1.0.81",
@@ -90,29 +92,29 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/contacts/index.vue",
-        to: "src/pages/admin/contacts/index.vue",
-        reason: "Install admin contacts list page scaffold.",
+        to: "src/pages/admin/w/[workspaceSlug]/contacts/index.vue",
+        reason: "Install admin workspace contacts list page scaffold.",
         category: "crud",
         id: "crud-page-admin-contacts-index"
       },
       {
         from: "templates/src/pages/admin/contacts/new.vue",
-        to: "src/pages/admin/contacts/new.vue",
-        reason: "Install admin contacts create page scaffold.",
+        to: "src/pages/admin/w/[workspaceSlug]/contacts/new.vue",
+        reason: "Install admin workspace contacts create page scaffold.",
         category: "crud",
         id: "crud-page-admin-contacts-new"
       },
       {
         from: "templates/src/pages/admin/contacts/[contactId]/index.vue",
-        to: "src/pages/admin/contacts/[contactId]/index.vue",
-        reason: "Install admin contacts detail page scaffold.",
+        to: "src/pages/admin/w/[workspaceSlug]/contacts/[contactId]/index.vue",
+        reason: "Install admin workspace contacts detail page scaffold.",
         category: "crud",
         id: "crud-page-admin-contacts-view"
       },
       {
         from: "templates/src/pages/admin/contacts/[contactId]/edit.vue",
-        to: "src/pages/admin/contacts/[contactId]/edit.vue",
-        reason: "Install admin contacts edit page scaffold.",
+        to: "src/pages/admin/w/[workspaceSlug]/contacts/[contactId]/edit.vue",
+        reason: "Install admin workspace contacts edit page scaffold.",
         category: "crud",
         id: "crud-page-admin-contacts-edit"
       }

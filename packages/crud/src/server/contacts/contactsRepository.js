@@ -1,4 +1,5 @@
 import { toInsertDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
+import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 
@@ -37,9 +38,11 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const normalizedCursor = Number.isInteger(Number(cursor)) && Number(cursor) > 0 ? Number(cursor) : 0;
     const normalizedLimit = normalizeListLimit(limit);
+    const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     let query = client("contacts")
       .select("id", "name", "surname", "created_at", "updated_at")
+      .where(visible)
       .orderBy("id", "asc")
       .limit(normalizedLimit + 1);
 
@@ -60,8 +63,10 @@ function createRepository(knex) {
 
   async function findById(contactId, options = {}) {
     const client = options?.trx || knex;
+    const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
     const row = await client("contacts")
       .select("id", "name", "surname", "created_at", "updated_at")
+      .where(visible)
       .where({ id: Number(contactId) })
       .first();
 
@@ -72,44 +77,65 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const source = normalizeObjectInput(payload);
     const timestamp = toInsertDateTime();
+    const insertPayload = applyVisibilityOwners(
+      {
+        name: source.name,
+        surname: source.surname,
+        created_at: timestamp,
+        updated_at: timestamp
+      },
+      options.visibilityContext
+    );
     const [contactId] = await client("contacts").insert({
-      name: source.name,
-      surname: source.surname,
-      created_at: timestamp,
-      updated_at: timestamp
+      ...insertPayload
     });
 
-    return findById(contactId, { trx: client });
+    return findById(contactId, {
+      ...options,
+      trx: client
+    });
   }
 
   async function updateById(contactId, patch = {}, options = {}) {
     const client = options?.trx || knex;
     const source = normalizeObjectInput(patch);
     const dbPatch = pickOwnProperties(source, ["name", "surname"]);
+    const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     if (Object.keys(dbPatch).length === 0) {
-      return findById(contactId, { trx: client });
+      return findById(contactId, {
+        ...options,
+        trx: client
+      });
     }
 
     await client("contacts")
+      .where(visible)
       .where({ id: Number(contactId) })
       .update({
         ...dbPatch,
         updated_at: toInsertDateTime()
       });
 
-    return findById(contactId, { trx: client });
+    return findById(contactId, {
+      ...options,
+      trx: client
+    });
   }
 
   async function deleteById(contactId, options = {}) {
     const client = options?.trx || knex;
-    const existing = await findById(contactId, { trx: client });
+    const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
+    const existing = await findById(contactId, {
+      ...options,
+      trx: client
+    });
 
     if (!existing) {
       return null;
     }
 
-    await client("contacts").where({ id: Number(contactId) }).delete();
+    await client("contacts").where(visible).where({ id: Number(contactId) }).delete();
 
     return {
       id: existing.id,

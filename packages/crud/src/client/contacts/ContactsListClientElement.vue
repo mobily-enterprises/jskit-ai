@@ -58,7 +58,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useGlobalList } from "@jskit-ai/users-web/client/composables/useGlobalList";
+import { useWorkspaceList } from "@jskit-ai/users-web/client/composables/useWorkspaceList";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactsListQueryKey,
@@ -69,9 +69,9 @@ import {
 const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
 const createPath = computed(() => resolveAdminContactNewPath(placementContext.value, workspaceSlugFromRoute.value));
 
-const contacts = useGlobalList({
+const contacts = useWorkspaceList({
   apiSuffix: "/contacts",
-  queryKeyFactory: (surfaceId = "") => contactsListQueryKey(surfaceId),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => contactsListQueryKey(surfaceId, workspaceSlug),
   fallbackLoadError: "Unable to load contacts."
 });
 const items = computed(() => contacts.items.value);

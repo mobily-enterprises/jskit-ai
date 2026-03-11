@@ -58,7 +58,7 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { useRouter } from "vue-router";
-import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
+import { useWorkspaceAddEdit } from "@jskit-ai/users-web/client/composables/useWorkspaceAddEdit";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactsListQueryKey,
@@ -75,10 +75,13 @@ const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteCo
 const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
 const contactForm = reactive(createContactForm());
 
-const addEdit = useGlobalAddEdit({
+const addEdit = useWorkspaceAddEdit({
   resource: contactsResource,
   apiSuffix: "/contacts",
-  queryKeyFactory: (surfaceId = "") => [...contactsListQueryKey(surfaceId), "create"],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    ...contactsListQueryKey(surfaceId, workspaceSlug),
+    "create"
+  ],
   readEnabled: false,
   writeMethod: "POST",
   fallbackSaveError: "Unable to save contact.",

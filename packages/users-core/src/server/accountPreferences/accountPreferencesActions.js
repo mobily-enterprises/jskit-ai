@@ -12,7 +12,7 @@ const accountPreferencesActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    visibility: "public",
+    consoleUsersOnly: false,
     input: userSettingsResource.operations.preferencesUpdate.body,
     output: userSettingsResource.operations.view.output,
     permission: requireAuthenticated,

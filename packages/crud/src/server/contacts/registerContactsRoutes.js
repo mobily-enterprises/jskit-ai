@@ -12,13 +12,15 @@ function registerContactsRoutes(app) {
 
   router.register(
     "GET",
-    "/api/contacts",
+    "/api/w/:workspaceSlug/workspace/contacts",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["contacts"],
         summary: "List contacts."
       },
+      params: contactsInputPartsValidator.workspaceParams,
       query: contactsInputPartsValidator.listQuery,
       response: withStandardErrorResponses({
         200: contactsResource.operations.list.output
@@ -28,7 +30,10 @@ function registerContactsRoutes(app) {
       const response = await request.executeAction({
         actionId: "contacts.list",
         context: { surface: "admin" },
-        input: request.input.query
+        input: {
+          ...request.input.params,
+          ...request.input.query
+        }
       });
       reply.code(200).send(response);
     }
@@ -36,9 +41,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "GET",
-    "/api/contacts/:contactId",
+    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["contacts"],
         summary: "View a contact."
@@ -60,13 +66,15 @@ function registerContactsRoutes(app) {
 
   router.register(
     "POST",
-    "/api/contacts",
+    "/api/w/:workspaceSlug/workspace/contacts",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["contacts"],
         summary: "Create a contact."
       },
+      params: contactsInputPartsValidator.workspaceParams,
       body: contactsResource.operations.create.body,
       response: withStandardErrorResponses(
         {
@@ -79,7 +87,10 @@ function registerContactsRoutes(app) {
       const response = await request.executeAction({
         actionId: "contacts.create",
         context: { surface: "admin" },
-        input: request.input.body
+        input: {
+          ...request.input.params,
+          ...request.input.body
+        }
       });
       reply.code(201).send(response);
     }
@@ -87,9 +98,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "PATCH",
-    "/api/contacts/:contactId",
+    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["contacts"],
         summary: "Update a contact."
@@ -118,9 +130,10 @@ function registerContactsRoutes(app) {
 
   router.register(
     "DELETE",
-    "/api/contacts/:contactId",
+    "/api/w/:workspaceSlug/workspace/contacts/:contactId",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["contacts"],
         summary: "Delete a contact."

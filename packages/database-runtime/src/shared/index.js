@@ -17,6 +17,7 @@ export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
 export { normalizeText, normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";
 export { isDuplicateEntryError } from "./duplicateEntry.js";
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";
+export { DEFAULT_VISIBILITY_COLUMNS, applyVisibility, applyVisibilityOwners } from "./visibility.js";
 export {
   resolveQueryOptions,
   resolveRepoClient,

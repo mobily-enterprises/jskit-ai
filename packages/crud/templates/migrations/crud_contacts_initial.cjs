@@ -8,6 +8,8 @@ exports.up = async function up(knex) {
 
   await knex.schema.createTable("contacts", (table) => {
     table.increments("id").unsigned().primary();
+    table.integer("workspace_owner_id").unsigned().nullable().index();
+    table.integer("user_owner_id").unsigned().nullable().index();
     table.string("name", 160).notNullable();
     table.string("surname", 160).notNullable();
     table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());

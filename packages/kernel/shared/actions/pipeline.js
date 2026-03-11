@@ -2,7 +2,7 @@ import {
   createPermissionEvaluator,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
-  ensureActionVisibilityAllowed,
+  ensureActionConsoleUsersOnlyAllowed,
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";
@@ -103,7 +103,7 @@ async function executeActionPipeline({
   try {
     ensureActionChannelAllowed(definition, normalizedContext);
     ensureActionSurfaceAllowed(definition, normalizedContext);
-    ensureActionVisibilityAllowed(definition, normalizedContext);
+    ensureActionConsoleUsersOnlyAllowed(definition, normalizedContext);
 
     const normalizedInput = await normalizeActionInput(definition, input, normalizedContext);
     const permissionResolution = await authorizationEvaluator.evaluate({

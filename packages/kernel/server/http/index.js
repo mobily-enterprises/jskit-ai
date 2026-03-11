@@ -10,4 +10,10 @@ export {
   registerHttpRuntime,
   createHttpRuntime
 } from "./lib/kernel.js";
+export {
+  ROUTE_VISIBILITY_RESOLVER_TAG,
+  resolveRouteVisibilityResolvers,
+  registerRouteVisibilityResolver,
+  resolveRouteVisibilityContext
+} from "./lib/visibilityResolver.js";
 export { HttpFastifyServiceProvider } from "./HttpFastifyServiceProvider.js";

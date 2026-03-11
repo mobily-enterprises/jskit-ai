@@ -1,9 +1,12 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
+import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { authPolicyPlugin } from "../lib/plugin.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
+import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
 
 const AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN = "auth.policy.actionContextContributor";
+const AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN = "auth.policy.routeVisibilityResolver";
 
 function parseBoolean(value, fallback = false) {
   const raw = String(value || "").trim().toLowerCase();
@@ -50,6 +53,16 @@ class FastifyAuthPolicyServiceProvider {
     ) {
       registerActionContextContributor(app, AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN, () =>
         createAuthActionContextContributor()
+      );
+    }
+
+    if (
+      !app.has(AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN) &&
+      typeof app.singleton === "function" &&
+      typeof app.tag === "function"
+    ) {
+      registerRouteVisibilityResolver(app, AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN, () =>
+        createAuthRouteVisibilityResolver()
       );
     }
   }

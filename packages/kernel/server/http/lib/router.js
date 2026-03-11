@@ -100,6 +100,7 @@ class HttpRouter {
       auth: resolvedOptions.auth,
       workspacePolicy: resolvedOptions.workspacePolicy,
       workspaceSurface: resolvedOptions.workspaceSurface,
+      visibility: resolvedOptions.visibility,
       permission: resolvedOptions.permission,
       ownerParam: resolvedOptions.ownerParam,
       userField: resolvedOptions.userField,

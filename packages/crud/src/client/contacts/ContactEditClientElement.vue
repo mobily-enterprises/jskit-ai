@@ -58,7 +58,7 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
+import { useWorkspaceAddEdit } from "@jskit-ai/users-web/client/composables/useWorkspaceAddEdit";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactsResource,
@@ -82,10 +82,11 @@ const detailPath = computed(() =>
   resolveAdminContactViewPath(contactId.value, placementContext.value, workspaceSlugFromRoute.value)
 );
 
-const addEdit = useGlobalAddEdit({
+const addEdit = useWorkspaceAddEdit({
   resource: contactsResource,
   apiSuffix: () => `/contacts/${contactId.value}`,
-  queryKeyFactory: (surfaceId = "") => contactViewQueryKey(surfaceId, contactId.value),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    contactViewQueryKey(surfaceId, workspaceSlug, contactId.value),
   writeMethod: "PATCH",
   fallbackLoadError: "Unable to load contact.",
   fallbackSaveError: "Unable to save contact.",

@@ -60,8 +60,8 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useGlobalCommand } from "@jskit-ai/users-web/client/composables/useGlobalCommand";
-import { useGlobalView } from "@jskit-ai/users-web/client/composables/useGlobalView";
+import { useWorkspaceCommand } from "@jskit-ai/users-web/client/composables/useWorkspaceCommand";
+import { useWorkspaceView } from "@jskit-ai/users-web/client/composables/useWorkspaceView";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactViewQueryKey,
@@ -92,9 +92,10 @@ const title = computed(() => {
   return `${name} ${surname}`.trim() || "Contact";
 });
 
-const view = useGlobalView({
+const view = useWorkspaceView({
   apiSuffix: () => `/contacts/${contactId.value}`,
-  queryKeyFactory: (surfaceId = "") => contactViewQueryKey(surfaceId, contactId.value),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    contactViewQueryKey(surfaceId, workspaceSlug, contactId.value),
   fallbackLoadError: "Unable to load contact.",
   notFoundMessage: "Contact not found.",
   model: contact,
@@ -111,7 +112,7 @@ const isNotFound = computed(() => view.isNotFound.value);
 const notFoundError = computed(() => view.notFoundError.value);
 const isLoading = computed(() => view.isLoading.value);
 
-const deleteCommand = useGlobalCommand({
+const deleteCommand = useWorkspaceCommand({
   apiSuffix: () => `/contacts/${contactId.value}`,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete contact.",

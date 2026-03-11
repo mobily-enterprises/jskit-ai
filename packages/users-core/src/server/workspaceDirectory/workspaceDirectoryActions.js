@@ -13,7 +13,7 @@ const workspaceDirectoryActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    visibility: "public",
+    consoleUsersOnly: false,
     input: EMPTY_INPUT_CONTRACT,
     output: workspaceResource.operations.list.output,
     permission: requireAuthenticated,

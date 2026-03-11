@@ -10,7 +10,7 @@ const CRUD_CONTACTS_ACTIONS_TOKEN = "crud.contacts.actionDefinitions";
 class CrudServiceProvider {
   static id = "crud.contacts";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify"];
+  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {

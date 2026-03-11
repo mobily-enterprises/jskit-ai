@@ -1,6 +1,5 @@
 export {
   ACTION_KINDS,
-  ACTION_VISIBILITY_LEVELS,
   ACTION_IDEMPOTENCY_POLICIES,
   ACTION_DOMAINS,
   ACTION_CHANNELS,
@@ -21,7 +20,7 @@ export {
   createPermissionEvaluator,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
-  ensureActionVisibilityAllowed,
+  ensureActionConsoleUsersOnlyAllowed,
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";

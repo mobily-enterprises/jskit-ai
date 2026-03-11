@@ -38,12 +38,19 @@ function parsePatchContactInput(rawPayload) {
   });
 }
 
-function contactsListQueryKey(surfaceId = "") {
-  return ["crud", "contacts", "list", normalizeQueryToken(surfaceId)];
+function contactsListQueryKey(surfaceId = "", workspaceSlug = "") {
+  return ["crud", "contacts", "list", normalizeQueryToken(surfaceId), normalizeQueryToken(workspaceSlug)];
 }
 
-function contactViewQueryKey(surfaceId = "", contactId = 0) {
-  return ["crud", "contacts", "view", normalizeQueryToken(surfaceId), Number(contactId) || 0];
+function contactViewQueryKey(surfaceId = "", workspaceSlug = "", contactId = 0) {
+  return [
+    "crud",
+    "contacts",
+    "view",
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug),
+    Number(contactId) || 0
+  ];
 }
 
 function resolveAdminContactsListPath(context = null, workspaceSlug = "") {

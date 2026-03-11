@@ -1,9 +1,11 @@
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { normalizeRouteVisibility } from "../../../shared/support/visibility.js";
 import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveActionContextContributors } from "../../actions/ActionRuntimeServiceProvider.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
+import { resolveRouteVisibilityContext } from "./visibilityResolver.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
 
@@ -29,6 +31,9 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspaceSurface")) {
     nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
+    nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
     nextConfig.permission = sourceRoute.permission;
@@ -429,6 +434,16 @@ function resolveActionExecutorScope({ app = null, request = null, requestScopePr
   return null;
 }
 
+function resolveRouteVisibilityFromRequestAndPayload(request, payload = {}) {
+  const routeConfig =
+    request?.routeOptions?.config && typeof request.routeOptions.config === "object" ? request.routeOptions.config : null;
+  if (routeConfig && Object.prototype.hasOwnProperty.call(routeConfig, "visibility")) {
+    return normalizeRouteVisibility(routeConfig.visibility);
+  }
+
+  return normalizeRouteVisibility(payload.visibility);
+}
+
 function attachRequestActionExecutor({
   app = null,
   request = null,
@@ -498,6 +513,23 @@ function attachRequestActionExecutor({
       channel: normalizedChannel,
       baseContext
     });
+    const visibilityContext = await resolveRouteVisibilityContext({
+      resolutionScope,
+      request,
+      routeVisibility: resolveRouteVisibilityFromRequestAndPayload(request, source),
+      context: executionContext,
+      input: normalizedInput,
+      deps: normalizedDeps,
+      actionId: source.actionId,
+      version: source.version == null ? null : source.version,
+      channel: normalizedChannel
+    });
+    executionContext.visibilityContext = visibilityContext;
+    executionContext.requestMeta = {
+      ...normalizeObject(executionContext.requestMeta),
+      visibilityContext,
+      routeVisibility: visibilityContext.visibility
+    };
 
     return actionExecutor.execute({
       actionId: source.actionId,
@@ -607,6 +639,14 @@ function registerRoutes(
     fastify.route({
       ...routeOptions,
       handler: async (request, reply) => {
+        if (!request.routeOptions || typeof request.routeOptions !== "object") {
+          request.routeOptions = {
+            config: normalizeObject(routeOptions?.config)
+          };
+        } else if (!request.routeOptions.config || typeof request.routeOptions.config !== "object") {
+          request.routeOptions.config = normalizeObject(routeOptions?.config);
+        }
+
         if (enableRequestScope) {
           attachRequestScope({
             app,

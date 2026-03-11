@@ -2,7 +2,6 @@ import { mergeObjectSchemas } from "../contracts/mergeObjectSchemas.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
-const ACTION_VISIBILITY_LEVELS = Object.freeze(["public", "internal", "operator"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
 const ACTION_DOMAINS = Object.freeze([
   "auth",
@@ -21,7 +20,6 @@ const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat"
 const ACTION_SURFACES = Object.freeze(["<dynamic-from-app-config>"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
-const ACTION_VISIBILITY_SET = new Set(ACTION_VISIBILITY_LEVELS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_DOMAIN_SET = new Set(ACTION_DOMAINS);
 const ACTION_CHANNEL_SET = new Set(ACTION_CHANNELS);
@@ -327,16 +325,19 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     fieldName: "surfaces"
   });
 
-  const visibility = normalizeText(source.visibility || "public").toLowerCase();
-  if (!ACTION_VISIBILITY_SET.has(visibility)) {
-    throw createActionRuntimeError(
-      500,
-      `Action definition \"${id}\" has unsupported visibility \"${visibility}\".`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
+  if (Object.prototype.hasOwnProperty.call(source, "visibility")) {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" must use consoleUsersOnly instead of visibility.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
   }
+
+  if (Object.prototype.hasOwnProperty.call(source, "consoleUsersOnly") && typeof source.consoleUsersOnly !== "boolean") {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" consoleUsersOnly must be a boolean.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  const consoleUsersOnly = source.consoleUsersOnly === true;
 
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
   if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
@@ -362,7 +363,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     kind,
     channels,
     surfaces,
-    visibility,
+    consoleUsersOnly,
     input: normalizeActionContractParts(source.input, "input", {
       required: true
     }),
@@ -432,7 +433,6 @@ const __testables = {
 
 export {
   ACTION_KINDS,
-  ACTION_VISIBILITY_LEVELS,
   ACTION_IDEMPOTENCY_POLICIES,
   ACTION_DOMAINS,
   ACTION_CHANNELS,

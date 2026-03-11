@@ -6,6 +6,7 @@ const positiveIntegerInputSchema = Type.Union([
   Type.Integer({ minimum: 1 }),
   Type.String({ minLength: 1, pattern: "^[1-9][0-9]*$" })
 ]);
+const workspaceSlugInputSchema = Type.String({ minLength: 1, maxLength: 120 });
 
 function toPositiveInteger(value) {
   const normalized = normalizeText(value);
@@ -17,8 +18,27 @@ function normalizeRouteParams(input = {}) {
   const source = normalizeObjectInput(input);
   const normalized = {};
 
+  if (Object.hasOwn(source, "workspaceSlug")) {
+    normalized.workspaceSlug = normalizeWorkspaceSlug(source.workspaceSlug);
+  }
+
   if (Object.hasOwn(source, "contactId")) {
     normalized.contactId = toPositiveInteger(source.contactId);
+  }
+
+  return normalized;
+}
+
+function normalizeWorkspaceSlug(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function normalizeWorkspaceParams(input = {}) {
+  const source = normalizeObjectInput(input);
+  const normalized = {};
+
+  if (Object.hasOwn(source, "workspaceSlug")) {
+    normalized.workspaceSlug = normalizeWorkspaceSlug(source.workspaceSlug);
   }
 
   return normalized;
@@ -40,9 +60,19 @@ function normalizeListQuery(input = {}) {
 }
 
 const contactsInputPartsValidator = Object.freeze({
+  workspaceParams: Object.freeze({
+    schema: Type.Object(
+      {
+        workspaceSlug: Type.Optional(workspaceSlugInputSchema)
+      },
+      { additionalProperties: false }
+    ),
+    normalize: normalizeWorkspaceParams
+  }),
   routeParams: Object.freeze({
     schema: Type.Object(
       {
+        workspaceSlug: Type.Optional(workspaceSlugInputSchema),
         contactId: Type.Optional(positiveIntegerInputSchema)
       },
       { additionalProperties: false }

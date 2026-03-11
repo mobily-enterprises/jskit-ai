@@ -6,6 +6,7 @@ import { registerActionContextContributor } from "../../actions/ActionRuntimeSer
 import { createApplication } from "../../kernel/lib/index.js";
 import { createRouter } from "./router.js";
 import { createHttpRuntime, registerHttpRuntime, registerRoutes } from "./kernel.js";
+import { registerRouteVisibilityResolver } from "./visibilityResolver.js";
 
 function createFastifyStub() {
   const routes = [];
@@ -203,6 +204,76 @@ test("registerRoutes attaches request.executeAction and applies action context c
   assert.deepEqual(observed[1].context.permissions, ["*"]);
   assert.equal(observed[1].context.surface, "console");
   assert.equal(observed[1].context.channel, "internal");
+});
+
+test("registerRoutes attaches visibilityContext from route visibility resolvers", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const observed = [];
+
+  registerActionContextContributor(app, "test.auth.actionContextContributor", () => ({
+    contributorId: "test.auth",
+    contribute({ request }) {
+      return {
+        actor: request?.user || null
+      };
+    }
+  }));
+
+  registerRouteVisibilityResolver(app, "test.http.visibilityResolver", () => ({
+    resolverId: "test.visibility",
+    resolve({ visibility, context }) {
+      if (visibility !== "user") {
+        return {};
+      }
+
+      return {
+        userOwnerId: context?.actor?.id
+      };
+    }
+  }));
+
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return { ok: true };
+    }
+  });
+
+  registerRoutes(fastify, {
+    app,
+    routes: [
+      {
+        method: "GET",
+        path: "/visible",
+        visibility: "user",
+        handler: async (request, reply) => {
+          request.user = {
+            id: 23
+          };
+          await request.executeAction({
+            actionId: "contacts.list"
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = { id: "req-visible" };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(observed.length, 1);
+  assert.deepEqual(observed[0].context.visibilityContext, {
+    visibility: "user",
+    workspaceOwnerId: null,
+    userOwnerId: 23
+  });
+  assert.deepEqual(observed[0].context.requestMeta.visibilityContext, observed[0].context.visibilityContext);
+  assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
 });
 
 test("registerRoutes can disable request scope attachment", async () => {

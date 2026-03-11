@@ -29,7 +29,7 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            visibility: "public",
+            consoleUsersOnly: false,
             input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
@@ -51,7 +51,7 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            visibility: "public",
+            consoleUsersOnly: false,
             input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
@@ -101,7 +101,7 @@ test("action registry merges action input contract parts", async () => {
             kind: "command",
             channels: ["api"],
             surfaces: ["app"],
-            visibility: "public",
+            consoleUsersOnly: false,
             input: [
               {
                 schema: Type.Object(
@@ -188,7 +188,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                visibility: "public",
+                consoleUsersOnly: false,
                 input: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
@@ -215,7 +215,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                visibility: "public",
+                consoleUsersOnly: false,
                 input: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
@@ -279,7 +279,7 @@ test("action registry rejects invalid version requests", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app"],
-            visibility: "public",
+            consoleUsersOnly: false,
             input: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
@@ -318,7 +318,7 @@ test("action registry rejects invalid version requests", async () => {
   );
 });
 
-test("action registry enforces internal visibility for user actors", async () => {
+test("action registry enforces consoleUsersOnly for non-operator actors", async () => {
   const registry = createActionRegistry({
     contributors: [
       {
@@ -332,7 +332,7 @@ test("action registry enforces internal visibility for user actors", async () =>
             kind: "query",
             channels: ["api", "internal"],
             surfaces: ["app"],
-            visibility: "internal",
+            consoleUsersOnly: true,
             input: { schema: createPassThroughSchema() },
             permission: () => true,
             idempotency: "none",
@@ -361,7 +361,7 @@ test("action registry enforces internal visibility for user actors", async () =>
         }
       }),
     (error) => {
-      assert.equal(error.code, "ACTION_VISIBILITY_FORBIDDEN");
+      assert.equal(error.code, "ACTION_CONSOLE_USERS_ONLY_FORBIDDEN");
       return true;
     }
   );

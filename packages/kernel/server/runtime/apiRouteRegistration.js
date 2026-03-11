@@ -1,4 +1,5 @@
 import { defaultMissingHandler } from "./routeUtils.js";
+import { normalizeRouteVisibility } from "../../shared/support/visibility.js";
 
 function buildBaseRouteOptions(route) {
   return {
@@ -30,6 +31,9 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspaceSurface")) {
     nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
+    nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
     nextConfig.permission = sourceRoute.permission;
