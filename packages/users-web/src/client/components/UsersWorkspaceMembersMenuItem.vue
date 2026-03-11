@@ -1,11 +1,11 @@
 <script setup>
 import {
-  computed,
-  watch
+  computed
 } from "vue";
 import {
   useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
+import { mdiAccountGroupOutline } from "@mdi/js";
 import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
 import {
   hasPermission,
@@ -23,7 +23,7 @@ const props = defineProps({
   },
   icon: {
     type: String,
-    default: "mdi-account-group-outline"
+    default: mdiAccountGroupOutline
   },
   surface: {
     type: String,
@@ -48,19 +48,6 @@ const resolvedTo = computed(() => {
     nonWorkspaceSuffix: "/members"
   });
 });
-
-watch(
-  [() => normalizePermissionList(placementContext.value?.permissions), canViewMembers, resolvedTo],
-  ([nextPermissions, nextCanViewMembers, nextResolvedTo]) => {
-    console.log("[users-web-debug] workspace-members-menu-item", {
-      surface: props.surface,
-      permissions: nextPermissions,
-      canViewMembers: nextCanViewMembers,
-      resolvedTo: nextResolvedTo
-    });
-  },
-  { immediate: true }
-);
 </script>
 
 <template>

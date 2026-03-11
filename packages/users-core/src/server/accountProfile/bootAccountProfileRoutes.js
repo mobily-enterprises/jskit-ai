@@ -1,11 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { settingsAvatarUploadCommand } from "../../shared/contracts/commands/settingsAvatarUploadCommand.js";
 import { settingsAvatarDeleteCommand } from "../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
-import { settingsResponseValidator } from "../common/validators/settingsResponseValidator.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -25,7 +24,7 @@ function bootAccountProfileRoutes(app) {
         summary: "Get authenticated user's settings"
       },
       response: withStandardErrorResponses({
-        200: { schema: settingsResponseValidator.schema }
+        200: userSettingsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -45,13 +44,10 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Update profile settings"
       },
-      body: {
-        schema: userProfileResource.operations.replace.body.schema,
-        normalize: normalizeObjectInput
-      },
+      body: userProfileResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
-          200: { schema: settingsResponseValidator.schema }
+          200: userSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )

@@ -9,6 +9,7 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
+import { mdiBriefcaseOutline } from "@mdi/js";
 import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
 import { normalizePermissionList } from "../lib/permissions.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
@@ -231,20 +232,6 @@ watch(
   }
 );
 
-watch(
-  [routeWorkspaceSlug, activeWorkspace, permissions, isVisible, workspaceSwitchSurfaceId],
-  ([nextWorkspaceSlug, nextActiveWorkspace, nextPermissions, nextIsVisible, nextWorkspaceSwitchSurfaceId]) => {
-    console.log("[users-web-debug] workspace-selector", {
-      routeWorkspaceSlug: nextWorkspaceSlug,
-      activeWorkspaceSlug: String(nextActiveWorkspace?.slug || "").trim(),
-      permissions: nextPermissions,
-      isVisible: nextIsVisible,
-      workspaceSwitchSurfaceId: nextWorkspaceSwitchSurfaceId
-    });
-  },
-  { immediate: true }
-);
-
 </script>
 
 <template>
@@ -255,7 +242,7 @@ watch(
         variant="text"
         class="text-none"
         :loading="loading"
-        prepend-icon="$workspace"
+        :prepend-icon="mdiBriefcaseOutline"
       >
         {{ activeWorkspaceLabel }}
       </v-btn>

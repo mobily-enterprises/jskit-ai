@@ -1,6 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createValidationError } from "@jskit-ai/kernel/server/runtime";
-import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -41,23 +39,16 @@ function createService({
       throw new AppError(404, "User profile was not found.");
     }
 
-    const displayName = normalizeText(payload.displayName);
-    if (!displayName) {
-      throw createValidationError({
-        displayName: "Display name is required."
-      });
-    }
-
     let session = null;
     let updatedProfile = null;
     if (authService && typeof authService.updateDisplayName === "function") {
-      const result = await authService.updateDisplayName(request, displayName);
+      const result = await authService.updateDisplayName(request, payload.displayName);
       session = result?.session || null;
       updatedProfile = result?.profile || null;
     }
 
     if (!updatedProfile) {
-      updatedProfile = await userProfilesRepository.updateDisplayNameById(profile.id, displayName);
+      updatedProfile = await userProfilesRepository.updateDisplayNameById(profile.id, payload.displayName);
     }
 
     const settings = await userSettingsRepository.ensureForUserId(updatedProfile.id);

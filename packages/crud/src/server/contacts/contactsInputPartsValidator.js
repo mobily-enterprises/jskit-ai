@@ -39,7 +39,7 @@ function normalizeListQuery(input = {}) {
   return normalized;
 }
 
-const contactsInputParts = Object.freeze({
+const contactsInputPartsValidator = Object.freeze({
   routeParams: Object.freeze({
     schema: Type.Object(
       {
@@ -61,4 +61,4 @@ const contactsInputParts = Object.freeze({
   })
 });
 
-export { contactsInputParts };
+export { contactsInputPartsValidator };

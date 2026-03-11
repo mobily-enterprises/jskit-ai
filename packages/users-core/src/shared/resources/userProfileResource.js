@@ -1,39 +1,49 @@
 import { Type } from "typebox";
+import {
+  createCursorListValidator,
+  normalizeObjectInput
+} from "@jskit-ai/kernel/shared/contracts";
+import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { createOperationMessages } from "../contracts/contractUtils.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
-const profileAvatarSchema = Type.Object({}, { additionalProperties: true });
+function normalizeProfileInput(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  const normalized = {};
 
-const userProfileRecordSchema = Type.Object(
+  if (Object.hasOwn(source, "displayName")) {
+    normalized.displayName = normalizeText(source.displayName);
+  }
+
+  return normalized;
+}
+
+const userProfileOutputSchema = Type.Object(
   {
     displayName: Type.String(),
     email: Type.String(),
     emailManagedBy: Type.Optional(Type.String()),
     emailChangeFlow: Type.Optional(Type.String()),
-    avatar: Type.Optional(profileAvatarSchema)
+    avatar: Type.Optional(Type.Object({}, { additionalProperties: true }))
   },
   { additionalProperties: true }
 );
 
-const userProfileCreateSchema = Type.Object(
+const userProfileOutputValidator = Object.freeze({
+  schema: userProfileOutputSchema,
+  normalize: normalizeObjectInput
+});
+
+const userProfileCreateBodySchema = Type.Object(
   {
     displayName: Type.String({ minLength: 1, maxLength: 120 })
   },
   { additionalProperties: false }
 );
 
-const userProfileReplaceSchema = userProfileCreateSchema;
-const userProfilePatchSchema = Type.Partial(userProfileCreateSchema, {
-  additionalProperties: false
+const userProfilePatchBodySchema = Type.Partial(userProfileCreateBodySchema, {
+  additionalProperties: false,
+  minProperties: 1
 });
-
-const userProfileListSchema = Type.Object(
-  {
-    items: Type.Array(userProfileRecordSchema),
-    nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-  },
-  { additionalProperties: false }
-);
 
 const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
@@ -43,59 +53,41 @@ const userProfileResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: userProfileRecordSchema
-      })
+      output: userProfileOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: userProfileListSchema
-      })
+      output: createCursorListValidator(userProfileOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userProfileCreateSchema,
-        normalize: normalizeObjectInput
+        schema: userProfileCreateBodySchema,
+        normalize: normalizeProfileInput
       }),
-      response: Object.freeze({
-        schema: userProfileRecordSchema
-      })
+      output: userProfileOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: USER_PROFILE_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userProfileReplaceSchema,
-        normalize: normalizeObjectInput
+        schema: userProfileCreateBodySchema,
+        normalize: normalizeProfileInput
       }),
-      response: Object.freeze({
-        schema: userProfileRecordSchema
-      })
+      output: userProfileOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: USER_PROFILE_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userProfilePatchSchema,
-        normalize: normalizeObjectInput
+        schema: userProfilePatchBodySchema,
+        normalize: normalizeProfileInput
       }),
-      response: Object.freeze({
-        schema: userProfileRecordSchema
-      })
+      output: userProfileOutputValidator
     })
   })
 });
 
-export {
-  profileAvatarSchema,
-  userProfileRecordSchema,
-  userProfileCreateSchema,
-  userProfileReplaceSchema,
-  userProfilePatchSchema,
-  userProfileListSchema,
-  userProfileResource
-};
+export { userProfileResource };

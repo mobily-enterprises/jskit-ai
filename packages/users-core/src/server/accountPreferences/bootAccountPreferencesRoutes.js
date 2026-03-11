@@ -1,8 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { preferencesPatchBodySchema } from "../../shared/resources/userSettingsResource.js";
-import { settingsResponseValidator } from "../common/validators/settingsResponseValidator.js";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 function bootAccountPreferencesRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -20,13 +18,10 @@ function bootAccountPreferencesRoutes(app) {
         tags: ["settings"],
         summary: "Update user preferences"
       },
-      body: {
-        schema: preferencesPatchBodySchema,
-        normalize: normalizeObjectInput
-      },
+      body: userSettingsResource.operations.preferencesUpdate.body,
       response: withStandardErrorResponses(
         {
-          200: { schema: settingsResponseValidator.schema }
+          200: userSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )

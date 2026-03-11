@@ -1,13 +1,16 @@
 import { Type } from "typebox";
+import {
+  createCursorListValidator,
+  normalizeObjectInput
+} from "@jskit-ai/kernel/shared/contracts";
 import { createOperationMessages } from "../contracts/contractUtils.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import { userProfileRecordSchema } from "./userProfileResource.js";
+import { userProfileResource } from "./userProfileResource.js";
 
 function pickPatchBody(schema, keys = []) {
   const properties = {};
   for (const key of keys) {
     if (!Object.hasOwn(schema.properties, key)) {
-      throw new Error(`pickPatchBody requires patch field \"${key}\".`);
+      throw new Error(`pickPatchBody requires patch field "${key}".`);
     }
 
     properties[key] = schema.properties[key];
@@ -19,44 +22,41 @@ function pickPatchBody(schema, keys = []) {
   });
 }
 
-const securityRecordSchema = Type.Object({}, { additionalProperties: true });
-
-const preferencesRecordSchema = Type.Object(
+const userSettingsOutputSchema = Type.Object(
   {
-    theme: Type.String(),
-    locale: Type.String(),
-    timeZone: Type.String(),
-    dateFormat: Type.String(),
-    numberFormat: Type.String(),
-    currencyCode: Type.String(),
-    avatarSize: Type.Integer({ minimum: 1 })
+    profile: userProfileResource.operations.view.output.schema,
+    security: Type.Object({}, { additionalProperties: true }),
+    preferences: Type.Object(
+      {
+        theme: Type.String(),
+        locale: Type.String(),
+        timeZone: Type.String(),
+        dateFormat: Type.String(),
+        numberFormat: Type.String(),
+        currencyCode: Type.String(),
+        avatarSize: Type.Integer({ minimum: 1 })
+      },
+      { additionalProperties: true }
+    ),
+    notifications: Type.Object(
+      {
+        productUpdates: Type.Boolean(),
+        accountActivity: Type.Boolean(),
+        securityAlerts: Type.Boolean()
+      },
+      { additionalProperties: true }
+    ),
+    chat: Type.Object({}, { additionalProperties: true })
   },
   { additionalProperties: true }
 );
 
-const notificationsRecordSchema = Type.Object(
-  {
-    productUpdates: Type.Boolean(),
-    accountActivity: Type.Boolean(),
-    securityAlerts: Type.Boolean()
-  },
-  { additionalProperties: true }
-);
+const userSettingsOutputValidator = Object.freeze({
+  schema: userSettingsOutputSchema,
+  normalize: normalizeObjectInput
+});
 
-const chatRecordSchema = Type.Object({}, { additionalProperties: true });
-
-const userSettingsRecordSchema = Type.Object(
-  {
-    profile: userProfileRecordSchema,
-    security: securityRecordSchema,
-    preferences: preferencesRecordSchema,
-    notifications: notificationsRecordSchema,
-    chat: chatRecordSchema
-  },
-  { additionalProperties: true }
-);
-
-const userSettingsCreateSchema = Type.Object(
+const userSettingsCreateBodySchema = Type.Object(
   {
     theme: Type.String({ minLength: 1 }),
     locale: Type.String({ minLength: 1 }),
@@ -77,42 +77,43 @@ const userSettingsCreateSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const userSettingsReplaceSchema = userSettingsCreateSchema;
-const userSettingsPatchSchema = Type.Partial(userSettingsCreateSchema, {
-  additionalProperties: false
+const userSettingsPatchBodySchema = Type.Partial(userSettingsCreateBodySchema, {
+  additionalProperties: false,
+  minProperties: 1
 });
 
-const preferencesPatchBodySchema = pickPatchBody(userSettingsPatchSchema, [
-  "theme",
-  "locale",
-  "timeZone",
-  "dateFormat",
-  "numberFormat",
-  "currencyCode",
-  "avatarSize"
-]);
+const preferencesUpdateBodyValidator = Object.freeze({
+  schema: pickPatchBody(userSettingsPatchBodySchema, [
+    "theme",
+    "locale",
+    "timeZone",
+    "dateFormat",
+    "numberFormat",
+    "currencyCode",
+    "avatarSize"
+  ]),
+  normalize: normalizeObjectInput
+});
 
-const notificationsPatchBodySchema = pickPatchBody(userSettingsPatchSchema, [
-  "productUpdates",
-  "accountActivity",
-  "securityAlerts"
-]);
+const notificationsUpdateBodyValidator = Object.freeze({
+  schema: pickPatchBody(userSettingsPatchBodySchema, [
+    "productUpdates",
+    "accountActivity",
+    "securityAlerts"
+  ]),
+  normalize: normalizeObjectInput
+});
 
-const chatPatchBodySchema = pickPatchBody(userSettingsPatchSchema, [
-  "publicChatId",
-  "allowWorkspaceDms",
-  "allowGlobalDms",
-  "requireSharedWorkspaceForGlobalDm",
-  "discoverableByPublicChatId"
-]);
-
-const userSettingsListSchema = Type.Object(
-  {
-    items: Type.Array(userSettingsRecordSchema),
-    nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-  },
-  { additionalProperties: false }
-);
+const chatUpdateBodyValidator = Object.freeze({
+  schema: pickPatchBody(userSettingsPatchBodySchema, [
+    "publicChatId",
+    "allowWorkspaceDms",
+    "allowGlobalDms",
+    "requireSharedWorkspaceForGlobalDm",
+    "discoverableByPublicChatId"
+  ]),
+  normalize: normalizeObjectInput
+});
 
 const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
@@ -122,65 +123,59 @@ const userSettingsResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: userSettingsRecordSchema
-      })
+      output: userSettingsOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: userSettingsListSchema
-      })
+      output: createCursorListValidator(userSettingsOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userSettingsCreateSchema,
+        schema: userSettingsCreateBodySchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: userSettingsRecordSchema
-      })
+      output: userSettingsOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userSettingsReplaceSchema,
+        schema: userSettingsCreateBodySchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: userSettingsRecordSchema
-      })
+      output: userSettingsOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: Object.freeze({
-        schema: userSettingsPatchSchema,
+        schema: userSettingsPatchBodySchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: userSettingsRecordSchema
-      })
+      output: userSettingsOutputValidator
+    }),
+    preferencesUpdate: Object.freeze({
+      method: "PATCH",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: preferencesUpdateBodyValidator,
+      output: userSettingsOutputValidator
+    }),
+    notificationsUpdate: Object.freeze({
+      method: "PATCH",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: notificationsUpdateBodyValidator,
+      output: userSettingsOutputValidator
+    }),
+    chatUpdate: Object.freeze({
+      method: "PATCH",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: chatUpdateBodyValidator,
+      output: userSettingsOutputValidator
     })
   })
 });
 
-export {
-  securityRecordSchema,
-  preferencesRecordSchema,
-  notificationsRecordSchema,
-  chatRecordSchema,
-  userSettingsRecordSchema,
-  userSettingsCreateSchema,
-  userSettingsReplaceSchema,
-  userSettingsPatchSchema,
-  preferencesPatchBodySchema,
-  notificationsPatchBodySchema,
-  chatPatchBodySchema,
-  userSettingsListSchema,
-  userSettingsResource
-};
+export { userSettingsResource };

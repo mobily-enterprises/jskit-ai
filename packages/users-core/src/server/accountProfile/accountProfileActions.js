@@ -1,11 +1,13 @@
 import {
   EMPTY_INPUT_CONTRACT,
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { settingsAvatarUploadCommand } from "../../shared/contracts/commands/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
 
 const accountProfileActions = Object.freeze([
   {
@@ -16,6 +18,7 @@ const accountProfileActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: EMPTY_INPUT_CONTRACT,
+    output: userSettingsResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -33,7 +36,7 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: userProfileResource.operations.patch.body,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -44,7 +47,7 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
         resolveUser(context, input),
-        normalizeObject(input)
+        input
       );
     }
   },
@@ -55,7 +58,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: settingsAvatarUploadCommand.operation.body,
+    output: settingsAvatarUploadCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -66,7 +70,7 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.uploadAvatar(
         resolveRequest(context),
         resolveUser(context, input),
-        normalizeObject(input)
+        input
       );
     }
   },
@@ -77,7 +81,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: settingsAvatarDeleteCommand.operation.body,
+    output: settingsAvatarDeleteCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -88,7 +93,7 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.deleteAvatar(
         resolveRequest(context),
         resolveUser(context, input),
-        normalizeObject(input)
+        input
       );
     }
   }

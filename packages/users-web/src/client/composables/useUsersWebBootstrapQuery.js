@@ -1,7 +1,6 @@
 import {
   computed,
-  unref,
-  watch
+  unref
 } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
@@ -35,30 +34,6 @@ function useUsersWebBootstrapQuery({ workspaceSlug = "", enabled = true, staleTi
     staleTime,
     refetchOnWindowFocus: false
   });
-
-  watch(
-    [normalizedWorkspaceSlug, bootstrapPath, queryEnabled, () => query.error.value, () => query.data.value],
-    ([nextWorkspaceSlug, nextBootstrapPath, nextQueryEnabled, nextError, nextData]) => {
-      console.log("[users-web-debug] bootstrap-query", {
-        workspaceSlug: nextWorkspaceSlug,
-        path: nextBootstrapPath,
-        enabled: nextQueryEnabled,
-        error: nextError
-          ? {
-              name: nextError.name,
-              message: nextError.message,
-              status: nextError.status,
-              statusCode: nextError.statusCode,
-              code: nextError.code,
-              details: nextError.details
-            }
-          : null,
-        activeWorkspaceSlug: String(nextData?.activeWorkspace?.slug || "").trim(),
-        permissions: Array.isArray(nextData?.permissions) ? nextData.permissions : []
-      });
-    },
-    { immediate: true }
-  );
 
   return Object.freeze({
     query,

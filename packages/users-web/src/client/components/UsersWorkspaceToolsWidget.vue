@@ -1,5 +1,4 @@
 <script setup>
-import { watch } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { mdiCogOutline } from "@mdi/js";
 
@@ -9,16 +8,6 @@ const props = defineProps({
     default: "*"
   }
 });
-
-watch(
-  () => props.surface,
-  (nextSurface) => {
-    console.log("[users-web-debug] workspace-tools-widget", {
-      surface: nextSurface
-    });
-  },
-  { immediate: true }
-);
 </script>
 
 <template>

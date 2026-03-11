@@ -1,10 +1,9 @@
 import {
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 const accountPreferencesActions = Object.freeze([
   {
@@ -14,7 +13,8 @@ const accountPreferencesActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: userSettingsResource.operations.preferencesUpdate.body,
+    output: userSettingsResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -25,7 +25,7 @@ const accountPreferencesActions = Object.freeze([
       return deps.accountPreferencesService.updatePreferences(
         resolveRequest(context),
         resolveUser(context, input),
-        normalizeObject(input)
+        input
       );
     }
   }

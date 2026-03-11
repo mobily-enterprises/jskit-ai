@@ -1,5 +1,5 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { contactsInputParts } from "./contactsInputParts.js";
+import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 const contactsActions = Object.freeze([
@@ -10,7 +10,7 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: contactsInputParts.listQuery,
+    input: contactsInputPartsValidator.listQuery,
     output: contactsResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
@@ -29,7 +29,7 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: contactsInputParts.routeParams,
+    input: contactsInputPartsValidator.routeParams,
     output: contactsResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "none",
@@ -67,7 +67,7 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: [contactsInputParts.routeParams, contactsResource.operations.patch.body],
+    input: [contactsInputPartsValidator.routeParams, contactsResource.operations.patch.body],
     output: contactsResource.operations.patch.output,
     permission: requireAuthenticated,
     idempotency: "optional",
@@ -87,7 +87,7 @@ const contactsActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     visibility: "public",
-    input: contactsInputParts.routeParams,
+    input: contactsInputPartsValidator.routeParams,
     output: contactsResource.operations.delete.output,
     permission: requireAuthenticated,
     idempotency: "optional",

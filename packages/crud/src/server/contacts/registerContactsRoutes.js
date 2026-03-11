@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactsInputParts } from "./contactsInputParts.js";
+import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 function registerContactsRoutes(app) {
@@ -19,7 +19,7 @@ function registerContactsRoutes(app) {
         tags: ["contacts"],
         summary: "List contacts."
       },
-      query: contactsInputParts.listQuery,
+      query: contactsInputPartsValidator.listQuery,
       response: withStandardErrorResponses({
         200: contactsResource.operations.list.output
       })
@@ -43,7 +43,7 @@ function registerContactsRoutes(app) {
         tags: ["contacts"],
         summary: "View a contact."
       },
-      params: contactsInputParts.routeParams,
+      params: contactsInputPartsValidator.routeParams,
       response: withStandardErrorResponses({
         200: contactsResource.operations.view.output
       })
@@ -94,7 +94,7 @@ function registerContactsRoutes(app) {
         tags: ["contacts"],
         summary: "Update a contact."
       },
-      params: contactsInputParts.routeParams,
+      params: contactsInputPartsValidator.routeParams,
       body: contactsResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
@@ -125,7 +125,7 @@ function registerContactsRoutes(app) {
         tags: ["contacts"],
         summary: "Delete a contact."
       },
-      params: contactsInputParts.routeParams,
+      params: contactsInputPartsValidator.routeParams,
       response: withStandardErrorResponses({
         200: contactsResource.operations.delete.output
       })
