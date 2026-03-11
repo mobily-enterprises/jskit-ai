@@ -1,4 +1,4 @@
-import { coerceWorkspaceColor } from "../../shared/settings.js";
+import { coerceWorkspaceColor } from "../../../shared/settings.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 function mapWorkspaceSummary(workspace, membership) {

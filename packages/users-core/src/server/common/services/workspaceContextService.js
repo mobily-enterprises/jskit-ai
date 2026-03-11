@@ -6,18 +6,16 @@ import {
   TENANCY_MODE_WORKSPACE,
   normalizeTenancyMode
 } from "@jskit-ai/kernel/shared/surface";
-import { coerceWorkspaceColor } from "../../shared/settings.js";
+import { coerceWorkspaceColor } from "../../../shared/settings.js";
 import {
   OWNER_ROLE_ID,
   resolveRolePermissions
-} from "../../shared/roles.js";
+} from "../../../shared/roles.js";
 import {
-  mapMembershipSummary,
-  mapWorkspaceSettingsPublic,
   mapWorkspaceSummary
-} from "./workspaceMappings.js";
+} from "../formatters/workspaceFormatter.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { authenticatedUserValidator } from "../common/validators/authenticatedUserValidator.js";
+import { authenticatedUserValidator } from "../validators/authenticatedUserValidator.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -80,16 +78,12 @@ function createService({
   appConfig = {},
   workspacesRepository,
   workspaceMembershipsRepository,
-  workspaceSettingsRepository,
-  userSettingsRepository,
-  userProfilesRepository
+  workspaceSettingsRepository
 } = {}) {
   if (
     !workspacesRepository ||
     !workspaceMembershipsRepository ||
-    !workspaceSettingsRepository ||
-    !userSettingsRepository ||
-    !userProfilesRepository
+    !workspaceSettingsRepository
   ) {
     throw new Error("workspaceService requires repositories.");
   }
@@ -241,101 +235,12 @@ function createService({
     };
   }
 
-  async function buildBootstrapPayload({ request = null, user = null, workspaceSlug = "", pendingInvites = [] } = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
-      return {
-        session: {
-          authenticated: false
-        },
-        profile: null,
-        app: {
-          tenancyMode: resolvedTenancyMode,
-          features: { ...resolvedAppFeatures }
-        },
-        workspaces: [],
-        pendingInvites: [],
-        activeWorkspace: null,
-        membership: null,
-        permissions: [],
-        workspaceSettings: null,
-        userSettings: null
-      };
-    }
-
-    const latestProfile =
-      (await userProfilesRepository.findByIdentity({
-        provider: normalizedUser.authProvider,
-        providerUserId: normalizedUser.authProviderUserId
-      })) || normalizedUser;
-
-    const workspaces = await listWorkspacesForUser(latestProfile);
-    const normalizedWorkspaceSlug = normalizeText(workspaceSlug);
-    let workspaceContext = null;
-    if (normalizedWorkspaceSlug) {
-      workspaceContext = await resolveWorkspaceContextForUserBySlug(latestProfile, normalizedWorkspaceSlug, {
-        request
-      });
-    }
-
-    const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
-    return {
-      session: {
-        authenticated: true,
-        userId: latestProfile.id
-      },
-      profile: {
-        displayName: latestProfile.displayName,
-        email: latestProfile.email,
-        avatar: {
-          uploadedUrl: null,
-          gravatarUrl: "",
-          effectiveUrl: "",
-          hasUploadedAvatar: false,
-          size: Number(userSettings.avatarSize || 64),
-          version: latestProfile.avatarVersion || null
-        }
-      },
-      app: {
-        tenancyMode: resolvedTenancyMode,
-        features: { ...resolvedAppFeatures }
-      },
-      workspaces: [...workspaces],
-      pendingInvites,
-      activeWorkspace: workspaceContext
-        ? mapWorkspaceSummary(workspaceContext.workspace, {
-            roleId: workspaceContext.membership?.roleId,
-            status: workspaceContext.membership?.status
-          })
-        : null,
-      membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
-      permissions: workspaceContext ? [...workspaceContext.permissions] : [],
-      workspaceSettings: workspaceContext ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings) : null,
-      userSettings: {
-        theme: userSettings.theme,
-        locale: userSettings.locale,
-        timeZone: userSettings.timeZone,
-        dateFormat: userSettings.dateFormat,
-        numberFormat: userSettings.numberFormat,
-        currencyCode: userSettings.currencyCode,
-        avatarSize: userSettings.avatarSize,
-        productUpdates: userSettings.productUpdates,
-        accountActivity: userSettings.accountActivity,
-        securityAlerts: userSettings.securityAlerts
-      },
-      requestMeta: {
-        hasRequest: Boolean(request)
-      }
-    };
-  }
-
   return Object.freeze({
     toSlugPart,
     buildWorkspaceName,
     buildWorkspaceBaseSlug,
     hashInviteToken,
     ensurePersonalWorkspaceForUser,
-    buildBootstrapPayload,
     listWorkspacesForUser,
     resolveWorkspaceContextForUserBySlug
   });

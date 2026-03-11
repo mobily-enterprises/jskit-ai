@@ -2,7 +2,10 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { settingsRoutesContract as settingsSchema } from "../common/contracts/settingsRoutesContract.js";
+import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { settingsAvatarUploadCommand } from "../../shared/contracts/commands/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
+import { settingsResponseValidator } from "../common/validators/settingsResponseValidator.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -22,7 +25,7 @@ function bootAccountProfileRoutes(app) {
         summary: "Get authenticated user's settings"
       },
       response: withStandardErrorResponses({
-        200: { schema: settingsSchema.response }
+        200: { schema: settingsResponseValidator.schema }
       })
     },
     async function (request, reply) {
@@ -43,12 +46,12 @@ function bootAccountProfileRoutes(app) {
         summary: "Update profile settings"
       },
       body: {
-        schema: settingsSchema.body.profile,
+        schema: userProfileResource.operations.replace.body.schema,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: { schema: settingsSchema.response }
+          200: { schema: settingsResponseValidator.schema }
         },
         { includeValidation400: true }
       )
@@ -84,7 +87,7 @@ function bootAccountProfileRoutes(app) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.profile.avatar.upload"].operation.response
+          200: settingsAvatarUploadCommand.operation.response
         },
         { includeValidation400: true }
       )
@@ -126,7 +129,7 @@ function bootAccountProfileRoutes(app) {
         summary: "Delete profile avatar and fallback to gravatar"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.commands["settings.profile.avatar.delete"].operation.response
+        200: settingsAvatarDeleteCommand.operation.response
       })
     },
     async function (request, reply) {

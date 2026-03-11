@@ -1,4 +1,6 @@
 import * as apiRouteRegistration from "./apiRouteRegistration.js";
+import * as bootstrapContributors from "./bootstrapContributors.js";
+import * as bootstrapRoutes from "./bootBootstrapRoutes.js";
 import * as canonicalJson from "./canonicalJson.js";
 import * as composition from "./composition.js";
 import * as errors from "./errors.js";
@@ -16,9 +18,12 @@ import * as runtimeAssembly from "./runtimeAssembly.js";
 import * as runtimeKernel from "./runtimeKernel.js";
 import * as securityAudit from "./securityAudit.js";
 import * as storagePaths from "./storagePaths.js";
+import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 
 const SERVER_RUNTIME_CORE_API = Object.freeze({
   apiRouteRegistration: Object.freeze({ ...apiRouteRegistration }),
+  bootstrapContributors: Object.freeze({ ...bootstrapContributors }),
+  bootstrapRoutes: Object.freeze({ ...bootstrapRoutes }),
   canonicalJson: Object.freeze({ ...canonicalJson }),
   composition: Object.freeze({ ...composition }),
   errors: Object.freeze({ ...errors }),
@@ -49,7 +54,11 @@ class ServerRuntimeCoreServiceProvider {
     app.singleton("runtime.server", () => SERVER_RUNTIME_CORE_API);
   }
 
-  boot() {}
+  boot(app) {
+    if (app.has(KERNEL_TOKENS.HttpRouter)) {
+      bootstrapRoutes.bootBootstrapRoutes(app);
+    }
+  }
 }
 
 export { ServerRuntimeCoreServiceProvider };

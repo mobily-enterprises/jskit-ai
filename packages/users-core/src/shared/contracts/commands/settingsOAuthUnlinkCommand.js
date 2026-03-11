@@ -1,6 +1,19 @@
 import { Type } from "typebox";
 import { createOperationMessages } from "../contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+
+function normalizeSettingsOAuthUnlinkInput(input = {}) {
+  const source = normalizeObjectInput(input);
+
+  if (!Object.hasOwn(source, "provider")) {
+    return {};
+  }
+
+  return {
+    provider: normalizeText(source.provider)
+  };
+}
 
 const settingsOAuthUnlinkInputSchema = Type.Object(
   {
@@ -32,7 +45,7 @@ const settingsOAuthUnlinkCommand = Object.freeze({
     messages: SETTINGS_OAUTH_UNLINK_MESSAGES,
     params: Object.freeze({
       schema: settingsOAuthUnlinkInputSchema,
-      normalize: normalizeObjectInput
+      normalize: normalizeSettingsOAuthUnlinkInput
     }),
     response: Object.freeze({
       schema: settingsOAuthUnlinkOutputSchema
@@ -44,6 +57,7 @@ const settingsOAuthUnlinkCommand = Object.freeze({
 
 export {
   settingsOAuthUnlinkInputSchema,
+  normalizeSettingsOAuthUnlinkInput,
   settingsOAuthUnlinkOutputSchema,
   SETTINGS_OAUTH_UNLINK_MESSAGES,
   settingsOAuthUnlinkCommand

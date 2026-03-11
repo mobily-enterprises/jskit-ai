@@ -151,7 +151,6 @@ const ACTION_IDS = Object.freeze({
   WORKSPACE_BILLING_PRODUCTS_LIST: "workspace.billing.products.list",
   WORKSPACE_BILLING_PURCHASES_LIST: "workspace.billing.purchases.list",
   WORKSPACE_BILLING_TIMELINE_LIST: "workspace.billing.timeline.list",
-  WORKSPACE_BOOTSTRAP_READ: "workspace.bootstrap.read",
   WORKSPACE_INVITATIONS_PENDING_LIST: "workspace.invitations.pending.list",
   WORKSPACE_INVITE_CREATE: "workspace.invite.create",
   WORKSPACE_INVITE_REDEEM: "workspace.invite.redeem",

@@ -1,6 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
-import { workspaceBootstrapResource } from "../../../shared/schemas/resources/workspaceBootstrapResource.js";
 import {
   workspaceSettingsResource as workspaceSettingsResourceSchema
 } from "../../../shared/schemas/resources/workspaceSettingsResource.js";
@@ -8,7 +7,7 @@ import { workspaceMemberResource } from "../../../shared/resources/workspaceMemb
 import { workspaceInviteResource } from "../../../shared/resources/workspaceInviteResource.js";
 import { workspaceInviteRedeemCommandResource } from "../../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
 
-const workspaceRoutesContract = Object.freeze({
+const workspaceRoutes = Object.freeze({
   body: {
     redeemInvite: workspaceInviteRedeemCommandResource.operation.body.schema,
     memberRoleUpdate: Type.Object(
@@ -20,7 +19,6 @@ const workspaceRoutesContract = Object.freeze({
     createInvite: workspaceInviteResource.operations.create.body.schema
   },
   response: {
-    bootstrap: workspaceBootstrapResource.operations.view.output.schema,
     workspacesList: workspaceResource.operations.list.output.schema,
     pendingInvites: Type.Object(
       {
@@ -52,4 +50,4 @@ const workspaceRoutesContract = Object.freeze({
   }
 });
 
-export { workspaceRoutesContract };
+export { workspaceRoutes };

@@ -33,3 +33,14 @@ export {
   safeParseJson,
   __testables as canonicalJsonTestables
 } from "./canonicalJson.js";
+export {
+  BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG,
+  registerBootstrapPayloadContributor,
+  resolveBootstrapPayloadContributors,
+  resolveBootstrapPayload
+} from "./bootstrapContributors.js";
+export {
+  bootBootstrapRoutes,
+  bootstrapQueryValidator,
+  bootstrapOutputValidator
+} from "./bootBootstrapRoutes.js";

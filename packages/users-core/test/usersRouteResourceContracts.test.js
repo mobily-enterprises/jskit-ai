@@ -4,9 +4,17 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/contracts/resourceRequiredMetadata";
-import { workspaceRoutesContract as workspaceSchema } from "../src/server/common/contracts/workspaceRoutesContract.js";
-import { settingsRoutesContract as settingsSchema } from "../src/server/common/contracts/settingsRoutesContract.js";
-import { consoleSettingsRoutes as consoleSettingsSchema } from "../src/server/consoleSettings/consoleSettingsRoutes.js";
+import { workspaceRoutes as workspaceSchema } from "../src/server/common/routes/workspaceRoutes.js";
+import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
+import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { settingsPasswordChangeCommand } from "../src/shared/contracts/commands/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../src/shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../src/shared/contracts/commands/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../src/shared/contracts/commands/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../src/shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
+import { settingsAvatarUploadCommand } from "../src/shared/contracts/commands/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../src/shared/contracts/commands/settingsAvatarDeleteCommand.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -67,9 +75,9 @@ test("workspace/settings/console schemas expose canonical resource contracts", (
     workspaceSettings: workspaceSchema.resources.workspaceSettings,
     workspaceMember: workspaceSchema.resources.workspaceMember,
     workspaceInvite: workspaceSchema.resources.workspaceInvite,
-    userProfile: settingsSchema.resources.userProfile,
-    userSettings: settingsSchema.resources.userSettings,
-    consoleSettings: consoleSettingsSchema.resources.consoleSettings
+    userProfile: userProfileResource,
+    userSettings: userSettingsResource,
+    consoleSettings: consoleSettingsResource
   };
 
   for (const [label, contract] of Object.entries(resourceContracts)) {
@@ -80,13 +88,13 @@ test("workspace/settings/console schemas expose canonical resource contracts", (
 test("workspace/settings schemas expose canonical command contracts", () => {
   const commandContracts = {
     "workspace.invite.redeem": workspaceSchema.commands["workspace.invite.redeem"],
-    "settings.security.password.change": settingsSchema.commands["settings.security.password.change"],
-    "settings.security.password_method.toggle": settingsSchema.commands["settings.security.password_method.toggle"],
-    "settings.security.oauth.link.start": settingsSchema.commands["settings.security.oauth.link.start"],
-    "settings.security.oauth.unlink": settingsSchema.commands["settings.security.oauth.unlink"],
-    "settings.security.sessions.logout_others": settingsSchema.commands["settings.security.sessions.logout_others"],
-    "settings.profile.avatar.upload": settingsSchema.commands["settings.profile.avatar.upload"],
-    "settings.profile.avatar.delete": settingsSchema.commands["settings.profile.avatar.delete"]
+    "settings.security.password.change": settingsPasswordChangeCommand,
+    "settings.security.password_method.toggle": settingsPasswordMethodToggleCommand,
+    "settings.security.oauth.link.start": settingsOAuthLinkStartCommand,
+    "settings.security.oauth.unlink": settingsOAuthUnlinkCommand,
+    "settings.security.sessions.logout_others": settingsLogoutOtherSessionsCommand,
+    "settings.profile.avatar.upload": settingsAvatarUploadCommand,
+    "settings.profile.avatar.delete": settingsAvatarDeleteCommand
   };
 
   for (const [label, contract] of Object.entries(commandContracts)) {
@@ -120,27 +128,6 @@ test("route schema building blocks are wired directly from canonical contracts",
     workspaceSchema.resources.workspaceInvite.operations.list.response.schema
   );
 
-  assert.equal(
-    settingsSchema.body.profile,
-    settingsSchema.resources.userProfile.operations.replace.body.schema
-  );
-  assert.equal(
-    settingsSchema.body.changePassword,
-    settingsSchema.commands["settings.security.password.change"].operation.body.schema
-  );
-  assert.equal(
-    settingsSchema.body.passwordMethodToggle,
-    settingsSchema.commands["settings.security.password_method.toggle"].operation.body.schema
-  );
-
-  assert.equal(
-    consoleSettingsSchema.body.update,
-    consoleSettingsSchema.resources.consoleSettings.operations.replace.body.schema
-  );
-  assert.equal(
-    consoleSettingsSchema.response.settings,
-    consoleSettingsSchema.resources.consoleSettings.operations.view.response.schema
-  );
 });
 
 test("users-core route contracts no longer live under a legacy shared/schema directory", () => {

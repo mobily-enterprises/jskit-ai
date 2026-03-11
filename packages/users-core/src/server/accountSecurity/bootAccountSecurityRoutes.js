@@ -1,11 +1,12 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { settingsRoutesContract as settingsSchema } from "../common/contracts/settingsRoutesContract.js";
-import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
-import { routeQueries } from "../common/contracts/routeQueries.js";
+import { settingsPasswordChangeCommand } from "../../shared/contracts/commands/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../../shared/contracts/commands/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../../shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
 
 function bootAccountSecurityRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -25,12 +26,12 @@ function bootAccountSecurityRoutes(app) {
         summary: "Set or change authenticated user's password"
       },
       body: {
-        schema: settingsSchema.body.changePassword,
+        schema: settingsPasswordChangeCommand.operation.body.schema,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.password.change"].operation.response
+          200: settingsPasswordChangeCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -66,12 +67,12 @@ function bootAccountSecurityRoutes(app) {
         summary: "Enable or disable password sign-in method"
       },
       body: {
-        schema: settingsSchema.body.passwordMethodToggle,
+        schema: settingsPasswordMethodToggleCommand.operation.body.schema,
         normalize: normalizeObjectInput
       },
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.password_method.toggle"].operation.response
+          200: settingsPasswordMethodToggleCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -100,8 +101,8 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      params: routeParamsValidator,
-      query: routeQueries.oauthReturnTo,
+      params: settingsOAuthLinkStartCommand.operation.params,
+      query: settingsOAuthLinkStartCommand.operation.query,
       response: withStandardErrorResponses(
         {
           302: { schema: Type.Unknown() }
@@ -114,15 +115,11 @@ function bootAccountSecurityRoutes(app) {
       }
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const query = normalizeObjectInput(request?.input?.query);
-      const provider = params.provider;
-      const returnTo = normalizeText(query.returnTo);
       const result = await request.executeAction({
         actionId: "settings.security.oauth.link.start",
         input: {
-          provider,
-          returnTo: returnTo || undefined
+          ...request.input.params,
+          ...request.input.query
         }
       });
 
@@ -139,10 +136,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      params: routeParamsValidator,
+      params: settingsOAuthUnlinkCommand.operation.params,
       response: withStandardErrorResponses(
         {
-          200: settingsSchema.commands["settings.security.oauth.unlink"].operation.response
+          200: settingsOAuthUnlinkCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -152,13 +149,9 @@ function bootAccountSecurityRoutes(app) {
       }
     },
     async function (request, reply) {
-      const params = normalizeObjectInput(request?.input?.params);
-      const provider = params.provider;
       const response = await request.executeAction({
         actionId: "settings.security.oauth.unlink",
-        input: {
-          provider
-        }
+        input: request.input.params
       });
 
       reply.code(200).send(response);
@@ -175,7 +168,7 @@ function bootAccountSecurityRoutes(app) {
         summary: "Sign out from other active sessions"
       },
       response: withStandardErrorResponses({
-        200: settingsSchema.commands["settings.security.sessions.logout_others"].operation.response
+        200: settingsLogoutOtherSessionsCommand.operation.response
       }),
       rateLimit: {
         max: 20,
@@ -184,7 +177,8 @@ function bootAccountSecurityRoutes(app) {
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: "settings.security.sessions.logout_others"
+        actionId: "settings.security.sessions.logout_others",
+        input: {}
       });
       reply.code(200).send(response);
     }

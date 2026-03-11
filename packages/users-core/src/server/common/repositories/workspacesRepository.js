@@ -5,8 +5,8 @@ import {
   toNullableIso,
   nowDb,
   isDuplicateEntryError
-} from "../common/repositories/repositoryUtils.js";
-import { coerceWorkspaceColor } from "../../shared/settings.js";
+} from "./repositoryUtils.js";
+import { coerceWorkspaceColor } from "../../../shared/settings.js";
 
 function mapRow(row) {
   if (!row) {

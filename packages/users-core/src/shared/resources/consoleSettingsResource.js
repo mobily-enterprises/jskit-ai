@@ -91,12 +91,4 @@ const consoleSettingsResource = Object.freeze({
   })
 });
 
-export {
-  consoleSettingsValueSchema,
-  consoleSettingsRecordSchema,
-  consoleSettingsCreateSchema,
-  consoleSettingsReplaceSchema,
-  consoleSettingsPatchSchema,
-  consoleSettingsListSchema,
-  consoleSettingsResource
-};
+export { consoleSettingsResource };

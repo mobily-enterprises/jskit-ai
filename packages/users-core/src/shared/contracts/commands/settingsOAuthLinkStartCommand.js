@@ -1,6 +1,36 @@
 import { Type } from "typebox";
 import { createOperationMessages } from "../contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+
+function normalizeSettingsOAuthProviderParams(input = {}) {
+  const source = normalizeObjectInput(input);
+
+  if (!Object.hasOwn(source, "provider")) {
+    return {};
+  }
+
+  return {
+    provider: normalizeText(source.provider)
+  };
+}
+
+function normalizeSettingsOAuthProviderQuery(input = {}) {
+  const source = normalizeObjectInput(input);
+
+  if (!Object.hasOwn(source, "returnTo")) {
+    return {};
+  }
+
+  const returnTo = normalizeText(source.returnTo);
+  if (!returnTo) {
+    return {};
+  }
+
+  return {
+    returnTo
+  };
+}
 
 const settingsOAuthProviderSchema = Type.String({
   minLength: 2,
@@ -74,11 +104,11 @@ const settingsOAuthLinkStartCommand = Object.freeze({
     messages: SETTINGS_OAUTH_LINK_START_MESSAGES,
     params: Object.freeze({
       schema: settingsOAuthProviderParamsSchema,
-      normalize: normalizeObjectInput
+      normalize: normalizeSettingsOAuthProviderParams
     }),
     query: Object.freeze({
       schema: settingsOAuthProviderQuerySchema,
-      normalize: normalizeObjectInput
+      normalize: normalizeSettingsOAuthProviderQuery
     }),
     response: Object.freeze({
       schema: settingsOAuthLinkStartOutputSchema
@@ -93,6 +123,8 @@ export {
   settingsOAuthReturnToSchema,
   settingsOAuthProviderParamsSchema,
   settingsOAuthProviderQuerySchema,
+  normalizeSettingsOAuthProviderParams,
+  normalizeSettingsOAuthProviderQuery,
   settingsOAuthLinkStartInputSchema,
   settingsOAuthLinkStartOutputSchema,
   SETTINGS_OAUTH_LINK_START_MESSAGES,

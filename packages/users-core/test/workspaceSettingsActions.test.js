@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { workspaceBootstrapActions } from "../src/server/workspaceBootstrap/workspaceBootstrapActions.js";
 import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
 import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
@@ -20,7 +19,6 @@ test("workspace settings actions live in their own action array", () => {
 
 test("workspace actions array no longer owns workspace settings actions", () => {
   const otherWorkspaceActionIds = [
-    ...workspaceBootstrapActions,
     ...workspaceDirectoryActions,
     ...workspacePendingInvitationsActions,
     ...workspaceMembersActions

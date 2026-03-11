@@ -1,7 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { consoleSettingsRoutes as consoleSettingsSchema } from "./consoleSettingsRoutes.js";
+import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
 function bootConsoleSettingsRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -21,7 +20,7 @@ function bootConsoleSettingsRoutes(app) {
         summary: "Get console settings"
       },
       response: withStandardErrorResponses({
-        200: { schema: consoleSettingsSchema.response.settings }
+        200: consoleSettingsResource.operations.view.response
       })
     },
     async function (request, reply) {
@@ -42,13 +41,10 @@ function bootConsoleSettingsRoutes(app) {
         tags: ["console", "settings"],
         summary: "Update console settings"
       },
-      body: {
-        schema: consoleSettingsSchema.body.update,
-        normalize: normalizeObjectInput
-      },
+      body: consoleSettingsResource.operations.replace.body,
       response: withStandardErrorResponses(
         {
-          200: { schema: consoleSettingsSchema.response.settings }
+          200: consoleSettingsResource.operations.view.response
         },
         { includeValidation400: true }
       )

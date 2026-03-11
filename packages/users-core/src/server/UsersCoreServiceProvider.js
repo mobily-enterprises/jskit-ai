@@ -1,5 +1,4 @@
 import { USERS_SHARED_API } from "../shared/index.js";
-import { bootWorkspaceBootstrapRoutes } from "./workspaceBootstrap/bootWorkspaceBootstrapRoutes.js";
 import { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 import { registerWorkspaceDirectory } from "./workspaceDirectory/registerWorkspaceDirectory.js";
 import {
@@ -21,7 +20,8 @@ import {
 } from "./common/diTokens.js";
 import { registerUsersCoreApi } from "./common/registerUsersCoreApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
-import { registerWorkspaceCore } from "./workspace/registerWorkspaceCore.js";
+import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
+import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
 import { registerAccountSettings } from "./account/registerAccountSettings.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
 
@@ -36,6 +36,7 @@ class UsersCoreServiceProvider {
     registerWorkspaceCore(app);
     registerWorkspaceDirectory(app);
     registerWorkspacePendingInvitations(app);
+    registerWorkspaceBootstrap(app);
     registerWorkspaceMembers(app);
     registerWorkspaceSettings(app);
     registerAccountSettings(app);
@@ -43,7 +44,6 @@ class UsersCoreServiceProvider {
   }
 
   boot(app) {
-    bootWorkspaceBootstrapRoutes(app);
     bootWorkspaceDirectoryRoutes(app);
     if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
       bootWorkspacePendingInvitations(app);

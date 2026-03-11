@@ -83,10 +83,6 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
 test("workspace and settings routes attach only the shared transport normalizers they actually use", () => {
   const routes = registerUsersRoutes();
 
-  const workspaceBootstrap = findRoute(routes, {
-    method: "GET",
-    path: "/api/bootstrap"
-  });
   const workspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -116,7 +112,6 @@ test("workspace and settings routes attach only the shared transport normalizers
     path: "/api/console/settings"
   });
 
-  assert.equal(typeof workspaceBootstrap?.query?.normalize, "function");
   assert.equal(typeof workspaceSettings?.params?.normalize, "function");
   assert.equal(typeof workspaceSettingsPatch?.body?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.params?.normalize, "function");
@@ -124,7 +119,7 @@ test("workspace and settings routes attach only the shared transport normalizers
   assert.equal(typeof workspaceInviteDelete?.params?.normalize, "function");
   assert.equal(typeof settingsProfilePatch?.body?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.params?.normalize, "function");
-  assert.equal(settingsOAuthStart?.query?.normalize, undefined);
+  assert.equal(typeof settingsOAuthStart?.query?.normalize, "function");
   assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
 });
 

@@ -1,9 +1,8 @@
 import {
   EMPTY_INPUT_CONTRACT,
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   requireAuthenticated
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
 const consoleSettingsActions = Object.freeze([
   {
@@ -14,6 +13,7 @@ const consoleSettingsActions = Object.freeze([
     surfacesFrom: "console",
     visibility: "public",
     input: EMPTY_INPUT_CONTRACT,
+    output: consoleSettingsResource.operations.view.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -31,7 +31,8 @@ const consoleSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "console",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: consoleSettingsResource.operations.replace.body,
+    output: consoleSettingsResource.operations.replace.response,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -39,7 +40,7 @@ const consoleSettingsActions = Object.freeze([
     },
     observability: {},
     async execute(input, _context, deps) {
-      return deps.consoleSettingsService.updateSettings(normalizeObject(input));
+      return deps.consoleSettingsService.updateSettings(input);
     }
   }
 ]);

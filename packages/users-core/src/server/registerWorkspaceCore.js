@@ -1,19 +1,15 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
-  registerActionDefinitions,
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
 import { TENANCY_MODE_WORKSPACE, normalizeTenancyMode } from "@jskit-ai/kernel/shared/surface";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
-import { createService as createWorkspaceService } from "./workspaceService.js";
-import { createWorkspaceActionContextContributor } from "./workspaceActionContextContributor.js";
-import { workspaceBootstrapActions } from "../workspaceBootstrap/workspaceBootstrapActions.js";
+import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
+import { createWorkspaceActionContextContributor } from "./common/contributors/workspaceActionContextContributor.js";
 import {
-  USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
-} from "../common/diTokens.js";
+} from "./common/diTokens.js";
 
-const USERS_WORKSPACE_BOOTSTRAP_CONTRIBUTOR_TOKEN = "users.core.workspaceBootstrap.actionDefinitions";
 const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
 
 function resolveWorkspaceTenancyEnabled(appConfig = {}) {
@@ -31,9 +27,7 @@ function registerWorkspaceCore(app) {
       appConfig,
       workspacesRepository: scope.make("workspacesRepository"),
       workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
-      workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
-      userSettingsRepository: scope.make("userSettingsRepository"),
-      userProfilesRepository: scope.make("userProfilesRepository")
+      workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
     });
   });
 
@@ -50,17 +44,6 @@ function registerWorkspaceCore(app) {
   app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
     const appConfig = scope.make("appConfig");
     return resolveWorkspaceTenancyEnabled(appConfig);
-  });
-
-  registerActionDefinitions(app, USERS_WORKSPACE_BOOTSTRAP_CONTRIBUTOR_TOKEN, {
-    contributorId: "users.workspace-bootstrap",
-    domain: "workspace",
-    dependencies: {
-      workspaceService: "users.workspace.service",
-      workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
-      workspaceTenancyEnabled: USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
-    },
-    actions: workspaceBootstrapActions
   });
 
   registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {

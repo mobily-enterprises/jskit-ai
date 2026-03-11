@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkspaceActionContextContributor } from "../src/server/workspace/workspaceActionContextContributor.js";
+import { createWorkspaceActionContextContributor } from "../src/server/common/contributors/workspaceActionContextContributor.js";
 
 test("workspace action context contributor resolves workspace context for workspace actions", async () => {
   const calls = [];
@@ -78,7 +78,7 @@ test("workspace action context contributor ignores actions that do not require w
   });
 
   const contribution = await contributor.contribute({
-    actionId: "workspace.bootstrap.read",
+    actionId: "workspace.workspaces.list",
     input: {
       workspaceSlug: "acme"
     },

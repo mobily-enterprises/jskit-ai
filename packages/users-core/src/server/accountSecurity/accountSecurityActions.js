@@ -1,11 +1,13 @@
 import {
-  EMPTY_INPUT_CONTRACT,
-  normalizeObject,
-  OBJECT_INPUT_SCHEMA,
   requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { settingsPasswordChangeCommand } from "../../shared/contracts/commands/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../../shared/contracts/commands/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../../shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
 
 const accountSecurityActions = Object.freeze([
   {
@@ -15,7 +17,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: EMPTY_INPUT_CONTRACT,
+    input: settingsPasswordChangeCommand.operation.body,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -23,7 +25,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.changePassword(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.settingsService.changePassword(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -33,7 +35,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: settingsPasswordMethodToggleCommand.operation.body,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -41,7 +43,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.setPasswordMethodEnabled(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.settingsService.setPasswordMethodEnabled(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -51,7 +53,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: [settingsOAuthLinkStartCommand.operation.params, settingsOAuthLinkStartCommand.operation.query],
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -59,7 +61,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.startOAuthProviderLink(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.settingsService.startOAuthProviderLink(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -69,7 +71,7 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: settingsOAuthUnlinkCommand.operation.params,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -77,7 +79,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.unlinkOAuthProvider(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.settingsService.unlinkOAuthProvider(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -87,15 +89,15 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: { schema: OBJECT_INPUT_SCHEMA },
+    input: settingsLogoutOtherSessionsCommand.operation.body,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.sessions.logout_others"
     },
     observability: {},
-    async execute(_input, context, deps) {
-      return deps.settingsService.logoutOtherSessions(resolveRequest(context), resolveUser(context, {}));
+    async execute(input, context, deps) {
+      return deps.settingsService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input));
     }
   }
 ]);

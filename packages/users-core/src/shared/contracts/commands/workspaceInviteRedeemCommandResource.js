@@ -52,8 +52,7 @@ const workspaceInviteRedeemCommandResource = Object.freeze({
     idempotent: false,
     invalidates: Object.freeze([
       "workspace.invitations.pending.list",
-      "workspace.workspaces.list",
-      "workspace.bootstrap.read"
+      "workspace.workspaces.list"
     ])
   })
 });

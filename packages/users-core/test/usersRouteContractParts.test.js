@@ -1,24 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Type } from "@fastify/type-provider-typebox";
 import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
-import { routeQueries } from "../src/server/common/contracts/routeQueries.js";
 
 test("routeParamsValidator exposes a shared route params contract part", () => {
   assert.equal(typeof routeParamsValidator.schema, "object");
   assert.equal(typeof routeParamsValidator.normalize, "function");
 });
 
-test("routeQueries exposes first-class query contract parts", () => {
-  assert.equal(typeof routeQueries.pagination.schema, "object");
-  assert.equal(typeof routeQueries.search.schema, "object");
-  assert.equal(typeof routeQueries.oauthReturnTo.schema, "object");
-});
-
 test("route contract uses the shared params contract part and merges query arrays automatically", () => {
+  const paginationQueryValidator = Object.freeze({
+    schema: Type.Object(
+      {
+        cursor: Type.Optional(Type.String({ minLength: 1 })),
+        limit: Type.Optional(Type.String({ pattern: "^[0-9]+$" }))
+      },
+      { additionalProperties: false }
+    )
+  });
+  const searchQueryValidator = Object.freeze({
+    schema: Type.Object(
+      {
+        search: Type.Optional(Type.String({ minLength: 1 }))
+      },
+      { additionalProperties: false }
+    )
+  });
+
   const compiled = compileRouteContract({
     params: routeParamsValidator,
-    query: [routeQueries.pagination, routeQueries.search]
+    query: [paginationQueryValidator, searchQueryValidator]
   });
 
   assert.equal(compiled.schema.params.type, "object");

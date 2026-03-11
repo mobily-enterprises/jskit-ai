@@ -1,59 +1,72 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createService } from "../src/server/workspace/workspaceService.js";
+import { createService } from "../src/server/common/services/workspaceContextService.js";
 
-function createWorkspaceServiceFixture({
-  tenancyMode = "workspace"
-} = {}) {
-  const workspace = {
-    id: 1,
-    slug: "tonymobily3",
-    name: "TonyMobily3",
-    avatarUrl: "",
-    color: "#0F6B54"
-  };
-
+function createWorkspaceServiceFixture({ tenancyMode = "workspace" } = {}) {
   const service = createService({
     appConfig: {
       tenancyMode
     },
     workspacesRepository: {
-      async findBySlug(slug) {
-        return String(slug || "").trim().toLowerCase() === "tonymobily3" ? workspace : null;
+      async findBySlug() {
+        return {
+          id: 1,
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          avatarUrl: "",
+          color: "#0F6B54"
+        };
       },
       async findPersonalByOwnerUserId() {
-        return null;
-      },
-      async insert() {
-        return workspace;
+        return {
+          id: 1,
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          avatarUrl: "",
+          color: "#0F6B54"
+        };
       },
       async listForUserId() {
-        return [];
+        return [
+          {
+            id: 1,
+            slug: "tonymobily3",
+            name: "TonyMobily3",
+            avatarUrl: "",
+            color: "#0F6B54",
+            roleId: "owner",
+            membershipStatus: "active"
+          },
+          {
+            id: 2,
+            slug: "pending-workspace",
+            name: "Pending Workspace",
+            avatarUrl: "",
+            color: "#0F6B54",
+            roleId: "member",
+            membershipStatus: "pending"
+          }
+        ];
       },
-      async findById(id) {
-        return Number(id) === 1 ? workspace : null;
+      async insert() {
+        return {
+          id: 1,
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          avatarUrl: "",
+          color: "#0F6B54"
+        };
       }
     },
     workspaceMembershipsRepository: {
       async ensureOwnerMembership() {},
-      async findByWorkspaceIdAndUserId(workspaceId, userId) {
-        if (Number(workspaceId) !== 1 || Number(userId) < 1) {
-          return null;
-        }
-
+      async findByWorkspaceIdAndUserId() {
         return {
           workspaceId: 1,
-          userId: Number(userId),
-          roleId: "member",
+          userId: 1,
+          roleId: "owner",
           status: "active"
         };
-      },
-      async upsertMembership(workspaceId, userId, payload) {
-        upsertCalls.push({
-          workspaceId: Number(workspaceId),
-          userId: Number(userId),
-          payload: payload && typeof payload === "object" ? { ...payload } : payload
-        });
       }
     },
     workspaceSettingsRepository: {
@@ -62,46 +75,26 @@ function createWorkspaceServiceFixture({
           invitesEnabled: true
         };
       }
-    },
-    userSettingsRepository: {
-      async ensureForUserId() {
-        return {
-          avatarSize: 64,
-          theme: "system",
-          locale: "en",
-          timeZone: "UTC",
-          dateFormat: "yyyy-mm-dd",
-          numberFormat: "1,234.56",
-          currencyCode: "USD",
-          productUpdates: true,
-          accountActivity: true,
-          securityAlerts: true
-        };
-      }
-    },
-    userProfilesRepository: {
-      async findByIdentity() {
-        return null;
-      }
     }
   });
 
-  return {
-    service
-  };
+  return { service };
 }
 
-test("buildBootstrapPayload returns pendingInvites provided by the caller", async () => {
+test("workspaceService no longer exposes bootstrap payload assembly", () => {
   const { service } = createWorkspaceServiceFixture();
+  assert.equal(service.buildBootstrapPayload, undefined);
+});
 
-  const response = await service.buildBootstrapPayload({
-    user: {
-      id: 7,
-      email: "chiaramobily@gmail.com",
-      displayName: "Chiara"
-    },
-    pendingInvites: [{ id: 44, token: "opaque-token" }]
+test("workspaceService.listWorkspacesForUser returns only accessible workspaces", async () => {
+  const { service } = createWorkspaceServiceFixture();
+  const workspaces = await service.listWorkspacesForUser({
+    id: 7,
+    email: "chiaramobily@gmail.com",
+    displayName: "Chiara"
   });
 
-  assert.deepEqual(response.pendingInvites, [{ id: 44, token: "opaque-token" }]);
+  assert.equal(workspaces.length, 1);
+  assert.equal(workspaces[0].slug, "tonymobily3");
+  assert.equal(workspaces[0].roleId, "owner");
 });

@@ -2,7 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
   version: "0.1.0",
-  description: "Users/workspace domain runtime plus HTTP routes for bootstrap, workspace, account, and console features.",
+  description: "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
@@ -64,11 +64,6 @@ export default Object.freeze({
     },
     server: {
       routes: [
-        {
-          method: "GET",
-          path: "/api/bootstrap",
-          summary: "Get bootstrap payload with profile/workspace context."
-        },
         {
           method: "GET",
           path: "/api/workspaces",
