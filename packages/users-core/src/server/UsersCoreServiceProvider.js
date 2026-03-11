@@ -23,6 +23,8 @@ import { registerCommonRepositories } from "./common/registerCommonRepositories.
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
 import { registerAccountSettings } from "./account/registerAccountSettings.js";
+import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
+import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
 
 class UsersCoreServiceProvider {
@@ -39,6 +41,8 @@ class UsersCoreServiceProvider {
     registerWorkspaceBootstrap(app);
     registerWorkspaceMembers(app);
     registerWorkspaceSettings(app);
+    registerAccountProfile(app);
+    registerAccountSecurity(app);
     registerAccountSettings(app);
     registerConsoleSettings(app);
   }

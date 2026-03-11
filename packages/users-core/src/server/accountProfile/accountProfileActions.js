@@ -23,7 +23,7 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.getForUser(resolveRequest(context), resolveUser(context, input));
+      return deps.accountProfileService.getForUser(resolveRequest(context), resolveUser(context, input));
     }
   },
   {
@@ -41,7 +41,11 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.updateProfile(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.accountProfileService.updateProfile(
+        resolveRequest(context),
+        resolveUser(context, input),
+        normalizeObject(input)
+      );
     }
   },
   {
@@ -59,7 +63,11 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.uploadAvatar(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.accountProfileService.uploadAvatar(
+        resolveRequest(context),
+        resolveUser(context, input),
+        normalizeObject(input)
+      );
     }
   },
   {
@@ -77,7 +85,11 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.deleteAvatar(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.accountProfileService.deleteAvatar(
+        resolveRequest(context),
+        resolveUser(context, input),
+        normalizeObject(input)
+      );
     }
   }
 ]);

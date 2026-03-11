@@ -25,7 +25,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.changePassword(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.changePassword(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -43,7 +43,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.setPasswordMethodEnabled(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.setPasswordMethodEnabled(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -61,7 +61,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.startOAuthProviderLink(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.startOAuthProviderLink(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -79,7 +79,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.unlinkOAuthProvider(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.unlinkOAuthProvider(resolveRequest(context), resolveUser(context, input), input);
     }
   },
   {
@@ -97,7 +97,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input));
+      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input));
     }
   }
 ]);
