@@ -27,7 +27,7 @@ function registerContactsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "contacts.list",
-        surface: "admin",
+        context: { surface: "admin" },
         input: request.input.query
       });
       reply.code(200).send(response);
@@ -51,7 +51,7 @@ function registerContactsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "contacts.view",
-        surface: "admin",
+        context: { surface: "admin" },
         input: request.input.params
       });
       reply.code(200).send(response);
@@ -78,7 +78,7 @@ function registerContactsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "contacts.create",
-        surface: "admin",
+        context: { surface: "admin" },
         input: request.input.body
       });
       reply.code(201).send(response);
@@ -106,7 +106,7 @@ function registerContactsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "contacts.update",
-        surface: "admin",
+        context: { surface: "admin" },
         input: {
           ...request.input.params,
           ...request.input.body
@@ -133,7 +133,7 @@ function registerContactsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "contacts.delete",
-        surface: "admin",
+        context: { surface: "admin" },
         input: request.input.params
       });
       reply.code(200).send(response);

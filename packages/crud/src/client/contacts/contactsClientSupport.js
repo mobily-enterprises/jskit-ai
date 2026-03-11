@@ -1,5 +1,6 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveWorkspaceAwareMenuTarget } from "@jskit-ai/users-web/client/lib/workspaceMenuTarget";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 function createContactForm() {
@@ -45,26 +46,54 @@ function contactViewQueryKey(surfaceId = "", contactId = 0) {
   return ["crud", "contacts", "view", normalizeQueryToken(surfaceId), Number(contactId) || 0];
 }
 
-function resolveAdminContactsListPath() {
-  return "/admin/contacts";
+function resolveAdminContactsListPath(context = null, workspaceSlug = "") {
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: "admin",
+    workspaceSlug,
+    workspaceSuffix: "/contacts",
+    nonWorkspaceSuffix: "/contacts"
+  });
 }
 
-function resolveAdminContactNewPath() {
-  return "/admin/contacts/new";
+function resolveAdminContactNewPath(context = null, workspaceSlug = "") {
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: "admin",
+    workspaceSlug,
+    workspaceSuffix: "/contacts/new",
+    nonWorkspaceSuffix: "/contacts/new"
+  });
 }
 
-function resolveAdminContactViewPath(contactIdLike) {
+function resolveAdminContactViewPath(contactIdLike, context = null, workspaceSlug = "") {
   const contactId = Number(contactIdLike);
   if (!Number.isInteger(contactId) || contactId < 1) {
     return "";
   }
 
-  return `/admin/contacts/${contactId}`;
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: "admin",
+    workspaceSlug,
+    workspaceSuffix: `/contacts/${contactId}`,
+    nonWorkspaceSuffix: `/contacts/${contactId}`
+  });
 }
 
-function resolveAdminContactEditPath(contactIdLike) {
-  const detailPath = resolveAdminContactViewPath(contactIdLike);
-  return detailPath ? `${detailPath}/edit` : "";
+function resolveAdminContactEditPath(contactIdLike, context = null, workspaceSlug = "") {
+  const contactId = Number(contactIdLike);
+  if (!Number.isInteger(contactId) || contactId < 1) {
+    return "";
+  }
+
+  return resolveWorkspaceAwareMenuTarget({
+    context,
+    surface: "admin",
+    workspaceSlug,
+    workspaceSuffix: `/contacts/${contactId}/edit`,
+    nonWorkspaceSuffix: `/contacts/${contactId}/edit`
+  });
 }
 
 function toRouteContactId(value) {

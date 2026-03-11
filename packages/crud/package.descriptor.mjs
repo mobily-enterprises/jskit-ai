@@ -122,7 +122,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"crud.contacts.menu\"",
         value:
-          "\naddPlacement({\n  id: \"crud.contacts.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Contacts\",\n    to: \"/admin/contacts\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"crud.contacts.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Contacts\",\n    surface: \"admin\",\n    workspaceSuffix: \"/contacts\",\n    nonWorkspaceSuffix: \"/contacts\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append admin Contacts menu placement into app-owned placement registry.",
         category: "crud",
         id: "crud-placement-contacts-menu"

@@ -92,7 +92,7 @@ function useUsersWebEndpointResource({
   });
 
   const data = computed(() => query.data.value);
-  const isLoading = computed(() => Boolean(query.isPending.value || query.isFetching.value));
+  const isLoading = computed(() => Boolean(queryEnabled.value && (query.isPending.value || query.isFetching.value)));
   const isSaving = computed(() => Boolean(mutation.isPending.value));
   const loadError = computed(() => toErrorMessage(query.error.value, fallbackLoadError));
   const saveError = computed(() => toErrorMessage(mutation.error.value, fallbackSaveError));

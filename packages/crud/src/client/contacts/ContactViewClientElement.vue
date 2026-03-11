@@ -15,15 +15,15 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="view.loadError" type="error" variant="tonal" class="mb-4">
-          {{ view.loadError }}
+        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
+          {{ loadError }}
         </v-alert>
 
-        <v-alert v-else-if="view.isNotFound" type="warning" variant="tonal" class="mb-4">
-          {{ view.notFoundError }}
+        <v-alert v-else-if="isNotFound" type="warning" variant="tonal" class="mb-4">
+          {{ notFoundError }}
         </v-alert>
 
-        <div v-else-if="view.isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
+        <div v-else-if="isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
           <span>Loading contact...</span>
         </div>
@@ -62,6 +62,7 @@ import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useGlobalCommand } from "@jskit-ai/users-web/client/composables/useGlobalCommand";
 import { useGlobalView } from "@jskit-ai/users-web/client/composables/useGlobalView";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactViewQueryKey,
   resolveAdminContactEditPath,
@@ -71,7 +72,8 @@ import {
 
 const route = useRoute();
 const router = useRouter();
-const listPath = resolveAdminContactsListPath();
+const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
+const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
 const contact = reactive({
   id: 0,
   name: "",
@@ -81,7 +83,9 @@ const contact = reactive({
 });
 
 const contactId = computed(() => toRouteContactId(route.params.contactId));
-const editPath = computed(() => resolveAdminContactEditPath(contactId.value));
+const editPath = computed(() =>
+  resolveAdminContactEditPath(contactId.value, placementContext.value, workspaceSlugFromRoute.value)
+);
 const title = computed(() => {
   const name = String(contact.name || "").trim();
   const surname = String(contact.surname || "").trim();
@@ -102,6 +106,10 @@ const view = useGlobalView({
     model.updatedAt = String(payload.updatedAt || "");
   }
 });
+const loadError = computed(() => view.loadError.value);
+const isNotFound = computed(() => view.isNotFound.value);
+const notFoundError = computed(() => view.notFoundError.value);
+const isLoading = computed(() => view.isLoading.value);
 
 const deleteCommand = useGlobalCommand({
   apiSuffix: () => `/contacts/${contactId.value}`,
@@ -116,7 +124,7 @@ const deleteCommand = useGlobalCommand({
       queryKey: ["crud", "contacts"]
     });
 
-    await router.push(listPath);
+    await router.push(listPath.value || "/admin/contacts");
   }
 });
 

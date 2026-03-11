@@ -14,7 +14,7 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: "Surface is ready."
+    default: ""
   },
   subtitle: {
     type: String,

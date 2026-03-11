@@ -59,6 +59,7 @@
 import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactsResource,
   contactViewQueryKey,
@@ -73,10 +74,13 @@ import {
 
 const route = useRoute();
 const router = useRouter();
-const listPath = resolveAdminContactsListPath();
+const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
+const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
 const contactForm = reactive(createContactForm());
 const contactId = computed(() => toRouteContactId(route.params.contactId));
-const detailPath = computed(() => resolveAdminContactViewPath(contactId.value));
+const detailPath = computed(() =>
+  resolveAdminContactViewPath(contactId.value, placementContext.value, workspaceSlugFromRoute.value)
+);
 
 const addEdit = useGlobalAddEdit({
   resource: contactsResource,
@@ -95,7 +99,11 @@ const addEdit = useGlobalAddEdit({
       queryKey: ["crud", "contacts"]
     });
 
-    const targetPath = resolveAdminContactViewPath(payload?.id || contactId.value);
+    const targetPath = resolveAdminContactViewPath(
+      payload?.id || contactId.value,
+      placementContext.value,
+      workspaceSlugFromRoute.value
+    );
     if (targetPath) {
       await router.push(targetPath);
     }

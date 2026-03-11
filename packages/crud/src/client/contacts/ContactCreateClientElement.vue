@@ -8,7 +8,7 @@
             <v-card-subtitle class="px-0">Create a new contact record.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="text" :to="listPath">Cancel</v-btn>
+          <v-btn variant="text" :to="listPath || undefined">Cancel</v-btn>
           <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
             Save contact
           </v-btn>
@@ -56,13 +56,13 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useGlobalAddEdit } from "@jskit-ai/users-web/client/composables/useGlobalAddEdit";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   contactsListQueryKey,
   createContactForm,
-  assignContactToForm,
   buildContactPayload,
   parseCreateContactInput,
   resolveAdminContactViewPath,
@@ -71,7 +71,8 @@ import {
 } from "./contactsClientSupport.js";
 
 const router = useRouter();
-const listPath = resolveAdminContactsListPath();
+const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
+const listPath = computed(() => resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value));
 const contactForm = reactive(createContactForm());
 
 const addEdit = useGlobalAddEdit({
@@ -84,14 +85,13 @@ const addEdit = useGlobalAddEdit({
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
   parseInput: parseCreateContactInput,
-  mapLoadedToModel: assignContactToForm,
   buildRawPayload: buildContactPayload,
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
       queryKey: ["crud", "contacts"]
     });
 
-    const targetPath = resolveAdminContactViewPath(payload?.id);
+    const targetPath = resolveAdminContactViewPath(payload?.id, placementContext.value, workspaceSlugFromRoute.value);
     if (targetPath) {
       await router.push(targetPath);
     }

@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
+import { ActionRuntimeError } from "../../shared/actions/index.js";
 import { isAppError } from "./errors.js";
 
 const API_ERROR_HANDLER_MARKER_TOKEN = "kernel.runtime.apiErrorHandlerRegistered";
@@ -158,7 +159,7 @@ function registerApiErrorHandler(
       return;
     }
 
-    if (isAppError(error)) {
+    if (isAppError(error) || error instanceof ActionRuntimeError) {
       if (error.status >= 500) {
         recordDbError(error);
         captureServerError(request, error, error.status);
