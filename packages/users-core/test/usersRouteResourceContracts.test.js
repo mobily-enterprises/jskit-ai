@@ -8,13 +8,14 @@ import { workspaceRoutes as workspaceSchema } from "../src/server/common/routes/
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
-import { settingsPasswordChangeCommand } from "../src/shared/contracts/commands/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../src/shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../src/shared/contracts/commands/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../src/shared/contracts/commands/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../src/shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
-import { settingsAvatarUploadCommand } from "../src/shared/contracts/commands/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../src/shared/contracts/commands/settingsAvatarDeleteCommand.js";
+import { settingsPasswordChangeCommand } from "../src/shared/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../src/shared/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../src/shared/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../src/shared/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../src/shared/settingsLogoutOtherSessionsCommand.js";
+import { settingsProfileUpdateCommand } from "../src/shared/settingsProfileUpdateCommand.js";
+import { settingsAvatarUploadCommand } from "../src/shared/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../src/shared/settingsAvatarDeleteCommand.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -93,6 +94,7 @@ test("workspace/settings schemas expose canonical command contracts", () => {
     "settings.security.oauth.link.start": settingsOAuthLinkStartCommand,
     "settings.security.oauth.unlink": settingsOAuthUnlinkCommand,
     "settings.security.sessions.logout_others": settingsLogoutOtherSessionsCommand,
+    "settings.profile.update": settingsProfileUpdateCommand,
     "settings.profile.avatar.upload": settingsAvatarUploadCommand,
     "settings.profile.avatar.delete": settingsAvatarDeleteCommand
   };
@@ -121,11 +123,11 @@ test("route schema building blocks are wired directly from canonical contracts",
   );
   assert.equal(
     workspaceSchema.response.members,
-    workspaceSchema.resources.workspaceMember.operations.list.response.schema
+    workspaceSchema.resources.workspaceMember.operations.list.output.schema
   );
   assert.equal(
     workspaceSchema.response.invites,
-    workspaceSchema.resources.workspaceInvite.operations.list.response.schema
+    workspaceSchema.resources.workspaceInvite.operations.list.output.schema
   );
 
 });

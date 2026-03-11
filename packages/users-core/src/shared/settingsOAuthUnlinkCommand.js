@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contractUtils.js";
+import { createOperationMessages } from "./contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 

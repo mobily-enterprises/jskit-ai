@@ -1,12 +1,11 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { settingsPasswordChangeCommand } from "../../shared/contracts/commands/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../../shared/contracts/commands/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../../shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
+import { settingsPasswordChangeCommand } from "../../shared/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../../shared/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../../shared/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../../shared/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../../shared/settingsLogoutOtherSessionsCommand.js";
 
 function bootAccountSecurityRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -25,10 +24,7 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Set or change authenticated user's password"
       },
-      body: {
-        schema: settingsPasswordChangeCommand.operation.body.schema,
-        normalize: normalizeObjectInput
-      },
+      body: settingsPasswordChangeCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: settingsPasswordChangeCommand.operation.response
@@ -66,10 +62,7 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method"
       },
-      body: {
-        schema: settingsPasswordMethodToggleCommand.operation.body.schema,
-        normalize: normalizeObjectInput
-      },
+      body: settingsPasswordMethodToggleCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: settingsPasswordMethodToggleCommand.operation.response

@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contracts/contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { workspaceResource } from "./workspaceResource.js";
 
@@ -48,6 +48,37 @@ const workspaceMemberListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const workspaceMemberOutputValidator = Object.freeze({
+  schema: workspaceMemberRecordSchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      userId: Number(source.userId),
+      roleId: String(source.roleId || ""),
+      status: String(source.status || ""),
+      displayName: String(source.displayName || ""),
+      email: String(source.email || ""),
+      isOwner: source.isOwner === true
+    };
+  }
+});
+
+const workspaceMemberListOutputValidator = Object.freeze({
+  schema: workspaceMemberListSchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      workspace: workspaceResource.operations.view.output.normalize(source.workspace),
+      members: Array.isArray(source.members)
+        ? source.members.map((entry) => workspaceMemberOutputValidator.normalize(entry))
+        : [],
+      roleCatalog: normalizeObjectInput(source.roleCatalog)
+    };
+  }
+});
+
 const WORKSPACE_MEMBER_OPERATION_MESSAGES = createOperationMessages();
 
 const workspaceMemberResource = Object.freeze({
@@ -56,16 +87,12 @@ const workspaceMemberResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: workspaceMemberRecordSchema
-      })
+      output: workspaceMemberOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: workspaceMemberListSchema
-      })
+      output: workspaceMemberListOutputValidator
     }),
     create: Object.freeze({
       method: "POST",
@@ -74,9 +101,7 @@ const workspaceMemberResource = Object.freeze({
         schema: workspaceMemberCreateSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceMemberRecordSchema
-      })
+      output: workspaceMemberOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
@@ -85,9 +110,7 @@ const workspaceMemberResource = Object.freeze({
         schema: workspaceMemberReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceMemberRecordSchema
-      })
+      output: workspaceMemberOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
@@ -96,18 +119,9 @@ const workspaceMemberResource = Object.freeze({
         schema: workspaceMemberPatchSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceMemberRecordSchema
-      })
+      output: workspaceMemberOutputValidator
     })
   })
 });
 
-export {
-  workspaceMemberRecordSchema,
-  workspaceMemberCreateSchema,
-  workspaceMemberReplaceSchema,
-  workspaceMemberPatchSchema,
-  workspaceMemberListSchema,
-  workspaceMemberResource
-};
+export { workspaceMemberResource };

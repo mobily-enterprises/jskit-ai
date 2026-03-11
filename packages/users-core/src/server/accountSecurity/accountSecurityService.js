@@ -1,6 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createValidationError } from "@jskit-ai/kernel/server/runtime";
-import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -8,29 +7,6 @@ import {
 import {
   accountSettingsResponseFormatter
 } from "../common/formatters/accountSettingsResponseFormatter.js";
-
-function parseChangePassword(payload = {}) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const currentPassword = normalizeText(source.currentPassword);
-  const newPassword = normalizeText(source.newPassword);
-  const confirmPassword = normalizeText(source.confirmPassword);
-  const fieldErrors = {};
-
-  if (!newPassword || newPassword.length < 8) {
-    fieldErrors.newPassword = "Password must be at least 8 characters.";
-  }
-
-  if (!confirmPassword || confirmPassword !== newPassword) {
-    fieldErrors.confirmPassword = "Password confirmation does not match.";
-  }
-
-  return {
-    currentPassword,
-    newPassword,
-    confirmPassword,
-    fieldErrors
-  };
-}
 
 function createService({
   userSettingsRepository,
@@ -46,15 +22,16 @@ function createService({
       throw new AppError(501, "Password change is not available.");
     }
 
-    const parsed = parseChangePassword(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw createValidationError(parsed.fieldErrors);
+    if (payload.confirmPassword !== payload.newPassword) {
+      throw createValidationError({
+        confirmPassword: "Password confirmation does not match."
+      });
     }
 
     return authService.changePassword(request, {
-      currentPassword: parsed.currentPassword,
-      newPassword: parsed.newPassword,
-      confirmPassword: parsed.confirmPassword
+      currentPassword: payload.currentPassword,
+      newPassword: payload.newPassword,
+      confirmPassword: payload.confirmPassword
     });
   }
 

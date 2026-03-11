@@ -20,7 +20,7 @@ function bootConsoleSettingsRoutes(app) {
         summary: "Get console settings"
       },
       response: withStandardErrorResponses({
-        200: consoleSettingsResource.operations.view.response
+        200: consoleSettingsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -44,7 +44,7 @@ function bootConsoleSettingsRoutes(app) {
       body: consoleSettingsResource.operations.replace.body,
       response: withStandardErrorResponses(
         {
-          200: consoleSettingsResource.operations.view.response
+          200: consoleSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )

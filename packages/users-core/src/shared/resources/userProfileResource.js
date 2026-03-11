@@ -4,7 +4,7 @@ import {
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/contracts";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { createOperationMessages } from "../contracts/contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
 
 function normalizeProfileInput(payload = {}) {
   const source = normalizeObjectInput(payload);

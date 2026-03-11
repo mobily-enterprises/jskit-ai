@@ -23,7 +23,6 @@ function useWorkspaceAddEdit({
   readEnabled = true,
   writeMethod = "PATCH",
   placementSource = "users-web.workspace.add-edit",
-  missingWorkspaceSlugError = "Workspace slug is required in the URL.",
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource.",
   fieldErrorKeys = [],
@@ -141,7 +140,7 @@ function useWorkspaceAddEdit({
 
   const loadError = computed(() => {
     if (!hasRouteWorkspaceSlug.value) {
-      return String(missingWorkspaceSlugError || "Workspace slug is required in the URL.");
+      throw new Error("useWorkspaceAddEdit requires route.params.workspaceSlug.");
     }
 
     if (access.bootstrapError.value) {

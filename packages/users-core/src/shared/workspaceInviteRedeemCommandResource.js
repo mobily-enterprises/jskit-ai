@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contractUtils.js";
+import { createOperationMessages } from "./contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 
 const workspaceInviteRedeemInputValidator = Object.freeze({

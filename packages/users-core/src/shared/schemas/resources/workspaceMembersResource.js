@@ -1,7 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
-import { createOperationMessages } from "../../contracts/contractUtils.js";
+import { createOperationMessages } from "../../contractUtils.js";
 import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../../roles.js";
 
 function toPositiveInteger(value) {

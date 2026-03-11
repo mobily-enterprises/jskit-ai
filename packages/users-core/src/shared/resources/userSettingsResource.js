@@ -3,7 +3,7 @@ import {
   createCursorListValidator,
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/contracts";
-import { createOperationMessages } from "../contracts/contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
 import { userProfileResource } from "./userProfileResource.js";
 
 function pickPatchBody(schema, keys = []) {

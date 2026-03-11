@@ -1,6 +1,9 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contracts/contractUtils.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { createOperationMessages } from "../contractUtils.js";
+import {
+  createCursorListValidator,
+  normalizeObjectInput
+} from "@jskit-ai/kernel/shared/contracts";
 
 const consoleSettingsValueSchema = Type.Object(
   {
@@ -28,13 +31,19 @@ const consoleSettingsPatchSchema = Type.Partial(consoleSettingsCreateSchema, {
   additionalProperties: false
 });
 
-const consoleSettingsListSchema = Type.Object(
-  {
-    items: Type.Array(consoleSettingsRecordSchema),
-    nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-  },
-  { additionalProperties: false }
-);
+const consoleSettingsOutputValidator = Object.freeze({
+  schema: consoleSettingsRecordSchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    const settingsSource = normalizeObjectInput(source.settings);
+
+    return {
+      settings: {
+        assistantSystemPromptWorkspace: String(settingsSource.assistantSystemPromptWorkspace || "")
+      }
+    };
+  }
+});
 
 const CONSOLE_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
@@ -44,16 +53,12 @@ const consoleSettingsResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: consoleSettingsRecordSchema
-      })
+      output: consoleSettingsOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: consoleSettingsListSchema
-      })
+      output: createCursorListValidator(consoleSettingsOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
@@ -62,9 +67,7 @@ const consoleSettingsResource = Object.freeze({
         schema: consoleSettingsCreateSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: consoleSettingsRecordSchema
-      })
+      output: consoleSettingsOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
@@ -73,9 +76,7 @@ const consoleSettingsResource = Object.freeze({
         schema: consoleSettingsReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: consoleSettingsRecordSchema
-      })
+      output: consoleSettingsOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
@@ -84,9 +85,7 @@ const consoleSettingsResource = Object.freeze({
         schema: consoleSettingsPatchSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: consoleSettingsRecordSchema
-      })
+      output: consoleSettingsOutputValidator
     })
   })
 });

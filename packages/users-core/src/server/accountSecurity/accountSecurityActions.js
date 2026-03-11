@@ -3,11 +3,11 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { settingsPasswordChangeCommand } from "../../shared/contracts/commands/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../../shared/contracts/commands/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../../shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
+import { settingsPasswordChangeCommand } from "../../shared/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../../shared/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../../shared/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../../shared/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../../shared/settingsLogoutOtherSessionsCommand.js";
 
 const accountSecurityActions = Object.freeze([
   {
@@ -18,6 +18,7 @@ const accountSecurityActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: settingsPasswordChangeCommand.operation.body,
+    output: settingsPasswordChangeCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -36,6 +37,7 @@ const accountSecurityActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: settingsPasswordMethodToggleCommand.operation.body,
+    output: settingsPasswordMethodToggleCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -54,6 +56,7 @@ const accountSecurityActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: [settingsOAuthLinkStartCommand.operation.params, settingsOAuthLinkStartCommand.operation.query],
+    output: settingsOAuthLinkStartCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -72,6 +75,7 @@ const accountSecurityActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: settingsOAuthUnlinkCommand.operation.params,
+    output: settingsOAuthUnlinkCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -90,6 +94,7 @@ const accountSecurityActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: settingsLogoutOtherSessionsCommand.operation.body,
+    output: settingsLogoutOtherSessionsCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

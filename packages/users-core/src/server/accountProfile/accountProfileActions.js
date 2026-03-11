@@ -4,10 +4,10 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
-import { settingsAvatarUploadCommand } from "../../shared/contracts/commands/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
+import { settingsProfileUpdateCommand } from "../../shared/settingsProfileUpdateCommand.js";
+import { settingsAvatarUploadCommand } from "../../shared/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../../shared/settingsAvatarDeleteCommand.js";
 
 const accountProfileActions = Object.freeze([
   {
@@ -36,7 +36,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: userProfileResource.operations.patch.body,
+    input: settingsProfileUpdateCommand.operation.body,
+    output: settingsProfileUpdateCommand.operation.response,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

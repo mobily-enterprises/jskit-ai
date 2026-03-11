@@ -25,10 +25,6 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
 
     if (Object.keys(workspacePatch).length > 0) {
       nextWorkspace = await workspacesRepository.updateById(workspace.id, workspacePatch, options);
-
-      if (!nextWorkspace) {
-        throw new Error("workspaceSettingsService could not reload the updated workspace.");
-      }
     }
 
     if (Object.keys(settingsPatch).length > 0) {

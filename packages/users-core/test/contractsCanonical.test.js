@@ -10,14 +10,15 @@ import { workspaceInviteResource } from "../src/shared/resources/workspaceInvite
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
-import { workspaceInviteRedeemCommandResource } from "../src/shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
-import { settingsPasswordChangeCommand } from "../src/shared/contracts/commands/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../src/shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../src/shared/contracts/commands/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../src/shared/contracts/commands/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../src/shared/contracts/commands/settingsLogoutOtherSessionsCommand.js";
-import { settingsAvatarUploadCommand } from "../src/shared/contracts/commands/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../src/shared/contracts/commands/settingsAvatarDeleteCommand.js";
+import { workspaceInviteRedeemCommandResource } from "../src/shared/workspaceInviteRedeemCommandResource.js";
+import { settingsPasswordChangeCommand } from "../src/shared/settingsPasswordChangeCommand.js";
+import { settingsPasswordMethodToggleCommand } from "../src/shared/settingsPasswordMethodToggleCommand.js";
+import { settingsOAuthLinkStartCommand } from "../src/shared/settingsOAuthLinkStartCommand.js";
+import { settingsOAuthUnlinkCommand } from "../src/shared/settingsOAuthUnlinkCommand.js";
+import { settingsLogoutOtherSessionsCommand } from "../src/shared/settingsLogoutOtherSessionsCommand.js";
+import { settingsProfileUpdateCommand } from "../src/shared/settingsProfileUpdateCommand.js";
+import { settingsAvatarUploadCommand } from "../src/shared/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../src/shared/settingsAvatarDeleteCommand.js";
 
 function assertOperationMessages(operation, label) {
   assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
@@ -67,6 +68,7 @@ test("users-core command contracts expose operation messages", () => {
     settingsOAuthLinkStartCommand,
     settingsOAuthUnlinkCommand,
     settingsLogoutOtherSessionsCommand,
+    settingsProfileUpdateCommand,
     settingsAvatarUploadCommand,
     settingsAvatarDeleteCommand
   };

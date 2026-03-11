@@ -1,47 +1,30 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
 import {
-  workspaceSettingsResource as workspaceSettingsResourceSchema
+  workspaceSettingsResource
 } from "../../../shared/schemas/resources/workspaceSettingsResource.js";
 import { workspaceMemberResource } from "../../../shared/resources/workspaceMemberResource.js";
 import { workspaceInviteResource } from "../../../shared/resources/workspaceInviteResource.js";
-import { workspaceInviteRedeemCommandResource } from "../../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
+import { workspaceMembersResource } from "../../../shared/schemas/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsResource } from "../../../shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspaceInviteRedeemCommandResource } from "../../../shared/workspaceInviteRedeemCommandResource.js";
 
 const workspaceRoutes = Object.freeze({
   body: {
     redeemInvite: workspaceInviteRedeemCommandResource.operation.body.schema,
-    memberRoleUpdate: Type.Object(
-      {
-        roleId: workspaceMemberResource.operations.patch.body.schema.properties.roleId
-      },
-      { additionalProperties: false }
-    ),
+    memberRoleUpdate: workspaceMembersResource.operations.updateMemberRole.body.schema,
     createInvite: workspaceInviteResource.operations.create.body.schema
   },
   response: {
     workspacesList: workspaceResource.operations.list.output.schema,
-    pendingInvites: Type.Object(
-      {
-        pendingInvites: Type.Array(Type.Object({}, { additionalProperties: true }))
-      },
-      { additionalProperties: false }
-    ),
+    pendingInvites: workspacePendingInvitationsResource.operations.list.output.schema,
     respondToInvite: workspaceInviteRedeemCommandResource.operation.output.schema,
-    roles: Type.Object(
-      {
-        collaborationEnabled: Type.Boolean(),
-        defaultInviteRole: Type.String({ minLength: 1 }),
-        roles: Type.Array(Type.Object({}, { additionalProperties: true })),
-        assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: true }
-    ),
-    members: workspaceMemberResource.operations.list.response.schema,
-    invites: workspaceInviteResource.operations.list.response.schema
+    roles: workspaceMembersResource.operations.rolesList.output.schema,
+    members: workspaceMemberResource.operations.list.output.schema,
+    invites: workspaceInviteResource.operations.list.output.schema
   },
   resources: {
     workspace: workspaceResource,
-    workspaceSettings: workspaceSettingsResourceSchema,
+    workspaceSettings: workspaceSettingsResource,
     workspaceMember: workspaceMemberResource,
     workspaceInvite: workspaceInviteResource
   },

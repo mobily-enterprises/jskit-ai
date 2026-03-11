@@ -11,11 +11,10 @@ function registerAccountNotifications(app) {
   }
 
   app.singleton(USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN, (scope) => {
-    const authService = scope.has("authService") ? scope.make("authService") : null;
     return createAccountNotificationsService({
       userSettingsRepository: scope.make("userSettingsRepository"),
       userProfilesRepository: scope.make("userProfilesRepository"),
-      authService
+      authService: scope.make("authService")
     });
   });
 

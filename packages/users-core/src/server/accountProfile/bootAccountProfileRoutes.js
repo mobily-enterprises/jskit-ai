@@ -1,10 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
-import { settingsAvatarUploadCommand } from "../../shared/contracts/commands/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../../shared/contracts/commands/settingsAvatarDeleteCommand.js";
+import { settingsProfileUpdateCommand } from "../../shared/settingsProfileUpdateCommand.js";
+import { settingsAvatarUploadCommand } from "../../shared/settingsAvatarUploadCommand.js";
+import { settingsAvatarDeleteCommand } from "../../shared/settingsAvatarDeleteCommand.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -44,7 +44,7 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Update profile settings"
       },
-      body: userProfileResource.operations.patch.body,
+      body: settingsProfileUpdateCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: userSettingsResource.operations.view.output

@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
-import { workspaceInviteRedeemCommandResource } from "../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
+import { workspaceInviteRedeemCommandResource } from "../../shared/workspaceInviteRedeemCommandResource.js";
 
 function bootWorkspacePendingInvitations(app) {
   if (!app || typeof app.make !== "function") {

@@ -120,7 +120,6 @@ const addEdit = useWorkspaceAddEdit({
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-settings-view",
-  missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
   fieldErrorKeys: ["name", "avatarUrl", "color"],
   model: workspaceForm,

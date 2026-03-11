@@ -13,7 +13,7 @@ const consoleSettingsActions = Object.freeze([
     surfacesFrom: "console",
     visibility: "public",
     input: EMPTY_INPUT_CONTRACT,
-    output: consoleSettingsResource.operations.view.response,
+    output: consoleSettingsResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -32,7 +32,7 @@ const consoleSettingsActions = Object.freeze([
     surfacesFrom: "console",
     visibility: "public",
     input: consoleSettingsResource.operations.replace.body,
-    output: consoleSettingsResource.operations.replace.response,
+    output: consoleSettingsResource.operations.replace.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

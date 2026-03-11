@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contracts/contractUtils.js";
+import { createOperationMessages } from "../contractUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { workspaceResource } from "./workspaceResource.js";
 
@@ -58,6 +58,42 @@ const workspaceInviteListSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const workspaceInviteOutputValidator = Object.freeze({
+  schema: workspaceInviteRecordSchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      id: Number(source.id),
+      email: String(source.email || ""),
+      roleId: String(source.roleId || ""),
+      status: String(source.status || ""),
+      expiresAt: String(source.expiresAt || ""),
+      invitedByUserId: source.invitedByUserId == null ? null : Number(source.invitedByUserId)
+    };
+  }
+});
+
+const workspaceInviteListOutputValidator = Object.freeze({
+  schema: workspaceInviteListSchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    const normalized = {
+      workspace: workspaceResource.operations.view.output.normalize(source.workspace),
+      invites: Array.isArray(source.invites)
+        ? source.invites.map((entry) => workspaceInviteOutputValidator.normalize(entry))
+        : [],
+      roleCatalog: normalizeObjectInput(source.roleCatalog)
+    };
+
+    if (Object.hasOwn(source, "inviteTokenPreview")) {
+      normalized.inviteTokenPreview = String(source.inviteTokenPreview || "");
+    }
+
+    return normalized;
+  }
+});
+
 const WORKSPACE_INVITE_OPERATION_MESSAGES = createOperationMessages();
 
 const workspaceInviteResource = Object.freeze({
@@ -66,16 +102,12 @@ const workspaceInviteResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: workspaceInviteRecordSchema
-      })
+      output: workspaceInviteOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      response: Object.freeze({
-        schema: workspaceInviteListSchema
-      })
+      output: workspaceInviteListOutputValidator
     }),
     create: Object.freeze({
       method: "POST",
@@ -84,9 +116,7 @@ const workspaceInviteResource = Object.freeze({
         schema: workspaceInviteCreateSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceInviteRecordSchema
-      })
+      output: workspaceInviteOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
@@ -95,9 +125,7 @@ const workspaceInviteResource = Object.freeze({
         schema: workspaceInviteReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceInviteRecordSchema
-      })
+      output: workspaceInviteOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
@@ -106,18 +134,9 @@ const workspaceInviteResource = Object.freeze({
         schema: workspaceInvitePatchSchema,
         normalize: normalizeObjectInput
       }),
-      response: Object.freeze({
-        schema: workspaceInviteRecordSchema
-      })
+      output: workspaceInviteOutputValidator
     })
   })
 });
 
-export {
-  workspaceInviteRecordSchema,
-  workspaceInviteCreateSchema,
-  workspaceInviteReplaceSchema,
-  workspaceInvitePatchSchema,
-  workspaceInviteListSchema,
-  workspaceInviteResource
-};
+export { workspaceInviteResource };
