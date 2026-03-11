@@ -8,14 +8,6 @@ import { workspaceRoutes as workspaceSchema } from "../src/server/common/routes/
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
-import { settingsPasswordChangeCommand } from "../src/shared/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../src/shared/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../src/shared/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../src/shared/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../src/shared/settingsLogoutOtherSessionsCommand.js";
-import { settingsProfileUpdateCommand } from "../src/shared/settingsProfileUpdateCommand.js";
-import { settingsAvatarUploadCommand } from "../src/shared/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../src/shared/settingsAvatarDeleteCommand.js";
 
 function assertResourceContract(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -36,7 +28,7 @@ function assertResourceContract(contract, label) {
       `${label}.operations.${operationName} must resolve messages from operation.messages or contract.messages.`
     );
     assert.equal(
-      typeof (operation.output?.schema || operation.response?.schema),
+      typeof operation.output?.schema,
       "object",
       `${label}.operations.${operationName} payload schema is required.`
     );
@@ -50,24 +42,6 @@ function assertResourceContract(contract, label) {
   assert.ok(Array.isArray(requiredMetadata.create), `${label}.derivedRequired.create must be an array.`);
   assert.ok(Array.isArray(requiredMetadata.replace), `${label}.derivedRequired.replace must be an array.`);
   assert.ok(Array.isArray(requiredMetadata.patch), `${label}.derivedRequired.patch must be an array.`);
-}
-
-function assertCommandContract(contract, label) {
-  assert.ok(contract, `${label} contract must exist.`);
-  assert.equal(typeof contract, "object", `${label} contract must be an object.`);
-  assert.equal(contract.command, label, `${label}.command must match command id.`);
-  assert.equal(typeof contract.operation?.method, "string", `${label}.operation.method must exist.`);
-  assert.equal(typeof contract.operation?.messages, "object", `${label}.operation.messages must be an object.`);
-  assert.equal(
-    typeof (contract.operation?.output?.schema || contract.operation?.response?.schema),
-    "object",
-    `${label}.operation payload schema must exist.`
-  );
-  assert.ok(Array.isArray(contract.operation?.invalidates), `${label}.operation.invalidates must be an array.`);
-
-  if (contract.operation?.body) {
-    assert.equal(typeof contract.operation.body.schema, "object", `${label}.operation.body.schema must be an object.`);
-  }
 }
 
 test("workspace/settings/console schemas expose canonical resource contracts", () => {
@@ -86,21 +60,30 @@ test("workspace/settings/console schemas expose canonical resource contracts", (
   }
 });
 
-test("workspace/settings schemas expose canonical command contracts", () => {
-  const commandContracts = {
-    "workspace.invite.redeem": workspaceSchema.commands["workspace.invite.redeem"],
-    "settings.security.password.change": settingsPasswordChangeCommand,
-    "settings.security.password_method.toggle": settingsPasswordMethodToggleCommand,
-    "settings.security.oauth.link.start": settingsOAuthLinkStartCommand,
-    "settings.security.oauth.unlink": settingsOAuthUnlinkCommand,
-    "settings.security.sessions.logout_others": settingsLogoutOtherSessionsCommand,
-    "settings.profile.update": settingsProfileUpdateCommand,
-    "settings.profile.avatar.upload": settingsAvatarUploadCommand,
-    "settings.profile.avatar.delete": settingsAvatarDeleteCommand
-  };
+test("specialized settings and invite operations expose canonical validators", () => {
+  const operationSpecs = [
+    { label: "workspaceInvite.redeem", operation: workspaceSchema.resources.workspaceInvite.operations.redeem },
+    { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },
+    { label: "userProfile.avatarDelete", operation: userProfileResource.operations.avatarDelete },
+    { label: "userSettings.passwordChange", operation: userSettingsResource.operations.passwordChange },
+    { label: "userSettings.passwordMethodToggle", operation: userSettingsResource.operations.passwordMethodToggle },
+    { label: "userSettings.oauthLinkStart", operation: userSettingsResource.operations.oauthLinkStart },
+    { label: "userSettings.oauthUnlink", operation: userSettingsResource.operations.oauthUnlink },
+    { label: "userSettings.logoutOtherSessions", operation: userSettingsResource.operations.logoutOtherSessions }
+  ];
 
-  for (const [label, contract] of Object.entries(commandContracts)) {
-    assertCommandContract(contract, label);
+  for (const { label, operation } of operationSpecs) {
+    assert.equal(typeof operation?.method, "string", `${label}.method must exist.`);
+    assert.equal(typeof operation?.output?.schema, "object", `${label}.output.schema must exist.`);
+    if (operation?.body) {
+      assert.equal(typeof operation.body.schema, "object", `${label}.body.schema must exist.`);
+    }
+    if (operation?.params) {
+      assert.equal(typeof operation.params.schema, "object", `${label}.params.schema must exist.`);
+    }
+    if (operation?.query) {
+      assert.equal(typeof operation.query.schema, "object", `${label}.query.schema must exist.`);
+    }
   }
 });
 
@@ -111,11 +94,11 @@ test("route schema building blocks are wired directly from canonical contracts",
   );
   assert.equal(
     workspaceSchema.body.redeemInvite,
-    workspaceSchema.commands["workspace.invite.redeem"].operation.body.schema
+    workspaceSchema.resources.workspaceInvite.operations.redeem.body.schema
   );
   assert.equal(
     workspaceSchema.response.respondToInvite,
-    workspaceSchema.commands["workspace.invite.redeem"].operation.output.schema
+    workspaceSchema.resources.workspaceInvite.operations.redeem.output.schema
   );
   assert.equal(
     workspaceSchema.response.workspacesList,

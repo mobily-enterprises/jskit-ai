@@ -3,8 +3,8 @@ import {
   requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspaceInviteRedeemCommandResource } from "../../shared/workspaceInviteRedeemCommandResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspaceInviteResource } from "../../shared/resources/workspaceInviteResource.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
   {
@@ -35,8 +35,8 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: workspaceInviteRedeemCommandResource.operation.body,
-    output: workspaceInviteRedeemCommandResource.operation.output,
+    input: workspaceInviteResource.operations.redeem.body,
+    output: workspaceInviteResource.operations.redeem.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

@@ -1,11 +1,7 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { settingsPasswordChangeCommand } from "../../shared/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../../shared/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../../shared/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../../shared/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../../shared/settingsLogoutOtherSessionsCommand.js";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 function bootAccountSecurityRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -24,10 +20,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Set or change authenticated user's password"
       },
-      body: settingsPasswordChangeCommand.operation.body,
+      body: userSettingsResource.operations.passwordChange.body,
       response: withStandardErrorResponses(
         {
-          200: settingsPasswordChangeCommand.operation.response
+          200: userSettingsResource.operations.passwordChange.output
         },
         { includeValidation400: true }
       ),
@@ -62,10 +58,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method"
       },
-      body: settingsPasswordMethodToggleCommand.operation.body,
+      body: userSettingsResource.operations.passwordMethodToggle.body,
       response: withStandardErrorResponses(
         {
-          200: settingsPasswordMethodToggleCommand.operation.response
+          200: userSettingsResource.operations.passwordMethodToggle.output
         },
         { includeValidation400: true }
       ),
@@ -94,8 +90,8 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      params: settingsOAuthLinkStartCommand.operation.params,
-      query: settingsOAuthLinkStartCommand.operation.query,
+      params: userSettingsResource.operations.oauthLinkStart.params,
+      query: userSettingsResource.operations.oauthLinkStart.query,
       response: withStandardErrorResponses(
         {
           302: { schema: Type.Unknown() }
@@ -129,10 +125,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      params: settingsOAuthUnlinkCommand.operation.params,
+      params: userSettingsResource.operations.oauthUnlink.params,
       response: withStandardErrorResponses(
         {
-          200: settingsOAuthUnlinkCommand.operation.response
+          200: userSettingsResource.operations.oauthUnlink.output
         },
         { includeValidation400: true }
       ),
@@ -161,7 +157,7 @@ function bootAccountSecurityRoutes(app) {
         summary: "Sign out from other active sessions"
       },
       response: withStandardErrorResponses({
-        200: settingsLogoutOtherSessionsCommand.operation.response
+        200: userSettingsResource.operations.logoutOtherSessions.output
       }),
       rateLimit: {
         max: 20,

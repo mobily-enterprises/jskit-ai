@@ -3,6 +3,7 @@ import {
   createCursorListValidator,
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/contracts";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../contractUtils.js";
 import { userProfileResource } from "./userProfileResource.js";
 
@@ -115,6 +116,168 @@ const chatUpdateBodyValidator = Object.freeze({
   normalize: normalizeObjectInput
 });
 
+function normalizeOAuthProviderParams(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  if (!Object.hasOwn(source, "provider")) {
+    return {};
+  }
+
+  return {
+    provider: normalizeText(source.provider)
+  };
+}
+
+function normalizeOAuthProviderQuery(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  if (!Object.hasOwn(source, "returnTo")) {
+    return {};
+  }
+
+  const returnTo = normalizeText(source.returnTo);
+  if (!returnTo) {
+    return {};
+  }
+
+  return {
+    returnTo
+  };
+}
+
+const settingsActionOutputValidator = Object.freeze({
+  schema: Type.Object({}, { additionalProperties: true }),
+  normalize: normalizeObjectInput
+});
+
+const passwordChangeOutputValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      ok: Type.Boolean(),
+      message: Type.String()
+    },
+    { additionalProperties: false }
+  ),
+  normalize: normalizeObjectInput
+});
+
+const passwordChangeBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      currentPassword: Type.Optional(
+        Type.String({
+          minLength: 1,
+          messages: {
+            default: "Current password is invalid."
+          }
+        })
+      ),
+      newPassword: Type.String({
+        minLength: 8,
+        messages: {
+          required: "New password is required.",
+          minLength: "New password must be at least 8 characters.",
+          default: "New password must be at least 8 characters."
+        }
+      }),
+      confirmPassword: Type.String({
+        minLength: 1,
+        messages: {
+          required: "Confirm password is required.",
+          minLength: "Confirm password is required.",
+          default: "Confirm password is required."
+        }
+      })
+    },
+    {
+      additionalProperties: false,
+      messages: {
+        additionalProperties: "Unexpected field."
+      }
+    }
+  ),
+  normalize: normalizeObjectInput
+});
+
+const passwordMethodToggleBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      enabled: Type.Boolean({
+        messages: {
+          required: "enabled is required.",
+          default: "enabled must be a boolean."
+        }
+      })
+    },
+    {
+      additionalProperties: false,
+      messages: {
+        additionalProperties: "Unexpected field."
+      }
+    }
+  ),
+  normalize: normalizeObjectInput
+});
+
+const oauthProviderParamsValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      provider: Type.String({
+        minLength: 2,
+        maxLength: 64,
+        messages: {
+          required: "OAuth provider is required.",
+          default: "OAuth provider is invalid."
+        }
+      })
+    },
+    {
+      additionalProperties: false,
+      messages: {
+        additionalProperties: "Unexpected field."
+      }
+    }
+  ),
+  normalize: normalizeOAuthProviderParams
+});
+
+const oauthProviderQueryValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      returnTo: Type.Optional(
+        Type.String({
+          minLength: 1,
+          messages: {
+            default: "Return path is invalid."
+          }
+        })
+      )
+    },
+    {
+      additionalProperties: false,
+      messages: {
+        additionalProperties: "Unexpected field."
+      }
+    }
+  ),
+  normalize: normalizeOAuthProviderQuery
+});
+
+const oauthLinkStartOutputValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      provider: Type.String({ minLength: 2, maxLength: 64 }),
+      returnTo: Type.String({ minLength: 1 }),
+      url: Type.String({ minLength: 1 })
+    },
+    { additionalProperties: false }
+  ),
+  normalize: normalizeObjectInput
+});
+
+const emptyBodyValidator = Object.freeze({
+  schema: Type.Object({}, { additionalProperties: false }),
+  normalize: normalizeObjectInput
+});
+
 const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
 const userSettingsResource = Object.freeze({
@@ -174,6 +337,37 @@ const userSettingsResource = Object.freeze({
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: chatUpdateBodyValidator,
       output: userSettingsOutputValidator
+    }),
+    passwordChange: Object.freeze({
+      method: "POST",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: passwordChangeBodyValidator,
+      output: passwordChangeOutputValidator
+    }),
+    passwordMethodToggle: Object.freeze({
+      method: "PATCH",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: passwordMethodToggleBodyValidator,
+      output: settingsActionOutputValidator
+    }),
+    oauthLinkStart: Object.freeze({
+      method: "GET",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      params: oauthProviderParamsValidator,
+      query: oauthProviderQueryValidator,
+      output: oauthLinkStartOutputValidator
+    }),
+    oauthUnlink: Object.freeze({
+      method: "DELETE",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      params: oauthProviderParamsValidator,
+      output: settingsActionOutputValidator
+    }),
+    logoutOtherSessions: Object.freeze({
+      method: "POST",
+      messages: USER_SETTINGS_OPERATION_MESSAGES,
+      body: emptyBodyValidator,
+      output: settingsActionOutputValidator
     })
   })
 });

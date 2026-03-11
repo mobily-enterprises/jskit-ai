@@ -3,11 +3,7 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { settingsPasswordChangeCommand } from "../../shared/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../../shared/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../../shared/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../../shared/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../../shared/settingsLogoutOtherSessionsCommand.js";
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 const accountSecurityActions = Object.freeze([
   {
@@ -17,8 +13,8 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: settingsPasswordChangeCommand.operation.body,
-    output: settingsPasswordChangeCommand.operation.response,
+    input: userSettingsResource.operations.passwordChange.body,
+    output: userSettingsResource.operations.passwordChange.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -36,8 +32,8 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: settingsPasswordMethodToggleCommand.operation.body,
-    output: settingsPasswordMethodToggleCommand.operation.response,
+    input: userSettingsResource.operations.passwordMethodToggle.body,
+    output: userSettingsResource.operations.passwordMethodToggle.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -55,8 +51,8 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: [settingsOAuthLinkStartCommand.operation.params, settingsOAuthLinkStartCommand.operation.query],
-    output: settingsOAuthLinkStartCommand.operation.response,
+    input: [userSettingsResource.operations.oauthLinkStart.params, userSettingsResource.operations.oauthLinkStart.query],
+    output: userSettingsResource.operations.oauthLinkStart.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -74,8 +70,8 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: settingsOAuthUnlinkCommand.operation.params,
-    output: settingsOAuthUnlinkCommand.operation.response,
+    input: userSettingsResource.operations.oauthUnlink.params,
+    output: userSettingsResource.operations.oauthUnlink.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -93,8 +89,8 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: settingsLogoutOtherSessionsCommand.operation.body,
-    output: settingsLogoutOtherSessionsCommand.operation.response,
+    input: userSettingsResource.operations.logoutOtherSessions.body,
+    output: userSettingsResource.operations.logoutOtherSessions.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

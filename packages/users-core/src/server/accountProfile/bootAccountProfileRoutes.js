@@ -2,9 +2,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
-import { settingsProfileUpdateCommand } from "../../shared/settingsProfileUpdateCommand.js";
-import { settingsAvatarUploadCommand } from "../../shared/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../../shared/settingsAvatarDeleteCommand.js";
+import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -44,7 +42,7 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Update profile settings"
       },
-      body: settingsProfileUpdateCommand.operation.body,
+      body: userProfileResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
           200: userSettingsResource.operations.view.output
@@ -83,7 +81,7 @@ function bootAccountProfileRoutes(app) {
       },
       response: withStandardErrorResponses(
         {
-          200: settingsAvatarUploadCommand.operation.response
+          200: userProfileResource.operations.avatarUpload.output
         },
         { includeValidation400: true }
       )
@@ -125,7 +123,7 @@ function bootAccountProfileRoutes(app) {
         summary: "Delete profile avatar and fallback to gravatar"
       },
       response: withStandardErrorResponses({
-        200: settingsAvatarDeleteCommand.operation.response
+        200: userProfileResource.operations.avatarDelete.output
       })
     },
     async function (request, reply) {

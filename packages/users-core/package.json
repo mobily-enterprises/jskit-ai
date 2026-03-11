@@ -19,16 +19,7 @@
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
     "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js",
-    "./shared/workspaceInviteRedeemCommandResource": "./src/shared/workspaceInviteRedeemCommandResource.js",
-    "./shared/schemas/resources/workspacePendingInvitationsResource": "./src/shared/schemas/resources/workspacePendingInvitationsResource.js",
-    "./shared/settingsPasswordChangeCommand": "./src/shared/settingsPasswordChangeCommand.js",
-    "./shared/settingsPasswordMethodToggleCommand": "./src/shared/settingsPasswordMethodToggleCommand.js",
-    "./shared/settingsOAuthLinkStartCommand": "./src/shared/settingsOAuthLinkStartCommand.js",
-    "./shared/settingsOAuthUnlinkCommand": "./src/shared/settingsOAuthUnlinkCommand.js",
-    "./shared/settingsLogoutOtherSessionsCommand": "./src/shared/settingsLogoutOtherSessionsCommand.js",
-    "./shared/settingsProfileUpdateCommand": "./src/shared/settingsProfileUpdateCommand.js",
-    "./shared/settingsAvatarUploadCommand": "./src/shared/settingsAvatarUploadCommand.js",
-    "./shared/settingsAvatarDeleteCommand": "./src/shared/settingsAvatarDeleteCommand.js"
+    "./shared/schemas/resources/workspacePendingInvitationsResource": "./src/shared/schemas/resources/workspacePendingInvitationsResource.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",

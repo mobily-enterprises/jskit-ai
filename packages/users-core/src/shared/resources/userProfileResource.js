@@ -45,6 +45,49 @@ const userProfilePatchBodySchema = Type.Partial(userProfileCreateBodySchema, {
   minProperties: 1
 });
 
+const avatarUploadBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      mimeType: Type.Optional(
+        Type.String({
+          minLength: 1,
+          messages: {
+            default: "Avatar mimeType is invalid."
+          }
+        })
+      ),
+      fileName: Type.Optional(
+        Type.String({
+          minLength: 1,
+          messages: {
+            default: "Avatar fileName is invalid."
+          }
+        })
+      ),
+      uploadDimension: Type.Optional(
+        Type.String({
+          minLength: 1,
+          messages: {
+            default: "Avatar uploadDimension is invalid."
+          }
+        })
+      )
+    },
+    { additionalProperties: true }
+  ),
+  normalize: normalizeObjectInput
+});
+
+const avatarDeleteBodyValidator = Object.freeze({
+  schema: Type.Object({}, { additionalProperties: false }),
+  normalize: normalizeObjectInput
+});
+
+const avatarOperationOutputValidator = Object.freeze({
+  schema: Type.Object({}, { additionalProperties: true }),
+  normalize: normalizeObjectInput
+});
+
 const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
 const userProfileResource = Object.freeze({
@@ -86,6 +129,18 @@ const userProfileResource = Object.freeze({
         normalize: normalizeProfileInput
       }),
       output: userProfileOutputValidator
+    }),
+    avatarUpload: Object.freeze({
+      method: "POST",
+      messages: USER_PROFILE_OPERATION_MESSAGES,
+      body: avatarUploadBodyValidator,
+      output: avatarOperationOutputValidator
+    }),
+    avatarDelete: Object.freeze({
+      method: "DELETE",
+      messages: USER_PROFILE_OPERATION_MESSAGES,
+      body: avatarDeleteBodyValidator,
+      output: avatarOperationOutputValidator
     })
   })
 });

@@ -10,19 +10,6 @@ import { workspaceInviteResource } from "../src/shared/resources/workspaceInvite
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
-import { workspaceInviteRedeemCommandResource } from "../src/shared/workspaceInviteRedeemCommandResource.js";
-import { settingsPasswordChangeCommand } from "../src/shared/settingsPasswordChangeCommand.js";
-import { settingsPasswordMethodToggleCommand } from "../src/shared/settingsPasswordMethodToggleCommand.js";
-import { settingsOAuthLinkStartCommand } from "../src/shared/settingsOAuthLinkStartCommand.js";
-import { settingsOAuthUnlinkCommand } from "../src/shared/settingsOAuthUnlinkCommand.js";
-import { settingsLogoutOtherSessionsCommand } from "../src/shared/settingsLogoutOtherSessionsCommand.js";
-import { settingsProfileUpdateCommand } from "../src/shared/settingsProfileUpdateCommand.js";
-import { settingsAvatarUploadCommand } from "../src/shared/settingsAvatarUploadCommand.js";
-import { settingsAvatarDeleteCommand } from "../src/shared/settingsAvatarDeleteCommand.js";
-
-function assertOperationMessages(operation, label) {
-  assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
-}
 
 function assertResourceOperationMessages(contract, operationName, label) {
   const operation = contract?.operations?.[operationName];
@@ -60,26 +47,30 @@ test("users-core resource contracts expose messages for all operations", () => {
   }
 });
 
-test("users-core command contracts expose operation messages", () => {
-  const commands = {
-    workspaceInviteRedeemCommandResource,
-    settingsPasswordChangeCommand,
-    settingsPasswordMethodToggleCommand,
-    settingsOAuthLinkStartCommand,
-    settingsOAuthUnlinkCommand,
-    settingsLogoutOtherSessionsCommand,
-    settingsProfileUpdateCommand,
-    settingsAvatarUploadCommand,
-    settingsAvatarDeleteCommand
-  };
+test("users-core specialized resource operations expose messages and validators", () => {
+  const operationSpecs = [
+    { label: "workspaceInvite.redeem", operation: workspaceInviteResource.operations.redeem },
+    { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },
+    { label: "userProfile.avatarDelete", operation: userProfileResource.operations.avatarDelete },
+    { label: "userSettings.passwordChange", operation: userSettingsResource.operations.passwordChange },
+    { label: "userSettings.passwordMethodToggle", operation: userSettingsResource.operations.passwordMethodToggle },
+    { label: "userSettings.oauthLinkStart", operation: userSettingsResource.operations.oauthLinkStart },
+    { label: "userSettings.oauthUnlink", operation: userSettingsResource.operations.oauthUnlink },
+    { label: "userSettings.logoutOtherSessions", operation: userSettingsResource.operations.logoutOtherSessions }
+  ];
 
-  for (const [label, contract] of Object.entries(commands)) {
-    assertOperationMessages(contract.operation, `${label}.operation`);
-    assert.equal(
-      typeof (contract.operation?.output?.schema || contract.operation?.response?.schema),
-      "object",
-      `${label}.operation payload schema must exist.`
-    );
+  for (const { label, operation } of operationSpecs) {
+    assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
+    assert.equal(typeof operation?.output?.schema, "object", `${label}.output.schema must exist.`);
+    if (operation?.body) {
+      assert.equal(typeof operation.body.schema, "object", `${label}.body.schema must exist.`);
+    }
+    if (operation?.params) {
+      assert.equal(typeof operation.params.schema, "object", `${label}.params.schema must exist.`);
+    }
+    if (operation?.query) {
+      assert.equal(typeof operation.query.schema, "object", `${label}.query.schema must exist.`);
+    }
   }
 });
 
