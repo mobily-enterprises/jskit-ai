@@ -1,8 +1,8 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { chatPatchBodySchema } from "../../shared/resources/userSettingsResource.js";
-import { settingsResponseValidator } from "../common/validators/settingsResponseValidator.js";
+import { chatPatchBodySchema } from "../../../shared/resources/userSettingsResource.js";
+import { settingsResponseValidator } from "../../common/validators/settingsResponseValidator.js";
 
 function bootAccountChatRoutes(app) {
   if (!app || typeof app.make !== "function") {

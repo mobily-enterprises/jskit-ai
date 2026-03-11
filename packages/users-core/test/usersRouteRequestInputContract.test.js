@@ -284,13 +284,6 @@ test("account route handlers build action input from request.input", async () =>
     }),
     createReplyDouble()
   );
-  await findRoute(routes, { method: "PATCH", path: "/api/settings/chat" }).handler(
-    createActionRequest({
-      input: { body: { compactMode: true } },
-      executeAction
-    }),
-    createReplyDouble()
-  );
   await findRoute(routes, { method: "POST", path: "/api/settings/security/change-password" }).handler(
     createActionRequest({
       input: {
@@ -339,17 +332,16 @@ test("account route handlers build action input from request.input", async () =>
   assert.deepEqual(calls[0].input, { displayName: "Merc" });
   assert.deepEqual(calls[1].input, { locale: "en-US" });
   assert.deepEqual(calls[2].input, { email: true });
-  assert.deepEqual(calls[3].input, { compactMode: true });
-  assert.deepEqual(calls[4].input, {
+  assert.deepEqual(calls[3].input, {
     currentPassword: "old-password",
     newPassword: "new-password-123",
     confirmPassword: "new-password-123"
   });
-  assert.deepEqual(calls[5].input, { enabled: true });
-  assert.deepEqual(calls[6].input, { provider: "github", returnTo: "/app/settings" });
+  assert.deepEqual(calls[4].input, { enabled: true });
+  assert.deepEqual(calls[5].input, { provider: "github", returnTo: "/app/settings" });
   assert.equal(oauthReply.redirectedTo, "/oauth/link");
-  assert.deepEqual(calls[7].input, { provider: "github" });
-  assert.equal(calls[8].actionId, "settings.security.sessions.logout_others");
+  assert.deepEqual(calls[6].input, { provider: "github" });
+  assert.equal(calls[7].actionId, "settings.security.sessions.logout_others");
 });
 
 test("console settings route handlers use request.input payloads", async () => {

@@ -22,7 +22,11 @@ const accountPreferencesActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.updatePreferences(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.accountPreferencesService.updatePreferences(
+        resolveRequest(context),
+        resolveUser(context, input),
+        normalizeObject(input)
+      );
     }
   }
 ]);

@@ -22,7 +22,11 @@ const accountNotificationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.settingsService.updateNotifications(resolveRequest(context), resolveUser(context, input), normalizeObject(input));
+      return deps.accountNotificationsService.updateNotifications(
+        resolveRequest(context),
+        resolveUser(context, input),
+        normalizeObject(input)
+      );
     }
   }
 ]);

@@ -12,7 +12,6 @@ import { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings
 import { bootAccountProfileRoutes } from "./accountProfile/bootAccountProfileRoutes.js";
 import { bootAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
 import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
-import { bootAccountChatRoutes } from "./accountChat/bootAccountChatRoutes.js";
 import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 import { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import {
@@ -22,7 +21,8 @@ import { registerUsersCoreApi } from "./common/registerUsersCoreApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
-import { registerAccountSettings } from "./account/registerAccountSettings.js";
+import { registerAccountPreferences } from "./accountPreferences/registerAccountPreferences.js";
+import { registerAccountNotifications } from "./accountNotifications/registerAccountNotifications.js";
 import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
@@ -42,8 +42,9 @@ class UsersCoreServiceProvider {
     registerWorkspaceMembers(app);
     registerWorkspaceSettings(app);
     registerAccountProfile(app);
+    registerAccountPreferences(app);
+    registerAccountNotifications(app);
     registerAccountSecurity(app);
-    registerAccountSettings(app);
     registerConsoleSettings(app);
   }
 
@@ -57,7 +58,6 @@ class UsersCoreServiceProvider {
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);
-    bootAccountChatRoutes(app);
     bootAccountSecurityRoutes(app);
     bootConsoleSettingsRoutes(app);
   }
