@@ -8,6 +8,7 @@ export {
   normalizeInteger,
   ensureNonEmptyText
 } from "./support/normalize.js";
+export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./support/linkPath.js";
 export { sortStrings, sortById } from "./support/sorting.js";
 export { normalizeObjectInput } from "./contracts/inputNormalization.js";
 export {

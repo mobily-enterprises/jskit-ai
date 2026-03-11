@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 
 const props = defineProps({
   label: {
@@ -37,12 +37,13 @@ const props = defineProps({
 const { context: placementContext } = useWebPlacementContext();
 
 const resolvedTo = computed(() => {
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context: placementContext.value,
     surface: props.surface,
     explicitTo: props.to,
-    workspaceSuffix: props.workspaceSuffix,
-    nonWorkspaceSuffix: props.nonWorkspaceSuffix
+    workspaceRelativePath: props.workspaceSuffix,
+    surfaceRelativePath: props.nonWorkspaceSuffix,
+    mode: "auto"
   });
 });
 </script>

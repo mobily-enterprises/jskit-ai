@@ -6,9 +6,9 @@ import {
   TENANCY_MODE_NONE,
   surfaceRequiresWorkspaceFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceWorkspacePathFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
 import { normalizePermissionList } from "../lib/permissions.js";
@@ -134,11 +134,13 @@ async function navigateToWorkspace(slug) {
     return;
   }
 
-  const targetPath = resolveSurfaceWorkspacePathFromPlacementContext(
-    placementContext.value,
-    workspaceSwitchSurfaceId.value,
-    normalizedSlug
-  );
+  const targetPath = resolveShellLinkPath({
+    context: placementContext.value,
+    surface: workspaceSwitchSurfaceId.value,
+    workspaceSlug: normalizedSlug,
+    mode: "workspace",
+    relativePath: "/"
+  });
 
   navigatingToWorkspace.value = normalizedSlug;
   errorMessage.value = "";

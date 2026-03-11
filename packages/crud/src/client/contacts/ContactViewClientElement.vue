@@ -124,7 +124,9 @@ const deleteCommand = useGlobalCommand({
       queryKey: ["crud", "contacts"]
     });
 
-    await router.push(listPath.value || "/admin/contacts");
+    if (listPath.value) {
+      await router.push(listPath.value);
+    }
   }
 });
 

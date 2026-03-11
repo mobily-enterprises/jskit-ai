@@ -10,3 +10,4 @@ export {
 } from "./normalize.js";
 export { pickOwnProperties } from "./pickOwnProperties.js";
 export { sortStrings, sortById } from "./sorting.js";
+export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./linkPath.js";

@@ -6,7 +6,7 @@ import {
   useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { mdiAccountGroupOutline } from "@mdi/js";
-import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import {
   hasPermission,
   normalizePermissionList
@@ -40,12 +40,12 @@ const canViewMembers = computed(() => {
 
 const resolvedTo = computed(() => {
   const context = placementContext.value;
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: props.surface,
     explicitTo: props.to,
-    workspaceSuffix: "/members",
-    nonWorkspaceSuffix: "/members"
+    relativePath: "/members",
+    mode: "auto"
   });
 });
 </script>

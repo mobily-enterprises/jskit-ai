@@ -5,6 +5,12 @@ export {
 
 export { default as ShellLayout } from "./components/ShellLayout.vue";
 export { default as ShellOutlet } from "./components/ShellOutlet.vue";
+export {
+  readBrowserPathname,
+  resolveWorkspaceSlugFromContextOrPath,
+  resolveShellLinkPath,
+  useShellLinkResolver
+} from "./navigation/linkResolver.js";
 
 export {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,

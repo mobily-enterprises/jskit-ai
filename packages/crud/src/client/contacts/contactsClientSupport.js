@@ -1,6 +1,6 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveWorkspaceAwareMenuTarget } from "@jskit-ai/users-web/client/lib/workspaceMenuTarget";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
 function createContactForm() {
@@ -47,22 +47,22 @@ function contactViewQueryKey(surfaceId = "", contactId = 0) {
 }
 
 function resolveAdminContactsListPath(context = null, workspaceSlug = "") {
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug,
-    workspaceSuffix: "/contacts",
-    nonWorkspaceSuffix: "/contacts"
+    relativePath: "/contacts",
+    mode: "auto"
   });
 }
 
 function resolveAdminContactNewPath(context = null, workspaceSlug = "") {
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug,
-    workspaceSuffix: "/contacts/new",
-    nonWorkspaceSuffix: "/contacts/new"
+    relativePath: "/contacts/new",
+    mode: "auto"
   });
 }
 
@@ -72,12 +72,12 @@ function resolveAdminContactViewPath(contactIdLike, context = null, workspaceSlu
     return "";
   }
 
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug,
-    workspaceSuffix: `/contacts/${contactId}`,
-    nonWorkspaceSuffix: `/contacts/${contactId}`
+    relativePath: `/contacts/${contactId}`,
+    mode: "auto"
   });
 }
 
@@ -87,12 +87,12 @@ function resolveAdminContactEditPath(contactIdLike, context = null, workspaceSlu
     return "";
   }
 
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug,
-    workspaceSuffix: `/contacts/${contactId}/edit`,
-    nonWorkspaceSuffix: `/contacts/${contactId}/edit`
+    relativePath: `/contacts/${contactId}/edit`,
+    mode: "auto"
   });
 }
 

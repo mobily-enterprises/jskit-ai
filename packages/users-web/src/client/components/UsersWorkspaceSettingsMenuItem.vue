@@ -13,7 +13,7 @@ import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
-import { resolveWorkspaceAwareMenuTarget } from "../lib/workspaceMenuTarget.js";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
 
 const props = defineProps({
@@ -87,12 +87,12 @@ const canViewWorkspaceSettings = computed(() => {
 
 const resolvedTo = computed(() => {
   const context = placementContext.value;
-  return resolveWorkspaceAwareMenuTarget({
+  return resolveShellLinkPath({
     context,
     surface: props.surface,
     explicitTo: props.to,
-    workspaceSuffix: "/workspace/settings",
-    nonWorkspaceSuffix: "/workspace/settings"
+    relativePath: "/workspace/settings",
+    mode: "auto"
   });
 });
 

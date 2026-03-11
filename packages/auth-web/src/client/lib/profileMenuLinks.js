@@ -1,10 +1,9 @@
 import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
-  resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 
 function normalizeText(value) {
   return String(value || "")
@@ -63,7 +62,13 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
       return {
         id: "surface-switch.primary",
         label: "Go to admin",
-        to: resolveSurfaceWorkspacePathFromPlacementContext(source, adminSurfaceId, workspaceSlug)
+        to: resolveShellLinkPath({
+          context: source,
+          surface: adminSurfaceId,
+          workspaceSlug,
+          mode: "workspace",
+          relativePath: "/"
+        })
       };
     }
 
@@ -71,7 +76,13 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
       return {
         id: "surface-switch.primary",
         label: "Go to app",
-        to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug)
+        to: resolveShellLinkPath({
+          context: source,
+          surface: appSurfaceId,
+          workspaceSlug,
+          mode: "workspace",
+          relativePath: "/"
+        })
       };
     }
   }
@@ -83,7 +94,13 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return {
       id: "surface-switch.primary",
       label: "Go to workspace",
-      to: resolveSurfaceWorkspacePathFromPlacementContext(source, appSurfaceId, workspaceSlug)
+      to: resolveShellLinkPath({
+        context: source,
+        surface: appSurfaceId,
+        workspaceSlug,
+        mode: "workspace",
+        relativePath: "/"
+      })
     };
   }
 
@@ -94,7 +111,12 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return {
       id: "surface-switch.primary",
       label: "Go to app",
-      to: resolveSurfaceRootPathFromPlacementContext(source, appSurfaceId)
+      to: resolveShellLinkPath({
+        context: source,
+        surface: appSurfaceId,
+        mode: "surface",
+        relativePath: "/"
+      })
     };
   }
 
@@ -106,7 +128,13 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return null;
   }
 
-  const workspaceTarget = resolveSurfaceWorkspacePathFromPlacementContext(source, targets.workspaceSurfaceId, workspaceSlug);
+  const workspaceTarget = resolveShellLinkPath({
+    context: source,
+    surface: targets.workspaceSurfaceId,
+    workspaceSlug,
+    mode: "workspace",
+    relativePath: "/"
+  });
 
   return {
     id: "surface-switch.primary",
@@ -135,7 +163,12 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
   return {
     id: "surface-switch.console",
     label: "Go to console",
-    to: resolveSurfaceRootPathFromPlacementContext(source, consoleSurfaceId)
+    to: resolveShellLinkPath({
+      context: source,
+      surface: consoleSurfaceId,
+      mode: "surface",
+      relativePath: "/"
+    })
   };
 }
 

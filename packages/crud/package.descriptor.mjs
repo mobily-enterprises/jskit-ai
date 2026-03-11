@@ -7,11 +7,12 @@ export default Object.freeze({
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/shell-web",
     "@jskit-ai/users-web"
   ],
   capabilities: {
     provides: ["crud.contacts"],
-    requires: ["runtime.actions", "runtime.database", "auth.policy", "users.web"]
+    requires: ["runtime.actions", "runtime.database", "auth.policy", "users.web", "shell.web"]
   },
   runtime: {
     server: {
@@ -64,6 +65,7 @@ export default Object.freeze({
         "@jskit-ai/database-runtime": "0.1.0",
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
+        "@jskit-ai/shell-web": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
         "@tanstack/vue-query": "^5.90.5",
         "typebox": "^1.0.81",

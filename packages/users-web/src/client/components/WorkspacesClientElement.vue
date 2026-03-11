@@ -5,9 +5,9 @@ import {
   useWebPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceSwitchTargetsFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
+import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useGlobalCommand } from "../composables/useGlobalCommand.js";
@@ -156,11 +156,13 @@ function workspaceHomePath(workspaceSlug) {
     return "";
   }
 
-  return resolveSurfaceWorkspacePathFromPlacementContext(
-    placementContext.value,
-    workspaceSurfaceId.value,
-    normalizedSlug
-  );
+  return resolveShellLinkPath({
+    context: placementContext.value,
+    surface: workspaceSurfaceId.value,
+    workspaceSlug: normalizedSlug,
+    mode: "workspace",
+    relativePath: "/"
+  });
 }
 
 async function openWorkspace(workspaceSlug) {
