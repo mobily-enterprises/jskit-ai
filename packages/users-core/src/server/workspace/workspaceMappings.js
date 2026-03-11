@@ -1,9 +1,5 @@
 import { coerceWorkspaceColor } from "../../shared/settings.js";
-import {
-  normalizeEmail,
-  normalizeLowerText,
-  normalizeText
-} from "./workspaceSupport.js";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 function mapWorkspaceSummary(workspace, membership) {
   return {
@@ -41,8 +37,5 @@ function mapMembershipSummary(membership, workspace) {
 export {
   mapMembershipSummary,
   mapWorkspaceSettingsPublic,
-  mapWorkspaceSummary,
-  normalizeEmail,
-  normalizeLowerText,
-  normalizeText
+  mapWorkspaceSummary
 };

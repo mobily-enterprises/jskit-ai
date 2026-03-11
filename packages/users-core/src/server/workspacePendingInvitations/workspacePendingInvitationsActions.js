@@ -3,8 +3,8 @@ import {
   requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspaceInviteRedeemCommand } from "../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
-import { mapPendingInvites } from "./workspacePendingInvitationsOutput.js";
+import { workspaceInviteRedeemCommandResource } from "../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
+import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
   {
@@ -15,6 +15,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     surfacesFrom: "enabled",
     visibility: "public",
     input: EMPTY_INPUT_CONTRACT,
+    output: workspacePendingInvitationsResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -23,9 +24,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        pendingInvites: mapPendingInvites(
-          await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
-        )
+        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
       };
     }
   },
@@ -36,7 +35,8 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     visibility: "public",
-    input: workspaceInviteRedeemCommand.operation.body,
+    input: workspaceInviteRedeemCommandResource.operation.body,
+    output: workspaceInviteRedeemCommandResource.operation.output,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

@@ -16,12 +16,8 @@ import {
   mapWorkspaceSettingsPublic,
   mapWorkspaceSummary
 } from "./workspaceMappings.js";
-import {
-  normalizeEmail,
-  normalizeLowerText,
-  normalizeText,
-  normalizeUserProfile
-} from "./workspaceSupport.js";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeUserProfile } from "./workspaceSupport.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -36,7 +32,7 @@ function buildWorkspaceBaseSlug(user = {}) {
   if (displayName) {
     return toSlugPart(displayName);
   }
-  const email = normalizeEmail(user.email);
+  const email = normalizeLowerText(user.email);
   if (email.includes("@")) {
     return toSlugPart(email.split("@")[0]);
   }
@@ -48,7 +44,7 @@ function buildWorkspaceName(user = {}) {
   if (displayName) {
     return `${displayName}'s Workspace`;
   }
-  const email = normalizeEmail(user.email);
+  const email = normalizeLowerText(user.email);
   if (email) {
     return `${email}'s Workspace`;
   }

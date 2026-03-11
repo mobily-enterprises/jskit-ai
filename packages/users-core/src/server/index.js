@@ -7,45 +7,47 @@ export { createService as createSettingsService } from "./account/accountSetting
 export { createRepository as createUserProfilesRepository } from "./account/userProfilesRepository.js";
 export { createRepository as createUserSettingsRepository } from "./account/userSettingsRepository.js";
 export { createRepository as createWorkspacesRepository } from "./workspace/workspacesRepository.js";
-export { createRepository as createWorkspaceMembershipsRepository } from "./workspace/workspaceMembershipsRepository.js";
+export { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
 export { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettings/workspaceSettingsRepository.js";
-export { createRepository as createWorkspaceInvitesRepository } from "./workspace/workspaceInvitesRepository.js";
+export { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
 export { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 
-export { registerWorkspaceBootstrapRoutes } from "./workspaceBootstrap/registerWorkspaceBootstrapRoutes.js";
+export { bootWorkspaceBootstrapRoutes } from "./workspaceBootstrap/bootWorkspaceBootstrapRoutes.js";
 export { workspaceBootstrapActions } from "./workspaceBootstrap/workspaceBootstrapActions.js";
 
-export { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/registerWorkspaceDirectoryRoutes.js";
+export { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 export { workspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
 
-export { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInvitations/registerWorkspacePendingInvitationsRoutes.js";
+export { registerWorkspacePendingInvitations } from "./workspacePendingInvitations/registerWorkspacePendingInvitations.js";
+export { bootWorkspacePendingInvitations } from "./workspacePendingInvitations/bootWorkspacePendingInvitations.js";
 export { workspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
 export { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 
-export { registerWorkspaceSettingsRoutes } from "./workspaceSettings/registerWorkspaceSettingsRoutes.js";
+export { registerWorkspaceSettings } from "./workspaceSettings/registerWorkspaceSettings.js";
+export { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings.js";
 export { workspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
 
 export { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
-export { registerWorkspaceMembersRoutes } from "./workspaceMembers/registerWorkspaceMembersRoutes.js";
-
+export { registerWorkspaceMembers } from "./workspaceMembers/registerWorkspaceMembers.js";
+export { bootWorkspaceMembers } from "./workspaceMembers/bootWorkspaceMembers.js";
 export { workspaceMembersActions } from "./workspaceMembers/workspaceMembersActions.js";
 export { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
-export { registerAccountProfileRoutes } from "./accountProfile/registerAccountProfileRoutes.js";
+export { bootAccountProfileRoutes } from "./accountProfile/bootAccountProfileRoutes.js";
 
 export { accountProfileActions } from "./accountProfile/accountProfileActions.js";
-export { registerAccountPreferencesRoutes } from "./accountPreferences/registerAccountPreferencesRoutes.js";
+export { bootAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
 
 export { accountPreferencesActions } from "./accountPreferences/accountPreferencesActions.js";
-export { registerAccountNotificationsRoutes } from "./accountNotifications/registerAccountNotificationsRoutes.js";
+export { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
 
 export { accountNotificationsActions } from "./accountNotifications/accountNotificationsActions.js";
-export { registerAccountChatRoutes } from "./accountChat/registerAccountChatRoutes.js";
+export { bootAccountChatRoutes } from "./accountChat/bootAccountChatRoutes.js";
 
 export { accountChatActions } from "./accountChat/accountChatActions.js";
-export { registerAccountSecurityRoutes } from "./accountSecurity/registerAccountSecurityRoutes.js";
+export { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 
 export { accountSecurityActions } from "./accountSecurity/accountSecurityActions.js";
-export { registerConsoleSettingsRoutes } from "./consoleSettings/registerConsoleSettingsRoutes.js";
+export { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 
 export { consoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
 export { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";

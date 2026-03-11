@@ -1,10 +1,7 @@
 import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import {
-  normalizeLowerText,
-  normalizeText,
-  normalizeUserProfile
-} from "../workspace/workspaceSupport.js";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeUserProfile } from "../workspace/workspaceSupport.js";
 
 function createService({
   workspaceInvitesRepository,

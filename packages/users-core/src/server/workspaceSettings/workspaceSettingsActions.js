@@ -1,7 +1,7 @@
 import { resolveWorkspace } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog, hasPermission } from "../../shared/roles.js";
-import { workspaceSettingsSchema } from "../../shared/schemas/resources/workspaceSettingsSchema.js";
-import { inputParts } from "../common/contracts/inputParts.js";
+import { workspaceSettingsResource } from "../../shared/schemas/resources/workspaceSettingsResource.js";
+import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function canReadWorkspaceSettings(context) {
   return (
@@ -25,8 +25,8 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: inputParts.routeParams,
-    output: workspaceSettingsSchema.operations.view.output,
+    input: routeParamsValidator,
+    output: workspaceSettingsResource.operations.view.output,
     permission: canReadWorkspaceSettings,
     idempotency: "none",
     audit: {
@@ -46,8 +46,8 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: [inputParts.routeParams, workspaceSettingsSchema.operations.patch.body],
-    output: workspaceSettingsSchema.operations.patch.output,
+    input: [routeParamsValidator, workspaceSettingsResource.operations.patch.body],
+    output: workspaceSettingsResource.operations.patch.output,
     permission: ["workspace.settings.update"],
     idempotency: "optional",
     audit: {
@@ -56,7 +56,7 @@ const workspaceSettingsActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Update workspace settings.",
-      inputJsonSchema: workspaceSettingsSchema.operations.patch.body.schema
+      input: workspaceSettingsResource.operations.patch.body
     },
     async execute(input, context, deps) {
       const { workspaceSlug: _workspaceSlug, ...workspaceSettingsPatch } = input;

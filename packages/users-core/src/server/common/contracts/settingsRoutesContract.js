@@ -1,11 +1,11 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { userProfileSchema as userProfileResourceSchema } from "../../../shared/contracts/resources/userProfileSchema.js";
+import { userProfileResource } from "../../../shared/contracts/resources/userProfileResource.js";
 import {
-  userSettingsSchema as userSettingsResourceSchema,
+  userSettingsResource,
   preferencesPatchBodySchema,
   notificationsPatchBodySchema,
   chatPatchBodySchema
-} from "../../../shared/contracts/resources/userSettingsSchema.js";
+} from "../../../shared/contracts/resources/userSettingsResource.js";
 import { settingsPasswordChangeCommand } from "../../../shared/contracts/commands/settingsPasswordChangeCommand.js";
 import { settingsPasswordMethodToggleCommand } from "../../../shared/contracts/commands/settingsPasswordMethodToggleCommand.js";
 import { settingsOAuthLinkStartCommand } from "../../../shared/contracts/commands/settingsOAuthLinkStartCommand.js";
@@ -16,17 +16,17 @@ import { settingsAvatarDeleteCommand } from "../../../shared/contracts/commands/
 
 const settingsRoutesContract = Object.freeze({
   body: {
-    profile: userProfileResourceSchema.operations.replace.body.schema,
+    profile: userProfileResource.operations.replace.body.schema,
     preferences: preferencesPatchBodySchema,
     notifications: notificationsPatchBodySchema,
     chat: chatPatchBodySchema,
     changePassword: settingsPasswordChangeCommand.operation.body.schema,
     passwordMethodToggle: settingsPasswordMethodToggleCommand.operation.body.schema
   },
-  response: userSettingsResourceSchema.operations.view.response.schema,
+  response: userSettingsResource.operations.view.response.schema,
   resources: {
-    userProfile: userProfileResourceSchema,
-    userSettings: userSettingsResourceSchema
+    userProfile: userProfileResource,
+    userSettings: userSettingsResource
   },
   commands: {
     "settings.security.password.change": settingsPasswordChangeCommand,

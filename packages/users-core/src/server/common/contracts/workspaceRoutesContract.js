@@ -1,26 +1,26 @@
 import { Type } from "@fastify/type-provider-typebox";
 import {
   membershipSummarySchema,
-  workspaceSchema as workspaceResourceSchema,
+  workspaceResource,
   workspaceSummarySchema
-} from "../../../shared/contracts/resources/workspaceSchema.js";
+} from "../../../shared/contracts/resources/workspaceResource.js";
 import {
-  workspaceSettingsSchema as workspaceSettingsResourceSchema
-} from "../../../shared/schemas/resources/workspaceSettingsSchema.js";
-import { workspaceMemberSchema as workspaceMemberResourceSchema } from "../../../shared/contracts/resources/workspaceMemberSchema.js";
-import { workspaceInviteSchema as workspaceInviteResourceSchema } from "../../../shared/contracts/resources/workspaceInviteSchema.js";
-import { workspaceInviteRedeemCommand } from "../../../shared/contracts/commands/workspaceInviteRedeemCommand.js";
+  workspaceSettingsResource as workspaceSettingsResourceSchema
+} from "../../../shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceMemberResource } from "../../../shared/contracts/resources/workspaceMemberResource.js";
+import { workspaceInviteResource } from "../../../shared/contracts/resources/workspaceInviteResource.js";
+import { workspaceInviteRedeemCommandResource } from "../../../shared/contracts/commands/workspaceInviteRedeemCommandResource.js";
 
 const workspaceRoutesContract = Object.freeze({
   body: {
-    redeemInvite: workspaceInviteRedeemCommand.operation.body.schema,
+    redeemInvite: workspaceInviteRedeemCommandResource.operation.body.schema,
     memberRoleUpdate: Type.Object(
       {
-        roleId: workspaceMemberResourceSchema.operations.patch.body.schema.properties.roleId
+        roleId: workspaceMemberResource.operations.patch.body.schema.properties.roleId
       },
       { additionalProperties: false }
     ),
-    createInvite: workspaceInviteResourceSchema.operations.create.body.schema
+    createInvite: workspaceInviteResource.operations.create.body.schema
   },
   response: {
     bootstrap: Type.Object(
@@ -57,14 +57,14 @@ const workspaceRoutesContract = Object.freeze({
       },
       { additionalProperties: true }
     ),
-    workspacesList: workspaceResourceSchema.operations.list.response.schema,
+    workspacesList: workspaceResource.operations.list.response.schema,
     pendingInvites: Type.Object(
       {
         pendingInvites: Type.Array(Type.Object({}, { additionalProperties: true }))
       },
       { additionalProperties: false }
     ),
-    respondToInvite: workspaceInviteRedeemCommand.operation.response.schema,
+    respondToInvite: workspaceInviteRedeemCommandResource.operation.output.schema,
     roles: Type.Object(
       {
         collaborationEnabled: Type.Boolean(),
@@ -74,17 +74,17 @@ const workspaceRoutesContract = Object.freeze({
       },
       { additionalProperties: true }
     ),
-    members: workspaceMemberResourceSchema.operations.list.response.schema,
-    invites: workspaceInviteResourceSchema.operations.list.response.schema
+    members: workspaceMemberResource.operations.list.response.schema,
+    invites: workspaceInviteResource.operations.list.response.schema
   },
   resources: {
-    workspace: workspaceResourceSchema,
+    workspace: workspaceResource,
     workspaceSettings: workspaceSettingsResourceSchema,
-    workspaceMember: workspaceMemberResourceSchema,
-    workspaceInvite: workspaceInviteResourceSchema
+    workspaceMember: workspaceMemberResource,
+    workspaceInvite: workspaceInviteResource
   },
   commands: {
-    "workspace.invite.redeem": workspaceInviteRedeemCommand
+    "workspace.invite.redeem": workspaceInviteRedeemCommandResource
   }
 });
 

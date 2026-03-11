@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import {
+  normalizeObjectInput,
+  createCursorListValidator
+} from "@jskit-ai/kernel/shared/contracts";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeContactInput(payload = {}) {
@@ -72,6 +75,11 @@ const contactBodySchema = Type.Object(
   }
 );
 
+const contactRecordValidator = Object.freeze({
+  schema: contactRecordSchema,
+  normalize: normalizeContactRecord
+});
+
 const contactsSchema = {
   resource: "contacts",
   operationMessages: {
@@ -84,30 +92,11 @@ const contactsSchema = {
   operations: {
     list: {
       method: "GET",
-      output: {
-        schema: Type.Object(
-          {
-            items: Type.Array(contactRecordSchema),
-            nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-          },
-          { additionalProperties: false }
-        ),
-        normalize(payload = {}) {
-          const source = normalizeObjectInput(payload);
-
-          return {
-            items: Array.isArray(source.items) ? source.items.map((entry) => normalizeContactRecord(entry)) : [],
-            nextCursor: normalizeText(source.nextCursor) || null
-          };
-        }
-      }
+      output: createCursorListValidator(contactRecordValidator)
     },
     view: {
       method: "GET",
-      output: {
-        schema: contactRecordSchema,
-        normalize: normalizeContactRecord
-      }
+      output: contactRecordValidator
     },
     create: {
       method: "POST",
@@ -115,10 +104,7 @@ const contactsSchema = {
         schema: contactBodySchema,
         normalize: normalizeContactInput
       },
-      output: {
-        schema: contactRecordSchema,
-        normalize: normalizeContactRecord
-      }
+      output: contactRecordValidator
     },
     patch: {
       method: "PATCH",
@@ -126,10 +112,7 @@ const contactsSchema = {
         schema: Type.Partial(contactBodySchema, { additionalProperties: false }),
         normalize: normalizeContactInput
       },
-      output: {
-        schema: contactRecordSchema,
-        normalize: normalizeContactRecord
-      }
+      output: contactRecordValidator
     },
     delete: {
       method: "DELETE",

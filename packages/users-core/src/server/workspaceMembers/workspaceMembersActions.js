@@ -3,15 +3,8 @@ import {
   resolveWorkspace
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
-import {
-  workspaceInviteCreateActionInput,
-  workspaceInviteRevokeActionInput,
-  workspaceInvitesOutput,
-  workspaceMemberRoleUpdateActionInput,
-  workspaceMembersOutput,
-  workspaceRoleCatalogOutput,
-  workspaceScopeActionInput
-} from "./workspaceMembersContracts.js";
+import { workspaceMembersResource } from "../../shared/schemas/resources/workspaceMembersResource.js";
+import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 const workspaceMembersActions = Object.freeze([
   {
@@ -21,8 +14,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceScopeActionInput,
-    output: workspaceRoleCatalogOutput,
+    input: routeParamsValidator,
+    output: workspaceMembersResource.operations.rolesList.output,
     permission: ["workspace.roles.view"],
     idempotency: "none",
     audit: {
@@ -40,8 +33,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceScopeActionInput,
-    output: workspaceMembersOutput,
+    input: routeParamsValidator,
+    output: workspaceMembersResource.operations.membersList.output,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -59,8 +52,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceMemberRoleUpdateActionInput,
-    output: workspaceMembersOutput,
+    input: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.input],
+    output: workspaceMembersResource.operations.updateMemberRole.output,
     permission: ["workspace.members.manage"],
     idempotency: "optional",
     audit: {
@@ -68,7 +61,10 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), input);
+      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
+        memberUserId: input.memberUserId,
+        roleId: input.roleId
+      });
     }
   },
   {
@@ -78,8 +74,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceScopeActionInput,
-    output: workspaceInvitesOutput,
+    input: routeParamsValidator,
+    output: workspaceMembersResource.operations.invitesList.output,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -97,8 +93,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceInviteCreateActionInput,
-    output: workspaceInvitesOutput,
+    input: [routeParamsValidator, workspaceMembersResource.operations.createInvite.body],
+    output: workspaceMembersResource.operations.createInvite.output,
     permission: ["workspace.members.invite"],
     idempotency: "optional",
     audit: {
@@ -107,13 +103,16 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Invite a person to the workspace.",
-      inputJsonSchema: workspaceInviteCreateActionInput.schema
+      input: workspaceMembersResource.operations.createInvite.body
     },
     async execute(input, context, deps) {
       return deps.workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveUser(context, input),
-        input
+        {
+          email: input.email,
+          roleId: input.roleId
+        }
       );
     }
   },
@@ -124,8 +123,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     visibility: "public",
-    input: workspaceInviteRevokeActionInput,
-    output: workspaceInvitesOutput,
+    input: [routeParamsValidator, workspaceMembersResource.operations.revokeInvite.input],
+    output: workspaceMembersResource.operations.revokeInvite.output,
     permission: ["workspace.invites.revoke"],
     idempotency: "optional",
     audit: {

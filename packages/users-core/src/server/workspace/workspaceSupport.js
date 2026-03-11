@@ -1,10 +1,4 @@
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 function normalizeEmail(value) {
   return normalizeLowerText(value);
@@ -29,8 +23,5 @@ function normalizeUserProfile(profile) {
 }
 
 export {
-  normalizeEmail,
-  normalizeLowerText,
-  normalizeText,
   normalizeUserProfile
 };

@@ -1,6 +1,6 @@
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { OWNER_ROLE_ID, resolveAssignableRoleIds } from "../../shared/roles.js";
+import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
@@ -10,7 +10,7 @@ function createService({
     throw new Error("workspaceMembersService requires membership and invite repositories.");
   }
 
-  const assignableRoleIds = resolveAssignableRoleIds();
+  const assignableRoleIds = ASSIGNABLE_ROLE_IDS;
 
   async function listMembers(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);

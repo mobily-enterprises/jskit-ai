@@ -5,7 +5,13 @@ import {
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { mapPendingInvites } from "../workspacePendingInvitations/workspacePendingInvitationsOutput.js";
+import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
+
+function normalizePendingInvites(invites) {
+  return workspacePendingInvitationsResource.operations.list.output.normalize({
+    pendingInvites: invites
+  }).pendingInvites;
+}
 
 const workspaceBootstrapActions = Object.freeze([
   {
@@ -27,7 +33,7 @@ const workspaceBootstrapActions = Object.freeze([
       const user = resolveUser(context, payload);
       const pendingInvites =
         deps.workspaceTenancyEnabled && user
-          ? mapPendingInvites(await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user))
+          ? normalizePendingInvites(await deps.workspacePendingInvitationsService.listPendingInvitesForUser(user))
           : [];
       return deps.workspaceService.buildBootstrapPayload({
         request: resolveRequest(context),

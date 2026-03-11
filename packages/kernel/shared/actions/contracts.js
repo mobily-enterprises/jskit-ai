@@ -275,16 +275,21 @@ function normalizeAssistantToolConfig(assistantTool) {
   }
 
   const description = normalizeText(assistantTool.description);
-  const inputJsonSchema = assistantTool.inputJsonSchema;
-  if (inputJsonSchema != null && !isPlainObject(inputJsonSchema)) {
-    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema must be an object.", {
+  const input = assistantTool.input;
+  const inputValidator =
+    typeof input === "undefined"
+      ? null
+      : normalizeSingleActionContractPart(input, "assistantTool.input");
+  if (typeof assistantTool.inputJsonSchema !== "undefined") {
+    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.input.", {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
   return Object.freeze({
     description,
-    inputJsonSchema: inputJsonSchema ? Object.freeze({ ...inputJsonSchema }) : null
+    input: inputValidator,
+    inputJsonSchema: inputValidator?.schema || null
   });
 }
 

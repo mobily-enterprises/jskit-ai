@@ -94,7 +94,7 @@
 import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { workspaceSettingsSchema } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsSchema";
+import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsResource";
 import { useWorkspaceAddEdit } from "../composables/useWorkspaceAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
@@ -108,6 +108,7 @@ const workspaceForm = reactive({
 });
 
 const addEdit = useWorkspaceAddEdit({
+  resource: workspaceSettingsResource,
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "users-web",
@@ -121,12 +122,11 @@ const addEdit = useWorkspaceAddEdit({
   placementSource: "users-web.workspace-settings-view",
   missingWorkspaceSlugError: "Workspace slug is required in the URL.",
   fallbackLoadError: "Unable to load workspace settings.",
-  fallbackSaveError: String(workspaceSettingsSchema.operationMessages?.saveError || "Unable to update workspace settings."),
   fieldErrorKeys: ["name", "avatarUrl", "color"],
   model: workspaceForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
-      operation: workspaceSettingsSchema.operations.patch,
+      operation: workspaceSettingsResource.operations.patch,
       section: "body",
       value: rawPayload
     }),
@@ -145,7 +145,6 @@ const addEdit = useWorkspaceAddEdit({
     color: model.color,
     avatarUrl: model.avatarUrl,
     invitesEnabled: model.invitesEnabled
-  }),
-  messages: workspaceSettingsSchema.operationMessages || {}
+  })
 });
 </script>

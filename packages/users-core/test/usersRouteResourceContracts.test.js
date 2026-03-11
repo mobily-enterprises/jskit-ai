@@ -20,11 +20,11 @@ function assertResourceContract(contract, label) {
     const resolvedMessages =
       operation?.messages && typeof operation.messages === "object"
         ? operation.messages
-        : contract?.operationMessages;
+        : contract?.messages || contract?.operationMessages;
     assert.equal(
       typeof resolvedMessages,
       "object",
-      `${label}.operations.${operationName} must resolve messages from operation.messages or contract.operationMessages.`
+      `${label}.operations.${operationName} must resolve messages from operation.messages or contract.messages.`
     );
     assert.equal(
       typeof (operation.output?.schema || operation.response?.schema),
@@ -49,7 +49,11 @@ function assertCommandContract(contract, label) {
   assert.equal(contract.command, label, `${label}.command must match command id.`);
   assert.equal(typeof contract.operation?.method, "string", `${label}.operation.method must exist.`);
   assert.equal(typeof contract.operation?.messages, "object", `${label}.operation.messages must be an object.`);
-  assert.equal(typeof contract.operation?.response?.schema, "object", `${label}.operation.response.schema must exist.`);
+  assert.equal(
+    typeof (contract.operation?.output?.schema || contract.operation?.response?.schema),
+    "object",
+    `${label}.operation payload schema must exist.`
+  );
   assert.ok(Array.isArray(contract.operation?.invalidates), `${label}.operation.invalidates must be an array.`);
 
   if (contract.operation?.body) {
@@ -98,6 +102,10 @@ test("route schema building blocks are wired directly from canonical contracts",
   assert.equal(
     workspaceSchema.body.redeemInvite,
     workspaceSchema.commands["workspace.invite.redeem"].operation.body.schema
+  );
+  assert.equal(
+    workspaceSchema.response.respondToInvite,
+    workspaceSchema.commands["workspace.invite.redeem"].operation.output.schema
   );
   assert.equal(
     workspaceSchema.response.workspacesList,

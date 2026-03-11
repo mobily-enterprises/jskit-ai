@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
-import { inputParts } from "../src/server/common/contracts/inputParts.js";
+import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 import { routeQueries } from "../src/server/common/contracts/routeQueries.js";
 
-test("inputParts exposes a shared route params contract part", () => {
-  assert.equal(typeof inputParts.routeParams.schema, "object");
-  assert.equal(typeof inputParts.routeParams.normalize, "function");
+test("routeParamsValidator exposes a shared route params contract part", () => {
+  assert.equal(typeof routeParamsValidator.schema, "object");
+  assert.equal(typeof routeParamsValidator.normalize, "function");
 });
 
 test("routeQueries exposes first-class query contract parts", () => {
@@ -18,7 +18,7 @@ test("routeQueries exposes first-class query contract parts", () => {
 
 test("route contract uses the shared params contract part and merges query arrays automatically", () => {
   const compiled = compileRouteContract({
-    params: inputParts.routeParams,
+    params: routeParamsValidator,
     query: [routeQueries.pagination, routeQueries.search]
   });
 

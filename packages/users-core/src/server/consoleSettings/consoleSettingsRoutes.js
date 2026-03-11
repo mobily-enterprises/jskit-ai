@@ -1,14 +1,14 @@
-import { consoleSettingsSchema as consoleSettingsResourceSchema } from "../../shared/contracts/resources/consoleSettingsSchema.js";
+import { consoleSettingsResource } from "../../shared/contracts/resources/consoleSettingsResource.js";
 
 const consoleSettingsRoutes = Object.freeze({
   body: {
-    update: consoleSettingsResourceSchema.operations.replace.body.schema
+    update: consoleSettingsResource.operations.replace.body.schema
   },
   response: {
-    settings: consoleSettingsResourceSchema.operations.view.response.schema
+    settings: consoleSettingsResource.operations.view.response.schema
   },
   resources: {
-    consoleSettings: consoleSettingsResourceSchema
+    consoleSettings: consoleSettingsResource
   },
   commands: {}
 });

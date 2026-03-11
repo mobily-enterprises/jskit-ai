@@ -54,16 +54,16 @@ function listRoleDescriptors() {
   }));
 }
 
-function resolveAssignableRoleIds() {
-  return ROLE_CATALOG.filter((role) => role.assignable).map((role) => role.id);
-}
+const ASSIGNABLE_ROLE_IDS = Object.freeze(
+  ROLE_CATALOG.filter((role) => role.assignable).map((role) => role.id)
+);
 
 function createWorkspaceRoleCatalog() {
   return {
     collaborationEnabled: true,
     defaultInviteRole: MEMBER_ROLE_ID,
     roles: listRoleDescriptors(),
-    assignableRoleIds: resolveAssignableRoleIds()
+    assignableRoleIds: [...ASSIGNABLE_ROLE_IDS]
   };
 }
 
@@ -82,9 +82,9 @@ export {
   ADMIN_ROLE_ID,
   MEMBER_ROLE_ID,
   ROLE_CATALOG,
+  ASSIGNABLE_ROLE_IDS,
   resolveRolePermissions,
   listRoleDescriptors,
-  resolveAssignableRoleIds,
   createWorkspaceRoleCatalog,
   hasPermission
 };

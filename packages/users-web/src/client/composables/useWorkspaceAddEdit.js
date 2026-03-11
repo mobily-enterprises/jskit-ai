@@ -9,10 +9,12 @@ import {
   normalizePermissions,
   resolveApiSuffix,
   resolveEnabled,
-  resolveQueryKeyForWorkspace
+  resolveQueryKeyForWorkspace,
+  resolveResourceMessages
 } from "./scopeHelpers.js";
 
 function useWorkspaceAddEdit({
+  resource = null,
   apiSuffix = "",
   queryKeyFactory = null,
   viewPermissions = [],
@@ -39,6 +41,16 @@ function useWorkspaceAddEdit({
 
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
   const normalizedSavePermissions = normalizePermissions(savePermissions);
+  const resolvedMessages = resolveResourceMessages(resource, {
+    validation: "Fix invalid values and try again.",
+    saveSuccess: "Saved.",
+    saveError: "Unable to save."
+  });
+  const customMessages = messages && typeof messages === "object" ? messages : {};
+  const effectiveMessages = {
+    ...resolvedMessages,
+    ...customMessages
+  };
 
   const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 
@@ -87,7 +99,7 @@ function useWorkspaceAddEdit({
     return access.canAny(normalizedSavePermissions);
   });
 
-  const resource = useUsersWebEndpointResource({
+  const endpointResource = useUsersWebEndpointResource({
     queryKey,
     path: workspaceApiPath,
     enabled: computed(
@@ -96,7 +108,7 @@ function useWorkspaceAddEdit({
     readMethod,
     writeMethod,
     fallbackLoadError,
-    fallbackSaveError
+    fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });
 
   const feedback = useUsersWebUiFeedback();
@@ -104,7 +116,7 @@ function useWorkspaceAddEdit({
 
   const addEdit = useAddEditCore({
     model,
-    resource,
+    resource: endpointResource,
     queryKey,
     canSave,
     fieldBag,
@@ -114,12 +126,7 @@ function useWorkspaceAddEdit({
     buildRawPayload,
     buildSavePayload,
     onSaveSuccess,
-    messages: {
-      validation: "Fix invalid values and try again.",
-      saveSuccess: "Saved.",
-      saveError: "Unable to save.",
-      ...(messages && typeof messages === "object" ? messages : {})
-    }
+    messages: effectiveMessages
   });
 
   if (clearOnRouteChange) {
@@ -144,7 +151,7 @@ function useWorkspaceAddEdit({
     return resource.loadError.value;
   });
 
-  const isLoading = computed(() => Boolean(resource.isLoading.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || access.isBootstrapping.value));
 
   return proxyRefs({
     canView,
@@ -156,8 +163,8 @@ function useWorkspaceAddEdit({
     message: addEdit.message,
     messageType: addEdit.messageType,
     submit: addEdit.submit,
-    refresh: resource.reload,
-    resource
+    refresh: endpointResource.reload,
+    resource: endpointResource
   });
 }
 

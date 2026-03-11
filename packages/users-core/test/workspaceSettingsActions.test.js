@@ -14,7 +14,7 @@ test("workspace settings actions live in their own action array", () => {
   assert.equal(workspaceSettingsActions[0].surfacesFrom, "workspace");
   assert.equal(workspaceSettingsActions[1].surfacesFrom, "workspace");
   assert.deepEqual(workspaceSettingsActions[1].channels, ["api", "assistant_tool", "internal"]);
-  assert.ok(workspaceSettingsActions[1].assistantTool?.inputJsonSchema);
+  assert.ok(workspaceSettingsActions[1].assistantTool?.input);
 });
 
 test("workspace actions array no longer owns workspace settings actions", () => {

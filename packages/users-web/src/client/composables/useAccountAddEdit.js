@@ -10,10 +10,12 @@ import {
   normalizeApiPath,
   resolveApiSuffix,
   resolveEnabled,
-  resolveQueryKeyForScope
+  resolveQueryKeyForScope,
+  resolveResourceMessages
 } from "./scopeHelpers.js";
 
 function useAccountAddEdit({
+  resource = null,
   apiSuffix = "",
   queryKeyFactory = null,
   viewPermissions = [],
@@ -38,6 +40,16 @@ function useAccountAddEdit({
 
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
   const normalizedSavePermissions = normalizePermissions(savePermissions);
+  const resolvedMessages = resolveResourceMessages(resource, {
+    validation: "Fix invalid values and try again.",
+    saveSuccess: "Saved.",
+    saveError: "Unable to save."
+  });
+  const customMessages = messages && typeof messages === "object" ? messages : {};
+  const effectiveMessages = {
+    ...resolvedMessages,
+    ...customMessages
+  };
 
   const apiPath = computed(() => {
     const suffix = resolveApiSuffix(apiSuffix, {
@@ -80,14 +92,14 @@ function useAccountAddEdit({
     return access.canAny(normalizedSavePermissions);
   });
 
-  const resource = useUsersWebEndpointResource({
+  const endpointResource = useUsersWebEndpointResource({
     queryKey,
     path: apiPath,
     enabled: computed(() => queryEnabled.value && Boolean(apiPath.value) && canView.value),
     readMethod,
     writeMethod,
     fallbackLoadError,
-    fallbackSaveError
+    fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });
 
   const feedback = useUsersWebUiFeedback();
@@ -95,7 +107,7 @@ function useAccountAddEdit({
 
   const addEdit = useAddEditCore({
     model,
-    resource,
+    resource: endpointResource,
     queryKey,
     canSave,
     fieldBag,
@@ -105,12 +117,7 @@ function useAccountAddEdit({
     buildRawPayload,
     buildSavePayload,
     onSaveSuccess,
-    messages: {
-      validation: "Fix invalid values and try again.",
-      saveSuccess: "Saved.",
-      saveError: "Unable to save.",
-      ...(messages && typeof messages === "object" ? messages : {})
-    }
+    messages: effectiveMessages
   });
 
   if (clearOnRouteChange) {
@@ -128,10 +135,10 @@ function useAccountAddEdit({
       return access.bootstrapError.value;
     }
 
-    return resource.loadError.value;
+    return endpointResource.loadError.value;
   });
 
-  const isLoading = computed(() => Boolean(resource.isLoading.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || access.isBootstrapping.value));
 
   return proxyRefs({
     canView,
@@ -143,8 +150,8 @@ function useAccountAddEdit({
     message: addEdit.message,
     messageType: addEdit.messageType,
     submit: addEdit.submit,
-    refresh: resource.reload,
-    resource
+    refresh: endpointResource.reload,
+    resource: endpointResource
   });
 }
 

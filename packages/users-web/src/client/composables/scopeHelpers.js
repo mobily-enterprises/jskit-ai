@@ -70,6 +70,16 @@ function normalizeApiPath(value) {
   return `/api${source}`;
 }
 
+function resolveResourceMessages(resource, defaults = {}) {
+  const defaultMessages = asPlainObject(defaults);
+  const resourceMessages = asPlainObject(asPlainObject(resource).messages);
+
+  return {
+    ...defaultMessages,
+    ...resourceMessages
+  };
+}
+
 export {
   asPlainObject,
   normalizePermissions,
@@ -77,5 +87,6 @@ export {
   resolveEnabled,
   resolveQueryKeyForWorkspace,
   resolveQueryKeyForScope,
-  normalizeApiPath
+  normalizeApiPath,
+  resolveResourceMessages
 };
