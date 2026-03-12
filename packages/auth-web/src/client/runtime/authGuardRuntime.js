@@ -1,7 +1,10 @@
+import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
+
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = "/api/session";
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
+const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
   username: "",
@@ -122,13 +125,16 @@ async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImple
     });
 
     if (!response.ok) {
+      if (isTransientQueryError(response)) {
+        return KEEP_PREVIOUS_AUTH_STATE;
+      }
       return DEFAULT_AUTH_STATE;
     }
 
     const payload = await response.json();
     return normalizeAuthState(payload);
   } catch {
-    return DEFAULT_AUTH_STATE;
+    return KEEP_PREVIOUS_AUTH_STATE;
   }
 }
 
@@ -208,6 +214,41 @@ function normalizeRuntimePath(value, fallback) {
   return raw || fallback;
 }
 
+function asEventTarget(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  if (typeof value.addEventListener !== "function" || typeof value.removeEventListener !== "function") {
+    return null;
+  }
+  return value;
+}
+
+function getWindowEventTarget() {
+  if (typeof window !== "object" || !window) {
+    return null;
+  }
+  return asEventTarget(window);
+}
+
+function getDocumentEventTarget() {
+  if (typeof document !== "object" || !document) {
+    return null;
+  }
+  return asEventTarget(document);
+}
+
+function isDocumentVisible() {
+  if (typeof document !== "object" || !document) {
+    return false;
+  }
+  const visibilityState = String(document.visibilityState || "").trim().toLowerCase();
+  if (!visibilityState) {
+    return true;
+  }
+  return visibilityState === "visible";
+}
+
 function createAuthGuardRuntime({
   placementRuntime = null,
   sessionPath = DEFAULT_SESSION_PATH,
@@ -221,6 +262,8 @@ function createAuthGuardRuntime({
   let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
   let currentLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
   let authState = DEFAULT_AUTH_STATE;
+  let activeRefreshPromise = null;
+  let listenersInstalled = false;
   const listeners = new Set();
 
   function notifyListeners() {
@@ -248,14 +291,32 @@ function createAuthGuardRuntime({
   }
 
   async function refresh({ sessionPath: nextSessionPath } = {}) {
-    const resolvedSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
-    authState = await readSessionState({
-      sessionPath: resolvedSessionPath,
-      fetchImplementation
-    });
-    applyAuthContext(authState, placementRuntime);
-    notifyListeners();
-    return authState;
+    currentSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
+    if (activeRefreshPromise) {
+      return activeRefreshPromise;
+    }
+
+    activeRefreshPromise = (async () => {
+      const nextAuthState = await readSessionState({
+        sessionPath: currentSessionPath,
+        fetchImplementation
+      });
+
+      if (nextAuthState === KEEP_PREVIOUS_AUTH_STATE) {
+        return authState;
+      }
+
+      authState = nextAuthState;
+      applyAuthContext(authState, placementRuntime);
+      notifyListeners();
+      return authState;
+    })();
+
+    try {
+      return await activeRefreshPromise;
+    } finally {
+      activeRefreshPromise = null;
+    }
   }
 
   async function initialize({ sessionPath: nextSessionPath, loginRoute: nextLoginRoute } = {}) {
@@ -265,6 +326,33 @@ function createAuthGuardRuntime({
       loginRoute: currentLoginRoute,
       getAuthState: () => authState
     });
+
+    if (!listenersInstalled) {
+      listenersInstalled = true;
+      const onReconnect = () => {
+        void refresh();
+      };
+      const onWindowFocus = () => {
+        void refresh();
+      };
+      const onVisibilityChange = () => {
+        if (isDocumentVisible()) {
+          void refresh();
+        }
+      };
+
+      const windowTarget = getWindowEventTarget();
+      if (windowTarget) {
+        windowTarget.addEventListener("online", onReconnect);
+        windowTarget.addEventListener("focus", onWindowFocus);
+      }
+
+      const documentTarget = getDocumentEventTarget();
+      if (documentTarget) {
+        documentTarget.addEventListener("visibilitychange", onVisibilityChange);
+      }
+    }
+
     return refresh({
       sessionPath: currentSessionPath
     });
