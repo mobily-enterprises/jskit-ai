@@ -7,8 +7,8 @@ import { RouterView } from "vue-router";
   <ShellLayout
     surface="console"
     surface-label="Console"
-    title="Console surface is ready."
-    subtitle="Use this area for power-user tooling, diagnostics, and operations flows."
+    title=""
+    subtitle=""
   >
     <RouterView />
   </ShellLayout>

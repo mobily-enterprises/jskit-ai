@@ -1,6 +1,6 @@
 <script setup>
-const title = "Console surface is ready.";
-const subtitle = "Use this area for power-user tooling, diagnostics, and operations flows.";
+const title = "";
+const subtitle = "";
 </script>
 
 <template>

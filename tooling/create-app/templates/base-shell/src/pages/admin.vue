@@ -7,8 +7,8 @@ import { RouterView } from "vue-router";
   <ShellLayout
     surface="admin"
     surface-label="Admin"
-    title="Admin surface is ready."
-    subtitle="Manage platform settings, operators, and governance from this surface."
+    title=""
+    subtitle=""
   >
     <RouterView />
   </ShellLayout>

@@ -7,8 +7,8 @@ import { RouterView } from "vue-router";
   <ShellLayout
     surface="app"
     surface-label="App"
-    title="App surface is ready."
-    subtitle="This surface hosts your primary workspace experience."
+    title=""
+    subtitle=""
   >
     <RouterView />
   </ShellLayout>

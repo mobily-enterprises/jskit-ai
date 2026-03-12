@@ -1,6 +1,6 @@
 <script setup>
-const title = "Admin surface is ready.";
-const subtitle = "Manage platform settings, operators, and governance from this surface.";
+const title = "";
+const subtitle = "";
 </script>
 
 <template>

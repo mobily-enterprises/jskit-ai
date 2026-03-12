@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 const appTitle = "__APP_TITLE__";
-const title = "App surface is ready.";
+const title = "";
 const health = ref("loading...");
 
 const healthColor = computed(() => {

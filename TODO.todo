@@ -57,8 +57,8 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Improve redirect after login, admin or not?
 
   NOW:
-  - Do infrastructure deploy, easy way
   - Move console, app, admin tags up in the header
+  - Remove "bundles"
   - Clean up code for the CRUD and the addEdit methods
   - Make sure CRUD has all best practices, ALL of them
   - Delete setting table for workspace completely
@@ -70,16 +70,16 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   - Workflow to accept an invite
   - Re-add icons
   - Spurious chat settings in profile_settings
-
+  - Do infrastructure deploy, easy way
+ 
   PORT OVER:
   - Realtime
   - AI agent
-  - chat
-
-  - communications (email, sms)
-  - operations
-  - security
-  - social
+  - Chat
+  - Communications (email, sms)
+  - Pperations
+  - Security
+  - Social
   - Billing
 
 
