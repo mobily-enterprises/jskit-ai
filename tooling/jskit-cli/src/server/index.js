@@ -3271,6 +3271,27 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
   return resolved;
 }
 
+function validateInlineOptionsForPackage(packageEntry, inlineOptions) {
+  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const allowedOptionNames = Object.keys(optionSchemas);
+  const allowed = new Set(allowedOptionNames);
+  const providedOptionNames = Object.keys(ensureObject(inlineOptions));
+  const unknownOptionNames = providedOptionNames.filter((optionName) => !allowed.has(optionName));
+
+  if (unknownOptionNames.length < 1) {
+    return;
+  }
+
+  const sortedUnknown = sortStrings(unknownOptionNames);
+  const suffix = allowedOptionNames.length > 0
+    ? ` Allowed options: ${sortStrings(allowedOptionNames).join(", ")}.`
+    : " This package does not accept inline options.";
+
+  throw createCliError(
+    `Unknown option(s) for package ${packageEntry.packageId}: ${sortedUnknown.join(", ")}.${suffix}`
+  );
+}
+
 function createManagedRecordBase(packageEntry, options) {
   const sourceRecord = {
     type: String(packageEntry?.sourceType || "packages-directory"),
@@ -4841,6 +4862,14 @@ async function commandAdd({ positional, options, cwd, io }) {
     seedPackageIds: targetPackageIds
   });
 
+  if (targetType === "package") {
+    const targetPackageEntry = combinedPackageRegistry.get(resolvedTargetPackageId);
+    if (!targetPackageEntry) {
+      throw createCliError(`Unknown package: ${targetId}`);
+    }
+    validateInlineOptionsForPackage(targetPackageEntry, options.inlineOptions);
+  }
+
   const { ordered: resolvedPackageIds, externalDependencies } = resolveLocalDependencyOrder(
     targetPackageIds,
     combinedPackageRegistry
@@ -4859,11 +4888,15 @@ async function commandAdd({ positional, options, cwd, io }) {
 
   const packagesToInstall = [];
   const resolvedOptionsByPackage = {};
+  const forceReapplyTarget = options?.forceReapplyTarget === true;
+  const hasInlineOptions = Object.keys(ensureObject(options.inlineOptions)).length > 0;
   for (const packageId of resolvedPackageIds) {
     const packageEntry = combinedPackageRegistry.get(packageId);
     const existingInstall = ensureObject(lock.installedPackages[packageId]);
     const existingVersion = String(existingInstall.version || "").trim();
-    if (existingVersion && existingVersion === packageEntry.version) {
+    const isDirectTargetPackage = targetType === "package" && packageId === resolvedTargetPackageId;
+    const shouldReapplyInstalledPackage = isDirectTargetPackage && (forceReapplyTarget || hasInlineOptions);
+    if (existingVersion && existingVersion === packageEntry.version && !shouldReapplyInstalledPackage) {
       continue;
     }
     packagesToInstall.push(packageId);
@@ -4872,7 +4905,7 @@ async function commandAdd({ positional, options, cwd, io }) {
       packageEntry,
       {
         ...lockEntryOptions,
-        ...options.inlineOptions
+        ...(isDirectTargetPackage ? options.inlineOptions : {})
       },
       io
     );
@@ -4965,7 +4998,10 @@ async function commandUpdate({ positional, options, cwd, io }) {
 
   return commandAdd({
     positional: ["package", resolvedTargetId],
-    options,
+    options: {
+      ...options,
+      forceReapplyTarget: true
+    },
     cwd,
     io
   });

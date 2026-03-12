@@ -197,30 +197,20 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
-        skipIfContains: "config.crud.visibility = \"${option:visibility}\";",
+        skipIfContains: "jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}",
         value:
-          "\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace|kebab}\";\nconfig.crud.visibility = \"${option:visibility}\";\n",
+          "\n// jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace|kebab}\";\nconfig.crud.visibility = \"${option:visibility}\";\nconfig.crud.directoryPrefix = \"${option:directory-prefix|path}\";\n",
         reason: "Append CRUD module configuration into app-owned public config.",
         category: "crud",
         id: "crud-public-config"
       },
       {
         op: "append-text",
-        file: "config/public.js",
-        position: "bottom",
-        skipIfContains: "config.crud.directoryPrefix =",
-        value: "\nconfig.crud.directoryPrefix = \"${option:directory-prefix|path}\";\n",
-        reason: "Append CRUD page directory prefix into app-owned public config.",
-        category: "crud",
-        id: "crud-public-config-directory-prefix"
-      },
-      {
-        op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "jskit:crud.menu:${option:namespace|kebab}",
+        skipIfContains: "jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}",
         value:
-          "\n// jskit:crud.menu:${option:namespace|kebab}\nconst crudNamespace = \"${option:namespace|kebab}\";\nconst crudDirectoryPrefix = \"${option:directory-prefix|path}\";\nconst crudBaseSegment = crudNamespace || \"crud\";\nconst crudRoutePath = crudDirectoryPrefix\n  ? \"/\" + crudDirectoryPrefix + \"/\" + crudBaseSegment\n  : \"/\" + crudBaseSegment;\nconst crudPlacementId = crudNamespace\n  ? \"crud.\" + crudNamespace + \".menu\"\n  : \"crud.menu\";\n\naddPlacement({\n  id: crudPlacementId,\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"${option:namespace|plural|pascal|default(CrudRecords)}\",\n    surface: \"admin\",\n    workspaceSuffix: crudRoutePath,\n    nonWorkspaceSuffix: crudRoutePath\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n  const crudDirectoryPrefix = \"${option:directory-prefix|path}\";\n  const crudBaseSegment = crudNamespace || \"crud\";\n  const crudRoutePath = crudDirectoryPrefix\n    ? \"/\" + crudDirectoryPrefix + \"/\" + crudBaseSegment\n    : \"/\" + crudBaseSegment;\n  const crudPlacementId = crudNamespace\n    ? \"crud.\" + crudNamespace + \".menu\"\n    : \"crud.menu\";\n\n  addPlacement({\n    id: crudPlacementId,\n    slot: \"app.primary-menu\",\n    surface: \"admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal|default(CrudRecords)}\",\n      surface: \"admin\",\n      workspaceSuffix: crudRoutePath,\n      nonWorkspaceSuffix: crudRoutePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append admin Crud menu placement into app-owned placement registry.",
         category: "crud",
         id: "crud-placement-menu"
