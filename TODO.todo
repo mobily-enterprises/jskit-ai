@@ -61,8 +61,7 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Move console, app, admin tags up in the header
   X Remove "bundles" (not done, will wait till the end)
   - If logged out, redirect to login immediately, check page permissions if not logged out
-  - Clean up code for the CRUD and the addEdit methods
-  - Make sure CRUD has all best practices, ALL of them
+  - Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
   - Delete setting table for workspace completely
   - Place roles and permissions in app-owned config
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
