@@ -2,7 +2,11 @@ import {
   CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
   CLIENT_MODULE_VUE_APP_TOKEN
 } from "@jskit-ai/kernel/client/moduleBootstrap";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  isRecord,
+  shouldRetryTransientQueryFailure,
+  transientQueryRetryDelay
+} from "@jskit-ai/kernel/shared/support";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
@@ -20,8 +24,10 @@ function createShellWebQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        refetchOnWindowFocus: false,
-        retry: 1
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
+        retry: shouldRetryTransientQueryFailure,
+        retryDelay: transientQueryRetryDelay
       }
     }
   });

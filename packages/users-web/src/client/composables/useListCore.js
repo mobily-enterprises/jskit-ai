@@ -88,7 +88,6 @@ function useListCore({
     },
     getNextPageParam: (lastPage, allPages, lastPageParam, allPageParams) =>
       getNextPageParam(lastPage, allPages, lastPageParam, allPageParams),
-    refetchOnWindowFocus: false,
     ...(asPlainObject(queryOptions))
   });
 

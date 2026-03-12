@@ -31,8 +31,7 @@ function useUsersWebBootstrapQuery({ workspaceSlug = "", enabled = true, staleTi
         method: "GET"
       }),
     enabled: queryEnabled,
-    staleTime,
-    refetchOnWindowFocus: false
+    staleTime
   });
 
   return Object.freeze({

@@ -62,7 +62,6 @@ function useUsersWebEndpointResource({
       });
     },
     enabled: queryEnabled,
-    refetchOnWindowFocus: false,
     ...(asPlainObject(queryOptions))
   });
 

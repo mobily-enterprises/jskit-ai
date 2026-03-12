@@ -12,3 +12,12 @@ export { pickOwnProperties } from "./pickOwnProperties.js";
 export { sortStrings, sortById } from "./sorting.js";
 export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./linkPath.js";
 export { ROUTE_VISIBILITY_LEVELS, normalizeRouteVisibility, normalizeVisibilityContext } from "./visibility.js";
+export {
+  TRANSIENT_QUERY_ERROR_STATUSES,
+  MAX_TRANSIENT_QUERY_RETRIES,
+  MAX_TRANSIENT_RETRY_DELAY_MS,
+  normalizeQueryErrorStatus,
+  isTransientQueryError,
+  shouldRetryTransientQueryFailure,
+  transientQueryRetryDelay
+} from "./queryResilience.js";
