@@ -8,6 +8,7 @@ export {
   createActionRuntimeError,
   normalizeActionDefinition,
   normalizeActionContributor,
+  normalizeActionDomain,
   createActionVersionKey,
   isPlainObject
 } from "./contracts.js";

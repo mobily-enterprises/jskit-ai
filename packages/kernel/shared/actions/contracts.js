@@ -21,8 +21,8 @@ const ACTION_SURFACES = Object.freeze(["<dynamic-from-app-config>"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
-const ACTION_DOMAIN_SET = new Set(ACTION_DOMAINS);
 const ACTION_CHANNEL_SET = new Set(ACTION_CHANNELS);
+const ACTION_DOMAIN_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
 class ActionRuntimeError extends Error {
   constructor(status, message, options = {}) {
@@ -52,6 +52,26 @@ function normalizePositiveInteger(value, fallback = 1) {
   }
 
   return parsed;
+}
+
+function normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {}) {
+  const domain = normalizeText(value).toLowerCase();
+  if (!domain) {
+    throw createActionRuntimeError(500, `${context} is required.`, {
+      code: errorCode
+    });
+  }
+  if (!ACTION_DOMAIN_PATTERN.test(domain)) {
+    throw createActionRuntimeError(
+      500,
+      `${context} must match ${ACTION_DOMAIN_PATTERN.toString()} (lowercase letters, digits, _, -, .).`,
+      {
+        code: errorCode
+      }
+    );
+  }
+
+  return domain;
 }
 
 function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {}) {
@@ -302,12 +322,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   }
 
   const version = normalizePositiveInteger(source.version, 1);
-  const domain = normalizeText(source.domain || contributorDomain).toLowerCase();
-  if (!ACTION_DOMAIN_SET.has(domain)) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" has unsupported domain \"${domain}\".`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
+  const domain = normalizeActionDomain(source.domain || contributorDomain, {
+    context: `Action definition \"${id}\" domain`,
+    errorCode: "ACTION_DEFINITION_INVALID"
+  });
 
   const kind = normalizeText(source.kind || "command").toLowerCase();
   if (!ACTION_KIND_SET.has(kind)) {
@@ -391,12 +409,10 @@ function normalizeActionContributor(contributor) {
     });
   }
 
-  const domain = normalizeText(source.domain).toLowerCase();
-  if (!ACTION_DOMAIN_SET.has(domain)) {
-    throw createActionRuntimeError(500, `Action contributor \"${contributorId}\" has unsupported domain \"${domain}\".`, {
-      code: "ACTION_CONTRIBUTOR_INVALID"
-    });
-  }
+  const domain = normalizeActionDomain(source.domain, {
+    context: `Action contributor \"${contributorId}\" domain`,
+    errorCode: "ACTION_CONTRIBUTOR_INVALID"
+  });
 
   const sourceActions = Array.isArray(source.actions) ? source.actions : [];
   const actions = sourceActions.map((entry) =>
@@ -441,6 +457,7 @@ export {
   createActionRuntimeError,
   normalizeActionDefinition,
   normalizeActionContributor,
+  normalizeActionDomain,
   createActionVersionKey,
   isPlainObject,
   __testables

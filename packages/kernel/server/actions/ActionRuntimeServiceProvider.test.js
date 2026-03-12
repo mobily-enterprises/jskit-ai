@@ -167,6 +167,21 @@ test("registerActionDefinitions + resolveActionContributors provide canonical co
   );
 });
 
+test("registerActionDefinitions accepts custom action domains", () => {
+  const app = createSingletonApp();
+
+  registerActionDefinitions(app, "test.actionDefinitions.custom", {
+    contributorId: "custom",
+    domain: "completeCalendar",
+    actions: []
+  });
+
+  const contributors = resolveActionContributors(app);
+  assert.equal(contributors.length, 1);
+  assert.equal(contributors[0].contributorId, "custom");
+  assert.equal(contributors[0].domain, "completecalendar");
+});
+
 test("registerActionDefinitions skips disabled bundles", () => {
   const app = createSingletonApp();
   app.singleton("test.null.service", () => null);
@@ -263,5 +278,19 @@ test("registerActionContextContributor + resolveActionContextContributors provid
   assert.deepEqual(
     contributors.map((entry) => entry.contributorId).sort(),
     ["alpha", "beta"]
+  );
+});
+
+test("registerActionDefinitions rejects invalid domain identifiers", () => {
+  const app = createSingletonApp();
+
+  assert.throws(
+    () =>
+      registerActionDefinitions(app, "test.actionDefinitions.invalid", {
+        contributorId: "invalid",
+        domain: "invalid domain",
+        actions: []
+      }),
+    /must match/
   );
 });

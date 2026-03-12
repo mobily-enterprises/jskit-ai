@@ -97,16 +97,17 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit.js";
-import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand.js";
-import { useList } from "@jskit-ai/users-web/client/composables/useList.js";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext.js";
+import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
+import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
+import { useList } from "@jskit-ai/users-web/client/composables/useList";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   assignCalendarEventToForm,
   buildCalendarEventPayload,
   calendarEventQueryKey,
   completeCalendarResource,
   parsePatchCalendarEventInput,
+  resolveCalendarContactsListApiSuffix,
   resolveAdminCalendarWeekPath,
   toContactOption,
   toRouteEventId
@@ -128,10 +129,11 @@ const form = reactive({
 const eventId = computed(() => toRouteEventId(route.params.eventId));
 const listPath = computed(() => resolveAdminCalendarWeekPath(placementContext.value, workspaceSlugFromRoute.value));
 const title = computed(() => String(form.title || "").trim() || "Calendar event");
+const contactsListApiSuffix = resolveCalendarContactsListApiSuffix();
 
 const contactsList = useList({
   visibility: "workspace",
-  apiSuffix: "/contacts?limit=200",
+  apiSuffix: contactsListApiSuffix,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "calendar",
     "completeCalendar",

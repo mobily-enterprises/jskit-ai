@@ -17,6 +17,7 @@ test("resolveCrudConfig returns workspace defaults", () => {
   assert.equal(config.tableName, "crud");
   assert.equal(config.actionIdPrefix, "crud");
   assert.equal(config.contributorId, "crud");
+  assert.equal(config.domain, "crud");
 });
 
 test("resolveCrudConfig normalizes namespaced public settings", () => {
@@ -33,6 +34,7 @@ test("resolveCrudConfig normalizes namespaced public settings", () => {
   assert.equal(config.tableName, "crud_crm_team");
   assert.equal(config.actionIdPrefix, "crud.crm_team");
   assert.equal(config.contributorId, "crud.crm_team");
+  assert.equal(config.domain, "crud");
 });
 
 test("resolveCrudConfigsFromModules returns only crud module entries", () => {

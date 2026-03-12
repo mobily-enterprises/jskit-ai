@@ -3,6 +3,49 @@ import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runti
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 
+function toUtcIsoFromDatabaseDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    return new Date(
+      Date.UTC(
+        value.getFullYear(),
+        value.getMonth(),
+        value.getDate(),
+        value.getHours(),
+        value.getMinutes(),
+        value.getSeconds(),
+        value.getMilliseconds()
+      )
+    ).toISOString();
+  }
+
+  const normalized = String(value).trim().replace("T", " ").replace(/Z$/i, "");
+  const match = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/
+  );
+
+  if (match) {
+    const [, year, month, day, hours, minutes, seconds = "0", milliseconds = "0"] = match;
+    const utcDate = new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hours),
+        Number(minutes),
+        Number(seconds),
+        Number(milliseconds.padEnd(3, "0"))
+      )
+    );
+    return utcDate.toISOString();
+  }
+
+  return toIsoString(value);
+}
+
 function mapEventRow(row) {
   if (!row) {
     return null;
@@ -13,11 +56,11 @@ function mapEventRow(row) {
     contactId: Number(row.contact_id),
     title: String(row.title || "").trim(),
     notes: String(row.notes || ""),
-    startsAt: toIsoString(row.starts_at),
-    endsAt: toIsoString(row.ends_at),
+    startsAt: toUtcIsoFromDatabaseDateTime(row.starts_at),
+    endsAt: toUtcIsoFromDatabaseDateTime(row.ends_at),
     status: String(row.status || "scheduled").trim().toLowerCase() || "scheduled",
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
+    createdAt: toUtcIsoFromDatabaseDateTime(row.created_at),
+    updatedAt: toUtcIsoFromDatabaseDateTime(row.updated_at)
   };
 }
 
@@ -33,10 +76,11 @@ function mapContactRow(row) {
   };
 }
 
-function createRepository(knex) {
+function createRepository(knex, options = {}) {
   if (typeof knex !== "function") {
     throw new TypeError("completeCalendarRepository requires knex.");
   }
+  const contactsTableName = String(options.contactsTableName || "").trim() || "contacts";
 
   async function listWeek({ fromDateTime, toDateTime, contactId = 0 } = {}, options = {}) {
     const client = options?.trx || knex;
@@ -161,7 +205,7 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
-    const row = await client("contacts")
+    const row = await client(contactsTableName)
       .select("id", "name", "surname")
       .where(visible)
       .where({ id: Number(contactId) })
@@ -185,7 +229,7 @@ function createRepository(knex) {
       return [];
     }
 
-    const rows = await client("contacts")
+    const rows = await client(contactsTableName)
       .select("id", "name", "surname")
       .where(visible)
       .whereIn("id", normalizedIds);

@@ -7,7 +7,6 @@ const ACTION_RUNTIME_API = Object.freeze({
 const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
-const ACTION_DOMAIN_SET = new Set(actionRuntime.ACTION_DOMAINS);
 const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "workspace", "console"]);
 
 function normalizePlainObject(value) {
@@ -45,15 +44,14 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
 function normalizeActionBundleSpec(definitionSet, { context = "registerActionDefinitions" } = {}) {
   const source = normalizePlainObject(definitionSet);
   const contributorId = String(source.contributorId || "").trim();
-  const domain = String(source.domain || "").trim().toLowerCase();
+  const domain = actionRuntime.normalizeActionDomain(source.domain, {
+    context: `${context} domain`
+  });
   const actions = Array.isArray(source.actions) ? [...source.actions] : [];
   const enabled = source.enabled;
 
   if (!contributorId) {
     throw new Error(`${context} contributorId is required.`);
-  }
-  if (!ACTION_DOMAIN_SET.has(domain)) {
-    throw new Error(`${context} domain must be one of: ${actionRuntime.ACTION_DOMAINS.join(", ")}.`);
   }
   if (typeof enabled !== "undefined" && typeof enabled !== "function") {
     throw new Error(`${context} enabled must be a function when provided.`);

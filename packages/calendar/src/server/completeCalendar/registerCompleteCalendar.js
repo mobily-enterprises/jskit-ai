@@ -3,6 +3,7 @@ import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createRepository as createCompleteCalendarRepository } from "./completeCalendarRepository.js";
 import { createService as createCompleteCalendarService } from "./completeCalendarService.js";
 import { completeCalendarActions } from "./completeCalendarActions.js";
+import { resolveCalendarContactsCrudConfig } from "../../shared/completeCalendar/completeCalendarCrudConfig.js";
 
 const COMPLETE_CALENDAR_ACTIONS_TOKEN = "calendar.completeCalendar.actionDefinitions";
 const COMPLETE_CALENDAR_REPOSITORY_TOKEN = "calendar.completeCalendar.repository";
@@ -15,7 +16,11 @@ function registerCompleteCalendar(app) {
 
   app.singleton(COMPLETE_CALENDAR_REPOSITORY_TOKEN, (scope) => {
     const knex = scope.make(KERNEL_TOKENS.Knex);
-    return createCompleteCalendarRepository(knex);
+    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const contactsCrudConfig = resolveCalendarContactsCrudConfig(appConfig);
+    return createCompleteCalendarRepository(knex, {
+      contactsTableName: contactsCrudConfig.tableName
+    });
   });
 
   app.singleton(COMPLETE_CALENDAR_SERVICE_TOKEN, (scope) => {

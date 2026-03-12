@@ -1,7 +1,9 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeQueryToken, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { completeCalendarResource } from "../../shared/completeCalendar/completeCalendarResource.js";
+import { resolveCalendarContactsCrudConfig } from "../../shared/completeCalendar/completeCalendarCrudConfig.js";
 
 function createCalendarEventForm() {
   return {
@@ -182,6 +184,14 @@ function toContactOption(contact = {}) {
   };
 }
 
+function resolveCalendarContactsListApiSuffix(limit = 200) {
+  const appConfig = getClientAppConfig();
+  const crudConfig = resolveCalendarContactsCrudConfig(appConfig);
+  const normalizedLimit = Number(limit);
+  const pageLimit = Number.isInteger(normalizedLimit) && normalizedLimit > 0 ? normalizedLimit : 200;
+  return `${crudConfig.relativePath}?limit=${pageLimit}`;
+}
+
 export {
   completeCalendarResource,
   createCalendarEventForm,
@@ -198,5 +208,6 @@ export {
   toRouteEventId,
   toLocalDateTimeInput,
   fromLocalDateTimeInput,
-  toContactOption
+  toContactOption,
+  resolveCalendarContactsListApiSuffix
 };

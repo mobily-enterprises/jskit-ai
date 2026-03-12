@@ -102,18 +102,15 @@
 </template>
 
 <script setup>
-import "@fullcalendar/core/index.css";
-import "@fullcalendar/timegrid/index.css";
-
 import { computed, reactive, ref } from "vue";
 import FullCalendar from "@fullcalendar/vue3";
 import interactionPlugin from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import { useRouter } from "vue-router";
-import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand.js";
-import { useList } from "@jskit-ai/users-web/client/composables/useList.js";
-import { useView } from "@jskit-ai/users-web/client/composables/useView.js";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext.js";
+import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
+import { useList } from "@jskit-ai/users-web/client/composables/useList";
+import { useView } from "@jskit-ai/users-web/client/composables/useView";
+import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   buildCalendarEventPayload,
   calendarWeekQueryKey,
@@ -122,6 +119,7 @@ import {
   parseCreateCalendarEventInput,
   parsePatchCalendarEventInput,
   resolveAdminCalendarEventViewPath,
+  resolveCalendarContactsListApiSuffix,
   resolveWeekStartDateIso,
   toContactOption,
   toDateOnlyIso
@@ -146,6 +144,7 @@ const moveState = reactive({
   startsAt: "",
   endsAt: ""
 });
+const contactsListApiSuffix = resolveCalendarContactsListApiSuffix();
 
 const weekView = useView({
   visibility: "workspace",
@@ -172,7 +171,7 @@ const weekView = useView({
 
 const contactsList = useList({
   visibility: "workspace",
-  apiSuffix: "/contacts?limit=200",
+  apiSuffix: contactsListApiSuffix,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "calendar",
     "completeCalendar",
@@ -258,6 +257,8 @@ const loadError = computed(() => {
 });
 
 const isRefreshing = computed(() => Boolean(weekView.isLoading.value || contactsList.isLoading.value));
+const BUSINESS_START_TIME = "09:00:00";
+const BUSINESS_END_TIME = "17:00:00";
 
 function formatCalendarEventTitle(eventRecord = {}) {
   const title = String(eventRecord.title || "").trim();
@@ -283,11 +284,16 @@ const calendarOptions = computed(() => ({
   },
   views: {
     timeGridWeek: {
-      buttonText: "Week"
+      buttonText: "Week",
+      slotMinTime: BUSINESS_START_TIME,
+      slotMaxTime: BUSINESS_END_TIME
     }
   },
   initialDate: weekStart.value,
   allDaySlot: false,
+  slotMinTime: BUSINESS_START_TIME,
+  slotMaxTime: BUSINESS_END_TIME,
+  scrollTime: BUSINESS_START_TIME,
   nowIndicator: true,
   editable: true,
   eventStartEditable: true,

@@ -4,7 +4,7 @@ import { registerCompleteCalendarRoutes } from "./completeCalendar/registerCompl
 class CalendarServiceProvider {
   static id = "calendar.completeCalendar";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core", "crud.contacts"];
+  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core", "crud"];
 
   register(app) {
     registerCompleteCalendar(app);
