@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { contactsResource } from "../src/shared/contacts/contactsResource.js";
+import { crudResource } from "../src/shared/crud/crudResource.js";
 
-test("contactsResource normalizes create payload", () => {
-  const normalized = contactsResource.operations.create.body.normalize({
+test("crudResource normalizes create payload", () => {
+  const normalized = crudResource.operations.create.body.normalize({
     name: "  Ada  ",
     surname: "  Lovelace  "
   });
@@ -14,8 +14,8 @@ test("contactsResource normalizes create payload", () => {
   });
 });
 
-test("contactsResource normalizes list output", () => {
-  const normalized = contactsResource.operations.list.output.normalize({
+test("crudResource normalizes list output", () => {
+  const normalized = crudResource.operations.list.output.normalize({
     items: [
       {
         id: "7",

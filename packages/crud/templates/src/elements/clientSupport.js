@@ -6,33 +6,50 @@ import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/link
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   isWorkspaceVisibility,
-  normalizeContactsNamespace,
-  normalizeContactsVisibility,
-  resolveContactsRelativePath
-} from "@jskit-ai/crud/shared/contacts/contactsModuleConfig";
-import { contactsResource } from "@jskit-ai/crud/shared/contacts/contactsResource";
+  resolveCrudConfigFromModules,
+  resolveCrudConfigsFromModules,
+  resolveCrudConfig
+} from "@jskit-ai/crud/shared/crud/crudModuleConfig";
+import { crudResource } from "@jskit-ai/crud/shared/crud/crudResource";
+
+const CRUD_NAMESPACE = "${option:namespace|kebab}";
 
 function resolveCrudClientConfig(source = {}) {
-  const namespace = normalizeContactsNamespace(source?.namespace);
-  const visibility = normalizeContactsVisibility(source?.visibility);
-
+  const resolved = resolveCrudConfig(source);
   return Object.freeze({
-    namespace,
-    visibility,
-    workspaceScoped: isWorkspaceVisibility(visibility),
-    relativePath: resolveContactsRelativePath(namespace)
+    namespace: resolved.namespace,
+    visibility: resolved.visibility,
+    workspaceScoped: isWorkspaceVisibility(resolved.visibility),
+    relativePath: resolved.relativePath
   });
 }
 
-function resolveCrudClientConfigFromPublicConfig() {
+function resolveCrudClientConfigFromPublicConfig(options = {}) {
   const appConfig = getClientAppConfig();
-  return resolveCrudClientConfig(appConfig?.crud);
+  const resolved = resolveCrudConfigFromModules(appConfig?.modules, options);
+  if (resolved) {
+    return resolveCrudClientConfig(resolved);
+  }
+
+  const allCrudConfigs = resolveCrudConfigsFromModules(appConfig?.modules);
+  if (Object.hasOwn(options, "namespace")) {
+    const requestedNamespace = String(options.namespace || "");
+    throw new Error(`Unable to resolve CRUD module config for namespace "${requestedNamespace}".`);
+  }
+
+  if (allCrudConfigs.length < 1) {
+    throw new Error('Missing config.modules entry for module "crud".');
+  }
+
+  throw new Error("Multiple CRUD module configs found. Pass namespace explicitly.");
 }
 
 function useCrudClientContext() {
   const route = useRoute();
   const routeContext = useUsersWebWorkspaceRouteContext();
-  const crudConfig = resolveCrudClientConfigFromPublicConfig();
+  const crudConfig = resolveCrudClientConfigFromPublicConfig({
+    namespace: CRUD_NAMESPACE
+  });
   const placementContext = routeContext.placementContext;
   const workspaceSlugFromRoute = computed(() => (crudConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""));
   const queryWorkspaceSlug = computed(() => workspaceSlugFromRoute.value);
@@ -160,7 +177,7 @@ function toRouteRecordId(value) {
 }
 
 export {
-  contactsResource,
+  crudResource,
   resolveCrudClientConfig,
   resolveCrudClientConfigFromPublicConfig,
   useCrudClientContext,

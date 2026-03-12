@@ -76,7 +76,7 @@ const record = reactive({
   updatedAt: ""
 });
 
-const recordId = computed(() => toRouteRecordId(crudContext.route.params.contactId));
+const recordId = computed(() => toRouteRecordId(crudContext.route.params.recordId));
 const editPath = computed(() => crudContext.resolveEditPath(recordId.value));
 const title = computed(() => {
   const name = String(record.name || "").trim();

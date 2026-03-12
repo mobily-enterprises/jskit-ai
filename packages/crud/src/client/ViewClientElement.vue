@@ -1,5 +1,5 @@
 <template>
-  <section class="contact-view-client-element d-flex flex-column ga-4">
+  <section class="record-view-client-element d-flex flex-column ga-4">
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
@@ -32,19 +32,19 @@
           <v-row>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Name</div>
-              <div class="text-body-1">{{ contact.name }}</div>
+              <div class="text-body-1">{{ record.name }}</div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Surname</div>
-              <div class="text-body-1">{{ contact.surname }}</div>
+              <div class="text-body-1">{{ record.surname }}</div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Created</div>
-              <div class="text-body-1">{{ formatDateTime(contact.createdAt) }}</div>
+              <div class="text-body-1">{{ formatDateTime(record.createdAt) }}</div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Updated</div>
-              <div class="text-body-1">{{ formatDateTime(contact.updatedAt) }}</div>
+              <div class="text-body-1">{{ formatDateTime(record.updatedAt) }}</div>
             </v-col>
           </v-row>
         </template>
@@ -63,15 +63,15 @@ import { useRouter } from "vue-router";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import {
-  useContactsClientContext,
-  toRouteContactId
+  useRecordsClientContext,
+  toRouteRecordId
 } from "./clientSupport.js";
 
 const router = useRouter();
-const contactsContext = useContactsClientContext();
-const contactsConfig = contactsContext.contactsConfig;
-const listPath = contactsContext.listPath;
-const contact = reactive({
+const crudContext = useRecordsClientContext();
+const crudConfig = crudContext.crudConfig;
+const listPath = crudContext.listPath;
+const record = reactive({
   id: 0,
   name: "",
   surname: "",
@@ -79,21 +79,21 @@ const contact = reactive({
   updatedAt: ""
 });
 
-const contactId = computed(() => toRouteContactId(contactsContext.route.params.contactId));
-const editPath = computed(() => contactsContext.resolveEditPath(contactId.value));
+const recordId = computed(() => toRouteRecordId(crudContext.route.params.recordId));
+const editPath = computed(() => crudContext.resolveEditPath(recordId.value));
 const title = computed(() => {
-  const name = String(contact.name || "").trim();
-  const surname = String(contact.surname || "").trim();
+  const name = String(record.name || "").trim();
+  const surname = String(record.surname || "").trim();
   return `${name} ${surname}`.trim() || "Record";
 });
 
 const view = useView({
-  visibility: contactsConfig.visibility,
-  apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
-  queryKeyFactory: (surfaceId = "") => contactsContext.viewQueryKey(surfaceId, contactId.value),
+  visibility: crudConfig.visibility,
+  apiSuffix: () => `${crudConfig.relativePath}/${recordId.value}`,
+  queryKeyFactory: (surfaceId = "") => crudContext.viewQueryKey(surfaceId, recordId.value),
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
-  model: contact,
+  model: record,
   mapLoadedToModel: (model, payload = {}) => {
     model.id = Number(payload.id || 0);
     model.name = String(payload.name || "");
@@ -108,8 +108,8 @@ const notFoundError = computed(() => view.notFoundError.value);
 const isLoading = computed(() => view.isLoading.value);
 
 const deleteCommand = useCommand({
-  visibility: contactsConfig.visibility,
-  apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
+  visibility: crudConfig.visibility,
+  apiSuffix: () => `${crudConfig.relativePath}/${recordId.value}`,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete record.",
   messages: {
@@ -118,7 +118,7 @@ const deleteCommand = useCommand({
   },
   onRunSuccess: async (_, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "crud", contactsConfig.namespace]
+      queryKey: ["crud", "crud", crudConfig.namespace]
     });
 
     if (listPath.value) {

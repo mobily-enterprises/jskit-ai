@@ -11,7 +11,7 @@
     "./server": "./src/server/index.js",
     "./server/CrudServiceProvider": "./src/server/CrudServiceProvider.js",
     "./shared": "./src/shared/index.js",
-    "./shared/contacts/*": "./src/shared/contacts/*.js"
+    "./shared/crud/*": "./src/shared/crud/*.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",

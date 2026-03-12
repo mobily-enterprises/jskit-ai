@@ -6,74 +6,87 @@ import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/link
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
 import {
   isWorkspaceVisibility,
-  normalizeContactsNamespace,
-  normalizeContactsVisibility,
-  resolveContactsRelativePath
-} from "../shared/contacts/contactsModuleConfig.js";
-import { contactsResource } from "../shared/contacts/contactsResource.js";
+  resolveCrudConfigFromModules,
+  resolveCrudConfigsFromModules,
+  resolveCrudConfig
+} from "../shared/crud/crudModuleConfig.js";
+import { crudResource } from "../shared/crud/crudResource.js";
 
-function resolveContactsClientConfig(source = {}) {
-  const namespace = normalizeContactsNamespace(source?.namespace);
-  const visibility = normalizeContactsVisibility(source?.visibility);
-
+function resolveCrudClientConfig(source = {}) {
+  const resolved = resolveCrudConfig(source);
   return Object.freeze({
-    namespace,
-    visibility,
-    workspaceScoped: isWorkspaceVisibility(visibility),
-    relativePath: resolveContactsRelativePath(namespace)
+    namespace: resolved.namespace,
+    visibility: resolved.visibility,
+    workspaceScoped: isWorkspaceVisibility(resolved.visibility),
+    relativePath: resolved.relativePath
   });
 }
 
-function resolveContactsClientConfigFromPublicConfig() {
+function resolveCrudClientConfigFromPublicConfig(options = {}) {
   const appConfig = getClientAppConfig();
-  return resolveContactsClientConfig(appConfig?.crud);
+  const resolved = resolveCrudConfigFromModules(appConfig?.modules, options);
+  if (resolved) {
+    return resolveCrudClientConfig(resolved);
+  }
+
+  const allCrudConfigs = resolveCrudConfigsFromModules(appConfig?.modules);
+  if (Object.hasOwn(options, "namespace")) {
+    const requestedNamespace = String(options.namespace || "");
+    throw new Error(`Unable to resolve CRUD module config for namespace "${requestedNamespace}".`);
+  }
+
+  if (allCrudConfigs.length < 1) {
+    throw new Error('Missing config.modules entry for module "crud".');
+  }
+
+  throw new Error("Multiple CRUD module configs found. Pass namespace explicitly.");
 }
 
-function useContactsClientContext() {
+function useRecordsClientContext() {
   const route = useRoute();
   const routeContext = useUsersWebWorkspaceRouteContext();
-  const contactsConfig = resolveContactsClientConfigFromPublicConfig();
+  const crudConfig = resolveCrudClientConfigFromPublicConfig();
   const placementContext = routeContext.placementContext;
   const workspaceSlugFromRoute = computed(() =>
-    contactsConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""
+    crudConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""
   );
   const queryWorkspaceSlug = computed(() => workspaceSlugFromRoute.value);
   const listPath = computed(() =>
-    resolveAdminContactsListPath(placementContext.value, workspaceSlugFromRoute.value, contactsConfig)
+    resolveAdminCrudListPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
   );
   const createPath = computed(() =>
-    resolveAdminContactNewPath(placementContext.value, workspaceSlugFromRoute.value, contactsConfig)
+    resolveAdminCrudNewPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
   );
 
   function listQueryKey(surfaceId = "") {
-    return contactsListQueryKey(surfaceId, queryWorkspaceSlug.value, contactsConfig.namespace);
+    return crudListQueryKey(surfaceId, queryWorkspaceSlug.value, crudConfig.namespace);
   }
 
-  function viewQueryKey(surfaceId = "", contactId = 0) {
-    return contactViewQueryKey(surfaceId, queryWorkspaceSlug.value, contactId, contactsConfig.namespace);
+  function viewQueryKey(surfaceId = "", recordId = 0) {
+    return crudViewQueryKey(surfaceId, queryWorkspaceSlug.value, recordId, crudConfig.namespace);
   }
 
-  function resolveViewPath(contactIdLike) {
-    return resolveAdminContactViewPath(
-      contactIdLike,
+  function resolveViewPath(recordIdLike) {
+    return resolveAdminCrudViewPath(
+      recordIdLike,
       placementContext.value,
       workspaceSlugFromRoute.value,
-      contactsConfig
+      crudConfig
     );
   }
 
-  function resolveEditPath(contactIdLike) {
-    return resolveAdminContactEditPath(
-      contactIdLike,
+  function resolveEditPath(recordIdLike) {
+    return resolveAdminCrudEditPath(
+      recordIdLike,
       placementContext.value,
       workspaceSlugFromRoute.value,
-      contactsConfig
+      crudConfig
     );
   }
 
   return Object.freeze({
     route,
-    contactsConfig,
+    crudConfig,
     placementContext,
     workspaceSlugFromRoute,
     listPath,
@@ -85,7 +98,7 @@ function useContactsClientContext() {
   });
 }
 
-function contactsListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
+function crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
   return [
     "crud",
     "crud",
@@ -96,7 +109,7 @@ function contactsListQueryKey(surfaceId = "", workspaceSlug = "", namespace = ""
   ];
 }
 
-function contactViewQueryKey(surfaceId = "", workspaceSlug = "", contactId = 0, namespace = "") {
+function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, namespace = "") {
   return [
     "crud",
     "crud",
@@ -104,12 +117,12 @@ function contactViewQueryKey(surfaceId = "", workspaceSlug = "", contactId = 0, 
     "view",
     normalizeQueryToken(surfaceId),
     normalizeQueryToken(workspaceSlug),
-    Number(contactId) || 0
+    Number(recordId) || 0
   ];
 }
 
-function resolveAdminContactsListPath(context = null, workspaceSlug = "", source = {}) {
-  const config = resolveContactsClientConfig(source);
+function resolveAdminCrudListPath(context = null, workspaceSlug = "", source = {}) {
+  const config = resolveCrudClientConfig(source);
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -119,8 +132,8 @@ function resolveAdminContactsListPath(context = null, workspaceSlug = "", source
   });
 }
 
-function resolveAdminContactNewPath(context = null, workspaceSlug = "", source = {}) {
-  const config = resolveContactsClientConfig(source);
+function resolveAdminCrudNewPath(context = null, workspaceSlug = "", source = {}) {
+  const config = resolveCrudClientConfig(source);
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -130,41 +143,41 @@ function resolveAdminContactNewPath(context = null, workspaceSlug = "", source =
   });
 }
 
-function resolveAdminContactViewPath(contactIdLike, context = null, workspaceSlug = "", source = {}) {
-  const contactId = Number(contactIdLike);
-  if (!Number.isInteger(contactId) || contactId < 1) {
+function resolveAdminCrudViewPath(recordIdLike, context = null, workspaceSlug = "", source = {}) {
+  const recordId = Number(recordIdLike);
+  if (!Number.isInteger(recordId) || recordId < 1) {
     return "";
   }
 
-  const config = resolveContactsClientConfig(source);
+  const config = resolveCrudClientConfig(source);
   return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug: config.workspaceScoped ? workspaceSlug : "",
-    relativePath: `${config.relativePath}/${contactId}`,
+    relativePath: `${config.relativePath}/${recordId}`,
     mode: "auto"
   });
 }
 
-function resolveAdminContactEditPath(contactIdLike, context = null, workspaceSlug = "", source = {}) {
-  const contactId = Number(contactIdLike);
-  if (!Number.isInteger(contactId) || contactId < 1) {
+function resolveAdminCrudEditPath(recordIdLike, context = null, workspaceSlug = "", source = {}) {
+  const recordId = Number(recordIdLike);
+  if (!Number.isInteger(recordId) || recordId < 1) {
     return "";
   }
 
-  const config = resolveContactsClientConfig(source);
+  const config = resolveCrudClientConfig(source);
   return resolveShellLinkPath({
     context,
     surface: "admin",
     workspaceSlug: config.workspaceScoped ? workspaceSlug : "",
-    relativePath: `${config.relativePath}/${contactId}/edit`,
+    relativePath: `${config.relativePath}/${recordId}/edit`,
     mode: "auto"
   });
 }
 
-function toRouteContactId(value) {
+function toRouteRecordId(value) {
   if (Array.isArray(value)) {
-    return toRouteContactId(value[0]);
+    return toRouteRecordId(value[0]);
   }
 
   const parsed = Number(value);
@@ -172,15 +185,15 @@ function toRouteContactId(value) {
 }
 
 export {
-  contactsResource,
-  resolveContactsClientConfig,
-  resolveContactsClientConfigFromPublicConfig,
-  useContactsClientContext,
-  contactsListQueryKey,
-  contactViewQueryKey,
-  resolveAdminContactsListPath,
-  resolveAdminContactNewPath,
-  resolveAdminContactViewPath,
-  resolveAdminContactEditPath,
-  toRouteContactId
+  crudResource,
+  resolveCrudClientConfig,
+  resolveCrudClientConfigFromPublicConfig,
+  useRecordsClientContext,
+  crudListQueryKey,
+  crudViewQueryKey,
+  resolveAdminCrudListPath,
+  resolveAdminCrudNewPath,
+  resolveAdminCrudViewPath,
+  resolveAdminCrudEditPath,
+  toRouteRecordId
 };

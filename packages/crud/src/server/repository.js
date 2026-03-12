@@ -6,7 +6,7 @@ import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 
-function mapContactRow(row) {
+function mapRecordRow(row) {
   if (!row) {
     return null;
   }
@@ -31,7 +31,7 @@ function normalizeListLimit(value) {
 
 function createRepository(knex, { tableName = "crud" } = {}) {
   if (typeof knex !== "function") {
-    throw new TypeError("contactsRepository requires knex.");
+    throw new TypeError("crudRepository requires knex.");
   }
 
   const resolvedTableName = String(tableName || "").trim() || "crud";
@@ -55,7 +55,7 @@ function createRepository(knex, { tableName = "crud" } = {}) {
     const rows = await query;
     const hasMore = rows.length > normalizedLimit;
     const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows;
-    const items = pageRows.map((row) => mapContactRow(row));
+    const items = pageRows.map((row) => mapRecordRow(row));
 
     return {
       items,
@@ -63,16 +63,16 @@ function createRepository(knex, { tableName = "crud" } = {}) {
     };
   }
 
-  async function findById(contactId, options = {}) {
+  async function findById(recordId, options = {}) {
     const client = options?.trx || knex;
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
     const row = await client(resolvedTableName)
       .select("id", "name", "surname", "created_at", "updated_at")
       .where(visible)
-      .where({ id: Number(contactId) })
+      .where({ id: Number(recordId) })
       .first();
 
-    return mapContactRow(row);
+    return mapRecordRow(row);
   }
 
   async function create(payload = {}, options = {}) {
@@ -88,24 +88,24 @@ function createRepository(knex, { tableName = "crud" } = {}) {
       },
       options.visibilityContext
     );
-    const [contactId] = await client(resolvedTableName).insert({
+    const [recordId] = await client(resolvedTableName).insert({
       ...insertPayload
     });
 
-    return findById(contactId, {
+    return findById(recordId, {
       ...options,
       trx: client
     });
   }
 
-  async function updateById(contactId, patch = {}, options = {}) {
+  async function updateById(recordId, patch = {}, options = {}) {
     const client = options?.trx || knex;
     const source = normalizeObjectInput(patch);
     const dbPatch = pickOwnProperties(source, ["name", "surname"]);
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     if (Object.keys(dbPatch).length === 0) {
-      return findById(contactId, {
+      return findById(recordId, {
         ...options,
         trx: client
       });
@@ -113,22 +113,22 @@ function createRepository(knex, { tableName = "crud" } = {}) {
 
     await client(resolvedTableName)
       .where(visible)
-      .where({ id: Number(contactId) })
+      .where({ id: Number(recordId) })
       .update({
         ...dbPatch,
         updated_at: toInsertDateTime()
       });
 
-    return findById(contactId, {
+    return findById(recordId, {
       ...options,
       trx: client
     });
   }
 
-  async function deleteById(contactId, options = {}) {
+  async function deleteById(recordId, options = {}) {
     const client = options?.trx || knex;
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
-    const existing = await findById(contactId, {
+    const existing = await findById(recordId, {
       ...options,
       trx: client
     });
@@ -137,7 +137,7 @@ function createRepository(knex, { tableName = "crud" } = {}) {
       return null;
     }
 
-    await client(resolvedTableName).where(visible).where({ id: Number(contactId) }).delete();
+    await client(resolvedTableName).where(visible).where({ id: Number(recordId) }).delete();
 
     return {
       id: existing.id,

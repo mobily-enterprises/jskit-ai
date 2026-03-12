@@ -4,13 +4,16 @@ import { createRepository as createCrudRepository } from "./repository.js";
 import { createService as createCrudService } from "./service.js";
 import { createActions, createActionIds } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
-import { resolveContactsConfig } from "../shared/contacts/contactsModuleConfig.js";
+import { resolveCrudConfigsFromModules } from "../shared/crud/crudModuleConfig.js";
 
-const CRUD_CONFIG_TOKEN = "crud.config";
-
-function resolveCrudContactsConfig(app) {
+function resolveCrudModuleConfigs(app) {
   const appConfig = app.has("appConfig") ? app.make("appConfig") : {};
-  return resolveContactsConfig(appConfig?.crud);
+  const resolved = resolveCrudConfigsFromModules(appConfig?.modules);
+  if (resolved.length > 0) {
+    return resolved;
+  }
+
+  throw new Error('CrudServiceProvider requires config.modules entries with module: "crud".');
 }
 
 class CrudServiceProvider {
@@ -21,37 +24,36 @@ class CrudServiceProvider {
   register() {}
 
   boot(app) {
-    const crudConfig = resolveCrudContactsConfig(app);
-    app.instance(CRUD_CONFIG_TOKEN, crudConfig);
+    const crudConfigs = resolveCrudModuleConfigs(app);
 
-    app.singleton(crudConfig.repositoryToken, (scope) => {
-      const knex = scope.make(KERNEL_TOKENS.Knex);
-      return createCrudRepository(knex, {
-        tableName: crudConfig.tableName
+    for (const crudConfig of crudConfigs) {
+      app.singleton(crudConfig.repositoryToken, (scope) => {
+        const knex = scope.make(KERNEL_TOKENS.Knex);
+        return createCrudRepository(knex, {
+          tableName: crudConfig.tableName
+        });
       });
-    });
-
-    app.singleton(crudConfig.serviceToken, (scope) => {
-      return createCrudService({
-        contactsRepository: scope.make(crudConfig.repositoryToken)
+      app.singleton(crudConfig.serviceToken, (scope) => {
+        return createCrudService({
+          crudRepository: scope.make(crudConfig.repositoryToken)
+        });
       });
-    });
-
-    registerActionDefinitions(app, crudConfig.actionDefinitionsToken, {
-      contributorId: crudConfig.contributorId,
-      domain: crudConfig.domain,
-      dependencies: {
-        contactsService: crudConfig.serviceToken
-      },
-      actions: createActions({
-        actionIdPrefix: crudConfig.actionIdPrefix
-      })
-    });
-    registerRoutes(app, {
-      routeBasePath: crudConfig.apiBasePath,
-      routeVisibility: crudConfig.visibility,
-      actionIds: createActionIds(crudConfig.actionIdPrefix)
-    });
+      registerActionDefinitions(app, crudConfig.actionDefinitionsToken, {
+        contributorId: crudConfig.contributorId,
+        domain: crudConfig.domain,
+        dependencies: {
+          crudService: crudConfig.serviceToken
+        },
+        actions: createActions({
+          actionIdPrefix: crudConfig.actionIdPrefix
+        })
+      });
+      registerRoutes(app, {
+        routeBasePath: crudConfig.apiBasePath,
+        routeVisibility: crudConfig.visibility,
+        actionIds: createActionIds(crudConfig.actionIdPrefix)
+      });
+    }
   }
 }
 

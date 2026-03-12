@@ -1,5 +1,5 @@
 <template>
-  <section class="contacts-list-client-element d-flex flex-column ga-4">
+  <section class="crud-list-client-element d-flex flex-column ga-4">
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
@@ -8,7 +8,7 @@
             <v-card-subtitle class="px-0">Manage records available in the admin surface.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="outlined" :loading="isLoading" @click="contacts.reload">Refresh</v-btn>
+          <v-btn variant="outlined" :loading="isLoading" @click="records.reload">Refresh</v-btn>
           <v-btn color="primary" :to="createPath || undefined">New record</v-btn>
         </div>
       </v-card-item>
@@ -31,12 +31,12 @@
             <tr v-if="items.length < 1">
               <td colspan="4" class="text-center py-6 text-medium-emphasis">No records yet.</td>
             </tr>
-            <tr v-for="contact in items" :key="contact.id">
-              <td>{{ contact.name }}</td>
-              <td>{{ contact.surname }}</td>
-              <td>{{ formatDateTime(contact.updatedAt) }}</td>
+            <tr v-for="record in items" :key="record.id">
+              <td>{{ record.name }}</td>
+              <td>{{ record.surname }}</td>
+              <td>{{ formatDateTime(record.updatedAt) }}</td>
               <td class="text-right">
-                <v-btn size="small" variant="text" :to="contactsContext.resolveViewPath(contact.id) || undefined">
+                <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id) || undefined">
                   Open
                 </v-btn>
               </td>
@@ -45,7 +45,7 @@
         </v-table>
 
         <div v-if="hasMore" class="d-flex justify-center pt-4">
-          <v-btn variant="text" :loading="isLoadingMore" @click="contacts.loadMore">Load more</v-btn>
+          <v-btn variant="text" :loading="isLoadingMore" @click="records.loadMore">Load more</v-btn>
         </div>
       </v-card-text>
     </v-card>
@@ -55,25 +55,25 @@
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import {
-  useContactsClientContext
+  useRecordsClientContext
 } from "./clientSupport.js";
 
-const contactsContext = useContactsClientContext();
-const contactsConfig = contactsContext.contactsConfig;
-const createPath = contactsContext.createPath;
+const crudContext = useRecordsClientContext();
+const crudConfig = crudContext.crudConfig;
+const createPath = crudContext.createPath;
 
-const contacts = useList({
-  visibility: contactsConfig.visibility,
-  apiSuffix: contactsConfig.relativePath,
-  queryKeyFactory: (surfaceId = "") => contactsContext.listQueryKey(surfaceId),
+const records = useList({
+  visibility: crudConfig.visibility,
+  apiSuffix: crudConfig.relativePath,
+  queryKeyFactory: (surfaceId = "") => crudContext.listQueryKey(surfaceId),
   fallbackLoadError: "Unable to load records."
 });
 
-const items = contacts.items;
-const loadError = contacts.loadError;
-const isLoading = contacts.isLoading;
-const hasMore = contacts.hasMore;
-const isLoadingMore = contacts.isLoadingMore;
+const items = records.items;
+const loadError = records.loadError;
+const isLoading = records.isLoading;
+const hasMore = records.hasMore;
+const isLoadingMore = records.isLoadingMore;
 
 function formatDateTime(value) {
   const parsedDate = new Date(value);

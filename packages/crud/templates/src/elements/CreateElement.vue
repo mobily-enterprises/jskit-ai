@@ -60,7 +60,7 @@ import { reactive } from "vue";
 import { useRouter } from "vue-router";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
-import { useCrudClientContext, contactsResource } from "./clientSupport.js";
+import { useCrudClientContext, crudResource } from "./clientSupport.js";
 
 const router = useRouter();
 const crudContext = useCrudClientContext();
@@ -73,7 +73,7 @@ const recordForm = reactive({
 
 const addEdit = useAddEdit({
   visibility: crudConfig.visibility,
-  resource: contactsResource,
+  resource: crudResource,
   apiSuffix: crudConfig.relativePath,
   queryKeyFactory: (surfaceId = "") => [...crudContext.listQueryKey(surfaceId), "create"],
   readEnabled: false,
@@ -83,7 +83,7 @@ const addEdit = useAddEdit({
   model: recordForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
-      operation: contactsResource.operations.create,
+      operation: crudResource.operations.create,
       section: "body",
       value: rawPayload
     }),

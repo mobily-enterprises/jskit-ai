@@ -1,43 +1,43 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
-function createService({ contactsRepository } = {}) {
-  if (!contactsRepository) {
-    throw new Error("contactsService requires contactsRepository.");
+function createService({ crudRepository } = {}) {
+  if (!crudRepository) {
+    throw new Error("crudService requires crudRepository.");
   }
 
-  async function listContacts(query = {}, options = {}) {
-    return contactsRepository.list(query, options);
+  async function listRecords(query = {}, options = {}) {
+    return crudRepository.list(query, options);
   }
 
-  async function getContact(contactId, options = {}) {
-    const contact = await contactsRepository.findById(contactId, options);
-    if (!contact) {
+  async function getRecord(recordId, options = {}) {
+    const record = await crudRepository.findById(recordId, options);
+    if (!record) {
       throw new AppError(404, "Record not found.");
     }
 
-    return contact;
+    return record;
   }
 
-  async function createContact(payload = {}, options = {}) {
-    const contact = await contactsRepository.create(payload, options);
-    if (!contact) {
-      throw new Error("contactsService could not load the created contact.");
+  async function createRecord(payload = {}, options = {}) {
+    const record = await crudRepository.create(payload, options);
+    if (!record) {
+      throw new Error("crudService could not load the created record.");
     }
 
-    return contact;
+    return record;
   }
 
-  async function updateContact(contactId, payload = {}, options = {}) {
-    const contact = await contactsRepository.updateById(contactId, payload, options);
-    if (!contact) {
+  async function updateRecord(recordId, payload = {}, options = {}) {
+    const record = await crudRepository.updateById(recordId, payload, options);
+    if (!record) {
       throw new AppError(404, "Record not found.");
     }
 
-    return contact;
+    return record;
   }
 
-  async function deleteContact(contactId, options = {}) {
-    const deleted = await contactsRepository.deleteById(contactId, options);
+  async function deleteRecord(recordId, options = {}) {
+    const deleted = await crudRepository.deleteById(recordId, options);
     if (!deleted) {
       throw new AppError(404, "Record not found.");
     }
@@ -46,11 +46,11 @@ function createService({ contactsRepository } = {}) {
   }
 
   return Object.freeze({
-    listContacts,
-    getContact,
-    createContact,
-    updateContact,
-    deleteContact
+    listRecords,
+    getRecord,
+    createRecord,
+    updateRecord,
+    deleteRecord
   });
 }
 

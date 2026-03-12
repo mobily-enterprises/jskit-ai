@@ -2,38 +2,38 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/service.js";
 
-test("contactsService delegates CRUD operations to the repository", async () => {
+test("crudService delegates CRUD operations to the repository", async () => {
   const calls = [];
-  const contactsRepository = {
+  const crudRepository = {
     async list(query) {
       calls.push(["list", query]);
       return { items: [], nextCursor: null };
     },
-    async findById(contactId) {
-      calls.push(["findById", contactId]);
-      return { id: contactId, name: "Ada", surname: "Lovelace" };
+    async findById(recordId) {
+      calls.push(["findById", recordId]);
+      return { id: recordId, name: "Ada", surname: "Lovelace" };
     },
     async create(payload) {
       calls.push(["create", payload]);
       return { id: 1, ...payload };
     },
-    async updateById(contactId, payload) {
-      calls.push(["updateById", contactId, payload]);
-      return { id: contactId, ...payload };
+    async updateById(recordId, payload) {
+      calls.push(["updateById", recordId, payload]);
+      return { id: recordId, ...payload };
     },
-    async deleteById(contactId) {
-      calls.push(["deleteById", contactId]);
-      return { id: contactId, deleted: true };
+    async deleteById(recordId) {
+      calls.push(["deleteById", recordId]);
+      return { id: recordId, deleted: true };
     }
   };
 
-  const service = createService({ contactsRepository });
+  const service = createService({ crudRepository });
 
-  await service.listContacts({ limit: 10 });
-  await service.getContact(3);
-  await service.createContact({ name: "Ada", surname: "Lovelace" });
-  await service.updateContact(4, { surname: "Byron" });
-  await service.deleteContact(5);
+  await service.listRecords({ limit: 10 });
+  await service.getRecord(3);
+  await service.createRecord({ name: "Ada", surname: "Lovelace" });
+  await service.updateRecord(4, { surname: "Byron" });
+  await service.deleteRecord(5);
 
   assert.deepEqual(calls, [
     ["list", { limit: 10 }],
@@ -44,9 +44,9 @@ test("contactsService delegates CRUD operations to the repository", async () => 
   ]);
 });
 
-test("contactsService throws 404 when a contact is missing", async () => {
+test("crudService throws 404 when a record is missing", async () => {
   const service = createService({
-    contactsRepository: {
+    crudRepository: {
       async list() {
         return { items: [], nextCursor: null };
       },
@@ -66,17 +66,17 @@ test("contactsService throws 404 when a contact is missing", async () => {
   });
 
   await assert.rejects(
-    () => service.getContact(9),
+    () => service.getRecord(9),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.updateContact(9, { name: "Ada" }),
+    () => service.updateRecord(9, { name: "Ada" }),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.deleteContact(9),
+    () => service.deleteRecord(9),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 });

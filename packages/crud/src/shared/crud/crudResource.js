@@ -5,7 +5,7 @@ import {
 } from "@jskit-ai/kernel/shared/contracts";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
-function normalizeContactInput(payload = {}) {
+function normalizeRecordInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};
 
@@ -20,7 +20,7 @@ function normalizeContactInput(payload = {}) {
   return normalized;
 }
 
-function normalizeContactRecord(payload = {}) {
+function normalizeRecordRecord(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
@@ -32,7 +32,7 @@ function normalizeContactRecord(payload = {}) {
   };
 }
 
-const contactRecordSchema = Type.Object(
+const recordRecordSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
@@ -43,7 +43,7 @@ const contactRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const contactBodySchema = Type.Object(
+const recordBodySchema = Type.Object(
   {
     name: Type.String({
       minLength: 1,
@@ -75,12 +75,12 @@ const contactBodySchema = Type.Object(
   }
 );
 
-const contactRecordValidator = Object.freeze({
-  schema: contactRecordSchema,
-  normalize: normalizeContactRecord
+const recordRecordValidator = Object.freeze({
+  schema: recordRecordSchema,
+  normalize: normalizeRecordRecord
 });
 
-const contactsResource = {
+const crudResource = {
   resource: "crud",
   messages: {
     validation: "Fix invalid CRUD values and try again.",
@@ -92,27 +92,27 @@ const contactsResource = {
   operations: {
     list: {
       method: "GET",
-      output: createCursorListValidator(contactRecordValidator)
+      output: createCursorListValidator(recordRecordValidator)
     },
     view: {
       method: "GET",
-      output: contactRecordValidator
+      output: recordRecordValidator
     },
     create: {
       method: "POST",
       body: {
-        schema: contactBodySchema,
-        normalize: normalizeContactInput
+        schema: recordBodySchema,
+        normalize: normalizeRecordInput
       },
-      output: contactRecordValidator
+      output: recordRecordValidator
     },
     patch: {
       method: "PATCH",
       body: {
-        schema: Type.Partial(contactBodySchema, { additionalProperties: false }),
-        normalize: normalizeContactInput
+        schema: Type.Partial(recordBodySchema, { additionalProperties: false }),
+        normalize: normalizeRecordInput
       },
-      output: contactRecordValidator
+      output: recordRecordValidator
     },
     delete: {
       method: "DELETE",
@@ -137,4 +137,4 @@ const contactsResource = {
   }
 };
 
-export { contactsResource };
+export { crudResource };

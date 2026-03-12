@@ -1,8 +1,8 @@
-export { contactsResource } from "./contacts/contactsResource.js";
+export { crudResource } from "./crud/crudResource.js";
 export {
-  resolveContactsConfig,
-  resolveContactsRelativePath,
-  normalizeContactsNamespace,
-  normalizeContactsVisibility,
+  resolveCrudConfig,
+  resolveCrudRelativePath,
+  normalizeCrudNamespace,
+  normalizeCrudVisibility,
   isWorkspaceVisibility
-} from "./contacts/contactsModuleConfig.js";
+} from "./crud/crudModuleConfig.js";

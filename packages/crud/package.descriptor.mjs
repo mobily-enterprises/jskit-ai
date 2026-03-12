@@ -75,10 +75,10 @@ export default Object.freeze({
     server: {
       routes: [
         { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud", summary: "List records (default workspace mode)." },
-        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "View a record (default workspace mode)." },
+        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "View a record (default workspace mode)." },
         { method: "POST", path: "/api/w/:workspaceSlug/workspace/crud", summary: "Create a record (default workspace mode)." },
-        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "Update a record (default workspace mode)." },
-        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "Delete a record (default workspace mode)." }
+        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "Update a record (default workspace mode)." },
+        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "Delete a record (default workspace mode)." }
       ]
     }
   },
@@ -178,15 +178,15 @@ export default Object.freeze({
         id: "crud-page-admin-crud-new"
       },
       {
-        from: "templates/src/pages/admin/crud/[contactId]/index.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[contactId]/index.vue",
+        from: "templates/src/pages/admin/crud/[recordId]/index.vue",
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[recordId]/index.vue",
         reason: "Install admin CRUD detail page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-view"
       },
       {
-        from: "templates/src/pages/admin/crud/[contactId]/edit.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[contactId]/edit.vue",
+        from: "templates/src/pages/admin/crud/[recordId]/edit.vue",
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[recordId]/edit.vue",
         reason: "Install admin CRUD edit page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-edit"
@@ -199,7 +199,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}",
         value:
-          "\n// jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace|kebab}\";\nconfig.crud.visibility = \"${option:visibility}\";\nconfig.crud.directoryPrefix = \"${option:directory-prefix|path}\";\n",
+          "\n// jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}\nconfig.modules = config.modules || {};\nconfig.modules[\"crud.${option:namespace|kebab|default(crud)}\"] = {\n  module: \"crud\",\n  namespace: \"${option:namespace|kebab}\",\n  visibility: \"${option:visibility}\",\n  directoryPrefix: \"${option:directory-prefix|path}\"\n};\n",
         reason: "Append CRUD module configuration into app-owned public config.",
         category: "crud",
         id: "crud-public-config"

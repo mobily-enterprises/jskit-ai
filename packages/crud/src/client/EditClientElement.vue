@@ -1,5 +1,5 @@
 <template>
-  <section class="contact-edit-client-element d-flex flex-column ga-4">
+  <section class="record-edit-client-element d-flex flex-column ga-4">
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
@@ -24,7 +24,7 @@
           <v-row>
             <v-col cols="12" md="6">
               <v-text-field
-                v-model="contactForm.name"
+                v-model="recordForm.name"
                 label="Name"
                 variant="outlined"
                 density="comfortable"
@@ -35,7 +35,7 @@
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field
-                v-model="contactForm.surname"
+                v-model="recordForm.surname"
                 label="Surname"
                 variant="outlined"
                 density="comfortable"
@@ -61,35 +61,35 @@ import { useRouter } from "vue-router";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
-  useContactsClientContext,
-  contactsResource,
-  toRouteContactId
+  useRecordsClientContext,
+  crudResource,
+  toRouteRecordId
 } from "./clientSupport.js";
 
 const router = useRouter();
-const contactsContext = useContactsClientContext();
-const contactsConfig = contactsContext.contactsConfig;
-const listPath = contactsContext.listPath;
-const contactForm = reactive({
+const crudContext = useRecordsClientContext();
+const crudConfig = crudContext.crudConfig;
+const listPath = crudContext.listPath;
+const recordForm = reactive({
   name: "",
   surname: ""
 });
-const contactId = computed(() => toRouteContactId(contactsContext.route.params.contactId));
-const detailPath = computed(() => contactsContext.resolveViewPath(contactId.value));
+const recordId = computed(() => toRouteRecordId(crudContext.route.params.recordId));
+const detailPath = computed(() => crudContext.resolveViewPath(recordId.value));
 
 const addEdit = useAddEdit({
-  visibility: contactsConfig.visibility,
-  resource: contactsResource,
-  apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
-  queryKeyFactory: (surfaceId = "") => contactsContext.viewQueryKey(surfaceId, contactId.value),
+  visibility: crudConfig.visibility,
+  resource: crudResource,
+  apiSuffix: () => `${crudConfig.relativePath}/${recordId.value}`,
+  queryKeyFactory: (surfaceId = "") => crudContext.viewQueryKey(surfaceId, recordId.value),
   writeMethod: "PATCH",
   fallbackLoadError: "Unable to load record.",
   fallbackSaveError: "Unable to save record.",
   fieldErrorKeys: ["name", "surname"],
-  model: contactForm,
+  model: recordForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
-      operation: contactsResource.operations.patch,
+      operation: crudResource.operations.patch,
       section: "body",
       value: rawPayload
     }),
@@ -103,10 +103,10 @@ const addEdit = useAddEdit({
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "crud", contactsConfig.namespace]
+      queryKey: ["crud", "crud", crudConfig.namespace]
     });
 
-    const targetPath = contactsContext.resolveViewPath(payload?.id || contactId.value);
+    const targetPath = crudContext.resolveViewPath(payload?.id || recordId.value);
     if (targetPath) {
       await router.push(targetPath);
     }

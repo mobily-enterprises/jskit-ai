@@ -1,6 +1,6 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { inputPartsValidator } from "./inputPartsValidator.js";
-import { contactsResource } from "../shared/contacts/contactsResource.js";
+import { crudResource } from "../shared/crud/crudResource.js";
 
 function createActionIds(actionIdPrefix = "crud") {
   const prefix = String(actionIdPrefix || "").trim() || "crud";
@@ -26,7 +26,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       surfaces: ["admin"],
       consoleUsersOnly: false,
       input: [inputPartsValidator.workspaceParams, inputPartsValidator.listQuery],
-      output: contactsResource.operations.list.output,
+      output: crudResource.operations.list.output,
       permission: requireAuthenticated,
       idempotency: "none",
       audit: {
@@ -34,7 +34,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.contactsService.listContacts(input, {
+        return deps.crudService.listRecords(input, {
           visibilityContext: context?.visibilityContext
         });
       }
@@ -47,7 +47,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       surfaces: ["admin"],
       consoleUsersOnly: false,
       input: inputPartsValidator.routeParams,
-      output: contactsResource.operations.view.output,
+      output: crudResource.operations.view.output,
       permission: requireAuthenticated,
       idempotency: "none",
       audit: {
@@ -55,7 +55,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.contactsService.getContact(input.contactId, {
+        return deps.crudService.getRecord(input.recordId, {
           visibilityContext: context?.visibilityContext
         });
       }
@@ -67,8 +67,8 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputPartsValidator.workspaceParams, contactsResource.operations.create.body],
-      output: contactsResource.operations.create.output,
+      input: [inputPartsValidator.workspaceParams, crudResource.operations.create.body],
+      output: crudResource.operations.create.output,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
@@ -76,7 +76,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.contactsService.createContact(input, {
+        return deps.crudService.createRecord(input, {
           visibilityContext: context?.visibilityContext
         });
       }
@@ -88,8 +88,8 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputPartsValidator.routeParams, contactsResource.operations.patch.body],
-      output: contactsResource.operations.patch.output,
+      input: [inputPartsValidator.routeParams, crudResource.operations.patch.body],
+      output: crudResource.operations.patch.output,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
@@ -97,8 +97,8 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        const { contactId, ...patch } = input;
-        return deps.contactsService.updateContact(contactId, patch, {
+        const { recordId, ...patch } = input;
+        return deps.crudService.updateRecord(recordId, patch, {
           visibilityContext: context?.visibilityContext
         });
       }
@@ -111,7 +111,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       surfaces: ["admin"],
       consoleUsersOnly: false,
       input: inputPartsValidator.routeParams,
-      output: contactsResource.operations.delete.output,
+      output: crudResource.operations.delete.output,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
@@ -119,7 +119,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.contactsService.deleteContact(input.contactId, {
+        return deps.crudService.deleteRecord(input.recordId, {
           visibilityContext: context?.visibilityContext
         });
       }

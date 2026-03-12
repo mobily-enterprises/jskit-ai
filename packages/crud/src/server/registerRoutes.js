@@ -2,7 +2,7 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contra
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { inputPartsValidator } from "./inputPartsValidator.js";
 import { createActionIds } from "./actions.js";
-import { contactsResource } from "../shared/contacts/contactsResource.js";
+import { crudResource } from "../shared/crud/crudResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {
   const base = String(basePath || "").trim().replace(/\/+$/g, "");
@@ -43,7 +43,7 @@ function registerRoutes(
       params: inputPartsValidator.workspaceParams,
       query: inputPartsValidator.listQuery,
       response: withStandardErrorResponses({
-        200: contactsResource.operations.list.output
+        200: crudResource.operations.list.output
       })
     },
     async function (request, reply) {
@@ -61,7 +61,7 @@ function registerRoutes(
 
   router.register(
     "GET",
-    joinRoutePath(routeBase, ":contactId"),
+    joinRoutePath(routeBase, ":recordId"),
     {
       auth: "required",
       visibility,
@@ -71,7 +71,7 @@ function registerRoutes(
       },
       params: inputPartsValidator.routeParams,
       response: withStandardErrorResponses({
-        200: contactsResource.operations.view.output
+        200: crudResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -95,10 +95,10 @@ function registerRoutes(
         summary: "Create a record."
       },
       params: inputPartsValidator.workspaceParams,
-      body: contactsResource.operations.create.body,
+      body: crudResource.operations.create.body,
       response: withStandardErrorResponses(
         {
-          201: contactsResource.operations.create.output
+          201: crudResource.operations.create.output
         },
         { includeValidation400: true }
       )
@@ -118,7 +118,7 @@ function registerRoutes(
 
   router.register(
     "PATCH",
-    joinRoutePath(routeBase, ":contactId"),
+    joinRoutePath(routeBase, ":recordId"),
     {
       auth: "required",
       visibility,
@@ -127,10 +127,10 @@ function registerRoutes(
         summary: "Update a record."
       },
       params: inputPartsValidator.routeParams,
-      body: contactsResource.operations.patch.body,
+      body: crudResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
-          200: contactsResource.operations.patch.output
+          200: crudResource.operations.patch.output
         },
         { includeValidation400: true }
       )
@@ -150,7 +150,7 @@ function registerRoutes(
 
   router.register(
     "DELETE",
-    joinRoutePath(routeBase, ":contactId"),
+    joinRoutePath(routeBase, ":recordId"),
     {
       auth: "required",
       visibility,
@@ -160,7 +160,7 @@ function registerRoutes(
       },
       params: inputPartsValidator.routeParams,
       response: withStandardErrorResponses({
-        200: contactsResource.operations.delete.output
+        200: crudResource.operations.delete.output
       })
     },
     async function (request, reply) {

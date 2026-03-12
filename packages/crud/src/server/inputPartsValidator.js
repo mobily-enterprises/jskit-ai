@@ -22,8 +22,8 @@ function normalizeRouteParams(input = {}) {
     normalized.workspaceSlug = normalizeWorkspaceSlug(source.workspaceSlug);
   }
 
-  if (Object.hasOwn(source, "contactId")) {
-    normalized.contactId = toPositiveInteger(source.contactId);
+  if (Object.hasOwn(source, "recordId")) {
+    normalized.recordId = toPositiveInteger(source.recordId);
   }
 
   return normalized;
@@ -73,7 +73,7 @@ const inputPartsValidator = Object.freeze({
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(workspaceSlugInputSchema),
-        contactId: Type.Optional(positiveIntegerInputSchema)
+        recordId: Type.Optional(positiveIntegerInputSchema)
       },
       { additionalProperties: false }
     ),
