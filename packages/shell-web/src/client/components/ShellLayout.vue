@@ -59,6 +59,7 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
           >
             {{ action.label }}
           </v-btn>
+          <v-chip color="primary" size="small" label>{{ surfaceLabel }}</v-chip>
           <ShellOutlet :surface="surface" placement="app.top-left" />
         </div>
       </slot>
@@ -105,7 +106,6 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
 
     <v-main class="bg-background">
       <v-container fluid class="pa-4">
-        <v-chip color="primary" size="small" label class="mb-3">{{ surfaceLabel }}</v-chip>
         <h1 class="text-h5 mb-2">{{ title }}</h1>
         <p class="text-body-2 text-medium-emphasis mb-4">{{ subtitle }}</p>
         <slot />
