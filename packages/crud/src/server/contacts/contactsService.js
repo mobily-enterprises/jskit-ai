@@ -12,7 +12,7 @@ function createService({ contactsRepository } = {}) {
   async function getContact(contactId, options = {}) {
     const contact = await contactsRepository.findById(contactId, options);
     if (!contact) {
-      throw new AppError(404, "Contact not found.");
+      throw new AppError(404, "Record not found.");
     }
 
     return contact;
@@ -30,7 +30,7 @@ function createService({ contactsRepository } = {}) {
   async function updateContact(contactId, payload = {}, options = {}) {
     const contact = await contactsRepository.updateById(contactId, payload, options);
     if (!contact) {
-      throw new AppError(404, "Contact not found.");
+      throw new AppError(404, "Record not found.");
     }
 
     return contact;
@@ -39,7 +39,7 @@ function createService({ contactsRepository } = {}) {
   async function deleteContact(contactId, options = {}) {
     const deleted = await contactsRepository.deleteById(contactId, options);
     if (!deleted) {
-      throw new AppError(404, "Contact not found.");
+      throw new AppError(404, "Record not found.");
     }
 
     return deleted;

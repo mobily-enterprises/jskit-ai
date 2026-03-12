@@ -29,12 +29,12 @@ function normalizeListLimit(value) {
   return Math.min(parsed, MAX_LIST_LIMIT);
 }
 
-function createRepository(knex, { tableName = "contacts" } = {}) {
+function createRepository(knex, { tableName = "crud" } = {}) {
   if (typeof knex !== "function") {
     throw new TypeError("contactsRepository requires knex.");
   }
 
-  const resolvedTableName = String(tableName || "").trim() || "contacts";
+  const resolvedTableName = String(tableName || "").trim() || "crud";
 
   async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT } = {}, options = {}) {
     const client = options?.trx || knex;

@@ -6,21 +6,21 @@ import { createContactsActions, createContactsActionIds } from "./contacts/conta
 import { registerContactsRoutes } from "./contacts/registerContactsRoutes.js";
 import { resolveContactsConfig } from "../shared/contacts/contactsModuleConfig.js";
 
-const CRUD_CONTACTS_CONFIG_TOKEN = "crud.contacts.config";
+const CRUD_CONFIG_TOKEN = "crud.config";
 
 function resolveCrudContactsConfig(app) {
   const appConfig = app.has("appConfig") ? app.make("appConfig") : {};
-  return resolveContactsConfig(appConfig?.crud?.contacts);
+  return resolveContactsConfig(appConfig?.crud);
 }
 
 class CrudServiceProvider {
-  static id = "crud.contacts";
+  static id = "crud";
 
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
 
   register(app) {
     const contactsConfig = resolveCrudContactsConfig(app);
-    app.instance(CRUD_CONTACTS_CONFIG_TOKEN, contactsConfig);
+    app.instance(CRUD_CONFIG_TOKEN, contactsConfig);
 
     app.singleton(contactsConfig.repositoryToken, (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
@@ -48,7 +48,7 @@ class CrudServiceProvider {
   }
 
   boot(app) {
-    const contactsConfig = app.make(CRUD_CONTACTS_CONFIG_TOKEN);
+    const contactsConfig = app.make(CRUD_CONFIG_TOKEN);
     registerContactsRoutes(app, {
       routeBasePath: contactsConfig.apiBasePath,
       routeVisibility: contactsConfig.visibility,

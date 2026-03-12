@@ -81,13 +81,13 @@ const contactRecordValidator = Object.freeze({
 });
 
 const contactsResource = {
-  resource: "contacts",
+  resource: "crud",
   messages: {
-    validation: "Fix invalid contact values and try again.",
-    saveSuccess: "Contact saved.",
-    saveError: "Unable to save contact.",
-    deleteSuccess: "Contact deleted.",
-    deleteError: "Unable to delete contact."
+    validation: "Fix invalid CRUD values and try again.",
+    saveSuccess: "Record saved.",
+    saveError: "Unable to save record.",
+    deleteSuccess: "Record deleted.",
+    deleteError: "Unable to delete record."
   },
   operations: {
     list: {

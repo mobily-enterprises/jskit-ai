@@ -4,8 +4,8 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">Edit contact</v-card-title>
-            <v-card-subtitle class="px-0">Update the selected contact.</v-card-subtitle>
+            <v-card-title class="px-0">Edit record</v-card-title>
+            <v-card-subtitle class="px-0">Update the selected CRUD record.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn variant="text" :to="detailPath || listPath">Cancel</v-btn>
@@ -83,8 +83,8 @@ const addEdit = useAddEdit({
   apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
   queryKeyFactory: (surfaceId = "") => contactsContext.viewQueryKey(surfaceId, contactId.value),
   writeMethod: "PATCH",
-  fallbackLoadError: "Unable to load contact.",
-  fallbackSaveError: "Unable to save contact.",
+  fallbackLoadError: "Unable to load record.",
+  fallbackSaveError: "Unable to save record.",
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
   parseInput: (rawPayload) =>
@@ -103,7 +103,7 @@ const addEdit = useAddEdit({
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "contacts", contactsConfig.namespace]
+      queryKey: ["crud", "crud", contactsConfig.namespace]
     });
 
     const targetPath = contactsContext.resolveViewPath(payload?.id || contactId.value);

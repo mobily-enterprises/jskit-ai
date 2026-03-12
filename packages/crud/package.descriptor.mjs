@@ -2,14 +2,14 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud",
   version: "0.1.0",
-  description: "Admin contacts CRUD module with server routes, actions, persistence, and client pages.",
+  description: "Admin CRUD module with server routes, actions, persistence, and client pages.",
   options: {
     namespace: {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "CRUD namespace",
-      promptHint: "Optional slug prefix (blank = contacts paths/tables)."
+      promptHint: "Optional slug prefix (blank = crud paths/tables)."
     },
     visibility: {
       required: true,
@@ -28,7 +28,7 @@ export default Object.freeze({
     "@jskit-ai/users-web"
   ],
   capabilities: {
-    provides: ["crud.contacts"],
+    provides: ["crud"],
     requires: ["runtime.actions", "runtime.database", "auth.policy", "users.core", "users.web", "runtime.web-placement"]
   },
   runtime: {
@@ -49,29 +49,29 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server",
-          summary: "Exports CrudServiceProvider and the contacts CRUD server feature."
+          summary: "Exports CrudServiceProvider and the CRUD server feature."
         },
         {
           subpath: "./shared",
-          summary: "Exports shared contacts CRUD resources and module config helpers."
+          summary: "Exports shared CRUD resources and module config helpers."
         },
         {
           subpath: "./client/contacts/*",
-          summary: "Exports contacts CRUD Vue client elements."
+          summary: "Exports CRUD Vue client elements."
         }
       ],
       containerTokens: {
-        server: ["crud.contacts.repository", "crud.contacts.service"],
+        server: ["crud.repository", "crud.service"],
         client: []
       }
     },
     server: {
       routes: [
-        { method: "GET", path: "/api/w/:workspaceSlug/workspace/contacts", summary: "List contacts (default workspace mode)." },
-        { method: "GET", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "View a contact (default workspace mode)." },
-        { method: "POST", path: "/api/w/:workspaceSlug/workspace/contacts", summary: "Create a contact (default workspace mode)." },
-        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "Update a contact (default workspace mode)." },
-        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/contacts/:contactId", summary: "Delete a contact (default workspace mode)." }
+        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud", summary: "List records (default workspace mode)." },
+        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "View a record (default workspace mode)." },
+        { method: "POST", path: "/api/w/:workspaceSlug/workspace/crud", summary: "Create a record (default workspace mode)." },
+        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "Update a record (default workspace mode)." },
+        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/crud/:contactId", summary: "Delete a record (default workspace mode)." }
       ]
     }
   },
@@ -98,101 +98,101 @@ export default Object.freeze({
     files: [
       {
         op: "install-migration",
-        from: "templates/migrations/crud_contacts_initial.cjs",
+        from: "templates/migrations/crud_initial.cjs",
         toDir: "migrations",
-        slug: "crud_contacts_initial_${option:namespace}",
+        slug: "crud_initial_${option:namespace}",
         extension: ".cjs",
-        reason: "Install contacts CRUD schema migration.",
+        reason: "Install CRUD schema migration.",
         category: "crud",
-        id: "crud-contacts-initial-schema-${option:namespace}"
+        id: "crud-initial-schema-${option:namespace}"
       },
       {
-        from: "templates/src/pages/admin/contacts/index.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/contacts/index.vue",
+        from: "templates/src/pages/admin/crud/index.vue",
+        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/index.vue",
         when: {
           option: "visibility",
           in: ["workspace", "workspace_user"]
         },
-        reason: "Install admin workspace contacts list page scaffold.",
+        reason: "Install admin workspace CRUD list page scaffold.",
         category: "crud",
-        id: "crud-page-admin-workspace-contacts-index"
+        id: "crud-page-admin-workspace-crud-index"
       },
       {
-        from: "templates/src/pages/admin/contacts/new.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/contacts/new.vue",
+        from: "templates/src/pages/admin/crud/new.vue",
+        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/new.vue",
         when: {
           option: "visibility",
           in: ["workspace", "workspace_user"]
         },
-        reason: "Install admin workspace contacts create page scaffold.",
+        reason: "Install admin workspace CRUD create page scaffold.",
         category: "crud",
-        id: "crud-page-admin-workspace-contacts-new"
+        id: "crud-page-admin-workspace-crud-new"
       },
       {
-        from: "templates/src/pages/admin/contacts/[contactId]/index.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/contacts/[contactId]/index.vue",
+        from: "templates/src/pages/admin/crud/[contactId]/index.vue",
+        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/[contactId]/index.vue",
         when: {
           option: "visibility",
           in: ["workspace", "workspace_user"]
         },
-        reason: "Install admin workspace contacts detail page scaffold.",
+        reason: "Install admin workspace CRUD detail page scaffold.",
         category: "crud",
-        id: "crud-page-admin-workspace-contacts-view"
+        id: "crud-page-admin-workspace-crud-view"
       },
       {
-        from: "templates/src/pages/admin/contacts/[contactId]/edit.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/contacts/[contactId]/edit.vue",
+        from: "templates/src/pages/admin/crud/[contactId]/edit.vue",
+        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/[contactId]/edit.vue",
         when: {
           option: "visibility",
           in: ["workspace", "workspace_user"]
         },
-        reason: "Install admin workspace contacts edit page scaffold.",
+        reason: "Install admin workspace CRUD edit page scaffold.",
         category: "crud",
-        id: "crud-page-admin-workspace-contacts-edit"
+        id: "crud-page-admin-workspace-crud-edit"
       },
       {
-        from: "templates/src/pages/admin/contacts/index.vue",
-        to: "src/pages/admin/${option:namespace}/contacts/index.vue",
+        from: "templates/src/pages/admin/crud/index.vue",
+        to: "src/pages/admin/${option:namespace}/crud/index.vue",
         when: {
           option: "visibility",
           in: ["public", "user"]
         },
-        reason: "Install admin contacts list page scaffold.",
+        reason: "Install admin CRUD list page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-contacts-index"
+        id: "crud-page-admin-global-crud-index"
       },
       {
-        from: "templates/src/pages/admin/contacts/new.vue",
-        to: "src/pages/admin/${option:namespace}/contacts/new.vue",
+        from: "templates/src/pages/admin/crud/new.vue",
+        to: "src/pages/admin/${option:namespace}/crud/new.vue",
         when: {
           option: "visibility",
           in: ["public", "user"]
         },
-        reason: "Install admin contacts create page scaffold.",
+        reason: "Install admin CRUD create page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-contacts-new"
+        id: "crud-page-admin-global-crud-new"
       },
       {
-        from: "templates/src/pages/admin/contacts/[contactId]/index.vue",
-        to: "src/pages/admin/${option:namespace}/contacts/[contactId]/index.vue",
+        from: "templates/src/pages/admin/crud/[contactId]/index.vue",
+        to: "src/pages/admin/${option:namespace}/crud/[contactId]/index.vue",
         when: {
           option: "visibility",
           in: ["public", "user"]
         },
-        reason: "Install admin contacts detail page scaffold.",
+        reason: "Install admin CRUD detail page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-contacts-view"
+        id: "crud-page-admin-global-crud-view"
       },
       {
-        from: "templates/src/pages/admin/contacts/[contactId]/edit.vue",
-        to: "src/pages/admin/${option:namespace}/contacts/[contactId]/edit.vue",
+        from: "templates/src/pages/admin/crud/[contactId]/edit.vue",
+        to: "src/pages/admin/${option:namespace}/crud/[contactId]/edit.vue",
         when: {
           option: "visibility",
           in: ["public", "user"]
         },
-        reason: "Install admin contacts edit page scaffold.",
+        reason: "Install admin CRUD edit page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-contacts-edit"
+        id: "crud-page-admin-global-crud-edit"
       }
     ],
     text: [
@@ -200,10 +200,10 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
-        skipIfContains: "config.crud.contacts.visibility = \"${option:visibility}\";",
+        skipIfContains: "config.crud.visibility = \"${option:visibility}\";",
         value:
-          "\nconfig.crud = config.crud || {};\nconfig.crud.contacts = config.crud.contacts || {};\nconfig.crud.contacts.namespace = \"${option:namespace}\";\nconfig.crud.contacts.visibility = \"${option:visibility}\";\n",
-        reason: "Append contacts CRUD module configuration into app-owned public config.",
+          "\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace}\";\nconfig.crud.visibility = \"${option:visibility}\";\n",
+        reason: "Append CRUD module configuration into app-owned public config.",
         category: "crud",
         id: "crud-public-config"
       },
@@ -211,12 +211,12 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "jskit:crud.contacts.menu:${option:namespace}",
+        skipIfContains: "jskit:crud.menu:${option:namespace}",
         value:
-          "\n// jskit:crud.contacts.menu:${option:namespace}\nconst crudContactsNamespace = \"${option:namespace}\".trim().toLowerCase();\nconst crudContactsNamespacePath = crudContactsNamespace ? \"/\" + crudContactsNamespace : \"\";\nconst crudContactsPlacementId = crudContactsNamespace\n  ? \"crud.\" + crudContactsNamespace + \".contacts.menu\"\n  : \"crud.contacts.menu\";\n\naddPlacement({\n  id: crudContactsPlacementId,\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Contacts\",\n    surface: \"admin\",\n    workspaceSuffix: crudContactsNamespacePath + \"/contacts\",\n    nonWorkspaceSuffix: crudContactsNamespacePath + \"/contacts\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append admin Contacts menu placement into app-owned placement registry.",
+          "\n// jskit:crud.menu:${option:namespace}\nconst crudNamespace = \"${option:namespace}\".trim().toLowerCase();\nconst crudNamespacePath = crudNamespace ? \"/\" + crudNamespace : \"\";\nconst crudPlacementId = crudNamespace\n  ? \"crud.\" + crudNamespace + \".menu\"\n  : \"crud.menu\";\n\naddPlacement({\n  id: crudPlacementId,\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Crud\",\n    surface: \"admin\",\n    workspaceSuffix: crudNamespacePath + \"/crud\",\n    nonWorkspaceSuffix: crudNamespacePath + \"/crud\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append admin Crud menu placement into app-owned placement registry.",
         category: "crud",
-        id: "crud-placement-contacts-menu"
+        id: "crud-placement-menu"
       }
     ]
   }

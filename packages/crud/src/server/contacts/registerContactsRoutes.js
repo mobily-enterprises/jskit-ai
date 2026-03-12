@@ -17,7 +17,7 @@ function joinRoutePath(basePath = "", suffix = "") {
 function registerContactsRoutes(
   app,
   {
-    routeBasePath = "/api/w/:workspaceSlug/workspace/contacts",
+    routeBasePath = "/api/w/:workspaceSlug/workspace/crud",
     routeVisibility = "workspace",
     actionIds = createContactsActionIds()
   } = {}
@@ -27,7 +27,7 @@ function registerContactsRoutes(
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = String(routeBasePath || "").trim() || "/api/w/:workspaceSlug/workspace/contacts";
+  const routeBase = String(routeBasePath || "").trim() || "/api/w/:workspaceSlug/workspace/crud";
   const visibility = String(routeVisibility || "").trim() || "workspace";
 
   router.register(
@@ -37,8 +37,8 @@ function registerContactsRoutes(
       auth: "required",
       visibility,
       meta: {
-        tags: ["contacts"],
-        summary: "List contacts."
+        tags: ["crud"],
+        summary: "List records."
       },
       params: contactsInputPartsValidator.workspaceParams,
       query: contactsInputPartsValidator.listQuery,
@@ -66,8 +66,8 @@ function registerContactsRoutes(
       auth: "required",
       visibility,
       meta: {
-        tags: ["contacts"],
-        summary: "View a contact."
+        tags: ["crud"],
+        summary: "View a record."
       },
       params: contactsInputPartsValidator.routeParams,
       response: withStandardErrorResponses({
@@ -91,8 +91,8 @@ function registerContactsRoutes(
       auth: "required",
       visibility,
       meta: {
-        tags: ["contacts"],
-        summary: "Create a contact."
+        tags: ["crud"],
+        summary: "Create a record."
       },
       params: contactsInputPartsValidator.workspaceParams,
       body: contactsResource.operations.create.body,
@@ -123,8 +123,8 @@ function registerContactsRoutes(
       auth: "required",
       visibility,
       meta: {
-        tags: ["contacts"],
-        summary: "Update a contact."
+        tags: ["crud"],
+        summary: "Update a record."
       },
       params: contactsInputPartsValidator.routeParams,
       body: contactsResource.operations.patch.body,
@@ -155,8 +155,8 @@ function registerContactsRoutes(
       auth: "required",
       visibility,
       meta: {
-        tags: ["contacts"],
-        summary: "Delete a contact."
+        tags: ["crud"],
+        summary: "Delete a record."
       },
       params: contactsInputPartsValidator.routeParams,
       response: withStandardErrorResponses({

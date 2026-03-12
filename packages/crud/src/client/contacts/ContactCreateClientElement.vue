@@ -4,13 +4,13 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">New contact</v-card-title>
-            <v-card-subtitle class="px-0">Create a new contact record.</v-card-subtitle>
+            <v-card-title class="px-0">New record</v-card-title>
+            <v-card-subtitle class="px-0">Create a new CRUD record.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn variant="text" :to="listPath || undefined">Cancel</v-btn>
           <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
-            Save contact
+            Save record
           </v-btn>
         </div>
       </v-card-item>
@@ -81,7 +81,7 @@ const addEdit = useAddEdit({
   queryKeyFactory: (surfaceId = "") => [...contactsContext.listQueryKey(surfaceId), "create"],
   readEnabled: false,
   writeMethod: "POST",
-  fallbackSaveError: "Unable to save contact.",
+  fallbackSaveError: "Unable to save record.",
   fieldErrorKeys: ["name", "surname"],
   model: contactForm,
   parseInput: (rawPayload) =>
@@ -96,7 +96,7 @@ const addEdit = useAddEdit({
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "contacts", contactsConfig.namespace]
+      queryKey: ["crud", "crud", contactsConfig.namespace]
     });
 
     const targetPath = contactsContext.resolveViewPath(payload?.id);

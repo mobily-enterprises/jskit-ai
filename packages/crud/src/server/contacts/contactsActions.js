@@ -2,8 +2,8 @@ import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionCont
 import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
 import { contactsResource } from "../../shared/contacts/contactsResource.js";
 
-function createContactsActionIds(actionIdPrefix = "contacts") {
-  const prefix = String(actionIdPrefix || "").trim() || "contacts";
+function createContactsActionIds(actionIdPrefix = "crud") {
+  const prefix = String(actionIdPrefix || "").trim() || "crud";
 
   return Object.freeze({
     list: `${prefix}.list`,
@@ -14,7 +14,7 @@ function createContactsActionIds(actionIdPrefix = "contacts") {
   });
 }
 
-function createContactsActions({ actionIdPrefix = "contacts" } = {}) {
+function createContactsActions({ actionIdPrefix = "crud" } = {}) {
   const actionIds = createContactsActionIds(actionIdPrefix);
 
   return Object.freeze([

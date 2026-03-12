@@ -5,10 +5,10 @@
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
             <v-card-title class="px-0">{{ title }}</v-card-title>
-            <v-card-subtitle class="px-0">View and manage this contact.</v-card-subtitle>
+            <v-card-subtitle class="px-0">View and manage this CRUD record.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="text" :to="listPath">Back to contacts</v-btn>
+          <v-btn variant="text" :to="listPath">Back to crud</v-btn>
           <v-btn color="primary" variant="outlined" :to="editPath || undefined" :disabled="!editPath">Edit</v-btn>
           <v-btn color="error" variant="tonal" :loading="deleteCommand.isRunning" @click="confirmDelete">Delete</v-btn>
         </div>
@@ -25,7 +25,7 @@
 
         <div v-else-if="isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
-          <span>Loading contact...</span>
+          <span>Loading record...</span>
         </div>
 
         <template v-else>
@@ -84,15 +84,15 @@ const editPath = computed(() => contactsContext.resolveEditPath(contactId.value)
 const title = computed(() => {
   const name = String(contact.name || "").trim();
   const surname = String(contact.surname || "").trim();
-  return `${name} ${surname}`.trim() || "Contact";
+  return `${name} ${surname}`.trim() || "Record";
 });
 
 const view = useView({
   visibility: contactsConfig.visibility,
   apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
   queryKeyFactory: (surfaceId = "") => contactsContext.viewQueryKey(surfaceId, contactId.value),
-  fallbackLoadError: "Unable to load contact.",
-  notFoundMessage: "Contact not found.",
+  fallbackLoadError: "Unable to load record.",
+  notFoundMessage: "Record not found.",
   model: contact,
   mapLoadedToModel: (model, payload = {}) => {
     model.id = Number(payload.id || 0);
@@ -111,14 +111,14 @@ const deleteCommand = useCommand({
   visibility: contactsConfig.visibility,
   apiSuffix: () => `${contactsConfig.relativePath}/${contactId.value}`,
   writeMethod: "DELETE",
-  fallbackRunError: "Unable to delete contact.",
+  fallbackRunError: "Unable to delete record.",
   messages: {
-    success: "Contact deleted.",
-    error: "Unable to delete contact."
+    success: "Record deleted.",
+    error: "Unable to delete record."
   },
   onRunSuccess: async (_, { queryClient }) => {
     await queryClient.invalidateQueries({
-      queryKey: ["crud", "contacts", contactsConfig.namespace]
+      queryKey: ["crud", "crud", contactsConfig.namespace]
     });
 
     if (listPath.value) {
@@ -137,7 +137,7 @@ function formatDateTime(value) {
 }
 
 async function confirmDelete() {
-  if (!window.confirm("Delete this contact?")) {
+  if (!window.confirm("Delete this record?")) {
     return;
   }
 

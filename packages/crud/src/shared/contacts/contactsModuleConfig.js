@@ -25,7 +25,7 @@ function resolveContactsNamespacePath(namespace = "") {
 }
 
 function resolveContactsRelativePath(namespace = "") {
-  return `${resolveContactsNamespacePath(namespace)}/contacts`;
+  return `${resolveContactsNamespacePath(namespace)}/crud`;
 }
 
 function resolveContactsApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
@@ -42,10 +42,10 @@ function resolveContactsApiBasePath({ namespace = "", visibility = DEFAULT_VISIB
 function resolveContactsTableName(namespace = "") {
   const normalizedNamespace = normalizeContactsNamespace(namespace);
   if (!normalizedNamespace) {
-    return "contacts";
+    return "crud";
   }
 
-  return `${normalizedNamespace.replace(/-/g, "_")}_contacts`;
+  return `crud_${normalizedNamespace.replace(/-/g, "_")}`;
 }
 
 function resolveContactsTokenPart(namespace = "") {
@@ -56,28 +56,28 @@ function resolveContactsTokenPart(namespace = "") {
 function resolveContactsActionIdPrefix(namespace = "") {
   const tokenPart = resolveContactsTokenPart(namespace);
   if (!tokenPart) {
-    return "contacts";
+    return "crud";
   }
 
-  return `contacts.${tokenPart}`;
+  return `crud.${tokenPart}`;
 }
 
 function resolveContactsContributorId(namespace = "") {
   const tokenPart = resolveContactsTokenPart(namespace);
   if (!tokenPart) {
-    return "crud.contacts";
+    return "crud";
   }
 
-  return `crud.contacts.${tokenPart}`;
+  return `crud.${tokenPart}`;
 }
 
 function resolveContactsDomain(namespace = "") {
   const tokenPart = resolveContactsTokenPart(namespace);
   if (!tokenPart) {
-    return "contacts";
+    return "crud";
   }
 
-  return `contacts.${tokenPart}`;
+  return `crud.${tokenPart}`;
 }
 
 function resolveContactsToken(namespace = "", suffix = "") {

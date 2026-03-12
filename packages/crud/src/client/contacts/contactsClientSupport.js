@@ -26,7 +26,7 @@ function resolveContactsClientConfig(source = {}) {
 
 function resolveContactsClientConfigFromPublicConfig() {
   const appConfig = getClientAppConfig();
-  return resolveContactsClientConfig(appConfig?.crud?.contacts);
+  return resolveContactsClientConfig(appConfig?.crud);
 }
 
 function useContactsClientContext() {
@@ -88,7 +88,7 @@ function useContactsClientContext() {
 function contactsListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
   return [
     "crud",
-    "contacts",
+    "crud",
     normalizeQueryToken(namespace),
     "list",
     normalizeQueryToken(surfaceId),
@@ -99,7 +99,7 @@ function contactsListQueryKey(surfaceId = "", workspaceSlug = "", namespace = ""
 function contactViewQueryKey(surfaceId = "", workspaceSlug = "", contactId = 0, namespace = "") {
   return [
     "crud",
-    "contacts",
+    "crud",
     normalizeQueryToken(namespace),
     "view",
     normalizeQueryToken(surfaceId),

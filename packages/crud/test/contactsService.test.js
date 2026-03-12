@@ -67,16 +67,16 @@ test("contactsService throws 404 when a contact is missing", async () => {
 
   await assert.rejects(
     () => service.getContact(9),
-    (error) => error?.status === 404 && error?.message === "Contact not found."
+    (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
     () => service.updateContact(9, { name: "Ada" }),
-    (error) => error?.status === 404 && error?.message === "Contact not found."
+    (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
     () => service.deleteContact(9),
-    (error) => error?.status === 404 && error?.message === "Contact not found."
+    (error) => error?.status === 404 && error?.message === "Record not found."
   );
 });

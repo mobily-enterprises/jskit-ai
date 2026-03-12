@@ -4,12 +4,12 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">Contacts</v-card-title>
-            <v-card-subtitle class="px-0">Manage the contacts available in the admin surface.</v-card-subtitle>
+            <v-card-title class="px-0">Crud</v-card-title>
+            <v-card-subtitle class="px-0">Manage records available in the admin surface.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn variant="outlined" :loading="isLoading" @click="contacts.reload">Refresh</v-btn>
-          <v-btn color="primary" :to="createPath || undefined">New contact</v-btn>
+          <v-btn color="primary" :to="createPath || undefined">New record</v-btn>
         </div>
       </v-card-item>
       <v-divider />
@@ -29,7 +29,7 @@
           </thead>
           <tbody>
             <tr v-if="items.length < 1">
-              <td colspan="4" class="text-center py-6 text-medium-emphasis">No contacts yet.</td>
+              <td colspan="4" class="text-center py-6 text-medium-emphasis">No records yet.</td>
             </tr>
             <tr v-for="contact in items" :key="contact.id">
               <td>{{ contact.name }}</td>
@@ -66,7 +66,7 @@ const contacts = useList({
   visibility: contactsConfig.visibility,
   apiSuffix: contactsConfig.relativePath,
   queryKeyFactory: (surfaceId = "") => contactsContext.listQueryKey(surfaceId),
-  fallbackLoadError: "Unable to load contacts."
+  fallbackLoadError: "Unable to load records."
 });
 
 const items = contacts.items;

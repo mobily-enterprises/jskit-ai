@@ -1,4 +1,4 @@
-// JSKIT_MIGRATION_ID: crud_contacts_initial_${option:namespace}
+// JSKIT_MIGRATION_ID: crud_initial_${option:namespace}
 
 const RAW_NAMESPACE = "${option:namespace}";
 
@@ -11,17 +11,17 @@ function resolveTableName() {
     .replace(/^-+|-+$/g, "");
 
   if (!normalizedNamespace) {
-    return "contacts";
+    return "crud";
   }
 
-  return normalizedNamespace.replace(/-/g, "_") + "_contacts";
+  return "crud_" + normalizedNamespace.replace(/-/g, "_");
 }
 
 const TABLE_NAME = resolveTableName();
 
 exports.up = async function up(knex) {
-  const hasContactsTable = await knex.schema.hasTable(TABLE_NAME);
-  if (hasContactsTable) {
+  const hasCrudTable = await knex.schema.hasTable(TABLE_NAME);
+  if (hasCrudTable) {
     return;
   }
 
