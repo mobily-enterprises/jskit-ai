@@ -57,15 +57,16 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Improve redirect after login, admin or not?
 
   NOW:
-  - Move console, app, admin tags up in the header
-  - Remove "bundles"
+  X Fix problem with authentication not getting renewed on token expiry 
+  X Move console, app, admin tags up in the header
+  X Remove "bundles" (not done, will wait till the end)
+  - If logged out, redirect to login immediately, check page permissions if not logged out
   - Clean up code for the CRUD and the addEdit methods
   - Make sure CRUD has all best practices, ALL of them
   - Delete setting table for workspace completely
   - Place roles and permissions in app-owned config
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   - Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
-  - If logged out, redirect to login immediately, check page permissions if not logged out
   - Alert system (queue + element), use it for invites
   - Workflow to accept an invite
   - Re-add icons
