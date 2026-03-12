@@ -7,7 +7,7 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/contacts/*": "./src/client/contacts/*.vue",
+    "./client/*": "./src/client/*.vue",
     "./server": "./src/server/index.js",
     "./server/CrudServiceProvider": "./src/server/CrudServiceProvider.js",
     "./shared": "./src/shared/index.js",

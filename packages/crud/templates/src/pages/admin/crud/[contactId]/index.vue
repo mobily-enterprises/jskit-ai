@@ -1,7 +1,7 @@
 <template>
-  <CrudViewClientElement />
+  <View${option:namespace|singular|pascal|default(CrudRecord)}Element />
 </template>
 
 <script setup>
-import CrudViewClientElement from "@jskit-ai/crud/client/contacts/ContactViewClientElement";
+import View${option:namespace|singular|pascal|default(CrudRecord)}Element from "@local/${option:namespace|kebab|default(crud)}/client/View${option:namespace|singular|pascal|default(CrudRecord)}Element";
 </script>

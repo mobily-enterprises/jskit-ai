@@ -59,7 +59,7 @@ function normalizeListQuery(input = {}) {
   return normalized;
 }
 
-const contactsInputPartsValidator = Object.freeze({
+const inputPartsValidator = Object.freeze({
   workspaceParams: Object.freeze({
     schema: Type.Object(
       {
@@ -91,4 +91,4 @@ const contactsInputPartsValidator = Object.freeze({
   })
 });
 
-export { contactsInputPartsValidator };
+export { inputPartsValidator };

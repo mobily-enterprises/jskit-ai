@@ -58,17 +58,22 @@ test("add package applies option interpolation and conditional file mutations", 
 
     await writeFile(
       path.join(packageRoot, "templates", "workspace.txt"),
-      "workspace namespace=${option:namespace} visibility=${option:visibility}\n",
+      "workspace namespace=${option:namespace|kebab} visibility=${option:visibility} entity=${option:namespace|singular|pascal|default(Record)}\n",
       "utf8"
     );
     await writeFile(
       path.join(packageRoot, "templates", "public.txt"),
-      "public namespace=${option:namespace} visibility=${option:visibility}\n",
+      "public namespace=${option:namespace|kebab} visibility=${option:visibility} entity=${option:namespace|singular|pascal|default(Record)} plural=${option:namespace|plural}\n",
       "utf8"
     );
     await writeFile(
       path.join(packageRoot, "templates", "migration.cjs"),
-      "// JSKIT_MIGRATION_ID: demo_${option:namespace}\nmodule.exports = \"${option:visibility}\";\n",
+      "// JSKIT_MIGRATION_ID: demo_${option:namespace|snake|default(default)}\nmodule.exports = \"${option:visibility}\";\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(packageRoot, "templates", "prefixed.txt"),
+      "prefixed namespace=${option:namespace|kebab} prefix=${option:directory-prefix|path}\n",
       "utf8"
     );
 
@@ -90,16 +95,26 @@ test("add package applies option interpolation and conditional file mutations", 
       required: false,
       defaultValue: ""
     },
+    "directory-prefix": {
+      required: false,
+      defaultValue: ""
+    },
     visibility: {
       required: true,
       defaultValue: "workspace"
     }
   },
   mutations: {
+    dependencies: {
+      runtime: {
+        "@demo/generated-\${option:namespace|kebab|default(default)}": "1.2.3"
+      },
+      dev: {}
+    },
     files: [
       {
         from: "templates/workspace.txt",
-        to: "src/generated/\${option:namespace}/workspace.txt",
+        to: "src/generated/\${option:namespace|kebab|default(default)}/workspace.txt",
         when: {
           option: "visibility",
           in: ["workspace"]
@@ -107,18 +122,22 @@ test("add package applies option interpolation and conditional file mutations", 
       },
       {
         from: "templates/public.txt",
-        to: "src/generated/\${option:namespace}/public.txt",
+        to: "src/generated/\${option:namespace|kebab|default(default)}/public.txt",
         when: {
           option: "visibility",
           in: ["public"]
         }
       },
       {
+        from: "templates/prefixed.txt",
+        to: "src/generated/\${option:directory-prefix|pathprefix}\${option:namespace|kebab|default(default)}/prefixed.txt"
+      },
+      {
         op: "install-migration",
         from: "templates/migration.cjs",
         toDir: "migrations",
-        slug: "demo_\${option:namespace}",
-        id: "demo-\${option:namespace}"
+        slug: "demo_\${option:namespace|snake|default(default)}",
+        id: "demo-\${option:namespace|kebab|default(default)}"
       }
     ]
   }
@@ -128,24 +147,42 @@ test("add package applies option interpolation and conditional file mutations", 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/option-feature", "--namespace", "crm", "--visibility", "public", "--no-install"]
+      args: [
+        "add",
+        "package",
+        "@demo/option-feature",
+        "--namespace",
+        "client-profiles",
+        "--directory-prefix",
+        "crm/team alpha",
+        "--visibility",
+        "public",
+        "--no-install"
+      ]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
-    const publicFile = path.join(appRoot, "src", "generated", "crm", "public.txt");
+    const publicFile = path.join(appRoot, "src", "generated", "client-profiles", "public.txt");
     const publicContent = await readFile(publicFile, "utf8");
-    assert.equal(publicContent, "public namespace=crm visibility=public\n");
+    assert.equal(publicContent, "public namespace=client-profiles visibility=public entity=ClientProfile plural=client-profiles\n");
 
-    const workspaceFile = path.join(appRoot, "src", "generated", "crm", "workspace.txt");
+    const workspaceFile = path.join(appRoot, "src", "generated", "client-profiles", "workspace.txt");
     await assert.rejects(() => readFile(workspaceFile, "utf8"));
+
+    const prefixedFile = path.join(appRoot, "src", "generated", "crm", "team-alpha", "client-profiles", "prefixed.txt");
+    const prefixedContent = await readFile(prefixedFile, "utf8");
+    assert.equal(prefixedContent, "prefixed namespace=client-profiles prefix=crm/team-alpha\n");
 
     const migrationDirectory = path.join(appRoot, "migrations");
     const migrationFiles = await readdir(migrationDirectory);
     assert.equal(migrationFiles.length, 1);
-    assert.match(migrationFiles[0], /_demo_crm\.cjs$/);
+    assert.match(migrationFiles[0], /_demo_client_profiles\.cjs$/);
 
     const migrationContent = await readFile(path.join(migrationDirectory, migrationFiles[0]), "utf8");
-    assert.match(migrationContent, /JSKIT_MIGRATION_ID: demo_crm/);
+    assert.match(migrationContent, /JSKIT_MIGRATION_ID: demo_client_profiles/);
     assert.match(migrationContent, /module\.exports = "public";/);
+
+    const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies["@demo/generated-client-profiles"], "1.2.3");
   });
 });

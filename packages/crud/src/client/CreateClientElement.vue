@@ -63,7 +63,7 @@ import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
   useContactsClientContext,
   contactsResource
-} from "./contactsClientSupport.js";
+} from "./clientSupport.js";
 
 const router = useRouter();
 const contactsContext = useContactsClientContext();

@@ -25,7 +25,8 @@ function resolveContactsNamespacePath(namespace = "") {
 }
 
 function resolveContactsRelativePath(namespace = "") {
-  return `${resolveContactsNamespacePath(namespace)}/crud`;
+  const namespacePath = resolveContactsNamespacePath(namespace);
+  return namespacePath || "/crud";
 }
 
 function resolveContactsApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
@@ -72,12 +73,7 @@ function resolveContactsContributorId(namespace = "") {
 }
 
 function resolveContactsDomain(namespace = "") {
-  const tokenPart = resolveContactsTokenPart(namespace);
-  if (!tokenPart) {
-    return "crud";
-  }
-
-  return `crud.${tokenPart}`;
+  return "contacts";
 }
 
 function resolveContactsToken(namespace = "", suffix = "") {

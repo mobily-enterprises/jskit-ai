@@ -1,8 +1,8 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
-import { createContactsActionIds } from "./contactsActions.js";
-import { contactsResource } from "../../shared/contacts/contactsResource.js";
+import { inputPartsValidator } from "./inputPartsValidator.js";
+import { createActionIds } from "./actions.js";
+import { contactsResource } from "../shared/contacts/contactsResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {
   const base = String(basePath || "").trim().replace(/\/+$/g, "");
@@ -14,16 +14,16 @@ function joinRoutePath(basePath = "", suffix = "") {
   return `${base}/${end.replace(/^\/+/, "")}`;
 }
 
-function registerContactsRoutes(
+function registerRoutes(
   app,
   {
     routeBasePath = "/api/w/:workspaceSlug/workspace/crud",
     routeVisibility = "workspace",
-    actionIds = createContactsActionIds()
+    actionIds = createActionIds()
   } = {}
 ) {
   if (!app || typeof app.make !== "function") {
-    throw new Error("registerContactsRoutes requires application make().");
+    throw new Error("registerRoutes requires application make().");
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
@@ -40,8 +40,8 @@ function registerContactsRoutes(
         tags: ["crud"],
         summary: "List records."
       },
-      params: contactsInputPartsValidator.workspaceParams,
-      query: contactsInputPartsValidator.listQuery,
+      params: inputPartsValidator.workspaceParams,
+      query: inputPartsValidator.listQuery,
       response: withStandardErrorResponses({
         200: contactsResource.operations.list.output
       })
@@ -69,7 +69,7 @@ function registerContactsRoutes(
         tags: ["crud"],
         summary: "View a record."
       },
-      params: contactsInputPartsValidator.routeParams,
+      params: inputPartsValidator.routeParams,
       response: withStandardErrorResponses({
         200: contactsResource.operations.view.output
       })
@@ -94,7 +94,7 @@ function registerContactsRoutes(
         tags: ["crud"],
         summary: "Create a record."
       },
-      params: contactsInputPartsValidator.workspaceParams,
+      params: inputPartsValidator.workspaceParams,
       body: contactsResource.operations.create.body,
       response: withStandardErrorResponses(
         {
@@ -126,7 +126,7 @@ function registerContactsRoutes(
         tags: ["crud"],
         summary: "Update a record."
       },
-      params: contactsInputPartsValidator.routeParams,
+      params: inputPartsValidator.routeParams,
       body: contactsResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
@@ -158,7 +158,7 @@ function registerContactsRoutes(
         tags: ["crud"],
         summary: "Delete a record."
       },
-      params: contactsInputPartsValidator.routeParams,
+      params: inputPartsValidator.routeParams,
       response: withStandardErrorResponses({
         200: contactsResource.operations.delete.output
       })
@@ -174,4 +174,4 @@ function registerContactsRoutes(
   );
 }
 
-export { registerContactsRoutes };
+export { registerRoutes };

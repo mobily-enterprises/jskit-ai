@@ -17,6 +17,13 @@ export default Object.freeze({
       defaultValue: "workspace",
       promptLabel: "Route visibility",
       promptHint: "public | workspace | user | workspace_user"
+    },
+    "directory-prefix": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Page directory prefix",
+      promptHint: "Optional path under src/pages/admin (example: crm or ops/team-a)."
     }
   },
   dependsOn: [
@@ -56,7 +63,7 @@ export default Object.freeze({
           summary: "Exports shared CRUD resources and module config helpers."
         },
         {
-          subpath: "./client/contacts/*",
+          subpath: "./client/*",
           summary: "Exports CRUD Vue client elements."
         }
       ],
@@ -85,6 +92,7 @@ export default Object.freeze({
         "@jskit-ai/shell-web": "0.1.0",
         "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
+        "@local/${option:namespace|kebab|default(crud)}": "file:packages/${option:namespace|kebab|default(crud)}",
         "@tanstack/vue-query": "^5.90.5",
         "typebox": "^1.0.81",
         "vuetify": "^4.0.0"
@@ -100,99 +108,88 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/crud_initial.cjs",
         toDir: "migrations",
-        slug: "crud_initial_${option:namespace}",
+        slug: "crud_initial_${option:namespace|snake|default(crud)}",
         extension: ".cjs",
         reason: "Install CRUD schema migration.",
         category: "crud",
-        id: "crud-initial-schema-${option:namespace}"
+        id: "crud-initial-schema-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/package.json",
+        to: "packages/${option:namespace|kebab|default(crud)}/package.json",
+        reason: "Install app-local CRUD client package.",
+        category: "crud",
+        id: "crud-local-package-json-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/client/index.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/index.js",
+        reason: "Install app-local CRUD client package exports.",
+        category: "crud",
+        id: "crud-local-package-client-index-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/elements/clientSupport.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/clientSupport.js",
+        reason: "Install app-local CRUD client support helpers.",
+        category: "crud",
+        id: "crud-local-package-client-support-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/elements/ListElement.vue",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/List${option:namespace|plural|pascal|default(CrudRecords)}Element.vue",
+        reason: "Install app-local CRUD list element.",
+        category: "crud",
+        id: "crud-local-package-client-list-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/elements/ViewElement.vue",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/View${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+        reason: "Install app-local CRUD view element.",
+        category: "crud",
+        id: "crud-local-package-client-view-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/elements/CreateElement.vue",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/Create${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+        reason: "Install app-local CRUD create element.",
+        category: "crud",
+        id: "crud-local-package-client-create-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/elements/EditElement.vue",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/client/Edit${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+        reason: "Install app-local CRUD edit element.",
+        category: "crud",
+        id: "crud-local-package-client-edit-${option:namespace|snake|default(crud)}"
       },
       {
         from: "templates/src/pages/admin/crud/index.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/index.vue",
-        when: {
-          option: "visibility",
-          in: ["workspace", "workspace_user"]
-        },
-        reason: "Install admin workspace CRUD list page scaffold.",
-        category: "crud",
-        id: "crud-page-admin-workspace-crud-index"
-      },
-      {
-        from: "templates/src/pages/admin/crud/new.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/new.vue",
-        when: {
-          option: "visibility",
-          in: ["workspace", "workspace_user"]
-        },
-        reason: "Install admin workspace CRUD create page scaffold.",
-        category: "crud",
-        id: "crud-page-admin-workspace-crud-new"
-      },
-      {
-        from: "templates/src/pages/admin/crud/[contactId]/index.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/[contactId]/index.vue",
-        when: {
-          option: "visibility",
-          in: ["workspace", "workspace_user"]
-        },
-        reason: "Install admin workspace CRUD detail page scaffold.",
-        category: "crud",
-        id: "crud-page-admin-workspace-crud-view"
-      },
-      {
-        from: "templates/src/pages/admin/crud/[contactId]/edit.vue",
-        to: "src/pages/admin/w/[workspaceSlug]/${option:namespace}/crud/[contactId]/edit.vue",
-        when: {
-          option: "visibility",
-          in: ["workspace", "workspace_user"]
-        },
-        reason: "Install admin workspace CRUD edit page scaffold.",
-        category: "crud",
-        id: "crud-page-admin-workspace-crud-edit"
-      },
-      {
-        from: "templates/src/pages/admin/crud/index.vue",
-        to: "src/pages/admin/${option:namespace}/crud/index.vue",
-        when: {
-          option: "visibility",
-          in: ["public", "user"]
-        },
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/index.vue",
         reason: "Install admin CRUD list page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-crud-index"
+        id: "crud-page-admin-crud-index"
       },
       {
         from: "templates/src/pages/admin/crud/new.vue",
-        to: "src/pages/admin/${option:namespace}/crud/new.vue",
-        when: {
-          option: "visibility",
-          in: ["public", "user"]
-        },
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/new.vue",
         reason: "Install admin CRUD create page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-crud-new"
+        id: "crud-page-admin-crud-new"
       },
       {
         from: "templates/src/pages/admin/crud/[contactId]/index.vue",
-        to: "src/pages/admin/${option:namespace}/crud/[contactId]/index.vue",
-        when: {
-          option: "visibility",
-          in: ["public", "user"]
-        },
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[contactId]/index.vue",
         reason: "Install admin CRUD detail page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-crud-view"
+        id: "crud-page-admin-crud-view"
       },
       {
         from: "templates/src/pages/admin/crud/[contactId]/edit.vue",
-        to: "src/pages/admin/${option:namespace}/crud/[contactId]/edit.vue",
-        when: {
-          option: "visibility",
-          in: ["public", "user"]
-        },
+        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[contactId]/edit.vue",
         reason: "Install admin CRUD edit page scaffold.",
         category: "crud",
-        id: "crud-page-admin-global-crud-edit"
+        id: "crud-page-admin-crud-edit"
       }
     ],
     text: [
@@ -202,18 +199,28 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.crud.visibility = \"${option:visibility}\";",
         value:
-          "\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace}\";\nconfig.crud.visibility = \"${option:visibility}\";\n",
+          "\nconfig.crud = config.crud || {};\nconfig.crud.namespace = \"${option:namespace|kebab}\";\nconfig.crud.visibility = \"${option:visibility}\";\n",
         reason: "Append CRUD module configuration into app-owned public config.",
         category: "crud",
         id: "crud-public-config"
       },
       {
         op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.crud.directoryPrefix =",
+        value: "\nconfig.crud.directoryPrefix = \"${option:directory-prefix|path}\";\n",
+        reason: "Append CRUD page directory prefix into app-owned public config.",
+        category: "crud",
+        id: "crud-public-config-directory-prefix"
+      },
+      {
+        op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "jskit:crud.menu:${option:namespace}",
+        skipIfContains: "jskit:crud.menu:${option:namespace|kebab}",
         value:
-          "\n// jskit:crud.menu:${option:namespace}\nconst crudNamespace = \"${option:namespace}\".trim().toLowerCase();\nconst crudNamespacePath = crudNamespace ? \"/\" + crudNamespace : \"\";\nconst crudPlacementId = crudNamespace\n  ? \"crud.\" + crudNamespace + \".menu\"\n  : \"crud.menu\";\n\naddPlacement({\n  id: crudPlacementId,\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Crud\",\n    surface: \"admin\",\n    workspaceSuffix: crudNamespacePath + \"/crud\",\n    nonWorkspaceSuffix: crudNamespacePath + \"/crud\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\n// jskit:crud.menu:${option:namespace|kebab}\nconst crudNamespace = \"${option:namespace|kebab}\";\nconst crudDirectoryPrefix = \"${option:directory-prefix|path}\";\nconst crudBaseSegment = crudNamespace || \"crud\";\nconst crudRoutePath = crudDirectoryPrefix\n  ? \"/\" + crudDirectoryPrefix + \"/\" + crudBaseSegment\n  : \"/\" + crudBaseSegment;\nconst crudPlacementId = crudNamespace\n  ? \"crud.\" + crudNamespace + \".menu\"\n  : \"crud.menu\";\n\naddPlacement({\n  id: crudPlacementId,\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"${option:namespace|plural|pascal|default(CrudRecords)}\",\n    surface: \"admin\",\n    workspaceSuffix: crudRoutePath,\n    nonWorkspaceSuffix: crudRoutePath\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append admin Crud menu placement into app-owned placement registry.",
         category: "crud",
         id: "crud-placement-menu"

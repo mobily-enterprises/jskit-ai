@@ -56,7 +56,7 @@
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import {
   useContactsClientContext
-} from "./contactsClientSupport.js";
+} from "./clientSupport.js";
 
 const contactsContext = useContactsClientContext();
 const contactsConfig = contactsContext.contactsConfig;

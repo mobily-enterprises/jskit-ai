@@ -24,8 +24,8 @@ test("resolveContactsConfig normalizes namespaced public settings", () => {
   assert.equal(config.namespace, "crm-team");
   assert.equal(config.visibility, "public");
   assert.equal(config.workspaceScoped, false);
-  assert.equal(config.relativePath, "/crm-team/crud");
-  assert.equal(config.apiBasePath, "/api/crm-team/crud");
+  assert.equal(config.relativePath, "/crm-team");
+  assert.equal(config.apiBasePath, "/api/crm-team");
   assert.equal(config.tableName, "crud_crm_team");
   assert.equal(config.actionIdPrefix, "crud.crm_team");
   assert.equal(config.contributorId, "crud.crm_team");

@@ -9,8 +9,8 @@ import {
   normalizeContactsNamespace,
   normalizeContactsVisibility,
   resolveContactsRelativePath
-} from "../../shared/contacts/contactsModuleConfig.js";
-import { contactsResource } from "../../shared/contacts/contactsResource.js";
+} from "../shared/contacts/contactsModuleConfig.js";
+import { contactsResource } from "../shared/contacts/contactsResource.js";
 
 function resolveContactsClientConfig(source = {}) {
   const namespace = normalizeContactsNamespace(source?.namespace);

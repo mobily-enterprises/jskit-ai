@@ -1,7 +1,7 @@
 <template>
-  <CrudCreateClientElement />
+  <Create${option:namespace|singular|pascal|default(CrudRecord)}Element />
 </template>
 
 <script setup>
-import CrudCreateClientElement from "@jskit-ai/crud/client/contacts/ContactCreateClientElement";
+import Create${option:namespace|singular|pascal|default(CrudRecord)}Element from "@local/${option:namespace|kebab|default(crud)}/client/Create${option:namespace|singular|pascal|default(CrudRecord)}Element";
 </script>

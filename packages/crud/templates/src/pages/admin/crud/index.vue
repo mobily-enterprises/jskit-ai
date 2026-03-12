@@ -1,7 +1,7 @@
 <template>
-  <CrudListClientElement />
+  <List${option:namespace|plural|pascal|default(CrudRecords)}Element />
 </template>
 
 <script setup>
-import CrudListClientElement from "@jskit-ai/crud/client/contacts/ContactsListClientElement";
+import List${option:namespace|plural|pascal|default(CrudRecords)}Element from "@local/${option:namespace|kebab|default(crud)}/client/List${option:namespace|plural|pascal|default(CrudRecords)}Element";
 </script>

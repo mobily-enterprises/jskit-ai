@@ -1,8 +1,8 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { contactsInputPartsValidator } from "./contactsInputPartsValidator.js";
-import { contactsResource } from "../../shared/contacts/contactsResource.js";
+import { inputPartsValidator } from "./inputPartsValidator.js";
+import { contactsResource } from "../shared/contacts/contactsResource.js";
 
-function createContactsActionIds(actionIdPrefix = "crud") {
+function createActionIds(actionIdPrefix = "crud") {
   const prefix = String(actionIdPrefix || "").trim() || "crud";
 
   return Object.freeze({
@@ -14,8 +14,8 @@ function createContactsActionIds(actionIdPrefix = "crud") {
   });
 }
 
-function createContactsActions({ actionIdPrefix = "crud" } = {}) {
-  const actionIds = createContactsActionIds(actionIdPrefix);
+function createActions({ actionIdPrefix = "crud" } = {}) {
+  const actionIds = createActionIds(actionIdPrefix);
 
   return Object.freeze([
     {
@@ -25,7 +25,7 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [contactsInputPartsValidator.workspaceParams, contactsInputPartsValidator.listQuery],
+      input: [inputPartsValidator.workspaceParams, inputPartsValidator.listQuery],
       output: contactsResource.operations.list.output,
       permission: requireAuthenticated,
       idempotency: "none",
@@ -46,7 +46,7 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: contactsInputPartsValidator.routeParams,
+      input: inputPartsValidator.routeParams,
       output: contactsResource.operations.view.output,
       permission: requireAuthenticated,
       idempotency: "none",
@@ -67,7 +67,7 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [contactsInputPartsValidator.workspaceParams, contactsResource.operations.create.body],
+      input: [inputPartsValidator.workspaceParams, contactsResource.operations.create.body],
       output: contactsResource.operations.create.output,
       permission: requireAuthenticated,
       idempotency: "optional",
@@ -88,7 +88,7 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [contactsInputPartsValidator.routeParams, contactsResource.operations.patch.body],
+      input: [inputPartsValidator.routeParams, contactsResource.operations.patch.body],
       output: contactsResource.operations.patch.output,
       permission: requireAuthenticated,
       idempotency: "optional",
@@ -110,7 +110,7 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: contactsInputPartsValidator.routeParams,
+      input: inputPartsValidator.routeParams,
       output: contactsResource.operations.delete.output,
       permission: requireAuthenticated,
       idempotency: "optional",
@@ -127,4 +127,4 @@ function createContactsActions({ actionIdPrefix = "crud" } = {}) {
   ]);
 }
 
-export { createContactsActionIds, createContactsActions };
+export { createActionIds, createActions };

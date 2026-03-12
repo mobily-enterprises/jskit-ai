@@ -65,7 +65,7 @@ import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import {
   useContactsClientContext,
   toRouteContactId
-} from "./contactsClientSupport.js";
+} from "./clientSupport.js";
 
 const router = useRouter();
 const contactsContext = useContactsClientContext();

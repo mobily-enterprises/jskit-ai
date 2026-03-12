@@ -1,0 +1,11 @@
+{
+  "name": "@local/${option:namespace|kebab|default(crud)}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/*": "./src/client/*.vue",
+    "./client/clientSupport": "./src/client/clientSupport.js"
+  }
+}
