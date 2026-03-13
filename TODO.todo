@@ -60,6 +60,7 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Fix problem with authentication not getting renewed on token expiry 
   X Move console, app, admin tags up in the header
   X Remove "bundles" (not done, will wait till the end)
+  X Major code cleanup, make sure there is no "contract", make things actually work
   - If logged out, redirect to login immediately, check page permissions if not logged out
   - Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
   - Delete setting table for workspace completely
