@@ -66,13 +66,13 @@ function hasPermission(permissionSet, permission) {
   return permissions.includes("*") || permissions.includes(requiredPermission);
 }
 
-const OBJECT_INPUT_SCHEMA = Object.freeze({
+const OBJECT_INPUT_VALIDATOR = Object.freeze({
   parse(value) {
     return normalizeObject(value);
   }
 });
 
-const EMPTY_INPUT_CONTRACT = Object.freeze({
+const EMPTY_INPUT_VALIDATOR = Object.freeze({
   schema: Type.Object({}, { additionalProperties: false })
 });
 
@@ -86,6 +86,6 @@ export {
   allowPublic,
   requireAuthenticated,
   hasPermission,
-  EMPTY_INPUT_CONTRACT,
-  OBJECT_INPUT_SCHEMA
+  EMPTY_INPUT_VALIDATOR,
+  OBJECT_INPUT_VALIDATOR
 };

@@ -1,5 +1,5 @@
 import {
-  EMPTY_INPUT_CONTRACT,
+  EMPTY_INPUT_VALIDATOR,
   requireAuthenticated,
   resolveRequest,
   resolveUser
@@ -14,7 +14,7 @@ const workspaceDirectoryActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_CONTRACT,
+    input: EMPTY_INPUT_VALIDATOR,
     output: workspaceResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",

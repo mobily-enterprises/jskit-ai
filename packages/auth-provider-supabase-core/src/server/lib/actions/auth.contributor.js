@@ -1,20 +1,17 @@
 import {
-  EMPTY_INPUT_CONTRACT,
+  EMPTY_INPUT_VALIDATOR,
   allowPublic,
-  normalizeObject,
-  requireAuthenticated,
-  OBJECT_INPUT_SCHEMA
+  requireAuthenticated
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
-import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
-import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
-import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
-import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
-import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
-import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordRecoveryCompleteCommand";
-import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetCommand";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
+import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
+import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
 
 const AUTH_SURFACES = Object.freeze(["app", "admin", "console"]);
 
@@ -27,84 +24,6 @@ function requireRequestContext(context, actionId) {
   throw new Error(`${actionId} requires request context.`);
 }
 
-function toValidationErrors(parsedResult = {}) {
-  const fieldErrors =
-    parsedResult?.fieldErrors && typeof parsedResult.fieldErrors === "object" ? parsedResult.fieldErrors : {};
-  if (Object.keys(fieldErrors).length > 0) {
-    return fieldErrors;
-  }
-
-  const globalErrors = Array.isArray(parsedResult?.globalErrors) ? parsedResult.globalErrors : [];
-  if (globalErrors.length > 0) {
-    return {
-      input: String(globalErrors[0] || "Validation failed.")
-    };
-  }
-
-  return {
-    input: "Validation failed."
-  };
-}
-
-function createBodyInputSchema(commandContract) {
-  return function parseBodyInput(rawInput) {
-    const parsed = validateOperationSection({
-      operation: commandContract.operation,
-      section: "body",
-      value: rawInput
-    });
-
-    if (!parsed.ok) {
-      return {
-        ok: false,
-        errors: toValidationErrors(parsed)
-      };
-    }
-
-    return {
-      ok: true,
-      value: parsed.value
-    };
-  };
-}
-
-function parseOAuthStartInput(rawInput) {
-  const source = normalizeObject(rawInput);
-  const parsedParams = validateOperationSection({
-    operation: authLoginOAuthStartCommand.operation,
-    section: "params",
-    value: {
-      provider: source.provider
-    }
-  });
-  const parsedQuery = validateOperationSection({
-    operation: authLoginOAuthStartCommand.operation,
-    section: "query",
-    value: {
-      returnTo: source.returnTo
-    }
-  });
-
-  if (!parsedParams.ok || !parsedQuery.ok) {
-    const errors = {
-      ...(parsedParams.ok ? {} : toValidationErrors(parsedParams)),
-      ...(parsedQuery.ok ? {} : toValidationErrors(parsedQuery))
-    };
-    return {
-      ok: false,
-      errors
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      provider: parsedParams.value.provider,
-      returnTo: parsedQuery.value.returnTo
-    }
-  };
-}
-
 const authActions = Object.freeze([
   {
     id: "auth.register",
@@ -113,7 +32,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authRegisterCommand) },
+    input: authRegisterCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -131,7 +50,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authLoginPasswordCommand) },
+    input: authLoginPasswordCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -149,7 +68,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authLoginOtpRequestCommand) },
+    input: authLoginOtpRequestCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -167,7 +86,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authLoginOtpVerifyCommand) },
+    input: authLoginOtpVerifyCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -185,7 +104,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: parseOAuthStartInput },
+    input: [authLoginOAuthStartCommand.operation.params, authLoginOAuthStartCommand.operation.query],
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -203,7 +122,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authLoginOAuthCompleteCommand) },
+    input: authLoginOAuthCompleteCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -221,7 +140,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authPasswordResetRequestCommand) },
+    input: authPasswordResetRequestCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -239,7 +158,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authPasswordRecoveryCompleteCommand) },
+    input: authPasswordRecoveryCompleteCommand.operation.body,
     permission: allowPublic,
     idempotency: "none",
     audit: {
@@ -257,7 +176,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: { schema: createBodyInputSchema(authPasswordResetCommand) },
+    input: authPasswordResetCommand.operation.body,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -275,7 +194,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_CONTRACT,
+    input: EMPTY_INPUT_VALIDATOR,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -296,7 +215,7 @@ const authActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_CONTRACT,
+    input: EMPTY_INPUT_VALIDATOR,
     permission: allowPublic,
     idempotency: "none",
     audit: {

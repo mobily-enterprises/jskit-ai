@@ -2,7 +2,7 @@ export { normalizeObjectInput } from "./inputNormalization.js";
 export { createCursorListValidator } from "./createCursorListValidator.js";
 export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 export { mergeValidators } from "./mergeValidators.js";
-export { recordIdParamsValidator, positiveIntegerInputSchema, toPositiveInteger } from "./recordIdParamsValidator.js";
+export { recordIdParamsValidator, positiveIntegerValidator } from "./recordIdParamsValidator.js";
 export {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,

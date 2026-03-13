@@ -1,18 +1,15 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
-import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
-import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
-import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
-import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
-import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
-import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordRecoveryCompleteCommand";
-import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetCommand";
-import { authLogoutCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLogoutCommand";
-import {
-  authSessionReadCommand,
-  authSessionReadUnavailableResponseSchema
-} from "@jskit-ai/auth-core/shared/contracts/commands/authSessionReadCommand";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
+import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
+import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
+import { authLogoutCommand } from "@jskit-ai/auth-core/shared/commands/authLogoutCommand";
+import { authSessionReadCommand } from "@jskit-ai/auth-core/shared/commands/authSessionReadCommand";
 
 function buildRoutes(controller) {
   if (!controller) {
@@ -30,10 +27,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Register a new user"
       },
-      body: {
-        schema: authRegisterCommand.operation.body.schema,
-        normalize: authRegisterCommand.operation.body.normalize
-      },
+      body: authRegisterCommand.operation.body,
       response: withStandardErrorResponses(
         {
           201: authRegisterCommand.operation.response
@@ -54,10 +48,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Log in with configured credentials"
       },
-      body: {
-        schema: authLoginPasswordCommand.operation.body.schema,
-        normalize: authLoginPasswordCommand.operation.body.normalize
-      },
+      body: authLoginPasswordCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authLoginPasswordCommand.operation.response
@@ -78,10 +69,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Request one-time email login code"
       },
-      body: {
-        schema: authLoginOtpRequestCommand.operation.body.schema,
-        normalize: authLoginOtpRequestCommand.operation.body.normalize
-      },
+      body: authLoginOtpRequestCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authLoginOtpRequestCommand.operation.response
@@ -102,10 +90,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Verify one-time email login code and create session"
       },
-      body: {
-        schema: authLoginOtpVerifyCommand.operation.body.schema,
-        normalize: authLoginOtpVerifyCommand.operation.body.normalize
-      },
+      body: authLoginOtpVerifyCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authLoginOtpVerifyCommand.operation.response
@@ -127,14 +112,8 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Start OAuth login with configured provider"
       },
-      params: {
-        schema: authLoginOAuthStartCommand.operation.params.schema,
-        normalize: authLoginOAuthStartCommand.operation.params.normalize
-      },
-      query: {
-        schema: authLoginOAuthStartCommand.operation.query.schema,
-        normalize: authLoginOAuthStartCommand.operation.query.normalize
-      },
+      params: authLoginOAuthStartCommand.operation.params,
+      query: authLoginOAuthStartCommand.operation.query,
       response: withStandardErrorResponses(
         {
           302: authLoginOAuthStartCommand.operation.response
@@ -155,10 +134,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Complete OAuth code exchange and set session cookies"
       },
-      body: {
-        schema: authLoginOAuthCompleteCommand.operation.body.schema,
-        normalize: authLoginOAuthCompleteCommand.operation.body.normalize
-      },
+      body: authLoginOAuthCompleteCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authLoginOAuthCompleteCommand.operation.response
@@ -179,10 +155,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Request a password reset email"
       },
-      body: {
-        schema: authPasswordResetRequestCommand.operation.body.schema,
-        normalize: authPasswordResetRequestCommand.operation.body.normalize
-      },
+      body: authPasswordResetRequestCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authPasswordResetRequestCommand.operation.response
@@ -203,10 +176,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Complete password recovery link exchange"
       },
-      body: {
-        schema: authPasswordRecoveryCompleteCommand.operation.body.schema,
-        normalize: authPasswordRecoveryCompleteCommand.operation.body.normalize
-      },
+      body: authPasswordRecoveryCompleteCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authPasswordRecoveryCompleteCommand.operation.response
@@ -227,10 +197,7 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session"
       },
-      body: {
-        schema: authPasswordResetCommand.operation.body.schema,
-        normalize: authPasswordResetCommand.operation.body.normalize
-      },
+      body: authPasswordResetCommand.operation.body,
       response: withStandardErrorResponses(
         {
           200: authPasswordResetCommand.operation.response
@@ -266,9 +233,7 @@ function buildRoutes(controller) {
       },
       response: withStandardErrorResponses({
         200: authSessionReadCommand.operation.response,
-        503: {
-          schema: authSessionReadUnavailableResponseSchema
-        }
+        503: authSessionReadCommand.operation.unavailableResponse
       }),
       handler: handler("session")
     }

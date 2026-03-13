@@ -4,7 +4,7 @@ import {
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/contracts";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { createOperationMessages } from "../contractUtils.js";
+import { createOperationMessages } from "../operationMessages.js";
 import { userProfileResource } from "./userProfileResource.js";
 
 function pickPatchBody(schema, keys = []) {

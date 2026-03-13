@@ -48,7 +48,7 @@ test("runAuthSignOutFlow runs cleanup hooks when logout fails and rethrows error
   assert.deepEqual(calls, ["logout", "clearCsrf", "afterSignOut"]);
 });
 
-test("runAuthSignOutFlow validates authApi logout contract", async () => {
+test("runAuthSignOutFlow validates authApi logout shape", async () => {
   await assert.rejects(
     () =>
       runAuthSignOutFlow({

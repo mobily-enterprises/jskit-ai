@@ -11,12 +11,12 @@ import { userProfileResource } from "../src/shared/resources/userProfileResource
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 
-function assertResourceOperationMessages(contract, operationName, label) {
-  const operation = contract?.operations?.[operationName];
+function assertResourceOperationMessages(resource, operationName, label) {
+  const operation = resource?.operations?.[operationName];
   assert.equal(typeof operation, "object", `${label}.operations.${operationName} must exist.`);
 
   const operationMessages = operation?.messages;
-  const resourceMessages = contract?.messages || contract?.operationMessages;
+  const resourceMessages = resource?.messages || resource?.operationMessages;
   const resolvedMessages =
     operationMessages && typeof operationMessages === "object"
       ? operationMessages
@@ -25,11 +25,11 @@ function assertResourceOperationMessages(contract, operationName, label) {
   assert.equal(
     typeof resolvedMessages,
     "object",
-    `${label}.operations.${operationName} must resolve operation messages from operation.messages or contract.messages.`
+    `${label}.operations.${operationName} must resolve operation messages from operation.messages or resource.messages.`
   );
 }
 
-test("users-core resource contracts expose messages for all operations", () => {
+test("users-core resources expose messages for all operations", () => {
   const resources = {
     workspace: workspaceResource,
     workspaceSettings: workspaceSettingsResource,
@@ -40,9 +40,9 @@ test("users-core resource contracts expose messages for all operations", () => {
     consoleSettings: consoleSettingsResource
   };
 
-  for (const [label, contract] of Object.entries(resources)) {
+  for (const [label, resource] of Object.entries(resources)) {
     for (const operationName of ["view", "list", "create", "replace", "patch"]) {
-      assertResourceOperationMessages(contract, operationName, label);
+      assertResourceOperationMessages(resource, operationName, label);
     }
   }
 });

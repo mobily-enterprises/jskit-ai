@@ -1,21 +1,10 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import { normalizeObjectInput } from "../inputNormalization.js";
 import {
-  authEmailSchema,
+  authEmailValidator,
   createCommandMessages,
-  okMessageResponseSchema
-} from "./authCommandSchemas.js";
-
-const authPasswordResetRequestInputSchema = Type.Object(
-  {
-    email: authEmailSchema
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const authPasswordResetRequestOutputSchema = okMessageResponseSchema;
+  okMessageResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_PASSWORD_RESET_REQUEST_MESSAGES = createCommandMessages({
   fields: {
@@ -28,18 +17,25 @@ const AUTH_PASSWORD_RESET_REQUEST_MESSAGES = createCommandMessages({
   }
 });
 
+const authPasswordResetRequestBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      email: authEmailValidator.schema
+    },
+    {
+      additionalProperties: false
+    }
+  ),
+  normalize: normalizeObjectInput,
+  messages: AUTH_PASSWORD_RESET_REQUEST_MESSAGES
+});
+
 const authPasswordResetRequestCommand = Object.freeze({
   command: "auth.password.reset.request",
   operation: Object.freeze({
     method: "POST",
-    body: Object.freeze({
-      schema: authPasswordResetRequestInputSchema,
-      normalize: normalizeObjectInput,
-      messages: AUTH_PASSWORD_RESET_REQUEST_MESSAGES
-    }),
-    response: Object.freeze({
-      schema: authPasswordResetRequestOutputSchema
-    }),
+    body: authPasswordResetRequestBodyValidator,
+    response: okMessageResponseValidator,
     messages: AUTH_PASSWORD_RESET_REQUEST_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze([])
@@ -47,8 +43,8 @@ const authPasswordResetRequestCommand = Object.freeze({
 });
 
 export {
-  authPasswordResetRequestInputSchema,
-  authPasswordResetRequestOutputSchema,
+  authPasswordResetRequestBodyValidator,
+  okMessageResponseValidator,
   AUTH_PASSWORD_RESET_REQUEST_MESSAGES,
   authPasswordResetRequestCommand
 };

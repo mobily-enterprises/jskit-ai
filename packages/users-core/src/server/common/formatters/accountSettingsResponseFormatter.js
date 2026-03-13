@@ -3,7 +3,7 @@ import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 
-function resolveAuthProfileContract(authService) {
+function resolveAuthProfileSettings(authService) {
   if (!authService || typeof authService.getSettingsProfileAuthInfo !== "function") {
     return {
       emailManagedBy: "auth",
@@ -11,22 +11,22 @@ function resolveAuthProfileContract(authService) {
     };
   }
 
-  const contract = authService.getSettingsProfileAuthInfo();
+  const authProfileSettings = authService.getSettingsProfileAuthInfo();
   return {
-    emailManagedBy: normalizeLowerText(contract?.emailManagedBy) || "auth",
-    emailChangeFlow: normalizeLowerText(contract?.emailChangeFlow) || "auth"
+    emailManagedBy: normalizeLowerText(authProfileSettings?.emailManagedBy) || "auth",
+    emailChangeFlow: normalizeLowerText(authProfileSettings?.emailChangeFlow) || "auth"
   };
 }
 
 function accountSettingsResponseFormatter({ profile, settings, securityStatus, authService }) {
-  const contract = resolveAuthProfileContract(authService);
+  const authProfileSettings = resolveAuthProfileSettings(authService);
 
   return {
     profile: {
       displayName: normalizeText(profile?.displayName),
       email: normalizeLowerText(profile?.email),
-      emailManagedBy: contract.emailManagedBy,
-      emailChangeFlow: contract.emailChangeFlow,
+      emailManagedBy: authProfileSettings.emailManagedBy,
+      emailChangeFlow: authProfileSettings.emailChangeFlow,
       avatar: accountAvatarFormatter(profile, settings)
     },
     security: accountSecurityStatusFormatter(securityStatus),

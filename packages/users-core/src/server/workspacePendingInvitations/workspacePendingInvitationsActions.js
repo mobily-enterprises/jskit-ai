@@ -1,5 +1,5 @@
 import {
-  EMPTY_INPUT_CONTRACT,
+  EMPTY_INPUT_VALIDATOR,
   requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -14,7 +14,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_CONTRACT,
+    input: EMPTY_INPUT_VALIDATOR,
     output: workspacePendingInvitationsResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",

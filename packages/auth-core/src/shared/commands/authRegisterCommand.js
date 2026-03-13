@@ -1,23 +1,11 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import { normalizeObjectInput } from "../inputNormalization.js";
 import {
-  authEmailSchema,
-  authPasswordSchema,
+  authEmailValidator,
+  authPasswordValidator,
   createCommandMessages,
-  registerResponseSchema
-} from "./authCommandSchemas.js";
-
-const authRegisterInputSchema = Type.Object(
-  {
-    email: authEmailSchema,
-    password: authPasswordSchema
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const authRegisterOutputSchema = registerResponseSchema;
+  registerResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_REGISTER_MESSAGES = createCommandMessages({
   fields: {
@@ -35,18 +23,26 @@ const AUTH_REGISTER_MESSAGES = createCommandMessages({
   }
 });
 
+const authRegisterBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      email: authEmailValidator.schema,
+      password: authPasswordValidator.schema
+    },
+    {
+      additionalProperties: false
+    }
+  ),
+  normalize: normalizeObjectInput,
+  messages: AUTH_REGISTER_MESSAGES
+});
+
 const authRegisterCommand = Object.freeze({
   command: "auth.register",
   operation: Object.freeze({
     method: "POST",
-    body: Object.freeze({
-      schema: authRegisterInputSchema,
-      normalize: normalizeObjectInput,
-      messages: AUTH_REGISTER_MESSAGES
-    }),
-    response: Object.freeze({
-      schema: authRegisterOutputSchema
-    }),
+    body: authRegisterBodyValidator,
+    response: registerResponseValidator,
     messages: AUTH_REGISTER_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])
@@ -54,8 +50,8 @@ const authRegisterCommand = Object.freeze({
 });
 
 export {
-  authRegisterInputSchema,
-  authRegisterOutputSchema,
+  authRegisterBodyValidator,
+  registerResponseValidator,
   AUTH_REGISTER_MESSAGES,
   authRegisterCommand
 };

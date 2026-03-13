@@ -1,9 +1,7 @@
 import {
   createCommandMessages,
-  logoutResponseSchema
-} from "./authCommandSchemas.js";
-
-const authLogoutOutputSchema = logoutResponseSchema;
+  logoutResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_LOGOUT_MESSAGES = createCommandMessages();
 
@@ -11,9 +9,7 @@ const authLogoutCommand = Object.freeze({
   command: "auth.logout",
   operation: Object.freeze({
     method: "POST",
-    response: Object.freeze({
-      schema: authLogoutOutputSchema
-    }),
+    response: logoutResponseValidator,
     messages: AUTH_LOGOUT_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])
@@ -21,7 +17,7 @@ const authLogoutCommand = Object.freeze({
 });
 
 export {
-  authLogoutOutputSchema,
+  logoutResponseValidator,
   AUTH_LOGOUT_MESSAGES,
   authLogoutCommand
 };

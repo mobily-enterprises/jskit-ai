@@ -5,9 +5,9 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { AuthController } from "../src/server/controllers/AuthController.js";
 import { buildRoutes } from "../src/server/routes/authRoutes.js";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
 
-test("auth fastify adapter exports controller/routes backed by shared command contracts", () => {
+test("auth fastify adapter exports controller/routes backed by shared command validators", () => {
   assert.equal(typeof AuthController, "function");
   assert.equal(typeof buildRoutes, "function");
   assert.ok(authLoginPasswordCommand.operation.body.schema);

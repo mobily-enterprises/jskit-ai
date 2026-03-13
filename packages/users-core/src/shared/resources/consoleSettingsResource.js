@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { createOperationMessages } from "../contractUtils.js";
+import { createOperationMessages } from "../operationMessages.js";
 import {
   createCursorListValidator,
   normalizeObjectInput

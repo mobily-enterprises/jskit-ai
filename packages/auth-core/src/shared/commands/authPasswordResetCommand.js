@@ -1,21 +1,10 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import { normalizeObjectInput } from "../inputNormalization.js";
 import {
-  authPasswordSchema,
+  authPasswordValidator,
   createCommandMessages,
-  okMessageResponseSchema
-} from "./authCommandSchemas.js";
-
-const authPasswordResetInputSchema = Type.Object(
-  {
-    password: authPasswordSchema
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const authPasswordResetOutputSchema = okMessageResponseSchema;
+  okMessageResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_PASSWORD_RESET_MESSAGES = createCommandMessages({
   fields: {
@@ -27,18 +16,25 @@ const AUTH_PASSWORD_RESET_MESSAGES = createCommandMessages({
   }
 });
 
+const authPasswordResetBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      password: authPasswordValidator.schema
+    },
+    {
+      additionalProperties: false
+    }
+  ),
+  normalize: normalizeObjectInput,
+  messages: AUTH_PASSWORD_RESET_MESSAGES
+});
+
 const authPasswordResetCommand = Object.freeze({
   command: "auth.password.reset",
   operation: Object.freeze({
     method: "POST",
-    body: Object.freeze({
-      schema: authPasswordResetInputSchema,
-      normalize: normalizeObjectInput,
-      messages: AUTH_PASSWORD_RESET_MESSAGES
-    }),
-    response: Object.freeze({
-      schema: authPasswordResetOutputSchema
-    }),
+    body: authPasswordResetBodyValidator,
+    response: okMessageResponseValidator,
     messages: AUTH_PASSWORD_RESET_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])
@@ -46,8 +42,8 @@ const authPasswordResetCommand = Object.freeze({
 });
 
 export {
-  authPasswordResetInputSchema,
-  authPasswordResetOutputSchema,
+  authPasswordResetBodyValidator,
+  okMessageResponseValidator,
   AUTH_PASSWORD_RESET_MESSAGES,
   authPasswordResetCommand
 };

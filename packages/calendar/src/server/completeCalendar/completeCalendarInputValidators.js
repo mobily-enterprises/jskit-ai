@@ -1,10 +1,7 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  positiveIntegerInputSchema,
-  toPositiveInteger
-} from "@jskit-ai/kernel/shared/contracts/recordIdParamsValidator";
+import { positiveIntegerValidator } from "@jskit-ai/kernel/shared/contracts/recordIdParamsValidator";
 
 const workspaceSlugInputSchema = Type.String({ minLength: 1, maxLength: 120 });
 
@@ -28,7 +25,7 @@ function normalizeRouteParams(input = {}) {
   const normalized = normalizeWorkspaceParams(source);
 
   if (Object.hasOwn(source, "eventId")) {
-    normalized.eventId = toPositiveInteger(source.eventId);
+    normalized.eventId = positiveIntegerValidator.normalize(source.eventId);
   }
 
   return normalized;
@@ -43,7 +40,7 @@ function normalizeWeekQuery(input = {}) {
   }
 
   if (Object.hasOwn(source, "contactId")) {
-    normalized.contactId = toPositiveInteger(source.contactId);
+    normalized.contactId = positiveIntegerValidator.normalize(source.contactId);
   }
 
   return normalized;
@@ -63,7 +60,7 @@ const completeCalendarInputValidators = Object.freeze({
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(workspaceSlugInputSchema),
-        eventId: Type.Optional(positiveIntegerInputSchema)
+        eventId: Type.Optional(positiveIntegerValidator.schema)
       },
       { additionalProperties: false }
     ),
@@ -73,7 +70,7 @@ const completeCalendarInputValidators = Object.freeze({
     schema: Type.Object(
       {
         weekStart: Type.Optional(Type.String({ minLength: 1 })),
-        contactId: Type.Optional(positiveIntegerInputSchema)
+        contactId: Type.Optional(positiveIntegerValidator.schema)
       },
       { additionalProperties: false }
     ),

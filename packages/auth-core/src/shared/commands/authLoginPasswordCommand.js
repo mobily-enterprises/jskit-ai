@@ -1,23 +1,11 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import { normalizeObjectInput } from "../inputNormalization.js";
 import {
-  authEmailSchema,
-  authLoginPasswordSchema,
+  authEmailValidator,
+  authLoginPasswordValidator,
   createCommandMessages,
-  loginResponseSchema
-} from "./authCommandSchemas.js";
-
-const authLoginPasswordInputSchema = Type.Object(
-  {
-    email: authEmailSchema,
-    password: authLoginPasswordSchema
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const authLoginPasswordOutputSchema = loginResponseSchema;
+  loginResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_LOGIN_PASSWORD_MESSAGES = createCommandMessages({
   fields: {
@@ -35,18 +23,26 @@ const AUTH_LOGIN_PASSWORD_MESSAGES = createCommandMessages({
   }
 });
 
+const authLoginPasswordBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      email: authEmailValidator.schema,
+      password: authLoginPasswordValidator.schema
+    },
+    {
+      additionalProperties: false
+    }
+  ),
+  normalize: normalizeObjectInput,
+  messages: AUTH_LOGIN_PASSWORD_MESSAGES
+});
+
 const authLoginPasswordCommand = Object.freeze({
   command: "auth.login.password",
   operation: Object.freeze({
     method: "POST",
-    body: Object.freeze({
-      schema: authLoginPasswordInputSchema,
-      normalize: normalizeObjectInput,
-      messages: AUTH_LOGIN_PASSWORD_MESSAGES
-    }),
-    response: Object.freeze({
-      schema: authLoginPasswordOutputSchema
-    }),
+    body: authLoginPasswordBodyValidator,
+    response: loginResponseValidator,
     messages: AUTH_LOGIN_PASSWORD_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])
@@ -54,8 +50,8 @@ const authLoginPasswordCommand = Object.freeze({
 });
 
 export {
-  authLoginPasswordInputSchema,
-  authLoginPasswordOutputSchema,
+  authLoginPasswordBodyValidator,
+  loginResponseValidator,
   AUTH_LOGIN_PASSWORD_MESSAGES,
   authLoginPasswordCommand
 };

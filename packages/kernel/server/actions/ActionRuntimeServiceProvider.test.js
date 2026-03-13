@@ -3,8 +3,8 @@ import test from "node:test";
 
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import {
-  EMPTY_INPUT_CONTRACT,
-  OBJECT_INPUT_SCHEMA,
+  EMPTY_INPUT_VALIDATOR,
+  OBJECT_INPUT_VALIDATOR,
   allowPublic
 } from "../../shared/actions/actionContributorHelpers.js";
 import {
@@ -113,7 +113,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for re
         channels: ["internal"],
         surfacesFrom: "workspace",
         consoleUsersOnly: false,
-        input: { schema: OBJECT_INPUT_SCHEMA },
+        input: { schema: OBJECT_INPUT_VALIDATOR },
         permission: allowPublic,
         idempotency: "none",
         audit: { actionName: "test.echo" },
@@ -202,7 +202,7 @@ test("registerActionDefinitions skips disabled bundles", () => {
   assert.deepEqual(contributors, []);
 });
 
-test("EMPTY_INPUT_CONTRACT allows empty input and rejects unexpected fields", async () => {
+test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
@@ -227,7 +227,7 @@ test("EMPTY_INPUT_CONTRACT allows empty input and rejects unexpected fields", as
         channels: ["internal"],
         surfaces: ["app"],
         consoleUsersOnly: false,
-        input: EMPTY_INPUT_CONTRACT,
+        input: EMPTY_INPUT_VALIDATOR,
         permission: allowPublic,
         idempotency: "none",
         audit: { actionName: "test.empty-input" },

@@ -11,7 +11,7 @@
     "./shared": "./src/shared/index.js",
     "./shared/roles": "./src/shared/roles.js",
     "./shared/settings": "./src/shared/settings.js",
-    "./shared/contractUtils": "./src/shared/contractUtils.js",
+    "./shared/operationMessages": "./src/shared/operationMessages.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/schemas/resources/workspaceSettingsResource": "./src/shared/schemas/resources/workspaceSettingsResource.js",
     "./shared/resources/workspaceMemberResource": "./src/shared/resources/workspaceMemberResource.js",

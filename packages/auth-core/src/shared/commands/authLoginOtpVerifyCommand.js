@@ -1,26 +1,11 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../contractUtils.js";
+import { normalizeObjectInput } from "../inputNormalization.js";
 import {
-  authEmailSchema,
-  authRecoveryTokenSchema,
+  authEmailValidator,
+  authRecoveryTokenValidator,
   createCommandMessages,
-  otpVerifyResponseSchema
-} from "./authCommandSchemas.js";
-
-const authLoginOtpVerifyInputSchema = Type.Object(
-  {
-    email: Type.Optional(authEmailSchema),
-    token: Type.Optional(authRecoveryTokenSchema),
-    tokenHash: Type.Optional(authRecoveryTokenSchema),
-    type: Type.Optional(Type.Literal("email"))
-  },
-  {
-    additionalProperties: false,
-    minProperties: 1
-  }
-);
-
-const authLoginOtpVerifyOutputSchema = otpVerifyResponseSchema;
+  otpVerifyResponseValidator
+} from "./authCommandValidators.js";
 
 const AUTH_LOGIN_OTP_VERIFY_MESSAGES = createCommandMessages({
   fields: {
@@ -42,18 +27,29 @@ const AUTH_LOGIN_OTP_VERIFY_MESSAGES = createCommandMessages({
   }
 });
 
+const authLoginOtpVerifyBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      email: Type.Optional(authEmailValidator.schema),
+      token: Type.Optional(authRecoveryTokenValidator.schema),
+      tokenHash: Type.Optional(authRecoveryTokenValidator.schema),
+      type: Type.Optional(Type.Literal("email"))
+    },
+    {
+      additionalProperties: false,
+      minProperties: 1
+    }
+  ),
+  normalize: normalizeObjectInput,
+  messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES
+});
+
 const authLoginOtpVerifyCommand = Object.freeze({
   command: "auth.login.otp.verify",
   operation: Object.freeze({
     method: "POST",
-    body: Object.freeze({
-      schema: authLoginOtpVerifyInputSchema,
-      normalize: normalizeObjectInput,
-      messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES
-    }),
-    response: Object.freeze({
-      schema: authLoginOtpVerifyOutputSchema
-    }),
+    body: authLoginOtpVerifyBodyValidator,
+    response: otpVerifyResponseValidator,
     messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])
@@ -61,8 +57,8 @@ const authLoginOtpVerifyCommand = Object.freeze({
 });
 
 export {
-  authLoginOtpVerifyInputSchema,
-  authLoginOtpVerifyOutputSchema,
+  authLoginOtpVerifyBodyValidator,
+  otpVerifyResponseValidator,
   AUTH_LOGIN_OTP_VERIFY_MESSAGES,
   authLoginOtpVerifyCommand
 };

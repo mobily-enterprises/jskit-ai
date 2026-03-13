@@ -9,7 +9,7 @@ test("routeParamsValidator exposes a shared route params validator", () => {
   assert.equal(typeof routeParamsValidator.normalize, "function");
 });
 
-test("route contract uses the shared params validator and merges query arrays automatically", () => {
+test("route validator pipeline uses the shared params validator and merges query arrays automatically", () => {
   const paginationQueryValidator = Object.freeze({
     schema: Type.Object(
       {

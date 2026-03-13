@@ -6,13 +6,13 @@ import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
 } from "@jskit-ai/auth-core/shared/oauthCallbackParams";
-import { authRegisterCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authRegisterCommand";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginPasswordCommand";
-import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpRequestCommand";
-import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOtpVerifyCommand";
-import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authLoginOAuthCompleteCommand";
-import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/contracts/commands/authPasswordResetRequestCommand";
+import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
+import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
+import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
+import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { authHttpRequest } from "../runtime/authHttpClient.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
@@ -218,8 +218,8 @@ function readOAuthCallbackParamsFromLocation() {
   };
 }
 
-function validateCommandBody(commandContract, payload) {
-  if (!commandContract || !commandContract.operation) {
+function validateCommandBody(commandResource, payload) {
+  if (!commandResource || !commandResource.operation) {
     return {
       ok: true,
       fieldErrors: {},
@@ -228,14 +228,14 @@ function validateCommandBody(commandContract, payload) {
   }
 
   return validateOperationSection({
-    operation: commandContract.operation,
+    operation: commandResource.operation,
     section: "body",
     value: payload
   });
 }
 
-function validateCommandParams(commandContract, payload) {
-  if (!commandContract || !commandContract.operation) {
+function validateCommandParams(commandResource, payload) {
+  if (!commandResource || !commandResource.operation) {
     return {
       ok: true,
       fieldErrors: {},
@@ -244,14 +244,14 @@ function validateCommandParams(commandContract, payload) {
   }
 
   return validateOperationSection({
-    operation: commandContract.operation,
+    operation: commandResource.operation,
     section: "params",
     value: payload
   });
 }
 
-function validateCommandQuery(commandContract, payload) {
-  if (!commandContract || !commandContract.operation) {
+function validateCommandQuery(commandResource, payload) {
+  if (!commandResource || !commandResource.operation) {
     return {
       ok: true,
       fieldErrors: {},
@@ -260,7 +260,7 @@ function validateCommandQuery(commandContract, payload) {
   }
 
   return validateOperationSection({
-    operation: commandContract.operation,
+    operation: commandResource.operation,
     section: "query",
     value: payload
   });
