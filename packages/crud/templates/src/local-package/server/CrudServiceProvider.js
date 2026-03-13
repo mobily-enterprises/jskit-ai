@@ -7,7 +7,6 @@ import { registerRoutes } from "./registerRoutes.js";
 
 const CRUD_TOKEN_SEGMENT = "${option:namespace|snake|default(crud)}";
 const CRUD_PROVIDER_ID = `crud.${CRUD_TOKEN_SEGMENT}`;
-const CRUD_ACTION_ID_PREFIX = `crud.${CRUD_TOKEN_SEGMENT}`;
 const CRUD_REPOSITORY_TOKEN = `repository.${CRUD_TOKEN_SEGMENT}`;
 const CRUD_SERVICE_TOKEN = `crud.${CRUD_TOKEN_SEGMENT}`;
 const CRUD_TABLE_NAME = `crud_${CRUD_TOKEN_SEGMENT}`;
@@ -17,9 +16,7 @@ class CrudServiceProvider {
 
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
 
-  register() {}
-
-  boot(app) {
+  register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
       throw new Error("CrudServiceProvider requires application singleton()/actions().");
     }
@@ -39,9 +36,7 @@ class CrudServiceProvider {
 
     app.actions(
       withActionDefaults(
-        createActions({
-          actionIdPrefix: CRUD_ACTION_ID_PREFIX
-        }),
+        createActions(),
         {
           domain: "crud",
           dependencies: {
@@ -50,7 +45,9 @@ class CrudServiceProvider {
         }
       )
     );
+  }
 
+  boot(app) {
     registerRoutes(app);
   }
 }

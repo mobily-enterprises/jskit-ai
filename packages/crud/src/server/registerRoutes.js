@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { inputValidators } from "./inputValidators.js";
-import { createActionIds } from "./actions.js";
+import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crud/crudResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {

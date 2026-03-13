@@ -1,20 +1,9 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { inputValidators } from "./inputValidators.js";
 import { crudResource } from "../shared/crud/crudResource.js";
+import { CRUD_ACTION_ID_PREFIX, createActionIds } from "./actionIds.js";
 
-function createActionIds(actionIdPrefix = "crud") {
-  const prefix = String(actionIdPrefix || "").trim() || "crud";
-
-  return Object.freeze({
-    list: `${prefix}.list`,
-    view: `${prefix}.view`,
-    create: `${prefix}.create`,
-    update: `${prefix}.update`,
-    delete: `${prefix}.delete`
-  });
-}
-
-function createActions({ actionIdPrefix = "crud" } = {}) {
+function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
   const actionIds = createActionIds(actionIdPrefix);
 
   return Object.freeze([
@@ -127,4 +116,4 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
   ]);
 }
 
-export { createActionIds, createActions };
+export { createActions };

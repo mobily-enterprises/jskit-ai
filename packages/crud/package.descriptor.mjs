@@ -136,7 +136,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/local-package/server/CrudServiceProvider.js",
-        to: "packages/${option:namespace|kebab|default(crud)}/src/server/CrudServiceProvider.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/${option:namespace|pascal|default(Crud)}ServiceProvider.js",
         reason: "Install app-local CRUD server provider.",
         category: "crud",
         id: "crud-local-package-server-provider-${option:namespace|snake|default(crud)}"
@@ -147,6 +147,13 @@ export default Object.freeze({
         reason: "Install app-local CRUD action definitions.",
         category: "crud",
         id: "crud-local-package-server-actions-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/actionIds.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/actionIds.js",
+        reason: "Install app-local CRUD action IDs.",
+        category: "crud",
+        id: "crud-local-package-server-action-ids-${option:namespace|snake|default(crud)}"
       },
       {
         from: "src/server/inputValidators.js",

@@ -2,11 +2,10 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/valida
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { inputValidators } from "./inputValidators.js";
-import { createActionIds } from "./actions.js";
+import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
 
 const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab|default(crud)}";
-const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake|default(crud)}";
 const CRUD_ROUTE_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
   fallback: "workspace"
 });
@@ -36,7 +35,7 @@ function registerRoutes(app) {
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const routeBase = CRUD_ROUTE_BASE_PATH;
   const visibility = CRUD_ROUTE_VISIBILITY;
-  const actionIds = createActionIds(CRUD_ACTION_ID_PREFIX);
+  const actionIds = createActionIds();
 
   router.register(
     "GET",

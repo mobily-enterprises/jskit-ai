@@ -1,20 +1,7 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { inputValidators } from "./inputValidators.js";
 import { crudResource } from "../shared/crudResource.js";
-
-const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake|default(crud)}";
-
-function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
-  const prefix = String(actionIdPrefix || "").trim() || "crud";
-
-  return Object.freeze({
-    list: `${prefix}.list`,
-    view: `${prefix}.view`,
-    create: `${prefix}.create`,
-    update: `${prefix}.update`,
-    delete: `${prefix}.delete`
-  });
-}
+import { CRUD_ACTION_ID_PREFIX, createActionIds } from "./actionIds.js";
 
 function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
   const actionIds = createActionIds(actionIdPrefix);
@@ -129,4 +116,4 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
   ]);
 }
 
-export { createActionIds, createActions };
+export { createActions };

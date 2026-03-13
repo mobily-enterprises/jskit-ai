@@ -28,7 +28,7 @@ export default Object.freeze({
     server: {
       providers: [
         {
-          entrypoint: "src/server/CrudServiceProvider.js",
+          entrypoint: "src/server/${option:namespace|pascal|default(Crud)}ServiceProvider.js",
           export: "CrudServiceProvider"
         }
       ]
