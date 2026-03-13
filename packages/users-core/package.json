@@ -13,6 +13,7 @@
     "./shared/roles": "./src/shared/roles.js",
     "./shared/settings": "./src/shared/settings.js",
     "./shared/operationMessages": "./src/shared/operationMessages.js",
+    "./shared/support/usersApiPaths": "./src/shared/support/usersApiPaths.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
     "./shared/resources/workspaceMemberResource": "./src/shared/resources/workspaceMemberResource.js",

@@ -1,5 +1,9 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  isWorkspaceVisibility,
+  resolveUsersApiBasePath
+} from "@jskit-ai/users-core/shared/support/usersApiPaths";
 
 const DEFAULT_VISIBILITY = "workspace";
 const CRUD_MODULE_ID = "crud";
@@ -16,10 +20,6 @@ function normalizeCrudVisibility(value, { fallback = DEFAULT_VISIBILITY } = {}) 
   return normalizeRouteVisibility(value, { fallback });
 }
 
-function isWorkspaceVisibility(visibility) {
-  return visibility === "workspace" || visibility === "workspace_user";
-}
-
 function resolveCrudNamespacePath(namespace = "") {
   const normalizedNamespace = normalizeCrudNamespace(namespace);
   return normalizedNamespace ? `/${normalizedNamespace}` : "";
@@ -33,12 +33,10 @@ function resolveCrudRelativePath(namespace = "") {
 function resolveCrudApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
   const normalizedVisibility = normalizeCrudVisibility(visibility);
   const relativePath = resolveCrudRelativePath(namespace);
-
-  if (isWorkspaceVisibility(normalizedVisibility)) {
-    return `/api/w/:workspaceSlug/workspace${relativePath}`;
-  }
-
-  return `/api${relativePath}`;
+  return resolveUsersApiBasePath({
+    visibility: normalizedVisibility,
+    relativePath
+  });
 }
 
 function resolveCrudTableName(namespace = "") {

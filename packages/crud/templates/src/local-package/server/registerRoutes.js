@@ -6,6 +6,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
 
@@ -13,23 +14,10 @@ const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab|default(crud)}";
 const CRUD_ROUTE_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
   fallback: "workspace"
 });
-const CRUD_ROUTE_BASE_PATH = isWorkspaceVisibility(CRUD_ROUTE_VISIBILITY)
-  ? `/api/w/:workspaceSlug/workspace/${CRUD_ROUTE_SEGMENT}`
-  : `/api/${CRUD_ROUTE_SEGMENT}`;
-
-function isWorkspaceVisibility(visibility) {
-  return visibility === "workspace" || visibility === "workspace_user";
-}
-
-function joinRoutePath(basePath = "", suffix = "") {
-  const base = String(basePath || "").trim().replace(/\/+$/g, "");
-  const end = String(suffix || "").trim();
-  if (!end) {
-    return base;
-  }
-
-  return `${base}/${end.replace(/^\/+/, "")}`;
-}
+const CRUD_ROUTE_BASE_PATH = resolveUsersApiBasePath({
+  visibility: CRUD_ROUTE_VISIBILITY,
+  relativePath: `/${CRUD_ROUTE_SEGMENT}`
+});
 
 function registerRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -72,7 +60,7 @@ function registerRoutes(app) {
 
   router.register(
     "GET",
-    joinRoutePath(routeBase, ":recordId"),
+    `${routeBase}/:recordId`,
     {
       auth: "required",
       visibility,
@@ -129,7 +117,7 @@ function registerRoutes(app) {
 
   router.register(
     "PATCH",
-    joinRoutePath(routeBase, ":recordId"),
+    `${routeBase}/:recordId`,
     {
       auth: "required",
       visibility,
@@ -161,7 +149,7 @@ function registerRoutes(app) {
 
   router.register(
     "DELETE",
-    joinRoutePath(routeBase, ":recordId"),
+    `${routeBase}/:recordId`,
     {
       auth: "required",
       visibility,
