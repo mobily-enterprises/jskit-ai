@@ -1,8 +1,8 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "./workspacePendingInvitationsService.js";
 import { workspacePendingInvitationsActions } from "./workspacePendingInvitationsActions.js";
 import {
-  USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
-  USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
+  USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
 } from "../common/diTokens.js";
 
 function registerWorkspacePendingInvitations(app) {
@@ -17,16 +17,14 @@ function registerWorkspacePendingInvitations(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.workspace-pending-invitations",
-    domain: "workspace",
-    dependencies: {
-      workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
-      workspaceTenancyEnabled: USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
-    },
-    enabled: ({ deps }) => deps.workspaceTenancyEnabled === true,
-    actions: workspacePendingInvitationsActions
-  });
+  app.actions(
+    withActionDefaults(workspacePendingInvitationsActions, {
+      domain: "workspace",
+      dependencies: {
+        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerWorkspacePendingInvitations };

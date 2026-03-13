@@ -37,3 +37,4 @@ export {
   publishRealtimeCommandEvent,
   applyRealtimePublishToCommandAction
 } from "./realtimePublish.js";
+export { withActionDefaults } from "./withActionDefaults.js";

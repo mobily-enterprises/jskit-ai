@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createAccountNotificationsService } from "./accountNotificationsService.js";
 import { accountNotificationsActions } from "./accountNotificationsActions.js";
 
@@ -16,14 +17,14 @@ function registerAccountNotifications(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.account-notifications",
-    domain: "settings",
-    dependencies: {
-      accountNotificationsService: USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN
-    },
-    actions: accountNotificationsActions
-  });
+  app.actions(
+    withActionDefaults(accountNotificationsActions, {
+      domain: "settings",
+      dependencies: {
+        accountNotificationsService: USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerAccountNotifications };

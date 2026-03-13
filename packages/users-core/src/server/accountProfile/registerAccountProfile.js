@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createAccountProfileService } from "./accountProfileService.js";
 import { accountProfileActions } from "./accountProfileActions.js";
 
@@ -16,14 +17,14 @@ function registerAccountProfile(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.account-profile",
-    domain: "settings",
-    dependencies: {
-      accountProfileService: USERS_ACCOUNT_PROFILE_SERVICE_TOKEN
-    },
-    actions: accountProfileActions
-  });
+  app.actions(
+    withActionDefaults(accountProfileActions, {
+      domain: "settings",
+      dependencies: {
+        accountProfileService: USERS_ACCOUNT_PROFILE_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerAccountProfile };

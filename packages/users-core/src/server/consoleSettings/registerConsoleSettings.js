@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createConsoleSettingsService } from "./consoleSettingsService.js";
 import { consoleSettingsActions } from "./consoleSettingsActions.js";
 
@@ -12,14 +13,14 @@ function registerConsoleSettings(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.console-settings",
-    domain: "console",
-    dependencies: {
-      consoleSettingsService: "users.console.settings.service"
-    },
-    actions: consoleSettingsActions
-  });
+  app.actions(
+    withActionDefaults(consoleSettingsActions, {
+      domain: "console",
+      dependencies: {
+        consoleSettingsService: "users.console.settings.service"
+      }
+    })
+  );
 }
 
 export { registerConsoleSettings };

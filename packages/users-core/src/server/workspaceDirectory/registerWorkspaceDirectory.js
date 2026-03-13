@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { workspaceDirectoryActions } from "./workspaceDirectoryActions.js";
 
 function registerWorkspaceDirectory(app) {
@@ -5,14 +6,14 @@ function registerWorkspaceDirectory(app) {
     throw new Error("registerWorkspaceDirectory requires application singleton()/actions().");
   }
 
-  app.actions({
-    contributorId: "users.workspace-directory",
-    domain: "workspace",
-    dependencies: {
-      workspaceService: "users.workspace.service"
-    },
-    actions: workspaceDirectoryActions
-  });
+  app.actions(
+    withActionDefaults(workspaceDirectoryActions, {
+      domain: "workspace",
+      dependencies: {
+        workspaceService: "users.workspace.service"
+      }
+    })
+  );
 }
 
 export { registerWorkspaceDirectory };

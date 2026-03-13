@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createAccountSecurityService } from "./accountSecurityService.js";
 import { accountSecurityActions } from "./accountSecurityActions.js";
 
@@ -17,14 +18,14 @@ function registerAccountSecurity(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.account-security",
-    domain: "settings",
-    dependencies: {
-      accountSecurityService: USERS_ACCOUNT_SECURITY_SERVICE_TOKEN
-    },
-    actions: accountSecurityActions
-  });
+  app.actions(
+    withActionDefaults(accountSecurityActions, {
+      domain: "settings",
+      dependencies: {
+        accountSecurityService: USERS_ACCOUNT_SECURITY_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerAccountSecurity };

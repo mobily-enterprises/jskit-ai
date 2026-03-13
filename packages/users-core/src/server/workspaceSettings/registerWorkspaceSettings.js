@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
@@ -33,14 +34,14 @@ function registerWorkspaceSettings(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.workspace-settings",
-    domain: "workspace",
-    dependencies: {
-      workspaceSettingsService: "users.workspace.settings.service"
-    },
-    actions: workspaceSettingsActions
-  });
+  app.actions(
+    withActionDefaults(workspaceSettingsActions, {
+      domain: "workspace",
+      dependencies: {
+        workspaceSettingsService: "users.workspace.settings.service"
+      }
+    })
+  );
 }
 
 export { registerWorkspaceSettings };

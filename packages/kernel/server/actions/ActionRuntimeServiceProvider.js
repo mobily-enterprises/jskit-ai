@@ -42,33 +42,6 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
   return Object.freeze(normalized);
 }
 
-function normalizeActionBundleSpec(definitionSet, { context = "app.actions" } = {}) {
-  const source = normalizePlainObject(definitionSet);
-  const contributorId = String(source.contributorId || "").trim();
-  const domain = actionRuntime.normalizeActionDomain(source.domain, {
-    context: `${context} domain`
-  });
-  const actions = Array.isArray(source.actions) ? [...source.actions] : [];
-  const enabled = source.enabled;
-
-  if (!contributorId) {
-    throw new Error(`${context} contributorId is required.`);
-  }
-  if (typeof enabled !== "undefined" && typeof enabled !== "function") {
-    throw new Error(`${context} enabled must be a function when provided.`);
-  }
-
-  return Object.freeze({
-    contributorId,
-    domain,
-    dependencies: normalizeDependencyMap(source.dependencies, {
-      context: `${context}.dependencies`
-    }),
-    enabled: typeof enabled === "function" ? enabled : null,
-    actions: Object.freeze(actions)
-  });
-}
-
 function normalizeContributorList(value) {
   const queue = Array.isArray(value) ? [...value] : [value];
   const contributors = [];
@@ -208,16 +181,13 @@ function materializeDependencies(scope, dependencyMap, { context = "action.depen
   return Object.freeze(resolved);
 }
 
-function materializeAction(scope, actionDefinition, bundleSpec, { bundleDependencies } = {}) {
+function materializeAction(scope, actionDefinition) {
   const source = normalizePlainObject(actionDefinition);
   const materialized = { ...source };
   const actionDependencies = materializeDependencies(scope, source.dependencies, {
     context: `action ${String(source.id || "<unknown>")}.dependencies`
   });
-  const resolvedDependencies = Object.freeze({
-    ...bundleDependencies,
-    ...actionDependencies
-  });
+  const resolvedDependencies = actionDependencies;
 
   if (Object.hasOwn(source, "surfaces") && Object.hasOwn(source, "surfacesFrom")) {
     throw new Error(`Action ${String(source.id || "<unknown>")} cannot define both surfaces and surfacesFrom.`);
@@ -225,10 +195,6 @@ function materializeAction(scope, actionDefinition, bundleSpec, { bundleDependen
 
   delete materialized.dependencies;
   delete materialized.surfacesFrom;
-
-  if (!Object.hasOwn(materialized, "domain")) {
-    materialized.domain = bundleSpec.domain;
-  }
 
   if (Object.hasOwn(source, "surfacesFrom")) {
     const resolvedSurfaces = resolveSurfaceIdsFromSource(scope, source.surfacesFrom, {
@@ -249,38 +215,23 @@ function materializeAction(scope, actionDefinition, bundleSpec, { bundleDependen
   return Object.freeze(materialized);
 }
 
-function materializeActionBundle(scope, bundleSpec) {
-  const bundleDependencies = materializeDependencies(scope, bundleSpec.dependencies, {
-    context: `action bundle ${bundleSpec.contributorId}.dependencies`
-  });
-
-  if (bundleSpec.enabled && bundleSpec.enabled({ scope, deps: bundleDependencies }) !== true) {
-    return null;
-  }
-
-  const actions = [];
-  for (const actionDefinition of bundleSpec.actions) {
-    const materialized = materializeAction(scope, actionDefinition, bundleSpec, {
-      bundleDependencies
-    });
-    if (materialized) {
-      actions.push(materialized);
-    }
-  }
-
-  return {
-    contributorId: bundleSpec.contributorId,
-    domain: bundleSpec.domain,
-    actions: Object.freeze(actions)
-  };
-}
-
-function registerActionBundle(app, bundleSpec, { context = "app.actions" } = {}) {
+function registerActionDefinition(app, actionSpec, { context = "app.action" } = {}) {
   const token = createActionContributorToken();
   registerTaggedContributor(
     app,
     token,
-    (scope) => materializeActionBundle(scope, bundleSpec),
+    (scope) => {
+      const action = materializeAction(scope, actionSpec.action);
+      if (!action) {
+        return null;
+      }
+
+      return {
+        contributorId: actionSpec.contributorId,
+        domain: action.domain,
+        actions: Object.freeze([action])
+      };
+    },
     ACTION_RUNTIME_CONTRIBUTOR_TAG,
     context
   );
@@ -298,15 +249,14 @@ function normalizeSingleActionRegistration(actionDefinition, { context = "app.ac
     ...source
   };
   delete normalizedAction.contributorId;
+  normalizedAction.domain = actionRuntime.normalizeActionDomain(normalizedAction.domain, {
+    context: `${context} domain`
+  });
 
-  return normalizeActionBundleSpec(
-    {
-      contributorId,
-      domain: normalizedAction.domain,
-      actions: [normalizedAction]
-    },
-    { context }
-  );
+  return Object.freeze({
+    contributorId,
+    action: Object.freeze(normalizedAction)
+  });
 }
 
 function installActionRegistrationApi(app) {
@@ -314,25 +264,23 @@ function installActionRegistrationApi(app) {
     return;
   }
 
-  const registerActions = function registerActions(definitionSet = {}) {
-    const entries = normalizeContributorList(definitionSet);
+  const registerActions = function registerActions(actionDefinitions = []) {
+    if (!Array.isArray(actionDefinitions)) {
+      throw new Error("app.actions requires an array of action definitions.");
+    }
+
+    const entries = normalizeContributorList(actionDefinitions);
     for (const entry of entries) {
-      const source = normalizePlainObject(entry);
-      if (!Array.isArray(source.actions)) {
-        this.action(source);
-        continue;
-      }
-      const bundleSpec = normalizeActionBundleSpec(source, { context: "app.actions" });
-      registerActionBundle(this, bundleSpec, { context: "app.actions" });
+      this.action(entry);
     }
     return this;
   };
 
   const registerAction = function registerAction(actionDefinition = {}) {
-    const bundleSpec = normalizeSingleActionRegistration(actionDefinition, {
+    const actionSpec = normalizeSingleActionRegistration(actionDefinition, {
       context: "app.action"
     });
-    registerActionBundle(this, bundleSpec, { context: "app.action" });
+    registerActionDefinition(this, actionSpec, { context: "app.action" });
     return this;
   };
 

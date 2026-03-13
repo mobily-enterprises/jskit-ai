@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createAccountPreferencesService } from "./accountPreferencesService.js";
 import { accountPreferencesActions } from "./accountPreferencesActions.js";
 
@@ -16,14 +17,14 @@ function registerAccountPreferences(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.account-preferences",
-    domain: "settings",
-    dependencies: {
-      accountPreferencesService: USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN
-    },
-    actions: accountPreferencesActions
-  });
+  app.actions(
+    withActionDefaults(accountPreferencesActions, {
+      domain: "settings",
+      dependencies: {
+        accountPreferencesService: USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerAccountPreferences };

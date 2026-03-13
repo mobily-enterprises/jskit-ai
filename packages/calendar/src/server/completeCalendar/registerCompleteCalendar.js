@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository as createCompleteCalendarRepository } from "./completeCalendarRepository.js";
 import { createService as createCompleteCalendarService } from "./completeCalendarService.js";
 import { completeCalendarActions } from "./completeCalendarActions.js";
@@ -27,14 +28,14 @@ function registerCompleteCalendar(app) {
     });
   });
 
-  app.actions({
-    contributorId: "calendar.completeCalendar",
-    domain: "completeCalendar",
-    dependencies: {
-      completeCalendarService: COMPLETE_CALENDAR_SERVICE_TOKEN
-    },
-    actions: completeCalendarActions
-  });
+  app.actions(
+    withActionDefaults(completeCalendarActions, {
+      domain: "completeCalendar",
+      dependencies: {
+        completeCalendarService: COMPLETE_CALENDAR_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerCompleteCalendar };

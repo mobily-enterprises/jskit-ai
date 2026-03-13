@@ -80,7 +80,7 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(typeof app.make("actionExecutor")?.execute, "function");
 });
 
-test("ActionRuntimeServiceProvider materializes dependencies and surfaces for app.actions bundles", async () => {
+test("ActionRuntimeServiceProvider materializes dependencies and surfaces for app.actions arrays", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
@@ -100,31 +100,28 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
     }
   }));
 
-  app.actions({
-    contributorId: "test.actions",
-    domain: "workspace",
-    dependencies: {
-      echoService: "test.echo.service"
-    },
-    actions: [
-      {
-        id: "test.echo",
-        version: 1,
-        kind: "query",
-        channels: ["internal"],
-        surfacesFrom: "workspace",
-        consoleUsersOnly: false,
-        input: { schema: OBJECT_INPUT_VALIDATOR },
-        permission: allowPublic,
-        idempotency: "none",
-        audit: { actionName: "test.echo" },
-        observability: {},
-        async execute(input, _context, deps) {
-          return deps.echoService.echo(input);
-        }
+  app.actions([
+    {
+      id: "test.echo",
+      domain: "workspace",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfacesFrom: "workspace",
+      consoleUsersOnly: false,
+      dependencies: {
+        echoService: "test.echo.service"
+      },
+      input: { schema: OBJECT_INPUT_VALIDATOR },
+      permission: allowPublic,
+      idempotency: "none",
+      audit: { actionName: "test.echo" },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.echoService.echo(input);
       }
-    ]
-  });
+    }
+  ]);
 
   const actionExecutor = app.make("actionExecutor");
   const definitions = actionExecutor.listDefinitions();
@@ -152,21 +149,49 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
     }
   }));
 
-  app.actions({
-    contributorId: "alpha",
-    domain: "settings",
-    actions: []
-  });
-  app.actions({
-    contributorId: "beta",
-    domain: "auth",
-    actions: []
-  });
+  app.actions([
+    {
+      id: "alpha.one",
+      domain: "settings",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["app"],
+      consoleUsersOnly: false,
+      input: EMPTY_INPUT_VALIDATOR,
+      permission: allowPublic,
+      idempotency: "none",
+      audit: { actionName: "alpha.one" },
+      observability: {},
+      async execute() {
+        return { ok: true };
+      }
+    }
+  ]);
+  app.actions([
+    {
+      id: "beta.one",
+      domain: "auth",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["app"],
+      consoleUsersOnly: false,
+      input: EMPTY_INPUT_VALIDATOR,
+      permission: allowPublic,
+      idempotency: "none",
+      audit: { actionName: "beta.one" },
+      observability: {},
+      async execute() {
+        return { ok: true };
+      }
+    }
+  ]);
 
   const contributors = resolveActionContributors(app);
   assert.deepEqual(
     contributors.map((entry) => entry.contributorId).sort(),
-    ["alpha", "beta"]
+    ["action.alpha.one", "action.beta.one"]
   );
 });
 
@@ -175,15 +200,29 @@ test("app.actions accepts custom action domains", () => {
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.actions({
-    contributorId: "custom",
-    domain: "completeCalendar",
-    actions: []
-  });
+  app.actions([
+    {
+      id: "custom.domain.check",
+      domain: "completeCalendar",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["app"],
+      consoleUsersOnly: false,
+      input: EMPTY_INPUT_VALIDATOR,
+      permission: allowPublic,
+      idempotency: "none",
+      audit: { actionName: "custom.domain.check" },
+      observability: {},
+      async execute() {
+        return { ok: true };
+      }
+    }
+  ]);
 
   const contributors = resolveActionContributors(app);
   assert.equal(contributors.length, 1);
-  assert.equal(contributors[0].contributorId, "custom");
+  assert.equal(contributors[0].contributorId, "action.custom.domain.check");
   assert.equal(contributors[0].domain, "completecalendar");
 });
 
@@ -216,26 +255,12 @@ test("app.action registers a single action with default contributor id", () => {
   assert.equal(contributors[0].actions[0].id, "test.single");
 });
 
-test("app.actions skips disabled bundles", () => {
+test("app.actions requires an array", () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
-  app.singleton("test.null.service", () => null);
 
-  app.actions({
-    contributorId: "alpha",
-    domain: "auth",
-    dependencies: {
-      authService: "test.null.service"
-    },
-    enabled({ deps }) {
-      return deps.authService != null;
-    },
-    actions: []
-  });
-
-  const contributors = resolveActionContributors(app);
-  assert.deepEqual(contributors, []);
+  assert.throws(() => app.actions({}), /requires an array/);
 });
 
 test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", async () => {
@@ -252,28 +277,25 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
     }
   }));
 
-  app.actions({
-    contributorId: "test.empty-input",
-    domain: "settings",
-    actions: [
-      {
-        id: "test.empty-input",
-        version: 1,
-        kind: "query",
-        channels: ["internal"],
-        surfaces: ["app"],
-        consoleUsersOnly: false,
-        input: EMPTY_INPUT_VALIDATOR,
-        permission: allowPublic,
-        idempotency: "none",
-        audit: { actionName: "test.empty-input" },
-        observability: {},
-        async execute() {
-          return { ok: true };
-        }
+  app.actions([
+    {
+      id: "test.empty-input",
+      domain: "settings",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["app"],
+      consoleUsersOnly: false,
+      input: EMPTY_INPUT_VALIDATOR,
+      permission: allowPublic,
+      idempotency: "none",
+      audit: { actionName: "test.empty-input" },
+      observability: {},
+      async execute() {
+        return { ok: true };
       }
-    ]
-  });
+    }
+  ]);
 
   const actionExecutor = app.make("actionExecutor");
 
@@ -324,11 +346,25 @@ test("app.actions rejects invalid domain identifiers", () => {
 
   assert.throws(
     () =>
-      app.actions({
-        contributorId: "invalid",
-        domain: "invalid domain",
-        actions: []
-      }),
+      app.actions([
+        {
+          id: "invalid.domain",
+          domain: "invalid domain",
+          version: 1,
+          kind: "query",
+          channels: ["internal"],
+          surfaces: ["app"],
+          consoleUsersOnly: false,
+          input: EMPTY_INPUT_VALIDATOR,
+          permission: allowPublic,
+          idempotency: "none",
+          audit: { actionName: "invalid.domain" },
+          observability: {},
+          async execute() {
+            return {};
+          }
+        }
+      ]),
     /must match/
   );
 });

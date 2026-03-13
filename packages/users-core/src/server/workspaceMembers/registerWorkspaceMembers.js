@@ -1,3 +1,4 @@
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 
@@ -26,14 +27,14 @@ function registerWorkspaceMembers(app) {
     });
   });
 
-  app.actions({
-    contributorId: "users.workspace-members",
-    domain: "workspace",
-    dependencies: {
-      workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
-    },
-    actions: workspaceMembersActions
-  });
+  app.actions(
+    withActionDefaults(workspaceMembersActions, {
+      domain: "workspace",
+      dependencies: {
+        workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
+      }
+    })
+  );
 }
 
 export { registerWorkspaceMembers };

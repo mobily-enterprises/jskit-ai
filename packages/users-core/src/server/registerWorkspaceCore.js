@@ -46,7 +46,7 @@ function registerWorkspaceCore(app) {
   });
 
   app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
-    const appConfig = scope.make("appConfig");
+    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
     return resolveWorkspaceTenancyEnabled(appConfig);
   });
 

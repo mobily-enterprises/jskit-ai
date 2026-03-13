@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "../lib/service.js";
 import { authActions } from "../lib/actions/auth.contributor.js";
 
@@ -160,17 +161,14 @@ class AuthSupabaseServiceProvider {
       });
     }
 
-    app.actions({
-      contributorId: "auth.supabase",
-      domain: "auth",
-      dependencies: {
-        authService: "authService"
-      },
-      enabled({ deps }) {
-        return deps.authService != null;
-      },
-      actions: authActions
-    });
+    app.actions(
+      withActionDefaults(authActions, {
+        domain: "auth",
+        dependencies: {
+          authService: "authService"
+        }
+      })
+    );
   }
 }
 
