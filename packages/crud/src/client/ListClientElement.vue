@@ -34,7 +34,7 @@
             <tr v-for="record in items" :key="record.id">
               <td>{{ record.name }}</td>
               <td>{{ record.surname }}</td>
-              <td>{{ formatDateTime(record.updatedAt) }}</td>
+              <td>{{ crudContext.formatDateTime(record.updatedAt) }}</td>
               <td class="text-right">
                 <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id) || undefined">
                   Open
@@ -74,13 +74,4 @@ const loadError = records.loadError;
 const isLoading = records.isLoading;
 const hasMore = records.hasMore;
 const isLoadingMore = records.isLoadingMore;
-
-function formatDateTime(value) {
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "unknown";
-  }
-
-  return parsedDate.toLocaleString();
-}
 </script>

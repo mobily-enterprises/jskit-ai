@@ -40,11 +40,11 @@
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Created</div>
-              <div class="text-body-1">{{ formatDateTime(record.createdAt) }}</div>
+              <div class="text-body-1">{{ crudContext.formatDateTime(record.createdAt) }}</div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Updated</div>
-              <div class="text-body-1">{{ formatDateTime(record.updatedAt) }}</div>
+              <div class="text-body-1">{{ crudContext.formatDateTime(record.updatedAt) }}</div>
             </v-col>
           </v-row>
         </template>
@@ -117,24 +117,13 @@ const deleteCommand = useCommand({
     error: "Unable to delete record."
   },
   onRunSuccess: async (_, { queryClient }) => {
-    await queryClient.invalidateQueries({
-      queryKey: ["crud", "crud", crudConfig.namespace]
-    });
+    await crudContext.invalidateQueries(queryClient);
 
     if (listPath.value) {
       await router.push(listPath.value);
     }
   }
 });
-
-function formatDateTime(value) {
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "unknown";
-  }
-
-  return parsedDate.toLocaleString();
-}
 
 async function confirmDelete() {
   if (!window.confirm("Delete this record?")) {

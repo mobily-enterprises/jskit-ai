@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveCrudClientConfig,
+  crudScopeQueryKey,
+  invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
   toRouteRecordId
@@ -51,6 +53,25 @@ test("crudListQueryKey and crudViewQueryKey normalize cache keys", () => {
     "tonymobily3",
     12
   ]);
+});
+
+test("crudScopeQueryKey normalizes namespace", () => {
+  assert.deepEqual(crudScopeQueryKey(" Customers "), ["crud", "crud", "customers"]);
+});
+
+test("invalidateCrudQueries invalidates by CRUD namespace scope key", async () => {
+  let payload = null;
+  const queryClient = {
+    async invalidateQueries(input) {
+      payload = input;
+      return true;
+    }
+  };
+
+  await invalidateCrudQueries(queryClient, "Customers");
+  assert.deepEqual(payload, {
+    queryKey: ["crud", "crud", "customers"]
+  });
 });
 
 test("toRouteRecordId parses scalar and array params safely", () => {

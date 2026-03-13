@@ -1,4 +1,5 @@
 export { KERNEL_TOKENS } from "./support/tokens.js";
+export { formatDateTime } from "./support/formatDateTime.js";
 export {
   normalizeText,
   normalizeQueryToken,

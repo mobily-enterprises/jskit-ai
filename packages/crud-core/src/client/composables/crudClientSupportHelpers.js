@@ -1,5 +1,6 @@
 import { normalizeLowerText, normalizeText, normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 
 const DEFAULT_CRUD_VISIBILITY = "workspace";
@@ -39,9 +40,7 @@ function resolveCrudClientConfig(source = {}) {
 
 function crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
   return Object.freeze([
-    "crud",
-    "crud",
-    normalizeQueryToken(namespace),
+    ...crudScopeQueryKey(namespace),
     "list",
     normalizeQueryToken(surfaceId),
     normalizeQueryToken(workspaceSlug)
@@ -50,14 +49,26 @@ function crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
 
 function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, namespace = "") {
   return Object.freeze([
-    "crud",
-    "crud",
-    normalizeQueryToken(namespace),
+    ...crudScopeQueryKey(namespace),
     "view",
     normalizeQueryToken(surfaceId),
     normalizeQueryToken(workspaceSlug),
     Number(recordId) || 0
   ]);
+}
+
+function crudScopeQueryKey(namespace = "") {
+  return Object.freeze(["crud", "crud", normalizeQueryToken(namespace)]);
+}
+
+async function invalidateCrudQueries(queryClient, namespace = "") {
+  if (!queryClient || typeof queryClient.invalidateQueries !== "function") {
+    throw new TypeError("invalidateCrudQueries requires queryClient.invalidateQueries().");
+  }
+
+  return queryClient.invalidateQueries({
+    queryKey: crudScopeQueryKey(namespace)
+  });
 }
 
 function resolveAdminCrudListPath(context = null, workspaceSlug = "", source = {}) {
@@ -127,6 +138,9 @@ export {
   DEFAULT_CRUD_VISIBILITY,
   isWorkspaceVisibility,
   resolveCrudClientConfig,
+  formatDateTime,
+  crudScopeQueryKey,
+  invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
   resolveAdminCrudListPath,

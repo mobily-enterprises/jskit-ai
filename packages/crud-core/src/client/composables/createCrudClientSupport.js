@@ -5,6 +5,9 @@ import {
   DEFAULT_CRUD_VISIBILITY,
   isWorkspaceVisibility,
   resolveCrudClientConfig,
+  formatDateTime,
+  crudScopeQueryKey,
+  invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
   resolveAdminCrudListPath,
@@ -55,6 +58,14 @@ function useCrudClientContext(source = {}) {
     );
   }
 
+  function scopeQueryKey() {
+    return crudScopeQueryKey(crudConfig.namespace);
+  }
+
+  async function invalidateQueries(queryClient) {
+    return invalidateCrudQueries(queryClient, crudConfig.namespace);
+  }
+
   return Object.freeze({
     route,
     crudConfig,
@@ -64,6 +75,9 @@ function useCrudClientContext(source = {}) {
     createPath,
     listQueryKey,
     viewQueryKey,
+    scopeQueryKey,
+    invalidateQueries,
+    formatDateTime,
     resolveViewPath,
     resolveEditPath
   });
@@ -76,6 +90,13 @@ function createCrudClientSupport(source = {}) {
     crudConfig,
     useCrudClientContext() {
       return useCrudClientContext(crudConfig);
+    },
+    formatDateTime,
+    scopeQueryKey() {
+      return crudScopeQueryKey(crudConfig.namespace);
+    },
+    async invalidateQueries(queryClient) {
+      return invalidateCrudQueries(queryClient, crudConfig.namespace);
     },
     crudListQueryKey(surfaceId = "", workspaceSlug = "") {
       return crudListQueryKey(surfaceId, workspaceSlug, crudConfig.namespace);
@@ -103,6 +124,9 @@ export {
   DEFAULT_CRUD_VISIBILITY,
   isWorkspaceVisibility,
   resolveCrudClientConfig,
+  formatDateTime,
+  crudScopeQueryKey,
+  invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
   resolveAdminCrudListPath,

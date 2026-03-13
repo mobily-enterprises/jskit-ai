@@ -95,9 +95,7 @@ const addEdit = useAddEdit({
     surname: model.surname
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
-    await queryClient.invalidateQueries({
-      queryKey: ["crud", "crud", crudConfig.namespace]
-    });
+    await crudContext.invalidateQueries(queryClient);
 
     const targetPath = crudContext.resolveViewPath(payload?.id);
     if (targetPath) {
