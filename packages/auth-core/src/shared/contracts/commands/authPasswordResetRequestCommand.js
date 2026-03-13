@@ -4,7 +4,7 @@ import {
   authEmailSchema,
   createCommandMessages,
   okMessageResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authPasswordResetRequestInputSchema = Type.Object(
   {

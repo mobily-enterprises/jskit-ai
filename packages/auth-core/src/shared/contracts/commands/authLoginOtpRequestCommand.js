@@ -5,7 +5,7 @@ import {
   createCommandMessages,
   oauthReturnToSchema,
   okMessageResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLoginOtpRequestInputSchema = Type.Object(
   {

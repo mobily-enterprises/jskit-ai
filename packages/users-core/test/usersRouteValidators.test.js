@@ -4,12 +4,12 @@ import { Type } from "@fastify/type-provider-typebox";
 import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
-test("routeParamsValidator exposes a shared route params contract part", () => {
+test("routeParamsValidator exposes a shared route params validator", () => {
   assert.equal(typeof routeParamsValidator.schema, "object");
   assert.equal(typeof routeParamsValidator.normalize, "function");
 });
 
-test("route contract uses the shared params contract part and merges query arrays automatically", () => {
+test("route contract uses the shared params validator and merges query arrays automatically", () => {
   const paginationQueryValidator = Object.freeze({
     schema: Type.Object(
       {

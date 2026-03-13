@@ -1,4 +1,4 @@
-import { mergeObjectSchemas } from "../contracts/mergeObjectSchemas.js";
+import { mergeValidators } from "../contracts/mergeValidators.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -145,52 +145,21 @@ function normalizeSingleActionContractPart(value, fieldName, { required = false 
   });
 }
 
-function mergeNormalizedActionContractParts(parts, fieldName) {
-  const normalized = {};
-  const schemas = [];
-  const normalizers = [];
-
-  for (const part of parts) {
-    if (Object.prototype.hasOwnProperty.call(part, "schema")) {
-      schemas.push(part.schema);
+function mergeNormalizedActionValidators(validators, fieldName) {
+  return mergeValidators(validators, {
+    context: `Action definition ${fieldName}`,
+    requireSchema: true,
+    requiredSchemaMessage: `Action definition ${fieldName}.schema is required.`,
+    normalizeResultMessage: `Action definition ${fieldName}.normalize must return an object.`,
+    createError(message) {
+      return createActionRuntimeError(500, message, {
+        code: "ACTION_DEFINITION_INVALID"
+      });
     }
-    if (typeof part.normalize === "function") {
-      normalizers.push(part.normalize);
-    }
-  }
-
-  if (schemas.length < 1) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  normalized.schema = schemas.length === 1 ? schemas[0] : mergeObjectSchemas(schemas);
-
-  if (normalizers.length === 1) {
-    normalized.normalize = normalizers[0];
-  } else if (normalizers.length > 1) {
-    normalized.normalize = async function normalizeMergedActionContractParts(payload, meta) {
-      const merged = {};
-
-      for (const normalizer of normalizers) {
-        const result = await normalizer(payload, meta);
-        if (!isPlainObject(result)) {
-          throw createActionRuntimeError(500, `Action definition ${fieldName}.normalize must return an object.`, {
-            code: "ACTION_DEFINITION_INVALID"
-          });
-        }
-        Object.assign(merged, result);
-      }
-
-      return merged;
-    };
-  }
-
-  return Object.freeze(normalized);
+  });
 }
 
-function normalizeActionContractParts(value, fieldName, { required = false } = {}) {
+function normalizeActionValidators(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -201,32 +170,32 @@ function normalizeActionContractParts(value, fieldName, { required = false } = {
     });
   }
 
-  const partsSource = Array.isArray(value) ? value : [value];
+  const validatorsSource = Array.isArray(value) ? value : [value];
 
-  if (partsSource.length < 1) {
+  if (validatorsSource.length < 1) {
     throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  const parts = partsSource.map((entry, index) => {
-    const part = normalizeSingleActionContractPart(entry, `${fieldName}[${index}]`, {
+  const validators = validatorsSource.map((entry, index) => {
+    const validator = normalizeSingleActionContractPart(entry, `${fieldName}[${index}]`, {
       required: true
     });
 
-    if (!part) {
+    if (!validator) {
       throw createActionRuntimeError(500, `Action definition ${fieldName}[${index}] is required.`, {
         code: "ACTION_DEFINITION_INVALID"
       });
     }
 
-    return part;
+    return validator;
   });
 
-  return mergeNormalizedActionContractParts(parts, fieldName);
+  return mergeNormalizedActionValidators(validators, fieldName);
 }
 
-function normalizeActionContractPart(value, fieldName, { required = false } = {}) {
+function normalizeActionValidator(value, fieldName, { required = false } = {}) {
   return normalizeSingleActionContractPart(value, fieldName, {
     required
   });
@@ -382,10 +351,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     channels,
     surfaces,
     consoleUsersOnly,
-    input: normalizeActionContractParts(source.input, "input", {
+    input: normalizeActionValidators(source.input, "input", {
       required: true
     }),
-    output: normalizeActionContractPart(source.output, "output", {
+    output: normalizeActionValidator(source.output, "output", {
       required: false
     }),
     permission: normalizePermissionPolicy(source.permission),
@@ -439,8 +408,8 @@ const __testables = {
   normalizePositiveInteger,
   normalizeStringArray,
   normalizeSingleActionContractPart,
-  normalizeActionContractParts,
-  normalizeActionContractPart,
+  normalizeActionValidators,
+  normalizeActionValidator,
   normalizePermissionPolicy,
   normalizeAuditConfig,
   normalizeObservabilityConfig,

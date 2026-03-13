@@ -87,7 +87,7 @@ test("action registry executes latest version by default", async () => {
   assert.deepEqual(calls, ["v2"]);
 });
 
-test("action registry merges action input contract parts", async () => {
+test("action registry merges action input validators", async () => {
   const registry = createActionRegistry({
     contributors: [
       {

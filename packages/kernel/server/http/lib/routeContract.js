@@ -1,5 +1,5 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
-import { mergeObjectSchemas } from "../../../shared/contracts/mergeObjectSchemas.js";
+import { mergeValidators } from "../../../shared/contracts/mergeValidators.js";
 import { RouteDefinitionError } from "./errors.js";
 
 const ROUTE_CONTRACT_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeContract");
@@ -19,7 +19,7 @@ function resolveRouteLabel({ method = "", path = "" } = {}) {
   return `${normalizedMethod} ${normalizedPath}`;
 }
 
-function normalizeSingleRouteContractPart(value, { context = "route contract part" } = {}) {
+function normalizeSingleRouteValidator(value, { context = "route validator" } = {}) {
   if (value == null) {
     return Object.freeze({});
   }
@@ -47,37 +47,17 @@ function normalizeSingleRouteContractPart(value, { context = "route contract par
   return Object.freeze(normalized);
 }
 
-function mergeNormalizedRouteContractParts(parts, { context = "route contract part" } = {}) {
-  const normalized = {};
-  const schemas = [];
-  const normalizers = [];
-
-  for (const part of parts) {
-    if (Object.prototype.hasOwnProperty.call(part, "schema")) {
-      schemas.push(part.schema);
+function mergeNormalizedRouteValidators(validators, { context = "route validator" } = {}) {
+  return mergeValidators(validators, {
+    context,
+    allowAsyncNormalize: false,
+    createError(message) {
+      return new RouteDefinitionError(message);
     }
-    if (typeof part.normalize === "function") {
-      normalizers.push(part.normalize);
-    }
-  }
-
-  if (schemas.length === 1) {
-    normalized.schema = schemas[0];
-  } else if (schemas.length > 1) {
-    normalized.schema = mergeObjectSchemas(schemas);
-  }
-
-  if (normalizers.length > 1) {
-    throw new RouteDefinitionError(`${context} cannot define multiple normalize functions when using an array.`);
-  }
-  if (normalizers.length === 1) {
-    normalized.normalize = normalizers[0];
-  }
-
-  return Object.freeze(normalized);
+  });
 }
 
-function normalizeRouteContractPart(value, { context = "route contract part", allowArray = false } = {}) {
+function normalizeRouteValidator(value, { context = "route validator", allowArray = false } = {}) {
   if (value == null) {
     return Object.freeze({});
   }
@@ -91,27 +71,27 @@ function normalizeRouteContractPart(value, { context = "route contract part", al
       return Object.freeze({});
     }
 
-    const parts = value.map((entry, index) => {
-      const part = normalizeSingleRouteContractPart(entry, {
+    const validators = value.map((entry, index) => {
+      const validator = normalizeSingleRouteValidator(entry, {
         context: `${context}[${index}]`
       });
 
       if (
-        !Object.prototype.hasOwnProperty.call(part, "schema") &&
-        !Object.prototype.hasOwnProperty.call(part, "normalize")
+        !Object.prototype.hasOwnProperty.call(validator, "schema") &&
+        !Object.prototype.hasOwnProperty.call(validator, "normalize")
       ) {
         throw new RouteDefinitionError(`${context}[${index}] must define schema and/or normalize.`);
       }
 
-      return part;
+      return validator;
     });
 
-    return mergeNormalizedRouteContractParts(parts, {
+    return mergeNormalizedRouteValidators(validators, {
       context
     });
   }
 
-  return normalizeSingleRouteContractPart(value, {
+  return normalizeSingleRouteValidator(value, {
     context
   });
 }
@@ -268,14 +248,14 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
   const meta = normalizeRouteContractMeta(definition.meta, {
     context
   });
-  const body = normalizeRouteContractPart(definition.body, {
+  const body = normalizeRouteValidator(definition.body, {
     context: `${context}.body`
   });
-  const query = normalizeRouteContractPart(definition.query, {
+  const query = normalizeRouteValidator(definition.query, {
     context: `${context}.query`,
     allowArray: true
   });
-  const params = normalizeRouteContractPart(definition.params, {
+  const params = normalizeRouteValidator(definition.params, {
     context: `${context}.params`,
     allowArray: true
   });

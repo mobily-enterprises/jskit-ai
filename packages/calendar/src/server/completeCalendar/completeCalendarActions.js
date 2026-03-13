@@ -1,5 +1,5 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { completeCalendarInputPartsValidator } from "./completeCalendarInputPartsValidator.js";
+import { completeCalendarInputValidators } from "./completeCalendarInputValidators.js";
 import { completeCalendarResource } from "../../shared/completeCalendar/completeCalendarResource.js";
 
 const completeCalendarActions = Object.freeze([
@@ -10,7 +10,7 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
-    input: [completeCalendarInputPartsValidator.workspaceParams, completeCalendarInputPartsValidator.weekQuery],
+    input: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarInputValidators.weekQueryValidator],
     output: completeCalendarResource.operations.list.output,
     permission: requireAuthenticated,
     idempotency: "none",
@@ -31,7 +31,7 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
-    input: completeCalendarInputPartsValidator.routeParams,
+    input: completeCalendarInputValidators.routeParamsValidator,
     output: completeCalendarResource.operations.view.output,
     permission: requireAuthenticated,
     idempotency: "none",
@@ -52,7 +52,7 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
-    input: [completeCalendarInputPartsValidator.workspaceParams, completeCalendarResource.operations.create.body],
+    input: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarResource.operations.create.body],
     output: completeCalendarResource.operations.create.output,
     permission: requireAuthenticated,
     idempotency: "optional",
@@ -73,7 +73,7 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
-    input: [completeCalendarInputPartsValidator.routeParams, completeCalendarResource.operations.patch.body],
+    input: [completeCalendarInputValidators.routeParamsValidator, completeCalendarResource.operations.patch.body],
     output: completeCalendarResource.operations.patch.output,
     permission: requireAuthenticated,
     idempotency: "optional",
@@ -95,7 +95,7 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
-    input: completeCalendarInputPartsValidator.routeParams,
+    input: completeCalendarInputValidators.routeParamsValidator,
     output: completeCalendarResource.operations.delete.output,
     permission: requireAuthenticated,
     idempotency: "optional",

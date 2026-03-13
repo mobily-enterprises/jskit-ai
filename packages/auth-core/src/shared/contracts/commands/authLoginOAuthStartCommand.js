@@ -4,7 +4,7 @@ import {
   createCommandMessages,
   oauthProviderSchema,
   oauthReturnToSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLoginOAuthStartParamsSchema = Type.Object(
   {

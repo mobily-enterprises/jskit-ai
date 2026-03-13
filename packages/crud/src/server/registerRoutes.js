@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { inputPartsValidator } from "./inputPartsValidator.js";
+import { inputValidators } from "./inputValidators.js";
 import { createActionIds } from "./actions.js";
 import { crudResource } from "../shared/crud/crudResource.js";
 
@@ -40,8 +40,8 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List records."
       },
-      params: inputPartsValidator.workspaceParams,
-      query: inputPartsValidator.listQuery,
+      params: inputValidators.workspaceParamsValidator,
+      query: inputValidators.listQueryValidator,
       response: withStandardErrorResponses({
         200: crudResource.operations.list.output
       })
@@ -69,7 +69,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "View a record."
       },
-      params: inputPartsValidator.routeParams,
+      params: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
       response: withStandardErrorResponses({
         200: crudResource.operations.view.output
       })
@@ -94,7 +94,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Create a record."
       },
-      params: inputPartsValidator.workspaceParams,
+      params: inputValidators.workspaceParamsValidator,
       body: crudResource.operations.create.body,
       response: withStandardErrorResponses(
         {
@@ -126,7 +126,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Update a record."
       },
-      params: inputPartsValidator.routeParams,
+      params: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
       body: crudResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
@@ -158,7 +158,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Delete a record."
       },
-      params: inputPartsValidator.routeParams,
+      params: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
       response: withStandardErrorResponses({
         200: crudResource.operations.delete.output
       })

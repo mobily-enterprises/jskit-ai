@@ -5,7 +5,7 @@ import {
   authLoginPasswordSchema,
   createCommandMessages,
   loginResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLoginPasswordInputSchema = Type.Object(
   {

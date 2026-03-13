@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { completeCalendarInputPartsValidator } from "./completeCalendarInputPartsValidator.js";
+import { completeCalendarInputValidators } from "./completeCalendarInputValidators.js";
 import { completeCalendarResource } from "../../shared/completeCalendar/completeCalendarResource.js";
 
 function registerCompleteCalendarRoutes(app) {
@@ -20,8 +20,8 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "List calendar events for the selected week."
       },
-      params: completeCalendarInputPartsValidator.workspaceParams,
-      query: completeCalendarInputPartsValidator.weekQuery,
+      params: completeCalendarInputValidators.workspaceParamsValidator,
+      query: completeCalendarInputValidators.weekQueryValidator,
       response: withStandardErrorResponses({
         200: completeCalendarResource.operations.list.output
       })
@@ -49,7 +49,7 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "View a calendar event."
       },
-      params: completeCalendarInputPartsValidator.routeParams,
+      params: completeCalendarInputValidators.routeParamsValidator,
       response: withStandardErrorResponses({
         200: completeCalendarResource.operations.view.output
       })
@@ -74,7 +74,7 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Create a calendar event."
       },
-      params: completeCalendarInputPartsValidator.workspaceParams,
+      params: completeCalendarInputValidators.workspaceParamsValidator,
       body: completeCalendarResource.operations.create.body,
       response: withStandardErrorResponses(
         {
@@ -106,7 +106,7 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Update a calendar event."
       },
-      params: completeCalendarInputPartsValidator.routeParams,
+      params: completeCalendarInputValidators.routeParamsValidator,
       body: completeCalendarResource.operations.patch.body,
       response: withStandardErrorResponses(
         {
@@ -138,7 +138,7 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Delete a calendar event."
       },
-      params: completeCalendarInputPartsValidator.routeParams,
+      params: completeCalendarInputValidators.routeParamsValidator,
       response: withStandardErrorResponses({
         200: completeCalendarResource.operations.delete.output
       })

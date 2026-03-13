@@ -6,7 +6,7 @@ import {
   authRefreshTokenSchema,
   createCommandMessages,
   okResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authPasswordRecoveryCompleteInputSchema = Type.Object(
   {

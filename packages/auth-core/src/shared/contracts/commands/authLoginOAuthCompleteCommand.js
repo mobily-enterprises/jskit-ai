@@ -7,7 +7,7 @@ import {
   createCommandMessages,
   oauthCompleteResponseSchema,
   oauthProviderSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLoginOAuthCompleteInputSchema = Type.Object(
   {

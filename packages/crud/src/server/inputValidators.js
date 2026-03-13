@@ -1,33 +1,13 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  positiveIntegerInputSchema,
+  recordIdParamsValidator,
+  toPositiveInteger
+} from "@jskit-ai/kernel/shared/contracts/recordIdParamsValidator";
 
-const positiveIntegerInputSchema = Type.Union([
-  Type.Integer({ minimum: 1 }),
-  Type.String({ minLength: 1, pattern: "^[1-9][0-9]*$" })
-]);
 const workspaceSlugInputSchema = Type.String({ minLength: 1, maxLength: 120 });
-
-function toPositiveInteger(value) {
-  const normalized = normalizeText(value);
-  const parsed = Number(normalized);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function normalizeRouteParams(input = {}) {
-  const source = normalizeObjectInput(input);
-  const normalized = {};
-
-  if (Object.hasOwn(source, "workspaceSlug")) {
-    normalized.workspaceSlug = normalizeWorkspaceSlug(source.workspaceSlug);
-  }
-
-  if (Object.hasOwn(source, "recordId")) {
-    normalized.recordId = toPositiveInteger(source.recordId);
-  }
-
-  return normalized;
-}
 
 function normalizeWorkspaceSlug(value) {
   return normalizeText(value).toLowerCase();
@@ -59,8 +39,8 @@ function normalizeListQuery(input = {}) {
   return normalized;
 }
 
-const inputPartsValidator = Object.freeze({
-  workspaceParams: Object.freeze({
+const inputValidators = Object.freeze({
+  workspaceParamsValidator: Object.freeze({
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(workspaceSlugInputSchema)
@@ -69,17 +49,8 @@ const inputPartsValidator = Object.freeze({
     ),
     normalize: normalizeWorkspaceParams
   }),
-  routeParams: Object.freeze({
-    schema: Type.Object(
-      {
-        workspaceSlug: Type.Optional(workspaceSlugInputSchema),
-        recordId: Type.Optional(positiveIntegerInputSchema)
-      },
-      { additionalProperties: false }
-    ),
-    normalize: normalizeRouteParams
-  }),
-  listQuery: Object.freeze({
+  recordIdParamsValidator,
+  listQueryValidator: Object.freeze({
     schema: Type.Object(
       {
         cursor: Type.Optional(positiveIntegerInputSchema),
@@ -91,4 +62,4 @@ const inputPartsValidator = Object.freeze({
   })
 });
 
-export { inputPartsValidator };
+export { inputValidators };

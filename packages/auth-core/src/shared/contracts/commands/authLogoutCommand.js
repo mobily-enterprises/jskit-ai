@@ -1,7 +1,7 @@
 import {
   createCommandMessages,
   logoutResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLogoutOutputSchema = logoutResponseSchema;
 

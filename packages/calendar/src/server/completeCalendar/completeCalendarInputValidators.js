@@ -1,18 +1,12 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  positiveIntegerInputSchema,
+  toPositiveInteger
+} from "@jskit-ai/kernel/shared/contracts/recordIdParamsValidator";
 
-const positiveIntegerInputSchema = Type.Union([
-  Type.Integer({ minimum: 1 }),
-  Type.String({ minLength: 1, pattern: "^[1-9][0-9]*$" })
-]);
 const workspaceSlugInputSchema = Type.String({ minLength: 1, maxLength: 120 });
-
-function toPositiveInteger(value) {
-  const normalized = normalizeText(value);
-  const parsed = Number(normalized);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
 
 function normalizeWorkspaceSlug(value) {
   return normalizeText(value).toLowerCase();
@@ -55,8 +49,8 @@ function normalizeWeekQuery(input = {}) {
   return normalized;
 }
 
-const completeCalendarInputPartsValidator = Object.freeze({
-  workspaceParams: Object.freeze({
+const completeCalendarInputValidators = Object.freeze({
+  workspaceParamsValidator: Object.freeze({
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(workspaceSlugInputSchema)
@@ -65,7 +59,7 @@ const completeCalendarInputPartsValidator = Object.freeze({
     ),
     normalize: normalizeWorkspaceParams
   }),
-  routeParams: Object.freeze({
+  routeParamsValidator: Object.freeze({
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(workspaceSlugInputSchema),
@@ -75,7 +69,7 @@ const completeCalendarInputPartsValidator = Object.freeze({
     ),
     normalize: normalizeRouteParams
   }),
-  weekQuery: Object.freeze({
+  weekQueryValidator: Object.freeze({
     schema: Type.Object(
       {
         weekStart: Type.Optional(Type.String({ minLength: 1 })),
@@ -87,4 +81,4 @@ const completeCalendarInputPartsValidator = Object.freeze({
   })
 });
 
-export { completeCalendarInputPartsValidator };
+export { completeCalendarInputValidators };

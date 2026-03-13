@@ -250,39 +250,48 @@ test("compileRouteContract merges params contract arrays automatically", () => {
   });
 });
 
-test("compileRouteContract rejects multiple query normalizers in contract arrays", () => {
-  assert.throws(
-    () =>
-      compileRouteContract({
-        query: [
-          {
-            schema: {
-              type: "object",
-              properties: {
-                cursor: {
-                  type: "string"
-                }
-              },
-              additionalProperties: false
-            },
-            normalize: (query) => query
+test("compileRouteContract composes multiple query normalizers in contract arrays", () => {
+  const compiled = compileRouteContract({
+    query: [
+      {
+        schema: {
+          type: "object",
+          properties: {
+            cursor: {
+              type: "string"
+            }
           },
-          {
-            schema: {
-              type: "object",
-              properties: {
-                search: {
-                  type: "string"
-                }
-              },
-              additionalProperties: false
-            },
-            normalize: (query) => query
-          }
-        ]
-      }),
-    /query cannot define multiple normalize functions when using an array/
-  );
+          additionalProperties: false
+        },
+        normalize(query = {}) {
+          return {
+            cursor: String(query.cursor || "").trim()
+          };
+        }
+      },
+      {
+        schema: {
+          type: "object",
+          properties: {
+            search: {
+              type: "string"
+            }
+          },
+          additionalProperties: false
+        },
+        normalize(query = {}) {
+          return {
+            search: String(query.search || "").trim().toLowerCase()
+          };
+        }
+      }
+    ]
+  });
+
+  assert.deepEqual(compiled.input.query({ cursor: " 100 ", search: " ACME " }), {
+    cursor: "100",
+    search: "acme"
+  });
 });
 
 test("resolveRouteContractOptions ignores legacy schema/input definitions", () => {

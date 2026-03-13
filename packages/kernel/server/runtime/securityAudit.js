@@ -58,10 +58,10 @@ function resolveObjectPayload(value, context) {
   return normalizeObjectPayload(resolvedValue);
 }
 
-function mergeMetadataPayloads(...parts) {
+function mergeMetadataPayloads(...payloads) {
   const merged = {};
-  for (const part of parts) {
-    const payload = normalizeObjectPayload(part);
+  for (const payloadEntry of payloads) {
+    const payload = normalizeObjectPayload(payloadEntry);
     for (const [key, value] of Object.entries(payload)) {
       merged[key] = value;
     }

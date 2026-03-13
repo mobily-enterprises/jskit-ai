@@ -2,7 +2,7 @@ import {
   createCommandMessages,
   sessionResponseSchema,
   sessionUnavailableResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authSessionReadOutputSchema = sessionResponseSchema;
 const authSessionReadUnavailableResponseSchema = sessionUnavailableResponseSchema;

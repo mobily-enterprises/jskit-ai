@@ -5,7 +5,7 @@ import {
   authRecoveryTokenSchema,
   createCommandMessages,
   otpVerifyResponseSchema
-} from "./authCommandSchemaParts.js";
+} from "./authCommandSchemas.js";
 
 const authLoginOtpVerifyInputSchema = Type.Object(
   {

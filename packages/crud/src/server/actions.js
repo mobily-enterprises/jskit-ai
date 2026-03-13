@@ -1,5 +1,5 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { inputPartsValidator } from "./inputPartsValidator.js";
+import { inputValidators } from "./inputValidators.js";
 import { crudResource } from "../shared/crud/crudResource.js";
 
 function createActionIds(actionIdPrefix = "crud") {
@@ -25,7 +25,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputPartsValidator.workspaceParams, inputPartsValidator.listQuery],
+      input: [inputValidators.workspaceParamsValidator, inputValidators.listQueryValidator],
       output: crudResource.operations.list.output,
       permission: requireAuthenticated,
       idempotency: "none",
@@ -46,7 +46,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: inputPartsValidator.routeParams,
+      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
       output: crudResource.operations.view.output,
       permission: requireAuthenticated,
       idempotency: "none",
@@ -67,7 +67,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputPartsValidator.workspaceParams, crudResource.operations.create.body],
+      input: [inputValidators.workspaceParamsValidator, crudResource.operations.create.body],
       output: crudResource.operations.create.output,
       permission: requireAuthenticated,
       idempotency: "optional",
@@ -88,7 +88,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputPartsValidator.routeParams, crudResource.operations.patch.body],
+      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator, crudResource.operations.patch.body],
       output: crudResource.operations.patch.output,
       permission: requireAuthenticated,
       idempotency: "optional",
@@ -110,7 +110,7 @@ function createActions({ actionIdPrefix = "crud" } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: inputPartsValidator.routeParams,
+      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
       output: crudResource.operations.delete.output,
       permission: requireAuthenticated,
       idempotency: "optional",
