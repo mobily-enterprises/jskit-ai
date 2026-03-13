@@ -9,13 +9,13 @@
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
-    "./shared/contracts/errorResponses": "./src/shared/contracts/errorResponses.js",
-    "./shared/contracts/paginationQuery": "./src/shared/contracts/paginationQuery.js",
-    "./shared/contracts/commandSchemaContract": "./src/shared/contracts/commandSchemaContract.js",
-    "./shared/contracts/resourceSchemaContract": "./src/shared/contracts/resourceSchemaContract.js",
-    "./shared/contracts/typeboxFormats": "./src/shared/contracts/typeboxFormats.js",
-    "./shared/contracts/operationMessages": "./src/shared/contracts/operationMessages.js",
-    "./shared/contracts/operationValidation": "./src/shared/contracts/operationValidation.js"
+    "./shared/validators/errorResponses": "./src/shared/validators/errorResponses.js",
+    "./shared/validators/paginationQuery": "./src/shared/validators/paginationQuery.js",
+    "./shared/validators/command": "./src/shared/validators/command.js",
+    "./shared/validators/resource": "./src/shared/validators/resource.js",
+    "./shared/validators/typeboxFormats": "./src/shared/validators/typeboxFormats.js",
+    "./shared/validators/operationMessages": "./src/shared/validators/operationMessages.js",
+    "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

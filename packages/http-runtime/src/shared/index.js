@@ -1,5 +1,5 @@
-export { createPaginationQuerySchema } from "./contracts/paginationQuery.js";
-export { registerTypeBoxFormats, __testables } from "./contracts/typeboxFormats.js";
+export { createPaginationQuerySchema } from "./validators/paginationQuery.js";
+export { registerTypeBoxFormats, __testables } from "./validators/typeboxFormats.js";
 export {
   fieldErrorsSchema,
   apiErrorDetailsSchema,
@@ -10,12 +10,12 @@ export {
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema
-} from "./contracts/errorResponses.js";
+} from "./validators/errorResponses.js";
 export {
   createCursorPagedListResponseSchema,
-  createResourceSchemaContract
-} from "./contracts/resourceSchemaContract.js";
-export { createCommandContract } from "./contracts/commandSchemaContract.js";
+  createResource
+} from "./validators/resource.js";
+export { createCommand } from "./validators/command.js";
 export {
   resolveSchemaMessages,
   resolveFieldSchema,
@@ -23,8 +23,8 @@ export {
   resolveMissingRequiredFields,
   resolveIssueMessageFromSchema,
   mapOperationIssues
-} from "./contracts/operationMessages.js";
+} from "./validators/operationMessages.js";
 export {
   validateOperationSection,
   validateOperationInput
-} from "./contracts/operationValidation.js";
+} from "./validators/operationValidation.js";

@@ -1,6 +1,6 @@
 import {
   definePlacement
-} from "./contracts.js";
+} from "./validators.js";
 
 function createPlacementRegistry({ entries = [] } = {}) {
   const placements = [];

@@ -1,7 +1,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { mdiGoogle } from "@mdi/js";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO

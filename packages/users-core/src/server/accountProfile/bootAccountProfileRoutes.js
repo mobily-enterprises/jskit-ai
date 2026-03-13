@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 

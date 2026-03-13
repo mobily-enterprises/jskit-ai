@@ -9,7 +9,7 @@ import {
   normalizePlacementDefinition,
   normalizePlacementSlot,
   normalizeSurface
-} from "./contracts.js";
+} from "./validators.js";
 
 function ensureArray(value) {
   if (Array.isArray(value)) {

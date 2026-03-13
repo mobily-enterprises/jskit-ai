@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createRouter } from "./router.js";
-import { compileRouteContract, defineRouteContract, resolveRouteContractOptions } from "./routeContract.js";
+import { compileRouteValidator, defineRouteValidator, resolveRouteValidatorOptions } from "./routeValidator.js";
 
-test("defineRouteContract compiles body/query/params and maps query schema to querystring", () => {
+test("defineRouteValidator compiles body/query/params and maps query schema to querystring", () => {
   const bodySchema = {
     type: "object"
   };
@@ -29,7 +29,7 @@ test("defineRouteContract compiles body/query/params and maps query schema to qu
   const normalizeQuery = (query) => query;
   const normalizeParams = (params) => params;
 
-  const contract = defineRouteContract({
+  const validator = defineRouteValidator({
     meta: {
       tags: ["contacts", "intake"],
       summary: "Create contact intake"
@@ -56,7 +56,7 @@ test("defineRouteContract compiles body/query/params and maps query schema to qu
     }
   });
 
-  const compiled = contract.toRouteOptions();
+  const compiled = validator.toRouteOptions();
 
   assert.deepEqual(compiled.schema, {
     tags: ["contacts", "intake"],
@@ -76,7 +76,7 @@ test("defineRouteContract compiles body/query/params and maps query schema to qu
   assert.equal(compiled.input.params, normalizeParams);
 });
 
-test("compileRouteContract accepts plain contract objects", () => {
+test("compileRouteValidator accepts plain validator objects", () => {
   const querySchema = {
     type: "object"
   };
@@ -84,7 +84,7 @@ test("compileRouteContract accepts plain contract objects", () => {
     dryRun: Boolean(query?.dryRun)
   });
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     query: {
       schema: querySchema,
       normalize: normalizeQuery
@@ -97,7 +97,7 @@ test("compileRouteContract accepts plain contract objects", () => {
   assert.equal(compiled.input.query, normalizeQuery);
 });
 
-test("compileRouteContract creates pass-through request.input transforms for schema-only params and query", () => {
+test("compileRouteValidator creates pass-through request.input transforms for schema-only params and query", () => {
   const querySchema = {
     type: "object"
   };
@@ -105,7 +105,7 @@ test("compileRouteContract creates pass-through request.input transforms for sch
     type: "object"
   };
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     query: {
       schema: querySchema
     },
@@ -124,7 +124,7 @@ test("compileRouteContract creates pass-through request.input transforms for sch
   assert.deepEqual(compiled.input.params({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
 });
 
-test("compileRouteContract accepts response contract objects and extracts only response schemas", () => {
+test("compileRouteValidator accepts response validator objects and extracts only response schemas", () => {
   const responseBodySchema = {
     type: "object"
   };
@@ -133,7 +133,7 @@ test("compileRouteContract accepts response contract objects and extracts only r
     normalized: true
   });
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     response: {
       200: {
         schema: responseBodySchema,
@@ -158,7 +158,7 @@ test("compileRouteContract accepts response contract objects and extracts only r
   assert.equal(Object.prototype.hasOwnProperty.call(compiled, "output"), false);
 });
 
-test("compileRouteContract merges query contract arrays automatically", () => {
+test("compileRouteValidator merges query validator arrays automatically", () => {
   const paginationQuery = {
     schema: {
       type: "object",
@@ -182,7 +182,7 @@ test("compileRouteContract merges query contract arrays automatically", () => {
     }
   };
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     query: [paginationQuery, searchQuery]
   });
 
@@ -203,7 +203,7 @@ test("compileRouteContract merges query contract arrays automatically", () => {
   });
 });
 
-test("compileRouteContract merges params contract arrays automatically", () => {
+test("compileRouteValidator merges params validator arrays automatically", () => {
   const workspaceSlugParams = {
     schema: {
       type: "object",
@@ -229,7 +229,7 @@ test("compileRouteContract merges params contract arrays automatically", () => {
     }
   };
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     params: [workspaceSlugParams, inviteIdParams]
   });
 
@@ -250,8 +250,8 @@ test("compileRouteContract merges params contract arrays automatically", () => {
   });
 });
 
-test("compileRouteContract composes multiple query normalizers in contract arrays", () => {
-  const compiled = compileRouteContract({
+test("compileRouteValidator composes multiple query normalizers in validator arrays", () => {
+  const compiled = compileRouteValidator({
     query: [
       {
         schema: {
@@ -294,8 +294,8 @@ test("compileRouteContract composes multiple query normalizers in contract array
   });
 });
 
-test("resolveRouteContractOptions ignores legacy schema/input definitions", () => {
-  const resolved = resolveRouteContractOptions({
+test("resolveRouteValidatorOptions ignores legacy schema/input definitions", () => {
+  const resolved = resolveRouteValidatorOptions({
     method: "POST",
     path: "/contacts",
     options: {
@@ -314,7 +314,7 @@ test("resolveRouteContractOptions ignores legacy schema/input definitions", () =
   assert.deepEqual(resolved.middleware, ["api"]);
 });
 
-test("resolveRouteContractOptions supports inline contract shape without wrapper", () => {
+test("resolveRouteValidatorOptions supports inline validator shape without wrapper", () => {
   const bodySchema = {
     type: "object"
   };
@@ -322,7 +322,7 @@ test("resolveRouteContractOptions supports inline contract shape without wrapper
     name: String(body?.name || "").trim()
   });
 
-  const resolved = resolveRouteContractOptions({
+  const resolved = resolveRouteValidatorOptions({
     method: "POST",
     path: "/contacts",
     options: {
@@ -347,24 +347,24 @@ test("resolveRouteContractOptions supports inline contract shape without wrapper
   assert.deepEqual(resolved.middleware, ["api"]);
 });
 
-test("resolveRouteContractOptions ignores contract wrapper", () => {
-  const resolved = resolveRouteContractOptions({
+test("resolveRouteValidatorOptions ignores validator wrapper", () => {
+  const resolved = resolveRouteValidatorOptions({
     method: "POST",
     path: "/contacts",
     options: {
-      contract: defineRouteContract({}),
+      validator: defineRouteValidator({}),
       middleware: ["api"]
     }
   });
 
-  assert.equal(Object.prototype.hasOwnProperty.call(resolved, "contract"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(resolved, "validator"), false);
   assert.deepEqual(resolved.middleware, ["api"]);
 });
 
-test("defineRouteContract rejects unsupported advanced.jskitInput keys", () => {
+test("defineRouteValidator rejects unsupported advanced.jskitInput keys", () => {
   assert.throws(
     () =>
-      defineRouteContract({
+      defineRouteValidator({
         advanced: {
           jskitInput: {
             headers: () => ({})
@@ -375,10 +375,10 @@ test("defineRouteContract rejects unsupported advanced.jskitInput keys", () => {
   );
 });
 
-test("defineRouteContract validates meta fields", () => {
+test("defineRouteValidator validates meta fields", () => {
   assert.throws(
     () =>
-      defineRouteContract({
+      defineRouteValidator({
         meta: {
           tags: ["ok", ""]
         }
@@ -388,7 +388,7 @@ test("defineRouteContract validates meta fields", () => {
 
   assert.throws(
     () =>
-      defineRouteContract({
+      defineRouteValidator({
         meta: {
           summary: ""
         }
@@ -397,13 +397,13 @@ test("defineRouteContract validates meta fields", () => {
   );
 });
 
-test("HttpRouter.register ignores contract wrapper options", () => {
+test("HttpRouter.register ignores validator wrapper options", () => {
   const router = createRouter();
   router.register(
     "POST",
     "/contacts",
     {
-      contract: defineRouteContract({})
+      validator: defineRouteValidator({})
     },
     async () => {}
   );
@@ -422,7 +422,7 @@ test("HttpRouter.register ignores compiled legacy-style route options", () => {
     dryRun: query?.dryRun === true
   });
 
-  const contract = defineRouteContract({
+  const validator = defineRouteValidator({
     query: {
       schema: querySchema,
       normalize: normalizeQuery
@@ -431,7 +431,7 @@ test("HttpRouter.register ignores compiled legacy-style route options", () => {
 
   router.get(
     "/contacts",
-    contract.toRouteOptions(),
+    validator.toRouteOptions(),
     async () => {}
   );
 
@@ -440,7 +440,7 @@ test("HttpRouter.register ignores compiled legacy-style route options", () => {
   assert.equal(route.input, null);
 });
 
-test("HttpRouter.register accepts inline contract shape directly", () => {
+test("HttpRouter.register accepts inline validator shape directly", () => {
   const router = createRouter();
   const querySchema = {
     type: "object"

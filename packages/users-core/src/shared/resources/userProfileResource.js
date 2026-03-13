@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import {
   createCursorListValidator,
   normalizeObjectInput
-} from "@jskit-ai/kernel/shared/contracts";
+} from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { createOperationMessages } from "../operationMessages.js";
 

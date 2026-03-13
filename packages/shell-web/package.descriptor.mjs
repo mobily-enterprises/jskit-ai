@@ -32,7 +32,7 @@ export default Object.freeze({
         },
         {
           subpath: "./client/placement",
-          summary: "Exports app-owned placement registry helpers, slot contracts, and placement runtime tokens."
+          summary: "Exports app-owned placement registry helpers, slot validators, and placement runtime tokens."
         }
       ],
       containerTokens: {

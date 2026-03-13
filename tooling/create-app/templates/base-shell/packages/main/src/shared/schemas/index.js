@@ -1,5 +1,5 @@
 /**
- * Shared transport contracts live here.
+ * Shared transport validators/resources live here.
  *
  * Example:
  * import { Type } from "@fastify/type-provider-typebox";

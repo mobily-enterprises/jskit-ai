@@ -92,8 +92,8 @@ test("show package --json includes exports, container bindings, and exported sym
   const containerBindings = payload.containerBindings || {};
   const serverBindings = Array.isArray(containerBindings.server) ? containerBindings.server : [];
   const clientBindings = Array.isArray(containerBindings.client) ? containerBindings.client : [];
-  assert.ok(serverBindings.some((record) => record.token === "contracts.http"));
-  assert.ok(clientBindings.some((record) => record.token === "contracts.http.client"));
+  assert.ok(serverBindings.some((record) => record.token === "validators.http"));
+  assert.ok(clientBindings.some((record) => record.token === "validators.http.client"));
 
   assert.ok(Array.isArray(payload.exportedSymbols));
   assert.ok(payload.exportedSymbols.some((record) => record.file === "src/server/index.js"));

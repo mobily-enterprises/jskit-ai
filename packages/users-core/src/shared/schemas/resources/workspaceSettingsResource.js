@@ -3,7 +3,7 @@ import { normalizeText, normalizeLowerText } from "@jskit-ai/kernel/shared/actio
 import {
   normalizeObjectInput,
   createCursorListValidator
-} from "@jskit-ai/kernel/shared/contracts";
+} from "@jskit-ai/kernel/shared/validators";
 import { coerceWorkspaceColor } from "../../settings.js";
 
 function normalizeInput(payload = {}) {

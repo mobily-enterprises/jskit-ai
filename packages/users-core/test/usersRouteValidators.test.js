@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Type } from "@fastify/type-provider-typebox";
-import { compileRouteContract } from "@jskit-ai/kernel/server/http/routeContract";
+import { compileRouteValidator } from "@jskit-ai/kernel/server/http/routeValidator";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
 test("routeParamsValidator exposes a shared route params validator", () => {
@@ -28,7 +28,7 @@ test("route validator pipeline uses the shared params validator and merges query
     )
   });
 
-  const compiled = compileRouteContract({
+  const compiled = compileRouteValidator({
     params: routeParamsValidator,
     query: [paginationQueryValidator, searchQueryValidator]
   });

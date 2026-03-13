@@ -12,7 +12,7 @@ export {
   definePlacement,
   normalizePlacementSlot,
   normalizeSurface
-} from "./contracts.js";
+} from "./validators.js";
 
 export {
   createPlacementRegistry

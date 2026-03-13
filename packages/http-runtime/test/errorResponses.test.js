@@ -8,7 +8,7 @@ import {
   fastifyDefaultErrorResponseSchema,
   enumSchema,
   withStandardErrorResponses
-} from "../src/shared/contracts/errorResponses.js";
+} from "../src/shared/validators/errorResponses.js";
 
 test("withStandardErrorResponses includes standard statuses", () => {
   const success = {

@@ -8,9 +8,9 @@ import { CreateContactIntakeAction } from "../actions/CreateContactIntakeAction.
 import { GetContactByIdAction } from "../actions/GetContactByIdAction.js";
 import { PreviewContactFollowupAction } from "../actions/PreviewContactFollowupAction.js";
 import {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
+  contactByIdGetRouteValidator,
+  contactIntakePostRouteValidator,
+  contactPreviewFollowupPostRouteValidator
 } from "../../shared/schemas/contactSchemas.js";
 
 const CONTACT_REPOSITORY = "local.main.contacts.repository";
@@ -73,18 +73,18 @@ class MainServiceProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(CONTACT_CONTROLLER);
 
-    router.register("POST", "/api/v1/contacts/intake", contactIntakePostRouteContract, (request, reply) =>
+    router.register("POST", "/api/v1/contacts/intake", contactIntakePostRouteValidator, (request, reply) =>
       controller.intake(request, reply)
     );
 
     router.register(
       "POST",
       "/api/v1/contacts/preview-followup",
-      contactPreviewFollowupPostRouteContract,
+      contactPreviewFollowupPostRouteValidator,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
-    router.register("GET", "/api/v1/contacts/:contactId", contactByIdGetRouteContract, (request, reply) =>
+    router.register("GET", "/api/v1/contacts/:contactId", contactByIdGetRouteValidator, (request, reply) =>
       controller.show(request, reply)
     );
   }

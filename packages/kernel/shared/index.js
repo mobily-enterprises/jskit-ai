@@ -10,12 +10,12 @@ export {
 } from "./support/normalize.js";
 export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./support/linkPath.js";
 export { sortStrings, sortById } from "./support/sorting.js";
-export { normalizeObjectInput } from "./contracts/inputNormalization.js";
+export { normalizeObjectInput } from "./validators/inputNormalization.js";
 export {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,
   deriveResourceRequiredMetadata
-} from "./contracts/resourceRequiredMetadata.js";
+} from "./validators/resourceRequiredMetadata.js";
 
 export { createSurfaceRegistry, normalizeSurfaceId } from "./surface/registry.js";
 export { createSurfacePathHelpers } from "./surface/paths.js";

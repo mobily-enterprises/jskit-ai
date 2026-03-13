@@ -58,7 +58,7 @@
 <script setup>
 import { reactive } from "vue";
 import { useRouter } from "vue-router";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
   useRecordsClientContext,

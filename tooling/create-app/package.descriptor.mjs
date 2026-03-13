@@ -80,8 +80,8 @@ export default Object.freeze({
         "to": "base-shell/tests/client/smoke.vitest.js"
       },
       {
-        "from": "templates/base-shell/tests/server/minimalShell.contract.test.js",
-        "to": "base-shell/tests/server/minimalShell.contract.test.js"
+        "from": "templates/base-shell/tests/server/minimalShell.validator.test.js",
+        "to": "base-shell/tests/server/minimalShell.validator.test.js"
       },
       {
         "from": "templates/base-shell/tests/server/smoke.test.js",

@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { createOperationMessages } from "../operationMessages.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { workspaceResource } from "./workspaceResource.js";
 
 const roleCatalogSchema = Type.Object(

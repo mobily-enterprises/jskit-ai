@@ -14,23 +14,23 @@ test("package exports include explicit shared entrypoint", async () => {
 
 test("client entrypoint exports client runtime and client providers only", () => {
   assert.equal(typeof clientApi.createHttpClient, "function");
-  assert.equal(typeof clientApi.HttpContractsClientProvider, "function");
+  assert.equal(typeof clientApi.HttpValidatorsClientProvider, "function");
   assert.equal(typeof clientApi.HttpClientRuntimeClientProvider, "function");
   assert.equal(typeof clientApi.withStandardErrorResponses, "undefined");
 });
 
 test("server entrypoint exports server providers only", () => {
-  assert.equal(typeof serverApi.HttpContractsServiceProvider, "function");
+  assert.equal(typeof serverApi.HttpValidatorsServiceProvider, "function");
   assert.equal(typeof serverApi.HttpClientRuntimeServiceProvider, "function");
   assert.equal(typeof serverApi.createHttpClient, "undefined");
   assert.equal(typeof serverApi.withStandardErrorResponses, "undefined");
 });
 
-test("shared entrypoint exports shared contracts only", () => {
+test("shared entrypoint exports shared validators only", () => {
   assert.equal(typeof sharedApi.withStandardErrorResponses, "function");
   assert.equal(typeof sharedApi.enumSchema, "function");
-  assert.equal(typeof sharedApi.createResourceSchemaContract, "function");
-  assert.equal(typeof sharedApi.createCommandContract, "function");
+  assert.equal(typeof sharedApi.createResource, "function");
+  assert.equal(typeof sharedApi.createCommand, "function");
   assert.equal(typeof sharedApi.createHttpClient, "undefined");
-  assert.equal(typeof sharedApi.HttpContractsServiceProvider, "undefined");
+  assert.equal(typeof sharedApi.HttpValidatorsServiceProvider, "undefined");
 });

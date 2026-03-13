@@ -1,5 +1,5 @@
 export {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
+  contactByIdGetRouteValidator,
+  contactIntakePostRouteValidator,
+  contactPreviewFollowupPostRouteValidator
 } from "./contactSchemas.js";

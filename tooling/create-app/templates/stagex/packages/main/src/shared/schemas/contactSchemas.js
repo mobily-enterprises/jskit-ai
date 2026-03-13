@@ -148,7 +148,7 @@ const contactIntakePreviewResponseSchema = Object.freeze({
   503: contactGenericErrorSchema
 });
 
-const contactIntakePostRouteContract = Object.freeze({
+const contactIntakePostRouteValidator = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Create contact"
@@ -160,7 +160,7 @@ const contactIntakePostRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactPreviewFollowupPostRouteContract = Object.freeze({
+const contactPreviewFollowupPostRouteValidator = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Preview follow-up"
@@ -172,7 +172,7 @@ const contactPreviewFollowupPostRouteContract = Object.freeze({
   response: contactIntakePreviewResponseSchema
 });
 
-const contactByIdGetRouteContract = Object.freeze({
+const contactByIdGetRouteValidator = Object.freeze({
   meta: {
     tags: ["contacts"],
     summary: "Get contact by id"
@@ -185,7 +185,7 @@ const contactByIdGetRouteContract = Object.freeze({
 });
 
 export {
-  contactByIdGetRouteContract,
-  contactIntakePostRouteContract,
-  contactPreviewFollowupPostRouteContract
+  contactByIdGetRouteValidator,
+  contactIntakePostRouteValidator,
+  contactPreviewFollowupPostRouteValidator
 };

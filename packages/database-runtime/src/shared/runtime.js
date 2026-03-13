@@ -2,7 +2,7 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createTransactionManager } from "./transactionManager.js";
 import { DatabaseRuntimeError } from "./runtimeErrors.js";
 
-function ensureContainerContract(app) {
+function ensureContainerInterface(app) {
   if (
     !app ||
     typeof app.instance !== "function" ||
@@ -14,7 +14,7 @@ function ensureContainerContract(app) {
   }
 }
 
-function ensureKnexContract(knex) {
+function ensureKnexInterface(knex) {
   if (!knex || typeof knex.transaction !== "function") {
     throw new DatabaseRuntimeError("registerDatabaseRuntime requires knex with transaction().");
   }
@@ -44,8 +44,8 @@ function ensureTransactionManagerBinding(app) {
 }
 
 function registerDatabaseRuntime(app, { knex } = {}) {
-  ensureContainerContract(app);
-  ensureKnexContract(knex);
+  ensureContainerInterface(app);
+  ensureKnexInterface(knex);
 
   ensureKnexBinding(app, knex);
   ensureTransactionManagerBinding(app);

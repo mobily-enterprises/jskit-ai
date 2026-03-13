@@ -5,7 +5,7 @@ export default Object.freeze({
   "dependsOn": [],
   "capabilities": {
     "provides": [
-      "contracts.http",
+      "validators.http",
       "runtime.http-client"
     ],
     "requires": []
@@ -15,8 +15,8 @@ export default Object.freeze({
       "providerEntrypoint": "src/server/index.js",
       "providers": [
         {
-          "entrypoint": "src/server/providers/HttpContractsServiceProvider.js",
-          "export": "HttpContractsServiceProvider"
+          "entrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
+          "export": "HttpValidatorsServiceProvider"
         },
         {
           "entrypoint": "src/server/providers/HttpClientRuntimeServiceProvider.js",
@@ -27,8 +27,8 @@ export default Object.freeze({
     "client": {
       "providers": [
         {
-          "entrypoint": "src/client/providers/HttpContractsClientProvider.js",
-          "export": "HttpContractsClientProvider"
+          "entrypoint": "src/client/providers/HttpValidatorsClientProvider.js",
+          "export": "HttpValidatorsClientProvider"
         },
         {
           "entrypoint": "src/client/providers/HttpClientRuntimeClientProvider.js",
@@ -46,20 +46,20 @@ export default Object.freeze({
         },
         {
           "subpath": "./server",
-          "summary": "Exports service providers only (HttpContractsServiceProvider, HttpClientRuntimeServiceProvider)."
+          "summary": "Exports service providers only (HttpValidatorsServiceProvider, HttpClientRuntimeServiceProvider)."
         },
         {
           "subpath": "./shared",
-          "summary": "Exports HTTP contract/schema utilities, with structured contract subpaths under ./shared/contracts/*."
+          "summary": "Exports HTTP validator/schema utilities, with structured validator subpaths under ./shared/validators/*."
         }
       ],
       "containerTokens": {
         "server": [
-          "contracts.http",
+          "validators.http",
           "runtime.http-client"
         ],
         "client": [
-          "contracts.http.client",
+          "validators.http.client",
           "runtime.http-client.client"
         ]
       }

@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 

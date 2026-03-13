@@ -5,7 +5,7 @@ import {
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 

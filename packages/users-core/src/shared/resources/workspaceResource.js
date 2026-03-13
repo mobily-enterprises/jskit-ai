@@ -3,7 +3,7 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actio
 import {
   normalizeObjectInput,
   createCursorListValidator
-} from "@jskit-ai/kernel/shared/contracts";
+} from "@jskit-ai/kernel/shared/validators";
 
 function normalizeWorkspaceInput(payload = {}) {
   const source = normalizeObjectInput(payload);

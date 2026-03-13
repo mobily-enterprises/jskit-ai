@@ -1,4 +1,4 @@
-import { mergeValidators } from "../contracts/mergeValidators.js";
+import { mergeValidators } from "../validators/mergeValidators.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -85,7 +85,7 @@ function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false
   return normalized;
 }
 
-function normalizeSingleActionContractPart(value, fieldName, { required = false } = {}) {
+function normalizeSingleActionValidator(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -165,7 +165,7 @@ function normalizeActionValidators(value, fieldName, { required = false } = {}) 
   }
 
   const validators = validatorsSource.map((entry, index) => {
-    const validator = normalizeSingleActionContractPart(entry, `${fieldName}[${index}]`, {
+    const validator = normalizeSingleActionValidator(entry, `${fieldName}[${index}]`, {
       required: true
     });
 
@@ -181,8 +181,8 @@ function normalizeActionValidators(value, fieldName, { required = false } = {}) 
   return mergeNormalizedActionValidators(validators, fieldName);
 }
 
-function normalizeActionValidator(value, fieldName, { required = false } = {}) {
-  return normalizeSingleActionContractPart(value, fieldName, {
+function normalizeActionOutputValidator(value, fieldName, { required = false } = {}) {
+  return normalizeSingleActionValidator(value, fieldName, {
     required
   });
 }
@@ -249,10 +249,10 @@ function normalizeAssistantToolConfig(assistantTool) {
 
   const description = normalizeText(assistantTool.description);
   const input = assistantTool.input;
-  const inputValidator =
+  const assistantToolInputValidator =
     typeof input === "undefined"
       ? null
-      : normalizeSingleActionContractPart(input, "assistantTool.input");
+      : normalizeSingleActionValidator(input, "assistantTool.input");
   if (typeof assistantTool.inputJsonSchema !== "undefined") {
     throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.input.", {
       code: "ACTION_DEFINITION_INVALID"
@@ -261,8 +261,8 @@ function normalizeAssistantToolConfig(assistantTool) {
 
   return Object.freeze({
     description,
-    input: inputValidator,
-    inputJsonSchema: inputValidator?.schema || null
+    input: assistantToolInputValidator,
+    inputJsonSchema: assistantToolInputValidator?.schema || null
   });
 }
 
@@ -340,7 +340,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     input: normalizeActionValidators(source.input, "input", {
       required: true
     }),
-    output: normalizeActionValidator(source.output, "output", {
+    output: normalizeActionOutputValidator(source.output, "output", {
       required: false
     }),
     permission: normalizePermissionPolicy(source.permission),
@@ -393,9 +393,9 @@ const __testables = {
   isPlainObject,
   normalizePositiveInteger,
   normalizeStringArray,
-  normalizeSingleActionContractPart,
+  normalizeSingleActionValidator,
   normalizeActionValidators,
-  normalizeActionValidator,
+  normalizeActionOutputValidator,
   normalizePermissionPolicy,
   normalizeAuditConfig,
   normalizeObservabilityConfig,

@@ -1,9 +1,9 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
-import { mergeValidators } from "../../../shared/contracts/mergeValidators.js";
+import { mergeValidators } from "../../../shared/validators/mergeValidators.js";
 import { RouteDefinitionError } from "./errors.js";
 
-const ROUTE_CONTRACT_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeContract");
-const CONTRACT_OPTION_KEYS = Object.freeze(["meta", "body", "query", "params", "response", "advanced"]);
+const ROUTE_VALIDATOR_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeValidator");
+const VALIDATOR_OPTION_KEYS = Object.freeze(["meta", "body", "query", "params", "response", "advanced"]);
 
 function passThroughInputSection(value) {
   return value;
@@ -96,7 +96,7 @@ function normalizeRouteValidator(value, { context = "route validator", allowArra
   });
 }
 
-function normalizeResponseContractEntry(value, { context = "route contract response entry" } = {}) {
+function normalizeResponseValidatorEntry(value, { context = "route validator response entry" } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new RouteDefinitionError(`${context} must be an object.`);
   }
@@ -105,7 +105,7 @@ function normalizeResponseContractEntry(value, { context = "route contract respo
   const normalized = {};
 
   if (!Object.prototype.hasOwnProperty.call(source, "schema")) {
-    throw new RouteDefinitionError(`${context}.schema is required when using a response contract object.`);
+    throw new RouteDefinitionError(`${context}.schema is required when using a response validator object.`);
   }
   normalized.schema = source.schema;
 
@@ -121,7 +121,7 @@ function normalizeResponseContractEntry(value, { context = "route contract respo
   return Object.freeze(normalized);
 }
 
-function normalizeResponseContractDefinition(value, { context = "route contract.response" } = {}) {
+function normalizeResponseValidatorDefinition(value, { context = "route validator.response" } = {}) {
   if (value == null) {
     return undefined;
   }
@@ -134,7 +134,7 @@ function normalizeResponseContractDefinition(value, { context = "route contract.
   const normalized = {};
 
   for (const [statusCode, entry] of Object.entries(source)) {
-    normalized[statusCode] = normalizeResponseContractEntry(entry, {
+    normalized[statusCode] = normalizeResponseValidatorEntry(entry, {
       context: `${context}.${statusCode}`
     });
   }
@@ -142,7 +142,7 @@ function normalizeResponseContractDefinition(value, { context = "route contract.
   return Object.freeze(normalized);
 }
 
-function normalizeAdvancedFastifySchema(value, { context = "route contract" } = {}) {
+function normalizeAdvancedFastifySchema(value, { context = "route validator" } = {}) {
   if (!Object.prototype.hasOwnProperty.call(value, "fastifySchema")) {
     return undefined;
   }
@@ -157,7 +157,7 @@ function normalizeAdvancedFastifySchema(value, { context = "route contract" } = 
   });
 }
 
-function normalizeAdvancedJskitInput(value, { context = "route contract" } = {}) {
+function normalizeAdvancedJskitInput(value, { context = "route validator" } = {}) {
   if (!Object.prototype.hasOwnProperty.call(value, "jskitInput")) {
     return undefined;
   }
@@ -197,7 +197,7 @@ function normalizeAdvancedJskitInput(value, { context = "route contract" } = {})
   return Object.freeze(normalized);
 }
 
-function normalizeRouteContractMeta(value, { context = "route contract" } = {}) {
+function normalizeRouteValidatorMeta(value, { context = "route validator" } = {}) {
   if (value == null) {
     return Object.freeze({});
   }
@@ -235,7 +235,7 @@ function normalizeRouteContractMeta(value, { context = "route contract" } = {}) 
   return Object.freeze(normalized);
 }
 
-function normalizeRouteContractDefinition(sourceDefinition, { context = "route contract" } = {}) {
+function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {}) {
   const definition =
     sourceDefinition && typeof sourceDefinition === "object" && !Array.isArray(sourceDefinition)
       ? normalizeObject(sourceDefinition)
@@ -245,7 +245,7 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
     throw new RouteDefinitionError(`${context} must be an object.`);
   }
 
-  const meta = normalizeRouteContractMeta(definition.meta, {
+  const meta = normalizeRouteValidatorMeta(definition.meta, {
     context
   });
   const body = normalizeRouteValidator(definition.body, {
@@ -279,7 +279,7 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
   };
 
   if (Object.prototype.hasOwnProperty.call(definition, "response")) {
-    normalized.response = normalizeResponseContractDefinition(definition.response, {
+    normalized.response = normalizeResponseValidatorDefinition(definition.response, {
       context: `${context}.response`
     });
   }
@@ -301,54 +301,54 @@ function normalizeRouteContractDefinition(sourceDefinition, { context = "route c
   return Object.freeze(normalized);
 }
 
-function compileNormalizedRouteContract(normalizedContract) {
+function compileNormalizedRouteValidator(normalizedValidator) {
   const schema = {};
   const input = {};
 
-  if (Array.isArray(normalizedContract.meta?.tags) && normalizedContract.meta.tags.length > 0) {
-    schema.tags = [...normalizedContract.meta.tags];
+  if (Array.isArray(normalizedValidator.meta?.tags) && normalizedValidator.meta.tags.length > 0) {
+    schema.tags = [...normalizedValidator.meta.tags];
   }
-  if (normalizedContract.meta?.summary) {
-    schema.summary = normalizedContract.meta.summary;
+  if (normalizedValidator.meta?.summary) {
+    schema.summary = normalizedValidator.meta.summary;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedContract.body, "schema")) {
-    schema.body = normalizedContract.body.schema;
-    input.body = typeof normalizedContract.body.normalize === "function"
-      ? normalizedContract.body.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.body, "schema")) {
+    schema.body = normalizedValidator.body.schema;
+    input.body = typeof normalizedValidator.body.normalize === "function"
+      ? normalizedValidator.body.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedContract.query, "schema")) {
-    schema.querystring = normalizedContract.query.schema;
-    input.query = typeof normalizedContract.query.normalize === "function"
-      ? normalizedContract.query.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.query, "schema")) {
+    schema.querystring = normalizedValidator.query.schema;
+    input.query = typeof normalizedValidator.query.normalize === "function"
+      ? normalizedValidator.query.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedContract.params, "schema")) {
-    schema.params = normalizedContract.params.schema;
-    input.params = typeof normalizedContract.params.normalize === "function"
-      ? normalizedContract.params.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.params, "schema")) {
+    schema.params = normalizedValidator.params.schema;
+    input.params = typeof normalizedValidator.params.normalize === "function"
+      ? normalizedValidator.params.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedContract, "response")) {
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator, "response")) {
     const responseSchema = {};
 
-    for (const [statusCode, entry] of Object.entries(normalizedContract.response || {})) {
+    for (const [statusCode, entry] of Object.entries(normalizedValidator.response || {})) {
       responseSchema[statusCode] = entry.schema;
     }
 
     schema.response = responseSchema;
   }
 
-  if (normalizedContract.fastifySchema) {
-    Object.assign(schema, normalizedContract.fastifySchema);
+  if (normalizedValidator.fastifySchema) {
+    Object.assign(schema, normalizedValidator.fastifySchema);
   }
 
-  if (normalizedContract.jskitInput) {
-    Object.assign(input, normalizedContract.jskitInput);
+  if (normalizedValidator.jskitInput) {
+    Object.assign(input, normalizedValidator.jskitInput);
   }
 
   const compiled = {};
@@ -366,49 +366,49 @@ function compileNormalizedRouteContract(normalizedContract) {
   return Object.freeze(compiled);
 }
 
-function normalizeRouteContractSource(contract, { context = "route contract" } = {}) {
-  if (contract && typeof contract === "object") {
-    const precompiled = contract[ROUTE_CONTRACT_SYMBOL];
+function normalizeRouteValidatorSource(validator, { context = "route validator" } = {}) {
+  if (validator && typeof validator === "object") {
+    const precompiled = validator[ROUTE_VALIDATOR_SYMBOL];
     if (precompiled && typeof precompiled === "object") {
       return precompiled;
     }
   }
 
-  return normalizeRouteContractDefinition(contract, {
+  return normalizeRouteValidatorDefinition(validator, {
     context
   });
 }
 
-function compileRouteContract(contract, { context = "route contract" } = {}) {
-  return compileNormalizedRouteContract(
-    normalizeRouteContractSource(contract, {
+function compileRouteValidator(validator, { context = "route validator" } = {}) {
+  return compileNormalizedRouteValidator(
+    normalizeRouteValidatorSource(validator, {
       context
     })
   );
 }
 
-function defineRouteContract(definition = {}) {
-  const normalized = normalizeRouteContractDefinition(definition, {
-    context: "defineRouteContract()"
+function defineRouteValidator(definition = {}) {
+  const normalized = normalizeRouteValidatorDefinition(definition, {
+    context: "defineRouteValidator()"
   });
 
-  const contract = {
+  const validator = {
     toRouteOptions() {
-      return compileNormalizedRouteContract(normalized);
+      return compileNormalizedRouteValidator(normalized);
     }
   };
 
-  Object.defineProperty(contract, ROUTE_CONTRACT_SYMBOL, {
+  Object.defineProperty(validator, ROUTE_VALIDATOR_SYMBOL, {
     value: normalized,
     enumerable: false,
     configurable: false,
     writable: false
   });
 
-  return Object.freeze(contract);
+  return Object.freeze(validator);
 }
 
-function resolveRouteContractOptions({
+function resolveRouteValidatorOptions({
   method = "",
   path = "",
   options = {}
@@ -422,31 +422,31 @@ function resolveRouteContractOptions({
     path
   });
 
-  const hasInlineContractShape = CONTRACT_OPTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(normalizedOptions, key));
+  const hasInlineValidatorShape = VALIDATOR_OPTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(normalizedOptions, key));
 
   const remainingOptions = {
     ...normalizedOptions
   };
   delete remainingOptions.schema;
   delete remainingOptions.input;
-  delete remainingOptions.contract;
+  delete remainingOptions.validator;
 
-  if (!hasInlineContractShape) {
+  if (!hasInlineValidatorShape) {
     return remainingOptions;
   }
 
-  const inlineContract = {};
-  for (const key of CONTRACT_OPTION_KEYS) {
+  const inlineValidator = {};
+  for (const key of VALIDATOR_OPTION_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(normalizedOptions, key)) {
       continue;
     }
 
-    inlineContract[key] = normalizedOptions[key];
+    inlineValidator[key] = normalizedOptions[key];
     delete remainingOptions[key];
   }
 
-  const compiled = compileRouteContract(inlineContract, {
-    context: `Route ${routeLabel} contract`
+  const compiled = compileRouteValidator(inlineValidator, {
+    context: `Route ${routeLabel} validator`
   });
 
   return {
@@ -455,4 +455,4 @@ function resolveRouteContractOptions({
   };
 }
 
-export { defineRouteContract, compileRouteContract, resolveRouteContractOptions };
+export { defineRouteValidator, compileRouteValidator, resolveRouteValidatorOptions };

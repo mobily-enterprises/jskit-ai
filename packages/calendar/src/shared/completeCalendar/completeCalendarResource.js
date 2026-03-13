@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const CALENDAR_EVENT_STATUSES = Object.freeze(["scheduled", "completed", "cancelled"]);

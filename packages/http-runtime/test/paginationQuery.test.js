@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createPaginationQuerySchema } from "../src/shared/contracts/paginationQuery.js";
+import { createPaginationQuerySchema } from "../src/shared/validators/paginationQuery.js";
 
 test("createPaginationQuerySchema uses expected defaults", () => {
   const schema = createPaginationQuerySchema();

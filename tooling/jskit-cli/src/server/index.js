@@ -1912,7 +1912,7 @@ function createLocalPackageDescriptorTemplate({ packageId, description }) {
         // {
         //   method: "GET",
         //   path: "/api/example",
-        //   summary: "Describe server route contract"
+        //   summary: "Describe server route validator"
         // }
       ]
     },

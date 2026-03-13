@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import {
   normalizeObjectInput,
   createCursorListValidator
-} from "@jskit-ai/kernel/shared/contracts";
+} from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeRecordInput(payload = {}) {

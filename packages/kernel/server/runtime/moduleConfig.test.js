@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { ModuleConfigError, defineModuleConfig } from "./moduleConfig.js";
 
 test("defineModuleConfig resolves valid config and freezes nested objects", () => {
-  const contract = defineModuleConfig({
+  const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
     schema: Type.Object(
       {
@@ -28,7 +28,7 @@ test("defineModuleConfig resolves valid config and freezes nested objects", () =
     }
   });
 
-  const config = contract.resolve({
+  const config = moduleConfig.resolve({
     env: {
       CONTACTS_MODE: "strict",
       CONTACTS_MAX: "1000",
@@ -44,7 +44,7 @@ test("defineModuleConfig resolves valid config and freezes nested objects", () =
 });
 
 test("defineModuleConfig reports schema validation issues with module-scoped details", () => {
-  const contract = defineModuleConfig({
+  const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
     schema: Type.Object(
       {
@@ -55,7 +55,7 @@ test("defineModuleConfig reports schema validation issues with module-scoped det
   });
 
   assert.throws(
-    () => contract.resolve({ raw: { maxContacts: 0, unexpected: true } }),
+    () => moduleConfig.resolve({ raw: { maxContacts: 0, unexpected: true } }),
     (error) => {
       assert.equal(error instanceof ModuleConfigError, true);
       assert.equal(error.moduleId, "contacts");
@@ -67,7 +67,7 @@ test("defineModuleConfig reports schema validation issues with module-scoped det
 });
 
 test("defineModuleConfig supports coercion via TypeBox Parse", () => {
-  const contract = defineModuleConfig({
+  const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
     coerce: true,
     schema: Type.Object({
@@ -76,7 +76,7 @@ test("defineModuleConfig supports coercion via TypeBox Parse", () => {
     })
   });
 
-  const config = contract.resolve({
+  const config = moduleConfig.resolve({
     raw: {
       maxContacts: "42",
       enabled: "true"
@@ -88,7 +88,7 @@ test("defineModuleConfig supports coercion via TypeBox Parse", () => {
 });
 
 test("defineModuleConfig supports custom cross-field validate hook", () => {
-  const contract = defineModuleConfig({
+  const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
     schema: Type.Object({
       mode: Type.Union([Type.Literal("standard"), Type.Literal("strict")]),
@@ -109,7 +109,7 @@ test("defineModuleConfig supports custom cross-field validate hook", () => {
 
   assert.throws(
     () =>
-      contract.resolve({
+      moduleConfig.resolve({
         raw: {
           mode: "strict",
           requireAuditTrail: false
@@ -119,7 +119,7 @@ test("defineModuleConfig supports custom cross-field validate hook", () => {
   );
 });
 
-test("defineModuleConfig rejects invalid contract definitions", () => {
+test("defineModuleConfig rejects invalid module config definitions", () => {
   assert.throws(() => defineModuleConfig({}), /moduleId/);
   assert.throws(
     () =>

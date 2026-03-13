@@ -1,6 +1,6 @@
 import { toInsertDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 
 function toUtcIsoFromDatabaseDateTime(value) {

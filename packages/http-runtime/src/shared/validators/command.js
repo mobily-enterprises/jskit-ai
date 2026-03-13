@@ -18,23 +18,23 @@ function normalizeInvalidates(value) {
   return Object.freeze(Array.from(new Set(normalized)));
 }
 
-function createCommandContract({
+function createCommand({
   input,
   output,
   idempotent = null,
   invalidates = []
 } = {}) {
-  const contract = {
+  const command = {
     input: asSchema(input, "input"),
     output: asSchema(output, "output"),
     invalidates: normalizeInvalidates(invalidates)
   };
 
   if (typeof idempotent === "boolean") {
-    contract.idempotent = idempotent;
+    command.idempotent = idempotent;
   }
 
-  return Object.freeze(contract);
+  return Object.freeze(command);
 }
 
-export { createCommandContract };
+export { createCommand };

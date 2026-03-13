@@ -3,7 +3,7 @@ import test from "node:test";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/contracts/resourceRequiredMetadata";
+import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/shared/validators/resourceRequiredMetadata";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";

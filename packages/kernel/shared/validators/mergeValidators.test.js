@@ -48,7 +48,7 @@ test("mergeValidators merges schemas and sync normalizers", () => {
   });
 });
 
-test("mergeValidators merges async normalizers for action contracts", async () => {
+test("mergeValidators merges async normalizers for action validators", async () => {
   const merged = mergeValidators(
     [
       {

@@ -3,7 +3,7 @@ import {
   nowDb,
   isDuplicateEntryError
 } from "../common/repositories/repositoryUtils.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 
 function createRepository(knex, { defaultInvitesEnabled } = {}) {

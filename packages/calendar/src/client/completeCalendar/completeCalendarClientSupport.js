@@ -1,4 +1,4 @@
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeQueryToken, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";

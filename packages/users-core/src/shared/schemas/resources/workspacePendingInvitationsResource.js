@@ -2,7 +2,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { createOperationMessages } from "../../operationMessages.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 
 function normalizePendingInvite(invite) {
   const id = Number(invite?.id);

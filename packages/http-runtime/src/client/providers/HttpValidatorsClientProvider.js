@@ -1,5 +1,5 @@
-import { createPaginationQuerySchema } from "../../shared/contracts/paginationQuery.js";
-import { registerTypeBoxFormats, __testables } from "../../shared/contracts/typeboxFormats.js";
+import { createPaginationQuerySchema } from "../../shared/validators/paginationQuery.js";
+import { registerTypeBoxFormats, __testables } from "../../shared/validators/typeboxFormats.js";
 import {
   fieldErrorsSchema,
   apiErrorDetailsSchema,
@@ -10,12 +10,12 @@ import {
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema
-} from "../../shared/contracts/errorResponses.js";
+} from "../../shared/validators/errorResponses.js";
 import {
   createCursorPagedListResponseSchema,
-  createResourceSchemaContract
-} from "../../shared/contracts/resourceSchemaContract.js";
-import { createCommandContract } from "../../shared/contracts/commandSchemaContract.js";
+  createResource
+} from "../../shared/validators/resource.js";
+import { createCommand } from "../../shared/validators/command.js";
 import {
   resolveSchemaMessages,
   resolveFieldSchema,
@@ -23,13 +23,13 @@ import {
   resolveMissingRequiredFields,
   resolveIssueMessageFromSchema,
   mapOperationIssues
-} from "../../shared/contracts/operationMessages.js";
+} from "../../shared/validators/operationMessages.js";
 import {
   validateOperationSection,
   validateOperationInput
-} from "../../shared/contracts/operationValidation.js";
+} from "../../shared/validators/operationValidation.js";
 
-const HTTP_CONTRACTS_API = Object.freeze({
+const HTTP_VALIDATORS_CLIENT_API = Object.freeze({
   createPaginationQuerySchema,
   registerTypeBoxFormats,
   __testables,
@@ -43,8 +43,8 @@ const HTTP_CONTRACTS_API = Object.freeze({
   withStandardErrorResponses,
   enumSchema,
   createCursorPagedListResponseSchema,
-  createResourceSchemaContract,
-  createCommandContract,
+  createResource,
+  createCommand,
   resolveSchemaMessages,
   resolveFieldSchema,
   resolveIssueField,
@@ -55,18 +55,18 @@ const HTTP_CONTRACTS_API = Object.freeze({
   validateOperationInput
 });
 
-class HttpContractsServiceProvider {
-  static id = "contracts.http";
+class HttpValidatorsClientProvider {
+  static id = "validators.http.client";
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {
-      throw new Error("HttpContractsServiceProvider requires application singleton().");
+      throw new Error("HttpValidatorsClientProvider requires application singleton().");
     }
 
-    app.singleton("contracts.http", () => HTTP_CONTRACTS_API);
+    app.singleton("validators.http.client", () => HTTP_VALIDATORS_CLIENT_API);
   }
 
   boot() {}
 }
 
-export { HttpContractsServiceProvider };
+export { HttpValidatorsClientProvider };

@@ -92,7 +92,7 @@
 
 <script setup>
 import { reactive } from "vue";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/contracts/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsResource";
 import { useAddEdit } from "../composables/useAddEdit.js";

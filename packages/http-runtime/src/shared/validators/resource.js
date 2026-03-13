@@ -18,7 +18,7 @@ function createCursorPagedListResponseSchema(itemSchema) {
   );
 }
 
-function createResourceSchemaContract({
+function createResource({
   record,
   create,
   replace,
@@ -45,5 +45,5 @@ function createResourceSchemaContract({
 
 export {
   createCursorPagedListResponseSchema,
-  createResourceSchemaContract
+  createResource
 };

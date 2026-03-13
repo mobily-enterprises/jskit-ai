@@ -4,7 +4,7 @@ import { Type } from "@fastify/type-provider-typebox";
 import {
   validateOperationInput,
   validateOperationSection
-} from "../src/shared/contracts/operationValidation.js";
+} from "../src/shared/validators/operationValidation.js";
 
 const patchSchema = Type.Object(
   {

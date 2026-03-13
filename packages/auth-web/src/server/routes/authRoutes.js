@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
 import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";

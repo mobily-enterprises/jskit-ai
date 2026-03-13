@@ -22,7 +22,7 @@ test("function schema returns normalized value when ok", async () => {
   assert.deepEqual(result, { normalized: true });
 });
 
-test("function schema rejects non-contract results", async () => {
+test("function schema rejects non-validator results", async () => {
   const definition = {
     id: "tests.invalid",
     version: 1,

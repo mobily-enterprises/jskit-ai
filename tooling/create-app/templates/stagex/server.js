@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
-import { registerTypeBoxFormats } from "@jskit-ai/http-runtime/shared/contracts/typeboxFormats";
+import { registerTypeBoxFormats } from "@jskit-ai/http-runtime/shared/validators/typeboxFormats";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 import path from "node:path";
 import {

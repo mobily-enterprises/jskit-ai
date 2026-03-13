@@ -3,7 +3,7 @@ import { createOperationMessages } from "../operationMessages.js";
 import {
   createCursorListValidator,
   normalizeObjectInput
-} from "@jskit-ai/kernel/shared/contracts";
+} from "@jskit-ai/kernel/shared/validators";
 
 const consoleSettingsValueSchema = Type.Object(
   {

@@ -138,7 +138,7 @@ function normalizeSchemaValidationErrors(schema) {
   return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
 }
 
-function buildSchemaContractError({ phase, definition } = {}) {
+function buildSchemaValidatorError({ phase, definition } = {}) {
   return createActionRuntimeError(400, "Validation failed.", {
     code: "ACTION_VALIDATION_FAILED",
     details: {
@@ -163,7 +163,7 @@ function normalizeTypeBoxValidationErrors(schema, payload) {
 
 function normalizeFunctionSchemaResult(result, payload, { phase, definition } = {}) {
   if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
-    throw buildSchemaContractError({ phase, definition });
+    throw buildSchemaValidatorError({ phase, definition });
   }
 
   if (result.ok) {
@@ -195,16 +195,16 @@ function normalizeFunctionSchemaResult(result, payload, { phase, definition } = 
   });
 }
 
-async function normalizeContractPayload(contract, payload, { phase, definition, context }) {
-  if (!contract || typeof contract !== "object") {
+async function normalizeValidatorPayload(validator, payload, { phase, definition, context }) {
+  if (!validator || typeof validator !== "object") {
     return payload;
   }
 
-  if (typeof contract.normalize !== "function") {
+  if (typeof validator.normalize !== "function") {
     return payload;
   }
 
-  return await contract.normalize(payload, {
+  return await validator.normalize(payload, {
     phase,
     actionId: definition?.id,
     version: definition?.version,
@@ -227,7 +227,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
   }
 
   if (typeof schema !== "object" || Array.isArray(schema)) {
-    throw buildSchemaContractError({ phase, definition });
+    throw buildSchemaValidatorError({ phase, definition });
   }
 
   if (typeof schema.parse === "function") {
@@ -277,7 +277,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
 
 async function normalizeActionInput(definition, input, context) {
   try {
-    const normalizedInput = await normalizeContractPayload(definition?.input, input, {
+    const normalizedInput = await normalizeValidatorPayload(definition?.input, input, {
       phase: "input",
       definition,
       context
@@ -309,7 +309,7 @@ async function normalizeActionOutput(definition, output, context) {
   }
 
   try {
-    const normalizedOutput = await normalizeContractPayload(definition.output, output, {
+    const normalizedOutput = await normalizeValidatorPayload(definition.output, output, {
       phase: "output",
       definition,
       context
@@ -345,7 +345,7 @@ const __testables = {
   defaultHasPermission,
   normalizeSchemaValidationErrors,
   normalizeTypeBoxValidationErrors,
-  normalizeContractPayload,
+  normalizeValidatorPayload,
   validateSchemaPayload
 };
 

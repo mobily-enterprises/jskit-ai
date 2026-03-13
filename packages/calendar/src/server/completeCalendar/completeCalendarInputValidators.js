@@ -1,7 +1,7 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { positiveIntegerValidator } from "@jskit-ai/kernel/shared/contracts/recordIdParamsValidator";
+import { positiveIntegerValidator } from "@jskit-ai/kernel/shared/validators/recordIdParamsValidator";
 
 const workspaceSlugInputSchema = Type.String({ minLength: 1, maxLength: 120 });
 

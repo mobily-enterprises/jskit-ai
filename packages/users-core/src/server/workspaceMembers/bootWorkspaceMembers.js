@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/contracts/errorResponses";
+import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceMembersResource } from "../../shared/schemas/resources/workspaceMembersResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";

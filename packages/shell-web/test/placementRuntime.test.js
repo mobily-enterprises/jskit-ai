@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { definePlacement } from "../src/client/placement/contracts.js";
+import { definePlacement } from "../src/client/placement/validators.js";
 import { createWebPlacementRuntime } from "../src/client/placement/runtime.js";
 
 function createAppStub({ tokens = {}, contextContributors = [] } = {}) {

@@ -1,6 +1,6 @@
 import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
-import { resolveRouteContractOptions } from "./routeContract.js";
+import { resolveRouteValidatorOptions } from "./routeValidator.js";
 
 function normalizeMethod(method) {
   return ensureNonEmptyText(method, "route method").toUpperCase();
@@ -78,7 +78,7 @@ class HttpRouter {
 
   register(method, path, optionsOrHandler, maybeHandler) {
     const input = normalizeRouteInput(method, path, optionsOrHandler, maybeHandler);
-    const resolvedOptions = resolveRouteContractOptions({
+    const resolvedOptions = resolveRouteValidatorOptions({
       method: input.method,
       path: input.path,
       options: input.options

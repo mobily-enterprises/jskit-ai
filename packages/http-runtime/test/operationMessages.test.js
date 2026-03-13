@@ -8,7 +8,7 @@ import {
   resolveIssueField,
   resolveMissingRequiredFields,
   resolveSchemaMessages
-} from "../src/shared/contracts/operationMessages.js";
+} from "../src/shared/validators/operationMessages.js";
 
 const sampleSchema = Type.Object(
   {

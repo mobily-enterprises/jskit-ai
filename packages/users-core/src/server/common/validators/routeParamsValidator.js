@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/contracts/inputNormalization";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeRouteParams(input = {}) {

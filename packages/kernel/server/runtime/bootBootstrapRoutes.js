@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { normalizeLowerText } from "../../shared/actions/textNormalization.js";
-import { normalizeObjectInput } from "../../shared/contracts/inputNormalization.js";
+import { normalizeObjectInput } from "../../shared/validators/inputNormalization.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { resolveBootstrapPayload } from "./bootstrapContributors.js";
 
