@@ -1,3 +1,4 @@
+import { normalizeObject } from "../../shared/support/normalize.js";
 const BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.bootstrap.payloadContributors");
 
 function normalizeContributorList(value) {
@@ -36,14 +37,6 @@ function normalizeBootstrapPayloadContributor(entry) {
   }
 
   return null;
-}
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
 }
 
 function registerBootstrapPayloadContributor(app, token, factory) {

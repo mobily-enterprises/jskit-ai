@@ -1,12 +1,9 @@
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createService as createConsoleSettingsService } from "./consoleSettingsService.js";
 import { consoleSettingsActions } from "./consoleSettingsActions.js";
 
-const USERS_CONSOLE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.console.settings.actionDefinitions";
-
 function registerConsoleSettings(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerConsoleSettings requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerConsoleSettings requires application singleton()/actions().");
   }
 
   app.singleton("users.console.settings.service", (scope) => {
@@ -15,7 +12,7 @@ function registerConsoleSettings(app) {
     });
   });
 
-  registerActionDefinitions(app, USERS_CONSOLE_SETTINGS_ACTION_DEFINITIONS_TOKEN, {
+  app.actions({
     contributorId: "users.console-settings",
     domain: "console",
     dependencies: {

@@ -55,10 +55,10 @@
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import {
-  useRecordsClientContext
+  useCrudClientContext
 } from "./clientSupport.js";
 
-const crudContext = useRecordsClientContext();
+const crudContext = useCrudClientContext();
 const crudConfig = crudContext.crudConfig;
 const createPath = crudContext.createPath;
 

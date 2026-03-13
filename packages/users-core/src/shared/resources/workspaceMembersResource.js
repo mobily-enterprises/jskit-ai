@@ -1,8 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-import { createOperationMessages } from "../../operationMessages.js";
-import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../../roles.js";
+import { createOperationMessages } from "../operationMessages.js";
+import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../roles.js";
 
 function toPositiveInteger(value) {
   const numeric = Number(value);

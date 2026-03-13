@@ -8,15 +8,46 @@
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JSKIT_REPO_ROOT="${JSKIT_REPO_ROOT:-$HOME/Development/current/jskit-ai}"
 SCOPE_DIR="$APP_ROOT/node_modules/@jskit-ai"
+
+is_valid_jskit_repo_root() {
+  local candidate_root="$1"
+  [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
+}
+
+resolve_local_repo_root() {
+  if [[ -n "${JSKIT_REPO_ROOT:-}" ]]; then
+    echo "$JSKIT_REPO_ROOT"
+    return 0
+  fi
+
+  local current_dir="$APP_ROOT"
+  while true; do
+    if is_valid_jskit_repo_root "$current_dir"; then
+      echo "$current_dir"
+      return 0
+    fi
+    if [[ "$current_dir" == "/" ]]; then
+      return 1
+    fi
+    current_dir="$(dirname "$current_dir")"
+  done
+}
+
+JSKIT_REPO_ROOT="$(resolve_local_repo_root || true)"
 
 if [[ ! -d "$SCOPE_DIR" ]]; then
   echo "[link-local] @jskit-ai scope not found at $SCOPE_DIR (run npm install first)." >&2
   exit 1
 fi
 
-if [[ ! -d "$JSKIT_REPO_ROOT/packages" || ! -d "$JSKIT_REPO_ROOT/packages/kernel" || ! -d "$JSKIT_REPO_ROOT/tooling" ]]; then
+if [[ -z "$JSKIT_REPO_ROOT" ]]; then
+  echo "[link-local] no JSKIT repository found." >&2
+  echo "[link-local] set JSKIT_REPO_ROOT to a local jskit-ai checkout path." >&2
+  exit 1
+fi
+
+if ! is_valid_jskit_repo_root "$JSKIT_REPO_ROOT"; then
   echo "[link-local] JSKIT_REPO_ROOT is not a valid jskit-ai checkout: $JSKIT_REPO_ROOT" >&2
   exit 1
 fi

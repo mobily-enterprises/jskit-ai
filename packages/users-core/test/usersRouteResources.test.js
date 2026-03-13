@@ -10,7 +10,7 @@ import { userSettingsResource } from "../src/shared/resources/userSettingsResour
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
 import { workspaceInviteResource } from "../src/shared/resources/workspaceInviteResource.js";
 import { workspaceMemberResource } from "../src/shared/resources/workspaceMemberResource.js";
-import { workspaceSettingsResource } from "../src/shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 
 function assertResourceShape(resource, label) {
   assert.ok(resource, `${label} resource must exist.`);

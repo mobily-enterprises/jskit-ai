@@ -1,14 +1,11 @@
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { workspaceDirectoryActions } from "./workspaceDirectoryActions.js";
 
-const USERS_WORKSPACE_DIRECTORY_CONTRIBUTOR_TOKEN = "users.core.workspaceDirectory.actionDefinitions";
-
 function registerWorkspaceDirectory(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerWorkspaceDirectory requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerWorkspaceDirectory requires application singleton()/actions().");
   }
 
-  registerActionDefinitions(app, USERS_WORKSPACE_DIRECTORY_CONTRIBUTOR_TOKEN, {
+  app.actions({
     contributorId: "users.workspace-directory",
     domain: "workspace",
     dependencies: {

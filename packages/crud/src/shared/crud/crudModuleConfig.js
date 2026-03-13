@@ -99,8 +99,7 @@ function resolveCrudConfig(source = {}) {
     contributorId: resolveCrudContributorId(namespace),
     domain: resolveCrudDomain(namespace),
     repositoryToken: resolveCrudToken(namespace, "repository"),
-    serviceToken: resolveCrudToken(namespace, "service"),
-    actionDefinitionsToken: resolveCrudToken(namespace, "actionDefinitions")
+    serviceToken: resolveCrudToken(namespace, "service")
   });
 }
 

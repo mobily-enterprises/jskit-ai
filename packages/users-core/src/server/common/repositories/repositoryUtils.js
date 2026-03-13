@@ -1,13 +1,6 @@
 import { toInsertDateTime, toNullableDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
+import { normalizeText, normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function nowDb() {
   return toInsertDateTime();

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { workspaceSettingsResource } from "../src/shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function parseBody(operation, payload = {}) {

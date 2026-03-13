@@ -9,7 +9,6 @@ import {
 } from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
-  registerActionDefinitions,
   registerActionContextContributor,
   resolveActionContributors,
   resolveActionContextContributors
@@ -73,13 +72,15 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(app.singletons.has("runtime.actions"), true);
   assert.equal(app.singletons.has("actionRegistry"), true);
   assert.equal(app.singletons.has("actionExecutor"), true);
+  assert.equal(typeof app.action, "function");
+  assert.equal(typeof app.actions, "function");
 
   const api = app.make("runtime.actions");
   assert.equal(typeof api.createActionRegistry, "function");
   assert.equal(typeof app.make("actionExecutor")?.execute, "function");
 });
 
-test("ActionRuntimeServiceProvider materializes dependencies and surfaces for registered action bundles", async () => {
+test("ActionRuntimeServiceProvider materializes dependencies and surfaces for app.actions bundles", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
@@ -99,7 +100,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for re
     }
   }));
 
-  registerActionDefinitions(app, "test.actionDefinitions", {
+  app.actions({
     contributorId: "test.actions",
     domain: "workspace",
     dependencies: {
@@ -138,8 +139,10 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for re
   assert.deepEqual(result, { echoed: { value: "ok" }, ok: true });
 });
 
-test("registerActionDefinitions + resolveActionContributors provide canonical contributor wiring", () => {
+test("app.actions + resolveActionContributors provide canonical contributor wiring", () => {
   const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
   app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin", "console"];
@@ -149,12 +152,12 @@ test("registerActionDefinitions + resolveActionContributors provide canonical co
     }
   }));
 
-  registerActionDefinitions(app, "test.actionDefinitions.alpha", {
+  app.actions({
     contributorId: "alpha",
     domain: "settings",
     actions: []
   });
-  registerActionDefinitions(app, "test.actionDefinitions.beta", {
+  app.actions({
     contributorId: "beta",
     domain: "auth",
     actions: []
@@ -167,10 +170,12 @@ test("registerActionDefinitions + resolveActionContributors provide canonical co
   );
 });
 
-test("registerActionDefinitions accepts custom action domains", () => {
+test("app.actions accepts custom action domains", () => {
   const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
 
-  registerActionDefinitions(app, "test.actionDefinitions.custom", {
+  app.actions({
     contributorId: "custom",
     domain: "completeCalendar",
     actions: []
@@ -182,11 +187,42 @@ test("registerActionDefinitions accepts custom action domains", () => {
   assert.equal(contributors[0].domain, "completecalendar");
 });
 
-test("registerActionDefinitions skips disabled bundles", () => {
+test("app.action registers a single action with default contributor id", () => {
   const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.action({
+    id: "test.single",
+    domain: "workspace",
+    kind: "query",
+    channels: ["internal"],
+    surfaces: ["app"],
+    consoleUsersOnly: false,
+    input: EMPTY_INPUT_VALIDATOR,
+    permission: allowPublic,
+    idempotency: "none",
+    audit: { actionName: "test.single" },
+    observability: {},
+    async execute() {
+      return { ok: true };
+    }
+  });
+
+  const contributors = resolveActionContributors(app);
+  assert.equal(contributors.length, 1);
+  assert.equal(contributors[0].contributorId, "action.test.single");
+  assert.equal(contributors[0].actions.length, 1);
+  assert.equal(contributors[0].actions[0].id, "test.single");
+});
+
+test("app.actions skips disabled bundles", () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
   app.singleton("test.null.service", () => null);
 
-  registerActionDefinitions(app, "test.actionDefinitions.alpha", {
+  app.actions({
     contributorId: "alpha",
     domain: "auth",
     dependencies: {
@@ -216,7 +252,7 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
     }
   }));
 
-  registerActionDefinitions(app, "test.actionDefinitions.emptyInput", {
+  app.actions({
     contributorId: "test.empty-input",
     domain: "settings",
     actions: [
@@ -281,12 +317,14 @@ test("registerActionContextContributor + resolveActionContextContributors provid
   );
 });
 
-test("registerActionDefinitions rejects invalid domain identifiers", () => {
+test("app.actions rejects invalid domain identifiers", () => {
   const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
 
   assert.throws(
     () =>
-      registerActionDefinitions(app, "test.actionDefinitions.invalid", {
+      app.actions({
         contributorId: "invalid",
         domain: "invalid domain",
         actions: []

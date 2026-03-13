@@ -3,7 +3,7 @@ import {
   resolveWorkspace
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
-import { workspaceMembersResource } from "../../shared/schemas/resources/workspaceMembersResource.js";
+import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 const workspaceMembersActions = Object.freeze([

@@ -1,17 +1,15 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createRepository as createCompleteCalendarRepository } from "./completeCalendarRepository.js";
 import { createService as createCompleteCalendarService } from "./completeCalendarService.js";
 import { completeCalendarActions } from "./completeCalendarActions.js";
 import { resolveCalendarContactsCrudConfig } from "../../shared/completeCalendar/completeCalendarCrudConfig.js";
 
-const COMPLETE_CALENDAR_ACTIONS_TOKEN = "calendar.completeCalendar.actionDefinitions";
 const COMPLETE_CALENDAR_REPOSITORY_TOKEN = "calendar.completeCalendar.repository";
 const COMPLETE_CALENDAR_SERVICE_TOKEN = "calendar.completeCalendar.service";
 
 function registerCompleteCalendar(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerCompleteCalendar requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerCompleteCalendar requires application singleton()/actions().");
   }
 
   app.singleton(COMPLETE_CALENDAR_REPOSITORY_TOKEN, (scope) => {
@@ -29,7 +27,7 @@ function registerCompleteCalendar(app) {
     });
   });
 
-  registerActionDefinitions(app, COMPLETE_CALENDAR_ACTIONS_TOKEN, {
+  app.actions({
     contributorId: "calendar.completeCalendar",
     domain: "completeCalendar",
     dependencies: {

@@ -4,12 +4,7 @@ import {
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
-
-function normalizeText(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function isWorkspaceSurface(surfaceDefinition) {
   return Boolean(surfaceDefinition && surfaceDefinition.requiresWorkspace === true);
@@ -20,7 +15,7 @@ function hasConsoleAccess(permissions) {
     return false;
   }
 
-  const normalized = permissions.map((entry) => normalizeText(entry)).filter(Boolean);
+  const normalized = permissions.map((entry) => normalizeLowerText(entry)).filter(Boolean);
   if (normalized.length < 1) {
     return false;
   }
@@ -50,8 +45,8 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const enabledSurfaceIds = Array.isArray(targets?.surfaceConfig?.enabledSurfaceIds)
     ? targets.surfaceConfig.enabledSurfaceIds
     : [];
-  const appSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "app") || "";
-  const adminSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "admin") || "";
+  const appSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeLowerText(surfaceId) === "app") || "";
+  const adminSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeLowerText(surfaceId) === "admin") || "";
   const appSurface = appSurfaceId ? targets.surfaceConfig.surfacesById[appSurfaceId] : null;
   const adminSurface = adminSurfaceId ? targets.surfaceConfig.surfacesById[adminSurfaceId] : null;
   const appSurfaceIsWorkspace = isWorkspaceSurface(appSurface);
@@ -151,7 +146,9 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
   }
 
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
-  const consoleSurfaceId = targets.surfaceConfig.enabledSurfaceIds.find((surfaceId) => normalizeText(surfaceId) === "console");
+  const consoleSurfaceId = targets.surfaceConfig.enabledSurfaceIds.find(
+    (surfaceId) => normalizeLowerText(surfaceId) === "console"
+  );
   if (!consoleSurfaceId || targets.currentSurfaceId === consoleSurfaceId) {
     return null;
   }

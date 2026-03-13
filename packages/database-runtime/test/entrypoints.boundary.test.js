@@ -25,5 +25,6 @@ test("server entrypoint exports provider and register helper only", () => {
 test("shared entrypoint exports shared database utilities only", () => {
   assert.equal(typeof sharedApi.createTransactionManager, "function");
   assert.equal(typeof sharedApi.isDuplicateEntryError, "function");
+  assert.equal(typeof sharedApi.createRepositoryScope, "function");
   assert.equal(typeof sharedApi.DatabaseRuntimeServiceProvider, "undefined");
 });

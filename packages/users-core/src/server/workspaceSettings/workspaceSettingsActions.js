@@ -1,6 +1,6 @@
 import { resolveWorkspace } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog, hasPermission } from "../../shared/roles.js";
-import { workspaceSettingsResource } from "../../shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function canReadWorkspaceSettings(context) {

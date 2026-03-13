@@ -219,15 +219,35 @@ function applyPlaceholders(source, replacements) {
   return output;
 }
 
-async function resolveTemplateDirectory(templateName) {
-  const cleanTemplate = String(templateName || "").trim();
-  if (!cleanTemplate) {
+function isPathWithinRoot(rootPath, candidatePath) {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function normalizeTemplatePathSegments(templateName) {
+  const rawTemplateName = String(templateName || "").trim();
+  if (!rawTemplateName) {
     throw createCliError("Template name cannot be empty.", {
       showUsage: true
     });
   }
 
-  const templateDir = path.join(TEMPLATES_ROOT, cleanTemplate);
+  const segments = rawTemplateName.split(/[\\/]+/).filter(Boolean);
+  if (segments.length < 1 || segments.some((segment) => segment === "." || segment === "..")) {
+    throw createCliError(`Invalid template "${rawTemplateName}".`);
+  }
+
+  return segments;
+}
+
+async function resolveTemplateDirectory(templateName) {
+  const templatePathSegments = normalizeTemplatePathSegments(templateName);
+  const cleanTemplate = templatePathSegments.join(path.sep);
+  const templateDir = path.resolve(TEMPLATES_ROOT, ...templatePathSegments);
+
+  if (!isPathWithinRoot(TEMPLATES_ROOT, templateDir)) {
+    throw createCliError(`Invalid template "${cleanTemplate}".`);
+  }
 
   try {
     const templateStats = await stat(templateDir);

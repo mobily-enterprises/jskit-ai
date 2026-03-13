@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../src/shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { workspaceMemberResource } from "../src/shared/resources/workspaceMemberResource.js";
 import { workspaceInviteResource } from "../src/shared/resources/workspaceInviteResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";

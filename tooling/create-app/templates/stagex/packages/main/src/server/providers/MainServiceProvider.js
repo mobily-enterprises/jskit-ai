@@ -11,7 +11,7 @@ import {
   contactByIdGetRouteValidator,
   contactIntakePostRouteValidator,
   contactPreviewFollowupPostRouteValidator
-} from "../../shared/schemas/contactSchemas.js";
+} from "../../shared/schemas/contactRouteValidators.js";
 
 const CONTACT_REPOSITORY = "local.main.contacts.repository";
 const CONTACT_QUALIFICATION_SERVICE = "local.main.contacts.service.qualification";

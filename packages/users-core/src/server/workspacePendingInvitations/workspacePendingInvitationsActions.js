@@ -3,7 +3,7 @@ import {
   requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { workspacePendingInvitationsResource } from "../../shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { workspaceInviteResource } from "../../shared/resources/workspaceInviteResource.js";
 
 const workspacePendingInvitationsActions = Object.freeze([

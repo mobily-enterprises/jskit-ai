@@ -1,10 +1,4 @@
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function isRecord(value) {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function resolveIssueField(issue = {}) {
   const instancePath = normalizeText(issue.instancePath);

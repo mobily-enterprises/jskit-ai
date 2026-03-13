@@ -1,6 +1,4 @@
-function normalizeText(value) {
-  return String(value || "").trim();
-}
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeDatabaseClient(value, { allowEmpty = false } = {}) {
   const normalized = normalizeText(value).toLowerCase();

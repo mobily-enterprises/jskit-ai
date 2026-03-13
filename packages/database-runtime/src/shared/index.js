@@ -18,6 +18,7 @@ export { normalizeText, normalizeDatabaseClient, toKnexClientId } from "./databa
 export { isDuplicateEntryError } from "./duplicateEntry.js";
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";
 export { DEFAULT_VISIBILITY_COLUMNS, applyVisibility, applyVisibilityOwners } from "./visibility.js";
+export { createRepositoryScope } from "./repositoryScope.js";
 export {
   resolveQueryOptions,
   resolveRepoClient,

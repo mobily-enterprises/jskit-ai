@@ -1,13 +1,1 @@
-function normalizeObjectInput(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return {
-    ...value
-  };
-}
-
-export {
-  normalizeObjectInput
-};
+export { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";

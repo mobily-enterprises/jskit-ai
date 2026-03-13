@@ -16,6 +16,7 @@
     "./shared/duplicateEntry": "./src/shared/duplicateEntry.js",
     "./shared/json": "./src/shared/json.js",
     "./shared/repository": "./src/shared/repository.js",
+    "./shared/repositoryScope": "./src/shared/repositoryScope.js",
     "./shared/repositoryOptions": "./src/shared/repositoryOptions.js",
     "./shared/visibility": "./src/shared/visibility.js",
     "./shared/retention": "./src/shared/retention.js",

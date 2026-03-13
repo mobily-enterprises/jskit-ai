@@ -2,17 +2,13 @@ import {
   DEFAULT_WEB_PLACEMENT_ORDER,
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {
     return true;
   }
   return isRecord(value);
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
 }
 
 function normalizeSurface(value) {

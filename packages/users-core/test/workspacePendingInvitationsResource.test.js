@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
-import { workspacePendingInvitationsResource } from "../src/shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 
 test("workspacePendingInvitationsResource output normalizer shapes raw invite rows", () => {
   const tokenHash = "a".repeat(64);

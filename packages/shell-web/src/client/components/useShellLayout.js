@@ -1,4 +1,5 @@
 import { computed, ref } from "vue";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 
 const DEFAULT_ACTION_FALLBACK = Object.freeze({
   label: "",
@@ -12,13 +13,6 @@ const DEFAULT_MENU_FALLBACK = Object.freeze({
   to: "/app",
   icon: "$menu"
 });
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
 
 function normalizeAction(action, fallback) {
   const source = normalizeObject(action);

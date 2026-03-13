@@ -8,6 +8,7 @@ const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contrib
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
 const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "workspace", "console"]);
+let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
 
 function normalizePlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -41,7 +42,7 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
   return Object.freeze(normalized);
 }
 
-function normalizeActionBundleSpec(definitionSet, { context = "registerActionDefinitions" } = {}) {
+function normalizeActionBundleSpec(definitionSet, { context = "app.actions" } = {}) {
   const source = normalizePlainObject(definitionSet);
   const contributorId = String(source.contributorId || "").trim();
   const domain = actionRuntime.normalizeActionDomain(source.domain, {
@@ -162,6 +163,11 @@ function registerTaggedContributor(app, token, factory, tagName, label) {
   app.tag(token, tagName);
 }
 
+function createActionContributorToken() {
+  ACTION_RUNTIME_CONTRIBUTOR_INDEX += 1;
+  return Symbol(`jskit.runtime.actions.contributor.${ACTION_RUNTIME_CONTRIBUTOR_INDEX}`);
+}
+
 function resolveSurfaceRuntime(scope) {
   if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
     throw new Error("Action definition materialization requires scope.has()/make().");
@@ -269,18 +275,77 @@ function materializeActionBundle(scope, bundleSpec) {
   };
 }
 
-function registerActionDefinitions(app, token, definitionSet) {
-  const bundleSpec = normalizeActionBundleSpec(definitionSet, {
-    context: `registerActionDefinitions(${String(token)})`
-  });
-
+function registerActionBundle(app, bundleSpec, { context = "app.actions" } = {}) {
+  const token = createActionContributorToken();
   registerTaggedContributor(
     app,
     token,
     (scope) => materializeActionBundle(scope, bundleSpec),
     ACTION_RUNTIME_CONTRIBUTOR_TAG,
-    "registerActionDefinitions"
+    context
   );
+}
+
+function normalizeSingleActionRegistration(actionDefinition, { context = "app.action" } = {}) {
+  const source = normalizePlainObject(actionDefinition);
+  const actionId = String(source.id || "").trim();
+  const contributorId = String(source.contributorId || "").trim() || (actionId ? `action.${actionId}` : "");
+  if (!contributorId) {
+    throw new Error(`${context} requires action.id or action.contributorId.`);
+  }
+
+  const normalizedAction = {
+    ...source
+  };
+  delete normalizedAction.contributorId;
+
+  return normalizeActionBundleSpec(
+    {
+      contributorId,
+      domain: normalizedAction.domain,
+      actions: [normalizedAction]
+    },
+    { context }
+  );
+}
+
+function installActionRegistrationApi(app) {
+  if (typeof app.action === "function" && typeof app.actions === "function") {
+    return;
+  }
+
+  const registerActions = function registerActions(definitionSet = {}) {
+    const entries = normalizeContributorList(definitionSet);
+    for (const entry of entries) {
+      const source = normalizePlainObject(entry);
+      if (!Array.isArray(source.actions)) {
+        this.action(source);
+        continue;
+      }
+      const bundleSpec = normalizeActionBundleSpec(source, { context: "app.actions" });
+      registerActionBundle(this, bundleSpec, { context: "app.actions" });
+    }
+    return this;
+  };
+
+  const registerAction = function registerAction(actionDefinition = {}) {
+    const bundleSpec = normalizeSingleActionRegistration(actionDefinition, {
+      context: "app.action"
+    });
+    registerActionBundle(this, bundleSpec, { context: "app.action" });
+    return this;
+  };
+
+  Object.defineProperty(app, "actions", {
+    configurable: true,
+    writable: true,
+    value: registerActions
+  });
+  Object.defineProperty(app, "action", {
+    configurable: true,
+    writable: true,
+    value: registerAction
+  });
 }
 
 function registerActionContextContributor(app, token, factory) {
@@ -297,9 +362,11 @@ class ActionRuntimeServiceProvider {
   static id = "runtime.actions";
 
   register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
-      throw new Error("ActionRuntimeServiceProvider requires application singleton()/has().");
+    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function" || typeof app.tag !== "function") {
+      throw new Error("ActionRuntimeServiceProvider requires application singleton()/has()/tag().");
     }
+
+    installActionRegistrationApi(app);
 
     app.singleton("runtime.actions", () => ACTION_RUNTIME_API);
 
@@ -329,7 +396,6 @@ export {
   ACTION_CONTEXT_CONTRIBUTOR_TAG,
   resolveActionContributors,
   resolveActionContextContributors,
-  registerActionDefinitions,
   registerActionContextContributor,
   ActionRuntimeServiceProvider
 };

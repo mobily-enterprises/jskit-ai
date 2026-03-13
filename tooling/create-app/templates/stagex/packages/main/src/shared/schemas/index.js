@@ -2,4 +2,4 @@ export {
   contactByIdGetRouteValidator,
   contactIntakePostRouteValidator,
   contactPreviewFollowupPostRouteValidator
-} from "./contactSchemas.js";
+} from "./contactRouteValidators.js";

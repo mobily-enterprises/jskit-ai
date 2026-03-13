@@ -94,7 +94,7 @@
 import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/schemas/resources/workspaceSettingsResource";
+import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
 import { useAddEdit } from "../composables/useAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";

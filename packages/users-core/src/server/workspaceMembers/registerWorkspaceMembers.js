@@ -1,8 +1,6 @@
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 
-const USERS_WORKSPACE_MEMBERS_ACTION_DEFINITIONS_TOKEN = "users.core.workspaceMembers.actionDefinitions";
 const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
 function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
@@ -15,8 +13,8 @@ function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
 }
 
 function registerWorkspaceMembers(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerWorkspaceMembers requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerWorkspaceMembers requires application singleton()/actions().");
   }
 
   app.singleton(USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN, (scope) => {
@@ -28,7 +26,7 @@ function registerWorkspaceMembers(app) {
     });
   });
 
-  registerActionDefinitions(app, USERS_WORKSPACE_MEMBERS_ACTION_DEFINITIONS_TOKEN, {
+  app.actions({
     contributorId: "users.workspace-members",
     domain: "workspace",
     dependencies: {

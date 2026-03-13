@@ -14,9 +14,59 @@ VERDACCIO_REGISTRY="${VERDACCIO_REGISTRY%/}"
 VERDACCIO_LOG_FILE="${VERDACCIO_LOG_FILE:-/tmp/verdaccio-jskit.log}"
 VERDACCIO_PID_FILE="${VERDACCIO_PID_FILE:-/tmp/verdaccio-jskit.pid}"
 PUBLISH_CONCURRENCY="${PUBLISH_CONCURRENCY:-10}"
-JSKIT_REPO_ROOT="${JSKIT_REPO_ROOT:-$HOME/Development/current/jskit-ai}"
-PACKAGES_DIR="${PACKAGES_DIR:-$JSKIT_REPO_ROOT/packages}"
-TOOLING_DIR="${TOOLING_DIR:-$JSKIT_REPO_ROOT/tooling}"
+JSKIT_REPO_ROOT="${JSKIT_REPO_ROOT:-}"
+PACKAGES_DIR="${PACKAGES_DIR:-}"
+TOOLING_DIR="${TOOLING_DIR:-}"
+
+is_valid_jskit_repo_root() {
+  local candidate_root="$1"
+  [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
+}
+
+resolve_jskit_repo_root() {
+  if [[ -n "$JSKIT_REPO_ROOT" ]]; then
+    echo "$JSKIT_REPO_ROOT"
+    return 0
+  fi
+
+  local current_dir="$ROOT_DIR"
+  while true; do
+    if is_valid_jskit_repo_root "$current_dir"; then
+      echo "$current_dir"
+      return 0
+    fi
+    if [[ "$current_dir" == "/" ]]; then
+      return 1
+    fi
+    current_dir="$(dirname "$current_dir")"
+  done
+}
+
+configure_source_dirs() {
+  if [[ -z "$PACKAGES_DIR" || -z "$TOOLING_DIR" ]]; then
+    local detected_root
+    detected_root="$(resolve_jskit_repo_root || true)"
+    if [[ -n "$detected_root" ]]; then
+      JSKIT_REPO_ROOT="$detected_root"
+      if [[ -z "$PACKAGES_DIR" ]]; then
+        PACKAGES_DIR="$JSKIT_REPO_ROOT/packages"
+      fi
+      if [[ -z "$TOOLING_DIR" ]]; then
+        TOOLING_DIR="$JSKIT_REPO_ROOT/tooling"
+      fi
+    fi
+  fi
+
+  if [[ -z "$PACKAGES_DIR" ]]; then
+    echo "Packages directory not configured." >&2
+    echo "Set PACKAGES_DIR directly, or set JSKIT_REPO_ROOT to a local jskit-ai checkout." >&2
+    exit 1
+  fi
+
+  if [[ -z "$TOOLING_DIR" ]]; then
+    TOOLING_DIR="/dev/null"
+  fi
+}
 
 resolve_storage_dir() {
   if [[ -n "${VERDACCIO_STORAGE_DIR:-}" ]]; then
@@ -121,7 +171,7 @@ start_verdaccio() {
 publish_packages() {
   if [[ ! -d "$PACKAGES_DIR" ]]; then
     echo "Packages directory not found: $PACKAGES_DIR" >&2
-    echo "Set PACKAGES_DIR to your monorepo packages path." >&2
+    echo "Set PACKAGES_DIR to your monorepo packages path, or set JSKIT_REPO_ROOT." >&2
     exit 1
   fi
 
@@ -240,6 +290,8 @@ publish_packages() {
 }
 
 main() {
+  configure_source_dirs
+
   local storage_dir
   storage_dir="$(resolve_storage_dir)"
 

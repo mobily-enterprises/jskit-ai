@@ -2,8 +2,6 @@
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_LOCAL_REPO_ROOT="$HOME/Development/current/jskit-ai"
-LOCAL_REPO_ROOT="${JSKIT_REPO_ROOT:-$DEFAULT_LOCAL_REPO_ROOT}"
 BOOTSTRAP_MODE_RAW="${JSKIT_DEV_BOOTSTRAP:-auto}"
 BOOTSTRAP_MODE="$(echo "$BOOTSTRAP_MODE_RAW" | tr '[:upper:]' '[:lower:]')"
 
@@ -11,6 +9,31 @@ is_valid_jskit_repo_root() {
   local candidate_root="$1"
   [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
 }
+
+find_jskit_repo_root() {
+  local current_dir="$1"
+  while true; do
+    if is_valid_jskit_repo_root "$current_dir"; then
+      echo "$current_dir"
+      return 0
+    fi
+    if [[ "$current_dir" == "/" ]]; then
+      return 1
+    fi
+    current_dir="$(dirname "$current_dir")"
+  done
+}
+
+resolve_local_repo_root() {
+  if [[ -n "${JSKIT_REPO_ROOT:-}" ]]; then
+    echo "$JSKIT_REPO_ROOT"
+    return 0
+  fi
+
+  find_jskit_repo_root "$APP_ROOT" || true
+}
+
+LOCAL_REPO_ROOT="$(resolve_local_repo_root)"
 
 if [[ "$BOOTSTRAP_MODE" == "0" || "$BOOTSTRAP_MODE" == "false" || "$BOOTSTRAP_MODE" == "off" ]]; then
   echo "[dev-bootstrap] skipped (JSKIT_DEV_BOOTSTRAP disabled)."

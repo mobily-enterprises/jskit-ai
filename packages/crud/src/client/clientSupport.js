@@ -42,7 +42,7 @@ function resolveCrudClientConfigFromPublicConfig(options = {}) {
   throw new Error("Multiple CRUD module configs found. Pass namespace explicitly.");
 }
 
-function useRecordsClientContext() {
+function useCrudClientContext() {
   const route = useRoute();
   const routeContext = useUsersWebWorkspaceRouteContext();
   const crudConfig = resolveCrudClientConfigFromPublicConfig();
@@ -188,7 +188,7 @@ export {
   crudResource,
   resolveCrudClientConfig,
   resolveCrudClientConfigFromPublicConfig,
-  useRecordsClientContext,
+  useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,
   resolveAdminCrudListPath,

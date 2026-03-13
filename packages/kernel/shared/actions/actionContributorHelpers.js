@@ -1,13 +1,6 @@
 import { Type } from "typebox";
 import { normalizeText } from "./textNormalization.js";
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
+import { normalizeObject } from "../support/normalize.js";
 
 function toPositiveInteger(value) {
   const parsed = Number(value);

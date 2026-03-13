@@ -4,7 +4,7 @@ import {
   normalizeObjectInput,
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { coerceWorkspaceColor } from "../../settings.js";
+import { coerceWorkspaceColor } from "../settings.js";
 
 function normalizeInput(payload = {}) {
   const source = normalizeObjectInput(payload);

@@ -61,12 +61,12 @@ import { useRouter } from "vue-router";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
-  useRecordsClientContext,
+  useCrudClientContext,
   crudResource
 } from "./clientSupport.js";
 
 const router = useRouter();
-const crudContext = useRecordsClientContext();
+const crudContext = useCrudClientContext();
 const crudConfig = crudContext.crudConfig;
 const listPath = crudContext.listPath;
 const recordForm = reactive({

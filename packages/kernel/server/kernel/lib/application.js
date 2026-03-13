@@ -6,11 +6,7 @@ import {
   ProviderNormalizationError
 } from "./errors.js";
 import { ServiceProvider } from "./serviceProvider.js";
-
-function normalizeText(value, fallback = "") {
-  const normalized = String(value || "").trim();
-  return normalized || fallback;
-}
+import { normalizeText } from "../../../shared/support/normalize.js";
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) {
@@ -28,7 +24,9 @@ function nowMilliseconds() {
 
 class Application {
   constructor({ profile = "app", strict = true, container = null } = {}) {
-    this.profile = normalizeText(profile, "app");
+    this.profile = normalizeText(profile, {
+      fallback: "app"
+    });
     this.strict = strict !== false;
     this.container = container || createContainer({ scopeId: "app-root" });
 

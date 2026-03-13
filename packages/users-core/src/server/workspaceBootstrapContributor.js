@@ -5,7 +5,7 @@ import {
   TENANCY_MODE_NONE,
   normalizeTenancyMode
 } from "@jskit-ai/kernel/shared/surface";
-import { workspacePendingInvitationsResource } from "../shared/schemas/resources/workspacePendingInvitationsResource.js";
+import { workspacePendingInvitationsResource } from "../shared/resources/workspacePendingInvitationsResource.js";
 import {
   mapMembershipSummary,
   mapWorkspaceSettingsPublic,

@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { workspaceSettingsResource } from "../../shared/schemas/resources/workspaceSettingsResource.js";
+import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function bootWorkspaceSettings(app) {

@@ -1,10 +1,7 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
-
-const USERS_WORKSPACE_SETTINGS_ACTION_DEFINITIONS_TOKEN = "users.core.workspaceSettings.actionDefinitions";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
@@ -17,8 +14,8 @@ function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
 }
 
 function registerWorkspaceSettings(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerWorkspaceSettings requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerWorkspaceSettings requires application singleton()/actions().");
   }
 
   app.singleton("workspaceSettingsRepository", (scope) => {
@@ -36,7 +33,7 @@ function registerWorkspaceSettings(app) {
     });
   });
 
-  registerActionDefinitions(app, USERS_WORKSPACE_SETTINGS_ACTION_DEFINITIONS_TOKEN, {
+  app.actions({
     contributorId: "users.workspace-settings",
     domain: "workspace",
     dependencies: {

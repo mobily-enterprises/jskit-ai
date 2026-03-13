@@ -63,12 +63,12 @@ import { useRouter } from "vue-router";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import {
-  useRecordsClientContext,
+  useCrudClientContext,
   toRouteRecordId
 } from "./clientSupport.js";
 
 const router = useRouter();
-const crudContext = useRecordsClientContext();
+const crudContext = useCrudClientContext();
 const crudConfig = crudContext.crudConfig;
 const listPath = crudContext.listPath;
 const record = reactive({

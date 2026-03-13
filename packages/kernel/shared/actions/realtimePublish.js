@@ -1,10 +1,4 @@
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
+import { normalizeObject } from "../support/normalize.js";
 
 function normalizeHeaderValue(value) {
   const normalized = String(value || "").trim();

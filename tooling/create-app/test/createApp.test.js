@@ -47,6 +47,14 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
     assert.match(devBootstrapScript, /JSKIT_GITHUB_TARBALL_URL/);
     assert.match(devBootstrapScript, /curl -fsSL/);
+    assert.doesNotMatch(devBootstrapScript, /Development\/current\/jskit-ai/);
+    const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
+    assert.doesNotMatch(linkLocalScript, /Development\/current\/jskit-ai/);
+    const verdaccioScript = await readFile(
+      path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh"),
+      "utf8"
+    );
+    assert.doesNotMatch(verdaccioScript, /Development\/current\/jskit-ai/);
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
@@ -209,13 +217,40 @@ test("create-app scaffolds stagex with main service provider and contact routes"
     assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/preview-followup"/);
     assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/:contactId"/);
 
-    const contactSchemas = await readFile(
-      path.join(appRoot, "packages/main/src/shared/schemas/contactSchemas.js"),
+    const contactRouteValidators = await readFile(
+      path.join(appRoot, "packages/main/src/shared/schemas/contactRouteValidators.js"),
       "utf8"
     );
-    assert.match(contactSchemas, /contact_domain_invalid/);
-    assert.doesNotMatch(contactSchemas, /stage-7|Stage7|stage7/);
+    assert.match(contactRouteValidators, /contact_domain_invalid/);
+    assert.doesNotMatch(contactRouteValidators, /stage-7|Stage7|stage7/);
   });
+});
+
+test("create-app rejects template path traversal names", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const traversalResult = runCli({ cwd, args: ["safe-app", "--template", "../base-shell"] });
+    assert.notEqual(traversalResult.status, 0);
+    assert.match(traversalResult.stderr, /Invalid template/);
+
+    const absoluteResult = runCli({ cwd, args: ["safe-app", "--template", "/tmp/base-shell"] });
+    assert.notEqual(absoluteResult.status, 0);
+    assert.match(absoluteResult.stderr, /Invalid template|Unknown template/);
+  });
+});
+
+test("base-shell scripts do not hardcode machine-specific jskit paths", async () => {
+  const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const baseScriptsDir = path.join(packageRoot, "templates/base-shell/scripts");
+  const scriptPaths = [
+    path.join(baseScriptsDir, "dev-bootstrap-jskit.sh"),
+    path.join(baseScriptsDir, "link-local-jskit-packages.sh"),
+    path.join(baseScriptsDir, "verdaccio-reset-and-publish-packages.sh")
+  ];
+
+  for (const scriptPath of scriptPaths) {
+    const body = await readFile(scriptPath, "utf8");
+    assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
+  }
 });
 
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {

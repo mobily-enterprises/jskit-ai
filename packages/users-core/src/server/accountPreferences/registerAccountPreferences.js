@@ -1,13 +1,11 @@
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 import { createService as createAccountPreferencesService } from "./accountPreferencesService.js";
 import { accountPreferencesActions } from "./accountPreferencesActions.js";
 
-const USERS_ACCOUNT_PREFERENCES_ACTION_DEFINITIONS_TOKEN = "users.core.accountPreferences.actionDefinitions";
 const USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN = "users.accountPreferences.service";
 
 function registerAccountPreferences(app) {
-  if (!app || typeof app.singleton !== "function") {
-    throw new Error("registerAccountPreferences requires application singleton().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
+    throw new Error("registerAccountPreferences requires application singleton()/actions().");
   }
 
   app.singleton(USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN, (scope) => {
@@ -18,7 +16,7 @@ function registerAccountPreferences(app) {
     });
   });
 
-  registerActionDefinitions(app, USERS_ACCOUNT_PREFERENCES_ACTION_DEFINITIONS_TOKEN, {
+  app.actions({
     contributorId: "users.account-preferences",
     domain: "settings",
     dependencies: {

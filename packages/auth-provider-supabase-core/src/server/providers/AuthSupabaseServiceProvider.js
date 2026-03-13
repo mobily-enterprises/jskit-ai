@@ -1,7 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createService } from "../lib/service.js";
 import { authActions } from "../lib/actions/auth.contributor.js";
-import { registerActionDefinitions } from "@jskit-ai/kernel/server/actions";
 
 function splitCsv(value) {
   return String(value || "")
@@ -130,8 +129,8 @@ class AuthSupabaseServiceProvider {
   static dependsOn = ["runtime.actions"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function" || typeof app.tag !== "function") {
-      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has()/tag().");
+    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function" || typeof app.actions !== "function") {
+      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has()/actions().");
     }
 
     if (!app.has("authService")) {
@@ -161,20 +160,17 @@ class AuthSupabaseServiceProvider {
       });
     }
 
-    const contributorToken = "auth.provider.supabase.actionContributor";
-    if (!app.has(contributorToken)) {
-      registerActionDefinitions(app, contributorToken, {
-        contributorId: "auth.supabase",
-        domain: "auth",
-        dependencies: {
-          authService: "authService"
-        },
-        enabled({ deps }) {
-          return deps.authService != null;
-        },
-        actions: authActions
-      });
-    }
+    app.actions({
+      contributorId: "auth.supabase",
+      domain: "auth",
+      dependencies: {
+        authService: "authService"
+      },
+      enabled({ deps }) {
+        return deps.authService != null;
+      },
+      actions: authActions
+    });
   }
 }
 
