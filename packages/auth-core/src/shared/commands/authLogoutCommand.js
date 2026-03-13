@@ -9,7 +9,7 @@ const authLogoutCommand = Object.freeze({
   command: "auth.logout",
   operation: Object.freeze({
     method: "POST",
-    response: logoutResponseValidator,
+    responseValidator: logoutResponseValidator,
     messages: AUTH_LOGOUT_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

@@ -41,8 +41,8 @@ const authLoginPasswordCommand = Object.freeze({
   command: "auth.login.password",
   operation: Object.freeze({
     method: "POST",
-    body: authLoginPasswordBodyValidator,
-    response: loginResponseValidator,
+    bodyValidator: authLoginPasswordBodyValidator,
+    responseValidator: loginResponseValidator,
     messages: AUTH_LOGIN_PASSWORD_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

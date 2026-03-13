@@ -14,7 +14,7 @@ import {
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 
 function normalizePendingInvites(invites) {
-  return workspacePendingInvitationsResource.operations.list.output.normalize({
+  return workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
     pendingInvites: invites
   }).pendingInvites;
 }

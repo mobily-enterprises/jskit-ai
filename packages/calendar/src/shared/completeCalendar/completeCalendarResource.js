@@ -154,7 +154,7 @@ const completeCalendarResource = {
   operations: {
     list: {
       method: "GET",
-      output: {
+      outputValidator: {
         schema: Type.Object(
           {
             weekStart: Type.String({ minLength: 1 }),
@@ -178,27 +178,27 @@ const completeCalendarResource = {
     },
     view: {
       method: "GET",
-      output: calendarEventRecordValidator
+      outputValidator: calendarEventRecordValidator
     },
     create: {
       method: "POST",
-      body: {
+      bodyValidator: {
         schema: calendarEventBodySchema,
         normalize: normalizeCalendarEventInput
       },
-      output: calendarEventRecordValidator
+      outputValidator: calendarEventRecordValidator
     },
     patch: {
       method: "PATCH",
-      body: {
+      bodyValidator: {
         schema: Type.Partial(calendarEventBodySchema, { additionalProperties: false }),
         normalize: normalizeCalendarEventInput
       },
-      output: calendarEventRecordValidator
+      outputValidator: calendarEventRecordValidator
     },
     delete: {
       method: "DELETE",
-      output: {
+      outputValidator: {
         schema: Type.Object(
           {
             id: Type.Integer({ minimum: 1 }),

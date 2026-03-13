@@ -79,7 +79,7 @@ const workspacePendingInvitationsResource = Object.freeze({
     list: Object.freeze({
       method: "GET",
       messages: WORKSPACE_PENDING_INVITATIONS_MESSAGES,
-      output: pendingInvitationsListOutputValidator
+      outputValidator: pendingInvitationsListOutputValidator
     })
   })
 });

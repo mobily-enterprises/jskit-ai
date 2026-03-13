@@ -25,7 +25,7 @@ function pickPatchBody(schema, keys = []) {
 
 const userSettingsOutputSchema = Type.Object(
   {
-    profile: userProfileResource.operations.view.output.schema,
+    profile: userProfileResource.operations.view.outputValidator.schema,
     security: Type.Object({}, { additionalProperties: true }),
     preferences: Type.Object(
       {
@@ -286,88 +286,88 @@ const userSettingsResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: userSettingsOutputValidator
+      outputValidator: userSettingsOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: createCursorListValidator(userSettingsOutputValidator)
+      outputValidator: createCursorListValidator(userSettingsOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userSettingsCreateBodySchema,
         normalize: normalizeObjectInput
       }),
-      output: userSettingsOutputValidator
+      outputValidator: userSettingsOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userSettingsCreateBodySchema,
         normalize: normalizeObjectInput
       }),
-      output: userSettingsOutputValidator
+      outputValidator: userSettingsOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userSettingsPatchBodySchema,
         normalize: normalizeObjectInput
       }),
-      output: userSettingsOutputValidator
+      outputValidator: userSettingsOutputValidator
     }),
     preferencesUpdate: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: preferencesUpdateBodyValidator,
-      output: userSettingsOutputValidator
+      bodyValidator: preferencesUpdateBodyValidator,
+      outputValidator: userSettingsOutputValidator
     }),
     notificationsUpdate: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: notificationsUpdateBodyValidator,
-      output: userSettingsOutputValidator
+      bodyValidator: notificationsUpdateBodyValidator,
+      outputValidator: userSettingsOutputValidator
     }),
     chatUpdate: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: chatUpdateBodyValidator,
-      output: userSettingsOutputValidator
+      bodyValidator: chatUpdateBodyValidator,
+      outputValidator: userSettingsOutputValidator
     }),
     passwordChange: Object.freeze({
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordChangeBodyValidator,
-      output: passwordChangeOutputValidator
+      bodyValidator: passwordChangeBodyValidator,
+      outputValidator: passwordChangeOutputValidator
     }),
     passwordMethodToggle: Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordMethodToggleBodyValidator,
-      output: settingsActionOutputValidator
+      bodyValidator: passwordMethodToggleBodyValidator,
+      outputValidator: settingsActionOutputValidator
     }),
     oauthLinkStart: Object.freeze({
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsValidator,
-      query: oauthProviderQueryValidator,
-      output: oauthLinkStartOutputValidator
+      paramsValidator: oauthProviderParamsValidator,
+      queryValidator: oauthProviderQueryValidator,
+      outputValidator: oauthLinkStartOutputValidator
     }),
     oauthUnlink: Object.freeze({
       method: "DELETE",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsValidator,
-      output: settingsActionOutputValidator
+      paramsValidator: oauthProviderParamsValidator,
+      outputValidator: settingsActionOutputValidator
     }),
     logoutOtherSessions: Object.freeze({
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: emptyBodyValidator,
-      output: settingsActionOutputValidator
+      bodyValidator: emptyBodyValidator,
+      outputValidator: settingsActionOutputValidator
     })
   })
 });

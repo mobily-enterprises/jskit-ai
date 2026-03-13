@@ -39,7 +39,7 @@ function buildCalendarEventPayload(model) {
 function parseCreateCalendarEventInput(rawPayload) {
   return validateOperationSection({
     operation: completeCalendarResource.operations.create,
-    section: "body",
+    section: "bodyValidator",
     value: rawPayload
   });
 }
@@ -47,7 +47,7 @@ function parseCreateCalendarEventInput(rawPayload) {
 function parsePatchCalendarEventInput(rawPayload) {
   return validateOperationSection({
     operation: completeCalendarResource.operations.patch,
-    section: "body",
+    section: "bodyValidator",
     value: rawPayload
   });
 }

@@ -25,8 +25,8 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: routeParamsValidator,
-    output: workspaceSettingsResource.operations.view.output,
+    inputValidator: routeParamsValidator,
+    outputValidator: workspaceSettingsResource.operations.view.outputValidator,
     permission: canReadWorkspaceSettings,
     idempotency: "none",
     audit: {
@@ -46,8 +46,8 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: [routeParamsValidator, workspaceSettingsResource.operations.patch.body],
-    output: workspaceSettingsResource.operations.patch.output,
+    inputValidator: [routeParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
+    outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
     permission: ["workspace.settings.update"],
     idempotency: "optional",
     audit: {
@@ -56,7 +56,7 @@ const workspaceSettingsActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Update workspace settings.",
-      input: workspaceSettingsResource.operations.patch.body
+      inputValidator: workspaceSettingsResource.operations.patch.bodyValidator
     },
     async execute(input, context, deps) {
       const { workspaceSlug: _workspaceSlug, ...workspaceSettingsPatch } = input;

@@ -13,8 +13,8 @@ const accountPreferencesActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: userSettingsResource.operations.preferencesUpdate.body,
-    output: userSettingsResource.operations.view.output,
+    inputValidator: userSettingsResource.operations.preferencesUpdate.bodyValidator,
+    outputValidator: userSettingsResource.operations.view.outputValidator,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

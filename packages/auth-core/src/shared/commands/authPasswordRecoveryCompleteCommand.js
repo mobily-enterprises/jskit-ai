@@ -51,8 +51,8 @@ const authPasswordRecoveryCompleteCommand = Object.freeze({
   command: "auth.password.recovery.complete",
   operation: Object.freeze({
     method: "POST",
-    body: authPasswordRecoveryCompleteBodyValidator,
-    response: okResponseValidator,
+    bodyValidator: authPasswordRecoveryCompleteBodyValidator,
+    responseValidator: okResponseValidator,
     messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

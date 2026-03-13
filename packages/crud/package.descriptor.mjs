@@ -156,13 +156,6 @@ export default Object.freeze({
         id: "crud-local-package-server-action-ids-${option:namespace|snake|default(crud)}"
       },
       {
-        from: "src/server/inputValidators.js",
-        to: "packages/${option:namespace|kebab|default(crud)}/src/server/inputValidators.js",
-        reason: "Install app-local CRUD input validators.",
-        category: "crud",
-        id: "crud-local-package-server-input-validators-${option:namespace|snake|default(crud)}"
-      },
-      {
         from: "templates/src/local-package/server/registerRoutes.js",
         to: "packages/${option:namespace|kebab|default(crud)}/src/server/registerRoutes.js",
         reason: "Install app-local CRUD route registration.",

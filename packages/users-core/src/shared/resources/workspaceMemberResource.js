@@ -41,7 +41,7 @@ const workspaceMemberPatchSchema = Type.Partial(workspaceMemberCreateSchema, {
 
 const workspaceMemberListSchema = Type.Object(
   {
-    workspace: workspaceResource.operations.view.output.schema,
+    workspace: workspaceResource.operations.view.outputValidator.schema,
     members: Type.Array(workspaceMemberRecordSchema),
     roleCatalog: roleCatalogSchema
   },
@@ -70,7 +70,7 @@ const workspaceMemberListOutputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      workspace: workspaceResource.operations.view.output.normalize(source.workspace),
+      workspace: workspaceResource.operations.view.outputValidator.normalize(source.workspace),
       members: Array.isArray(source.members)
         ? source.members.map((entry) => workspaceMemberOutputValidator.normalize(entry))
         : [],
@@ -87,39 +87,39 @@ const workspaceMemberResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      output: workspaceMemberOutputValidator
+      outputValidator: workspaceMemberOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      output: workspaceMemberListOutputValidator
+      outputValidator: workspaceMemberListOutputValidator
     }),
     create: Object.freeze({
       method: "POST",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceMemberCreateSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceMemberOutputValidator
+      outputValidator: workspaceMemberOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceMemberReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceMemberOutputValidator
+      outputValidator: workspaceMemberOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: WORKSPACE_MEMBER_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceMemberPatchSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceMemberOutputValidator
+      outputValidator: workspaceMemberOutputValidator
     })
   })
 });

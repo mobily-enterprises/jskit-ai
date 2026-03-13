@@ -29,8 +29,8 @@ test("route validator pipeline uses the shared params validator and merges query
   });
 
   const compiled = compileRouteValidator({
-    params: routeParamsValidator,
-    query: [paginationQueryValidator, searchQueryValidator]
+    paramsValidator: routeParamsValidator,
+    queryValidator: [paginationQueryValidator, searchQueryValidator]
   });
 
   assert.equal(compiled.schema.params.type, "object");

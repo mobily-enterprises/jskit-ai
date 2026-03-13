@@ -8,6 +8,7 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./server/UsersCoreServiceProvider": "./src/server/UsersCoreServiceProvider.js",
+    "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./shared": "./src/shared/index.js",
     "./shared/roles": "./src/shared/roles.js",
     "./shared/settings": "./src/shared/settings.js",

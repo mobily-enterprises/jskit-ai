@@ -162,35 +162,35 @@ const resource = {
   operations: {
     view: {
       method: "GET",
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     list: {
       method: "GET",
-      output: createCursorListValidator(responseRecordValidator)
+      outputValidator: createCursorListValidator(responseRecordValidator)
     },
     create: {
       method: "POST",
-      body: {
+      bodyValidator: {
         schema: createRequestBodySchema,
         normalize: normalizeInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     replace: {
       method: "PUT",
-      body: {
+      bodyValidator: {
         schema: createRequestBodySchema,
         normalize: normalizeInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     patch: {
       method: "PATCH",
-      body: {
+      bodyValidator: {
         schema: Type.Partial(createRequestBodySchema, { additionalProperties: false }),
         normalize: normalizeInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     }
   }
 };

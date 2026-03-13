@@ -92,31 +92,31 @@ const crudResource = {
   operations: {
     list: {
       method: "GET",
-      output: createCursorListValidator(recordRecordValidator)
+      outputValidator: createCursorListValidator(recordRecordValidator)
     },
     view: {
       method: "GET",
-      output: recordRecordValidator
+      outputValidator: recordRecordValidator
     },
     create: {
       method: "POST",
-      body: {
+      bodyValidator: {
         schema: recordBodySchema,
         normalize: normalizeRecordInput
       },
-      output: recordRecordValidator
+      outputValidator: recordRecordValidator
     },
     patch: {
       method: "PATCH",
-      body: {
+      bodyValidator: {
         schema: Type.Partial(recordBodySchema, { additionalProperties: false }),
         normalize: normalizeRecordInput
       },
-      output: recordRecordValidator
+      outputValidator: recordRecordValidator
     },
     delete: {
       method: "DELETE",
-      output: {
+      outputValidator: {
         schema: Type.Object(
           {
             id: Type.Integer({ minimum: 1 }),

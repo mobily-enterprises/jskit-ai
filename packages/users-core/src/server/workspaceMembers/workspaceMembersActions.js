@@ -14,8 +14,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: routeParamsValidator,
-    output: workspaceMembersResource.operations.rolesList.output,
+    inputValidator: routeParamsValidator,
+    outputValidator: workspaceMembersResource.operations.rolesList.outputValidator,
     permission: ["workspace.roles.view"],
     idempotency: "none",
     audit: {
@@ -33,8 +33,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: routeParamsValidator,
-    output: workspaceMembersResource.operations.membersList.output,
+    inputValidator: routeParamsValidator,
+    outputValidator: workspaceMembersResource.operations.membersList.outputValidator,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -52,8 +52,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.body],
-    output: workspaceMembersResource.operations.updateMemberRole.output,
+    inputValidator: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.bodyValidator],
+    outputValidator: workspaceMembersResource.operations.updateMemberRole.outputValidator,
     permission: ["workspace.members.manage"],
     idempotency: "optional",
     audit: {
@@ -74,8 +74,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: routeParamsValidator,
-    output: workspaceMembersResource.operations.invitesList.output,
+    inputValidator: routeParamsValidator,
+    outputValidator: workspaceMembersResource.operations.invitesList.outputValidator,
     permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
@@ -93,8 +93,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: [routeParamsValidator, workspaceMembersResource.operations.createInvite.body],
-    output: workspaceMembersResource.operations.createInvite.output,
+    inputValidator: [routeParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
+    outputValidator: workspaceMembersResource.operations.createInvite.outputValidator,
     permission: ["workspace.members.invite"],
     idempotency: "optional",
     audit: {
@@ -103,7 +103,7 @@ const workspaceMembersActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Invite a person to the workspace.",
-      input: workspaceMembersResource.operations.createInvite.body
+      inputValidator: workspaceMembersResource.operations.createInvite.bodyValidator
     },
     async execute(input, context, deps) {
       return deps.workspaceMembersService.createInvite(
@@ -123,8 +123,8 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
-    input: routeParamsValidator,
-    output: workspaceMembersResource.operations.revokeInvite.output,
+    inputValidator: routeParamsValidator,
+    outputValidator: workspaceMembersResource.operations.revokeInvite.outputValidator,
     permission: ["workspace.invites.revoke"],
     idempotency: "optional",
     audit: {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { crudResource } from "../src/shared/crud/crudResource.js";
 
 test("crudResource normalizes create payload", () => {
-  const normalized = crudResource.operations.create.body.normalize({
+  const normalized = crudResource.operations.create.bodyValidator.normalize({
     name: "  Ada  ",
     surname: "  Lovelace  "
   });
@@ -15,7 +15,7 @@ test("crudResource normalizes create payload", () => {
 });
 
 test("crudResource normalizes list output", () => {
-  const normalized = crudResource.operations.list.output.normalize({
+  const normalized = crudResource.operations.list.outputValidator.normalize({
     items: [
       {
         id: "7",

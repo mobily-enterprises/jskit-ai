@@ -56,7 +56,7 @@ test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors
 
   const bootstrapRoute = routes.find((entry) => entry.method === "GET" && entry.path === "/api/bootstrap");
   assert.ok(bootstrapRoute);
-  assert.equal(typeof bootstrapRoute.route.query.normalize, "function");
+  assert.equal(typeof bootstrapRoute.route.queryValidator.normalize, "function");
 
   const reply = createReplyDouble();
   await bootstrapRoute.handler(

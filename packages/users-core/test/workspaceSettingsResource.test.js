@@ -7,7 +7,7 @@ import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 function parseBody(operation, payload = {}) {
   return validateOperationSection({
     operation,
-    section: "body",
+    section: "bodyValidator",
     value: payload
   });
 }
@@ -62,7 +62,7 @@ test("workspace settings create body requires full-write fields", () => {
 });
 
 test("workspace settings output normalizes raw service payloads", () => {
-  const normalized = workspaceSettingsResource.operations.view.output.normalize({
+  const normalized = workspaceSettingsResource.operations.view.outputValidator.normalize({
     workspace: {
       id: "7",
       slug: "  mercury  ",

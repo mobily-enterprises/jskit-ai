@@ -35,9 +35,9 @@ test("deriveResourceRequiredMetadata reads create/replace/patch operation body s
   const patchSchema = Type.Partial(fullSchema);
   const resource = {
     operations: {
-      create: { body: { schema: fullSchema } },
-      replace: { body: { schema: fullSchema } },
-      patch: { body: { schema: patchSchema } }
+      create: { bodyValidator: { schema: fullSchema } },
+      replace: { bodyValidator: { schema: fullSchema } },
+      patch: { bodyValidator: { schema: patchSchema } }
     }
   };
 

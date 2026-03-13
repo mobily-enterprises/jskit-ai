@@ -86,7 +86,7 @@ const addEdit = useAddEdit({
   parseInput: (rawPayload) =>
     validateOperationSection({
       operation: crudResource.operations.patch,
-      section: "body",
+      section: "bodyValidator",
       value: rawPayload
     }),
   mapLoadedToModel: (model, payload = {}) => {

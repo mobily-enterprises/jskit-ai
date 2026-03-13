@@ -12,7 +12,7 @@ import { userProfileResource } from "../../shared/resources/userProfileResource.
 const settingsProfileUpdateOutputValidator = Object.freeze({
   schema: Type.Object(
     {
-      settings: userSettingsResource.operations.view.output.schema,
+      settings: userSettingsResource.operations.view.outputValidator.schema,
       session: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()])
     },
     { additionalProperties: false }
@@ -21,7 +21,7 @@ const settingsProfileUpdateOutputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      settings: userSettingsResource.operations.view.output.normalize(source.settings),
+      settings: userSettingsResource.operations.view.outputValidator.normalize(source.settings),
       session: source.session && typeof source.session === "object" ? source.session : null
     };
   }
@@ -35,8 +35,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_VALIDATOR,
-    output: userSettingsResource.operations.view.output,
+    inputValidator: EMPTY_INPUT_VALIDATOR,
+    outputValidator: userSettingsResource.operations.view.outputValidator,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -54,8 +54,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: userProfileResource.operations.patch.body,
-    output: settingsProfileUpdateOutputValidator,
+    inputValidator: userProfileResource.operations.patch.bodyValidator,
+    outputValidator: settingsProfileUpdateOutputValidator,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
@@ -77,8 +77,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: userProfileResource.operations.avatarUpload.body,
-    output: userProfileResource.operations.avatarUpload.output,
+    inputValidator: userProfileResource.operations.avatarUpload.bodyValidator,
+    outputValidator: userProfileResource.operations.avatarUpload.outputValidator,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -100,8 +100,8 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: userProfileResource.operations.avatarDelete.body,
-    output: userProfileResource.operations.avatarDelete.output,
+    inputValidator: userProfileResource.operations.avatarDelete.bodyValidator,
+    outputValidator: userProfileResource.operations.avatarDelete.outputValidator,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

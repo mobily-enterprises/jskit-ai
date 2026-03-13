@@ -30,7 +30,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             consoleUsersOnly: false,
-            input: { schema: createPassThroughSchema() },
+            inputValidator: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -52,7 +52,7 @@ test("action registry executes latest version by default", async () => {
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
             consoleUsersOnly: false,
-            input: { schema: createPassThroughSchema() },
+            inputValidator: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -102,7 +102,7 @@ test("action registry merges action input validators", async () => {
             channels: ["api"],
             surfaces: ["app"],
             consoleUsersOnly: false,
-            input: [
+            inputValidator: [
               {
                 schema: Type.Object(
                   {
@@ -189,7 +189,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 consoleUsersOnly: false,
-                input: { schema: createPassThroughSchema() },
+                inputValidator: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -216,7 +216,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 channels: ["api"],
                 surfaces: ["app"],
                 consoleUsersOnly: false,
-                input: { schema: createPassThroughSchema() },
+                inputValidator: { schema: createPassThroughSchema() },
                 permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
@@ -280,7 +280,7 @@ test("action registry rejects invalid version requests", async () => {
             channels: ["api"],
             surfaces: ["app"],
             consoleUsersOnly: false,
-            input: { schema: createPassThroughSchema() },
+            inputValidator: { schema: createPassThroughSchema() },
             permission: ["settings.read"],
             idempotency: "none",
             audit: {
@@ -333,7 +333,7 @@ test("action registry enforces consoleUsersOnly for non-operator actors", async 
             channels: ["api", "internal"],
             surfaces: ["app"],
             consoleUsersOnly: true,
-            input: { schema: createPassThroughSchema() },
+            inputValidator: { schema: createPassThroughSchema() },
             permission: () => true,
             idempotency: "none",
             audit: {

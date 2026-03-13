@@ -3,7 +3,14 @@ import { mergeValidators } from "../../../shared/validators/mergeValidators.js";
 import { RouteDefinitionError } from "./errors.js";
 
 const ROUTE_VALIDATOR_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeValidator");
-const VALIDATOR_OPTION_KEYS = Object.freeze(["meta", "body", "query", "params", "response", "advanced"]);
+const VALIDATOR_OPTION_KEYS = Object.freeze([
+  "meta",
+  "bodyValidator",
+  "queryValidator",
+  "paramsValidator",
+  "responseValidators",
+  "advanced"
+]);
 
 function passThroughInputSection(value) {
   return value;
@@ -245,18 +252,31 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
     throw new RouteDefinitionError(`${context} must be an object.`);
   }
 
+  if (Object.prototype.hasOwnProperty.call(definition, "body")) {
+    throw new RouteDefinitionError(`${context}.body is not supported. Use ${context}.bodyValidator.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(definition, "query")) {
+    throw new RouteDefinitionError(`${context}.query is not supported. Use ${context}.queryValidator.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(definition, "params")) {
+    throw new RouteDefinitionError(`${context}.params is not supported. Use ${context}.paramsValidator.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(definition, "response")) {
+    throw new RouteDefinitionError(`${context}.response is not supported. Use ${context}.responseValidators.`);
+  }
+
   const meta = normalizeRouteValidatorMeta(definition.meta, {
     context
   });
-  const body = normalizeRouteValidator(definition.body, {
-    context: `${context}.body`
+  const bodyValidator = normalizeRouteValidator(definition.bodyValidator, {
+    context: `${context}.bodyValidator`
   });
-  const query = normalizeRouteValidator(definition.query, {
-    context: `${context}.query`,
+  const queryValidator = normalizeRouteValidator(definition.queryValidator, {
+    context: `${context}.queryValidator`,
     allowArray: true
   });
-  const params = normalizeRouteValidator(definition.params, {
-    context: `${context}.params`,
+  const paramsValidator = normalizeRouteValidator(definition.paramsValidator, {
+    context: `${context}.paramsValidator`,
     allowArray: true
   });
 
@@ -273,14 +293,14 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
 
   const normalized = {
     meta,
-    body,
-    query,
-    params
+    bodyValidator,
+    queryValidator,
+    paramsValidator
   };
 
-  if (Object.prototype.hasOwnProperty.call(definition, "response")) {
-    normalized.response = normalizeResponseValidatorDefinition(definition.response, {
-      context: `${context}.response`
+  if (Object.prototype.hasOwnProperty.call(definition, "responseValidators")) {
+    normalized.responseValidators = normalizeResponseValidatorDefinition(definition.responseValidators, {
+      context: `${context}.responseValidators`
     });
   }
 
@@ -312,31 +332,31 @@ function compileNormalizedRouteValidator(normalizedValidator) {
     schema.summary = normalizedValidator.meta.summary;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.body, "schema")) {
-    schema.body = normalizedValidator.body.schema;
-    input.body = typeof normalizedValidator.body.normalize === "function"
-      ? normalizedValidator.body.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.bodyValidator, "schema")) {
+    schema.body = normalizedValidator.bodyValidator.schema;
+    input.body = typeof normalizedValidator.bodyValidator.normalize === "function"
+      ? normalizedValidator.bodyValidator.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.query, "schema")) {
-    schema.querystring = normalizedValidator.query.schema;
-    input.query = typeof normalizedValidator.query.normalize === "function"
-      ? normalizedValidator.query.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.queryValidator, "schema")) {
+    schema.querystring = normalizedValidator.queryValidator.schema;
+    input.query = typeof normalizedValidator.queryValidator.normalize === "function"
+      ? normalizedValidator.queryValidator.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.params, "schema")) {
-    schema.params = normalizedValidator.params.schema;
-    input.params = typeof normalizedValidator.params.normalize === "function"
-      ? normalizedValidator.params.normalize
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator.paramsValidator, "schema")) {
+    schema.params = normalizedValidator.paramsValidator.schema;
+    input.params = typeof normalizedValidator.paramsValidator.normalize === "function"
+      ? normalizedValidator.paramsValidator.normalize
       : passThroughInputSection;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator, "response")) {
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator, "responseValidators")) {
     const responseSchema = {};
 
-    for (const [statusCode, entry] of Object.entries(normalizedValidator.response || {})) {
+    for (const [statusCode, entry] of Object.entries(normalizedValidator.responseValidators || {})) {
       responseSchema[statusCode] = entry.schema;
     }
 

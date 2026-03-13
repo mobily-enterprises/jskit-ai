@@ -117,35 +117,35 @@ const resource = {
   operations: {
     view: {
       method: "GET",
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     list: {
       method: "GET",
-      output: createCursorListValidator(workspaceSummaryOutputValidator)
+      outputValidator: createCursorListValidator(workspaceSummaryOutputValidator)
     },
     create: {
       method: "POST",
-      body: {
+      bodyValidator: {
         schema: createRequestBodySchema,
         normalize: normalizeWorkspaceInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     replace: {
       method: "PUT",
-      body: {
+      bodyValidator: {
         schema: createRequestBodySchema,
         normalize: normalizeWorkspaceInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     },
     patch: {
       method: "PATCH",
-      body: {
+      bodyValidator: {
         schema: Type.Partial(createRequestBodySchema, { additionalProperties: false }),
         normalize: normalizeWorkspaceInput
       },
-      output: responseRecordValidator
+      outputValidator: responseRecordValidator
     }
   }
 };

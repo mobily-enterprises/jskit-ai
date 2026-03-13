@@ -50,7 +50,7 @@ const workspaceInvitePatchSchema = Type.Partial(workspaceInviteReplaceSchema, {
 
 const workspaceInviteListSchema = Type.Object(
   {
-    workspace: workspaceResource.operations.view.output.schema,
+    workspace: workspaceResource.operations.view.outputValidator.schema,
     invites: Type.Array(workspaceInviteRecordSchema),
     roleCatalog: roleCatalogSchema,
     inviteTokenPreview: Type.Optional(Type.String({ minLength: 1 }))
@@ -79,7 +79,7 @@ const workspaceInviteListOutputValidator = Object.freeze({
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
     const normalized = {
-      workspace: workspaceResource.operations.view.output.normalize(source.workspace),
+      workspace: workspaceResource.operations.view.outputValidator.normalize(source.workspace),
       invites: Array.isArray(source.invites)
         ? source.invites.map((entry) => workspaceInviteOutputValidator.normalize(entry))
         : [],
@@ -140,45 +140,45 @@ const workspaceInviteResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      output: workspaceInviteOutputValidator
+      outputValidator: workspaceInviteOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      output: workspaceInviteListOutputValidator
+      outputValidator: workspaceInviteListOutputValidator
     }),
     create: Object.freeze({
       method: "POST",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceInviteCreateSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceInviteOutputValidator
+      outputValidator: workspaceInviteOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceInviteReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceInviteOutputValidator
+      outputValidator: workspaceInviteOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: workspaceInvitePatchSchema,
         normalize: normalizeObjectInput
       }),
-      output: workspaceInviteOutputValidator
+      outputValidator: workspaceInviteOutputValidator
     }),
     redeem: Object.freeze({
       method: "POST",
       messages: WORKSPACE_INVITE_OPERATION_MESSAGES,
-      body: workspaceInviteRedeemBodyValidator,
-      output: workspaceInviteRedeemOutputValidator
+      bodyValidator: workspaceInviteRedeemBodyValidator,
+      outputValidator: workspaceInviteRedeemOutputValidator
     })
   })
 });

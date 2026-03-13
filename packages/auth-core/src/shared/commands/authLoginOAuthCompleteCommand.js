@@ -52,8 +52,8 @@ const authLoginOAuthCompleteCommand = Object.freeze({
   command: "auth.login.oauth.complete",
   operation: Object.freeze({
     method: "POST",
-    body: authLoginOAuthCompleteBodyValidator,
-    response: oauthCompleteResponseValidator,
+    bodyValidator: authLoginOAuthCompleteBodyValidator,
+    responseValidator: oauthCompleteResponseValidator,
     messages: AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

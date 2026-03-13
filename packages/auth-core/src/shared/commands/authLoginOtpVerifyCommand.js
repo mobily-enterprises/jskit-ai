@@ -48,8 +48,8 @@ const authLoginOtpVerifyCommand = Object.freeze({
   command: "auth.login.otp.verify",
   operation: Object.freeze({
     method: "POST",
-    body: authLoginOtpVerifyBodyValidator,
-    response: otpVerifyResponseValidator,
+    bodyValidator: authLoginOtpVerifyBodyValidator,
+    responseValidator: otpVerifyResponseValidator,
     messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

@@ -6,7 +6,7 @@ import { workspacePendingInvitationsResource } from "../src/shared/resources/wor
 test("workspacePendingInvitationsResource output normalizer shapes raw invite rows", () => {
   const tokenHash = "a".repeat(64);
 
-  const result = workspacePendingInvitationsResource.operations.list.output.normalize({
+  const result = workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
     pendingInvites: [
       {
         id: 10,

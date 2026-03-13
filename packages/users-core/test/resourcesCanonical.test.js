@@ -61,15 +61,15 @@ test("users-core specialized resource operations expose messages and validators"
 
   for (const { label, operation } of operationSpecs) {
     assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
-    assert.equal(typeof operation?.output?.schema, "object", `${label}.output.schema must exist.`);
-    if (operation?.body) {
-      assert.equal(typeof operation.body.schema, "object", `${label}.body.schema must exist.`);
+    assert.equal(typeof operation?.outputValidator?.schema, "object", `${label}.outputValidator.schema must exist.`);
+    if (operation?.bodyValidator) {
+      assert.equal(typeof operation.bodyValidator.schema, "object", `${label}.bodyValidator.schema must exist.`);
     }
-    if (operation?.params) {
-      assert.equal(typeof operation.params.schema, "object", `${label}.params.schema must exist.`);
+    if (operation?.paramsValidator) {
+      assert.equal(typeof operation.paramsValidator.schema, "object", `${label}.paramsValidator.schema must exist.`);
     }
-    if (operation?.query) {
-      assert.equal(typeof operation.query.schema, "object", `${label}.query.schema must exist.`);
+    if (operation?.queryValidator) {
+      assert.equal(typeof operation.queryValidator.schema, "object", `${label}.queryValidator.schema must exist.`);
     }
   }
 });

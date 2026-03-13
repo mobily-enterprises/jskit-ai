@@ -112,15 +112,15 @@ test("workspace and settings routes attach only the shared transport normalizers
     path: "/api/console/settings"
   });
 
-  assert.equal(typeof workspaceSettings?.params?.normalize, "function");
-  assert.equal(typeof workspaceSettingsPatch?.body?.normalize, "function");
-  assert.equal(typeof workspaceMemberRole?.params?.normalize, "function");
-  assert.equal(typeof workspaceMemberRole?.body?.normalize, "function");
-  assert.equal(typeof workspaceInviteDelete?.params?.normalize, "function");
-  assert.equal(typeof settingsProfilePatch?.body?.normalize, "function");
-  assert.equal(typeof settingsOAuthStart?.params?.normalize, "function");
-  assert.equal(typeof settingsOAuthStart?.query?.normalize, "function");
-  assert.equal(typeof consoleSettingsPatch?.body?.normalize, "function");
+  assert.equal(typeof workspaceSettings?.paramsValidator?.normalize, "function");
+  assert.equal(typeof workspaceSettingsPatch?.bodyValidator?.normalize, "function");
+  assert.equal(typeof workspaceMemberRole?.paramsValidator?.normalize, "function");
+  assert.equal(typeof workspaceMemberRole?.bodyValidator?.normalize, "function");
+  assert.equal(typeof workspaceInviteDelete?.paramsValidator?.normalize, "function");
+  assert.equal(typeof settingsProfilePatch?.bodyValidator?.normalize, "function");
+  assert.equal(typeof settingsOAuthStart?.paramsValidator?.normalize, "function");
+  assert.equal(typeof settingsOAuthStart?.queryValidator?.normalize, "function");
+  assert.equal(typeof consoleSettingsPatch?.bodyValidator?.normalize, "function");
 });
 
 test("workspace settings routes mount one canonical workspace endpoint", () => {

@@ -40,8 +40,8 @@ function bootBootstrapRoutes(app) {
         tags: ["bootstrap"],
         summary: "Resolve app bootstrap payload from registered contributors"
       },
-      query: bootstrapQueryValidator,
-      response: {
+      queryValidator: bootstrapQueryValidator,
+      responseValidators: {
         200: bootstrapOutputValidator
       }
     },

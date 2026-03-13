@@ -41,8 +41,8 @@ const authRegisterCommand = Object.freeze({
   command: "auth.register",
   operation: Object.freeze({
     method: "POST",
-    body: authRegisterBodyValidator,
-    response: registerResponseValidator,
+    bodyValidator: authRegisterBodyValidator,
+    responseValidator: registerResponseValidator,
     messages: AUTH_REGISTER_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

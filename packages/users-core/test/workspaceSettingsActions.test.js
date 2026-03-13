@@ -14,7 +14,7 @@ test("workspace settings actions live in their own action array", () => {
   assert.equal(workspaceSettingsActions[0].surfacesFrom, "workspace");
   assert.equal(workspaceSettingsActions[1].surfacesFrom, "workspace");
   assert.deepEqual(workspaceSettingsActions[1].channels, ["api", "assistant_tool", "internal"]);
-  assert.ok(workspaceSettingsActions[1].assistantTool?.input);
+  assert.ok(workspaceSettingsActions[1].assistantTool?.inputValidator);
 });
 
 test("workspace actions array no longer owns workspace settings actions", () => {
@@ -35,5 +35,5 @@ test("workspace actions array no longer owns workspace settings actions", () => 
 });
 
 test("workspace directory actions use the canonical workspace list resource output", () => {
-  assert.equal(workspaceDirectoryActions[0].output, workspaceResource.operations.list.output);
+  assert.equal(workspaceDirectoryActions[0].outputValidator, workspaceResource.operations.list.outputValidator);
 });

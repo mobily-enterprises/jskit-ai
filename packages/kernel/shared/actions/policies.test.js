@@ -8,7 +8,7 @@ test("function schema returns normalized value when ok", async () => {
   const definition = {
     id: "tests.ok",
     version: 1,
-    input: {
+    inputValidator: {
       schema: () => ({
         ok: true,
         value: {
@@ -26,7 +26,7 @@ test("function schema rejects non-validator results", async () => {
   const definition = {
     id: "tests.invalid",
     version: 1,
-    input: {
+    inputValidator: {
       schema: () => false
     }
   };
@@ -45,7 +45,7 @@ test("function schema propagates validation errors", async () => {
   const definition = {
     id: "tests.errors",
     version: 2,
-    input: {
+    inputValidator: {
       schema: () => ({
         ok: false,
         errors: {
@@ -71,7 +71,7 @@ test("raw TypeBox action schemas validate normalized action input", async () => 
   const definition = {
     id: "tests.typebox",
     version: 1,
-    input: {
+    inputValidator: {
       schema: Type.Object(
         {
           workspaceSlug: Type.String({ minLength: 1 })
@@ -94,7 +94,7 @@ test("action output normalization runs before output validation", async () => {
   const definition = {
     id: "tests.output",
     version: 1,
-    output: {
+    outputValidator: {
       schema: Type.Object(
         {
           ok: Type.Boolean()

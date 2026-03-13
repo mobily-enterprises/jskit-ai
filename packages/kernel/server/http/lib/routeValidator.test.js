@@ -34,18 +34,18 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
       tags: ["contacts", "intake"],
       summary: "Create contact intake"
     },
-    body: {
+    bodyValidator: {
       schema: bodySchema,
       normalize: normalizeBody
     },
-    query: {
+    queryValidator: {
       schema: querySchema,
       normalize: normalizeQuery
     },
-    params: {
+    paramsValidator: {
       schema: paramsSchema
     },
-    response: responseSchema,
+    responseValidators: responseSchema,
     advanced: {
       fastifySchema: {
         headers: headersSchema
@@ -85,7 +85,7 @@ test("compileRouteValidator accepts plain validator objects", () => {
   });
 
   const compiled = compileRouteValidator({
-    query: {
+    queryValidator: {
       schema: querySchema,
       normalize: normalizeQuery
     }
@@ -106,10 +106,10 @@ test("compileRouteValidator creates pass-through request.input transforms for sc
   };
 
   const compiled = compileRouteValidator({
-    query: {
+    queryValidator: {
       schema: querySchema
     },
-    params: {
+    paramsValidator: {
       schema: paramsSchema
     }
   });
@@ -134,7 +134,7 @@ test("compileRouteValidator accepts response validator objects and extracts only
   });
 
   const compiled = compileRouteValidator({
-    response: {
+    responseValidators: {
       200: {
         schema: responseBodySchema,
         normalize: normalizeOutput
@@ -183,7 +183,7 @@ test("compileRouteValidator merges query validator arrays automatically", () => 
   };
 
   const compiled = compileRouteValidator({
-    query: [paginationQuery, searchQuery]
+    queryValidator: [paginationQuery, searchQuery]
   });
 
   assert.deepEqual(compiled.schema, {
@@ -230,7 +230,7 @@ test("compileRouteValidator merges params validator arrays automatically", () =>
   };
 
   const compiled = compileRouteValidator({
-    params: [workspaceSlugParams, inviteIdParams]
+    paramsValidator: [workspaceSlugParams, inviteIdParams]
   });
 
   assert.deepEqual(compiled.schema, {
@@ -252,7 +252,7 @@ test("compileRouteValidator merges params validator arrays automatically", () =>
 
 test("compileRouteValidator composes multiple query normalizers in validator arrays", () => {
   const compiled = compileRouteValidator({
-    query: [
+    queryValidator: [
       {
         schema: {
           type: "object",
@@ -300,7 +300,7 @@ test("resolveRouteValidatorOptions ignores legacy schema/input definitions", () 
     path: "/contacts",
     options: {
       schema: {
-        body: {}
+        bodyValidator: {}
       },
       input: {
         body: () => ({})
@@ -330,7 +330,7 @@ test("resolveRouteValidatorOptions supports inline validator shape without wrapp
         tags: ["contacts"],
         summary: "Create contact"
       },
-      body: {
+      bodyValidator: {
         schema: bodySchema,
         normalize: normalizeBody
       },
@@ -423,7 +423,7 @@ test("HttpRouter.register ignores compiled legacy-style route options", () => {
   });
 
   const validator = defineRouteValidator({
-    query: {
+    queryValidator: {
       schema: querySchema,
       normalize: normalizeQuery
     }
@@ -456,7 +456,7 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
         tags: ["contacts"],
         summary: "List contacts"
       },
-      query: {
+      queryValidator: {
         schema: querySchema,
         normalize: normalizeQuery
       }

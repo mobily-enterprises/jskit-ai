@@ -40,8 +40,8 @@ const authLoginOtpRequestCommand = Object.freeze({
   command: "auth.login.otp.request",
   operation: Object.freeze({
     method: "POST",
-    body: authLoginOtpRequestBodyValidator,
-    response: okMessageResponseValidator,
+    bodyValidator: authLoginOtpRequestBodyValidator,
+    responseValidator: okMessageResponseValidator,
     messages: AUTH_LOGIN_OTP_REQUEST_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze([])

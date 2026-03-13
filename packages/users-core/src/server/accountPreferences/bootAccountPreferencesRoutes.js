@@ -18,10 +18,10 @@ function bootAccountPreferencesRoutes(app) {
         tags: ["settings"],
         summary: "Update user preferences"
       },
-      body: userSettingsResource.operations.preferencesUpdate.body,
-      response: withStandardErrorResponses(
+      bodyValidator: userSettingsResource.operations.preferencesUpdate.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.view.output
+          200: userSettingsResource.operations.view.outputValidator
         },
         { includeValidation400: true }
       )

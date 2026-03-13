@@ -53,39 +53,39 @@ const consoleSettingsResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      output: consoleSettingsOutputValidator
+      outputValidator: consoleSettingsOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      output: createCursorListValidator(consoleSettingsOutputValidator)
+      outputValidator: createCursorListValidator(consoleSettingsOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: consoleSettingsCreateSchema,
         normalize: normalizeObjectInput
       }),
-      output: consoleSettingsOutputValidator
+      outputValidator: consoleSettingsOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: consoleSettingsReplaceSchema,
         normalize: normalizeObjectInput
       }),
-      output: consoleSettingsOutputValidator
+      outputValidator: consoleSettingsOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: consoleSettingsPatchSchema,
         normalize: normalizeObjectInput
       }),
-      output: consoleSettingsOutputValidator
+      outputValidator: consoleSettingsOutputValidator
     })
   })
 });

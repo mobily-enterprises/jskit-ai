@@ -14,8 +14,8 @@ const workspaceDirectoryActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_VALIDATOR,
-    output: workspaceResource.operations.list.output,
+    inputValidator: EMPTY_INPUT_VALIDATOR,
+    outputValidator: workspaceResource.operations.list.outputValidator,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {

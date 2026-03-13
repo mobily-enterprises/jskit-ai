@@ -96,51 +96,51 @@ const userProfileResource = Object.freeze({
     view: Object.freeze({
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      output: userProfileOutputValidator
+      outputValidator: userProfileOutputValidator
     }),
     list: Object.freeze({
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      output: createCursorListValidator(userProfileOutputValidator)
+      outputValidator: createCursorListValidator(userProfileOutputValidator)
     }),
     create: Object.freeze({
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userProfileCreateBodySchema,
         normalize: normalizeProfileInput
       }),
-      output: userProfileOutputValidator
+      outputValidator: userProfileOutputValidator
     }),
     replace: Object.freeze({
       method: "PUT",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userProfileCreateBodySchema,
         normalize: normalizeProfileInput
       }),
-      output: userProfileOutputValidator
+      outputValidator: userProfileOutputValidator
     }),
     patch: Object.freeze({
       method: "PATCH",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: Object.freeze({
+      bodyValidator: Object.freeze({
         schema: userProfilePatchBodySchema,
         normalize: normalizeProfileInput
       }),
-      output: userProfileOutputValidator
+      outputValidator: userProfileOutputValidator
     }),
     avatarUpload: Object.freeze({
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: avatarUploadBodyValidator,
-      output: avatarOperationOutputValidator
+      bodyValidator: avatarUploadBodyValidator,
+      outputValidator: avatarOperationOutputValidator
     }),
     avatarDelete: Object.freeze({
       method: "DELETE",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: avatarDeleteBodyValidator,
-      output: avatarOperationOutputValidator
+      bodyValidator: avatarDeleteBodyValidator,
+      outputValidator: avatarOperationOutputValidator
     })
   })
 });

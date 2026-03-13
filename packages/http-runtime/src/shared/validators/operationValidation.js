@@ -15,7 +15,7 @@ function defaultNormalize(value) {
   };
 }
 
-function resolveOperationSection(operation = {}, section = "body") {
+function resolveOperationSection(operation = {}, section = "bodyValidator") {
   const source = isRecord(operation) ? operation : {};
   const value = source[section];
   if (!isRecord(value)) {
@@ -27,7 +27,7 @@ function resolveOperationSection(operation = {}, section = "body") {
 
 function validateOperationSection({
   operation = {},
-  section = "body",
+  section = "bodyValidator",
   value,
   context = {}
 } = {}) {
@@ -73,49 +73,49 @@ function validateOperationInput({
 } = {}) {
   const source = isRecord(input) ? input : {};
   const sectionResults = {
-    params: validateOperationSection({
+    paramsValidator: validateOperationSection({
       operation,
-      section: "params",
+      section: "paramsValidator",
       value: source.params,
       context
     }),
-    query: validateOperationSection({
+    queryValidator: validateOperationSection({
       operation,
-      section: "query",
+      section: "queryValidator",
       value: source.query,
       context
     }),
-    body: validateOperationSection({
+    bodyValidator: validateOperationSection({
       operation,
-      section: "body",
+      section: "bodyValidator",
       value: source.body,
       context
     })
   };
 
   const fieldErrors = {
-    ...sectionResults.params.fieldErrors,
-    ...sectionResults.query.fieldErrors,
-    ...sectionResults.body.fieldErrors
+    ...sectionResults.paramsValidator.fieldErrors,
+    ...sectionResults.queryValidator.fieldErrors,
+    ...sectionResults.bodyValidator.fieldErrors
   };
 
   const globalErrors = [
-    ...sectionResults.params.globalErrors,
-    ...sectionResults.query.globalErrors,
-    ...sectionResults.body.globalErrors
+    ...sectionResults.paramsValidator.globalErrors,
+    ...sectionResults.queryValidator.globalErrors,
+    ...sectionResults.bodyValidator.globalErrors
   ];
 
   return {
-    ok: sectionResults.params.ok && sectionResults.query.ok && sectionResults.body.ok,
+    ok: sectionResults.paramsValidator.ok && sectionResults.queryValidator.ok && sectionResults.bodyValidator.ok,
     value: {
-      params: sectionResults.params.value,
-      query: sectionResults.query.value,
-      body: sectionResults.body.value
+      params: sectionResults.paramsValidator.value,
+      query: sectionResults.queryValidator.value,
+      body: sectionResults.bodyValidator.value
     },
     normalized: {
-      params: sectionResults.params.normalized,
-      query: sectionResults.query.normalized,
-      body: sectionResults.body.normalized
+      params: sectionResults.paramsValidator.normalized,
+      query: sectionResults.queryValidator.normalized,
+      body: sectionResults.bodyValidator.normalized
     },
     fieldErrors,
     globalErrors,

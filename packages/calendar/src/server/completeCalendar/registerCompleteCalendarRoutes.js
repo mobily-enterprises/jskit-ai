@@ -20,10 +20,10 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "List calendar events for the selected week."
       },
-      params: completeCalendarInputValidators.workspaceParamsValidator,
-      query: completeCalendarInputValidators.weekQueryValidator,
-      response: withStandardErrorResponses({
-        200: completeCalendarResource.operations.list.output
+      paramsValidator: completeCalendarInputValidators.workspaceParamsValidator,
+      queryValidator: completeCalendarInputValidators.weekQueryValidator,
+      responseValidators: withStandardErrorResponses({
+        200: completeCalendarResource.operations.list.outputValidator
       })
     },
     async function (request, reply) {
@@ -49,9 +49,9 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "View a calendar event."
       },
-      params: completeCalendarInputValidators.routeParamsValidator,
-      response: withStandardErrorResponses({
-        200: completeCalendarResource.operations.view.output
+      paramsValidator: completeCalendarInputValidators.routeParamsValidator,
+      responseValidators: withStandardErrorResponses({
+        200: completeCalendarResource.operations.view.outputValidator
       })
     },
     async function (request, reply) {
@@ -74,11 +74,11 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Create a calendar event."
       },
-      params: completeCalendarInputValidators.workspaceParamsValidator,
-      body: completeCalendarResource.operations.create.body,
-      response: withStandardErrorResponses(
+      paramsValidator: completeCalendarInputValidators.workspaceParamsValidator,
+      bodyValidator: completeCalendarResource.operations.create.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          201: completeCalendarResource.operations.create.output
+          201: completeCalendarResource.operations.create.outputValidator
         },
         { includeValidation400: true }
       )
@@ -106,11 +106,11 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Update a calendar event."
       },
-      params: completeCalendarInputValidators.routeParamsValidator,
-      body: completeCalendarResource.operations.patch.body,
-      response: withStandardErrorResponses(
+      paramsValidator: completeCalendarInputValidators.routeParamsValidator,
+      bodyValidator: completeCalendarResource.operations.patch.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: completeCalendarResource.operations.patch.output
+          200: completeCalendarResource.operations.patch.outputValidator
         },
         { includeValidation400: true }
       )
@@ -138,9 +138,9 @@ function registerCompleteCalendarRoutes(app) {
         tags: ["calendar"],
         summary: "Delete a calendar event."
       },
-      params: completeCalendarInputValidators.routeParamsValidator,
-      response: withStandardErrorResponses({
-        200: completeCalendarResource.operations.delete.output
+      paramsValidator: completeCalendarInputValidators.routeParamsValidator,
+      responseValidators: withStandardErrorResponses({
+        200: completeCalendarResource.operations.delete.outputValidator
       })
     },
     async function (request, reply) {

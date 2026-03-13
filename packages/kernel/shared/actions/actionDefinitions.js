@@ -248,20 +248,26 @@ function normalizeAssistantToolConfig(assistantTool) {
   }
 
   const description = normalizeText(assistantTool.description);
-  const input = assistantTool.input;
+  if (Object.prototype.hasOwnProperty.call(assistantTool, "input")) {
+    throw createActionRuntimeError(500, "Action definition assistantTool.input is not supported. Use assistantTool.inputValidator.", {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  const inputValidator = assistantTool.inputValidator;
   const assistantToolInputValidator =
-    typeof input === "undefined"
+    typeof inputValidator === "undefined"
       ? null
-      : normalizeSingleActionValidator(input, "assistantTool.input");
+      : normalizeSingleActionValidator(inputValidator, "assistantTool.inputValidator");
   if (typeof assistantTool.inputJsonSchema !== "undefined") {
-    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.input.", {
+    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.inputValidator.", {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
   return Object.freeze({
     description,
-    input: assistantToolInputValidator,
+    inputValidator: assistantToolInputValidator,
     inputJsonSchema: assistantToolInputValidator?.schema || null
   });
 }
@@ -329,6 +335,18 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
+  if (Object.prototype.hasOwnProperty.call(source, "input")) {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" must use inputValidator instead of input.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(source, "output")) {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" must use outputValidator instead of output.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
   return Object.freeze({
     id,
     version,
@@ -337,10 +355,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     channels,
     surfaces,
     consoleUsersOnly,
-    input: normalizeActionValidators(source.input, "input", {
+    inputValidator: normalizeActionValidators(source.inputValidator, "inputValidator", {
       required: true
     }),
-    output: normalizeActionOutputValidator(source.output, "output", {
+    outputValidator: normalizeActionOutputValidator(source.outputValidator, "outputValidator", {
       required: false
     }),
     permission: normalizePermissionPolicy(source.permission),

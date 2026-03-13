@@ -14,8 +14,8 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: EMPTY_INPUT_VALIDATOR,
-    output: workspacePendingInvitationsResource.operations.list.output,
+    inputValidator: EMPTY_INPUT_VALIDATOR,
+    outputValidator: workspacePendingInvitationsResource.operations.list.outputValidator,
     permission: requireAuthenticated,
     idempotency: "none",
     audit: {
@@ -35,8 +35,8 @@ const workspacePendingInvitationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
-    input: workspaceInviteResource.operations.redeem.body,
-    output: workspaceInviteResource.operations.redeem.output,
+    inputValidator: workspaceInviteResource.operations.redeem.bodyValidator,
+    outputValidator: workspaceInviteResource.operations.redeem.outputValidator,
     permission: requireAuthenticated,
     idempotency: "optional",
     audit: {

@@ -10,8 +10,8 @@ const authSessionReadCommand = Object.freeze({
   command: "auth.session.read",
   operation: Object.freeze({
     method: "GET",
-    response: sessionResponseValidator,
-    unavailableResponse: sessionUnavailableResponseValidator,
+    responseValidator: sessionResponseValidator,
+    unavailableResponseValidator: sessionUnavailableResponseValidator,
     messages: AUTH_SESSION_READ_MESSAGES,
     idempotent: true,
     invalidates: Object.freeze([])

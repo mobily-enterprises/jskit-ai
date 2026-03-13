@@ -127,7 +127,7 @@ const addEdit = useAddEdit({
   parseInput: (rawPayload) =>
     validateOperationSection({
       operation: workspaceSettingsResource.operations.patch,
-      section: "body",
+      section: "bodyValidator",
       value: rawPayload
     }),
   mapLoadedToModel: (model, payload = {}) => {

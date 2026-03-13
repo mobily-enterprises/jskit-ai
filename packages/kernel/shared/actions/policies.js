@@ -277,13 +277,13 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
 
 async function normalizeActionInput(definition, input, context) {
   try {
-    const normalizedInput = await normalizeValidatorPayload(definition?.input, input, {
+    const normalizedInput = await normalizeValidatorPayload(definition?.inputValidator, input, {
       phase: "input",
       definition,
       context
     });
 
-    return await validateSchemaPayload(definition?.input?.schema, normalizedInput, {
+    return await validateSchemaPayload(definition?.inputValidator?.schema, normalizedInput, {
       phase: "input",
       definition,
       context
@@ -304,18 +304,18 @@ async function normalizeActionInput(definition, input, context) {
 }
 
 async function normalizeActionOutput(definition, output, context) {
-  if (!definition?.output) {
+  if (!definition?.outputValidator) {
     return output;
   }
 
   try {
-    const normalizedOutput = await normalizeValidatorPayload(definition.output, output, {
+    const normalizedOutput = await normalizeValidatorPayload(definition.outputValidator, output, {
       phase: "output",
       definition,
       context
     });
 
-    return await validateSchemaPayload(definition.output.schema, normalizedOutput, {
+    return await validateSchemaPayload(definition.outputValidator.schema, normalizedOutput, {
       phase: "output",
       definition,
       context

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { completeCalendarResource } from "../src/shared/completeCalendar/completeCalendarResource.js";
 
 test("completeCalendarResource normalizes create payload", () => {
-  const normalized = completeCalendarResource.operations.create.body.normalize({
+  const normalized = completeCalendarResource.operations.create.bodyValidator.normalize({
     contactId: "5",
     title: "  Intro call  ",
     notes: "  Bring contract draft  ",
@@ -23,7 +23,7 @@ test("completeCalendarResource normalizes create payload", () => {
 });
 
 test("completeCalendarResource normalizes list output", () => {
-  const normalized = completeCalendarResource.operations.list.output.normalize({
+  const normalized = completeCalendarResource.operations.list.outputValidator.normalize({
     weekStart: " 2026-03-09T00:00:00.000Z ",
     weekEnd: " 2026-03-16T00:00:00.000Z ",
     items: [

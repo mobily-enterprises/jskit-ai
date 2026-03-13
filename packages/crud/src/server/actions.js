@@ -1,5 +1,9 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { inputValidators } from "./inputValidators.js";
+import {
+  cursorPaginationQueryValidator,
+  recordIdParamsValidator
+} from "@jskit-ai/kernel/shared/validators";
+import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { crudResource } from "../shared/crud/crudResource.js";
 import { CRUD_ACTION_ID_PREFIX, createActionIds } from "./actionIds.js";
 
@@ -14,8 +18,8 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputValidators.workspaceParamsValidator, inputValidators.listQueryValidator],
-      output: crudResource.operations.list.output,
+      inputValidator: [routeParamsValidator, cursorPaginationQueryValidator],
+      outputValidator: crudResource.operations.list.outputValidator,
       permission: requireAuthenticated,
       idempotency: "none",
       audit: {
@@ -35,8 +39,8 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
-      output: crudResource.operations.view.output,
+      inputValidator: [routeParamsValidator, recordIdParamsValidator],
+      outputValidator: crudResource.operations.view.outputValidator,
       permission: requireAuthenticated,
       idempotency: "none",
       audit: {
@@ -56,8 +60,8 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputValidators.workspaceParamsValidator, crudResource.operations.create.body],
-      output: crudResource.operations.create.output,
+      inputValidator: [routeParamsValidator, crudResource.operations.create.bodyValidator],
+      outputValidator: crudResource.operations.create.outputValidator,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
@@ -77,8 +81,8 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator, crudResource.operations.patch.body],
-      output: crudResource.operations.patch.output,
+      inputValidator: [routeParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
+      outputValidator: crudResource.operations.patch.outputValidator,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
@@ -99,8 +103,8 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
-      input: [inputValidators.workspaceParamsValidator, inputValidators.recordIdParamsValidator],
-      output: crudResource.operations.delete.output,
+      inputValidator: [routeParamsValidator, recordIdParamsValidator],
+      outputValidator: crudResource.operations.delete.outputValidator,
       permission: requireAuthenticated,
       idempotency: "optional",
       audit: {

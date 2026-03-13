@@ -18,8 +18,8 @@ function bootWorkspaceDirectoryRoutes(app) {
         tags: ["workspace"],
         summary: "List workspaces visible to authenticated user"
       },
-      response: withStandardErrorResponses({
-        200: workspaceResource.operations.list.output
+      responseValidators: withStandardErrorResponses({
+        200: workspaceResource.operations.list.outputValidator
       })
     },
     async function (request, reply) {

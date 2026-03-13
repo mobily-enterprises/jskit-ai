@@ -19,8 +19,8 @@ function bootWorkspacePendingInvitations(app) {
         tags: ["workspace"],
         summary: "List pending workspace invitations for authenticated user"
       },
-      response: withStandardErrorResponses({
-        200: workspacePendingInvitationsResource.operations.list.output
+      responseValidators: withStandardErrorResponses({
+        200: workspacePendingInvitationsResource.operations.list.outputValidator
       })
     },
     async function (request, reply) {
@@ -40,10 +40,10 @@ function bootWorkspacePendingInvitations(app) {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token"
       },
-      body: workspaceInviteResource.operations.redeem.body,
-      response: withStandardErrorResponses(
+      bodyValidator: workspaceInviteResource.operations.redeem.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: workspaceInviteResource.operations.redeem.output
+          200: workspaceInviteResource.operations.redeem.outputValidator
         },
         { includeValidation400: true }
       )

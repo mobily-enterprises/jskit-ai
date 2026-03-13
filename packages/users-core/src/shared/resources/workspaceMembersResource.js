@@ -235,36 +235,36 @@ const workspaceMembersResource = Object.freeze({
     rolesList: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      output: workspaceRoleCatalogOutputValidator
+      outputValidator: workspaceRoleCatalogOutputValidator
     }),
     membersList: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      output: workspaceMembersOutputValidator
+      outputValidator: workspaceMembersOutputValidator
     }),
     updateMemberRole: Object.freeze({
       method: "PATCH",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      body: updateMemberRoleBodyValidator,
-      input: updateMemberRoleInputValidator,
-      output: workspaceMembersOutputValidator
+      bodyValidator: updateMemberRoleBodyValidator,
+      inputValidator: updateMemberRoleInputValidator,
+      outputValidator: workspaceMembersOutputValidator
     }),
     invitesList: Object.freeze({
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      output: workspaceInvitesOutputValidator
+      outputValidator: workspaceInvitesOutputValidator
     }),
     createInvite: Object.freeze({
       method: "POST",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      body: createInviteBodyValidator,
-      output: workspaceInvitesOutputValidator
+      bodyValidator: createInviteBodyValidator,
+      outputValidator: workspaceInvitesOutputValidator
     }),
     revokeInvite: Object.freeze({
       method: "DELETE",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      input: revokeInviteInputValidator,
-      output: workspaceInvitesOutputValidator
+      inputValidator: revokeInviteInputValidator,
+      outputValidator: workspaceInvitesOutputValidator
     })
   })
 });

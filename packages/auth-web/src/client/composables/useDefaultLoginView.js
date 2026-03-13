@@ -229,7 +229,7 @@ function validateCommandBody(commandResource, payload) {
 
   return validateOperationSection({
     operation: commandResource.operation,
-    section: "body",
+    section: "bodyValidator",
     value: payload
   });
 }
@@ -245,7 +245,7 @@ function validateCommandParams(commandResource, payload) {
 
   return validateOperationSection({
     operation: commandResource.operation,
-    section: "params",
+    section: "paramsValidator",
     value: payload
   });
 }
@@ -261,7 +261,7 @@ function validateCommandQuery(commandResource, payload) {
 
   return validateOperationSection({
     operation: commandResource.operation,
-    section: "query",
+    section: "queryValidator",
     value: payload
   });
 }

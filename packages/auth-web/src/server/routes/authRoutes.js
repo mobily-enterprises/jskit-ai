@@ -27,10 +27,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Register a new user"
       },
-      body: authRegisterCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authRegisterCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          201: authRegisterCommand.operation.response
+          201: authRegisterCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -48,10 +48,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Log in with configured credentials"
       },
-      body: authLoginPasswordCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authLoginPasswordCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authLoginPasswordCommand.operation.response
+          200: authLoginPasswordCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -69,10 +69,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Request one-time email login code"
       },
-      body: authLoginOtpRequestCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authLoginOtpRequestCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authLoginOtpRequestCommand.operation.response
+          200: authLoginOtpRequestCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -90,10 +90,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Verify one-time email login code and create session"
       },
-      body: authLoginOtpVerifyCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authLoginOtpVerifyCommand.operation.response
+          200: authLoginOtpVerifyCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -112,11 +112,11 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Start OAuth login with configured provider"
       },
-      params: authLoginOAuthStartCommand.operation.params,
-      query: authLoginOAuthStartCommand.operation.query,
-      response: withStandardErrorResponses(
+      paramsValidator: authLoginOAuthStartCommand.operation.paramsValidator,
+      queryValidator: authLoginOAuthStartCommand.operation.queryValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          302: authLoginOAuthStartCommand.operation.response
+          302: authLoginOAuthStartCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -134,10 +134,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Complete OAuth code exchange and set session cookies"
       },
-      body: authLoginOAuthCompleteCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authLoginOAuthCompleteCommand.operation.response
+          200: authLoginOAuthCompleteCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -155,10 +155,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Request a password reset email"
       },
-      body: authPasswordResetRequestCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authPasswordResetRequestCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authPasswordResetRequestCommand.operation.response
+          200: authPasswordResetRequestCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -176,10 +176,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Complete password recovery link exchange"
       },
-      body: authPasswordRecoveryCompleteCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authPasswordRecoveryCompleteCommand.operation.response
+          200: authPasswordRecoveryCompleteCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -197,10 +197,10 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session"
       },
-      body: authPasswordResetCommand.operation.body,
-      response: withStandardErrorResponses(
+      bodyValidator: authPasswordResetCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
         {
-          200: authPasswordResetCommand.operation.response
+          200: authPasswordResetCommand.operation.responseValidator
         },
         { includeValidation400: true }
       ),
@@ -218,8 +218,8 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Log out and clear session cookies"
       },
-      response: withStandardErrorResponses({
-        200: authLogoutCommand.operation.response
+      responseValidators: withStandardErrorResponses({
+        200: authLogoutCommand.operation.responseValidator
       }),
       handler: handler("logout")
     },
@@ -231,9 +231,9 @@ function buildRoutes(controller) {
         tags: ["auth"],
         summary: "Get current session status and CSRF token"
       },
-      response: withStandardErrorResponses({
-        200: authSessionReadCommand.operation.response,
-        503: authSessionReadCommand.operation.unavailableResponse
+      responseValidators: withStandardErrorResponses({
+        200: authSessionReadCommand.operation.responseValidator,
+        503: authSessionReadCommand.operation.unavailableResponseValidator
       }),
       handler: handler("session")
     }

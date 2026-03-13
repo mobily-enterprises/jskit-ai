@@ -54,9 +54,9 @@ const authLoginOAuthStartCommand = Object.freeze({
   command: "auth.login.oauth.start",
   operation: Object.freeze({
     method: "GET",
-    params: authLoginOAuthStartParamsValidator,
-    query: authLoginOAuthStartQueryValidator,
-    response: authLoginOAuthStartResponseValidator,
+    paramsValidator: authLoginOAuthStartParamsValidator,
+    queryValidator: authLoginOAuthStartQueryValidator,
+    responseValidator: authLoginOAuthStartResponseValidator,
     messages: AUTH_LOGIN_OAUTH_START_MESSAGES,
     idempotent: true,
     invalidates: Object.freeze([])

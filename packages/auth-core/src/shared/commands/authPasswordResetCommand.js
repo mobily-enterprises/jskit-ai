@@ -33,8 +33,8 @@ const authPasswordResetCommand = Object.freeze({
   command: "auth.password.reset",
   operation: Object.freeze({
     method: "POST",
-    body: authPasswordResetBodyValidator,
-    response: okMessageResponseValidator,
+    bodyValidator: authPasswordResetBodyValidator,
+    responseValidator: okMessageResponseValidator,
     messages: AUTH_PASSWORD_RESET_MESSAGES,
     idempotent: false,
     invalidates: Object.freeze(["auth.session.read"])

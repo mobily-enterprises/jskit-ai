@@ -38,7 +38,7 @@ const patchSchema = Type.Object(
 
 const patchOperation = Object.freeze({
   method: "PATCH",
-  body: {
+  bodyValidator: {
     schema: patchSchema,
     normalize: (value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -61,7 +61,7 @@ const patchOperation = Object.freeze({
 test("validateOperationSection normalizes and validates one section", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
-    section: "body",
+    section: "bodyValidator",
     value: {
       name: "  Acme  ",
       color: "#0F6B54"
@@ -76,7 +76,7 @@ test("validateOperationSection normalizes and validates one section", () => {
 test("validateOperationSection returns shared field errors", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
-    section: "body",
+    section: "bodyValidator",
     value: {
       name: "",
       color: "bad",
@@ -93,7 +93,7 @@ test("validateOperationSection returns shared field errors", () => {
 test("validateOperationInput validates params/query/body together", () => {
   const viewOperation = Object.freeze({
     method: "GET",
-    params: {
+    paramsValidator: {
       schema: Type.Object(
         {
           workspaceSlug: Type.String({ minLength: 1 })
@@ -101,7 +101,7 @@ test("validateOperationInput validates params/query/body together", () => {
         { additionalProperties: false }
       )
     },
-    query: {
+    queryValidator: {
       schema: Type.Object(
         {
           includeArchived: Type.Optional(Type.Boolean())
