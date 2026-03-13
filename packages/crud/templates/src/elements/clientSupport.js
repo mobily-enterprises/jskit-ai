@@ -1,55 +1,26 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
-import {
-  isWorkspaceVisibility,
-  resolveCrudConfigFromModules,
-  resolveCrudConfigsFromModules,
-  resolveCrudConfig
-} from "@jskit-ai/crud/shared/crud/crudModuleConfig";
-import { crudResource } from "@jskit-ai/crud/shared/crud/crudResource";
-
-const CRUD_NAMESPACE = "${option:namespace|kebab}";
+import { crudModuleConfig, isWorkspaceVisibility } from "../shared/moduleConfig.js";
+import { crudResource } from "../shared/crudResource.js";
 
 function resolveCrudClientConfig(source = {}) {
-  const resolved = resolveCrudConfig(source);
+  const resolved = source && typeof source === "object" && !Array.isArray(source) ? source : crudModuleConfig;
+
   return Object.freeze({
-    namespace: resolved.namespace,
-    visibility: resolved.visibility,
+    namespace: String(resolved.namespace || ""),
+    visibility: String(resolved.visibility || "workspace"),
     workspaceScoped: isWorkspaceVisibility(resolved.visibility),
-    relativePath: resolved.relativePath
+    relativePath: String(resolved.relativePath || "/crud")
   });
-}
-
-function resolveCrudClientConfigFromPublicConfig(options = {}) {
-  const appConfig = getClientAppConfig();
-  const resolved = resolveCrudConfigFromModules(appConfig?.modules, options);
-  if (resolved) {
-    return resolveCrudClientConfig(resolved);
-  }
-
-  const allCrudConfigs = resolveCrudConfigsFromModules(appConfig?.modules);
-  if (Object.hasOwn(options, "namespace")) {
-    const requestedNamespace = String(options.namespace || "");
-    throw new Error(`Unable to resolve CRUD module config for namespace "${requestedNamespace}".`);
-  }
-
-  if (allCrudConfigs.length < 1) {
-    throw new Error('Missing config.modules entry for module "crud".');
-  }
-
-  throw new Error("Multiple CRUD module configs found. Pass namespace explicitly.");
 }
 
 function useCrudClientContext() {
   const route = useRoute();
   const routeContext = useUsersWebWorkspaceRouteContext();
-  const crudConfig = resolveCrudClientConfigFromPublicConfig({
-    namespace: CRUD_NAMESPACE
-  });
+  const crudConfig = resolveCrudClientConfig(crudModuleConfig);
   const placementContext = routeContext.placementContext;
   const workspaceSlugFromRoute = computed(() => (crudConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""));
   const queryWorkspaceSlug = computed(() => workspaceSlugFromRoute.value);
@@ -179,7 +150,6 @@ function toRouteRecordId(value) {
 export {
   crudResource,
   resolveCrudClientConfig,
-  resolveCrudClientConfigFromPublicConfig,
   useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,

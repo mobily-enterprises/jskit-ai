@@ -6,6 +6,8 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/*": "./src/client/*.vue",
-    "./client/clientSupport": "./src/client/clientSupport.js"
+    "./client/clientSupport": "./src/client/clientSupport.js",
+    "./server": "./src/server/index.js",
+    "./shared": "./src/shared/index.js"
   }
 }

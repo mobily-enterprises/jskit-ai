@@ -1,4 +1,4 @@
-import { createActionRuntimeError } from "./contracts.js";
+import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeText } from "./textNormalization.js";
 
 function resolveRequestIdempotencyKey(context) {

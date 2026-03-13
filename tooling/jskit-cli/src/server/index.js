@@ -3807,6 +3807,35 @@ async function applyPackageInstall({
   return managedRecord;
 }
 
+async function adoptAppLocalPackageDependencies({
+  appRoot,
+  appPackageJson,
+  lock
+}) {
+  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+  const runtimeDependencies = ensureObject(appPackageJson.dependencies);
+  const adoptedPackageIds = [];
+
+  for (const dependencyId of sortStrings(Object.keys(runtimeDependencies))) {
+    if (lock.installedPackages[dependencyId]) {
+      continue;
+    }
+
+    const localPackageEntry = appLocalRegistry.get(dependencyId);
+    if (!localPackageEntry) {
+      continue;
+    }
+
+    lock.installedPackages[dependencyId] = createManagedRecordBase(localPackageEntry, {});
+    adoptedPackageIds.push(dependencyId);
+  }
+
+  return {
+    appLocalRegistry,
+    adoptedPackageIds: sortStrings(adoptedPackageIds)
+  };
+}
+
 function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles, appRoot, lockPath, externalDependencies) {
   const lines = [];
   lines.push(`${commandType} ${targetId}.`);
@@ -4928,6 +4957,28 @@ async function commandAdd({ positional, options, cwd, io }) {
     installedPackageRecords.push(managedRecord);
   }
 
+  const {
+    appLocalRegistry: refreshedAppLocalRegistry,
+    adoptedPackageIds
+  } = await adoptAppLocalPackageDependencies({
+    appRoot,
+    appPackageJson: packageJson,
+    lock
+  });
+  for (const [packageId, packageEntry] of refreshedAppLocalRegistry.entries()) {
+    combinedPackageRegistry.set(packageId, packageEntry);
+  }
+  if (adoptedPackageIds.length > 0) {
+    const postInstallPackageIds = sortStrings(Object.keys(ensureObject(lock.installedPackages)));
+    validatePlannedCapabilityClosure(
+      postInstallPackageIds,
+      combinedPackageRegistry,
+      `add ${targetType} ${targetId}`
+    );
+  }
+
+  const finalResolvedPackageIds = sortStrings([...resolvedPackageIds, ...adoptedPackageIds]);
+
   const touchedFileList = sortStrings([...touchedFiles]);
   const successLabel = targetType === "bundle" ? "Added bundle" : "Added package";
   const installWarnings = installedPackageRecords
@@ -4947,7 +4998,7 @@ async function commandAdd({ positional, options, cwd, io }) {
     io.stdout.write(`${JSON.stringify({
       targetType,
       targetId,
-      resolvedPackages: resolvedPackageIds,
+      resolvedPackages: finalResolvedPackageIds,
       touchedFiles: touchedFileList,
       lockPath: normalizeRelativePath(appRoot, lockPath),
       externalDependencies,
@@ -4960,7 +5011,7 @@ async function commandAdd({ positional, options, cwd, io }) {
       `${renderResolvedSummary(
         `${successLabel}`,
         targetId,
-        resolvedPackageIds,
+        finalResolvedPackageIds,
         touchedFileList,
         appRoot,
         lockPath,

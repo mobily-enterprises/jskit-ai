@@ -3,21 +3,7 @@ import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
-const ACTION_DOMAINS = Object.freeze([
-  "auth",
-  "settings",
-  "workspace",
-  "contacts",
-  "projects",
-  "chat",
-  "social",
-  "billing",
-  "console",
-  "assistant",
-  "deg2rad_history"
-]);
 const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "internal", "worker"]);
-const ACTION_SURFACES = Object.freeze(["<dynamic-from-app-config>"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
@@ -417,11 +403,6 @@ const __testables = {
 };
 
 export {
-  ACTION_KINDS,
-  ACTION_IDEMPOTENCY_POLICIES,
-  ACTION_DOMAINS,
-  ACTION_CHANNELS,
-  ACTION_SURFACES,
   ActionRuntimeError,
   createActionRuntimeError,
   normalizeActionDefinition,

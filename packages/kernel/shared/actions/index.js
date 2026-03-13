@@ -1,9 +1,4 @@
 export {
-  ACTION_KINDS,
-  ACTION_IDEMPOTENCY_POLICIES,
-  ACTION_DOMAINS,
-  ACTION_CHANNELS,
-  ACTION_SURFACES,
   ActionRuntimeError,
   createActionRuntimeError,
   normalizeActionDefinition,
@@ -11,7 +6,7 @@ export {
   normalizeActionDomain,
   createActionVersionKey,
   isPlainObject
-} from "./contracts.js";
+} from "./actionDefinitions.js";
 export { createActionRegistry } from "./registry.js";
 export { normalizeExecutionContext } from "./executionContext.js";
 export { normalizeText, normalizeLowerText } from "./textNormalization.js";

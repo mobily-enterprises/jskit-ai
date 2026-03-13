@@ -2,7 +2,7 @@ import {
   createActionRuntimeError,
   normalizeActionContributor,
   createActionVersionKey
-} from "./contracts.js";
+} from "./actionDefinitions.js";
 import { executeActionPipeline } from "./pipeline.js";
 
 function normalizeContributors(contributors) {

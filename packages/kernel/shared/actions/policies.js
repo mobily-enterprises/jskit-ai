@@ -1,5 +1,5 @@
 import { Check, Errors } from "typebox/value";
-import { createActionRuntimeError } from "./contracts.js";
+import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
 function defaultHasPermission(permissionSet, permission) {

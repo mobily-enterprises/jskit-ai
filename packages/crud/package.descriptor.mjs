@@ -56,11 +56,11 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server",
-          summary: "Exports CrudServiceProvider and the CRUD server feature."
+          summary: "Scaffold package runtime provider (no-op) plus reference CRUD server modules."
         },
         {
           subpath: "./shared",
-          summary: "Exports shared CRUD resources and module config helpers."
+          summary: "Exports shared CRUD resource and module config helpers."
         },
         {
           subpath: "./client/*",
@@ -68,18 +68,9 @@ export default Object.freeze({
         }
       ],
       containerTokens: {
-        server: ["crud.repository", "crud.service"],
+        server: ["crud.<namespace>.repository", "crud.<namespace>.service"],
         client: []
       }
-    },
-    server: {
-      routes: [
-        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud", summary: "List records (default workspace mode)." },
-        { method: "GET", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "View a record (default workspace mode)." },
-        { method: "POST", path: "/api/w/:workspaceSlug/workspace/crud", summary: "Create a record (default workspace mode)." },
-        { method: "PATCH", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "Update a record (default workspace mode)." },
-        { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/crud/:recordId", summary: "Delete a record (default workspace mode)." }
-      ]
     }
   },
   mutations: {
@@ -117,9 +108,16 @@ export default Object.freeze({
       {
         from: "templates/src/local-package/package.json",
         to: "packages/${option:namespace|kebab|default(crud)}/package.json",
-        reason: "Install app-local CRUD client package.",
+        reason: "Install app-local CRUD package manifest.",
         category: "crud",
         id: "crud-local-package-json-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/package.descriptor.mjs",
+        to: "packages/${option:namespace|kebab|default(crud)}/package.descriptor.mjs",
+        reason: "Install app-local CRUD package descriptor.",
+        category: "crud",
+        id: "crud-local-package-descriptor-${option:namespace|snake|default(crud)}"
       },
       {
         from: "templates/src/local-package/client/index.js",
@@ -127,6 +125,76 @@ export default Object.freeze({
         reason: "Install app-local CRUD client package exports.",
         category: "crud",
         id: "crud-local-package-client-index-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/index.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/index.js",
+        reason: "Install app-local CRUD server exports.",
+        category: "crud",
+        id: "crud-local-package-server-index-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/CrudServiceProvider.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/CrudServiceProvider.js",
+        reason: "Install app-local CRUD server provider.",
+        category: "crud",
+        id: "crud-local-package-server-provider-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/actions.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/actions.js",
+        reason: "Install app-local CRUD action definitions.",
+        category: "crud",
+        id: "crud-local-package-server-actions-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/inputValidators.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/inputValidators.js",
+        reason: "Install app-local CRUD input validators.",
+        category: "crud",
+        id: "crud-local-package-server-input-validators-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/registerRoutes.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/registerRoutes.js",
+        reason: "Install app-local CRUD route registration.",
+        category: "crud",
+        id: "crud-local-package-server-routes-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/repository.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/repository.js",
+        reason: "Install app-local CRUD repository.",
+        category: "crud",
+        id: "crud-local-package-server-repository-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/server/service.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/server/service.js",
+        reason: "Install app-local CRUD service.",
+        category: "crud",
+        id: "crud-local-package-server-service-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/shared/index.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/shared/index.js",
+        reason: "Install app-local CRUD shared exports.",
+        category: "crud",
+        id: "crud-local-package-shared-index-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/shared/moduleConfig.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/shared/moduleConfig.js",
+        reason: "Install app-local CRUD module configuration.",
+        category: "crud",
+        id: "crud-local-package-shared-config-${option:namespace|snake|default(crud)}"
+      },
+      {
+        from: "templates/src/local-package/shared/crudResource.js",
+        to: "packages/${option:namespace|kebab|default(crud)}/src/shared/crudResource.js",
+        reason: "Install app-local CRUD resource.",
+        category: "crud",
+        id: "crud-local-package-shared-resource-${option:namespace|snake|default(crud)}"
       },
       {
         from: "templates/src/elements/clientSupport.js",
@@ -193,17 +261,6 @@ export default Object.freeze({
       }
     ],
     text: [
-      {
-        op: "append-text",
-        file: "config/public.js",
-        position: "bottom",
-        skipIfContains: "jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}",
-        value:
-          "\n// jskit:crud.config:${option:namespace|kebab}:${option:visibility}:${option:directory-prefix|path}\nconfig.modules = config.modules || {};\nconfig.modules[\"crud.${option:namespace|kebab|default(crud)}\"] = {\n  module: \"crud\",\n  namespace: \"${option:namespace|kebab}\",\n  visibility: \"${option:visibility}\",\n  directoryPrefix: \"${option:directory-prefix|path}\"\n};\n",
-        reason: "Append CRUD module configuration into app-owned public config.",
-        category: "crud",
-        id: "crud-public-config"
-      },
       {
         op: "append-text",
         file: "src/placement.js",
