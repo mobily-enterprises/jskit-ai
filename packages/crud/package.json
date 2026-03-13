@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",
+    "@jskit-ai/crud-core": "0.1.0",
     "@jskit-ai/database-runtime": "0.1.0",
     "@jskit-ai/http-runtime": "0.1.0",
     "@jskit-ai/kernel": "0.1.0",

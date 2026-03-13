@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/crud-core",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/composables/*": "./src/client/composables/*.js"
+  },
+  "dependencies": {
+    "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/shell-web": "0.1.0",
+    "@jskit-ai/users-web": "0.1.0"
+  }
+}

@@ -29,6 +29,7 @@ export default Object.freeze({
   },
   dependsOn: [
     "@jskit-ai/auth-core",
+    "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
@@ -78,6 +79,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/auth-core": "0.1.0",
+        "@jskit-ai/crud-core": "0.1.0",
         "@jskit-ai/database-runtime": "0.1.0",
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",

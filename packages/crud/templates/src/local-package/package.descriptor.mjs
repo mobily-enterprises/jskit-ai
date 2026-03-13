@@ -5,6 +5,7 @@ export default Object.freeze({
   description: "App-local CRUD package (${option:namespace|kebab|default(crud)}).",
   dependsOn: [
     "@jskit-ai/auth-core",
+    "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
