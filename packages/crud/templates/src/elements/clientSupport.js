@@ -1,34 +1,46 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
-import { crudModuleConfig, isWorkspaceVisibility } from "../shared/moduleConfig.js";
 import { crudResource } from "../shared/crudResource.js";
 
-function resolveCrudClientConfig(source = {}) {
-  const resolved = source && typeof source === "object" && !Array.isArray(source) ? source : crudModuleConfig;
+const CRUD_NAMESPACE = "${option:namespace|snake|default(crud)}";
+const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab|default(crud)}";
+const CRUD_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
+  fallback: "workspace"
+});
+const CRUD_RELATIVE_PATH = `/${CRUD_ROUTE_SEGMENT}`;
+const CRUD_WORKSPACE_SCOPED = isWorkspaceVisibility(CRUD_VISIBILITY);
 
-  return Object.freeze({
-    namespace: String(resolved.namespace || ""),
-    visibility: String(resolved.visibility || "workspace"),
-    workspaceScoped: isWorkspaceVisibility(resolved.visibility),
-    relativePath: String(resolved.relativePath || "/crud")
-  });
+const crudClientConfig = Object.freeze({
+  namespace: CRUD_NAMESPACE,
+  visibility: CRUD_VISIBILITY,
+  workspaceScoped: CRUD_WORKSPACE_SCOPED,
+  relativePath: CRUD_RELATIVE_PATH
+});
+
+function isWorkspaceVisibility(visibility) {
+  return visibility === "workspace" || visibility === "workspace_user";
+}
+
+function resolveCrudClientConfig() {
+  return crudClientConfig;
 }
 
 function useCrudClientContext() {
   const route = useRoute();
   const routeContext = useUsersWebWorkspaceRouteContext();
-  const crudConfig = resolveCrudClientConfig(crudModuleConfig);
+  const crudConfig = resolveCrudClientConfig();
   const placementContext = routeContext.placementContext;
   const workspaceSlugFromRoute = computed(() => (crudConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""));
   const queryWorkspaceSlug = computed(() => workspaceSlugFromRoute.value);
   const listPath = computed(() =>
-    resolveAdminCrudListPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
+    resolveAdminCrudListPath(placementContext.value, workspaceSlugFromRoute.value)
   );
   const createPath = computed(() =>
-    resolveAdminCrudNewPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
+    resolveAdminCrudNewPath(placementContext.value, workspaceSlugFromRoute.value)
   );
 
   function listQueryKey(surfaceId = "") {
@@ -40,11 +52,11 @@ function useCrudClientContext() {
   }
 
   function resolveViewPath(recordIdLike) {
-    return resolveAdminCrudViewPath(recordIdLike, placementContext.value, workspaceSlugFromRoute.value, crudConfig);
+    return resolveAdminCrudViewPath(recordIdLike, placementContext.value, workspaceSlugFromRoute.value);
   }
 
   function resolveEditPath(recordIdLike) {
-    return resolveAdminCrudEditPath(recordIdLike, placementContext.value, workspaceSlugFromRoute.value, crudConfig);
+    return resolveAdminCrudEditPath(recordIdLike, placementContext.value, workspaceSlugFromRoute.value);
   }
 
   return Object.freeze({
@@ -84,8 +96,8 @@ function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, name
   ];
 }
 
-function resolveAdminCrudListPath(context = null, workspaceSlug = "", source = {}) {
-  const config = resolveCrudClientConfig(source);
+function resolveAdminCrudListPath(context = null, workspaceSlug = "") {
+  const config = resolveCrudClientConfig();
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -95,8 +107,8 @@ function resolveAdminCrudListPath(context = null, workspaceSlug = "", source = {
   });
 }
 
-function resolveAdminCrudNewPath(context = null, workspaceSlug = "", source = {}) {
-  const config = resolveCrudClientConfig(source);
+function resolveAdminCrudNewPath(context = null, workspaceSlug = "") {
+  const config = resolveCrudClientConfig();
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -106,13 +118,13 @@ function resolveAdminCrudNewPath(context = null, workspaceSlug = "", source = {}
   });
 }
 
-function resolveAdminCrudViewPath(recordIdLike, context = null, workspaceSlug = "", source = {}) {
+function resolveAdminCrudViewPath(recordIdLike, context = null, workspaceSlug = "") {
   const recordId = Number(recordIdLike);
   if (!Number.isInteger(recordId) || recordId < 1) {
     return "";
   }
 
-  const config = resolveCrudClientConfig(source);
+  const config = resolveCrudClientConfig();
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -122,13 +134,13 @@ function resolveAdminCrudViewPath(recordIdLike, context = null, workspaceSlug = 
   });
 }
 
-function resolveAdminCrudEditPath(recordIdLike, context = null, workspaceSlug = "", source = {}) {
+function resolveAdminCrudEditPath(recordIdLike, context = null, workspaceSlug = "") {
   const recordId = Number(recordIdLike);
   if (!Number.isInteger(recordId) || recordId < 1) {
     return "";
   }
 
-  const config = resolveCrudClientConfig(source);
+  const config = resolveCrudClientConfig();
   return resolveShellLinkPath({
     context,
     surface: "admin",
@@ -149,7 +161,6 @@ function toRouteRecordId(value) {
 
 export {
   crudResource,
-  resolveCrudClientConfig,
   useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,

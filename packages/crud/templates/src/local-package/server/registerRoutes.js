@@ -1,9 +1,22 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { inputValidators } from "./inputValidators.js";
 import { createActionIds } from "./actions.js";
 import { crudResource } from "../shared/crudResource.js";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
+
+const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab|default(crud)}";
+const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake|default(crud)}";
+const CRUD_ROUTE_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
+  fallback: "workspace"
+});
+const CRUD_ROUTE_BASE_PATH = isWorkspaceVisibility(CRUD_ROUTE_VISIBILITY)
+  ? `/api/w/:workspaceSlug/workspace/${CRUD_ROUTE_SEGMENT}`
+  : `/api/${CRUD_ROUTE_SEGMENT}`;
+
+function isWorkspaceVisibility(visibility) {
+  return visibility === "workspace" || visibility === "workspace_user";
+}
 
 function joinRoutePath(basePath = "", suffix = "") {
   const base = String(basePath || "").trim().replace(/\/+$/g, "");
@@ -15,21 +28,15 @@ function joinRoutePath(basePath = "", suffix = "") {
   return `${base}/${end.replace(/^\/+/, "")}`;
 }
 
-function registerRoutes(
-  app,
-  {
-    routeBasePath = crudModuleConfig.apiBasePath,
-    routeVisibility = crudModuleConfig.visibility,
-    actionIds = createActionIds(crudModuleConfig.actionIdPrefix)
-  } = {}
-) {
+function registerRoutes(app) {
   if (!app || typeof app.make !== "function") {
     throw new Error("registerRoutes requires application make().");
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = String(routeBasePath || "").trim() || crudModuleConfig.apiBasePath;
-  const visibility = String(routeVisibility || "").trim() || crudModuleConfig.visibility;
+  const routeBase = CRUD_ROUTE_BASE_PATH;
+  const visibility = CRUD_ROUTE_VISIBILITY;
+  const actionIds = createActionIds(CRUD_ACTION_ID_PREFIX);
 
   router.register(
     "GET",

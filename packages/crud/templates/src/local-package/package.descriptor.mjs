@@ -46,7 +46,7 @@ export default Object.freeze({
         },
         {
           subpath: "./shared",
-          summary: "App-local CRUD shared resource and module config."
+          summary: "App-local CRUD shared resource."
         },
         {
           subpath: "./client/*",
@@ -55,8 +55,8 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
-          "crud.${option:namespace|snake|default(crud)}.repository",
-          "crud.${option:namespace|snake|default(crud)}.service"
+          "repository.${option:namespace|snake|default(crud)}",
+          "crud.${option:namespace|snake|default(crud)}"
         ],
         client: []
       }

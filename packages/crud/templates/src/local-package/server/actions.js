@@ -1,9 +1,10 @@
 import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { inputValidators } from "./inputValidators.js";
 import { crudResource } from "../shared/crudResource.js";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
 
-function createActionIds(actionIdPrefix = crudModuleConfig.actionIdPrefix) {
+const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake|default(crud)}";
+
+function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
   const prefix = String(actionIdPrefix || "").trim() || "crud";
 
   return Object.freeze({
@@ -15,7 +16,7 @@ function createActionIds(actionIdPrefix = crudModuleConfig.actionIdPrefix) {
   });
 }
 
-function createActions({ actionIdPrefix = crudModuleConfig.actionIdPrefix } = {}) {
+function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
   const actionIds = createActionIds(actionIdPrefix);
 
   return Object.freeze([

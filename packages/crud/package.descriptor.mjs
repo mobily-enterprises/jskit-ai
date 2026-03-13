@@ -149,7 +149,7 @@ export default Object.freeze({
         id: "crud-local-package-server-actions-${option:namespace|snake|default(crud)}"
       },
       {
-        from: "templates/src/local-package/server/inputValidators.js",
+        from: "src/server/inputValidators.js",
         to: "packages/${option:namespace|kebab|default(crud)}/src/server/inputValidators.js",
         reason: "Install app-local CRUD input validators.",
         category: "crud",
@@ -163,7 +163,7 @@ export default Object.freeze({
         id: "crud-local-package-server-routes-${option:namespace|snake|default(crud)}"
       },
       {
-        from: "templates/src/local-package/server/repository.js",
+        from: "src/server/repository.js",
         to: "packages/${option:namespace|kebab|default(crud)}/src/server/repository.js",
         reason: "Install app-local CRUD repository.",
         category: "crud",
@@ -184,14 +184,7 @@ export default Object.freeze({
         id: "crud-local-package-shared-index-${option:namespace|snake|default(crud)}"
       },
       {
-        from: "templates/src/local-package/shared/moduleConfig.js",
-        to: "packages/${option:namespace|kebab|default(crud)}/src/shared/moduleConfig.js",
-        reason: "Install app-local CRUD module configuration.",
-        category: "crud",
-        id: "crud-local-package-shared-config-${option:namespace|snake|default(crud)}"
-      },
-      {
-        from: "templates/src/local-package/shared/crudResource.js",
+        from: "src/shared/crud/crudResource.js",
         to: "packages/${option:namespace|kebab|default(crud)}/src/shared/crudResource.js",
         reason: "Install app-local CRUD resource.",
         category: "crud",
