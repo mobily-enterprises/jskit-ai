@@ -62,17 +62,72 @@ function validateTenancyModeAgainstSurfaces({ tenancyMode, enabledSurfaceIds = [
   }
 }
 
+function normalizeWorkspaceSurfacePolicy(policy = {}) {
+  const source = policy && typeof policy === "object" && !Array.isArray(policy) ? policy : {};
+  const preferredSurfaceIds = uniqueSurfaceIds(
+    Array.isArray(source.preferredSurfaceIds) ? source.preferredSurfaceIds : []
+  );
+
+  return {
+    preferredSurfaceIds,
+    ensureAtLeastOneWorkspaceSurface: source.ensureAtLeastOneWorkspaceSurface !== false
+  };
+}
+
+function applyWorkspaceSurfacePolicyToSurfaces({ surfaces = {}, policy = {} } = {}) {
+  const sourceSurfaces = surfaces && typeof surfaces === "object" && !Array.isArray(surfaces) ? surfaces : {};
+  const normalizedPolicy = normalizeWorkspaceSurfacePolicy(policy);
+  const entries = Object.entries(sourceSurfaces).map(([key, value]) => {
+    const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const surfaceId = normalizeSurfaceId(record.id || key);
+    return { key, surfaceId, record };
+  });
+  const nextSurfaces = new Map(entries.map(({ key, record }) => [key, { ...record }]));
+  const enabledEntries = entries.filter(
+    ({ key, surfaceId }) => Boolean(surfaceId) && nextSurfaces.get(key)?.enabled !== false
+  );
+
+  for (const surfaceId of normalizedPolicy.preferredSurfaceIds) {
+    const matchedEntry = enabledEntries.find((entry) => entry.surfaceId === surfaceId);
+    if (!matchedEntry) {
+      continue;
+    }
+    const matchedSurface = nextSurfaces.get(matchedEntry.key);
+    if (matchedSurface) {
+      matchedSurface.requiresWorkspace = true;
+    }
+  }
+
+  const hasWorkspaceSurface = enabledEntries.some(({ key }) => nextSurfaces.get(key)?.requiresWorkspace === true);
+  if (!hasWorkspaceSurface && normalizedPolicy.ensureAtLeastOneWorkspaceSurface && enabledEntries.length > 0) {
+    const [firstEnabledEntry] = enabledEntries;
+    const firstEnabledSurface = nextSurfaces.get(firstEnabledEntry.key);
+    if (firstEnabledSurface) {
+      firstEnabledSurface.requiresWorkspace = true;
+    }
+  }
+
+  return Object.fromEntries(entries.map(({ key }) => [key, nextSurfaces.get(key) || {}]));
+}
+
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
   const tenancyMode = normalizeTenancyMode(options?.tenancyMode);
   const sourceSurfaces = options?.surfaces && typeof options.surfaces === "object" ? options.surfaces : {};
+  const hasWorkspaceSurfacePolicy = Object.prototype.hasOwnProperty.call(options, "workspaceSurfacePolicy");
+  const policySurfaces = hasWorkspaceSurfacePolicy
+    ? applyWorkspaceSurfacePolicyToSurfaces({
+        surfaces: sourceSurfaces,
+        policy: options.workspaceSurfacePolicy
+      })
+    : sourceSurfaces;
   const surfaceIds = resolveSurfaceIds({
-    surfaces: sourceSurfaces
+    surfaces: policySurfaces
   });
 
   const normalizedSurfaces = Object.fromEntries(
     surfaceIds.map((surfaceId) => {
-      const source = sourceSurfaces[surfaceId] || {};
+      const source = policySurfaces[surfaceId] || {};
       return [
         surfaceId,
         {

@@ -20,7 +20,8 @@ const surfaceRuntime = createSurfaceRuntime({
   tenancyMode: config.tenancyMode,
   allMode: config.surfaceModeAll,
   surfaces: config.surfaceDefinitions,
-  defaultSurfaceId: config.surfaceDefaultId
+  defaultSurfaceId: config.surfaceDefaultId,
+  workspaceSurfacePolicy: config.workspaceSurfacePolicy
 });
 
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);

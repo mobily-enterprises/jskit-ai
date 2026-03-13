@@ -158,6 +158,41 @@ test("createSurfaceRuntime accepts personal/workspace tenancy with workspace-ena
   assert.deepEqual(runtime.listNonWorkspaceSurfaceIds(), ["app"]);
 });
 
+test("createSurfaceRuntime applies workspace surface policy preferred ids", () => {
+  const runtime = createSurfaceRuntime({
+    tenancyMode: "workspace",
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "/app", enabled: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true },
+      console: { id: "console", prefix: "/console", enabled: false }
+    },
+    workspaceSurfacePolicy: {
+      preferredSurfaceIds: ["app", "admin"],
+      ensureAtLeastOneWorkspaceSurface: true
+    }
+  });
+
+  assert.deepEqual(runtime.listWorkspaceSurfaceIds(), ["app", "admin"]);
+});
+
+test("createSurfaceRuntime applies workspace surface policy fallback to first enabled surface", () => {
+  const runtime = createSurfaceRuntime({
+    tenancyMode: "workspace",
+    defaultSurfaceId: "web",
+    surfaces: {
+      web: { id: "web", prefix: "/web", enabled: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true }
+    },
+    workspaceSurfacePolicy: {
+      preferredSurfaceIds: ["app"],
+      ensureAtLeastOneWorkspaceSurface: true
+    }
+  });
+
+  assert.deepEqual(runtime.listWorkspaceSurfaceIds(), ["web"]);
+});
+
 test("collectClientModuleRoutes normalizes scope metadata", () => {
   const routes = collectClientModuleRoutes({
     clientModules: [

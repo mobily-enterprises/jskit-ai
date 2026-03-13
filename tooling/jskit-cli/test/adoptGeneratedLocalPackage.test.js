@@ -27,52 +27,48 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-test("add package adopts generated app-local package dependency into lock", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "adopt-generated-local-package-app");
-    await createMinimalApp(appRoot, { name: "adopt-generated-local-package-app" });
+async function createScaffolderPackage(appRoot, { installationMode = "" } = {}) {
+  const scaffolderRoot = path.join(appRoot, "packages", "scaffolder");
+  await mkdir(path.join(scaffolderRoot, "src", "server"), { recursive: true });
+  await mkdir(path.join(scaffolderRoot, "templates", "generated", "src", "server"), { recursive: true });
 
-    const scaffolderRoot = path.join(appRoot, "packages", "scaffolder");
-    await mkdir(path.join(scaffolderRoot, "src", "server"), { recursive: true });
-    await mkdir(path.join(scaffolderRoot, "templates", "generated", "src", "server"), { recursive: true });
+  await writeFile(
+    path.join(scaffolderRoot, "package.json"),
+    `${JSON.stringify(
+      {
+        name: "@demo/scaffolder",
+        version: "0.1.0",
+        type: "module"
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 
-    await writeFile(
-      path.join(scaffolderRoot, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@demo/scaffolder",
-          version: "0.1.0",
-          type: "module"
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
+  await writeFile(
+    path.join(scaffolderRoot, "src", "server", "ScaffolderProvider.js"),
+    "class ScaffolderProvider { static id = \"demo.scaffolder\"; register() {} boot() {} }\nexport { ScaffolderProvider };\n",
+    "utf8"
+  );
 
-    await writeFile(
-      path.join(scaffolderRoot, "src", "server", "ScaffolderProvider.js"),
-      "class ScaffolderProvider { static id = \"demo.scaffolder\"; register() {} boot() {} }\nexport { ScaffolderProvider };\n",
-      "utf8"
-    );
+  await writeFile(
+    path.join(scaffolderRoot, "templates", "generated", "package.json"),
+    `${JSON.stringify(
+      {
+        name: "@demo/generated-feature",
+        version: "0.1.0",
+        type: "module"
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 
-    await writeFile(
-      path.join(scaffolderRoot, "templates", "generated", "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@demo/generated-feature",
-          version: "0.1.0",
-          type: "module"
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-
-    await writeFile(
-      path.join(scaffolderRoot, "templates", "generated", "package.descriptor.mjs"),
-      `export default Object.freeze({
+  await writeFile(
+    path.join(scaffolderRoot, "templates", "generated", "package.descriptor.mjs"),
+    `export default Object.freeze({
   packageId: "@demo/generated-feature",
   version: "0.1.0",
   runtime: {
@@ -90,21 +86,22 @@ test("add package adopts generated app-local package dependency into lock", asyn
     files: []
   }
 });\n`,
-      "utf8"
-    );
+    "utf8"
+  );
 
-    await writeFile(
-      path.join(scaffolderRoot, "templates", "generated", "src", "server", "GeneratedProvider.js"),
-      "class GeneratedProvider { static id = \"demo.generated\"; register() {} boot() {} }\nexport { GeneratedProvider };\n",
-      "utf8"
-    );
+  await writeFile(
+    path.join(scaffolderRoot, "templates", "generated", "src", "server", "GeneratedProvider.js"),
+    "class GeneratedProvider { static id = \"demo.generated\"; register() {} boot() {} }\nexport { GeneratedProvider };\n",
+    "utf8"
+  );
 
-    await writeFile(
-      path.join(scaffolderRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+  const installationModeLine = installationMode ? `  installationMode: "${installationMode}",\n` : "";
+  await writeFile(
+    path.join(scaffolderRoot, "package.descriptor.mjs"),
+    `export default Object.freeze({
   packageId: "@demo/scaffolder",
   version: "0.1.0",
-  runtime: {
+${installationModeLine}  runtime: {
     server: {
       providers: [{ entrypoint: "src/server/ScaffolderProvider.js", export: "ScaffolderProvider" }]
     },
@@ -139,8 +136,15 @@ test("add package adopts generated app-local package dependency into lock", asyn
     ]
   }
 });\n`,
-      "utf8"
-    );
+    "utf8"
+  );
+}
+
+test("add package adopts generated app-local package dependency into lock", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "adopt-generated-local-package-app");
+    await createMinimalApp(appRoot, { name: "adopt-generated-local-package-app" });
+    await createScaffolderPackage(appRoot);
 
     const addResult = runCli({
       cwd: appRoot,
@@ -154,6 +158,29 @@ test("add package adopts generated app-local package dependency into lock", asyn
     assert.equal(lock.installedPackages["@demo/generated-feature"].source.type, "app-local-package");
 
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies["@demo/generated-feature"], "file:packages/generated-feature");
+  });
+});
+
+test("add package does not install clone-only scaffold package itself", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "adopt-clone-only-scaffolder-app");
+    await createMinimalApp(appRoot, { name: "adopt-clone-only-scaffolder-app" });
+    await createScaffolderPackage(appRoot, { installationMode: "clone-only" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/scaffolder", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    assert.equal(lock.installedPackages["@demo/scaffolder"], undefined);
+    assert.ok(lock.installedPackages["@demo/generated-feature"]);
+    assert.equal(lock.installedPackages["@demo/generated-feature"].source.type, "app-local-package");
+
+    const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies["@demo/scaffolder"], undefined);
     assert.equal(appPackageJson.dependencies["@demo/generated-feature"], "file:packages/generated-feature");
   });
 });

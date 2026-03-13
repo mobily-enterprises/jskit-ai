@@ -113,6 +113,9 @@ function resolveCatalogPackagesPath() {
 const CATALOG_PACKAGES_PATH = resolveCatalogPackagesPath();
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 1;
+const PACKAGE_INSTALL_MODE_INSTALLABLE = "installable";
+const PACKAGE_INSTALL_MODE_CLONE_ONLY = "clone-only";
+const PACKAGE_INSTALL_MODES = Object.freeze([PACKAGE_INSTALL_MODE_INSTALLABLE, PACKAGE_INSTALL_MODE_CLONE_ONLY]);
 const OPTION_INTERPOLATION_PATTERN = /\$\{option:([a-z][a-z0-9-]*)(\|[^}]*)?\}/gi;
 const MATERIALIZED_PACKAGE_ROOTS = new Map();
 const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
@@ -772,6 +775,18 @@ function applyPackageJsonField(packageJson, sectionName, key, value) {
   };
 }
 
+function removePackageJsonField(packageJson, sectionName, key) {
+  const section = ensureObject(packageJson[sectionName]);
+  if (!Object.prototype.hasOwnProperty.call(section, key)) {
+    return false;
+  }
+  delete section[key];
+  if (Object.keys(section).length < 1) {
+    delete packageJson[sectionName];
+  }
+  return true;
+}
+
 function restorePackageJsonField(packageJson, sectionName, key, managedChange) {
   const section = ensurePackageJsonSection(packageJson, sectionName);
   const currentValue = Object.prototype.hasOwnProperty.call(section, key) ? String(section[key]) : "";
@@ -1262,6 +1277,21 @@ async function promptForRequiredOption({
   return answer || "";
 }
 
+function normalizePackageInstallationMode(rawValue, descriptorPath) {
+  const normalized = String(rawValue || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) {
+    return PACKAGE_INSTALL_MODE_INSTALLABLE;
+  }
+  if (!PACKAGE_INSTALL_MODES.includes(normalized)) {
+    throw createCliError(
+      `Invalid package descriptor at ${descriptorPath}: installationMode must be one of: ${PACKAGE_INSTALL_MODES.join(", ")}.`
+    );
+  }
+  return normalized;
+}
+
 function validatePackageDescriptorShape(descriptor, descriptorPath) {
   const normalized = ensureObject(descriptor);
   const packageId = String(normalized.packageId || "").trim();
@@ -1285,7 +1315,15 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
     );
   }
 
-  return normalized;
+  return {
+    ...normalized,
+    installationMode: normalizePackageInstallationMode(normalized.installationMode, descriptorPath)
+  };
+}
+
+function isCloneOnlyPackageEntry(packageEntry) {
+  const descriptor = ensureObject(packageEntry?.descriptor);
+  return String(descriptor.installationMode || "").trim().toLowerCase() === PACKAGE_INSTALL_MODE_CLONE_ONLY;
 }
 
 function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { expectedPackageId = "", fallbackVersion = "" } = {}) {
@@ -3685,6 +3723,7 @@ async function applyPackageInstall({
   touchedFiles
 }) {
   const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
+  const cloneOnlyPackage = isCloneOnlyPackageEntry(packageEntry);
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
@@ -3762,14 +3801,22 @@ async function applyPackageInstall({
     }
   }
 
-  const existingSelfDependencyValue = String(ensureObject(appPackageJson.dependencies)[packageEntry.packageId] || "").trim();
-  const selfDependencyValue = resolvePackageDependencySpecifier(packageEntry, {
-    existingValue: existingSelfDependencyValue
-  });
-  const selfApplied = applyPackageJsonField(appPackageJson, "dependencies", packageEntry.packageId, selfDependencyValue);
-  if (selfApplied.changed) {
-    managedRecord.managed.packageJson.dependencies[packageEntry.packageId] = selfApplied.managed;
-    touchedFiles.add("package.json");
+  if (cloneOnlyPackage) {
+    const removedRuntimeDependency = removePackageJsonField(appPackageJson, "dependencies", packageEntry.packageId);
+    const removedDevDependency = removePackageJsonField(appPackageJson, "devDependencies", packageEntry.packageId);
+    if (removedRuntimeDependency || removedDevDependency) {
+      touchedFiles.add("package.json");
+    }
+  } else {
+    const existingSelfDependencyValue = String(ensureObject(appPackageJson.dependencies)[packageEntry.packageId] || "").trim();
+    const selfDependencyValue = resolvePackageDependencySpecifier(packageEntry, {
+      existingValue: existingSelfDependencyValue
+    });
+    const selfApplied = applyPackageJsonField(appPackageJson, "dependencies", packageEntry.packageId, selfDependencyValue);
+    if (selfApplied.changed) {
+      managedRecord.managed.packageJson.dependencies[packageEntry.packageId] = selfApplied.managed;
+      touchedFiles.add("package.json");
+    }
   }
 
   for (const [scriptName, scriptValue] of Object.entries(mutationScripts)) {
@@ -3800,7 +3847,11 @@ async function applyPackageInstall({
     touchedFiles
   );
 
-  lock.installedPackages[packageEntry.packageId] = managedRecord;
+  if (cloneOnlyPackage) {
+    delete lock.installedPackages[packageEntry.packageId];
+  } else {
+    lock.installedPackages[packageEntry.packageId] = managedRecord;
+  }
   if (mutationWarnings.length > 0) {
     managedRecord.warnings = mutationWarnings;
   }

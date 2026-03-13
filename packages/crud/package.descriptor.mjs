@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud",
   version: "0.1.0",
+  installationMode: "clone-only",
   description: "Admin CRUD module with server routes, actions, persistence, and client pages.",
   options: {
     namespace: {

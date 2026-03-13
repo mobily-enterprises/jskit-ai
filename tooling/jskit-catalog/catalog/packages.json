@@ -546,28 +546,213 @@
       }
     },
     {
-      "packageId": "@jskit-ai/crud",
+      "packageId": "@jskit-ai/calendar",
       "version": "0.1.0",
       "descriptor": {
         "packageVersion": 1,
-        "packageId": "@jskit-ai/crud",
+        "packageId": "@jskit-ai/calendar",
         "version": "0.1.0",
-        "description": "Admin contacts CRUD module with server routes, actions, persistence, and client pages.",
+        "description": "Workspace appointment calendar module with FullCalendar week view and contact-linked events.",
         "dependsOn": [
           "@jskit-ai/auth-core",
+          "@jskit-ai/crud",
           "@jskit-ai/database-runtime",
           "@jskit-ai/http-runtime",
           "@jskit-ai/users-web"
         ],
         "capabilities": {
           "provides": [
-            "crud.contacts"
+            "calendar.completeCalendar"
           ],
           "requires": [
             "runtime.actions",
             "runtime.database",
             "auth.policy",
             "users.web"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/CalendarServiceProvider.js",
+                "export": "CalendarServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports CalendarServiceProvider and complete calendar server feature."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared complete calendar resource validators."
+              },
+              {
+                "subpath": "./client/completeCalendar/*",
+                "summary": "Exports complete calendar Vue client elements."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "calendar.completeCalendar.repository",
+                "calendar.completeCalendar.service"
+              ],
+              "client": []
+            }
+          },
+          "server": {
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/w/:workspaceSlug/workspace/calendar/events",
+                "summary": "List calendar events for the selected week."
+              },
+              {
+                "method": "GET",
+                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
+                "summary": "View a calendar event."
+              },
+              {
+                "method": "POST",
+                "path": "/api/w/:workspaceSlug/workspace/calendar/events",
+                "summary": "Create a calendar event."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
+                "summary": "Update a calendar event."
+              },
+              {
+                "method": "DELETE",
+                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
+                "summary": "Delete a calendar event."
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@fullcalendar/core": "^6.1.17",
+              "@fullcalendar/interaction": "^6.1.17",
+              "@fullcalendar/timegrid": "^6.1.17",
+              "@fullcalendar/vue3": "^6.1.17",
+              "@jskit-ai/auth-core": "0.1.0",
+              "@jskit-ai/crud": "0.1.0",
+              "@jskit-ai/database-runtime": "0.1.0",
+              "@jskit-ai/http-runtime": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/users-web": "0.1.0",
+              "@tanstack/vue-query": "^5.90.5",
+              "typebox": "^1.0.81",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/calendar_events_initial.cjs",
+              "toDir": "migrations",
+              "slug": "calendar_events_initial",
+              "extension": ".cjs",
+              "reason": "Install calendar events schema migration.",
+              "category": "calendar",
+              "id": "calendar-events-initial-schema"
+            },
+            {
+              "from": "templates/src/pages/admin/calendar/index.vue",
+              "to": "src/pages/admin/calendar/index.vue",
+              "reason": "Install admin calendar week page scaffold.",
+              "category": "calendar",
+              "id": "calendar-page-admin-calendar-index"
+            },
+            {
+              "from": "templates/src/pages/admin/calendar/events/[eventId]/index.vue",
+              "to": "src/pages/admin/calendar/events/[eventId]/index.vue",
+              "reason": "Install admin calendar event view page scaffold.",
+              "category": "calendar",
+              "id": "calendar-page-admin-calendar-event-view"
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"calendar.complete.menu\"",
+              "value": "\naddPlacement({\n  id: \"calendar.complete.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 160,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Calendar\",\n    surface: \"admin\",\n    workspaceSuffix: \"/calendar\",\n    nonWorkspaceSuffix: \"/calendar\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append admin Calendar menu placement into app-owned placement registry.",
+              "category": "calendar",
+              "id": "calendar-placement-menu"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/crud",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/crud",
+        "version": "0.1.0",
+        "installationMode": "clone-only",
+        "description": "Admin CRUD module with server routes, actions, persistence, and client pages.",
+        "options": {
+          "namespace": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "CRUD namespace",
+            "promptHint": "Optional slug prefix (blank = crud paths/tables)."
+          },
+          "visibility": {
+            "required": true,
+            "inputType": "text",
+            "defaultValue": "workspace",
+            "promptLabel": "Route visibility",
+            "promptHint": "public | workspace | user | workspace_user"
+          },
+          "directory-prefix": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Page directory prefix",
+            "promptHint": "Optional path under src/pages/admin (example: crm or ops/team-a)."
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/auth-core",
+          "@jskit-ai/database-runtime",
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/shell-web",
+          "@jskit-ai/users-core",
+          "@jskit-ai/users-web"
+        ],
+        "capabilities": {
+          "provides": [
+            "crud"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database",
+            "auth.policy",
+            "users.core",
+            "users.web",
+            "runtime.web-placement"
           ]
         },
         "runtime": {
@@ -588,53 +773,24 @@
             "surfaces": [
               {
                 "subpath": "./server",
-                "summary": "Exports CrudServiceProvider and the contacts CRUD server feature."
+                "summary": "Scaffold package runtime provider (no-op) plus reference CRUD server modules."
               },
               {
                 "subpath": "./shared",
-                "summary": "Exports shared contacts CRUD contracts and schemas."
+                "summary": "Exports shared CRUD resource and module config helpers."
               },
               {
-                "subpath": "./client/contacts/*",
-                "summary": "Exports contacts CRUD Vue client elements."
+                "subpath": "./client/*",
+                "summary": "Exports CRUD Vue client elements."
               }
             ],
             "containerTokens": {
               "server": [
-                "crud.contacts.repository",
-                "crud.contacts.service"
+                "crud.<namespace>.repository",
+                "crud.<namespace>.service"
               ],
               "client": []
             }
-          },
-          "server": {
-            "routes": [
-              {
-                "method": "GET",
-                "path": "/api/contacts",
-                "summary": "List contacts."
-              },
-              {
-                "method": "GET",
-                "path": "/api/contacts/:contactId",
-                "summary": "View a contact."
-              },
-              {
-                "method": "POST",
-                "path": "/api/contacts",
-                "summary": "Create a contact."
-              },
-              {
-                "method": "PATCH",
-                "path": "/api/contacts/:contactId",
-                "summary": "Update a contact."
-              },
-              {
-                "method": "DELETE",
-                "path": "/api/contacts/:contactId",
-                "summary": "Delete a contact."
-              }
-            ]
           }
         },
         "mutations": {
@@ -644,7 +800,10 @@
               "@jskit-ai/database-runtime": "0.1.0",
               "@jskit-ai/http-runtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/shell-web": "0.1.0",
+              "@jskit-ai/users-core": "0.1.0",
               "@jskit-ai/users-web": "0.1.0",
+              "@local/${option:namespace|kebab|default(crud)}": "file:packages/${option:namespace|kebab|default(crud)}",
               "@tanstack/vue-query": "^5.90.5",
               "typebox": "^1.0.81",
               "vuetify": "^4.0.0"
@@ -658,41 +817,167 @@
           "files": [
             {
               "op": "install-migration",
-              "from": "templates/migrations/crud_contacts_initial.cjs",
+              "from": "templates/migrations/crud_initial.cjs",
               "toDir": "migrations",
-              "slug": "crud_contacts_initial",
+              "slug": "crud_initial_${option:namespace|snake|default(crud)}",
               "extension": ".cjs",
-              "reason": "Install contacts CRUD schema migration.",
+              "reason": "Install CRUD schema migration.",
               "category": "crud",
-              "id": "crud-contacts-initial-schema"
+              "id": "crud-initial-schema-${option:namespace|snake|default(crud)}"
             },
             {
-              "from": "templates/src/pages/admin/contacts/index.vue",
-              "to": "src/pages/admin/contacts/index.vue",
-              "reason": "Install admin contacts list page scaffold.",
+              "from": "templates/src/local-package/package.json",
+              "to": "packages/${option:namespace|kebab|default(crud)}/package.json",
+              "reason": "Install app-local CRUD package manifest.",
               "category": "crud",
-              "id": "crud-page-admin-contacts-index"
+              "id": "crud-local-package-json-${option:namespace|snake|default(crud)}"
             },
             {
-              "from": "templates/src/pages/admin/contacts/new.vue",
-              "to": "src/pages/admin/contacts/new.vue",
-              "reason": "Install admin contacts create page scaffold.",
+              "from": "templates/src/local-package/package.descriptor.mjs",
+              "to": "packages/${option:namespace|kebab|default(crud)}/package.descriptor.mjs",
+              "reason": "Install app-local CRUD package descriptor.",
               "category": "crud",
-              "id": "crud-page-admin-contacts-new"
+              "id": "crud-local-package-descriptor-${option:namespace|snake|default(crud)}"
             },
             {
-              "from": "templates/src/pages/admin/contacts/[contactId]/index.vue",
-              "to": "src/pages/admin/contacts/[contactId]/index.vue",
-              "reason": "Install admin contacts detail page scaffold.",
+              "from": "templates/src/local-package/client/index.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/index.js",
+              "reason": "Install app-local CRUD client package exports.",
               "category": "crud",
-              "id": "crud-page-admin-contacts-view"
+              "id": "crud-local-package-client-index-${option:namespace|snake|default(crud)}"
             },
             {
-              "from": "templates/src/pages/admin/contacts/[contactId]/edit.vue",
-              "to": "src/pages/admin/contacts/[contactId]/edit.vue",
-              "reason": "Install admin contacts edit page scaffold.",
+              "from": "templates/src/local-package/server/index.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/index.js",
+              "reason": "Install app-local CRUD server exports.",
               "category": "crud",
-              "id": "crud-page-admin-contacts-edit"
+              "id": "crud-local-package-server-index-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/CrudServiceProvider.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/CrudServiceProvider.js",
+              "reason": "Install app-local CRUD server provider.",
+              "category": "crud",
+              "id": "crud-local-package-server-provider-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/actions.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/actions.js",
+              "reason": "Install app-local CRUD action definitions.",
+              "category": "crud",
+              "id": "crud-local-package-server-actions-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/inputValidators.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/inputValidators.js",
+              "reason": "Install app-local CRUD input validators.",
+              "category": "crud",
+              "id": "crud-local-package-server-input-validators-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/registerRoutes.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/registerRoutes.js",
+              "reason": "Install app-local CRUD route registration.",
+              "category": "crud",
+              "id": "crud-local-package-server-routes-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/repository.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/repository.js",
+              "reason": "Install app-local CRUD repository.",
+              "category": "crud",
+              "id": "crud-local-package-server-repository-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/server/service.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/server/service.js",
+              "reason": "Install app-local CRUD service.",
+              "category": "crud",
+              "id": "crud-local-package-server-service-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/shared/index.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/shared/index.js",
+              "reason": "Install app-local CRUD shared exports.",
+              "category": "crud",
+              "id": "crud-local-package-shared-index-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/shared/moduleConfig.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/shared/moduleConfig.js",
+              "reason": "Install app-local CRUD module configuration.",
+              "category": "crud",
+              "id": "crud-local-package-shared-config-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/local-package/shared/crudResource.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/shared/crudResource.js",
+              "reason": "Install app-local CRUD resource.",
+              "category": "crud",
+              "id": "crud-local-package-shared-resource-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/elements/clientSupport.js",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/clientSupport.js",
+              "reason": "Install app-local CRUD client support helpers.",
+              "category": "crud",
+              "id": "crud-local-package-client-support-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/elements/ListElement.vue",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/List${option:namespace|plural|pascal|default(CrudRecords)}Element.vue",
+              "reason": "Install app-local CRUD list element.",
+              "category": "crud",
+              "id": "crud-local-package-client-list-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/elements/ViewElement.vue",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/View${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+              "reason": "Install app-local CRUD view element.",
+              "category": "crud",
+              "id": "crud-local-package-client-view-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/elements/CreateElement.vue",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/Create${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+              "reason": "Install app-local CRUD create element.",
+              "category": "crud",
+              "id": "crud-local-package-client-create-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/elements/EditElement.vue",
+              "to": "packages/${option:namespace|kebab|default(crud)}/src/client/Edit${option:namespace|singular|pascal|default(CrudRecord)}Element.vue",
+              "reason": "Install app-local CRUD edit element.",
+              "category": "crud",
+              "id": "crud-local-package-client-edit-${option:namespace|snake|default(crud)}"
+            },
+            {
+              "from": "templates/src/pages/admin/crud/index.vue",
+              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/index.vue",
+              "reason": "Install admin CRUD list page scaffold.",
+              "category": "crud",
+              "id": "crud-page-admin-crud-index"
+            },
+            {
+              "from": "templates/src/pages/admin/crud/new.vue",
+              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/new.vue",
+              "reason": "Install admin CRUD create page scaffold.",
+              "category": "crud",
+              "id": "crud-page-admin-crud-new"
+            },
+            {
+              "from": "templates/src/pages/admin/crud/[recordId]/index.vue",
+              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[recordId]/index.vue",
+              "reason": "Install admin CRUD detail page scaffold.",
+              "category": "crud",
+              "id": "crud-page-admin-crud-view"
+            },
+            {
+              "from": "templates/src/pages/admin/crud/[recordId]/edit.vue",
+              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}/[recordId]/edit.vue",
+              "reason": "Install admin CRUD edit page scaffold.",
+              "category": "crud",
+              "id": "crud-page-admin-crud-edit"
             }
           ],
           "text": [
@@ -700,11 +985,11 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"crud.contacts.menu\"",
-              "value": "\naddPlacement({\n  id: \"crud.contacts.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 150,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Contacts\",\n    to: \"/admin/contacts\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append admin Contacts menu placement into app-owned placement registry.",
+              "skipIfContains": "jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}",
+              "value": "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n  const crudDirectoryPrefix = \"${option:directory-prefix|path}\";\n  const crudBaseSegment = crudNamespace || \"crud\";\n  const crudRoutePath = crudDirectoryPrefix\n    ? \"/\" + crudDirectoryPrefix + \"/\" + crudBaseSegment\n    : \"/\" + crudBaseSegment;\n  const crudPlacementId = crudNamespace\n    ? \"crud.\" + crudNamespace + \".menu\"\n    : \"crud.menu\";\n\n  addPlacement({\n    id: crudPlacementId,\n    slot: \"app.primary-menu\",\n    surface: \"admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal|default(CrudRecords)}\",\n      surface: \"admin\",\n      workspaceSuffix: crudRoutePath,\n      nonWorkspaceSuffix: crudRoutePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+              "reason": "Append admin Crud menu placement into app-owned placement registry.",
               "category": "crud",
-              "id": "crud-placement-contacts-menu"
+              "id": "crud-placement-menu"
             }
           ]
         }
@@ -1367,7 +1652,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
         "version": "0.1.0",
-        "description": "Users/workspace domain runtime plus HTTP routes for bootstrap, workspace, account, and console features.",
+        "description": "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
         "dependsOn": [
           "@jskit-ai/auth-core",
           "@jskit-ai/database-runtime",
@@ -1428,11 +1713,6 @@
           },
           "server": {
             "routes": [
-              {
-                "method": "GET",
-                "path": "/api/bootstrap",
-                "summary": "Get bootstrap payload with profile/workspace context."
-              },
               {
                 "method": "GET",
                 "path": "/api/workspaces",
@@ -1594,7 +1874,7 @@
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.workspaceSwitching =",
-              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconst enabledSurfaceIds = Object.keys(config.surfaceDefinitions).filter(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false\n);\nconst preferredWorkspaceSurfaceIds = [\"app\", \"admin\"];\nfor (const surfaceId of preferredWorkspaceSurfaceIds) {\n  if (config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].enabled !== false) {\n    config.surfaceDefinitions[surfaceId].requiresWorkspace = true;\n  }\n}\nconst hasWorkspaceSurface = enabledSurfaceIds.some(\n  (surfaceId) => config.surfaceDefinitions[surfaceId] && config.surfaceDefinitions[surfaceId].requiresWorkspace === true\n);\nif (!hasWorkspaceSurface && enabledSurfaceIds.length > 0) {\n  config.surfaceDefinitions[enabledSurfaceIds[0]].requiresWorkspace = true;\n}\n",
+              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.workspaceSurfacePolicy = {\n  preferredSurfaceIds: [\"app\", \"admin\"],\n  ensureAtLeastOneWorkspaceSurface: true\n};\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
               "category": "users-core",
               "id": "users-core-public-config"
@@ -1618,6 +1898,16 @@
               "reason": "Append app-owned workspace settings defaults into the server config.",
               "category": "users-core",
               "id": "users-core-workspace-settings-server-config"
+            },
+            {
+              "op": "append-text",
+              "file": "config/server.js",
+              "position": "bottom",
+              "skipIfContains": "config.workspaceMembers =",
+              "value": "\nconfig.workspaceMembers = {\n  defaults: {\n    inviteExpiresInMs: 604800000\n  }\n};\n",
+              "reason": "Append app-owned workspace member invite policy defaults into the server config.",
+              "category": "users-core",
+              "id": "users-core-workspace-members-server-config"
             }
           ]
         }
