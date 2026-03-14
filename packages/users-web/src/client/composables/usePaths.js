@@ -57,7 +57,14 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
 
   function api(relativePath = "", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
-    const visibility = normalizeUsersVisibility(source.visibility || "workspace");
+    if (!Object.hasOwn(source, "visibility")) {
+      throw new TypeError("usePaths().api(relativePath, { visibility }) requires explicit visibility.");
+    }
+    if (source.visibility === undefined || source.visibility === null || String(source.visibility).trim() === "") {
+      throw new TypeError("usePaths().api(relativePath, { visibility }) requires non-empty visibility.");
+    }
+
+    const visibility = normalizeUsersVisibility(source.visibility);
     const suffix = normalizePathSuffix(relativePath);
     const workspaceScoped = isWorkspaceVisibility(visibility);
 

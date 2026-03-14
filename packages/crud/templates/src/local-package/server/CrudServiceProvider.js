@@ -4,10 +4,9 @@ import { createRepository as createCrudRepository } from "./repository.js";
 import { createService as createCrudService } from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
-import { CRUD_SERVICE_TOKEN } from "./diTokens.js";
+import { CRUD_REPOSITORY_TOKEN, CRUD_SERVICE_TOKEN } from "./diTokens.js";
 
 const CRUD_PROVIDER_ID = CRUD_SERVICE_TOKEN;
-const CRUD_REPOSITORY_TOKEN = "repository.${option:namespace|snake}";
 const CRUD_TABLE_NAME = "crud_${option:namespace|snake}";
 
 class CrudServiceProvider {

@@ -46,6 +46,10 @@ export default Object.freeze({
           summary: "App-local CRUD public server DI token constants."
         },
         {
+          subpath: "./server/actionIds",
+          summary: "App-local CRUD public action identifiers."
+        },
+        {
           subpath: "./shared",
           summary: "App-local CRUD shared resource."
         },
@@ -56,6 +60,7 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
+          "repository.${option:namespace|snake}",
           "crud.${option:namespace|snake}"
         ],
         client: []
