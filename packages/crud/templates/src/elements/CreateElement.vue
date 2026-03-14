@@ -57,15 +57,17 @@
 
 <script setup>
 import { reactive } from "vue";
-import { useRouter } from "vue-router";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
-import { useCrudClientContext, crudResource } from "./clientSupport.js";
+import { crudResource, useCrudCreateRuntime } from "./clientSupport.js";
 
-const router = useRouter();
-const crudContext = useCrudClientContext();
-const listPath = crudContext.listPath;
+const {
+  listPath,
+  apiSuffix,
+  createQueryKey,
+  invalidateAndGoView
+} = useCrudCreateRuntime();
 const recordForm = reactive({
   name: "",
   surname: ""
@@ -74,8 +76,8 @@ const recordForm = reactive({
 const addEdit = useAddEdit({
   visibility: crudModuleConfig.visibility,
   resource: crudResource,
-  apiSuffix: crudModuleConfig.relativePath,
-  queryKeyFactory: (surfaceId = "") => [...crudContext.listQueryKey(surfaceId), "create"],
+  apiSuffix,
+  queryKeyFactory: createQueryKey,
   readEnabled: false,
   writeMethod: "POST",
   fallbackSaveError: "Unable to save record.",
@@ -92,12 +94,7 @@ const addEdit = useAddEdit({
     surname: model.surname
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
-    await crudContext.invalidateQueries(queryClient);
-
-    const targetPath = crudContext.resolveViewPath(payload?.id);
-    if (targetPath) {
-      await router.push(targetPath);
-    }
+    await invalidateAndGoView(queryClient, payload?.id);
   }
 });
 </script>

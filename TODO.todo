@@ -61,8 +61,8 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Move console, app, admin tags up in the header
   X Remove "bundles" (not done, will wait till the end)
   X Major code cleanup, make sure there is no "contract", make things actually work
-  - Provide a kenel-level function to know the root of the pages, have modules go relative to that
-  - Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
+  X Provide a kenel-level function to know the root of the pages, have modules go relative to that
+  X Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
   - If logged out, redirect to login immediately, check page permissions if not logged out
   - Delete setting table for workspace completely
   - Place roles and permissions in app-owned config

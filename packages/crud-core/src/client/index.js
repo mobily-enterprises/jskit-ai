@@ -12,5 +12,8 @@ export {
 
 export {
   useCrudClientContext,
+  useCrudListRuntime,
+  useCrudCreateRuntime,
+  useCrudRecordRuntime,
   createCrudClientSupport
 } from "./composables/createCrudClientSupport.js";

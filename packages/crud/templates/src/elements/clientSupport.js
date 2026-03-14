@@ -6,11 +6,17 @@ const crudClientSupport = createCrudClientSupport(crudModuleConfig);
 
 const {
   useCrudClientContext,
+  useCrudListRuntime,
+  useCrudCreateRuntime,
+  useCrudRecordRuntime,
   toRouteRecordId
 } = crudClientSupport;
 
 export {
   crudResource,
   useCrudClientContext,
+  useCrudListRuntime,
+  useCrudCreateRuntime,
+  useCrudRecordRuntime,
   toRouteRecordId
 };

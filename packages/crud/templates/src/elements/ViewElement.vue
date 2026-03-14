@@ -15,15 +15,15 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-          {{ loadError }}
+        <v-alert v-if="view.loadError" type="error" variant="tonal" class="mb-4">
+          {{ view.loadError }}
         </v-alert>
 
-        <v-alert v-else-if="isNotFound" type="warning" variant="tonal" class="mb-4">
-          {{ notFoundError }}
+        <v-alert v-else-if="view.isNotFound" type="warning" variant="tonal" class="mb-4">
+          {{ view.notFoundError }}
         </v-alert>
 
-        <div v-else-if="isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
+        <div v-else-if="view.isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
           <span>Loading ${option:namespace|singular|default(record)}...</span>
         </div>
@@ -59,15 +59,20 @@
 
 <script setup>
 import { computed, reactive } from "vue";
-import { useRouter } from "vue-router";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
-import { useCrudClientContext, toRouteRecordId } from "./clientSupport.js";
+import { useCrudRecordRuntime } from "./clientSupport.js";
 
-const router = useRouter();
-const crudContext = useCrudClientContext();
-const listPath = crudContext.listPath;
+const {
+  crudContext,
+  listPath,
+  recordId,
+  editPath,
+  apiSuffix,
+  viewQueryKey,
+  invalidateAndGoList
+} = useCrudRecordRuntime();
 const record = reactive({
   id: 0,
   name: "",
@@ -76,8 +81,6 @@ const record = reactive({
   updatedAt: ""
 });
 
-const recordId = computed(() => toRouteRecordId(crudContext.route.params.recordId));
-const editPath = computed(() => crudContext.resolveEditPath(recordId.value));
 const title = computed(() => {
   const name = String(record.name || "").trim();
   const surname = String(record.surname || "").trim();
@@ -86,8 +89,8 @@ const title = computed(() => {
 
 const view = useView({
   visibility: crudModuleConfig.visibility,
-  apiSuffix: () => `${crudModuleConfig.relativePath}/${recordId.value}`,
-  queryKeyFactory: (surfaceId = "") => crudContext.viewQueryKey(surfaceId, recordId.value),
+  apiSuffix,
+  queryKeyFactory: viewQueryKey,
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
   model: record,
@@ -99,14 +102,10 @@ const view = useView({
     model.updatedAt = String(payload.updatedAt || "");
   }
 });
-const loadError = computed(() => view.loadError.value);
-const isNotFound = computed(() => view.isNotFound.value);
-const notFoundError = computed(() => view.notFoundError.value);
-const isLoading = computed(() => view.isLoading.value);
 
 const deleteCommand = useCommand({
   visibility: crudModuleConfig.visibility,
-  apiSuffix: () => `${crudModuleConfig.relativePath}/${recordId.value}`,
+  apiSuffix,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete record.",
   messages: {
@@ -114,11 +113,7 @@ const deleteCommand = useCommand({
     error: "Unable to delete record."
   },
   onRunSuccess: async (_, { queryClient }) => {
-    await crudContext.invalidateQueries(queryClient);
-
-    if (listPath.value) {
-      await router.push(listPath.value);
-    }
+    await invalidateAndGoList(queryClient);
   }
 });
 
