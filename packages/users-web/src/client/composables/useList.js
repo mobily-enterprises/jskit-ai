@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { useListCore } from "./useListCore.js";
-import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
+import { useScopeRuntime } from "./useScopeRuntime.js";
 import {
   normalizePermissions,
   resolvePermissionAccess,
@@ -10,6 +10,7 @@ import {
 
 function useList({
   visibility = "workspace",
+  access = "auto",
   apiSuffix = "",
   queryKeyFactory = null,
   viewPermissions = [],
@@ -23,16 +24,18 @@ function useList({
   requestOptions,
   queryOptions
 } = {}) {
-  const scopeRuntime = useUsersWebScopeRuntime({
+  const normalizedViewPermissions = normalizePermissions(viewPermissions);
+  const scopeRuntime = useScopeRuntime({
     visibility,
+    access,
+    hasPermissionRequirements: normalizedViewPermissions.length > 0,
     placementSource
   });
   const normalizedVisibility = scopeRuntime.normalizedVisibility;
   const routeContext = scopeRuntime.routeContext;
   const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
   const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const access = scopeRuntime.access;
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
+  const scopeAccess = scopeRuntime.access;
 
   const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
 
@@ -53,7 +56,7 @@ function useList({
   );
 
   const canView = computed(() => {
-    return resolvePermissionAccess(access, normalizedViewPermissions);
+    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
   });
 
   const list = useListCore({
@@ -70,16 +73,18 @@ function useList({
   });
 
   const loadError = computed(() => {
-    scopeRuntime.requireWorkspaceRouteParam("useList");
+    if (scopeRuntime.workspaceRouteError.value) {
+      return scopeRuntime.workspaceRouteError.value;
+    }
 
-    if (access.bootstrapError.value) {
-      return access.bootstrapError.value;
+    if (scopeAccess.bootstrapError.value) {
+      return scopeAccess.bootstrapError.value;
     }
 
     return list.loadError.value;
   });
 
-  const isLoading = computed(() => Boolean(list.isLoading.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(list.isLoading.value || scopeAccess.isBootstrapping.value));
 
   return Object.freeze({
     canView,

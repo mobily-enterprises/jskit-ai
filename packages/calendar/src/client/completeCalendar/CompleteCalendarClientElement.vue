@@ -110,7 +110,7 @@ import { useRouter } from "vue-router";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
 import {
   buildCalendarEventPayload,
   calendarWeekQueryKey,
@@ -130,7 +130,7 @@ const calendarRef = ref(null);
 const createDialog = ref(false);
 const filterContactId = ref(0);
 const weekStart = ref(resolveWeekStartDateIso());
-const { workspaceSlugFromRoute, placementContext } = useUsersWebWorkspaceRouteContext();
+const { workspaceSlugFromRoute, placementContext } = useWorkspaceRouteContext();
 
 const weekModel = reactive({
   weekStart: "",

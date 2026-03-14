@@ -10,7 +10,7 @@ import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
-import { useUsersPaths } from "../composables/useUsersPaths.js";
+import { usePaths } from "../composables/usePaths.js";
 
 const props = defineProps({
   label: {
@@ -32,7 +32,7 @@ const props = defineProps({
 });
 
 const { context: placementContext } = useWebPlacementContext();
-const paths = useUsersPaths();
+const paths = usePaths();
 
 const canViewMembers = computed(() => {
   const permissions = normalizePermissionList(placementContext.value?.permissions);

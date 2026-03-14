@@ -1,14 +1,15 @@
 import { computed, proxyRefs } from "vue";
 import { useCommandCore } from "./useCommandCore.js";
-import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
-import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
-import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
+import { useEndpointResource } from "./useEndpointResource.js";
+import { useScopeRuntime } from "./useScopeRuntime.js";
+import { useUiFeedback } from "./useUiFeedback.js";
+import { useFieldErrorBag } from "./useFieldErrorBag.js";
 import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
 import { normalizePermissions, resolvePermissionAccess } from "./scopeHelpers.js";
 
 function useCommand({
   visibility = "workspace",
+  access = "auto",
   apiSuffix = "",
   runPermissions = [],
   writeMethod = "POST",
@@ -25,14 +26,16 @@ function useCommand({
   onRunError,
   messages = {}
 } = {}) {
-  const scopeRuntime = useUsersWebScopeRuntime({
+  const normalizedPermissions = normalizePermissions(runPermissions);
+  const scopeRuntime = useScopeRuntime({
     visibility,
+    access,
+    hasPermissionRequirements: normalizedPermissions.length > 0,
     placementSource
   });
   const routeContext = scopeRuntime.routeContext;
   const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const access = scopeRuntime.access;
-  const normalizedPermissions = normalizePermissions(runPermissions);
+  const scopeAccess = scopeRuntime.access;
 
   const apiPath = computed(() =>
     scopeRuntime.resolveApiPath(apiSuffix, {
@@ -41,18 +44,18 @@ function useCommand({
   );
 
   const canRun = computed(() => {
-    return resolvePermissionAccess(access, normalizedPermissions);
+    return resolvePermissionAccess(scopeAccess, normalizedPermissions);
   });
 
-  const resource = useUsersWebEndpointResource({
+  const resource = useEndpointResource({
     path: apiPath,
     enabled: false,
     writeMethod,
     fallbackSaveError: fallbackRunError
   });
 
-  const feedback = useUsersWebUiFeedback();
-  const fieldBag = useUsersWebFieldErrorBag(fieldErrorKeys);
+  const feedback = useUiFeedback();
+  const fieldBag = useFieldErrorBag(fieldErrorKeys);
 
   const command = useCommandCore({
     model,
@@ -82,16 +85,18 @@ function useCommand({
   });
 
   const loadError = computed(() => {
-    scopeRuntime.requireWorkspaceRouteParam("useCommand");
+    if (scopeRuntime.workspaceRouteError.value) {
+      return scopeRuntime.workspaceRouteError.value;
+    }
 
-    if (access.bootstrapError.value) {
-      return access.bootstrapError.value;
+    if (scopeAccess.bootstrapError.value) {
+      return scopeAccess.bootstrapError.value;
     }
 
     return "";
   });
 
-  const isLoading = computed(() => Boolean(access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(scopeAccess.isBootstrapping.value));
 
   return proxyRefs({
     canRun,

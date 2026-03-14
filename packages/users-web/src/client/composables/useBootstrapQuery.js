@@ -7,7 +7,7 @@ import { usersWebHttpClient } from "../lib/httpClient.js";
 import { buildBootstrapApiPath } from "../lib/bootstrap.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 
-function useUsersWebBootstrapQuery({ workspaceSlug = "", enabled = true, staleTime = 0 } = {}) {
+function useBootstrapQuery({ workspaceSlug = "", enabled = true, staleTime = 0 } = {}) {
   const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
   const queryKey = computed(() => ["users-web", "bootstrap", normalizeQueryToken(normalizedWorkspaceSlug.value)]);
   const bootstrapPath = computed(() => buildBootstrapApiPath(normalizedWorkspaceSlug.value));
@@ -30,4 +30,4 @@ function useUsersWebBootstrapQuery({ workspaceSlug = "", enabled = true, staleTi
   });
 }
 
-export { useUsersWebBootstrapQuery };
+export { useBootstrapQuery };

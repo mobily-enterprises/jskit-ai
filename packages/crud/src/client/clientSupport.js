@@ -2,7 +2,7 @@ import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
   createCrudClientSupport,
   toRouteRecordId
-} from "@jskit-ai/crud-core/client/composables/createCrudClientSupport";
+} from "@jskit-ai/crud-core/client";
 import {
   resolveCrudConfigFromModules,
   resolveCrudConfigsFromModules,

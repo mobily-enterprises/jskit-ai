@@ -100,7 +100,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
 import {
   assignCalendarEventToForm,
   buildCalendarEventPayload,
@@ -115,7 +115,7 @@ import {
 
 const route = useRoute();
 const router = useRouter();
-const { placementContext, workspaceSlugFromRoute } = useUsersWebWorkspaceRouteContext();
+const { placementContext, workspaceSlugFromRoute } = useWorkspaceRouteContext();
 
 const form = reactive({
   contactId: 0,

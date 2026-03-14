@@ -1,6 +1,7 @@
 import { unref } from "vue";
 
 const USERS_VISIBILITY_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
+const ACCESS_MODE_VALUES = Object.freeze(["auto", "always", "never"]);
 
 function asPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -25,6 +26,42 @@ function resolvePermissionAccess(access, normalizedPermissions = []) {
   }
 
   return access.canAny(normalizedPermissions);
+}
+
+function normalizeAccessMode(value = "auto") {
+  const normalized = String(value || "auto").trim().toLowerCase();
+  if (ACCESS_MODE_VALUES.includes(normalized)) {
+    return normalized;
+  }
+
+  throw new TypeError(
+    `access must be one of: ${ACCESS_MODE_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
+  );
+}
+
+function resolveAccessModeEnabled(accessMode = "auto", { hasPermissionRequirements = false } = {}) {
+  const normalizedMode = normalizeAccessMode(accessMode);
+  if (normalizedMode === "always") {
+    return true;
+  }
+  if (normalizedMode === "never") {
+    return false;
+  }
+
+  return hasPermissionRequirements === true;
+}
+
+function ensureAccessModeCompatibility({
+  accessMode = "auto",
+  hasPermissionRequirements = false,
+  caller = "users-web"
+} = {}) {
+  const normalizedMode = normalizeAccessMode(accessMode);
+  if (normalizedMode === "never" && hasPermissionRequirements) {
+    throw new TypeError(`${caller} cannot use access:\"never\" when permission requirements are configured.`);
+  }
+
+  return normalizedMode;
 }
 
 function resolveApiSuffix(apiSuffix, context = {}) {
@@ -74,23 +111,6 @@ function resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", 
   return queryKeyFactory(surfaceId, visibility);
 }
 
-function normalizeApiPath(value) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return "";
-  }
-
-  if (source.startsWith("/api")) {
-    return source;
-  }
-
-  if (!source.startsWith("/")) {
-    return `/api/${source}`;
-  }
-
-  return `/api${source}`;
-}
-
 function resolveResourceMessages(resource, defaults = {}) {
   const defaultMessages = asPlainObject(defaults);
   const resourceMessages = asPlainObject(asPlainObject(resource).messages);
@@ -105,11 +125,13 @@ export {
   asPlainObject,
   normalizePermissions,
   resolvePermissionAccess,
+  normalizeAccessMode,
+  resolveAccessModeEnabled,
+  ensureAccessModeCompatibility,
   resolveApiSuffix,
   resolveEnabled,
   normalizeUsersVisibility,
   isWorkspaceVisibility,
   resolveQueryKey,
-  normalizeApiPath,
   resolveResourceMessages
 };

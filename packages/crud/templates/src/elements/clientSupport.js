@@ -1,4 +1,4 @@
-import { createCrudClientSupport } from "@jskit-ai/crud-core/client/composables/createCrudClientSupport";
+import { createCrudClientSupport } from "@jskit-ai/crud-core/client";
 import { crudResource } from "../shared/crudResource.js";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
 

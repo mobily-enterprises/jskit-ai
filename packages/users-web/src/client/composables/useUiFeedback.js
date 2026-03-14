@@ -8,7 +8,7 @@ function toErrorMessage(error, fallbackMessage) {
   return String(error?.message || "Request failed.").trim();
 }
 
-function useUsersWebUiFeedback({ initialType = "success" } = {}) {
+function useUiFeedback({ initialType = "success" } = {}) {
   const message = ref("");
   const messageType = ref(String(initialType || "success"));
 
@@ -35,4 +35,4 @@ function useUsersWebUiFeedback({ initialType = "success" } = {}) {
   });
 }
 
-export { useUsersWebUiFeedback };
+export { useUiFeedback };

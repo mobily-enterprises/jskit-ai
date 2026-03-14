@@ -1,7 +1,11 @@
 import { computed, watch } from "vue";
 import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
-import { useUsersWebBootstrapQuery } from "./useUsersWebBootstrapQuery.js";
+import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import {
+  normalizeAccessMode,
+  resolveAccessModeEnabled
+} from "./scopeHelpers.js";
 
 function asPermissionList(value) {
   if (Array.isArray(value)) {
@@ -15,15 +19,21 @@ function asPermissionList(value) {
   return [value];
 }
 
-function useUsersWebAccess({
+function useAccess({
   workspaceSlug = "",
   enabled = true,
+  access = "always",
+  hasPermissionRequirements = false,
   mergePlacementContext = null,
   placementSource = "users-web.access"
 } = {}) {
+  const accessMode = normalizeAccessMode(access);
+  const accessRequired = resolveAccessModeEnabled(accessMode, {
+    hasPermissionRequirements: hasPermissionRequirements === true
+  });
   const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
-  const queryEnabled = computed(() => resolveEnabledRef(enabled));
-  const bootstrap = useUsersWebBootstrapQuery({
+  const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
+  const bootstrap = useBootstrapQuery({
     workspaceSlug: normalizedWorkspaceSlug,
     enabled: queryEnabled
   });
@@ -39,7 +49,7 @@ function useUsersWebAccess({
   });
   const isBootstrapping = computed(() => Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value));
 
-  if (typeof mergePlacementContext === "function") {
+  if (accessRequired && typeof mergePlacementContext === "function") {
     watch(
       permissions,
       (nextPermissions) => {
@@ -97,6 +107,8 @@ function useUsersWebAccess({
   return Object.freeze({
     query: bootstrap.query,
     queryKey: bootstrap.queryKey,
+    accessMode,
+    accessRequired,
     workspaceSlug: normalizedWorkspaceSlug,
     permissions,
     bootstrapError,
@@ -108,4 +120,4 @@ function useUsersWebAccess({
   });
 }
 
-export { useUsersWebAccess };
+export { useAccess };

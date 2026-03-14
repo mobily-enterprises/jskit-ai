@@ -42,8 +42,8 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./server",
-          summary: "App-local CRUD server provider/actions/routes/service/repository."
+          subpath: "./server/diTokens",
+          summary: "App-local CRUD public server DI token constants."
         },
         {
           subpath: "./shared",
@@ -56,7 +56,6 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
-          "repository.${option:namespace|snake}",
           "crud.${option:namespace|snake}"
         ],
         client: []

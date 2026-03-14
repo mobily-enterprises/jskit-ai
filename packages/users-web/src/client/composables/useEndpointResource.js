@@ -23,7 +23,7 @@ function toErrorMessage(error, fallback) {
   return String(error?.message || fallback || "Request failed.").trim();
 }
 
-function useUsersWebEndpointResource({
+function useEndpointResource({
   queryKey,
   path = "",
   enabled = true,
@@ -36,7 +36,7 @@ function useUsersWebEndpointResource({
   fallbackSaveError = "Unable to save resource."
 } = {}) {
   if (!client || typeof client.request !== "function") {
-    throw new TypeError("useUsersWebEndpointResource requires a client with request().");
+    throw new TypeError("useEndpointResource requires a client with request().");
   }
 
   const normalizedPath = computed(() => resolvePath(path));
@@ -113,4 +113,4 @@ function useUsersWebEndpointResource({
   });
 }
 
-export { useUsersWebEndpointResource };
+export { useEndpointResource };

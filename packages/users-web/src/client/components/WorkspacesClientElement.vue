@@ -11,12 +11,12 @@ import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
-import { useUsersPaths } from "../composables/useUsersPaths.js";
+import { usePaths } from "../composables/usePaths.js";
 
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
-const paths = useUsersPaths();
+const paths = usePaths();
 
 const message = ref("");
 const messageType = ref("error");

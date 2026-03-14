@@ -6,7 +6,7 @@ function normalizeKeys(keys) {
     : [];
 }
 
-function useUsersWebFieldErrorBag(keys = []) {
+function useFieldErrorBag(keys = []) {
   const normalizedKeys = normalizeKeys(keys);
   const hasFixedKeys = normalizedKeys.length > 0;
   const errors = reactive(
@@ -58,4 +58,4 @@ function useUsersWebFieldErrorBag(keys = []) {
   });
 }
 
-export { useUsersWebFieldErrorBag };
+export { useFieldErrorBag };

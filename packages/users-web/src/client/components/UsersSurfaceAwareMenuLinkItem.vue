@@ -4,7 +4,7 @@ import {
   useWebPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import { useUsersPaths } from "../composables/useUsersPaths.js";
+import { usePaths } from "../composables/usePaths.js";
 
 const props = defineProps({
   label: {
@@ -37,7 +37,7 @@ const props = defineProps({
   }
 });
 
-const paths = useUsersPaths();
+const paths = usePaths();
 const { context: placementContext } = useWebPlacementContext();
 
 const targetSurfaceId = computed(() => {

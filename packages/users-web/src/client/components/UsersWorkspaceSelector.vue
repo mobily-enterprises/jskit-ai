@@ -9,10 +9,10 @@ import {
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 import { mdiBriefcaseOutline } from "@mdi/js";
-import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
+import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { normalizePermissionList } from "../lib/permissions.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
-import { useUsersPaths } from "../composables/useUsersPaths.js";
+import { usePaths } from "../composables/usePaths.js";
 
 const props = defineProps({
   surface: {
@@ -34,7 +34,7 @@ const errorMessage = ref("");
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
-const paths = useUsersPaths();
+const paths = usePaths();
 
 function resolveBrowserPath() {
   if (typeof window !== "object" || !window || !window.location) {
@@ -107,7 +107,7 @@ const routeWorkspaceSlug = computed(() => {
   ).trim();
 });
 
-const bootstrapQuery = useUsersWebBootstrapQuery({
+const bootstrapQuery = useBootstrapQuery({
   workspaceSlug: routeWorkspaceSlug,
   enabled: true
 });

@@ -1,8 +1,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useUsersPaths } from "@jskit-ai/users-web/client/composables/useUsersPaths";
+import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
 import {
-  DEFAULT_CRUD_VISIBILITY,
   resolveCrudClientConfig,
   formatDateTime,
   crudScopeQueryKey,
@@ -14,7 +13,7 @@ import {
 
 function useCrudClientContext(source = {}) {
   const crudConfig = resolveCrudClientConfig(source);
-  const paths = useUsersPaths();
+  const paths = usePaths();
   const route = useRoute();
   const workspaceSlugToken = computed(() => paths.workspaceSlug.value);
   const listPath = computed(() => paths.page(crudConfig.relativePath));
@@ -83,14 +82,6 @@ function createCrudClientSupport(source = {}) {
 }
 
 export {
-  DEFAULT_CRUD_VISIBILITY,
-  resolveCrudClientConfig,
-  formatDateTime,
-  crudScopeQueryKey,
-  invalidateCrudQueries,
-  crudListQueryKey,
-  crudViewQueryKey,
-  toRouteRecordId,
   useCrudClientContext,
   createCrudClientSupport
 };

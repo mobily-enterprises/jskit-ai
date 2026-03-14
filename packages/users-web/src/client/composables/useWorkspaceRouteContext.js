@@ -2,10 +2,10 @@ import { computed } from "vue";
 import {
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
-import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
+import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
 
-function useUsersWebWorkspaceRouteContext() {
-  const { route, placementContext, mergePlacementContext, currentSurfaceId } = useUsersWebSurfaceRouteContext();
+function useWorkspaceRouteContext() {
+  const { route, placementContext, mergePlacementContext, currentSurfaceId } = useSurfaceRouteContext();
   const workspaceSlugFromRoute = computed(() => {
     const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
       placementContext.value,
@@ -24,4 +24,4 @@ function useUsersWebWorkspaceRouteContext() {
   });
 }
 
-export { useUsersWebWorkspaceRouteContext };
+export { useWorkspaceRouteContext };

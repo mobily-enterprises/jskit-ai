@@ -1,7 +1,7 @@
 import { computed } from "vue";
 import { useViewCore } from "./useViewCore.js";
-import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
+import { useEndpointResource } from "./useEndpointResource.js";
+import { useScopeRuntime } from "./useScopeRuntime.js";
 import {
   normalizePermissions,
   resolvePermissionAccess,
@@ -11,6 +11,7 @@ import {
 
 function useView({
   visibility = "workspace",
+  access = "auto",
   apiSuffix = "",
   queryKeyFactory = null,
   viewPermissions = [],
@@ -23,16 +24,18 @@ function useView({
   model,
   mapLoadedToModel
 } = {}) {
-  const scopeRuntime = useUsersWebScopeRuntime({
+  const normalizedViewPermissions = normalizePermissions(viewPermissions);
+  const scopeRuntime = useScopeRuntime({
     visibility,
+    access,
+    hasPermissionRequirements: normalizedViewPermissions.length > 0,
     placementSource
   });
   const normalizedVisibility = scopeRuntime.normalizedVisibility;
   const routeContext = scopeRuntime.routeContext;
   const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
   const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const access = scopeRuntime.access;
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
+  const scopeAccess = scopeRuntime.access;
 
   const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
 
@@ -53,10 +56,10 @@ function useView({
   );
 
   const canView = computed(() => {
-    return resolvePermissionAccess(access, normalizedViewPermissions);
+    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
   });
 
-  const resource = useUsersWebEndpointResource({
+  const resource = useEndpointResource({
     queryKey,
     path: apiPath,
     enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
@@ -74,17 +77,19 @@ function useView({
   });
 
   const loadError = computed(() => {
-    scopeRuntime.requireWorkspaceRouteParam("useView");
+    if (scopeRuntime.workspaceRouteError.value) {
+      return scopeRuntime.workspaceRouteError.value;
+    }
 
-    if (access.bootstrapError.value) {
-      return access.bootstrapError.value;
+    if (scopeAccess.bootstrapError.value) {
+      return scopeAccess.bootstrapError.value;
     }
 
     return view.loadError.value;
   });
 
-  const isLoading = computed(() => Boolean(view.isLoading.value || access.isBootstrapping.value));
-  const isFetching = computed(() => Boolean(view.isFetching.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(view.isLoading.value || scopeAccess.isBootstrapping.value));
+  const isFetching = computed(() => Boolean(view.isFetching.value || scopeAccess.isBootstrapping.value));
 
   return Object.freeze({
     record: view.record,

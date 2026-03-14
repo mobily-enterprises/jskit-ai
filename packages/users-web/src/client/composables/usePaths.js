@@ -3,7 +3,7 @@ import { useShellLinkResolver } from "@jskit-ai/shell-web/client/navigation/link
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
-import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
+import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
 
 function normalizePathSuffix(value = "") {
   const raw = normalizeText(unref(value));
@@ -52,8 +52,8 @@ function resolvePageMode(options = {}) {
   return "auto";
 }
 
-function useUsersPaths({ routeContext: sourceRouteContext = null } = {}) {
-  const routeContext = sourceRouteContext || useUsersWebWorkspaceRouteContext();
+function usePaths({ routeContext: sourceRouteContext = null } = {}) {
+  const routeContext = sourceRouteContext || useWorkspaceRouteContext();
   const shellLinkResolver = useShellLinkResolver();
   const workspaceSlug = computed(() => String(routeContext.workspaceSlugFromRoute.value || "").trim());
 
@@ -77,7 +77,7 @@ function useUsersPaths({ routeContext: sourceRouteContext = null } = {}) {
     const workspaceScoped = isWorkspaceVisibility(visibility);
 
     if (!suffix) {
-      throw new TypeError("useUsersPaths().api(relativePath) requires a non-empty relativePath.");
+      throw new TypeError("usePaths().api(relativePath) requires a non-empty relativePath.");
     }
 
     const templatePath = resolveUsersApiBasePath({
@@ -89,7 +89,7 @@ function useUsersPaths({ routeContext: sourceRouteContext = null } = {}) {
       const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
       if (!nextWorkspaceSlug) {
         throw new Error(
-          `useUsersPaths().api(${suffix}) requires workspace slug for visibility "${visibility}".`
+          `usePaths().api(${suffix}) requires workspace slug for visibility "${visibility}".`
         );
       }
 
@@ -109,4 +109,4 @@ function useUsersPaths({ routeContext: sourceRouteContext = null } = {}) {
   });
 }
 
-export { useUsersPaths };
+export { usePaths };

@@ -25,10 +25,10 @@ import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { useCommand } from "../composables/useCommand.js";
 import { useList } from "../composables/useList.js";
 import { useView } from "../composables/useView.js";
-import { useUsersPaths } from "../composables/useUsersPaths.js";
-import { useUsersWebAccess } from "../composables/useUsersWebAccess.js";
-import { useUsersWebUiFeedback } from "../composables/useUsersWebUiFeedback.js";
-import { useUsersWebWorkspaceRouteContext } from "../composables/useUsersWebWorkspaceRouteContext.js";
+import { usePaths } from "../composables/usePaths.js";
+import { useAccess } from "../composables/useAccess.js";
+import { useUiFeedback } from "../composables/useUiFeedback.js";
+import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 
 const forms = reactive({
   invite: {
@@ -58,9 +58,9 @@ const collections = reactive({
   invites: []
 });
 
-const inviteFeedback = useUsersWebUiFeedback();
-const membersFeedback = useUsersWebUiFeedback();
-const teamFeedback = useUsersWebUiFeedback();
+const inviteFeedback = useUiFeedback();
+const membersFeedback = useUiFeedback();
+const teamFeedback = useUiFeedback();
 const revokeInviteId = ref(0);
 const feedback = Object.freeze({
   inviteMessage: inviteFeedback.message,
@@ -73,8 +73,8 @@ const feedback = Object.freeze({
 });
 
 const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
-  useUsersWebWorkspaceRouteContext();
-const usersPaths = useUsersPaths();
+  useWorkspaceRouteContext();
+const usersPaths = usePaths();
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceMembersApiPath = computed(() =>
@@ -89,7 +89,7 @@ const workspaceInvitesApiPath = computed(() =>
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );
-const access = useUsersWebAccess({
+const access = useAccess({
   workspaceSlug: workspaceSlugFromRoute,
   enabled: hasRouteWorkspaceSlug,
   mergePlacementContext,

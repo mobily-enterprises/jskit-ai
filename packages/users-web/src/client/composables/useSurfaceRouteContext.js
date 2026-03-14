@@ -5,7 +5,7 @@ import {
   useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 
-function useUsersWebSurfaceRouteContext() {
+function useSurfaceRouteContext() {
   const route = useRoute();
   const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 
@@ -21,4 +21,4 @@ function useUsersWebSurfaceRouteContext() {
   });
 }
 
-export { useUsersWebSurfaceRouteContext };
+export { useSurfaceRouteContext };

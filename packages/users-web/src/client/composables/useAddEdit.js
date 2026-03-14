@@ -1,9 +1,9 @@
 import { computed, proxyRefs } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
-import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
-import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
-import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
+import { useEndpointResource } from "./useEndpointResource.js";
+import { useScopeRuntime } from "./useScopeRuntime.js";
+import { useUiFeedback } from "./useUiFeedback.js";
+import { useFieldErrorBag } from "./useFieldErrorBag.js";
 import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
 import {
   normalizePermissions,
@@ -15,6 +15,7 @@ import {
 
 function useAddEdit({
   visibility = "workspace",
+  access = "auto",
   resource = null,
   apiSuffix = "",
   queryKeyFactory = null,
@@ -36,18 +37,19 @@ function useAddEdit({
   onSaveSuccess,
   messages = {}
 } = {}) {
-  const scopeRuntime = useUsersWebScopeRuntime({
+  const normalizedViewPermissions = normalizePermissions(viewPermissions);
+  const normalizedSavePermissions = normalizePermissions(savePermissions);
+  const scopeRuntime = useScopeRuntime({
     visibility,
+    access,
+    hasPermissionRequirements: normalizedViewPermissions.length > 0 || normalizedSavePermissions.length > 0,
     placementSource
   });
   const normalizedVisibility = scopeRuntime.normalizedVisibility;
   const routeContext = scopeRuntime.routeContext;
   const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
   const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const access = scopeRuntime.access;
-
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
-  const normalizedSavePermissions = normalizePermissions(savePermissions);
+  const scopeAccess = scopeRuntime.access;
   const resolvedMessages = resolveResourceMessages(resource, {
     validation: "Fix invalid values and try again.",
     saveSuccess: "Saved.",
@@ -83,14 +85,14 @@ function useAddEdit({
   );
 
   const canView = computed(() => {
-    return resolvePermissionAccess(access, normalizedViewPermissions);
+    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
   });
 
   const canSave = computed(() => {
-    return resolvePermissionAccess(access, normalizedSavePermissions);
+    return resolvePermissionAccess(scopeAccess, normalizedSavePermissions);
   });
 
-  const endpointResource = useUsersWebEndpointResource({
+  const endpointResource = useEndpointResource({
     queryKey,
     path: apiPath,
     enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
@@ -100,8 +102,8 @@ function useAddEdit({
     fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });
 
-  const feedback = useUsersWebUiFeedback();
-  const fieldBag = useUsersWebFieldErrorBag(fieldErrorKeys);
+  const feedback = useUiFeedback();
+  const fieldBag = useFieldErrorBag(fieldErrorKeys);
 
   const addEdit = useAddEditCore({
     model,
@@ -126,9 +128,11 @@ function useAddEdit({
   });
 
   const loadError = computed(() => {
-    scopeRuntime.requireWorkspaceRouteParam("useAddEdit");
+    if (scopeRuntime.workspaceRouteError.value) {
+      return scopeRuntime.workspaceRouteError.value;
+    }
 
-    const bootstrapError = String(access.bootstrapError.value || "");
+    const bootstrapError = String(scopeAccess.bootstrapError.value || "");
     if (bootstrapError) {
       return bootstrapError;
     }
@@ -136,7 +140,7 @@ function useAddEdit({
     return String(endpointResource.loadError.value || "");
   });
 
-  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || access.isBootstrapping.value));
+  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || scopeAccess.isBootstrapping.value));
 
   return proxyRefs({
     canView,
