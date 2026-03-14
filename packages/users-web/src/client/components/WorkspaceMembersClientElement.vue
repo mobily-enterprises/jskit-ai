@@ -25,8 +25,9 @@ import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { useCommand } from "../composables/useCommand.js";
 import { useList } from "../composables/useList.js";
 import { useView } from "../composables/useView.js";
+import { useUsersPaths } from "../composables/useUsersPaths.js";
+import { useUsersWebAccess } from "../composables/useUsersWebAccess.js";
 import { useUsersWebUiFeedback } from "../composables/useUsersWebUiFeedback.js";
-import { useUsersWebWorkspaceAccess } from "../composables/useUsersWebWorkspaceAccess.js";
 import { useUsersWebWorkspaceRouteContext } from "../composables/useUsersWebWorkspaceRouteContext.js";
 
 const forms = reactive({
@@ -71,13 +72,24 @@ const feedback = Object.freeze({
   revokeInviteId
 });
 
-const { route, currentSurfaceId, workspaceSlugFromRoute, resolveWorkspaceApiPath, mergePlacementContext } =
+const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
   useUsersWebWorkspaceRouteContext();
+const usersPaths = useUsersPaths();
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
-const workspaceMembersApiPath = computed(() => resolveWorkspaceApiPath("/members"));
-const workspaceInvitesApiPath = computed(() => resolveWorkspaceApiPath("/invites"));
-const access = useUsersWebWorkspaceAccess({
+const workspaceMembersApiPath = computed(() =>
+  usersPaths.api("/members", {
+    visibility: "workspace",
+    workspaceSlug: workspaceSlugFromRoute.value
+  })
+);
+const workspaceInvitesApiPath = computed(() =>
+  usersPaths.api("/invites", {
+    visibility: "workspace",
+    workspaceSlug: workspaceSlugFromRoute.value
+  })
+);
+const access = useUsersWebAccess({
   workspaceSlug: workspaceSlugFromRoute,
   enabled: hasRouteWorkspaceSlug,
   mergePlacementContext,

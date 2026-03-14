@@ -1,5 +1,9 @@
 <script setup>
 import { computed } from "vue";
+import {
+  useWebPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 import { useUsersPaths } from "../composables/useUsersPaths.js";
 
 const props = defineProps({
@@ -34,14 +38,33 @@ const props = defineProps({
 });
 
 const paths = useUsersPaths();
+const { context: placementContext } = useWebPlacementContext();
+
+const targetSurfaceId = computed(() => {
+  const explicitSurface = String(props.surface || "").trim().toLowerCase();
+  if (explicitSurface && explicitSurface !== "*") {
+    return explicitSurface;
+  }
+
+  return String(paths.currentSurfaceId.value || "").trim().toLowerCase();
+});
 
 const resolvedTo = computed(() => {
-  return paths.page("/", {
-    surface: props.surface,
-    explicitTo: props.to,
-    mode: "auto",
-    workspaceRelativePath: props.workspaceSuffix,
-    surfaceRelativePath: props.nonWorkspaceSuffix
+  const explicitTo = String(props.to || "").trim();
+  if (explicitTo) {
+    return explicitTo;
+  }
+
+  const workspaceRequired = surfaceRequiresWorkspaceFromPlacementContext(
+    placementContext.value,
+    targetSurfaceId.value
+  );
+  const suffix = workspaceRequired ? props.workspaceSuffix : props.nonWorkspaceSuffix;
+  const normalizedSuffix = String(suffix || "/").trim() || "/";
+
+  return paths.page(normalizedSuffix, {
+    surface: targetSurfaceId.value,
+    mode: "auto"
   });
 });
 </script>

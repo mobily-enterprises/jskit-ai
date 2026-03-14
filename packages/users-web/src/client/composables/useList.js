@@ -1,14 +1,9 @@
 import { computed } from "vue";
 import { useListCore } from "./useListCore.js";
-import { useUsersWebAccess } from "./useUsersWebAccess.js";
-import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
-import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
-import { useUsersPaths } from "./useUsersPaths.js";
+import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
 import {
   normalizePermissions,
-  normalizeUsersVisibility,
-  isWorkspaceVisibility,
-  resolveApiSuffix,
+  resolvePermissionAccess,
   resolveEnabled,
   resolveQueryKey
 } from "./scopeHelpers.js";
@@ -28,26 +23,18 @@ function useList({
   requestOptions,
   queryOptions
 } = {}) {
-  const normalizedVisibility = normalizeUsersVisibility(visibility);
-  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
-  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
-  const usersPaths = useUsersPaths();
-
-  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
-  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
+  const scopeRuntime = useUsersWebScopeRuntime({
+    visibility,
+    placementSource
+  });
+  const normalizedVisibility = scopeRuntime.normalizedVisibility;
+  const routeContext = scopeRuntime.routeContext;
+  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
+  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
+  const access = scopeRuntime.access;
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
 
-  const apiPath = computed(() => {
-    const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    });
-    return usersPaths.api(suffix, {
-      visibility: normalizedVisibility,
-      workspaceSlug: workspaceSlugFromRoute.value
-    });
-  });
+  const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
 
   const queryEnabled = computed(() =>
     resolveEnabled(readEnabled, {
@@ -65,19 +52,8 @@ function useList({
     })
   );
 
-  const access = useUsersWebAccess({
-    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
-    enabled: hasRouteWorkspaceSlug,
-    mergePlacementContext: routeContext.mergePlacementContext,
-    placementSource: String(placementSource || "users-web.list")
-  });
-
   const canView = computed(() => {
-    if (normalizedViewPermissions.length < 1) {
-      return true;
-    }
-
-    return access.canAny(normalizedViewPermissions);
+    return resolvePermissionAccess(access, normalizedViewPermissions);
   });
 
   const list = useListCore({
@@ -94,9 +70,7 @@ function useList({
   });
 
   const loadError = computed(() => {
-    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
-      throw new Error("useList requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
-    }
+    scopeRuntime.requireWorkspaceRouteParam("useList");
 
     if (access.bootstrapError.value) {
       return access.bootstrapError.value;

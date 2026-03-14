@@ -60,11 +60,11 @@ import { reactive } from "vue";
 import { useRouter } from "vue-router";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
+import { crudModuleConfig } from "../shared/moduleConfig.js";
 import { useCrudClientContext, crudResource } from "./clientSupport.js";
 
 const router = useRouter();
 const crudContext = useCrudClientContext();
-const crudConfig = crudContext.crudConfig;
 const listPath = crudContext.listPath;
 const recordForm = reactive({
   name: "",
@@ -72,9 +72,9 @@ const recordForm = reactive({
 });
 
 const addEdit = useAddEdit({
-  visibility: crudConfig.visibility,
+  visibility: crudModuleConfig.visibility,
   resource: crudResource,
-  apiSuffix: crudConfig.relativePath,
+  apiSuffix: crudModuleConfig.relativePath,
   queryKeyFactory: (surfaceId = "") => [...crudContext.listQueryKey(surfaceId), "create"],
   readEnabled: false,
   writeMethod: "POST",

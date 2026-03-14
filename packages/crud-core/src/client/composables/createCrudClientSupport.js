@@ -75,22 +75,8 @@ function createCrudClientSupport(source = {}) {
   const crudConfig = resolveCrudClientConfig(source);
 
   return Object.freeze({
-    crudConfig,
     useCrudClientContext() {
       return useCrudClientContext(crudConfig);
-    },
-    formatDateTime,
-    scopeQueryKey() {
-      return crudScopeQueryKey(crudConfig.namespace);
-    },
-    async invalidateQueries(queryClient) {
-      return invalidateCrudQueries(queryClient, crudConfig.namespace);
-    },
-    crudListQueryKey(surfaceId = "", workspaceSlug = "") {
-      return crudListQueryKey(surfaceId, workspaceSlug, crudConfig.namespace);
-    },
-    crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0) {
-      return crudViewQueryKey(surfaceId, workspaceSlug, recordId, crudConfig.namespace);
     },
     toRouteRecordId
   });

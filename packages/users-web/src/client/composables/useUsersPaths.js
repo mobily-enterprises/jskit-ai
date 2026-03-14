@@ -1,10 +1,9 @@
 import { computed, unref } from "vue";
 import { useShellLinkResolver } from "@jskit-ai/shell-web/client/navigation/linkResolver";
-import { extractWorkspaceSlugFromSurfacePathname } from "@jskit-ai/shell-web/client/placement";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
-import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
+import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
 
 function normalizePathSuffix(value = "") {
   const raw = normalizeText(unref(value));
@@ -53,19 +52,10 @@ function resolvePageMode(options = {}) {
   return "auto";
 }
 
-function useUsersPaths() {
-  const routeContext = useUsersWebSurfaceRouteContext();
+function useUsersPaths({ routeContext: sourceRouteContext = null } = {}) {
+  const routeContext = sourceRouteContext || useUsersWebWorkspaceRouteContext();
   const shellLinkResolver = useShellLinkResolver();
-
-  const workspaceSlug = computed(() => {
-    return String(
-      extractWorkspaceSlugFromSurfacePathname(
-        routeContext.placementContext.value,
-        routeContext.currentSurfaceId.value,
-        routeContext.route.path
-      ) || ""
-    ).trim();
-  });
+  const workspaceSlug = computed(() => String(routeContext.workspaceSlugFromRoute.value || "").trim());
 
   function page(relativePath = "/", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
@@ -76,11 +66,7 @@ function useUsersPaths() {
     return shellLinkResolver.resolve(relativePath, {
       surface,
       workspaceSlug: nextWorkspaceSlug,
-      mode,
-      explicitTo: source.explicitTo,
-      workspaceRelativePath: source.workspaceRelativePath,
-      surfaceRelativePath: source.surfaceRelativePath,
-      pathname: source.pathname
+      mode
     });
   }
 
@@ -90,8 +76,8 @@ function useUsersPaths() {
     const suffix = normalizePathSuffix(relativePath);
     const workspaceScoped = isWorkspaceVisibility(visibility);
 
-    if (!suffix && !workspaceScoped) {
-      return "";
+    if (!suffix) {
+      throw new TypeError("useUsersPaths().api(relativePath) requires a non-empty relativePath.");
     }
 
     const templatePath = resolveUsersApiBasePath({
@@ -102,7 +88,9 @@ function useUsersPaths() {
     if (workspaceScoped) {
       const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
       if (!nextWorkspaceSlug) {
-        return "";
+        throw new Error(
+          `useUsersPaths().api(${suffix}) requires workspace slug for visibility "${visibility}".`
+        );
       }
 
       return templatePath.replace(":workspaceSlug", nextWorkspaceSlug);

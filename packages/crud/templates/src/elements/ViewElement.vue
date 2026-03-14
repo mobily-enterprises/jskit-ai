@@ -62,11 +62,11 @@ import { computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
+import { crudModuleConfig } from "../shared/moduleConfig.js";
 import { useCrudClientContext, toRouteRecordId } from "./clientSupport.js";
 
 const router = useRouter();
 const crudContext = useCrudClientContext();
-const crudConfig = crudContext.crudConfig;
 const listPath = crudContext.listPath;
 const record = reactive({
   id: 0,
@@ -85,8 +85,8 @@ const title = computed(() => {
 });
 
 const view = useView({
-  visibility: crudConfig.visibility,
-  apiSuffix: () => `${crudConfig.relativePath}/${recordId.value}`,
+  visibility: crudModuleConfig.visibility,
+  apiSuffix: () => `${crudModuleConfig.relativePath}/${recordId.value}`,
   queryKeyFactory: (surfaceId = "") => crudContext.viewQueryKey(surfaceId, recordId.value),
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
@@ -105,8 +105,8 @@ const notFoundError = computed(() => view.notFoundError.value);
 const isLoading = computed(() => view.isLoading.value);
 
 const deleteCommand = useCommand({
-  visibility: crudConfig.visibility,
-  apiSuffix: () => `${crudConfig.relativePath}/${recordId.value}`,
+  visibility: crudModuleConfig.visibility,
+  apiSuffix: () => `${crudModuleConfig.relativePath}/${recordId.value}`,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete record.",
   messages: {

@@ -40,9 +40,13 @@ const canViewMembers = computed(() => {
 });
 
 const resolvedTo = computed(() => {
+  const explicitTo = String(props.to || "").trim();
+  if (explicitTo) {
+    return explicitTo;
+  }
+
   return paths.page("/members", {
     surface: props.surface,
-    explicitTo: props.to,
     mode: "auto"
   });
 });

@@ -1,15 +1,10 @@
 import { computed } from "vue";
 import { useViewCore } from "./useViewCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebAccess } from "./useUsersWebAccess.js";
-import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
-import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
-import { useUsersPaths } from "./useUsersPaths.js";
+import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
 import {
   normalizePermissions,
-  normalizeUsersVisibility,
-  isWorkspaceVisibility,
-  resolveApiSuffix,
+  resolvePermissionAccess,
   resolveEnabled,
   resolveQueryKey
 } from "./scopeHelpers.js";
@@ -28,26 +23,18 @@ function useView({
   model,
   mapLoadedToModel
 } = {}) {
-  const normalizedVisibility = normalizeUsersVisibility(visibility);
-  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
-  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
-  const usersPaths = useUsersPaths();
-
-  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
-  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
+  const scopeRuntime = useUsersWebScopeRuntime({
+    visibility,
+    placementSource
+  });
+  const normalizedVisibility = scopeRuntime.normalizedVisibility;
+  const routeContext = scopeRuntime.routeContext;
+  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
+  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
+  const access = scopeRuntime.access;
   const normalizedViewPermissions = normalizePermissions(viewPermissions);
 
-  const apiPath = computed(() => {
-    const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    });
-    return usersPaths.api(suffix, {
-      visibility: normalizedVisibility,
-      workspaceSlug: workspaceSlugFromRoute.value
-    });
-  });
+  const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
 
   const queryEnabled = computed(() =>
     resolveEnabled(readEnabled, {
@@ -65,19 +52,8 @@ function useView({
     })
   );
 
-  const access = useUsersWebAccess({
-    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
-    enabled: hasRouteWorkspaceSlug,
-    mergePlacementContext: routeContext.mergePlacementContext,
-    placementSource: String(placementSource || "users-web.view")
-  });
-
   const canView = computed(() => {
-    if (normalizedViewPermissions.length < 1) {
-      return true;
-    }
-
-    return access.canAny(normalizedViewPermissions);
+    return resolvePermissionAccess(access, normalizedViewPermissions);
   });
 
   const resource = useUsersWebEndpointResource({
@@ -98,9 +74,7 @@ function useView({
   });
 
   const loadError = computed(() => {
-    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
-      throw new Error("useView requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
-    }
+    scopeRuntime.requireWorkspaceRouteParam("useView");
 
     if (access.bootstrapError.value) {
       return access.bootstrapError.value;

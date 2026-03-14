@@ -5,9 +5,10 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
-import { crudModuleConfig, crudRouteBasePath } from "../shared/moduleConfig.js";
+import { crudModuleConfig } from "../shared/moduleConfig.js";
 
 function registerRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -15,7 +16,10 @@ function registerRoutes(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = crudRouteBasePath;
+  const routeBase = resolveUsersApiBasePath({
+    visibility: crudModuleConfig.visibility,
+    relativePath: crudModuleConfig.relativePath
+  });
   const visibility = crudModuleConfig.visibility;
   const actionIds = createActionIds();
 

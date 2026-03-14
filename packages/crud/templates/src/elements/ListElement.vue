@@ -54,15 +54,15 @@
 
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
+import { crudModuleConfig } from "../shared/moduleConfig.js";
 import { useCrudClientContext } from "./clientSupport.js";
 
 const crudContext = useCrudClientContext();
-const crudConfig = crudContext.crudConfig;
 const createPath = crudContext.createPath;
 
 const records = useList({
-  visibility: crudConfig.visibility,
-  apiSuffix: crudConfig.relativePath,
+  visibility: crudModuleConfig.visibility,
+  apiSuffix: crudModuleConfig.relativePath,
   queryKeyFactory: (surfaceId = "") => crudContext.listQueryKey(surfaceId),
   fallbackLoadError: "Unable to load records."
 });

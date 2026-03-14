@@ -1,8 +1,6 @@
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
   createCrudClientSupport,
-  crudListQueryKey,
-  crudViewQueryKey,
   toRouteRecordId
 } from "@jskit-ai/crud-core/client/composables/createCrudClientSupport";
 import {
@@ -51,7 +49,5 @@ export {
   resolveCrudClientConfig,
   resolveCrudClientConfigFromPublicConfig,
   useCrudClientContext,
-  crudListQueryKey,
-  crudViewQueryKey,
   toRouteRecordId
 };

@@ -66,9 +66,13 @@ const canViewWorkspaceSettings = computed(() => {
 });
 
 const resolvedTo = computed(() => {
+  const explicitTo = String(props.to || "").trim();
+  if (explicitTo) {
+    return explicitTo;
+  }
+
   return paths.page("/workspace/settings", {
     surface: props.surface,
-    explicitTo: props.to,
     mode: "auto"
   });
 });

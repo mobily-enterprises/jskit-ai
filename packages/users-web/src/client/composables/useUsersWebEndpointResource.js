@@ -1,6 +1,7 @@
 import { computed, unref } from "vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { usersWebHttpClient } from "../lib/httpClient.js";
+import { asPlainObject } from "./scopeHelpers.js";
 
 function resolveEnabled(value) {
   if (value === undefined) {
@@ -20,14 +21,6 @@ function toErrorMessage(error, fallback) {
   }
 
   return String(error?.message || fallback || "Request failed.").trim();
-}
-
-function asPlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
 }
 
 function useUsersWebEndpointResource({

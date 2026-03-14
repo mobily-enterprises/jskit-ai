@@ -19,6 +19,14 @@ function normalizePermissions(value) {
   return one ? [one] : [];
 }
 
+function resolvePermissionAccess(access, normalizedPermissions = []) {
+  if (normalizedPermissions.length < 1) {
+    return true;
+  }
+
+  return access.canAny(normalizedPermissions);
+}
+
 function resolveApiSuffix(apiSuffix, context = {}) {
   if (typeof apiSuffix === "function") {
     return String(apiSuffix(context) || "").trim();
@@ -96,6 +104,7 @@ function resolveResourceMessages(resource, defaults = {}) {
 export {
   asPlainObject,
   normalizePermissions,
+  resolvePermissionAccess,
   resolveApiSuffix,
   resolveEnabled,
   normalizeUsersVisibility,

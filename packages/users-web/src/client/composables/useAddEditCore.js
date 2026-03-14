@@ -1,5 +1,6 @@
 import { watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
+import { validateOperationInput } from "./operationValidationHelpers.js";
 
 function useAddEditCore({
   model,
@@ -51,30 +52,22 @@ function useAddEditCore({
       resource
     }) : {};
 
-    let parseResult = null;
-    if (typeof parseInput === "function") {
-      parseResult = parseInput(rawPayload, {
+    const validationResult = validateOperationInput({
+      parseInput,
+      rawPayload,
+      context: {
         queryClient,
         resource
-      });
-
-      if (!parseResult || typeof parseResult !== "object" || typeof parseResult.ok !== "boolean") {
-        throw new TypeError(
-          "parseInput(rawPayload, context) must return validateOperationSection-compatible result with boolean ok."
-        );
-      }
-
-      if (!parseResult.ok) {
-        const validationFieldErrors =
-          parseResult.fieldErrors && typeof parseResult.fieldErrors === "object" ? parseResult.fieldErrors : {};
-
-        fieldBag?.apply?.(validationFieldErrors);
-        feedback?.error?.(null, String(messages.validation || "Validation failed."));
-        return;
-      }
+      },
+      fieldBag,
+      feedback,
+      validationMessage: String(messages.validation || "Validation failed.")
+    });
+    if (!validationResult.ok) {
+      return;
     }
 
-    const parsedInput = parseResult ? parseResult.value : rawPayload;
+    const { parseResult, parsedInput } = validationResult;
     const savePayload = typeof buildSavePayload === "function"
       ? buildSavePayload(parsedInput, {
           rawPayload,

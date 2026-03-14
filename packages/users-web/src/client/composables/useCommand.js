@@ -1,18 +1,11 @@
-import { computed, watch, proxyRefs } from "vue";
+import { computed, proxyRefs } from "vue";
 import { useCommandCore } from "./useCommandCore.js";
 import { useUsersWebEndpointResource } from "./useUsersWebEndpointResource.js";
-import { useUsersWebAccess } from "./useUsersWebAccess.js";
+import { useUsersWebScopeRuntime } from "./useUsersWebScopeRuntime.js";
 import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
 import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
-import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
-import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
-import { useUsersPaths } from "./useUsersPaths.js";
-import {
-  normalizePermissions,
-  normalizeUsersVisibility,
-  isWorkspaceVisibility,
-  resolveApiSuffix
-} from "./scopeHelpers.js";
+import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
+import { normalizePermissions, resolvePermissionAccess } from "./scopeHelpers.js";
 
 function useCommand({
   visibility = "workspace",
@@ -32,41 +25,23 @@ function useCommand({
   onRunError,
   messages = {}
 } = {}) {
-  const normalizedVisibility = normalizeUsersVisibility(visibility);
-  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
-  const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
-  const usersPaths = useUsersPaths();
-
-  const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
-  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
+  const scopeRuntime = useUsersWebScopeRuntime({
+    visibility,
+    placementSource
+  });
+  const routeContext = scopeRuntime.routeContext;
+  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
+  const access = scopeRuntime.access;
   const normalizedPermissions = normalizePermissions(runPermissions);
 
-  const apiPath = computed(() => {
-    const suffix = resolveApiSuffix(apiSuffix, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility,
+  const apiPath = computed(() =>
+    scopeRuntime.resolveApiPath(apiSuffix, {
       model
-    });
-    return usersPaths.api(suffix, {
-      visibility: normalizedVisibility,
-      workspaceSlug: workspaceSlugFromRoute.value
-    });
-  });
-
-  const access = useUsersWebAccess({
-    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
-    enabled: hasRouteWorkspaceSlug,
-    mergePlacementContext: routeContext.mergePlacementContext,
-    placementSource: String(placementSource || "users-web.command")
-  });
+    })
+  );
 
   const canRun = computed(() => {
-    if (normalizedPermissions.length < 1) {
-      return true;
-    }
-
-    return access.canAny(normalizedPermissions);
+    return resolvePermissionAccess(access, normalizedPermissions);
   });
 
   const resource = useUsersWebEndpointResource({
@@ -99,20 +74,15 @@ function useCommand({
     }
   });
 
-  if (clearOnRouteChange) {
-    watch(
-      () => routeContext.route.fullPath,
-      () => {
-        feedback.clear();
-        fieldBag.clear();
-      }
-    );
-  }
+  setupRouteChangeCleanup({
+    enabled: clearOnRouteChange,
+    route: routeContext.route,
+    feedback,
+    fieldBag
+  });
 
   const loadError = computed(() => {
-    if (workspaceScoped && !hasRouteWorkspaceSlug.value) {
-      throw new Error("useCommand requires route.params.workspaceSlug when visibility is workspace/workspace_user.");
-    }
+    scopeRuntime.requireWorkspaceRouteParam("useCommand");
 
     if (access.bootstrapError.value) {
       return access.bootstrapError.value;

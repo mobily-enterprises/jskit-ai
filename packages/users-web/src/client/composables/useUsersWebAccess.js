@@ -1,18 +1,7 @@
-import { computed, unref, watch } from "vue";
+import { computed, watch } from "vue";
 import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { useUsersWebBootstrapQuery } from "./useUsersWebBootstrapQuery.js";
-
-function resolveEnabled(value) {
-  if (value === undefined) {
-    return true;
-  }
-
-  return Boolean(unref(value));
-}
-
-function resolveWorkspaceSlug(value) {
-  return String(unref(value) || "").trim();
-}
+import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 
 function asPermissionList(value) {
   if (Array.isArray(value)) {
@@ -32,8 +21,8 @@ function useUsersWebAccess({
   mergePlacementContext = null,
   placementSource = "users-web.access"
 } = {}) {
-  const normalizedWorkspaceSlug = computed(() => resolveWorkspaceSlug(workspaceSlug));
-  const queryEnabled = computed(() => resolveEnabled(enabled));
+  const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
+  const queryEnabled = computed(() => resolveEnabledRef(enabled));
   const bootstrap = useUsersWebBootstrapQuery({
     workspaceSlug: normalizedWorkspaceSlug,
     enabled: queryEnabled
