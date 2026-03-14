@@ -1,12 +1,5 @@
-import { computed } from "vue";
 import { useListCore } from "./useListCore.js";
-import { useScopeRuntime } from "./useScopeRuntime.js";
-import {
-  normalizePermissions,
-  resolvePermissionAccess,
-  resolveEnabled,
-  resolveQueryKey
-} from "./scopeHelpers.js";
+import { useOperationScope } from "./internal/useOperationScope.js";
 
 function useList({
   visibility = "workspace",
@@ -24,45 +17,27 @@ function useList({
   requestOptions,
   queryOptions
 } = {}) {
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
-  const scopeRuntime = useScopeRuntime({
+  const operationScope = useOperationScope({
     visibility,
     access,
-    hasPermissionRequirements: normalizedViewPermissions.length > 0,
-    placementSource
+    placementSource,
+    apiSuffix,
+    readEnabled,
+    queryKeyFactory,
+    permissionSets: {
+      view: viewPermissions
+    }
   });
-  const normalizedVisibility = scopeRuntime.normalizedVisibility;
-  const routeContext = scopeRuntime.routeContext;
-  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
-  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const scopeAccess = scopeRuntime.access;
-
-  const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
-
-  const queryEnabled = computed(() =>
-    resolveEnabled(readEnabled, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    })
-  );
-
-  const queryKey = computed(() =>
-    resolveQueryKey(queryKeyFactory, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    })
-  );
-
-  const canView = computed(() => {
-    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
-  });
+  const canView = operationScope.permissionGate("view");
 
   const list = useListCore({
-    queryKey,
-    path: apiPath,
-    enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
+    queryKey: operationScope.queryKey,
+    path: operationScope.apiPath,
+    enabled: () =>
+      operationScope.queryEnabled.value &&
+      operationScope.hasRouteWorkspaceSlug.value &&
+      Boolean(operationScope.apiPath.value) &&
+      canView.value,
     pageParamName,
     initialPageParam,
     getNextPageParam,
@@ -72,19 +47,8 @@ function useList({
     fallbackLoadError
   });
 
-  const loadError = computed(() => {
-    if (scopeRuntime.workspaceRouteError.value) {
-      return scopeRuntime.workspaceRouteError.value;
-    }
-
-    if (scopeAccess.bootstrapError.value) {
-      return scopeAccess.bootstrapError.value;
-    }
-
-    return list.loadError.value;
-  });
-
-  const isLoading = computed(() => Boolean(list.isLoading.value || scopeAccess.isBootstrapping.value));
+  const loadError = operationScope.loadError(list.loadError);
+  const isLoading = operationScope.isLoading(list.isLoading);
 
   return Object.freeze({
     canView,

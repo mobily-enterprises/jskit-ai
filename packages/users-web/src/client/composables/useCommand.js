@@ -1,11 +1,10 @@
-import { computed, proxyRefs } from "vue";
+import { proxyRefs } from "vue";
 import { useCommandCore } from "./useCommandCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
-import { useScopeRuntime } from "./useScopeRuntime.js";
+import { useOperationScope } from "./internal/useOperationScope.js";
 import { useUiFeedback } from "./useUiFeedback.js";
 import { useFieldErrorBag } from "./useFieldErrorBag.js";
 import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
-import { normalizePermissions, resolvePermissionAccess } from "./scopeHelpers.js";
 
 function useCommand({
   visibility = "workspace",
@@ -26,29 +25,22 @@ function useCommand({
   onRunError,
   messages = {}
 } = {}) {
-  const normalizedPermissions = normalizePermissions(runPermissions);
-  const scopeRuntime = useScopeRuntime({
+  const operationScope = useOperationScope({
     visibility,
     access,
-    hasPermissionRequirements: normalizedPermissions.length > 0,
-    placementSource
+    placementSource,
+    apiSuffix,
+    model,
+    readEnabled: false,
+    permissionSets: {
+      run: runPermissions
+    }
   });
-  const routeContext = scopeRuntime.routeContext;
-  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const scopeAccess = scopeRuntime.access;
-
-  const apiPath = computed(() =>
-    scopeRuntime.resolveApiPath(apiSuffix, {
-      model
-    })
-  );
-
-  const canRun = computed(() => {
-    return resolvePermissionAccess(scopeAccess, normalizedPermissions);
-  });
+  const routeContext = operationScope.routeContext;
+  const canRun = operationScope.permissionGate("run");
 
   const resource = useEndpointResource({
-    path: apiPath,
+    path: operationScope.apiPath,
     enabled: false,
     writeMethod,
     fallbackSaveError: fallbackRunError
@@ -84,19 +76,8 @@ function useCommand({
     fieldBag
   });
 
-  const loadError = computed(() => {
-    if (scopeRuntime.workspaceRouteError.value) {
-      return scopeRuntime.workspaceRouteError.value;
-    }
-
-    if (scopeAccess.bootstrapError.value) {
-      return scopeAccess.bootstrapError.value;
-    }
-
-    return "";
-  });
-
-  const isLoading = computed(() => Boolean(scopeAccess.isBootstrapping.value));
+  const loadError = operationScope.loadError();
+  const isLoading = operationScope.isLoading();
 
   return proxyRefs({
     canRun,

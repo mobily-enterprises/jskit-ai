@@ -37,21 +37,6 @@ function resolveWorkspaceSlug(value, fallback = "") {
   return normalizeText(unref(fallback));
 }
 
-function resolvePageMode(options = {}) {
-  const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
-  const explicitMode = normalizeText(source.mode).toLowerCase();
-  if (explicitMode) {
-    return explicitMode;
-  }
-
-  if (Object.hasOwn(source, "visibility")) {
-    const visibility = normalizeUsersVisibility(source.visibility);
-    return isWorkspaceVisibility(visibility) ? "workspace" : "surface";
-  }
-
-  return "auto";
-}
-
 function usePaths({ routeContext: sourceRouteContext = null } = {}) {
   const routeContext = sourceRouteContext || useWorkspaceRouteContext();
   const shellLinkResolver = useShellLinkResolver();
@@ -61,7 +46,7 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
     const surface = resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value);
     const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
-    const mode = resolvePageMode(source);
+    const mode = normalizeText(source.mode).toLowerCase() || "auto";
 
     return shellLinkResolver.resolve(relativePath, {
       surface,

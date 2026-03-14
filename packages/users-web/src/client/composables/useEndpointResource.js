@@ -1,19 +1,8 @@
-import { computed, unref } from "vue";
+import { computed } from "vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { asPlainObject } from "./scopeHelpers.js";
-
-function resolveEnabled(value) {
-  if (value === undefined) {
-    return true;
-  }
-
-  return Boolean(unref(value));
-}
-
-function resolvePath(value) {
-  return String(unref(value) || "").trim();
-}
+import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 
 function toErrorMessage(error, fallback) {
   if (!error) {
@@ -39,8 +28,8 @@ function useEndpointResource({
     throw new TypeError("useEndpointResource requires a client with request().");
   }
 
-  const normalizedPath = computed(() => resolvePath(path));
-  const queryEnabled = computed(() => resolveEnabled(enabled) && Boolean(normalizedPath.value));
+  const normalizedPath = computed(() => resolveTextRef(path));
+  const queryEnabled = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedPath.value));
 
   const query = useQuery({
     queryKey,
@@ -61,7 +50,7 @@ function useEndpointResource({
   const mutation = useMutation({
     mutationFn: async (request = {}) => {
       const options = asPlainObject(request);
-      const requestPath = resolvePath(options.path || normalizedPath.value);
+      const requestPath = resolveTextRef(options.path || normalizedPath.value);
       if (!requestPath) {
         throw new Error("Resource path is required.");
       }

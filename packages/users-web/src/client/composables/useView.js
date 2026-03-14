@@ -1,13 +1,6 @@
-import { computed } from "vue";
 import { useViewCore } from "./useViewCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
-import { useScopeRuntime } from "./useScopeRuntime.js";
-import {
-  normalizePermissions,
-  resolvePermissionAccess,
-  resolveEnabled,
-  resolveQueryKey
-} from "./scopeHelpers.js";
+import { useOperationScope } from "./internal/useOperationScope.js";
 
 function useView({
   visibility = "workspace",
@@ -24,45 +17,27 @@ function useView({
   model,
   mapLoadedToModel
 } = {}) {
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
-  const scopeRuntime = useScopeRuntime({
+  const operationScope = useOperationScope({
     visibility,
     access,
-    hasPermissionRequirements: normalizedViewPermissions.length > 0,
-    placementSource
+    placementSource,
+    apiSuffix,
+    readEnabled,
+    queryKeyFactory,
+    permissionSets: {
+      view: viewPermissions
+    }
   });
-  const normalizedVisibility = scopeRuntime.normalizedVisibility;
-  const routeContext = scopeRuntime.routeContext;
-  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
-  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const scopeAccess = scopeRuntime.access;
-
-  const apiPath = computed(() => scopeRuntime.resolveApiPath(apiSuffix));
-
-  const queryEnabled = computed(() =>
-    resolveEnabled(readEnabled, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    })
-  );
-
-  const queryKey = computed(() =>
-    resolveQueryKey(queryKeyFactory, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    })
-  );
-
-  const canView = computed(() => {
-    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
-  });
+  const canView = operationScope.permissionGate("view");
 
   const resource = useEndpointResource({
-    queryKey,
-    path: apiPath,
-    enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
+    queryKey: operationScope.queryKey,
+    path: operationScope.apiPath,
+    enabled: () =>
+      operationScope.queryEnabled.value &&
+      operationScope.hasRouteWorkspaceSlug.value &&
+      Boolean(operationScope.apiPath.value) &&
+      canView.value,
     readMethod,
     fallbackLoadError
   });
@@ -76,20 +51,9 @@ function useView({
     notFoundMessage
   });
 
-  const loadError = computed(() => {
-    if (scopeRuntime.workspaceRouteError.value) {
-      return scopeRuntime.workspaceRouteError.value;
-    }
-
-    if (scopeAccess.bootstrapError.value) {
-      return scopeAccess.bootstrapError.value;
-    }
-
-    return view.loadError.value;
-  });
-
-  const isLoading = computed(() => Boolean(view.isLoading.value || scopeAccess.isBootstrapping.value));
-  const isFetching = computed(() => Boolean(view.isFetching.value || scopeAccess.isBootstrapping.value));
+  const loadError = operationScope.loadError(view.loadError);
+  const isLoading = operationScope.isLoading(view.isLoading);
+  const isFetching = operationScope.isLoading(view.isFetching);
 
   return Object.freeze({
     record: view.record,

@@ -13,14 +13,14 @@ import {
 
 function useScopeRuntime({
   visibility = "workspace",
-  access = "auto",
+  accessMode = "auto",
   hasPermissionRequirements = false,
   placementSource = "users-web.scope-runtime"
 } = {}) {
   const normalizedVisibility = normalizeUsersVisibility(visibility);
   const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
   const normalizedAccessMode = ensureAccessModeCompatibility({
-    accessMode: access,
+    accessMode,
     hasPermissionRequirements,
     caller: "useScopeRuntime"
   });
@@ -42,7 +42,7 @@ function useScopeRuntime({
     return "Route parameter workspaceSlug is required for workspace/workspace_user visibility.";
   });
 
-  const access = useAccess({
+  const accessRuntime = useAccess({
     workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
     enabled: computed(() => accessRequired && hasRouteWorkspaceSlug.value),
     access: normalizedAccessMode,
@@ -84,7 +84,7 @@ function useScopeRuntime({
     workspaceSlugFromRoute,
     hasRouteWorkspaceSlug,
     workspaceRouteError,
-    access,
+    access: accessRuntime,
     resolveApiPath,
     requireWorkspaceRouteParam
   });

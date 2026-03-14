@@ -27,19 +27,27 @@ function useAccess({
   mergePlacementContext = null,
   placementSource = "users-web.access"
 } = {}) {
-  const accessMode = normalizeAccessMode(access);
-  const accessRequired = resolveAccessModeEnabled(accessMode, {
+  const normalizedAccessMode = normalizeAccessMode(access);
+  const accessRequired = resolveAccessModeEnabled(normalizedAccessMode, {
     hasPermissionRequirements: hasPermissionRequirements === true
   });
   const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
-  const bootstrap = useBootstrapQuery({
-    workspaceSlug: normalizedWorkspaceSlug,
-    enabled: queryEnabled
-  });
+  const bootstrap = accessRequired
+    ? useBootstrapQuery({
+        workspaceSlug: normalizedWorkspaceSlug,
+        enabled: queryEnabled
+      })
+    : null;
 
-  const permissions = computed(() => normalizePermissionList(bootstrap.query.data.value?.permissions));
+  const permissions = computed(() =>
+    accessRequired ? normalizePermissionList(bootstrap.query.data.value?.permissions) : []
+  );
   const bootstrapError = computed(() => {
+    if (!accessRequired) {
+      return "";
+    }
+
     const error = bootstrap.query.error.value;
     if (!error) {
       return "";
@@ -47,7 +55,9 @@ function useAccess({
 
     return String(error?.message || "Unable to load permissions.").trim();
   });
-  const isBootstrapping = computed(() => Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value));
+  const isBootstrapping = computed(() =>
+    accessRequired ? Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value) : false
+  );
 
   if (accessRequired && typeof mergePlacementContext === "function") {
     watch(
@@ -101,13 +111,15 @@ function useAccess({
   }
 
   async function refreshBootstrap() {
+    if (!accessRequired) {
+      return null;
+    }
+
     return bootstrap.query.refetch();
   }
 
   return Object.freeze({
-    query: bootstrap.query,
-    queryKey: bootstrap.queryKey,
-    accessMode,
+    accessMode: normalizedAccessMode,
     accessRequired,
     workspaceSlug: normalizedWorkspaceSlug,
     permissions,

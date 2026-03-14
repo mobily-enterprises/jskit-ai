@@ -1,19 +1,8 @@
-import { computed, unref } from "vue";
+import { computed } from "vue";
 import { useInfiniteQuery } from "@tanstack/vue-query";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { asPlainObject } from "./scopeHelpers.js";
-
-function resolveEnabled(value) {
-  if (value === undefined) {
-    return true;
-  }
-
-  return Boolean(unref(value));
-}
-
-function resolvePath(value) {
-  return String(unref(value) || "").trim();
-}
+import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 
 function appendPageParam(path, paramName, pageParam) {
   const normalizedPath = String(path || "").trim();
@@ -68,8 +57,8 @@ function useListCore({
     throw new TypeError("useListCore requires selectItems().");
   }
 
-  const normalizedPath = computed(() => resolvePath(path));
-  const queryEnabled = computed(() => resolveEnabled(enabled) && Boolean(normalizedPath.value));
+  const normalizedPath = computed(() => resolveTextRef(path));
+  const queryEnabled = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedPath.value));
 
   const query = useInfiniteQuery({
     queryKey,

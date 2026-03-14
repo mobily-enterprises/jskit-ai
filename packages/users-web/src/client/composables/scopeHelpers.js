@@ -1,4 +1,4 @@
-import { unref } from "vue";
+import { resolveEnabledRef } from "./refValueHelpers.js";
 
 const USERS_VISIBILITY_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
 const ACCESS_MODE_VALUES = Object.freeze(["auto", "always", "never"]);
@@ -77,11 +77,7 @@ function resolveEnabled(value, context = {}) {
     return Boolean(value(context));
   }
 
-  if (value === undefined) {
-    return true;
-  }
-
-  return Boolean(unref(value));
+  return resolveEnabledRef(value);
 }
 
 function normalizeUsersVisibility(value = "workspace") {

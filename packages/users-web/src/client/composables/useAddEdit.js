@@ -1,15 +1,11 @@
-import { computed, proxyRefs } from "vue";
+import { proxyRefs } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
-import { useScopeRuntime } from "./useScopeRuntime.js";
+import { useOperationScope } from "./internal/useOperationScope.js";
 import { useUiFeedback } from "./useUiFeedback.js";
 import { useFieldErrorBag } from "./useFieldErrorBag.js";
 import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
 import {
-  normalizePermissions,
-  resolvePermissionAccess,
-  resolveEnabled,
-  resolveQueryKey,
   resolveResourceMessages
 } from "./scopeHelpers.js";
 
@@ -37,19 +33,20 @@ function useAddEdit({
   onSaveSuccess,
   messages = {}
 } = {}) {
-  const normalizedViewPermissions = normalizePermissions(viewPermissions);
-  const normalizedSavePermissions = normalizePermissions(savePermissions);
-  const scopeRuntime = useScopeRuntime({
+  const operationScope = useOperationScope({
     visibility,
     access,
-    hasPermissionRequirements: normalizedViewPermissions.length > 0 || normalizedSavePermissions.length > 0,
-    placementSource
+    placementSource,
+    apiSuffix,
+    model,
+    readEnabled,
+    queryKeyFactory,
+    permissionSets: {
+      view: viewPermissions,
+      save: savePermissions
+    }
   });
-  const normalizedVisibility = scopeRuntime.normalizedVisibility;
-  const routeContext = scopeRuntime.routeContext;
-  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
-  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
-  const scopeAccess = scopeRuntime.access;
+  const routeContext = operationScope.routeContext;
   const resolvedMessages = resolveResourceMessages(resource, {
     validation: "Fix invalid values and try again.",
     saveSuccess: "Saved.",
@@ -61,41 +58,17 @@ function useAddEdit({
     ...customMessages
   };
 
-  const apiPath = computed(() =>
-    scopeRuntime.resolveApiPath(apiSuffix, {
-      model
-    })
-  );
-
-  const queryEnabled = computed(() =>
-    resolveEnabled(readEnabled, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility,
-      model
-    })
-  );
-
-  const queryKey = computed(() =>
-    resolveQueryKey(queryKeyFactory, {
-      surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
-    })
-  );
-
-  const canView = computed(() => {
-    return resolvePermissionAccess(scopeAccess, normalizedViewPermissions);
-  });
-
-  const canSave = computed(() => {
-    return resolvePermissionAccess(scopeAccess, normalizedSavePermissions);
-  });
+  const canView = operationScope.permissionGate("view");
+  const canSave = operationScope.permissionGate("save");
 
   const endpointResource = useEndpointResource({
-    queryKey,
-    path: apiPath,
-    enabled: computed(() => queryEnabled.value && hasRouteWorkspaceSlug.value && Boolean(apiPath.value) && canView.value),
+    queryKey: operationScope.queryKey,
+    path: operationScope.apiPath,
+    enabled: () =>
+      operationScope.queryEnabled.value &&
+      operationScope.hasRouteWorkspaceSlug.value &&
+      Boolean(operationScope.apiPath.value) &&
+      canView.value,
     readMethod,
     writeMethod,
     fallbackLoadError,
@@ -108,7 +81,7 @@ function useAddEdit({
   const addEdit = useAddEditCore({
     model,
     resource: endpointResource,
-    queryKey,
+    queryKey: operationScope.queryKey,
     canSave,
     fieldBag,
     feedback,
@@ -127,20 +100,8 @@ function useAddEdit({
     fieldBag
   });
 
-  const loadError = computed(() => {
-    if (scopeRuntime.workspaceRouteError.value) {
-      return scopeRuntime.workspaceRouteError.value;
-    }
-
-    const bootstrapError = String(scopeAccess.bootstrapError.value || "");
-    if (bootstrapError) {
-      return bootstrapError;
-    }
-
-    return String(endpointResource.loadError.value || "");
-  });
-
-  const isLoading = computed(() => Boolean(endpointResource.isLoading.value || scopeAccess.isBootstrapping.value));
+  const loadError = operationScope.loadError(endpointResource.loadError);
+  const isLoading = operationScope.isLoading(endpointResource.isLoading);
 
   return proxyRefs({
     canView,
