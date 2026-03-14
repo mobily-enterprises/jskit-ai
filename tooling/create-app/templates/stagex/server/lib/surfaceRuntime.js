@@ -5,8 +5,7 @@ const surfaceRuntime = createSurfaceRuntime({
   tenancyMode: config.tenancyMode,
   allMode: config.surfaceModeAll,
   surfaces: config.surfaceDefinitions,
-  defaultSurfaceId: config.surfaceDefaultId,
-  workspaceSurfacePolicy: config.workspaceSurfacePolicy
+  defaultSurfaceId: config.surfaceDefaultId
 });
 
 export { surfaceRuntime };

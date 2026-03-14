@@ -40,8 +40,7 @@ function registerWorkspaceCore(app) {
       tenancyMode: appConfig.tenancyMode,
       allMode: appConfig.surfaceModeAll,
       surfaces: appConfig.surfaceDefinitions,
-      defaultSurfaceId: appConfig.surfaceDefaultId,
-      workspaceSurfacePolicy: appConfig.workspaceSurfacePolicy
+      defaultSurfaceId: appConfig.surfaceDefaultId
     });
   });
 

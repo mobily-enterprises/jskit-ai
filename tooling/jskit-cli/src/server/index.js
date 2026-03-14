@@ -732,8 +732,8 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
   const runtime = ensureObject(normalized.runtime);
   const server = ensureObject(runtime.server);
   const client = ensureObject(runtime.client);
-  const hasServerProviders = ensureArray(server.providers).length > 0;
-  const hasClientProviders = ensureArray(client.providers).length > 0;
+  const hasServerProviders = Array.isArray(server.providers);
+  const hasClientProviders = Array.isArray(client.providers);
   if (!hasServerProviders && !hasClientProviders) {
     throw createCliError(
       `Invalid package descriptor at ${descriptorPath}: runtime.server.providers or runtime.client.providers must be declared.`
