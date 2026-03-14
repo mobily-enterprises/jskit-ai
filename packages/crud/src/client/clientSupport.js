@@ -3,10 +3,6 @@ import {
   createCrudClientSupport,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId
 } from "@jskit-ai/crud-core/client/composables/createCrudClientSupport";
 import {
@@ -20,8 +16,7 @@ function resolveCrudClientConfig(source = {}) {
   const resolved = resolveCrudConfig(source);
   return Object.freeze({
     namespace: resolved.namespace,
-    visibility: resolved.visibility,
-    relativePath: resolved.relativePath
+    visibility: resolved.visibility
   });
 }
 
@@ -57,9 +52,5 @@ export {
   useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId
 };

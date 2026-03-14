@@ -5,9 +5,9 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { crudResource } from "../shared/crud/crudResource.js";
-import { CRUD_ACTION_ID_PREFIX, createActionIds } from "./actionIds.js";
+import { createActionIds } from "./actionIds.js";
 
-function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
+function createActions({ actionIdPrefix } = {}) {
   const actionIds = createActionIds(actionIdPrefix);
 
   return Object.freeze([

@@ -17,7 +17,7 @@ function normalizeNamespace(value) {
 function resolveCrudTableName(namespace = "") {
   const normalizedNamespace = normalizeNamespace(namespace);
   if (!normalizedNamespace) {
-    return "crud";
+    throw new Error("calendar_events requires CRUD module namespace.");
   }
   return `crud_${normalizedNamespace.replace(/-/g, "_")}`;
 }
@@ -36,6 +36,9 @@ function resolveCalendarContactsTableNameFromConfig(appConfig = {}) {
     if (normalizeText(entry.module).toLowerCase() !== "crud") {
       continue;
     }
+    if (!normalizeNamespace(entry.namespace)) {
+      throw new Error("calendar_events requires config.modules CRUD entries with namespace.");
+    }
     crudConfigs.push({
       namespace: normalizeNamespace(entry.namespace)
     });
@@ -49,11 +52,6 @@ function resolveCalendarContactsTableNameFromConfig(appConfig = {}) {
   if (explicitNamespace) {
     const explicit = crudConfigs.find((entry) => entry.namespace === explicitNamespace);
     return explicit ? resolveCrudTableName(explicit.namespace) : "";
-  }
-
-  const defaultCrud = crudConfigs.find((entry) => entry.namespace === "");
-  if (defaultCrud) {
-    return resolveCrudTableName(defaultCrud.namespace);
   }
 
   const firstCrud = [...crudConfigs].sort((left, right) => left.namespace.localeCompare(right.namespace))[0];
@@ -84,7 +82,7 @@ async function resolveContactsTableName(knex) {
     );
   }
 
-  const fallbackCandidates = ["contacts", "crud"];
+  const fallbackCandidates = ["contacts"];
   for (const candidate of fallbackCandidates) {
     // eslint-disable-next-line no-await-in-loop
     const exists = await knex.schema.hasTable(candidate);

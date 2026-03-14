@@ -6,11 +6,11 @@ import {
   useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { mdiAccountGroupOutline } from "@mdi/js";
-import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
+import { useUsersPaths } from "../composables/useUsersPaths.js";
 
 const props = defineProps({
   label: {
@@ -32,6 +32,7 @@ const props = defineProps({
 });
 
 const { context: placementContext } = useWebPlacementContext();
+const paths = useUsersPaths();
 
 const canViewMembers = computed(() => {
   const permissions = normalizePermissionList(placementContext.value?.permissions);
@@ -39,12 +40,9 @@ const canViewMembers = computed(() => {
 });
 
 const resolvedTo = computed(() => {
-  const context = placementContext.value;
-  return resolveShellLinkPath({
-    context,
+  return paths.page("/members", {
     surface: props.surface,
     explicitTo: props.to,
-    relativePath: "/members",
     mode: "auto"
   });
 });

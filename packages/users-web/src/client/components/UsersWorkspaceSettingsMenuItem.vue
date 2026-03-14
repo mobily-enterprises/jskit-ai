@@ -4,17 +4,15 @@ import {
   watch
 } from "vue";
 import {
-  useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  extractWorkspaceSlugFromSurfacePathname
+  useWebPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { mdiCogOutline } from "@mdi/js";
 import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
-import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { useUsersWebBootstrapQuery } from "../composables/useUsersWebBootstrapQuery.js";
+import { useUsersPaths } from "../composables/useUsersPaths.js";
 
 const props = defineProps({
   label: {
@@ -36,15 +34,7 @@ const props = defineProps({
 });
 
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
-
-function readCurrentPath() {
-  if (typeof window !== "object" || !window?.location) {
-    return "/";
-  }
-
-  const pathname = String(window.location.pathname || "").trim();
-  return pathname || "/";
-}
+const paths = useUsersPaths();
 
 function writeShellPermissions(permissionList) {
   mergePlacementContext(
@@ -55,18 +45,8 @@ function writeShellPermissions(permissionList) {
   );
 }
 
-const currentSurfaceId = computed(() => {
-  return resolveSurfaceIdFromPlacementPathname(placementContext.value, readCurrentPath());
-});
-
-const workspaceSlug = computed(() => {
-  return String(
-    extractWorkspaceSlugFromSurfacePathname(placementContext.value, currentSurfaceId.value, readCurrentPath()) || ""
-  ).trim();
-});
-
 const bootstrapQuery = useUsersWebBootstrapQuery({
-  workspaceSlug,
+  workspaceSlug: paths.workspaceSlug,
   enabled: true
 });
 
@@ -86,12 +66,9 @@ const canViewWorkspaceSettings = computed(() => {
 });
 
 const resolvedTo = computed(() => {
-  const context = placementContext.value;
-  return resolveShellLinkPath({
-    context,
+  return paths.page("/workspace/settings", {
     surface: props.surface,
     explicitTo: props.to,
-    relativePath: "/workspace/settings",
     mode: "auto"
   });
 });

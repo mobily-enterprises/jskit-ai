@@ -1,7 +1,7 @@
 <template>
-  <Create${option:namespace|singular|pascal|default(CrudRecord)}Element />
+  <Create${option:namespace|singular|pascal}Element />
 </template>
 
 <script setup>
-import Create${option:namespace|singular|pascal|default(CrudRecord)}Element from "@local/${option:namespace|kebab|default(crud)}/client/Create${option:namespace|singular|pascal|default(CrudRecord)}Element";
+import Create${option:namespace|singular|pascal}Element from "@local/${option:namespace|kebab}/client/Create${option:namespace|singular|pascal}Element";
 </script>

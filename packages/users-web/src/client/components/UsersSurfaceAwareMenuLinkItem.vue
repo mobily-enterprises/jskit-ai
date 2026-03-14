@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
+import { useUsersPaths } from "../composables/useUsersPaths.js";
 
 const props = defineProps({
   label: {
@@ -34,16 +33,15 @@ const props = defineProps({
   }
 });
 
-const { context: placementContext } = useWebPlacementContext();
+const paths = useUsersPaths();
 
 const resolvedTo = computed(() => {
-  return resolveShellLinkPath({
-    context: placementContext.value,
+  return paths.page("/", {
     surface: props.surface,
     explicitTo: props.to,
+    mode: "auto",
     workspaceRelativePath: props.workspaceSuffix,
-    surfaceRelativePath: props.nonWorkspaceSuffix,
-    mode: "auto"
+    surfaceRelativePath: props.nonWorkspaceSuffix
   });
 });
 </script>

@@ -5,7 +5,6 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crud/crudResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {
@@ -18,12 +17,40 @@ function joinRoutePath(basePath = "", suffix = "") {
   return `${base}/${end.replace(/^\/+/, "")}`;
 }
 
+function requireRouteBasePath(routeBasePath) {
+  const routeBase = String(routeBasePath || "").trim();
+  if (!routeBase) {
+    throw new TypeError("registerRoutes requires routeBasePath.");
+  }
+
+  return routeBase;
+}
+
+function requireActionIds(actionIds) {
+  const source = actionIds && typeof actionIds === "object" && !Array.isArray(actionIds) ? actionIds : null;
+  if (!source) {
+    throw new TypeError("registerRoutes requires actionIds.");
+  }
+
+  const requiredKeys = ["list", "view", "create", "update", "delete"];
+  const normalized = {};
+  for (const key of requiredKeys) {
+    const value = String(source[key] || "").trim();
+    if (!value) {
+      throw new TypeError(`registerRoutes requires actionIds.${key}.`);
+    }
+    normalized[key] = value;
+  }
+
+  return Object.freeze(normalized);
+}
+
 function registerRoutes(
   app,
   {
-    routeBasePath = "/api/w/:workspaceSlug/workspace/crud",
+    routeBasePath,
     routeVisibility = "workspace",
-    actionIds = createActionIds()
+    actionIds
   } = {}
 ) {
   if (!app || typeof app.make !== "function") {
@@ -31,8 +58,9 @@ function registerRoutes(
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = String(routeBasePath || "").trim() || "/api/w/:workspaceSlug/workspace/crud";
+  const routeBase = requireRouteBasePath(routeBasePath);
   const visibility = String(routeVisibility || "").trim() || "workspace";
+  const resolvedActionIds = requireActionIds(actionIds);
 
   router.register(
     "GET",
@@ -52,7 +80,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.list,
+        actionId: resolvedActionIds.list,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -80,7 +108,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.view,
+        actionId: resolvedActionIds.view,
         context: { surface: "admin" },
         input: request.input.params
       });
@@ -109,7 +137,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.create,
+        actionId: resolvedActionIds.create,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -141,7 +169,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.update,
+        actionId: resolvedActionIds.update,
         context: { surface: "admin" },
         input: {
           ...request.input.params,
@@ -169,7 +197,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.delete,
+        actionId: resolvedActionIds.delete,
         context: { surface: "admin" },
         input: request.input.params
       });

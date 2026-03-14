@@ -1,5 +1,5 @@
 {
-  "name": "@local/${option:namespace|kebab|default(crud)}",
+  "name": "@local/${option:namespace|kebab}",
   "version": "0.1.0",
   "private": true,
   "type": "module",

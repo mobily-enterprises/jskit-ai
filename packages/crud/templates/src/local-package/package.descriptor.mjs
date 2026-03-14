@@ -1,8 +1,8 @@
 export default Object.freeze({
   packageVersion: 1,
-  packageId: "@local/${option:namespace|kebab|default(crud)}",
+  packageId: "@local/${option:namespace|kebab}",
   version: "0.1.0",
-  description: "App-local CRUD package (${option:namespace|kebab|default(crud)}).",
+  description: "App-local CRUD package (${option:namespace|kebab}).",
   dependsOn: [
     "@jskit-ai/auth-core",
     "@jskit-ai/crud-core",
@@ -14,7 +14,7 @@ export default Object.freeze({
   ],
   capabilities: {
     provides: [
-      "crud.${option:namespace|kebab|default(crud)}"
+      "crud.${option:namespace|kebab}"
     ],
     requires: [
       "runtime.actions",
@@ -29,7 +29,7 @@ export default Object.freeze({
     server: {
       providers: [
         {
-          entrypoint: "src/server/${option:namespace|pascal|default(Crud)}ServiceProvider.js",
+          entrypoint: "src/server/${option:namespace|pascal}ServiceProvider.js",
           export: "CrudServiceProvider"
         }
       ]
@@ -56,8 +56,8 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
-          "repository.${option:namespace|snake|default(crud)}",
-          "crud.${option:namespace|snake|default(crud)}"
+          "repository.${option:namespace|snake}",
+          "crud.${option:namespace|snake}"
         ],
         client: []
       }

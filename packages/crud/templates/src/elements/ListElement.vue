@@ -4,7 +4,7 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">${option:namespace|plural|pascal|default(CrudRecords)}</v-card-title>
+            <v-card-title class="px-0">${option:namespace|plural|pascal}</v-card-title>
             <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)} in the admin surface.</v-card-subtitle>
           </div>
           <v-spacer />

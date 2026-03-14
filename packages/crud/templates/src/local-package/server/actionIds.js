@@ -1,7 +1,10 @@
-const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake|default(crud)}";
+const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake}";
 
 function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
-  const prefix = String(actionIdPrefix || "").trim() || "crud";
+  const prefix = String(actionIdPrefix || "").trim();
+  if (!prefix) {
+    throw new TypeError("createActionIds requires actionIdPrefix.");
+  }
 
   return Object.freeze({
     list: `${prefix}.list`,

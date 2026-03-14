@@ -1,7 +1,14 @@
-const CRUD_ACTION_ID_PREFIX = "crud";
+function requireActionIdPrefix(actionIdPrefix) {
+  const prefix = String(actionIdPrefix || "").trim();
+  if (!prefix) {
+    throw new TypeError("createActionIds requires actionIdPrefix.");
+  }
 
-function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
-  const prefix = String(actionIdPrefix || "").trim() || "crud";
+  return prefix;
+}
+
+function createActionIds(actionIdPrefix) {
+  const prefix = requireActionIdPrefix(actionIdPrefix);
 
   return Object.freeze({
     list: `${prefix}.list`,
@@ -12,4 +19,4 @@ function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
   });
 }
 
-export { CRUD_ACTION_ID_PREFIX, createActionIds };
+export { requireActionIdPrefix, createActionIds };

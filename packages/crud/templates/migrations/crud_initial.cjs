@@ -11,7 +11,7 @@ function resolveTableName() {
     .replace(/^-+|-+$/g, "");
 
   if (!normalizedNamespace) {
-    return "crud";
+    throw new Error("crud_initial migration requires option:namespace.");
   }
 
   return "crud_" + normalizedNamespace.replace(/-/g, "_");

@@ -2,9 +2,9 @@ import { createCrudClientSupport } from "@jskit-ai/crud-core/client/composables/
 import { crudResource } from "../shared/crudResource.js";
 
 const crudClientSupport = createCrudClientSupport({
-  namespace: "${option:namespace|snake|default(crud)}",
+  namespace: "${option:namespace|snake}",
   visibility: "${option:visibility}",
-  relativePath: "/${option:directory-prefix|pathprefix}${option:namespace|kebab|default(crud)}"
+  relativePath: "/${option:directory-prefix|pathprefix}${option:namespace|kebab}"
 });
 
 const {
@@ -12,10 +12,6 @@ const {
   useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId
 } = crudClientSupport;
 
@@ -25,9 +21,5 @@ export {
   useCrudClientContext,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId
 };

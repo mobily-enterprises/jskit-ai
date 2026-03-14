@@ -1,61 +1,51 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useUsersWebWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useUsersWebWorkspaceRouteContext";
+import { useUsersPaths } from "@jskit-ai/users-web/client/composables/useUsersPaths";
 import {
   DEFAULT_CRUD_VISIBILITY,
-  isWorkspaceVisibility,
   resolveCrudClientConfig,
   formatDateTime,
   crudScopeQueryKey,
   invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId
 } from "./crudClientSupportHelpers.js";
 
 function useCrudClientContext(source = {}) {
   const crudConfig = resolveCrudClientConfig(source);
+  const paths = useUsersPaths();
   const route = useRoute();
-  const routeContext = useUsersWebWorkspaceRouteContext();
-  const placementContext = routeContext.placementContext;
-  const workspaceSlugFromRoute = computed(() =>
-    crudConfig.workspaceScoped ? routeContext.workspaceSlugFromRoute.value : ""
-  );
-  const listPath = computed(() =>
-    resolveAdminCrudListPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
-  );
-  const createPath = computed(() =>
-    resolveAdminCrudNewPath(placementContext.value, workspaceSlugFromRoute.value, crudConfig)
-  );
+  const workspaceSlugToken = computed(() => paths.workspaceSlug.value);
+  const listPath = computed(() => paths.page(crudConfig.relativePath));
+  const createPath = computed(() => paths.page(`${crudConfig.relativePath}/new`));
 
   function listQueryKey(surfaceId = "") {
-    return crudListQueryKey(surfaceId, workspaceSlugFromRoute.value, crudConfig.namespace);
+    const normalizedSurfaceId = String(surfaceId || paths.currentSurfaceId.value || "").trim();
+    return crudListQueryKey(normalizedSurfaceId, workspaceSlugToken.value, crudConfig.namespace);
   }
 
   function viewQueryKey(surfaceId = "", recordId = 0) {
-    return crudViewQueryKey(surfaceId, workspaceSlugFromRoute.value, recordId, crudConfig.namespace);
+    const normalizedSurfaceId = String(surfaceId || paths.currentSurfaceId.value || "").trim();
+    return crudViewQueryKey(normalizedSurfaceId, workspaceSlugToken.value, recordId, crudConfig.namespace);
   }
 
   function resolveViewPath(recordIdLike) {
-    return resolveAdminCrudViewPath(
-      recordIdLike,
-      placementContext.value,
-      workspaceSlugFromRoute.value,
-      crudConfig
-    );
+    const recordId = toRouteRecordId(recordIdLike);
+    if (!recordId) {
+      return "";
+    }
+
+    return paths.page(`${crudConfig.relativePath}/${recordId}`);
   }
 
   function resolveEditPath(recordIdLike) {
-    return resolveAdminCrudEditPath(
-      recordIdLike,
-      placementContext.value,
-      workspaceSlugFromRoute.value,
-      crudConfig
-    );
+    const recordId = toRouteRecordId(recordIdLike);
+    if (!recordId) {
+      return "";
+    }
+
+    return paths.page(`${crudConfig.relativePath}/${recordId}/edit`);
   }
 
   function scopeQueryKey() {
@@ -69,8 +59,6 @@ function useCrudClientContext(source = {}) {
   return Object.freeze({
     route,
     crudConfig,
-    placementContext,
-    workspaceSlugFromRoute,
     listPath,
     createPath,
     listQueryKey,
@@ -104,35 +92,18 @@ function createCrudClientSupport(source = {}) {
     crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0) {
       return crudViewQueryKey(surfaceId, workspaceSlug, recordId, crudConfig.namespace);
     },
-    resolveAdminCrudListPath(context = null, workspaceSlug = "") {
-      return resolveAdminCrudListPath(context, workspaceSlug, crudConfig);
-    },
-    resolveAdminCrudNewPath(context = null, workspaceSlug = "") {
-      return resolveAdminCrudNewPath(context, workspaceSlug, crudConfig);
-    },
-    resolveAdminCrudViewPath(recordIdLike, context = null, workspaceSlug = "") {
-      return resolveAdminCrudViewPath(recordIdLike, context, workspaceSlug, crudConfig);
-    },
-    resolveAdminCrudEditPath(recordIdLike, context = null, workspaceSlug = "") {
-      return resolveAdminCrudEditPath(recordIdLike, context, workspaceSlug, crudConfig);
-    },
     toRouteRecordId
   });
 }
 
 export {
   DEFAULT_CRUD_VISIBILITY,
-  isWorkspaceVisibility,
   resolveCrudClientConfig,
   formatDateTime,
   crudScopeQueryKey,
   invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
-  resolveAdminCrudListPath,
-  resolveAdminCrudNewPath,
-  resolveAdminCrudViewPath,
-  resolveAdminCrudEditPath,
   toRouteRecordId,
   useCrudClientContext,
   createCrudClientSupport

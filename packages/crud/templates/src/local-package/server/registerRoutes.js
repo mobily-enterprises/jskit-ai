@@ -10,7 +10,7 @@ import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/use
 import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
 
-const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab|default(crud)}";
+const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab}";
 const CRUD_ROUTE_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
   fallback: "workspace"
 });

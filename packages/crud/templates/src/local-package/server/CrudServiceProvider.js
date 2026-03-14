@@ -5,7 +5,7 @@ import { createService as createCrudService } from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
 
-const CRUD_TOKEN_SEGMENT = "${option:namespace|snake|default(crud)}";
+const CRUD_TOKEN_SEGMENT = "${option:namespace|snake}";
 const CRUD_PROVIDER_ID = `crud.${CRUD_TOKEN_SEGMENT}`;
 const CRUD_REPOSITORY_TOKEN = `repository.${CRUD_TOKEN_SEGMENT}`;
 const CRUD_SERVICE_TOKEN = `crud.${CRUD_TOKEN_SEGMENT}`;

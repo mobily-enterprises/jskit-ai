@@ -6,18 +6,11 @@ import {
   resolveCrudConfigsFromModules
 } from "../src/shared/crud/crudModuleConfig.js";
 
-test("resolveCrudConfig returns workspace defaults", () => {
-  const config = resolveCrudConfig({});
-
-  assert.equal(config.namespace, "");
-  assert.equal(config.visibility, "workspace");
-  assert.equal(config.workspaceScoped, true);
-  assert.equal(config.relativePath, "/crud");
-  assert.equal(config.apiBasePath, "/api/w/:workspaceSlug/workspace/crud");
-  assert.equal(config.tableName, "crud");
-  assert.equal(config.actionIdPrefix, "crud");
-  assert.equal(config.contributorId, "crud");
-  assert.equal(config.domain, "crud");
+test("resolveCrudConfig throws when namespace is missing", () => {
+  assert.throws(
+    () => resolveCrudConfig({}),
+    /requires a non-empty namespace/
+  );
 });
 
 test("resolveCrudConfig normalizes namespaced public settings", () => {
@@ -29,6 +22,7 @@ test("resolveCrudConfig normalizes namespaced public settings", () => {
   assert.equal(config.namespace, "crm-team");
   assert.equal(config.visibility, "public");
   assert.equal(config.workspaceScoped, false);
+  assert.equal(config.namespacePath, "/crm-team");
   assert.equal(config.relativePath, "/crm-team");
   assert.equal(config.apiBasePath, "/api/crm-team");
   assert.equal(config.tableName, "crud_crm_team");
@@ -116,5 +110,19 @@ test("resolveCrudConfigsFromModules rejects duplicate normalized namespaces", ()
         }
       }),
     /Duplicate CRUD namespace/
+  );
+});
+
+test("resolveCrudConfigsFromModules rejects module entries without namespace", () => {
+  assert.throws(
+    () =>
+      resolveCrudConfigsFromModules({
+        "crud.invalid": {
+          module: "crud",
+          namespace: "",
+          visibility: "workspace"
+        }
+      }),
+    /requires a non-empty namespace/
   );
 });

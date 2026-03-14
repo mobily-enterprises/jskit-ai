@@ -7,15 +7,16 @@ import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
+import { useUsersPaths } from "../composables/useUsersPaths.js";
 
 const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
+const paths = useUsersPaths();
 
 const message = ref("");
 const messageType = ref("error");
@@ -158,12 +159,10 @@ function workspaceHomePath(workspaceSlug) {
     return "";
   }
 
-  return resolveShellLinkPath({
-    context: placementContext.value,
+  return paths.page("/", {
     surface: workspaceSurfaceId.value,
     workspaceSlug: normalizedSlug,
-    mode: "workspace",
-    relativePath: "/"
+    mode: "workspace"
   });
 }
 

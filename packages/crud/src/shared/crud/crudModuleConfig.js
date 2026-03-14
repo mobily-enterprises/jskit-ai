@@ -20,14 +20,24 @@ function normalizeCrudVisibility(value, { fallback = DEFAULT_VISIBILITY } = {}) 
   return normalizeRouteVisibility(value, { fallback });
 }
 
-function resolveCrudNamespacePath(namespace = "") {
+function requireCrudNamespace(namespace, { context = "CRUD config" } = {}) {
   const normalizedNamespace = normalizeCrudNamespace(namespace);
-  return normalizedNamespace ? `/${normalizedNamespace}` : "";
+  if (!normalizedNamespace) {
+    throw new TypeError(`${context} requires a non-empty namespace.`);
+  }
+
+  return normalizedNamespace;
+}
+
+function resolveCrudNamespacePath(namespace = "") {
+  const normalizedNamespace = requireCrudNamespace(namespace, {
+    context: "resolveCrudNamespacePath"
+  });
+  return `/${normalizedNamespace}`;
 }
 
 function resolveCrudRelativePath(namespace = "") {
-  const namespacePath = resolveCrudNamespacePath(namespace);
-  return namespacePath || "/crud";
+  return resolveCrudNamespacePath(namespace);
 }
 
 function resolveCrudApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
@@ -40,34 +50,26 @@ function resolveCrudApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILIT
 }
 
 function resolveCrudTableName(namespace = "") {
-  const normalizedNamespace = normalizeCrudNamespace(namespace);
-  if (!normalizedNamespace) {
-    return "crud";
-  }
-
+  const normalizedNamespace = requireCrudNamespace(namespace, {
+    context: "resolveCrudTableName"
+  });
   return `crud_${normalizedNamespace.replace(/-/g, "_")}`;
 }
 
 function resolveCrudTokenPart(namespace = "") {
-  const normalizedNamespace = normalizeCrudNamespace(namespace);
-  return normalizedNamespace ? normalizedNamespace.replace(/-/g, "_") : "";
+  const normalizedNamespace = requireCrudNamespace(namespace, {
+    context: "resolveCrudTokenPart"
+  });
+  return normalizedNamespace.replace(/-/g, "_");
 }
 
 function resolveCrudActionIdPrefix(namespace = "") {
   const tokenPart = resolveCrudTokenPart(namespace);
-  if (!tokenPart) {
-    return "crud";
-  }
-
   return `crud.${tokenPart}`;
 }
 
 function resolveCrudContributorId(namespace = "") {
   const tokenPart = resolveCrudTokenPart(namespace);
-  if (!tokenPart) {
-    return "crud";
-  }
-
   return `crud.${tokenPart}`;
 }
 
@@ -82,7 +84,9 @@ function resolveCrudToken(namespace = "", suffix = "") {
 
 function resolveCrudConfig(source = {}) {
   const settings = source && typeof source === "object" && !Array.isArray(source) ? source : {};
-  const namespace = normalizeCrudNamespace(settings.namespace);
+  const namespace = requireCrudNamespace(settings.namespace, {
+    context: "resolveCrudConfig"
+  });
   const visibility = normalizeCrudVisibility(settings.visibility);
 
   return Object.freeze({
@@ -119,7 +123,7 @@ function resolveCrudConfigsFromModules(modulesSource = {}) {
 
     const resolved = resolveCrudConfig(source);
     if (seenContributorIds.has(resolved.contributorId)) {
-      throw new Error(`Duplicate CRUD namespace in config.modules: "${resolved.namespace || "default"}".`);
+      throw new Error(`Duplicate CRUD namespace in config.modules: "${resolved.namespace}".`);
     }
     seenContributorIds.add(resolved.contributorId);
     configs.push(resolved);
@@ -132,7 +136,9 @@ function resolveCrudConfigFromModules(modulesSource = {}, options = {}) {
   const configs = resolveCrudConfigsFromModules(modulesSource);
   const hasNamespace = Object.hasOwn(options, "namespace");
   if (hasNamespace) {
-    const normalizedNamespace = normalizeCrudNamespace(options.namespace);
+    const normalizedNamespace = requireCrudNamespace(options.namespace, {
+      context: "resolveCrudConfigFromModules"
+    });
     return configs.find((entry) => entry.namespace === normalizedNamespace) || null;
   }
 
@@ -149,6 +155,7 @@ export {
   normalizeCrudNamespace,
   normalizeCrudVisibility,
   isWorkspaceVisibility,
+  requireCrudNamespace,
   resolveCrudNamespacePath,
   resolveCrudRelativePath,
   resolveCrudApiBasePath,

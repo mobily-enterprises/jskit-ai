@@ -9,17 +9,16 @@ import {
   toRouteRecordId
 } from "../src/client/composables/crudClientSupportHelpers.js";
 
-test("resolveCrudClientConfig normalizes namespace, visibility, and relativePath", () => {
+test("resolveCrudClientConfig normalizes namespace, visibility, and derives relativePath", () => {
   const config = resolveCrudClientConfig({
     namespace: " Customers ",
     visibility: "workspace",
-    relativePath: "crm/customers/"
+    relativePath: "/crm/customers"
   });
 
   assert.deepEqual(config, {
     namespace: "customers",
     visibility: "workspace",
-    workspaceScoped: true,
     relativePath: "/crm/customers"
   });
 });
@@ -31,12 +30,17 @@ test("resolveCrudClientConfig infers default relativePath from namespace", () =>
   });
 
   assert.equal(config.relativePath, "/appointments");
-  assert.equal(config.workspaceScoped, false);
+});
+
+test("resolveCrudClientConfig throws when namespace is missing", () => {
+  assert.throws(
+    () => resolveCrudClientConfig({ visibility: "workspace" }),
+    /requires a non-empty namespace/
+  );
 });
 
 test("crudListQueryKey and crudViewQueryKey normalize cache keys", () => {
   assert.deepEqual(crudListQueryKey("Admin", " TonymoBily3 ", "Customers"), [
-    "crud",
     "crud",
     "customers",
     "list",
@@ -45,7 +49,6 @@ test("crudListQueryKey and crudViewQueryKey normalize cache keys", () => {
   ]);
 
   assert.deepEqual(crudViewQueryKey("Admin", " TonymoBily3 ", "12", "Customers"), [
-    "crud",
     "crud",
     "customers",
     "view",
@@ -56,7 +59,7 @@ test("crudListQueryKey and crudViewQueryKey normalize cache keys", () => {
 });
 
 test("crudScopeQueryKey normalizes namespace", () => {
-  assert.deepEqual(crudScopeQueryKey(" Customers "), ["crud", "crud", "customers"]);
+  assert.deepEqual(crudScopeQueryKey(" Customers "), ["crud", "customers"]);
 });
 
 test("invalidateCrudQueries invalidates by CRUD namespace scope key", async () => {
@@ -70,7 +73,7 @@ test("invalidateCrudQueries invalidates by CRUD namespace scope key", async () =
 
   await invalidateCrudQueries(queryClient, "Customers");
   assert.deepEqual(payload, {
-    queryKey: ["crud", "crud", "customers"]
+    queryKey: ["crud", "customers"]
   });
 });
 

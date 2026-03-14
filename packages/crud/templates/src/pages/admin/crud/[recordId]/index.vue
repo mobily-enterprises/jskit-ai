@@ -1,7 +1,7 @@
 <template>
-  <View${option:namespace|singular|pascal|default(CrudRecord)}Element />
+  <View${option:namespace|singular|pascal}Element />
 </template>
 
 <script setup>
-import View${option:namespace|singular|pascal|default(CrudRecord)}Element from "@local/${option:namespace|kebab|default(crud)}/client/View${option:namespace|singular|pascal|default(CrudRecord)}Element";
+import View${option:namespace|singular|pascal}Element from "@local/${option:namespace|kebab}/client/View${option:namespace|singular|pascal}Element";
 </script>
