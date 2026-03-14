@@ -186,6 +186,13 @@ export default Object.freeze({
         id: "crud-local-package-shared-index-${option:namespace|snake}"
       },
       {
+        from: "templates/src/local-package/shared/moduleConfig.js",
+        to: "packages/${option:namespace|kebab}/src/shared/moduleConfig.js",
+        reason: "Install app-local CRUD shared module config.",
+        category: "crud",
+        id: "crud-local-package-shared-module-config-${option:namespace|snake}"
+      },
+      {
         from: "src/shared/crud/crudResource.js",
         to: "packages/${option:namespace|kebab}/src/shared/crudResource.js",
         reason: "Install app-local CRUD resource.",

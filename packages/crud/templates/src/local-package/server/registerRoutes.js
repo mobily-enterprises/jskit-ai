@@ -1,23 +1,13 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { createActionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
-
-const CRUD_ROUTE_SEGMENT = "${option:namespace|kebab}";
-const CRUD_ROUTE_VISIBILITY = normalizeRouteVisibility("${option:visibility}", {
-  fallback: "workspace"
-});
-const CRUD_ROUTE_BASE_PATH = resolveUsersApiBasePath({
-  visibility: CRUD_ROUTE_VISIBILITY,
-  relativePath: `/${CRUD_ROUTE_SEGMENT}`
-});
+import { crudModuleConfig, crudRouteBasePath } from "../shared/moduleConfig.js";
 
 function registerRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -25,8 +15,8 @@ function registerRoutes(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = CRUD_ROUTE_BASE_PATH;
-  const visibility = CRUD_ROUTE_VISIBILITY;
+  const routeBase = crudRouteBasePath;
+  const visibility = crudModuleConfig.visibility;
   const actionIds = createActionIds();
 
   router.register(

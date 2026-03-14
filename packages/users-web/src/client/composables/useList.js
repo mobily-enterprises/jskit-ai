@@ -3,9 +3,9 @@ import { useListCore } from "./useListCore.js";
 import { useUsersWebAccess } from "./useUsersWebAccess.js";
 import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
+import { useUsersPaths } from "./useUsersPaths.js";
 import {
   normalizePermissions,
-  normalizeApiPath,
   normalizeUsersVisibility,
   isWorkspaceVisibility,
   resolveApiSuffix,
@@ -31,6 +31,7 @@ function useList({
   const normalizedVisibility = normalizeUsersVisibility(visibility);
   const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
   const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
+  const usersPaths = useUsersPaths();
 
   const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
   const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
@@ -42,12 +43,10 @@ function useList({
       workspaceSlug: workspaceSlugFromRoute.value,
       visibility: normalizedVisibility
     });
-
-    if (workspaceScoped) {
-      return routeContext.resolveWorkspaceApiPath(suffix);
-    }
-
-    return normalizeApiPath(suffix);
+    return usersPaths.api(suffix, {
+      visibility: normalizedVisibility,
+      workspaceSlug: workspaceSlugFromRoute.value
+    });
   });
 
   const queryEnabled = computed(() =>

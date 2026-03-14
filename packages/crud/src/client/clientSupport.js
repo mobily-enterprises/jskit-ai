@@ -16,7 +16,8 @@ function resolveCrudClientConfig(source = {}) {
   const resolved = resolveCrudConfig(source);
   return Object.freeze({
     namespace: resolved.namespace,
-    visibility: resolved.visibility
+    visibility: resolved.visibility,
+    relativePath: resolved.relativePath
   });
 }
 

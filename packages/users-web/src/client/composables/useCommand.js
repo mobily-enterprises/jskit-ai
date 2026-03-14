@@ -6,9 +6,9 @@ import { useUsersWebUiFeedback } from "./useUsersWebUiFeedback.js";
 import { useUsersWebFieldErrorBag } from "./useUsersWebFieldErrorBag.js";
 import { useUsersWebWorkspaceRouteContext } from "./useUsersWebWorkspaceRouteContext.js";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
+import { useUsersPaths } from "./useUsersPaths.js";
 import {
   normalizePermissions,
-  normalizeApiPath,
   normalizeUsersVisibility,
   isWorkspaceVisibility,
   resolveApiSuffix
@@ -35,6 +35,7 @@ function useCommand({
   const normalizedVisibility = normalizeUsersVisibility(visibility);
   const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
   const routeContext = workspaceScoped ? useUsersWebWorkspaceRouteContext() : useUsersWebSurfaceRouteContext();
+  const usersPaths = useUsersPaths();
 
   const workspaceSlugFromRoute = workspaceScoped ? routeContext.workspaceSlugFromRoute : computed(() => "");
   const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
@@ -47,12 +48,10 @@ function useCommand({
       visibility: normalizedVisibility,
       model
     });
-
-    if (workspaceScoped) {
-      return routeContext.resolveWorkspaceApiPath(suffix);
-    }
-
-    return normalizeApiPath(suffix);
+    return usersPaths.api(suffix, {
+      visibility: normalizedVisibility,
+      workspaceSlug: workspaceSlugFromRoute.value
+    });
   });
 
   const access = useUsersWebAccess({

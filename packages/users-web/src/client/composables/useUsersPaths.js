@@ -2,7 +2,8 @@ import { computed, unref } from "vue";
 import { useShellLinkResolver } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { extractWorkspaceSlugFromSurfacePathname } from "@jskit-ai/shell-web/client/placement";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeApiPath, normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
+import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
 import { useUsersWebSurfaceRouteContext } from "./useUsersWebSurfaceRouteContext.js";
 
 function normalizePathSuffix(value = "") {
@@ -87,17 +88,27 @@ function useUsersPaths() {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
     const visibility = normalizeUsersVisibility(source.visibility || "workspace");
     const suffix = normalizePathSuffix(relativePath);
+    const workspaceScoped = isWorkspaceVisibility(visibility);
 
-    if (isWorkspaceVisibility(visibility)) {
+    if (!suffix && !workspaceScoped) {
+      return "";
+    }
+
+    const templatePath = resolveUsersApiBasePath({
+      visibility,
+      relativePath: suffix
+    });
+
+    if (workspaceScoped) {
       const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
       if (!nextWorkspaceSlug) {
         return "";
       }
 
-      return `/api/w/${nextWorkspaceSlug}/workspace${suffix}`;
+      return templatePath.replace(":workspaceSlug", nextWorkspaceSlug);
     }
 
-    return normalizeApiPath(suffix);
+    return templatePath;
   }
 
   return Object.freeze({
