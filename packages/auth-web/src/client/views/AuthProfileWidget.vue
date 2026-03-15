@@ -70,15 +70,10 @@ const placementContext = computed(() => {
   };
 });
 
-async function refreshProfileState() {
-  authState.value = await authGuardRuntime.refresh();
-}
-
 onMounted(() => {
   unsubscribe = authGuardRuntime.subscribe((nextState) => {
     authState.value = nextState;
   });
-  void refreshProfileState();
 });
 
 onBeforeUnmount(() => {

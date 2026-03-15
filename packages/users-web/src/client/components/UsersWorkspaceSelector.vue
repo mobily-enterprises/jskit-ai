@@ -123,16 +123,27 @@ const activeWorkspace = computed(() => findWorkspaceBySlug(workspaces.value, rou
 const activeWorkspaceId = computed(() => Number(activeWorkspace.value?.id || 0));
 
 function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-  const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
-  const scopeKind = String(scope.kind || "").trim().toLowerCase();
-  const scopeId = Number(scope.id || 0);
-  if (scopeKind === "workspace" && scopeId > 0) {
-    return scopeId === activeWorkspaceId.value;
+  const currentWorkspaceSlug = String(routeWorkspaceSlug.value || "").trim();
+  if (!currentWorkspaceSlug) {
+    // Global surfaces (for example "/") do not have a route workspace; selector must refresh on bootstrap changes.
+    return true;
   }
 
   const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
   if (payloadWorkspaceSlug) {
-    return payloadWorkspaceSlug === routeWorkspaceSlug.value;
+    return payloadWorkspaceSlug === currentWorkspaceSlug;
+  }
+
+  const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
+  const scopeKind = String(scope.kind || "").trim().toLowerCase();
+  const scopeId = Number(scope.id || 0);
+  if (scopeKind === "workspace" && scopeId > 0) {
+    const currentWorkspaceId = Number(activeWorkspaceId.value || 0);
+    if (currentWorkspaceId > 0) {
+      return scopeId === currentWorkspaceId;
+    }
+    // Route workspace exists but workspace cache is not resolved yet; prefer refresh over stale UI.
+    return true;
   }
 
   return true;
