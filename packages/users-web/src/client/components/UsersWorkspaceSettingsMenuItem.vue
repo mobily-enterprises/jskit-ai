@@ -11,6 +11,11 @@ import {
   hasPermission,
   normalizePermissionList
 } from "../lib/permissions.js";
+import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import {
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
+  WORKSPACE_MEMBERS_CHANGED_EVENT
+} from "@jskit-ai/users-core/shared/events/usersEvents";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { usePaths } from "../composables/usePaths.js";
 
@@ -49,6 +54,16 @@ const bootstrapQuery = useBootstrapQuery({
   workspaceSlug: paths.workspaceSlug,
   enabled: true
 });
+const workspaceSettingsEventsEnabled = computed(() => Boolean(paths.workspaceSlug.value));
+
+function isCurrentWorkspaceEvent({ payload = {} } = {}) {
+  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
+  if (!payloadWorkspaceSlug) {
+    return true;
+  }
+
+  return payloadWorkspaceSlug === String(paths.workspaceSlug.value || "").trim();
+}
 
 const permissions = computed(() => {
   const shellPermissions = normalizePermissionList(placementContext.value?.permissions);
@@ -93,6 +108,24 @@ watch(
     void bootstrapQuery.query.refetch();
   }
 );
+
+useRealtimeEvent({
+  event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+  enabled: workspaceSettingsEventsEnabled,
+  matches: isCurrentWorkspaceEvent,
+  onEvent: async () => {
+    await bootstrapQuery.query.refetch();
+  }
+});
+
+useRealtimeEvent({
+  event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+  enabled: workspaceSettingsEventsEnabled,
+  matches: isCurrentWorkspaceEvent,
+  onEvent: async () => {
+    await bootstrapQuery.query.refetch();
+  }
+});
 </script>
 
 <template>

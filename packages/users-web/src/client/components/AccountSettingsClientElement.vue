@@ -16,6 +16,7 @@ import { usersWebHttpClient } from "../lib/httpClient.js";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
+import { ACCOUNT_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -227,6 +228,9 @@ const settingsView = useView({
   visibility: "public",
   apiSuffix: "/settings",
   queryKeyFactory: () => accountSettingsQueryKey,
+  realtime: {
+    event: ACCOUNT_SETTINGS_CHANGED_EVENT
+  },
   fallbackLoadError: "Unable to load settings.",
   model: settingsRecord,
   mapLoadedToModel: (_model, payload = {}) => {

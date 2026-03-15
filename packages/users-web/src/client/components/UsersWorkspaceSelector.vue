@@ -14,7 +14,11 @@ import { normalizePermissionList } from "../lib/permissions.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/workspaceEvents";
+import {
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
+  WORKSPACE_MEMBERS_CHANGED_EVENT,
+  WORKSPACES_CHANGED_EVENT
+} from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const props = defineProps({
   surface: {
@@ -245,6 +249,28 @@ useRealtimeEvent({
     const scopeId = Number(scope.id || 0);
     return scopeKind === "workspace" && scopeId > 0 && scopeId === activeWorkspaceId.value;
   },
+  onEvent: async () => {
+    await bootstrapQuery.query.refetch();
+  }
+});
+
+useRealtimeEvent({
+  event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+  enabled: computed(() => authenticated.value && activeWorkspaceId.value > 0),
+  matches: ({ payload = {} }) => {
+    const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
+    const scopeKind = String(scope.kind || "").trim().toLowerCase();
+    const scopeId = Number(scope.id || 0);
+    return scopeKind === "workspace" && scopeId > 0 && scopeId === activeWorkspaceId.value;
+  },
+  onEvent: async () => {
+    await bootstrapQuery.query.refetch();
+  }
+});
+
+useRealtimeEvent({
+  event: WORKSPACES_CHANGED_EVENT,
+  enabled: authenticated,
   onEvent: async () => {
     await bootstrapQuery.query.refetch();
   }

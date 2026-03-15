@@ -29,6 +29,11 @@ import { usePaths } from "../composables/usePaths.js";
 import { useAccess } from "../composables/useAccess.js";
 import { useUiFeedback } from "../composables/useUiFeedback.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
+import {
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
+  WORKSPACE_MEMBERS_CHANGED_EVENT,
+  WORKSPACE_INVITES_CHANGED_EVENT
+} from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const forms = reactive({
   invite: {
@@ -95,6 +100,15 @@ const access = useAccess({
   mergePlacementContext,
   placementSource: "users-web.workspace-members-view"
 });
+
+function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
+  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
+  if (!payloadWorkspaceSlug) {
+    return true;
+  }
+
+  return payloadWorkspaceSlug === String(workspaceSlugFromRoute.value || "").trim();
+}
 
 const canViewMembers = computed(() => {
   return access.canAny(["workspace.members.view", "workspace.members.manage"]);
@@ -268,6 +282,10 @@ const workspaceSettingsView = useView({
     normalizeQueryToken(workspaceSlug)
   ],
   viewPermissions: ["workspace.members.invite"],
+  realtime: {
+    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+    matches: isCurrentWorkspaceRealtimeEvent
+  },
   fallbackLoadError: "Unable to load workspace settings."
 });
 
@@ -296,6 +314,10 @@ const workspaceMembersList = useList({
     normalizeQueryToken(workspaceSlug)
   ],
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
+  realtime: {
+    event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+    matches: isCurrentWorkspaceRealtimeEvent
+  },
   selectItems: (payload) => normalizeMembers(payload?.members),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace members."
@@ -312,6 +334,10 @@ const workspaceInvitesList = useList({
     normalizeQueryToken(workspaceSlug)
   ],
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
+  realtime: {
+    event: WORKSPACE_INVITES_CHANGED_EVENT,
+    matches: isCurrentWorkspaceRealtimeEvent
+  },
   selectItems: (payload) => normalizeInvites(payload?.invites),
   getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace invites."

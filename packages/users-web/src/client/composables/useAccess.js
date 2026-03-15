@@ -2,6 +2,11 @@ import { computed, watch } from "vue";
 import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import {
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
+  WORKSPACE_MEMBERS_CHANGED_EVENT
+} from "@jskit-ai/users-core/shared/events/usersEvents";
 import {
   normalizeAccessMode,
   resolveAccessModeEnabled
@@ -58,6 +63,18 @@ function useAccess({
   const isBootstrapping = computed(() =>
     accessRequired ? Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value) : false
   );
+  const realtimeEnabled = computed(() =>
+    accessRequired && normalizedWorkspaceSlug.value.length > 0
+  );
+
+  function isCurrentWorkspaceEvent({ payload = {} } = {}) {
+    const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
+    if (!payloadWorkspaceSlug) {
+      return true;
+    }
+
+    return payloadWorkspaceSlug === normalizedWorkspaceSlug.value;
+  }
 
   if (accessRequired && typeof mergePlacementContext === "function") {
     watch(
@@ -117,6 +134,20 @@ function useAccess({
 
     return bootstrap.query.refetch();
   }
+
+  useRealtimeEvent({
+    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+    enabled: realtimeEnabled,
+    matches: isCurrentWorkspaceEvent,
+    onEvent: refreshBootstrap
+  });
+
+  useRealtimeEvent({
+    event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+    enabled: realtimeEnabled,
+    matches: isCurrentWorkspaceEvent,
+    onEvent: refreshBootstrap
+  });
 
   return Object.freeze({
     accessMode: normalizedAccessMode,

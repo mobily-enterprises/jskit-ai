@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../../shared/events/workspaceEvents.js";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
@@ -46,6 +46,9 @@ function registerWorkspaceSettings(app) {
             entityId: ({ args }) => args?.[0]?.id,
             realtime: Object.freeze({
               event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+              payload: ({ args }) => Object.freeze({
+                workspaceSlug: String(args?.[0]?.slug || "").trim()
+              }),
               audience: "all_workspace_users"
             })
           })

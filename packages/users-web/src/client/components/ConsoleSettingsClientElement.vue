@@ -52,6 +52,7 @@
 <script setup>
 import { reactive } from "vue";
 import { useAddEdit } from "../composables/useAddEdit.js";
+import { CONSOLE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const form = reactive({
   assistantSystemPromptWorkspace: ""
@@ -72,6 +73,9 @@ const addEdit = useAddEdit({
   placementSource: "users-web.console-settings-view",
   fallbackLoadError: "Unable to load console settings.",
   fallbackSaveError: "Unable to update console settings.",
+  realtime: {
+    event: CONSOLE_SETTINGS_CHANGED_EVENT
+  },
   model: form,
   mapLoadedToModel: (model, payload = {}) => {
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};

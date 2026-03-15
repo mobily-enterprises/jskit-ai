@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { registerWorkspaceSettings } from "../src/server/workspaceSettings/registerWorkspaceSettings.js";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../src/shared/events/workspaceEvents.js";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../src/shared/events/usersEvents.js";
 
 test("registerWorkspaceSettings registers workspace settings service realtime event metadata", () => {
   const singletonBindings = new Map();

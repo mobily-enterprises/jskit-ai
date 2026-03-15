@@ -12,6 +12,12 @@ import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
 import { usePaths } from "../composables/usePaths.js";
+import { useRealtimeQueryInvalidation } from "../composables/useRealtimeQueryInvalidation.js";
+import {
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
+  WORKSPACES_CHANGED_EVENT,
+  WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
+} from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const route = useRoute();
 const router = useRouter();
@@ -34,11 +40,15 @@ const redeemInviteModel = reactive({
   token: "",
   decision: ""
 });
+const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", normalizeQueryToken("")]);
 
 const bootstrapView = useView({
   visibility: "public",
   apiSuffix: "/bootstrap",
-  queryKeyFactory: () => ["users-web", "bootstrap", normalizeQueryToken("")],
+  queryKeyFactory: () => bootstrapQueryKey,
+  realtime: {
+    event: WORKSPACE_SETTINGS_CHANGED_EVENT
+  },
   fallbackLoadError: "Unable to load workspaces.",
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {
@@ -64,6 +74,16 @@ const redeemInviteCommand = useCommand({
     success: "",
     error: "Unable to respond to invitation."
   }
+});
+
+useRealtimeQueryInvalidation({
+  event: WORKSPACES_CHANGED_EVENT,
+  queryKey: bootstrapQueryKey
+});
+
+useRealtimeQueryInvalidation({
+  event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
+  queryKey: bootstrapQueryKey
 });
 
 const workspaceItems = computed(() => {

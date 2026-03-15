@@ -154,7 +154,13 @@ function createWorkspaceBootstrapContributor({
       const normalizedUser = authenticatedUserValidator.normalize(user);
       const pendingInvites =
         workspaceTenancyEnabled && normalizedUser
-          ? normalizePendingInvites(await workspacePendingInvitationsService.listPendingInvitesForUser(normalizedUser))
+          ? normalizePendingInvites(
+              await workspacePendingInvitationsService.listPendingInvitesForUser(normalizedUser, {
+                context: {
+                  actor: normalizedUser
+                }
+              })
+            )
           : [];
       let payload = createAnonymousBootstrapPayload(appState);
 

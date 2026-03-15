@@ -95,8 +95,9 @@ import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/workspaceEvents";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { useAddEdit } from "../composables/useAddEdit.js";
+import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
@@ -107,6 +108,16 @@ const workspaceForm = reactive({
   invitesEnabled: false,
   invitesAvailable: false
 });
+const routeContext = useWorkspaceRouteContext();
+
+function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
+  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
+  if (!payloadWorkspaceSlug) {
+    return true;
+  }
+
+  return payloadWorkspaceSlug === String(routeContext.workspaceSlugFromRoute.value || "").trim();
+}
 
 const addEdit = useAddEdit({
   visibility: "workspace",
@@ -125,7 +136,8 @@ const addEdit = useAddEdit({
   fallbackLoadError: "Unable to load workspace settings.",
   fieldErrorKeys: ["name", "avatarUrl", "color"],
   realtime: {
-    event: WORKSPACE_SETTINGS_CHANGED_EVENT
+    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+    matches: isCurrentWorkspaceRealtimeEvent
   },
   model: workspaceForm,
   parseInput: (rawPayload) =>
