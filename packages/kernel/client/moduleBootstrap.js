@@ -264,7 +264,61 @@ function normalizeExplicitProviderClasses(value, packageId) {
   return providers;
 }
 
-function resolveModuleProviderClasses(moduleNamespace, packageId) {
+function normalizeDescriptorClientProviders(value) {
+  const entries = Array.isArray(value) ? value : [];
+  const providers = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+
+    const exportName = String(entry.export || "").trim();
+    if (!exportName) {
+      continue;
+    }
+    providers.push(
+      Object.freeze({
+        export: exportName,
+        entrypoint: String(entry.entrypoint || "").trim()
+      })
+    );
+  }
+  return Object.freeze(providers);
+}
+
+function resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders = []) {
+  const providers = [];
+  const seenProviderIds = new Set();
+
+  for (const providerDeclaration of descriptorClientProviders) {
+    const exportName = String(providerDeclaration?.export || "").trim();
+    if (!exportName) {
+      continue;
+    }
+
+    const providerClass = moduleNamespace?.[exportName];
+    if (!isProviderClass(providerClass)) {
+      throw new TypeError(
+        `Client module ${packageId} descriptor provider export "${exportName}" is missing or invalid in "${packageId}/client".`
+      );
+    }
+
+    const providerId = String(providerClass.id || "").trim();
+    if (!providerId) {
+      throw new TypeError(`Client module ${packageId} descriptor provider "${exportName}" requires static id.`);
+    }
+
+    if (seenProviderIds.has(providerId)) {
+      continue;
+    }
+    seenProviderIds.add(providerId);
+    providers.push(providerClass);
+  }
+
+  return providers;
+}
+
+function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClientProviders = []) {
   if (!isRecord(moduleNamespace)) {
     return [];
   }
@@ -272,6 +326,10 @@ function resolveModuleProviderClasses(moduleNamespace, packageId) {
   const explicitProviders = normalizeExplicitProviderClasses(moduleNamespace.clientProviders, packageId);
   if (explicitProviders) {
     return explicitProviders;
+  }
+
+  if (Array.isArray(descriptorClientProviders) && descriptorClientProviders.length > 0) {
+    return resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders);
   }
 
   if (typeof moduleNamespace.bootClient === "function") {
@@ -495,7 +553,8 @@ function normalizeClientModuleEntries(clientModules) {
       return Object.freeze({
         packageId,
         module: moduleNamespace,
-        descriptorUiRoutes: normalizeDescriptorUiRoutes(entry?.descriptorUiRoutes)
+        descriptorUiRoutes: normalizeDescriptorUiRoutes(entry?.descriptorUiRoutes),
+        descriptorClientProviders: normalizeDescriptorClientProviders(entry?.descriptorClientProviders)
       });
     })
     .filter(Boolean)
@@ -567,7 +626,7 @@ async function bootClientModules({
     "Starting JSKIT client module bootstrap."
   );
   for (const entry of moduleEntries) {
-    const providers = resolveModuleProviderClasses(entry.module, entry.packageId);
+    const providers = resolveModuleProviderClasses(entry.module, entry.packageId, entry.descriptorClientProviders);
     log.debug(
       {
         packageId: entry.packageId,

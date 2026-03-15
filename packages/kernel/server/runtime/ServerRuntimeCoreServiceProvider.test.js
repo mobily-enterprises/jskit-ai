@@ -9,6 +9,8 @@ test("ServerRuntimeCoreServiceProvider registers runtime.server and default doma
   const provider = new ServerRuntimeCoreServiceProvider();
   provider.register(app);
 
+  assert.equal(typeof app.service, "function");
+
   const runtimeServer = app.make("runtime.server");
   assert.equal(typeof runtimeServer, "object");
 
@@ -39,14 +41,13 @@ test("ServerRuntimeCoreServiceProvider default domainEvents dispatches registere
   assert.deepEqual(received, [eventPayload]);
 });
 
-test("ServerRuntimeCoreServiceProvider keeps existing domainEvents binding", async () => {
+test("ServerRuntimeCoreServiceProvider owns domainEvents binding", async () => {
   const app = createContainer();
-  const existingFactory = () => ({ publish: async () => "existing" });
-  app.singleton("domainEvents", existingFactory);
+  app.singleton("domainEvents", () => ({ publish: async () => "existing" }));
 
   const provider = new ServerRuntimeCoreServiceProvider();
-  provider.register(app);
-
-  const domainEvents = app.make("domainEvents");
-  assert.equal(await domainEvents.publish({}), "existing");
+  assert.throws(
+    () => provider.register(app),
+    /Token "domainEvents" is already bound\./
+  );
 });

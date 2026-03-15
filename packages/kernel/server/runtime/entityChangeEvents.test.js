@@ -25,6 +25,11 @@ test("entity change publisher emits normalized event payload", async () => {
         workspaceOwnerId: 23
       }
     }
+  }, {
+    service: {
+      token: "crud.customers",
+      method: "createRecord"
+    }
   });
 
   assert.equal(payload?.operation, "created");
@@ -33,5 +38,7 @@ test("entity change publisher emits normalized event payload", async () => {
   assert.equal(payload?.actorId, 17);
   assert.equal(payload?.commandId, "cmd-1");
   assert.equal(payload?.sourceClientId, "client-a");
+  assert.equal(payload?.meta?.service?.token, "crud.customers");
+  assert.equal(payload?.meta?.service?.method, "createRecord");
   assert.equal(published.length, 1);
 });

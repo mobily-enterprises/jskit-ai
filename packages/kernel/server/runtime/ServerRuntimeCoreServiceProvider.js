@@ -15,6 +15,7 @@ import * as routeUtils from "./routeUtils.js";
 import * as runtimeAssembly from "./runtimeAssembly.js";
 import * as runtimeKernel from "./runtimeKernel.js";
 import * as serviceAuthorization from "./serviceAuthorization.js";
+import * as serviceRegistration from "./serviceRegistration.js";
 import * as entityChangeEvents from "./entityChangeEvents.js";
 import * as securityAudit from "./securityAudit.js";
 import * as storagePaths from "./storagePaths.js";
@@ -38,6 +39,7 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   runtimeAssembly: Object.freeze({ ...runtimeAssembly }),
   runtimeKernel: Object.freeze({ ...runtimeKernel }),
   serviceAuthorization: Object.freeze({ ...serviceAuthorization }),
+  serviceRegistration: Object.freeze({ ...serviceRegistration }),
   entityChangeEvents: Object.freeze({ ...entityChangeEvents }),
   securityAudit: Object.freeze({ ...securityAudit }),
   storagePaths: Object.freeze({ ...storagePaths })
@@ -51,11 +53,10 @@ class ServerRuntimeCoreServiceProvider {
       throw new Error("ServerRuntimeCoreServiceProvider requires application singleton()/has().");
     }
 
-    app.singleton("runtime.server", () => SERVER_RUNTIME_CORE_API);
+    serviceRegistration.installServiceRegistrationApi(app);
 
-    if (!app.has("domainEvents")) {
-      app.singleton("domainEvents", (scope) => domainEvents.createDomainEvents(scope));
-    }
+    app.singleton("runtime.server", () => SERVER_RUNTIME_CORE_API);
+    app.singleton("domainEvents", (scope) => domainEvents.createDomainEvents(scope));
   }
 
   boot(app) {

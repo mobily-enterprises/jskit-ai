@@ -53,6 +53,11 @@ export default defineConfig({
       "/api": {
         target: apiProxyTarget,
         changeOrigin: true
+      },
+      "/socket.io": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+        ws: true
       }
     }
   }

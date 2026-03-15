@@ -1,18 +1,9 @@
-const CRUD_ACTION_ID_PREFIX = "crud.${option:namespace|snake}";
+const actionIds = Object.freeze({
+  list: "crud.${option:namespace|snake}.list",
+  view: "crud.${option:namespace|snake}.view",
+  create: "crud.${option:namespace|snake}.create",
+  update: "crud.${option:namespace|snake}.update",
+  delete: "crud.${option:namespace|snake}.delete"
+});
 
-function createActionIds(actionIdPrefix = CRUD_ACTION_ID_PREFIX) {
-  const prefix = String(actionIdPrefix || "").trim();
-  if (!prefix) {
-    throw new TypeError("createActionIds requires actionIdPrefix.");
-  }
-
-  return Object.freeze({
-    list: `${prefix}.list`,
-    view: `${prefix}.view`,
-    create: `${prefix}.create`,
-    update: `${prefix}.update`,
-    delete: `${prefix}.delete`
-  });
-}
-
-export { CRUD_ACTION_ID_PREFIX, createActionIds };
+export { actionIds };

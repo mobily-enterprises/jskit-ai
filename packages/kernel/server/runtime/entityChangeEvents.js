@@ -63,7 +63,7 @@ function createEntityChangePublisher({
     throw new TypeError("createEntityChangePublisher requires entity.");
   }
 
-  return async function publishEntityChange(operation, entityId, options = {}) {
+  return async function publishEntityChange(operation, entityId, options = {}, meta = null) {
     const normalizedOperation = normalizeText(operation).toLowerCase();
     if (!ENTITY_CHANGE_OPERATIONS.has(normalizedOperation)) {
       throw new TypeError("publishEntityChange operation must be one of: created, updated, deleted.");
@@ -93,6 +93,10 @@ function createEntityChangePublisher({
       sourceClientId: resolveSourceClientId(requestMeta),
       occurredAt: new Date().toISOString()
     };
+    const normalizedMeta = normalizeObject(meta);
+    if (Object.keys(normalizedMeta).length > 0) {
+      payload.meta = normalizedMeta;
+    }
 
     await domainEvents.publish(payload);
     return payload;

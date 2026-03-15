@@ -18,6 +18,14 @@ export {
   createAuthorizedService,
   getServicePermissions
 } from "./serviceAuthorization.js";
+export {
+  SERVICE_REGISTRATION_TAG,
+  normalizeServiceRegistration,
+  materializeServiceRegistration,
+  registerTaggedServiceRegistration,
+  resolveServiceRegistrations,
+  installServiceRegistrationApi
+} from "./serviceRegistration.js";
 export { resolveDefaultScope, createEntityChangePublisher, createNoopEntityChangePublisher } from "./entityChangeEvents.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";

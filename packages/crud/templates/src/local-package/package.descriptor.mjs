@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/realtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/users-core",
     "@jskit-ai/users-web"
@@ -22,7 +23,8 @@ export default Object.freeze({
       "auth.policy",
       "users.core",
       "users.web",
-      "runtime.web-placement"
+      "runtime.web-placement",
+      "runtime.realtime.client"
     ]
   },
   runtime: {
@@ -30,12 +32,17 @@ export default Object.freeze({
       providers: [
         {
           entrypoint: "src/server/${option:namespace|pascal}ServiceProvider.js",
-          export: "CrudServiceProvider"
+          export: "${option:namespace|pascal}ServiceProvider"
         }
       ]
     },
     client: {
-      providers: []
+      providers: [
+        {
+          entrypoint: "src/client/providers/${option:namespace|pascal}ClientProvider.js",
+          export: "${option:namespace|pascal}ClientProvider"
+        }
+      ]
     }
   },
   metadata: {

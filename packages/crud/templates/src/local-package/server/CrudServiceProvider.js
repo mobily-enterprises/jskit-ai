@@ -1,37 +1,50 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { createRepository as createCrudRepository } from "./repository.js";
-import { createService as createCrudService } from "./service.js";
+import { createRepository } from "./repository.js";
+import {
+  createService,
+  servicePermissions,
+  serviceEvents
+} from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
-import { CRUD_REPOSITORY_TOKEN, CRUD_SERVICE_TOKEN } from "./diTokens.js";
+import {
+  NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN,
+  NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN
+} from "./diTokens.js";
 
-const CRUD_PROVIDER_ID = CRUD_SERVICE_TOKEN;
-const CRUD_TABLE_NAME = "crud_${option:namespace|snake}";
+const NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID = NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN;
+const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = "crud_${option:namespace|snake}";
 
-class CrudServiceProvider {
-  static id = CRUD_PROVIDER_ID;
+class ${option:namespace|pascal}ServiceProvider {
+  static id = NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID;
 
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
-      throw new Error("CrudServiceProvider requires application singleton()/actions().");
+    if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
+      throw new Error("${option:namespace|pascal}ServiceProvider requires application singleton()/service()/actions().");
     }
 
-    app.singleton(CRUD_REPOSITORY_TOKEN, (scope) => {
+    app.singleton(NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN, (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
-      return createCrudRepository(knex, {
-        tableName: CRUD_TABLE_NAME
+      return createRepository(knex, {
+        tableName: NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME
       });
     });
 
-    app.singleton(CRUD_SERVICE_TOKEN, (scope) => {
-      return createCrudService({
-        crudRepository: scope.make(CRUD_REPOSITORY_TOKEN),
-        domainEvents: scope.make("domainEvents")
-      });
-    });
+    app.service(
+      NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN,
+      (scope) => {
+        return createService({
+          ${option:namespace|camel}Repository: scope.make(NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN)
+        });
+      },
+      {
+        permissions: servicePermissions,
+        events: serviceEvents
+      }
+    );
 
     app.actions(
       withActionDefaults(
@@ -39,7 +52,7 @@ class CrudServiceProvider {
         {
           domain: "crud",
           dependencies: {
-            crudService: CRUD_SERVICE_TOKEN
+            ${option:namespace|camel}Service: NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN
           }
         }
       )
@@ -51,4 +64,4 @@ class CrudServiceProvider {
   }
 }
 
-export { CrudServiceProvider };
+export { ${option:namespace|pascal}ServiceProvider };

@@ -299,3 +299,67 @@ test("bootClientModules allows non-declared surface programmatic routes", async 
   assert.equal(router.routes.length, 1);
   assert.equal(router.routes[0].path, "/admin/projects");
 });
+
+test("bootClientModules loads client providers declared in descriptorClientProviders", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const events = [];
+
+  await bootClientModules({
+    clientModules: [
+      {
+        packageId: "@example/descriptor-providers",
+        descriptorClientProviders: [
+          {
+            entrypoint: "src/client/providers/ExampleProvider.js",
+            export: "ExampleProvider"
+          }
+        ],
+        module: {
+          ExampleProvider: class {
+            static id = "example.descriptor.provider";
+            register() {
+              events.push("register");
+            }
+            boot() {
+              events.push("boot");
+            }
+          }
+        }
+      }
+    ],
+    router,
+    surfaceRuntime,
+    surfaceMode: "all",
+    logger: { info() {}, warn() {}, error() {} }
+  });
+
+  assert.deepEqual(events, ["register", "boot"]);
+});
+
+test("bootClientModules throws when descriptorClientProviders export is missing", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+
+  await assert.rejects(
+    bootClientModules({
+      clientModules: [
+        {
+          packageId: "@example/missing-provider-export",
+          descriptorClientProviders: [
+            {
+              entrypoint: "src/client/providers/MissingProvider.js",
+              export: "MissingProvider"
+            }
+          ],
+          module: {}
+        }
+      ],
+      router,
+      surfaceRuntime,
+      surfaceMode: "all",
+      logger: { info() {}, warn() {}, error() {} }
+    }),
+    /descriptor provider export "MissingProvider" is missing or invalid/
+  );
+});

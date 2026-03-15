@@ -1,5 +1,6 @@
 import * as actionRuntime from "../../shared/actions/index.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
+import { installServiceRegistrationApi } from "../runtime/serviceRegistration.js";
 
 const ACTION_RUNTIME_API = Object.freeze({
   ...actionRuntime
@@ -315,6 +316,7 @@ class ActionRuntimeServiceProvider {
     }
 
     installActionRegistrationApi(app);
+    installServiceRegistrationApi(app);
 
     app.singleton("runtime.actions", () => ACTION_RUNTIME_API);
 

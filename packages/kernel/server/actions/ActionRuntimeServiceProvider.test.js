@@ -73,6 +73,7 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(app.singletons.has("actionExecutor"), true);
   assert.equal(typeof app.action, "function");
   assert.equal(typeof app.actions, "function");
+  assert.equal(typeof app.service, "function");
 
   const api = app.make("runtime.actions");
   assert.equal(typeof api.createActionRegistry, "function");

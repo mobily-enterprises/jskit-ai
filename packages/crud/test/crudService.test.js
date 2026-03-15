@@ -2,24 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/service.js";
 
-function authenticatedOptions() {
-  return {
-    context: {
-      actor: {
-        id: 1
-      }
-    }
-  };
-}
-
-function createDomainEventsStub() {
-  return {
-    async publish() {
-      return null;
-    }
-  };
-}
-
 test("crudService delegates CRUD operations to the repository", async () => {
   const calls = [];
   const crudRepository = {
@@ -45,9 +27,9 @@ test("crudService delegates CRUD operations to the repository", async () => {
     }
   };
 
-  const service = createService({ crudRepository, domainEvents: createDomainEventsStub() });
+  const service = createService({ crudRepository });
 
-  const options = authenticatedOptions();
+  const options = {};
   await service.listRecords({ limit: 10 }, options);
   await service.getRecord(3, options);
   await service.createRecord({ name: "Ada", surname: "Lovelace" }, options);
@@ -65,7 +47,6 @@ test("crudService delegates CRUD operations to the repository", async () => {
 
 test("crudService throws 404 when a record is missing", async () => {
   const service = createService({
-    domainEvents: createDomainEventsStub(),
     crudRepository: {
       async list() {
         return { items: [], nextCursor: null };
@@ -86,17 +67,17 @@ test("crudService throws 404 when a record is missing", async () => {
   });
 
   await assert.rejects(
-    () => service.getRecord(9, authenticatedOptions()),
+    () => service.getRecord(9, {}),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.updateRecord(9, { name: "Ada" }, authenticatedOptions()),
+    () => service.updateRecord(9, { name: "Ada" }, {}),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.deleteRecord(9, authenticatedOptions()),
+    () => service.deleteRecord(9, {}),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 });

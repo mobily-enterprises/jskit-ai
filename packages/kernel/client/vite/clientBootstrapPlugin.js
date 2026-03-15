@@ -15,6 +15,12 @@ function normalizePackageIds(value) {
   );
 }
 
+function toSortedUniqueStrings(value) {
+  return [...new Set((Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean))].sort(
+    (left, right) => left.localeCompare(right)
+  );
+}
+
 async function readJsonFile(filePath, fallback) {
   try {
     const source = await readFile(filePath, "utf8");
@@ -58,6 +64,32 @@ function normalizeDescriptorUiRoutes(value) {
   return Object.freeze(normalizedRoutes);
 }
 
+function normalizeDescriptorClientProviders(value) {
+  const entries = Array.isArray(value) ? value : [];
+  const providers = [];
+
+  for (const entry of entries) {
+    const record = ensureObject(entry);
+    if (Object.keys(record).length < 1) {
+      continue;
+    }
+
+    const exportName = String(record.export || "").trim();
+    if (!exportName) {
+      continue;
+    }
+
+    providers.push(
+      Object.freeze({
+        export: exportName,
+        entrypoint: String(record.entrypoint || "").trim()
+      })
+    );
+  }
+
+  return Object.freeze(providers);
+}
+
 async function resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState }) {
   const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
   const packagePathFromSource = String(installedPackageState?.source?.packagePath || "").trim();
@@ -99,6 +131,25 @@ async function resolveDescriptorUiRoutes({ appRoot, packageId, installedPackageS
   }
 }
 
+async function resolveDescriptorClientProviders({ appRoot, packageId, installedPackageState }) {
+  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
+    appRoot,
+    packageId,
+    installedPackageState
+  });
+  if (!descriptorPath) {
+    return Object.freeze([]);
+  }
+
+  try {
+    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptor = ensureObject(descriptorModule?.default);
+    return normalizeDescriptorClientProviders(descriptor?.runtime?.client?.providers);
+  } catch {
+    return Object.freeze([]);
+  }
+}
+
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
@@ -119,11 +170,18 @@ async function resolveInstalledClientModules({ appRoot, lockPath }) {
       packageId,
       installedPackageState
     });
+    const descriptorClientProviders = await resolveDescriptorClientProviders({
+      appRoot,
+      packageId,
+      installedPackageState
+    });
 
     modules.push(
       Object.freeze({
         packageId,
-        descriptorUiRoutes
+        sourceType: String(installedPackageState?.source?.type || "").trim().toLowerCase(),
+        descriptorUiRoutes,
+        descriptorClientProviders
       })
     );
   }
@@ -146,9 +204,12 @@ function normalizeClientModuleDescriptors(value) {
     if (!packageId) {
       continue;
     }
+    const sourceType = String(record.sourceType || "").trim().toLowerCase();
     descriptors.push({
       packageId,
-      descriptorUiRoutes: normalizeDescriptorUiRoutes(record.descriptorUiRoutes)
+      sourceType,
+      descriptorUiRoutes: normalizeDescriptorUiRoutes(record.descriptorUiRoutes),
+      descriptorClientProviders: normalizeDescriptorClientProviders(record.descriptorClientProviders)
     });
   }
 
@@ -164,7 +225,7 @@ function createVirtualModuleSource(clientModules = []) {
   );
   const moduleEntries = moduleDescriptors.map(
     (entry, index) =>
-      `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index}, descriptorUiRoutes: ${JSON.stringify(entry.descriptorUiRoutes)} }`
+      `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index}, descriptorUiRoutes: ${JSON.stringify(entry.descriptorUiRoutes)}, descriptorClientProviders: ${JSON.stringify(entry.descriptorClientProviders)} }`
   );
 
   const entriesSource = moduleEntries.length > 0 ? moduleEntries.join(",\n") : "";
@@ -186,9 +247,50 @@ export { installedClientModules, bootInstalledClientModules };
 `;
 }
 
+function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
+  const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
+  const localSourceTypes = new Set(["local-package", "app-local-package"]);
+  return toSortedUniqueStrings(
+    moduleDescriptors
+      .filter((entry) => localSourceTypes.has(entry.sourceType))
+      .map((entry) => `${entry.packageId}/client`)
+  );
+}
+
+function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
+  const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
+  const localSourceTypes = new Set(["local-package", "app-local-package"]);
+  return toSortedUniqueStrings(
+    moduleDescriptors
+      .filter((entry) => !localSourceTypes.has(entry.sourceType))
+      .map((entry) => `${entry.packageId}/client`)
+  );
+}
+
 function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}) {
   return {
     name: "jskit-client-bootstrap",
+    async config(userConfig = {}) {
+      const clientModules = await resolveInstalledClientModules({
+        appRoot: process.cwd(),
+        lockPath
+      });
+      const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
+      const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules);
+      const userOptimizeDeps = ensureObject(userConfig.optimizeDeps);
+      const userExclude = toSortedUniqueStrings(userOptimizeDeps.exclude);
+      const userInclude = toSortedUniqueStrings(userOptimizeDeps.include);
+      const exclude = toSortedUniqueStrings([...userExclude, ...clientExcludeSpecifiers]);
+      const include = toSortedUniqueStrings([...userInclude, ...clientIncludeSpecifiers]);
+
+      return {
+        optimizeDeps: {
+          ...userOptimizeDeps,
+          include,
+          exclude
+        }
+      };
+    },
     resolveId(source) {
       if (source === CLIENT_BOOTSTRAP_VIRTUAL_ID) {
         return CLIENT_BOOTSTRAP_RESOLVED_ID;
@@ -214,6 +316,8 @@ export {
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   CLIENT_BOOTSTRAP_RESOLVED_ID,
   createVirtualModuleSource,
+  resolveClientOptimizeIncludeSpecifiers,
+  resolveClientOptimizeExcludeSpecifiers,
   resolveInstalledClientPackageIds,
   resolveInstalledClientModules,
   createJskitClientBootstrapPlugin

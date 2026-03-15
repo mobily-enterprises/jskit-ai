@@ -52,6 +52,10 @@ export default Object.freeze({
         {
           subpath: "./client",
           summary: "Exports RealtimeClientProvider only."
+        },
+        {
+          subpath: "./client/listeners",
+          summary: "Exports client listener registration helpers for provider-level realtime subscriptions."
         }
       ],
       containerTokens: {
@@ -59,7 +63,8 @@ export default Object.freeze({
           "runtime.realtime"
         ],
         client: [
-          "runtime.realtime.client"
+          "runtime.realtime.client",
+          "runtime.realtime.client.socket"
         ]
       }
     }

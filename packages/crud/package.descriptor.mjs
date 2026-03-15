@@ -32,13 +32,22 @@ export default Object.freeze({
     "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/realtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/users-core",
     "@jskit-ai/users-web"
   ],
   capabilities: {
     provides: ["crud"],
-    requires: ["runtime.actions", "runtime.database", "auth.policy", "users.core", "users.web", "runtime.web-placement"]
+    requires: [
+      "runtime.actions",
+      "runtime.database",
+      "auth.policy",
+      "users.core",
+      "users.web",
+      "runtime.web-placement",
+      "runtime.realtime.client"
+    ]
   },
   runtime: {
     server: {
@@ -83,6 +92,7 @@ export default Object.freeze({
         "@jskit-ai/database-runtime": "0.1.0",
         "@jskit-ai/http-runtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
+        "@jskit-ai/realtime": "0.1.0",
         "@jskit-ai/shell-web": "0.1.0",
         "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
@@ -128,6 +138,13 @@ export default Object.freeze({
         reason: "Install app-local CRUD client package exports.",
         category: "crud",
         id: "crud-local-package-client-index-${option:namespace|snake}"
+      },
+      {
+        from: "templates/src/local-package/client/providers/CrudClientProvider.js",
+        to: "packages/${option:namespace|kebab}/src/client/providers/${option:namespace|pascal}ClientProvider.js",
+        reason: "Install app-local CRUD realtime client provider.",
+        category: "crud",
+        id: "crud-local-package-client-provider-${option:namespace|snake}"
       },
       {
         from: "templates/src/local-package/server/diTokens.js",

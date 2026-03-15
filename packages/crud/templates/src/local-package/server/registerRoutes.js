@@ -6,7 +6,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
-import { createActionIds } from "./actionIds.js";
+import { actionIds } from "./actionIds.js";
 import { crudResource } from "../shared/crudResource.js";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
 
@@ -21,7 +21,6 @@ function registerRoutes(app) {
     relativePath: crudModuleConfig.relativePath
   });
   const visibility = crudModuleConfig.visibility;
-  const actionIds = createActionIds();
 
   router.register(
     "GET",

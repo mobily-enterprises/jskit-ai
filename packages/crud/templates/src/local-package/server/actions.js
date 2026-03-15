@@ -4,11 +4,9 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { crudResource } from "../shared/crudResource.js";
-import { CRUD_ACTION_ID_PREFIX, createActionIds } from "./actionIds.js";
+import { actionIds } from "./actionIds.js";
 
-function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
-  const actionIds = createActionIds(actionIdPrefix);
-
+function createActions() {
   return Object.freeze([
     {
       id: actionIds.list,
@@ -25,7 +23,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.crudService.listRecords(input, {
+        return deps.${option:namespace|camel}Service.listRecords(input, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -46,7 +44,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.crudService.getRecord(input.recordId, {
+        return deps.${option:namespace|camel}Service.getRecord(input.recordId, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -67,7 +65,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.crudService.createRecord(input, {
+        return deps.${option:namespace|camel}Service.createRecord(input, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -89,7 +87,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       observability: {},
       async execute(input, context, deps) {
         const { recordId, ...patch } = input;
-        return deps.crudService.updateRecord(recordId, patch, {
+        return deps.${option:namespace|camel}Service.updateRecord(recordId, patch, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -110,7 +108,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.crudService.deleteRecord(input.recordId, {
+        return deps.${option:namespace|camel}Service.deleteRecord(input.recordId, {
           context,
           visibilityContext: context?.visibilityContext
         });

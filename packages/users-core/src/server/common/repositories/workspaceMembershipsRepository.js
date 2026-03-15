@@ -130,11 +130,27 @@ function createRepository(knex) {
     return rows.map(mapMemberSummaryRow).filter(Boolean);
   }
 
+  async function listActiveWorkspaceIdsByUserId(userId, options = {}) {
+    const client = options?.trx || knex;
+    const rows = await client("workspace_memberships")
+      .where({
+        user_id: Number(userId),
+        status: "active"
+      })
+      .select("workspace_id")
+      .orderBy("workspace_id", "asc");
+
+    return rows
+      .map((row) => Number(row.workspace_id))
+      .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0);
+  }
+
   return Object.freeze({
     findByWorkspaceIdAndUserId,
     ensureOwnerMembership,
     upsertMembership,
-    listActiveByWorkspaceId
+    listActiveByWorkspaceId,
+    listActiveWorkspaceIdsByUserId
   });
 }
 
