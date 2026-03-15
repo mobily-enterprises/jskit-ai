@@ -15,6 +15,7 @@ function bootWorkspaceSettings(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
@@ -40,6 +41,7 @@ function bootWorkspaceSettings(app) {
     "/api/w/:workspaceSlug/workspace/settings",
     {
       auth: "required",
+      visibility: "workspace",
       meta: {
         tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"

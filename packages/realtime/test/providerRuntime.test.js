@@ -347,3 +347,99 @@ test("RealtimeServiceProvider resolves custom audience callback", async () => {
   assert.equal(emitted[0].eventName, "customers.record.changed");
   assert.equal(emitted[0].payload?.operation, "updated");
 });
+
+test("RealtimeServiceProvider merges custom realtime payload with canonical domain event fields", async () => {
+  const app = createSingletonApp();
+  app.instance(KERNEL_TOKENS.Fastify, {
+    server: createServer()
+  });
+  app.singleton("authService", () => ({
+    async authenticateRequest() {
+      return {
+        authenticated: false
+      };
+    }
+  }));
+  app.singleton("workspaceMembershipsRepository", () => ({
+    async listActiveWorkspaceIdsByUserId() {
+      return [];
+    }
+  }));
+  installServiceRegistrationApi(app);
+  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
+  app.service(
+    "test.workspace.service",
+    () => ({
+      async updateWorkspace() {
+        return { id: 11, slug: "acme" };
+      }
+    }),
+    {
+      events: {
+        updateWorkspace: [
+          {
+            type: "entity.changed",
+            source: "workspace",
+            entity: "settings",
+            operation: "updated",
+            realtime: {
+              event: "workspace.settings.changed",
+              payload: ({ result }) => ({
+                workspaceSlug: result?.slug || ""
+              }),
+              audience: "all_workspace_users"
+            }
+          }
+        ]
+      }
+    }
+  );
+
+  const provider = new RealtimeServiceProvider();
+  provider.register(app);
+  await provider.boot(app);
+
+  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const emitted = [];
+  io.to = (room) => {
+    return {
+      emit(eventName, payload) {
+        emitted.push({
+          room,
+          eventName,
+          payload
+        });
+        return null;
+      }
+    };
+  };
+
+  const service = app.make("test.workspace.service");
+  await service.updateWorkspace(
+    {
+      id: 11,
+      slug: "acme"
+    },
+    {
+      context: {
+        visibilityContext: {
+          workspaceOwnerId: 11
+        },
+        actor: {
+          id: 4
+        }
+      }
+    }
+  );
+  await provider.shutdown(app);
+
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].room, "workspace:11");
+  assert.equal(emitted[0].eventName, "workspace.settings.changed");
+  assert.equal(emitted[0].payload?.workspaceSlug, "acme");
+  assert.equal(emitted[0].payload?.source, "workspace");
+  assert.equal(emitted[0].payload?.entity, "settings");
+  assert.equal(emitted[0].payload?.operation, "updated");
+  assert.equal(emitted[0].payload?.scope?.kind, "workspace");
+  assert.equal(emitted[0].payload?.scope?.id, 11);
+});

@@ -151,7 +151,6 @@ function buildRealtimeDispatchIndex(registrations = []) {
         list.push(
           Object.freeze({
             event,
-            payload: typeof realtime.payload === "function" ? realtime.payload : null,
             audience: realtime?.audience
           })
         );
@@ -164,6 +163,22 @@ function buildRealtimeDispatchIndex(registrations = []) {
   }
 
   return index;
+}
+
+function mergeRealtimePayload(event, payloadPatch) {
+  const basePayload = event && typeof event === "object" && !Array.isArray(event) ? event : {};
+  if (payloadPatch == null) {
+    return basePayload;
+  }
+  if (!payloadPatch || typeof payloadPatch !== "object" || Array.isArray(payloadPatch)) {
+    throw new TypeError("Realtime payload callback must return an object.");
+  }
+
+  // Keep canonical domain-event fields authoritative while allowing additive metadata.
+  return {
+    ...payloadPatch,
+    ...basePayload
+  };
 }
 
 function resolveScopeWorkspaceId(scope = {}) {
@@ -551,11 +566,11 @@ class RealtimeServiceProvider {
           );
 
           for (const dispatcher of dispatchers) {
-            const payload = dispatcher.payload
-              ? dispatcher.payload({
-                  event
-                })
-              : event;
+            const payloadPatch =
+              event?.meta?.realtime && typeof event.meta.realtime === "object"
+                ? event.meta.realtime.payload
+                : null;
+            const payload = mergeRealtimePayload(event, payloadPatch);
             const targets = await resolveAudienceTargets(dispatcher, event, {
               scope,
               logger

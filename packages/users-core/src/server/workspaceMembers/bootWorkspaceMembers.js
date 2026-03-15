@@ -15,6 +15,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/roles",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],
@@ -41,6 +42,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/members",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],
@@ -67,6 +69,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/members/:memberUserId/role",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],
@@ -99,6 +102,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/invites",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],
@@ -125,6 +129,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/invites",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],
@@ -157,6 +162,7 @@ function bootWorkspaceMembers(app) {
     "/api/w/:workspaceSlug/workspace/invites/:inviteId",
     {
       auth: "required",
+      visibility: "workspace",
       workspacePolicy: "required",
       meta: {
         tags: ["workspace"],

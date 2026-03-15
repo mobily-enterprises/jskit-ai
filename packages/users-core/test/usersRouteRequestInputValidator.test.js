@@ -129,6 +129,10 @@ test("workspace settings routes mount one canonical workspace endpoint", () => {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
   });
+  const workspaceSettingsPatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace/settings"
+  });
   const adminWorkspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/admin/w/:workspaceSlug/workspace/settings"
@@ -139,6 +143,8 @@ test("workspace settings routes mount one canonical workspace endpoint", () => {
   });
 
   assert.ok(workspaceSettings);
+  assert.equal(workspaceSettings?.visibility, "workspace");
+  assert.equal(workspaceSettingsPatch?.visibility, "workspace");
   assert.equal(workspaceSettings?.workspaceSurface, undefined);
   assert.equal(adminWorkspaceSettings, null);
   assert.equal(consoleWorkspaceSettings, null);
