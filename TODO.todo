@@ -63,26 +63,35 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Major code cleanup, make sure there is no "contract", make things actually work
   X Provide a kenel-level function to know the root of the pages, have modules go relative to that
   X Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
-  - If logged out, redirect to login immediately, check page permissions if not logged out
+  O If logged out, redirect to login immediately, check page permissions if not logged out
+ 
   - Delete setting table for workspace completely
-  - Place roles and permissions in app-owned config
-  - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
-  - Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
-  - Alert system (queue + element), use it for invites
-  - Workflow to accept an invite
-  - Re-add icons
   - Spurious chat settings in profile_settings
-  - Do infrastructure deploy, easy way
+ 
+  - Place roles and permissions in app-owned config
+ 
+  - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
+  
+  - Workflow to accept an invite
+  - Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
+ 
+  - Alert system (queue + element), use it for invites
+  
+  - Re-add icons
+  
+  - FINAL STEP: Do infrastructure deploy, easy way
  
   PORT OVER:
-  - Realtime
+  O Realtime
   - AI agent
   - Chat
+  - Billing
+  
+  LATER:
   - Communications (email, sms)
-  - Pperations
+  - Operations
   - Security
   - Social
-  - Billing
 
 
 

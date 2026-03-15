@@ -24,7 +24,7 @@ function createShellWebQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
         retry: shouldRetryTransientQueryFailure,
         retryDelay: transientQueryRetryDelay

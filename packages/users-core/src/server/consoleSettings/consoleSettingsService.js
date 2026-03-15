@@ -1,3 +1,5 @@
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
+
 function buildSettingsResponse(record = {}) {
   return {
     settings: {
@@ -7,13 +9,22 @@ function buildSettingsResponse(record = {}) {
 }
 
 function createService({ consoleSettingsRepository } = {}) {
-  async function getSettings() {
+  const servicePermissions = Object.freeze({
+    getSettings: Object.freeze({
+      require: "authenticated"
+    }),
+    updateSettings: Object.freeze({
+      require: "authenticated"
+    })
+  });
+
+  async function getSettings(options = {}) {
     const settings = await consoleSettingsRepository.getSingleton();
 
     return buildSettingsResponse(settings);
   }
 
-  async function updateSettings(input = {}) {
+  async function updateSettings(input = {}, options = {}) {
     const settings = await consoleSettingsRepository.updateSingleton({
       assistantSystemPromptWorkspace: input.assistantSystemPromptWorkspace
     });
@@ -21,10 +32,13 @@ function createService({ consoleSettingsRepository } = {}) {
     return buildSettingsResponse(settings);
   }
 
-  return Object.freeze({
-    getSettings,
-    updateSettings
-  });
+  return createAuthorizedService(
+    {
+      getSettings,
+      updateSettings
+    },
+    servicePermissions
+  );
 }
 
 export { createService };

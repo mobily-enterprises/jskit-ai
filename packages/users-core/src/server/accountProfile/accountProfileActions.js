@@ -1,6 +1,5 @@
 import {
   EMPTY_INPUT_VALIDATOR,
-  requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -37,14 +36,15 @@ const accountProfileActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: userSettingsResource.operations.view.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.read"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountProfileService.getForUser(resolveRequest(context), resolveUser(context, input));
+      return deps.accountProfileService.getForUser(resolveRequest(context), resolveUser(context, input), {
+        context
+      });
     }
   },
   {
@@ -56,7 +56,6 @@ const accountProfileActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userProfileResource.operations.patch.bodyValidator,
     outputValidator: settingsProfileUpdateOutputValidator,
-    permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
       actionName: "settings.profile.update"
@@ -66,7 +65,10 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
         resolveUser(context, input),
-        input
+        input,
+        {
+          context
+        }
       );
     }
   },
@@ -79,7 +81,6 @@ const accountProfileActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userProfileResource.operations.avatarUpload.bodyValidator,
     outputValidator: userProfileResource.operations.avatarUpload.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.upload"
@@ -89,7 +90,10 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.uploadAvatar(
         resolveRequest(context),
         resolveUser(context, input),
-        input
+        input,
+        {
+          context
+        }
       );
     }
   },
@@ -102,7 +106,6 @@ const accountProfileActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userProfileResource.operations.avatarDelete.bodyValidator,
     outputValidator: userProfileResource.operations.avatarDelete.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.delete"
@@ -112,7 +115,10 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.deleteAvatar(
         resolveRequest(context),
         resolveUser(context, input),
-        input
+        input,
+        {
+          context
+        }
       );
     }
   }

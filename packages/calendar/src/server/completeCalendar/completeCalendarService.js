@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import { normalizeDateInput, toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -60,6 +61,24 @@ function createService({ completeCalendarRepository } = {}) {
   if (!completeCalendarRepository) {
     throw new Error("completeCalendarService requires completeCalendarRepository.");
   }
+
+  const servicePermissions = Object.freeze({
+    listWeek: Object.freeze({
+      require: "authenticated"
+    }),
+    getEvent: Object.freeze({
+      require: "authenticated"
+    }),
+    createEvent: Object.freeze({
+      require: "authenticated"
+    }),
+    updateEvent: Object.freeze({
+      require: "authenticated"
+    }),
+    deleteEvent: Object.freeze({
+      require: "authenticated"
+    })
+  });
 
   async function requireVisibleContact(contactId, options = {}) {
     const normalizedContactId = toPositiveInteger(contactId);
@@ -222,13 +241,16 @@ function createService({ completeCalendarRepository } = {}) {
     return deleted;
   }
 
-  return Object.freeze({
-    listWeek,
-    getEvent,
-    createEvent,
-    updateEvent,
-    deleteEvent
-  });
+  return createAuthorizedService(
+    {
+      listWeek,
+      getEvent,
+      createEvent,
+      updateEvent,
+      deleteEvent
+    },
+    servicePermissions
+  );
 }
 
 export { createService };

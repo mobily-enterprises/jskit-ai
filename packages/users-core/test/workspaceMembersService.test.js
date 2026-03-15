@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 
+function authorizedOptions(permissions = []) {
+  return {
+    context: {
+      actor: {
+        id: 1
+      },
+      permissions
+    }
+  };
+}
+
 function createFixture() {
   const workspace = {
     id: 7,
@@ -97,7 +108,8 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
     {
       email: "alice@example.com",
       roleId: "member"
-    }
+    },
+    authorizedOptions(["workspace.members.invite"])
   );
   const after = Date.now();
 
@@ -110,7 +122,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();
 
-  const response = await service.listMembers(workspace);
+  const response = await service.listMembers(workspace, authorizedOptions(["workspace.members.view"]));
 
   assert.deepEqual(response.workspace, {
     id: 7,
@@ -127,10 +139,14 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
 test("workspaceMembersService.updateMemberRole returns the refreshed member list without re-fetching the workspace", async () => {
   const { service, workspace } = createFixture();
 
-  const response = await service.updateMemberRole(workspace, {
-    memberUserId: 11,
-    roleId: "admin"
-  });
+  const response = await service.updateMemberRole(
+    workspace,
+    {
+      memberUserId: 11,
+      roleId: "admin"
+    },
+    authorizedOptions(["workspace.members.manage"])
+  );
 
   assert.equal(response.members.length, 1);
   assert.equal(response.members[0].roleId, "member");

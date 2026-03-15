@@ -1,4 +1,3 @@
-import { requireAuthenticated } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
@@ -20,7 +19,6 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       consoleUsersOnly: false,
       inputValidator: [routeParamsValidator, cursorPaginationQueryValidator],
       outputValidator: crudResource.operations.list.outputValidator,
-      permission: requireAuthenticated,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
@@ -28,6 +26,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       observability: {},
       async execute(input, context, deps) {
         return deps.crudService.listRecords(input, {
+          context,
           visibilityContext: context?.visibilityContext
         });
       }
@@ -41,7 +40,6 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       consoleUsersOnly: false,
       inputValidator: [routeParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.view.outputValidator,
-      permission: requireAuthenticated,
       idempotency: "none",
       audit: {
         actionName: actionIds.view
@@ -49,6 +47,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       observability: {},
       async execute(input, context, deps) {
         return deps.crudService.getRecord(input.recordId, {
+          context,
           visibilityContext: context?.visibilityContext
         });
       }
@@ -62,7 +61,6 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       consoleUsersOnly: false,
       inputValidator: [routeParamsValidator, crudResource.operations.create.bodyValidator],
       outputValidator: crudResource.operations.create.outputValidator,
-      permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
         actionName: actionIds.create
@@ -70,6 +68,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       observability: {},
       async execute(input, context, deps) {
         return deps.crudService.createRecord(input, {
+          context,
           visibilityContext: context?.visibilityContext
         });
       }
@@ -83,7 +82,6 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       consoleUsersOnly: false,
       inputValidator: [routeParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
       outputValidator: crudResource.operations.patch.outputValidator,
-      permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
         actionName: actionIds.update
@@ -92,6 +90,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       async execute(input, context, deps) {
         const { recordId, ...patch } = input;
         return deps.crudService.updateRecord(recordId, patch, {
+          context,
           visibilityContext: context?.visibilityContext
         });
       }
@@ -105,7 +104,6 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       consoleUsersOnly: false,
       inputValidator: [routeParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.delete.outputValidator,
-      permission: requireAuthenticated,
       idempotency: "optional",
       audit: {
         actionName: actionIds.delete
@@ -113,6 +111,7 @@ function createActions({ actionIdPrefix = CRUD_ACTION_ID_PREFIX } = {}) {
       observability: {},
       async execute(input, context, deps) {
         return deps.crudService.deleteRecord(input.recordId, {
+          context,
           visibilityContext: context?.visibilityContext
         });
       }

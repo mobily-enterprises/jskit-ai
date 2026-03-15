@@ -2,6 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/service.js";
 
+function authenticatedOptions() {
+  return {
+    context: {
+      actor: {
+        id: 1
+      }
+    }
+  };
+}
+
+function createDomainEventsStub() {
+  return {
+    async publish() {
+      return null;
+    }
+  };
+}
+
 test("crudService delegates CRUD operations to the repository", async () => {
   const calls = [];
   const crudRepository = {
@@ -27,13 +45,14 @@ test("crudService delegates CRUD operations to the repository", async () => {
     }
   };
 
-  const service = createService({ crudRepository });
+  const service = createService({ crudRepository, domainEvents: createDomainEventsStub() });
 
-  await service.listRecords({ limit: 10 });
-  await service.getRecord(3);
-  await service.createRecord({ name: "Ada", surname: "Lovelace" });
-  await service.updateRecord(4, { surname: "Byron" });
-  await service.deleteRecord(5);
+  const options = authenticatedOptions();
+  await service.listRecords({ limit: 10 }, options);
+  await service.getRecord(3, options);
+  await service.createRecord({ name: "Ada", surname: "Lovelace" }, options);
+  await service.updateRecord(4, { surname: "Byron" }, options);
+  await service.deleteRecord(5, options);
 
   assert.deepEqual(calls, [
     ["list", { limit: 10 }],
@@ -46,6 +65,7 @@ test("crudService delegates CRUD operations to the repository", async () => {
 
 test("crudService throws 404 when a record is missing", async () => {
   const service = createService({
+    domainEvents: createDomainEventsStub(),
     crudRepository: {
       async list() {
         return { items: [], nextCursor: null };
@@ -66,17 +86,17 @@ test("crudService throws 404 when a record is missing", async () => {
   });
 
   await assert.rejects(
-    () => service.getRecord(9),
+    () => service.getRecord(9, authenticatedOptions()),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.updateRecord(9, { name: "Ada" }),
+    () => service.updateRecord(9, { name: "Ada" }, authenticatedOptions()),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 
   await assert.rejects(
-    () => service.deleteRecord(9),
+    () => service.deleteRecord(9, authenticatedOptions()),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 });

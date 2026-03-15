@@ -1,5 +1,4 @@
 import {
-  requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -15,7 +14,6 @@ const accountPreferencesActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.preferencesUpdate.bodyValidator,
     outputValidator: userSettingsResource.operations.view.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
       actionName: "settings.preferences.update"
@@ -25,7 +23,10 @@ const accountPreferencesActions = Object.freeze([
       return deps.accountPreferencesService.updatePreferences(
         resolveRequest(context),
         resolveUser(context, input),
-        input
+        input,
+        {
+          context
+        }
       );
     }
   }

@@ -1,14 +1,7 @@
 import { resolveWorkspace } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { createWorkspaceRoleCatalog, hasPermission } from "../../shared/roles.js";
+import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
-
-function canReadWorkspaceSettings(context) {
-  return (
-    hasPermission(context?.permissions, "workspace.settings.view") ||
-    hasPermission(context?.permissions, "workspace.settings.update")
-  );
-}
 
 function withWorkspaceRoleCatalog(payload = {}) {
   return {
@@ -27,14 +20,15 @@ const workspaceSettingsActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: routeParamsValidator,
     outputValidator: workspaceSettingsResource.operations.view.outputValidator,
-    permission: canReadWorkspaceSettings,
     idempotency: "none",
     audit: {
       actionName: "workspace.settings.read"
     },
     observability: {},
     async execute(input, context, deps) {
-      const response = await deps.workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input));
+      const response = await deps.workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
+        context
+      });
 
       return withWorkspaceRoleCatalog(response);
     }
@@ -48,7 +42,6 @@ const workspaceSettingsActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: [routeParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
     outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
-    permission: ["workspace.settings.update"],
     idempotency: "optional",
     audit: {
       actionName: "workspace.settings.update"
@@ -62,7 +55,10 @@ const workspaceSettingsActions = Object.freeze([
       const { workspaceSlug: _workspaceSlug, ...workspaceSettingsPatch } = input;
       const response = await deps.workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
-        workspaceSettingsPatch
+        workspaceSettingsPatch,
+        {
+          context
+        }
       );
 
       return withWorkspaceRoleCatalog(response);

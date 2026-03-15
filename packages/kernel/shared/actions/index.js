@@ -13,7 +13,6 @@ export { normalizeText, normalizeLowerText } from "./textNormalization.js";
 export { normalizeRequestMeta } from "./requestMeta.js";
 export { executeActionPipeline } from "./pipeline.js";
 export {
-  createPermissionEvaluator,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,

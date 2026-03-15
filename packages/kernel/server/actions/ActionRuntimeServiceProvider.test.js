@@ -4,8 +4,7 @@ import test from "node:test";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import {
   EMPTY_INPUT_VALIDATOR,
-  OBJECT_INPUT_VALIDATOR,
-  allowPublic
+  OBJECT_INPUT_VALIDATOR
 } from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
@@ -113,7 +112,6 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
         echoService: "test.echo.service"
       },
       inputValidator: { schema: OBJECT_INPUT_VALIDATOR },
-      permission: allowPublic,
       idempotency: "none",
       audit: { actionName: "test.echo" },
       observability: {},
@@ -159,7 +157,6 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       surfaces: ["app"],
       consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
-      permission: allowPublic,
       idempotency: "none",
       audit: { actionName: "alpha.one" },
       observability: {},
@@ -178,7 +175,6 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       surfaces: ["app"],
       consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
-      permission: allowPublic,
       idempotency: "none",
       audit: { actionName: "beta.one" },
       observability: {},
@@ -210,7 +206,6 @@ test("app.actions accepts custom action domains", () => {
       surfaces: ["app"],
       consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
-      permission: allowPublic,
       idempotency: "none",
       audit: { actionName: "custom.domain.check" },
       observability: {},
@@ -239,7 +234,6 @@ test("app.action registers a single action with default contributor id", () => {
     surfaces: ["app"],
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
-    permission: allowPublic,
     idempotency: "none",
     audit: { actionName: "test.single" },
     observability: {},
@@ -287,7 +281,6 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
       surfaces: ["app"],
       consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
-      permission: allowPublic,
       idempotency: "none",
       audit: { actionName: "test.empty-input" },
       observability: {},
@@ -356,7 +349,6 @@ test("app.actions rejects invalid domain identifiers", () => {
           surfaces: ["app"],
           consoleUsersOnly: false,
           inputValidator: EMPTY_INPUT_VALIDATOR,
-          permission: allowPublic,
           idempotency: "none",
           audit: { actionName: "invalid.domain" },
           observability: {},

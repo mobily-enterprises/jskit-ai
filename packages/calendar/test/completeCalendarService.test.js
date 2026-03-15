@@ -2,6 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/completeCalendar/completeCalendarService.js";
 
+function authenticatedOptions() {
+  return {
+    context: {
+      actor: {
+        id: 1
+      }
+    }
+  };
+}
+
 function createRepositoryStub() {
   return {
     async listWeek() {
@@ -89,7 +99,7 @@ test("completeCalendarService returns week list with contact summaries", async (
     completeCalendarRepository: createRepositoryStub()
   });
 
-  const result = await service.listWeek({ weekStart: "2026-03-11" });
+  const result = await service.listWeek({ weekStart: "2026-03-11" }, authenticatedOptions());
 
   assert.equal(Array.isArray(result.items), true);
   assert.equal(result.items.length, 1);
@@ -103,12 +113,15 @@ test("completeCalendarService validates event range", async () => {
 
   await assert.rejects(
     () =>
-      service.createEvent({
-        contactId: 7,
-        title: "Invalid",
-        startsAt: "2026-03-11T01:30:00.000Z",
-        endsAt: "2026-03-11T01:00:00.000Z"
-      }),
+      service.createEvent(
+        {
+          contactId: 7,
+          title: "Invalid",
+          startsAt: "2026-03-11T01:30:00.000Z",
+          endsAt: "2026-03-11T01:00:00.000Z"
+        },
+        authenticatedOptions()
+      ),
     (error) => error?.status === 400 && error?.message === "Event end must be after event start."
   );
 });

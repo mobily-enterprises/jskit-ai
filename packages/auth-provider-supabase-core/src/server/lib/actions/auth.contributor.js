@@ -1,7 +1,5 @@
 import {
-  EMPTY_INPUT_VALIDATOR,
-  allowPublic,
-  requireAuthenticated
+  EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
@@ -33,7 +31,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authRegisterCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.register"
@@ -51,7 +48,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authLoginPasswordCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.login.password"
@@ -69,7 +65,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authLoginOtpRequestCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.login.otp.request"
@@ -87,7 +82,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.login.otp.verify"
@@ -105,7 +99,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: [authLoginOAuthStartCommand.operation.paramsValidator, authLoginOAuthStartCommand.operation.queryValidator],
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.login.oauth.start"
@@ -123,7 +116,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.login.oauth.complete"
@@ -141,7 +133,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authPasswordResetRequestCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.password.reset.request"
@@ -159,7 +150,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.password.recovery.complete"
@@ -177,7 +167,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: authPasswordResetCommand.operation.bodyValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "auth.password.reset"
@@ -195,7 +184,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "auth.logout"
@@ -216,7 +204,6 @@ const authActions = Object.freeze([
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
-    permission: allowPublic,
     idempotency: "none",
     audit: {
       actionName: "auth.session.read"

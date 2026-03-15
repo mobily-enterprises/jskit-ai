@@ -111,7 +111,6 @@ function resolveActionDefinition(index, actionId, version) {
 
 function createActionRegistry({
   contributors = [],
-  permissionEvaluator,
   idempotencyAdapter,
   auditAdapter,
   observabilityAdapter,
@@ -127,7 +126,6 @@ function createActionRegistry({
       input,
       context,
       deps,
-      permissionEvaluator,
       idempotencyAdapter,
       auditAdapter,
       observabilityAdapter,
@@ -155,7 +153,6 @@ function createActionRegistry({
       input,
       context,
       deps,
-      permissionEvaluator,
       idempotencyAdapter,
       auditAdapter,
       observabilityAdapter,

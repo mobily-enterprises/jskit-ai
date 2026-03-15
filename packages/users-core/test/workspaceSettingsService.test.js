@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 
+function authorizedOptions(permissions = []) {
+  return {
+    context: {
+      actor: {
+        id: 1
+      },
+      permissions
+    }
+  };
+}
+
 function createFixture() {
   const state = {
     workspacePatch: null,
@@ -57,7 +68,10 @@ function createFixture() {
 test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEnabled flag", async () => {
   const { service, state } = createFixture();
 
-  const response = await service.getWorkspaceSettings(state.workspace);
+  const response = await service.getWorkspaceSettings(
+    state.workspace,
+    authorizedOptions(["workspace.settings.view"])
+  );
 
   assert.deepEqual(response.settings, {
     invitesEnabled: true
@@ -72,7 +86,8 @@ test("workspaceSettingsService.updateWorkspaceSettings delegates workspace and s
     {
       name: "New Name",
       invitesEnabled: false
-    }
+    },
+    authorizedOptions(["workspace.settings.update"])
   );
 
   assert.deepEqual(state.workspacePatch, {

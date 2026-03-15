@@ -11,6 +11,14 @@ export {
 export { parsePositiveInteger } from "./integers.js";
 export { safeRequestUrl, safePathnameFromRequest, buildLoginRedirectPathFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 export { normalizePagination } from "./pagination.js";
+export {
+  resolveServiceContext,
+  hasPermission,
+  requireAuth,
+  createAuthorizedService,
+  getServicePermissions
+} from "./serviceAuthorization.js";
+export { resolveDefaultScope, createEntityChangePublisher, createNoopEntityChangePublisher } from "./entityChangeEvents.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";
 export { resolveLoggerLevel, createFastifyLoggerOptions, registerRequestLoggingHooks, registerApiErrorHandler, ensureApiErrorHandling, resolveDatabaseErrorCode, recordDbErrorBestEffort, runGracefulShutdown } from "./fastifyBootstrap.js";
@@ -23,6 +31,12 @@ export { resolveFsBasePath } from "./storagePaths.js";
 export { readLockFromApp } from "./lib/lockfile.js";
 export { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";
 export { collectDomainFieldErrors, assertNoDomainRuleFailures } from "./domainRules.js";
+export {
+  DOMAIN_EVENT_LISTENER_TAG,
+  registerDomainEventListener,
+  resolveDomainEventListeners,
+  createDomainEvents
+} from "./domainEvents.js";
 export {
   toCanonicalJson,
   toSha256Hex,

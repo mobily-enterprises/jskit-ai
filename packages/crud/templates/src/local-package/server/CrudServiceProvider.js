@@ -28,7 +28,8 @@ class CrudServiceProvider {
 
     app.singleton(CRUD_SERVICE_TOKEN, (scope) => {
       return createCrudService({
-        crudRepository: scope.make(CRUD_REPOSITORY_TOKEN)
+        crudRepository: scope.make(CRUD_REPOSITORY_TOKEN),
+        domainEvents: scope.make("domainEvents")
       });
     });
 

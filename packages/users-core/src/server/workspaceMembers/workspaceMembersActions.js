@@ -2,7 +2,6 @@ import {
   resolveUser,
   resolveWorkspace
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
 
@@ -16,14 +15,13 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.rolesList.outputValidator,
-    permission: ["workspace.roles.view"],
     idempotency: "none",
     audit: {
       actionName: "workspace.roles.list"
     },
     observability: {},
-    async execute() {
-      return createWorkspaceRoleCatalog();
+    async execute(_input, context, deps) {
+      return deps.workspaceMembersService.listRoles({ context });
     }
   },
   {
@@ -35,14 +33,15 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.membersList.outputValidator,
-    permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
       actionName: "workspace.members.list"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.listMembers(resolveWorkspace(context, input));
+      return deps.workspaceMembersService.listMembers(resolveWorkspace(context, input), {
+        context
+      });
     }
   },
   {
@@ -54,7 +53,6 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.bodyValidator],
     outputValidator: workspaceMembersResource.operations.updateMemberRole.outputValidator,
-    permission: ["workspace.members.manage"],
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.role.update"
@@ -64,6 +62,8 @@ const workspaceMembersActions = Object.freeze([
       return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId,
         roleId: input.roleId
+      }, {
+        context
       });
     }
   },
@@ -76,14 +76,15 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.invitesList.outputValidator,
-    permission: ["workspace.members.view"],
     idempotency: "none",
     audit: {
       actionName: "workspace.invites.list"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.listInvites(resolveWorkspace(context, input));
+      return deps.workspaceMembersService.listInvites(resolveWorkspace(context, input), {
+        context
+      });
     }
   },
   {
@@ -95,7 +96,6 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: [routeParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
     outputValidator: workspaceMembersResource.operations.createInvite.outputValidator,
-    permission: ["workspace.members.invite"],
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.create"
@@ -112,6 +112,9 @@ const workspaceMembersActions = Object.freeze([
         {
           email: input.email,
           roleId: input.roleId
+        },
+        {
+          context
         }
       );
     }
@@ -125,14 +128,15 @@ const workspaceMembersActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.revokeInvite.outputValidator,
-    permission: ["workspace.invites.revoke"],
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.revoke"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId);
+      return deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
+        context
+      });
     }
   }
 ]);

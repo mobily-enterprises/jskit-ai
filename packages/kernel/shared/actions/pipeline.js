@@ -1,5 +1,4 @@
 import {
-  createPermissionEvaluator,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,
@@ -74,17 +73,12 @@ async function executeActionPipeline({
   input,
   context,
   deps = {},
-  permissionEvaluator,
   idempotencyAdapter,
   auditAdapter,
   observabilityAdapter,
   logger = console
 } = {}) {
   const normalizedContext = normalizeExecutionContext(context);
-  const authorizationEvaluator =
-    permissionEvaluator && typeof permissionEvaluator.evaluate === "function"
-      ? permissionEvaluator
-      : createPermissionEvaluator();
   const normalizedIdempotencyAdapter = idempotencyAdapter || createNoopIdempotencyAdapter();
   const normalizedAuditAdapter = auditAdapter || createNoopAuditAdapter();
   const normalizedObservabilityAdapter = observabilityAdapter || createNoopObservabilityAdapter();
@@ -106,28 +100,6 @@ async function executeActionPipeline({
     ensureActionConsoleUsersOnlyAllowed(definition, normalizedContext);
 
     const normalizedInput = await normalizeActionInput(definition, input, normalizedContext);
-    const permissionResolution = await authorizationEvaluator.evaluate({
-      definition,
-      context: normalizedContext,
-      input: normalizedInput
-    });
-
-    if (!permissionResolution?.allowed) {
-      if (typeof normalizedObservabilityAdapter.recordAuthorizationDenied === "function") {
-        normalizedObservabilityAdapter.recordAuthorizationDenied({
-          definition,
-          context: normalizedContext,
-          reason: permissionResolution?.reason || "forbidden",
-          code: permissionResolution?.code || "ACTION_PERMISSION_DENIED"
-        });
-      }
-
-      throw Object.assign(new Error("Forbidden."), {
-        status: 403,
-        statusCode: 403,
-        code: permissionResolution?.code || "ACTION_PERMISSION_DENIED"
-      });
-    }
 
     idempotencyKey = resolveActionIdempotencyKey(definition, normalizedContext);
     ensureIdempotencyKeyIfRequired(definition, normalizedContext, idempotencyKey);

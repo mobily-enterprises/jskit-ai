@@ -3,7 +3,6 @@ import test from "node:test";
 import { Type } from "typebox";
 
 import { createActionRegistry } from "./registry.js";
-import { createPermissionEvaluator } from "./policies.js";
 
 function createPassThroughSchema() {
   return {
@@ -31,7 +30,6 @@ test("action registry executes latest version by default", async () => {
             surfaces: ["app", "admin", "console"],
             consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
-            permission: ["settings.read"],
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -53,7 +51,6 @@ test("action registry executes latest version by default", async () => {
             surfaces: ["app", "admin", "console"],
             consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
-            permission: ["settings.read"],
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -138,7 +135,6 @@ test("action registry merges action input validators", async () => {
                 }
               }
             ],
-            permission: () => true,
             idempotency: "optional",
             audit: {
               actionName: "workspace.settings.update"
@@ -190,7 +186,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 surfaces: ["app"],
                 consoleUsersOnly: false,
                 inputValidator: { schema: createPassThroughSchema() },
-                permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
                   actionName: "settings.profile.update"
@@ -217,7 +212,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 surfaces: ["app"],
                 consoleUsersOnly: false,
                 inputValidator: { schema: createPassThroughSchema() },
-                permission: ["settings.profile.update"],
                 idempotency: "optional",
                 audit: {
                   actionName: "settings.profile.update"
@@ -237,34 +231,6 @@ test("action registry fails startup on duplicate action id + version", () => {
   );
 });
 
-test("permission evaluator supports array and callback policies", async () => {
-  const evaluator = createPermissionEvaluator();
-
-  const staticDenied = await evaluator.evaluate({
-    definition: {
-      permission: ["workspace.settings.update"]
-    },
-    context: {
-      permissions: ["workspace.settings.read"]
-    },
-    input: {}
-  });
-  assert.equal(staticDenied.allowed, false);
-
-  const dynamicAllowed = await evaluator.evaluate({
-    definition: {
-      permission: (_context, input) => Boolean(input?.allow)
-    },
-    context: {
-      permissions: []
-    },
-    input: {
-      allow: true
-    }
-  });
-  assert.equal(dynamicAllowed.allowed, true);
-});
-
 test("action registry rejects invalid version requests", async () => {
   const registry = createActionRegistry({
     contributors: [
@@ -281,7 +247,6 @@ test("action registry rejects invalid version requests", async () => {
             surfaces: ["app"],
             consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
-            permission: ["settings.read"],
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -334,7 +299,6 @@ test("action registry enforces consoleUsersOnly for non-operator actors", async 
             surfaces: ["app"],
             consoleUsersOnly: true,
             inputValidator: { schema: createPassThroughSchema() },
-            permission: () => true,
             idempotency: "none",
             audit: {
               actionName: "settings.internal.ping"

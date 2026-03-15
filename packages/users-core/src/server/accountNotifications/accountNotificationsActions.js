@@ -1,5 +1,4 @@
 import {
-  requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -15,7 +14,6 @@ const accountNotificationsActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.notificationsUpdate.bodyValidator,
     outputValidator: userSettingsResource.operations.view.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
       actionName: "settings.notifications.update"
@@ -25,7 +23,10 @@ const accountNotificationsActions = Object.freeze([
       return deps.accountNotificationsService.updateNotifications(
         resolveRequest(context),
         resolveUser(context, input),
-        input
+        input,
+        {
+          context
+        }
       );
     }
   }

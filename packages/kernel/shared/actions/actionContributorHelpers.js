@@ -41,14 +41,6 @@ function resolveWorkspace(context, input) {
   );
 }
 
-function allowPublic() {
-  return true;
-}
-
-function requireAuthenticated(context) {
-  return toPositiveInteger(context?.actor?.id) > 0;
-}
-
 function hasPermission(permissionSet, permission) {
   const requiredPermission = normalizeText(permission);
   if (!requiredPermission) {
@@ -76,8 +68,6 @@ export {
   resolveRequest,
   resolveUser,
   resolveWorkspace,
-  allowPublic,
-  requireAuthenticated,
   hasPermission,
   EMPTY_INPUT_VALIDATOR,
   OBJECT_INPUT_VALIDATOR

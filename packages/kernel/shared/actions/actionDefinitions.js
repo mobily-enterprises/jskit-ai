@@ -187,19 +187,6 @@ function normalizeActionOutputValidator(value, fieldName, { required = false } =
   });
 }
 
-function normalizePermissionPolicy(permission) {
-  if (typeof permission === "function") {
-    return permission;
-  }
-
-  const permissions = normalizeStringArray(permission, {
-    fieldName: "permission",
-    allowEmpty: false
-  });
-
-  return Object.freeze(permissions);
-}
-
 function normalizeAuditConfig(audit, { actionId }) {
   const source = audit && typeof audit === "object" ? audit : {};
   const actionName = normalizeText(source.actionName || actionId);
@@ -347,6 +334,16 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
+  if (Object.prototype.hasOwnProperty.call(source, "permission")) {
+    throw createActionRuntimeError(
+      500,
+      `Action definition \"${id}\" must not define permission. Enforce authorization in the service layer.`,
+      {
+        code: "ACTION_DEFINITION_INVALID"
+      }
+    );
+  }
+
   return Object.freeze({
     id,
     version,
@@ -361,7 +358,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     outputValidator: normalizeActionOutputValidator(source.outputValidator, "outputValidator", {
       required: false
     }),
-    permission: normalizePermissionPolicy(source.permission),
     idempotency,
     audit: normalizeAuditConfig(source.audit, {
       actionId: id
@@ -414,7 +410,6 @@ const __testables = {
   normalizeSingleActionValidator,
   normalizeActionValidators,
   normalizeActionOutputValidator,
-  normalizePermissionPolicy,
   normalizeAuditConfig,
   normalizeObservabilityConfig,
   normalizeAssistantToolConfig

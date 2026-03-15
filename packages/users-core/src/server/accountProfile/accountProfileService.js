@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -16,7 +17,22 @@ function createService({
     throw new Error("accountProfileService requires repositories.");
   }
 
-  async function getForUser(request, user) {
+  const servicePermissions = Object.freeze({
+    getForUser: Object.freeze({
+      require: "authenticated"
+    }),
+    updateProfile: Object.freeze({
+      require: "authenticated"
+    }),
+    uploadAvatar: Object.freeze({
+      require: "authenticated"
+    }),
+    deleteAvatar: Object.freeze({
+      require: "authenticated"
+    })
+  });
+
+  async function getForUser(request, user, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
@@ -33,7 +49,7 @@ function createService({
     });
   }
 
-  async function updateProfile(request, user, payload = {}) {
+  async function updateProfile(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
@@ -65,20 +81,25 @@ function createService({
     };
   }
 
-  async function uploadAvatar() {
+  async function uploadAvatar(_request, _user, _payload = {}, options = {}) {
+    void options;
     throw new AppError(501, "Avatar upload is not implemented in users-core yet.");
   }
 
-  async function deleteAvatar() {
+  async function deleteAvatar(_request, _user, _payload = {}, options = {}) {
+    void options;
     throw new AppError(501, "Avatar deletion is not implemented in users-core yet.");
   }
 
-  return Object.freeze({
-    getForUser,
-    updateProfile,
-    uploadAvatar,
-    deleteAvatar
-  });
+  return createAuthorizedService(
+    {
+      getForUser,
+      updateProfile,
+      uploadAvatar,
+      deleteAvatar
+    },
+    servicePermissions
+  );
 }
 
 export { createService };

@@ -1,6 +1,5 @@
 import {
   EMPTY_INPUT_VALIDATOR,
-  requireAuthenticated,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
@@ -16,7 +15,6 @@ const workspacePendingInvitationsActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: workspacePendingInvitationsResource.operations.list.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "workspace.invitations.pending.list"
@@ -24,7 +22,9 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input))
+        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input), {
+          context
+        })
       };
     }
   },
@@ -37,7 +37,6 @@ const workspacePendingInvitationsActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: workspaceInviteResource.operations.redeem.bodyValidator,
     outputValidator: workspaceInviteResource.operations.redeem.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.redeem"
@@ -50,12 +49,16 @@ const workspacePendingInvitationsActions = Object.freeze([
         return deps.workspacePendingInvitationsService.acceptInviteByToken({
           user,
           token: input.token
+        }, {
+          context
         });
       }
 
       return deps.workspacePendingInvitationsService.refuseInviteByToken({
         user,
         token: input.token
+      }, {
+        context
       });
     }
   }

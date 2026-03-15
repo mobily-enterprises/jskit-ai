@@ -1,6 +1,7 @@
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID } from "../../shared/roles.js";
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
+import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID, createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
@@ -16,14 +17,48 @@ function createService({
   }
 
   const assignableRoleIds = ASSIGNABLE_ROLE_IDS;
+  const servicePermissions = Object.freeze({
+    listRoles: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.roles.view"])
+    }),
+    listMembers: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.members.view"])
+    }),
+    updateMemberRole: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.members.manage"])
+    }),
+    listInvites: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.members.view"])
+    }),
+    createInvite: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.members.invite"])
+    }),
+    revokeInvite: Object.freeze({
+      require: "all",
+      permissions: Object.freeze(["workspace.invites.revoke"])
+    })
+  });
 
-  async function listMembers(workspace, options = {}) {
+  async function listRoles(options = {}) {
+    return createWorkspaceRoleCatalog();
+  }
+
+  async function listMembersPayload(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return {
       workspace,
       members
     };
+  }
+
+  async function listMembers(workspace, options = {}) {
+    return listMembersPayload(workspace, options);
   }
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
@@ -57,16 +92,20 @@ function createService({
       options
     );
 
-    return listMembers(workspace, options);
+    return listMembersPayload(workspace, options);
   }
 
-  async function listInvites(workspace, options = {}) {
+  async function listInvitesPayload(workspace, options = {}) {
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return {
       workspace,
       invites
     };
+  }
+
+  async function listInvites(workspace, options = {}) {
+    return listInvitesPayload(workspace, options);
   }
 
   async function createInvite(workspace, user, payload = {}, options = {}) {
@@ -98,7 +137,7 @@ function createService({
       options
     );
 
-    const response = await listInvites(workspace, options);
+    const response = await listInvitesPayload(workspace, options);
     return {
       ...response,
       inviteTokenPreview: token
@@ -116,16 +155,20 @@ function createService({
     }
 
     await workspaceInvitesRepository.revokeById(inviteId, options);
-    return listInvites(workspace, options);
+    return listInvitesPayload(workspace, options);
   }
 
-  return Object.freeze({
-    listMembers,
-    updateMemberRole,
-    listInvites,
-    createInvite,
-    revokeInvite
-  });
+  return createAuthorizedService(
+    {
+      listRoles,
+      listMembers,
+      updateMemberRole,
+      listInvites,
+      createInvite,
+      revokeInvite
+    },
+    servicePermissions
+  );
 }
 
 export { createService };

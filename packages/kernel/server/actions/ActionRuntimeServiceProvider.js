@@ -322,7 +322,6 @@ class ActionRuntimeServiceProvider {
       app.singleton("actionRegistry", (scope) => {
         return actionRuntime.createActionRegistry({
           contributors: resolveActionContributors(scope),
-          permissionEvaluator: actionRuntime.createPermissionEvaluator(),
           idempotencyAdapter: actionRuntime.createNoopIdempotencyAdapter(),
           auditAdapter: actionRuntime.createNoopAuditAdapter(),
           observabilityAdapter: actionRuntime.createNoopObservabilityAdapter(),

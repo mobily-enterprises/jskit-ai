@@ -2,75 +2,6 @@ import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
-function defaultHasPermission(permissionSet, permission) {
-  const requiredPermission = normalizeText(permission);
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const normalizedPermissions = Array.isArray(permissionSet)
-    ? permissionSet.map((entry) => normalizeText(entry)).filter(Boolean)
-    : [];
-
-  return normalizedPermissions.includes("*") || normalizedPermissions.includes(requiredPermission);
-}
-
-function createPermissionEvaluator({ hasPermissionFn = defaultHasPermission } = {}) {
-  const hasPermission = typeof hasPermissionFn === "function" ? hasPermissionFn : defaultHasPermission;
-
-  async function evaluate({ definition, context, input }) {
-    const policy = definition?.permission;
-
-    if (typeof policy === "function") {
-      const resolution = await policy(context, input);
-      if (typeof resolution === "boolean") {
-        return {
-          allowed: resolution,
-          reason: resolution ? "allowed" : "forbidden",
-          code: resolution ? "ACTION_PERMISSION_ALLOWED" : "ACTION_PERMISSION_DENIED"
-        };
-      }
-
-      if (resolution && typeof resolution === "object") {
-        return {
-          allowed: resolution.allowed === true,
-          reason: normalizeText(resolution.reason || "forbidden") || "forbidden",
-          code: normalizeText(resolution.code || "ACTION_PERMISSION_DENIED") || "ACTION_PERMISSION_DENIED"
-        };
-      }
-
-      return {
-        allowed: false,
-        reason: "forbidden",
-        code: "ACTION_PERMISSION_DENIED"
-      };
-    }
-
-    const requiredPermissions = Array.isArray(policy) ? policy : [];
-    const actorPermissions = Array.isArray(context?.permissions) ? context.permissions : [];
-
-    for (const permission of requiredPermissions) {
-      if (!hasPermission(actorPermissions, permission)) {
-        return {
-          allowed: false,
-          reason: "forbidden",
-          code: "ACTION_PERMISSION_DENIED"
-        };
-      }
-    }
-
-    return {
-      allowed: true,
-      reason: "allowed",
-      code: "ACTION_PERMISSION_ALLOWED"
-    };
-  }
-
-  return {
-    evaluate
-  };
-}
-
 function ensureActionChannelAllowed(definition, context) {
   const channel = normalizeLowerText(context?.channel);
   const allowedChannels = Array.isArray(definition?.channels) ? definition.channels : [];
@@ -342,7 +273,6 @@ async function normalizeActionOutput(definition, output, context) {
 const __testables = {
   normalizeText,
   normalizeLowerText,
-  defaultHasPermission,
   normalizeSchemaValidationErrors,
   normalizeTypeBoxValidationErrors,
   normalizeValidatorPayload,
@@ -350,7 +280,6 @@ const __testables = {
 };
 
 export {
-  createPermissionEvaluator,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,

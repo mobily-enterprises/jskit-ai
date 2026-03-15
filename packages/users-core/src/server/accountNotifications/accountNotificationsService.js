@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -16,7 +17,13 @@ function createService({
     throw new Error("accountNotificationsService requires repositories.");
   }
 
-  async function updateNotifications(request, user, payload = {}) {
+  const servicePermissions = Object.freeze({
+    updateNotifications: Object.freeze({
+      require: "authenticated"
+    })
+  });
+
+  async function updateNotifications(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
@@ -33,9 +40,12 @@ function createService({
     });
   }
 
-  return Object.freeze({
-    updateNotifications
-  });
+  return createAuthorizedService(
+    {
+      updateNotifications
+    },
+    servicePermissions
+  );
 }
 
 export { createService };

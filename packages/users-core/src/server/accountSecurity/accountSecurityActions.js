@@ -1,5 +1,4 @@
 import {
-  requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -15,14 +14,15 @@ const accountSecurityActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.passwordChange.bodyValidator,
     outputValidator: userSettingsResource.operations.passwordChange.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password.change"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.changePassword(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.changePassword(resolveRequest(context), resolveUser(context, input), input, {
+        context
+      });
     }
   },
   {
@@ -34,14 +34,20 @@ const accountSecurityActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.passwordMethodToggle.bodyValidator,
     outputValidator: userSettingsResource.operations.passwordMethodToggle.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password_method.toggle"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.setPasswordMethodEnabled(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.setPasswordMethodEnabled(
+        resolveRequest(context),
+        resolveUser(context, input),
+        input,
+        {
+          context
+        }
+      );
     }
   },
   {
@@ -53,14 +59,20 @@ const accountSecurityActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: [userSettingsResource.operations.oauthLinkStart.paramsValidator, userSettingsResource.operations.oauthLinkStart.queryValidator],
     outputValidator: userSettingsResource.operations.oauthLinkStart.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.link.start"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.startOAuthProviderLink(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.startOAuthProviderLink(
+        resolveRequest(context),
+        resolveUser(context, input),
+        input,
+        {
+          context
+        }
+      );
     }
   },
   {
@@ -72,14 +84,20 @@ const accountSecurityActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.oauthUnlink.paramsValidator,
     outputValidator: userSettingsResource.operations.oauthUnlink.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.unlink"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.unlinkOAuthProvider(resolveRequest(context), resolveUser(context, input), input);
+      return deps.accountSecurityService.unlinkOAuthProvider(
+        resolveRequest(context),
+        resolveUser(context, input),
+        input,
+        {
+          context
+        }
+      );
     }
   },
   {
@@ -91,14 +109,15 @@ const accountSecurityActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: userSettingsResource.operations.logoutOtherSessions.bodyValidator,
     outputValidator: userSettingsResource.operations.logoutOtherSessions.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "settings.security.sessions.logout_others"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input));
+      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input), {
+        context
+      });
     }
   }
 ]);

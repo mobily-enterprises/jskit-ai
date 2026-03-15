@@ -1,6 +1,5 @@
 import {
   EMPTY_INPUT_VALIDATOR,
-  requireAuthenticated,
   resolveRequest,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -16,7 +15,6 @@ const workspaceDirectoryActions = Object.freeze([
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: workspaceResource.operations.list.outputValidator,
-    permission: requireAuthenticated,
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.list"
@@ -24,8 +22,9 @@ const workspaceDirectoryActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        items: await deps.workspaceService.listWorkspacesForUser(resolveUser(context, input), {
-          request: resolveRequest(context)
+        items: await deps.workspaceService.listWorkspacesForAuthenticatedUser(resolveUser(context, input), {
+          request: resolveRequest(context),
+          context
         }),
         nextCursor: null
       };

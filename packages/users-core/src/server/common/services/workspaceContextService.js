@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
@@ -108,6 +109,32 @@ function createService({
     socialEnabled: normalizeBoolean(appConfig.socialEnabled, defaultAppFeatures.socialEnabled),
     socialFederationEnabled: normalizeBoolean(appConfig.socialFederationEnabled, defaultAppFeatures.socialFederationEnabled)
   });
+  const servicePermissions = Object.freeze({
+    toSlugPart: Object.freeze({
+      require: "none"
+    }),
+    buildWorkspaceName: Object.freeze({
+      require: "none"
+    }),
+    buildWorkspaceBaseSlug: Object.freeze({
+      require: "none"
+    }),
+    hashInviteToken: Object.freeze({
+      require: "none"
+    }),
+    ensurePersonalWorkspaceForUser: Object.freeze({
+      require: "none"
+    }),
+    listWorkspacesForUser: Object.freeze({
+      require: "none"
+    }),
+    listWorkspacesForAuthenticatedUser: Object.freeze({
+      require: "authenticated"
+    }),
+    resolveWorkspaceContextForUserBySlug: Object.freeze({
+      require: "none"
+    })
+  });
 
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
@@ -185,6 +212,10 @@ function createService({
     return accessible;
   }
 
+  async function listWorkspacesForAuthenticatedUser(user, options = {}) {
+    return listWorkspacesForUser(user, options);
+  }
+
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
@@ -235,15 +266,19 @@ function createService({
     };
   }
 
-  return Object.freeze({
-    toSlugPart,
-    buildWorkspaceName,
-    buildWorkspaceBaseSlug,
-    hashInviteToken,
-    ensurePersonalWorkspaceForUser,
-    listWorkspacesForUser,
-    resolveWorkspaceContextForUserBySlug
-  });
+  return createAuthorizedService(
+    {
+      toSlugPart,
+      buildWorkspaceName,
+      buildWorkspaceBaseSlug,
+      hashInviteToken,
+      ensurePersonalWorkspaceForUser,
+      listWorkspacesForUser,
+      listWorkspacesForAuthenticatedUser,
+      resolveWorkspaceContextForUserBySlug
+    },
+    servicePermissions
+  );
 }
 
 export { createService };
