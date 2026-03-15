@@ -91,13 +91,17 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { computed, reactive, watch } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
 import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAddEdit } from "../composables/useAddEdit.js";
+import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
+import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
+import { normalizePermissionList } from "../lib/permissions.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
@@ -109,6 +113,40 @@ const workspaceForm = reactive({
   invitesAvailable: false
 });
 const routeContext = useWorkspaceRouteContext();
+const { mergeContext: mergePlacementContext } = useWebPlacementContext();
+const bootstrapQuery = useBootstrapQuery({
+  workspaceSlug: routeContext.workspaceSlugFromRoute,
+  enabled: computed(() => Boolean(routeContext.workspaceSlugFromRoute.value))
+});
+
+function applyShellWorkspaceContext(payload = {}) {
+  const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
+  const currentWorkspace = findWorkspaceBySlug(
+    availableWorkspaces,
+    routeContext.workspaceSlugFromRoute.value
+  );
+  const permissions = normalizePermissionList(payload?.permissions);
+
+  mergePlacementContext(
+    {
+      workspace: currentWorkspace,
+      workspaces: availableWorkspaces,
+      permissions
+    },
+    "users-web.workspace-settings-view"
+  );
+}
+
+watch(
+  () => bootstrapQuery.query.data.value,
+  (payload) => {
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+    applyShellWorkspaceContext(payload);
+  },
+  { immediate: true }
+);
 
 function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
   const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
@@ -161,6 +199,9 @@ const addEdit = useAddEdit({
     color: model.color,
     avatarUrl: model.avatarUrl,
     invitesEnabled: model.invitesEnabled
-  })
+  }),
+  onSaveSuccess: async () => {
+    await bootstrapQuery.query.refetch();
+  }
 });
 </script>

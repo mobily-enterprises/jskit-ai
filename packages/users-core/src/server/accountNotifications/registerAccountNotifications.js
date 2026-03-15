@@ -1,7 +1,11 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { ACCOUNT_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
+import {
+  ACCOUNT_SETTINGS_CHANGED_EVENT,
+  USERS_BOOTSTRAP_CHANGED_EVENT
+} from "../../shared/events/usersEvents.js";
 import { createService as createAccountNotificationsService } from "./accountNotificationsService.js";
 import { accountNotificationsActions } from "./accountNotificationsActions.js";
+import { deepFreeze } from "../common/support/deepFreeze.js";
 
 const USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN = "users.accountNotifications.service";
 
@@ -19,20 +23,31 @@ function registerAccountNotifications(app) {
         authService: scope.make("authService")
       }),
     {
-      events: Object.freeze({
-        updateNotifications: Object.freeze([
-          Object.freeze({
+      events: deepFreeze({
+        updateNotifications: [
+          {
             type: "entity.changed",
             source: "account",
             entity: "settings",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: ACCOUNT_SETTINGS_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          })
-        ])
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "actor_user"
+            }
+          }
+        ]
       })
     }
   );

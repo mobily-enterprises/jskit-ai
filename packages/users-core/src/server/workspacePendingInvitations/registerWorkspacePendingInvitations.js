@@ -2,9 +2,11 @@ import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "./workspacePendingInvitationsService.js";
 import { workspacePendingInvitationsActions } from "./workspacePendingInvitationsActions.js";
 import {
+  USERS_BOOTSTRAP_CHANGED_EVENT,
   WORKSPACES_CHANGED_EVENT,
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "../../shared/events/usersEvents.js";
+import { deepFreeze } from "../common/support/deepFreeze.js";
 import {
   USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
 } from "../common/diTokens.js";
@@ -33,44 +35,66 @@ function registerWorkspacePendingInvitations(app) {
           require: "authenticated"
         })
       }),
-      events: Object.freeze({
-        acceptInviteByToken: Object.freeze([
-          Object.freeze({
+      events: deepFreeze({
+        acceptInviteByToken: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "invitation",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          }),
-          Object.freeze({
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "actor_user"
+            }
+          },
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "directory",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACES_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          })
-        ]),
-        refuseInviteByToken: Object.freeze([
-          Object.freeze({
+            }
+          }
+        ],
+        refuseInviteByToken: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "invitation",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          })
-        ])
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "actor_user"
+            }
+          }
+        ]
       })
     }
   );

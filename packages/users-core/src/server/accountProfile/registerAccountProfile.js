@@ -1,7 +1,11 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { ACCOUNT_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
+import {
+  ACCOUNT_SETTINGS_CHANGED_EVENT,
+  USERS_BOOTSTRAP_CHANGED_EVENT
+} from "../../shared/events/usersEvents.js";
 import { createService as createAccountProfileService } from "./accountProfileService.js";
 import { accountProfileActions } from "./accountProfileActions.js";
+import { deepFreeze } from "../common/support/deepFreeze.js";
 
 const USERS_ACCOUNT_PROFILE_SERVICE_TOKEN = "users.accountProfile.service";
 
@@ -19,33 +23,55 @@ function registerAccountProfile(app) {
         authService: scope.make("authService")
       }),
     {
-      events: Object.freeze({
-        updateProfile: Object.freeze([
-          Object.freeze({
+      events: deepFreeze({
+        updateProfile: [
+          {
             type: "entity.changed",
             source: "account",
             entity: "settings",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: ACCOUNT_SETTINGS_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          })
-        ]),
-        deleteAvatar: Object.freeze([
-          Object.freeze({
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "actor_user"
+            }
+          }
+        ],
+        deleteAvatar: [
+          {
             type: "entity.changed",
             source: "account",
             entity: "settings",
             operation: "updated",
             entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: Object.freeze({
+            realtime: {
               event: ACCOUNT_SETTINGS_CHANGED_EVENT,
               audience: "actor_user"
-            })
-          })
-        ])
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "actor_user"
+            }
+          }
+        ]
       })
     }
   );

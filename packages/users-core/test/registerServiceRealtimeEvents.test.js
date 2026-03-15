@@ -9,6 +9,7 @@ import { registerWorkspacePendingInvitations } from "../src/server/workspacePend
 import {
   ACCOUNT_SETTINGS_CHANGED_EVENT,
   CONSOLE_SETTINGS_CHANGED_EVENT,
+  USERS_BOOTSTRAP_CHANGED_EVENT,
   WORKSPACE_MEMBERS_CHANGED_EVENT,
   WORKSPACE_INVITES_CHANGED_EVENT,
   WORKSPACES_CHANGED_EVENT,
@@ -48,17 +49,21 @@ test("account register functions publish account.settings.changed for update ope
   registerAccountProfile(profileApp.app);
   const profile = findServiceCall(profileApp.serviceCalls, "users.accountProfile.service");
   assert.equal(profile?.metadata?.events?.updateProfile?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
+  assert.equal(profile?.metadata?.events?.updateProfile?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(profile?.metadata?.events?.deleteAvatar?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
+  assert.equal(profile?.metadata?.events?.deleteAvatar?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 
   const preferencesApp = createAppDouble();
   registerAccountPreferences(preferencesApp.app);
   const preferences = findServiceCall(preferencesApp.serviceCalls, "users.accountPreferences.service");
   assert.equal(preferences?.metadata?.events?.updatePreferences?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
+  assert.equal(preferences?.metadata?.events?.updatePreferences?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 
   const notificationsApp = createAppDouble();
   registerAccountNotifications(notificationsApp.app);
   const notifications = findServiceCall(notificationsApp.serviceCalls, "users.accountNotifications.service");
   assert.equal(notifications?.metadata?.events?.updateNotifications?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
+  assert.equal(notifications?.metadata?.events?.updateNotifications?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 });
 
 test("console settings register publishes console.settings.changed", () => {
@@ -73,8 +78,11 @@ test("workspace register functions publish members/invites/workspace-list realti
   registerWorkspaceMembers(membersApp.app);
   const members = findServiceCall(membersApp.serviceCalls, "users.workspace.members.service");
   assert.equal(members?.metadata?.events?.updateMemberRole?.[0]?.realtime?.event, WORKSPACE_MEMBERS_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.updateMemberRole?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.createInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.revokeInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 
   const pendingApp = createAppDouble();
   registerWorkspacePendingInvitations(pendingApp.app);
@@ -83,9 +91,11 @@ test("workspace register functions publish members/invites/workspace-list realti
     pending?.metadata?.events?.acceptInviteByToken?.[0]?.realtime?.event,
     WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
   );
-  assert.equal(pending?.metadata?.events?.acceptInviteByToken?.[1]?.realtime?.event, WORKSPACES_CHANGED_EVENT);
+  assert.equal(pending?.metadata?.events?.acceptInviteByToken?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(pending?.metadata?.events?.acceptInviteByToken?.[2]?.realtime?.event, WORKSPACES_CHANGED_EVENT);
   assert.equal(
     pending?.metadata?.events?.refuseInviteByToken?.[0]?.realtime?.event,
     WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
   );
+  assert.equal(pending?.metadata?.events?.refuseInviteByToken?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 });

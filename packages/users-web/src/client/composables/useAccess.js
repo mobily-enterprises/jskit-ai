@@ -4,8 +4,7 @@ import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT,
-  WORKSPACE_MEMBERS_CHANGED_EVENT
+  USERS_BOOTSTRAP_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 import {
   normalizeAccessMode,
@@ -136,14 +135,7 @@ function useAccess({
   }
 
   useRealtimeEvent({
-    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-    enabled: realtimeEnabled,
-    matches: isCurrentWorkspaceEvent,
-    onEvent: refreshBootstrap
-  });
-
-  useRealtimeEvent({
-    event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+    event: USERS_BOOTSTRAP_CHANGED_EVENT,
     enabled: realtimeEnabled,
     matches: isCurrentWorkspaceEvent,
     onEvent: refreshBootstrap

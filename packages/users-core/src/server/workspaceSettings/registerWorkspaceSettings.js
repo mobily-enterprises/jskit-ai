@@ -1,6 +1,10 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
+import {
+  USERS_BOOTSTRAP_CHANGED_EVENT,
+  WORKSPACE_SETTINGS_CHANGED_EVENT
+} from "../../shared/events/usersEvents.js";
+import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
@@ -36,23 +40,34 @@ function registerWorkspaceSettings(app) {
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
       }),
     {
-      events: Object.freeze({
-        updateWorkspaceSettings: Object.freeze([
-          Object.freeze({
+      events: deepFreeze({
+        updateWorkspaceSettings: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "settings",
             operation: "updated",
             entityId: ({ args }) => args?.[0]?.id,
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-              payload: ({ args }) => Object.freeze({
+              payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
               audience: "all_workspace_users"
-            })
-          })
-        ])
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "all_workspace_users"
+            }
+          }
+        ]
       })
     }
   );

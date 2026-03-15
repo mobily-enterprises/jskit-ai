@@ -1,8 +1,10 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import {
+  USERS_BOOTSTRAP_CHANGED_EVENT,
   WORKSPACE_MEMBERS_CHANGED_EVENT,
   WORKSPACE_INVITES_CHANGED_EVENT
 } from "../../shared/events/usersEvents.js";
+import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 
@@ -33,55 +35,88 @@ function registerWorkspaceMembers(app) {
       });
     },
     {
-      events: Object.freeze({
-        updateMemberRole: Object.freeze([
-          Object.freeze({
+      events: deepFreeze({
+        updateMemberRole: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "member",
             operation: "updated",
             entityId: ({ args }) => args?.[0]?.id,
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-              payload: ({ args }) => Object.freeze({
+              payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
               audience: "all_workspace_users"
-            })
-          })
-        ]),
-        createInvite: Object.freeze([
-          Object.freeze({
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "all_workspace_users"
+            }
+          }
+        ],
+        createInvite: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "invite",
             operation: "created",
             entityId: ({ args }) => args?.[0]?.id,
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_INVITES_CHANGED_EVENT,
-              payload: ({ args }) => Object.freeze({
+              payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
               audience: "all_workspace_users"
-            })
-          })
-        ]),
-        revokeInvite: Object.freeze([
-          Object.freeze({
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "all_workspace_users"
+            }
+          }
+        ],
+        revokeInvite: [
+          {
             type: "entity.changed",
             source: "workspace",
             entity: "invite",
             operation: "updated",
             entityId: ({ args }) => args?.[0]?.id,
-            realtime: Object.freeze({
+            realtime: {
               event: WORKSPACE_INVITES_CHANGED_EVENT,
-              payload: ({ args }) => Object.freeze({
+              payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
               audience: "all_workspace_users"
-            })
-          })
-        ])
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "all_workspace_users"
+            }
+          }
+        ]
       })
     }
   );

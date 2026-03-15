@@ -15,9 +15,7 @@ import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT,
-  WORKSPACE_MEMBERS_CHANGED_EVENT,
-  WORKSPACES_CHANGED_EVENT
+  USERS_BOOTSTRAP_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const props = defineProps({
@@ -122,8 +120,23 @@ const loading = computed(() => Boolean(bootstrapQuery.query.isPending.value || b
 const authenticated = computed(() => Boolean(bootstrapQuery.query.data.value?.session?.authenticated));
 const workspaces = computed(() => normalizeWorkspaceList(bootstrapQuery.query.data.value?.workspaces));
 const activeWorkspace = computed(() => findWorkspaceBySlug(workspaces.value, routeWorkspaceSlug.value));
-const permissions = computed(() => normalizePermissionList(bootstrapQuery.query.data.value?.permissions));
 const activeWorkspaceId = computed(() => Number(activeWorkspace.value?.id || 0));
+
+function isCurrentWorkspaceEvent({ payload = {} } = {}) {
+  const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
+  const scopeKind = String(scope.kind || "").trim().toLowerCase();
+  const scopeId = Number(scope.id || 0);
+  if (scopeKind === "workspace" && scopeId > 0) {
+    return scopeId === activeWorkspaceId.value;
+  }
+
+  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
+  if (payloadWorkspaceSlug) {
+    return payloadWorkspaceSlug === routeWorkspaceSlug.value;
+  }
+
+  return true;
+}
 
 async function navigateToWorkspace(slug) {
   const normalizedSlug = String(slug || "").trim();
@@ -241,36 +254,9 @@ watch(
 );
 
 useRealtimeEvent({
-  event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-  enabled: computed(() => authenticated.value && activeWorkspaceId.value > 0),
-  matches: ({ payload = {} }) => {
-    const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
-    const scopeKind = String(scope.kind || "").trim().toLowerCase();
-    const scopeId = Number(scope.id || 0);
-    return scopeKind === "workspace" && scopeId > 0 && scopeId === activeWorkspaceId.value;
-  },
-  onEvent: async () => {
-    await bootstrapQuery.query.refetch();
-  }
-});
-
-useRealtimeEvent({
-  event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-  enabled: computed(() => authenticated.value && activeWorkspaceId.value > 0),
-  matches: ({ payload = {} }) => {
-    const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
-    const scopeKind = String(scope.kind || "").trim().toLowerCase();
-    const scopeId = Number(scope.id || 0);
-    return scopeKind === "workspace" && scopeId > 0 && scopeId === activeWorkspaceId.value;
-  },
-  onEvent: async () => {
-    await bootstrapQuery.query.refetch();
-  }
-});
-
-useRealtimeEvent({
-  event: WORKSPACES_CHANGED_EVENT,
+  event: USERS_BOOTSTRAP_CHANGED_EVENT,
   enabled: authenticated,
+  matches: isCurrentWorkspaceEvent,
   onEvent: async () => {
     await bootstrapQuery.query.refetch();
   }

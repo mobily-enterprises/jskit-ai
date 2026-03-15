@@ -13,8 +13,7 @@ import {
 } from "../lib/permissions.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT,
-  WORKSPACE_MEMBERS_CHANGED_EVENT
+  USERS_BOOTSTRAP_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { usePaths } from "../composables/usePaths.js";
@@ -110,16 +109,7 @@ watch(
 );
 
 useRealtimeEvent({
-  event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-  enabled: workspaceSettingsEventsEnabled,
-  matches: isCurrentWorkspaceEvent,
-  onEvent: async () => {
-    await bootstrapQuery.query.refetch();
-  }
-});
-
-useRealtimeEvent({
-  event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+  event: USERS_BOOTSTRAP_CHANGED_EVENT,
   enabled: workspaceSettingsEventsEnabled,
   matches: isCurrentWorkspaceEvent,
   onEvent: async () => {

@@ -91,7 +91,7 @@ function useAddEditCore({
       }
 
       if (typeof onSaveSuccess === "function") {
-        onSaveSuccess(payload, {
+        await onSaveSuccess(payload, {
           queryClient,
           parsed: parsedInput,
           parseResult,
