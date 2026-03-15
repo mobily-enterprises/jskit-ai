@@ -19,6 +19,9 @@ test("auth supabase provider registers authService and contributes auth actions"
     error() {},
     debug() {}
   });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
 
   await app.start({
     providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]

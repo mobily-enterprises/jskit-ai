@@ -124,6 +124,7 @@ test("auth guard runtime refreshes on reconnect visibility and notifies subscrib
     let callCount = 0;
     const runtime = createAuthGuardRuntime({
       placementRuntime,
+      refreshOnForeground: true,
       fetchImplementation: async () => {
         callCount += 1;
         return {
@@ -167,4 +168,89 @@ test("auth guard runtime refreshes on reconnect visibility and notifies subscrib
     globalThis.window = originalWindow;
     globalThis.document = originalDocument;
   }
+});
+
+test("auth guard runtime throttles focus and visibility session refreshes within interval", async () => {
+  const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  const windowStub = createEventTargetStub();
+  const documentStub = createDocumentStub("visible");
+  globalThis.window = {
+    addEventListener: windowStub.addEventListener,
+    removeEventListener: windowStub.removeEventListener,
+    location: {
+      pathname: "/app/w/acme",
+      search: ""
+    }
+  };
+  globalThis.document = documentStub;
+
+  try {
+    const placementRuntime = createPlacementRuntimeStub();
+    let callCount = 0;
+    const runtime = createAuthGuardRuntime({
+      placementRuntime,
+      refreshOnForeground: false,
+      fetchImplementation: async () => {
+        callCount += 1;
+        return {
+          ok: true,
+          async json() {
+            return {
+              authenticated: true,
+              username: "ada"
+            };
+          }
+        };
+      }
+    });
+
+    await runtime.initialize();
+    assert.equal(callCount, 1);
+
+    windowStub.emit("focus");
+    await flushPendingRefresh();
+    assert.equal(callCount, 1);
+
+    documentStub.emit("visibilitychange");
+    await flushPendingRefresh();
+    assert.equal(callCount, 1);
+  } finally {
+    globalThis.window = originalWindow;
+    globalThis.document = originalDocument;
+  }
+});
+
+test("auth guard runtime refreshes session when realtime refresh events are received", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const socketListeners = new Map();
+  let callCount = 0;
+  const runtime = createAuthGuardRuntime({
+    placementRuntime,
+    realtimeSocket: {
+      on(eventName, handler) {
+        socketListeners.set(eventName, handler);
+      },
+      off() {}
+    },
+    fetchImplementation: async () => {
+      callCount += 1;
+      return {
+        ok: true,
+        async json() {
+          return {
+            authenticated: callCount > 1,
+            username: "ada"
+          };
+        }
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getState().authenticated, false);
+
+  socketListeners.get("users.bootstrap.changed")?.({});
+  await flushPendingRefresh();
+  assert.equal(runtime.getState().authenticated, true);
 });

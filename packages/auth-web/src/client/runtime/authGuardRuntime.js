@@ -4,6 +4,8 @@ const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = "/api/session";
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
+const DEFAULT_REFRESH_ON_FOREGROUND = false;
+const DEFAULT_REALTIME_REFRESH_EVENTS = Object.freeze(["users.bootstrap.changed", "auth.session.changed"]);
 const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
@@ -249,11 +251,43 @@ function isDocumentVisible() {
   return visibilityState === "visible";
 }
 
+function asRealtimeSocket(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  if (typeof value.on !== "function" || typeof value.off !== "function") {
+    return null;
+  }
+  return value;
+}
+
+function normalizeRealtimeRefreshEvents(value) {
+  const source = Array.isArray(value) ? value : [value];
+  const deduped = [];
+
+  for (const entry of source) {
+    const eventName = String(entry || "").trim();
+    if (!eventName || deduped.includes(eventName)) {
+      continue;
+    }
+    deduped.push(eventName);
+  }
+
+  if (deduped.length < 1) {
+    return DEFAULT_REALTIME_REFRESH_EVENTS;
+  }
+
+  return Object.freeze(deduped);
+}
+
 function createAuthGuardRuntime({
   placementRuntime = null,
   sessionPath = DEFAULT_SESSION_PATH,
   loginRoute = DEFAULT_LOGIN_ROUTE,
-  fetchImplementation = globalThis.fetch
+  fetchImplementation = globalThis.fetch,
+  refreshOnForeground = DEFAULT_REFRESH_ON_FOREGROUND,
+  realtimeSocket = null,
+  realtimeRefreshEvents = DEFAULT_REALTIME_REFRESH_EVENTS
 } = {}) {
   if (!isPlacementRuntime(placementRuntime)) {
     throw new Error("createAuthGuardRuntime requires a web placement runtime with getContext()/setContext().");
@@ -261,6 +295,9 @@ function createAuthGuardRuntime({
 
   let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
   let currentLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
+  const foregroundRefreshEnabled = refreshOnForeground === true;
+  const socket = asRealtimeSocket(realtimeSocket);
+  const realtimeEvents = normalizeRealtimeRefreshEvents(realtimeRefreshEvents);
   let authState = DEFAULT_AUTH_STATE;
   let activeRefreshPromise = null;
   let listenersInstalled = false;
@@ -333,23 +370,36 @@ function createAuthGuardRuntime({
         void refresh();
       };
       const onWindowFocus = () => {
-        void refresh();
-      };
-      const onVisibilityChange = () => {
-        if (isDocumentVisible()) {
+        if (foregroundRefreshEnabled) {
           void refresh();
         }
+      };
+      const onVisibilityChange = () => {
+        if (foregroundRefreshEnabled && isDocumentVisible()) {
+          void refresh();
+        }
+      };
+      const onRealtimeRefresh = () => {
+        void refresh();
       };
 
       const windowTarget = getWindowEventTarget();
       if (windowTarget) {
         windowTarget.addEventListener("online", onReconnect);
-        windowTarget.addEventListener("focus", onWindowFocus);
+        if (foregroundRefreshEnabled) {
+          windowTarget.addEventListener("focus", onWindowFocus);
+        }
       }
 
       const documentTarget = getDocumentEventTarget();
-      if (documentTarget) {
+      if (foregroundRefreshEnabled && documentTarget) {
         documentTarget.addEventListener("visibilitychange", onVisibilityChange);
+      }
+
+      if (socket) {
+        for (const eventName of realtimeEvents) {
+          socket.on(eventName, onRealtimeRefresh);
+        }
       }
     }
 

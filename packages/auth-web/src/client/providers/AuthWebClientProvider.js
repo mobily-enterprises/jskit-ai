@@ -14,6 +14,7 @@ import {
 const AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN = "auth.web.profile.widget";
 const AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN = "auth.web.profile.menu.link-item";
 const AUTH_WEB_PROFILE_MENU_SURFACE_SWITCH_COMPONENT_TOKEN = "auth.web.profile.menu.surface-switch-item";
+const REALTIME_SOCKET_CLIENT_TOKEN = "runtime.realtime.client.socket";
 
 class AuthWebClientProvider {
   static id = "auth.web.client";
@@ -34,9 +35,11 @@ class AuthWebClientProvider {
       }
 
       const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
+      const realtimeSocket = app.has(REALTIME_SOCKET_CLIENT_TOKEN) ? app.make(REALTIME_SOCKET_CLIENT_TOKEN) : null;
       return createAuthGuardRuntime({
         loginRoute: "/auth/login",
-        placementRuntime
+        placementRuntime,
+        realtimeSocket
       });
     });
   }

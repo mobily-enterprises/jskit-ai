@@ -1,6 +1,10 @@
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import {
+  CLIENT_MODULE_ENV_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN
+} from "@jskit-ai/kernel/client/moduleBootstrap";
+import { resolveClientBootstrapDebugEnabled } from "@jskit-ai/kernel/client";
 import {
   REALTIME_RUNTIME_CLIENT_TOKEN,
   REALTIME_SOCKET_CLIENT_TOKEN,
@@ -13,8 +17,18 @@ const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   disconnectSocketIoClient
 });
 
-function createProviderLogger(app) {
+function createProviderLogger(app, { debugEnabled = false } = {}) {
   return Object.freeze({
+    debug: (...args) => {
+      if (debugEnabled !== true) {
+        return;
+      }
+      if (app && typeof app.info === "function") {
+        app.info(...args);
+        return;
+      }
+      console.info(...args);
+    },
     info: (...args) => {
       if (app && typeof app.info === "function") {
         app.info(...args);
@@ -41,12 +55,34 @@ function createProviderLogger(app) {
 
 function resolveRealtimeClientConfig(app) {
   const appConfig = app && typeof app.has === "function" && app.has("appConfig") ? normalizeObject(app.make("appConfig")) : {};
+  const env = app && typeof app.has === "function" && app.has(CLIENT_MODULE_ENV_TOKEN) ? normalizeObject(app.make(CLIENT_MODULE_ENV_TOKEN)) : {};
+  const realtime = normalizeObject(appConfig.realtime);
   const realtimeClient = normalizeObject(appConfig.realtimeClient);
   const url = normalizeText(realtimeClient.url);
   const options = normalizeObject(realtimeClient.options);
+  const explicitDebugEnabled =
+    typeof realtimeClient.debug === "boolean"
+      ? realtimeClient.debug
+      : typeof realtime.debug === "boolean"
+        ? realtime.debug
+        : undefined;
+  const hasRealtimeDebugEnvOverride = Object.hasOwn(env, "VITE_REALTIME_DEBUG");
+  const debugEnabled = hasRealtimeDebugEnvOverride
+    ? resolveClientBootstrapDebugEnabled({
+        env,
+        debugEnabled: undefined,
+        debugEnvKey: "VITE_REALTIME_DEBUG"
+      })
+    : resolveClientBootstrapDebugEnabled({
+        env,
+        debugEnabled: explicitDebugEnabled,
+        debugEnvKey: "VITE_REALTIME_DEBUG"
+      });
+
   return Object.freeze({
     url,
-    options
+    options,
+    debugEnabled
   });
 }
 
@@ -74,12 +110,15 @@ class RealtimeClientProvider {
       throw new Error("RealtimeClientProvider requires application make().");
     }
 
-    const logger = createProviderLogger(app);
+    const realtimeClientConfig = resolveRealtimeClientConfig(app);
+    const logger = createProviderLogger(app, {
+      debugEnabled: realtimeClientConfig.debugEnabled
+    });
     const socket = app.make(REALTIME_SOCKET_CLIENT_TOKEN);
     const listeners = resolveRealtimeClientListeners(app);
     const detach = [];
 
-    logger.error(
+    logger.debug(
       {
         providerId: RealtimeClientProvider.id,
         listenerCount: listeners.length,
@@ -93,7 +132,7 @@ class RealtimeClientProvider {
 
     if (typeof socket.on === "function") {
       const onConnect = () => {
-        logger.error(
+        logger.debug(
           {
             providerId: RealtimeClientProvider.id,
             socketConnected: true
@@ -102,7 +141,7 @@ class RealtimeClientProvider {
         );
       };
       const onDisconnect = (reason) => {
-        logger.warn(
+        logger.debug(
           {
             providerId: RealtimeClientProvider.id,
             socketConnected: false,
@@ -112,7 +151,7 @@ class RealtimeClientProvider {
         );
       };
       const onConnectError = (error) => {
-        logger.error(
+        logger.warn(
           {
             providerId: RealtimeClientProvider.id,
             error: String(error?.message || error || "unknown error")
@@ -131,6 +170,26 @@ class RealtimeClientProvider {
           socket.off("connect_error", onConnectError);
         }
       });
+
+      if (realtimeClientConfig.debugEnabled === true && typeof socket.onAny === "function") {
+        const onAnyDebug = (eventName, payload) => {
+          logger.debug(
+            {
+              providerId: RealtimeClientProvider.id,
+              event: String(eventName || ""),
+              payloadScope: payload?.scope || null,
+              payloadEntityId: payload?.entityId || null
+            },
+            "Realtime client received socket event."
+          );
+        };
+        socket.onAny(onAnyDebug);
+        detach.push(() => {
+          if (typeof socket.offAny === "function") {
+            socket.offAny(onAnyDebug);
+          }
+        });
+      }
     }
 
     for (const listener of listeners) {
@@ -143,7 +202,7 @@ class RealtimeClientProvider {
         });
 
         if (listener.matches && listener.matches(context) !== true) {
-          logger.error(
+          logger.debug(
             {
               listenerId: listener.listenerId,
               event: eventName
@@ -153,7 +212,7 @@ class RealtimeClientProvider {
           return;
         }
 
-        logger.error(
+        logger.debug(
           {
             listenerId: listener.listenerId,
             event: eventName,

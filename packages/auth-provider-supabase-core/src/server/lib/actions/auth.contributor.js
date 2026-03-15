@@ -189,7 +189,12 @@ const authActions = Object.freeze([
       actionName: "auth.logout"
     },
     observability: {},
-    async execute() {
+    async execute(_input, context, deps) {
+      if (deps.authSessionEventsService && typeof deps.authSessionEventsService.notifySessionChanged === "function") {
+        await deps.authSessionEventsService.notifySessionChanged({
+          context
+        });
+      }
       return {
         ok: true,
         clearSession: true

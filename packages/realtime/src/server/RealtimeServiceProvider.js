@@ -90,11 +90,21 @@ function parseCookieHeader(value = "") {
   }, {});
 }
 
-function createProviderLogger(scope) {
+function createProviderLogger(scope, { debugEnabled = false } = {}) {
   const logger =
     scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Logger) ? scope.make(KERNEL_TOKENS.Logger) : null;
 
   return Object.freeze({
+    debug: (...args) => {
+      if (debugEnabled !== true) {
+        return;
+      }
+      if (logger && typeof logger.info === "function") {
+        logger.info(...args);
+        return;
+      }
+      console.info(...args);
+    },
     info: (...args) => {
       if (logger && typeof logger.info === "function") {
         logger.info(...args);
@@ -117,6 +127,43 @@ function createProviderLogger(scope) {
       console.error(...args);
     }
   });
+}
+
+function parseDebugFlag(value, fallback = null) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+    return true;
+  }
+  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+    return false;
+  }
+
+  return fallback;
+}
+
+function resolveRealtimeServerDebugEnabled(scope) {
+  const appConfig = scope && typeof scope.has === "function" && scope.has("appConfig") ? scope.make("appConfig") : {};
+  const env = scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Env) ? scope.make(KERNEL_TOKENS.Env) : {};
+  const realtime = appConfig && typeof appConfig === "object" ? appConfig.realtime : null;
+
+  const envFlag = parseDebugFlag(env?.JSKIT_REALTIME_DEBUG);
+  if (envFlag !== null) {
+    return envFlag;
+  }
+
+  const configFlag = parseDebugFlag(realtime?.debug);
+  if (configFlag !== null) {
+    return configFlag;
+  }
+
+  return false;
 }
 
 function buildRealtimeDispatchIndex(registrations = []) {
@@ -484,9 +531,25 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
   io.on("connection", async (socket) => {
     try {
       socket.join(REALTIME_ROOM_ALL_CLIENTS);
+      logger.debug(
+        {
+          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          stage: "socket.connection",
+          room: REALTIME_ROOM_ALL_CLIENTS
+        },
+        "Realtime socket joined default clients room."
+      );
 
       const actorId = await resolveSocketActorId(authService, socket);
       if (actorId < 1) {
+        logger.debug(
+          {
+            listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+            stage: "socket.connection",
+            authenticated: false
+          },
+          "Realtime socket connected without authenticated actor."
+        );
         return;
       }
 
@@ -495,12 +558,30 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
 
       socket.join(REALTIME_ROOM_ALL_USERS);
       socket.join(roomForUser(actorId));
+      logger.debug(
+        {
+          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          stage: "socket.connection",
+          actorId,
+          joinedRooms: [REALTIME_ROOM_ALL_USERS, roomForUser(actorId)]
+        },
+        "Realtime socket joined actor/user rooms."
+      );
 
       const workspaceIds = await resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId);
       for (const workspaceId of workspaceIds) {
         socket.join(roomForWorkspace(workspaceId));
         socket.join(roomForWorkspaceUser(workspaceId, actorId));
       }
+      logger.debug(
+        {
+          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          stage: "socket.connection",
+          actorId,
+          workspaceIds
+        },
+        "Realtime socket joined workspace rooms."
+      );
     } catch (error) {
       logger.warn(
         {
@@ -532,13 +613,16 @@ class RealtimeServiceProvider {
     registerDomainEventListener(app, REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN, (scope) => {
       const io = scope.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
       const realtimeDispatchIndex = buildRealtimeDispatchIndex(resolveServiceRegistrations(scope));
-      const logger = createProviderLogger(scope);
+      const logger = createProviderLogger(scope, {
+        debugEnabled: resolveRealtimeServerDebugEnabled(scope)
+      });
 
       return {
         listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
         async handle(event = {}) {
           const serviceToken = normalizeText(event?.meta?.service?.token);
           const methodName = normalizeText(event?.meta?.service?.method);
+          const emittedRealtimeEvent = normalizeText(event?.meta?.realtime?.event);
           if (!serviceToken || !methodName) {
             logger.warn(
               {
@@ -551,19 +635,38 @@ class RealtimeServiceProvider {
             return;
           }
 
-          const dispatchers = realtimeDispatchIndex.get(`${serviceToken}:${methodName}`) || [];
-          logger.info(
+          const dispatchersForMethod = realtimeDispatchIndex.get(`${serviceToken}:${methodName}`) || [];
+          const dispatchers =
+            emittedRealtimeEvent.length > 0
+              ? dispatchersForMethod.filter((dispatcher) => normalizeText(dispatcher?.event) === emittedRealtimeEvent)
+              : dispatchersForMethod;
+          logger.debug(
             {
               listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
               serviceToken,
               methodName,
+              emittedRealtimeEvent: emittedRealtimeEvent || null,
               dispatcherCount: dispatchers.length,
+              methodDispatcherCount: dispatchersForMethod.length,
               eventType: event?.type || null,
               scope: event?.scope || null,
               entityId: event?.entityId || null
             },
             "Realtime bridge received service event."
           );
+
+          if (dispatchers.length < 1) {
+            logger.warn(
+              {
+                listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+                serviceToken,
+                methodName,
+                emittedRealtimeEvent: emittedRealtimeEvent || null
+              },
+              "Realtime bridge found no matching dispatcher for service event."
+            );
+            return;
+          }
 
           for (const dispatcher of dispatchers) {
             const payloadPatch =
@@ -583,7 +686,7 @@ class RealtimeServiceProvider {
               io.to(room).emit(dispatcher.event, payload);
             }
 
-            logger.info(
+            logger.debug(
               {
                 listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
                 socketEvent: dispatcher.event,
@@ -612,7 +715,17 @@ class RealtimeServiceProvider {
     }
 
     this.socketIoServer = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
-    const logger = createProviderLogger(app);
+    const debugEnabled = resolveRealtimeServerDebugEnabled(app);
+    const logger = createProviderLogger(app, {
+      debugEnabled
+    });
+    logger.debug(
+      {
+        providerId: RealtimeServiceProvider.id,
+        debugEnabled
+      },
+      "Realtime server debug mode enabled."
+    );
     registerRealtimeSocketAudienceBootstrap(app, this.socketIoServer, logger);
 
     const env = typeof app.has === "function" && app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};

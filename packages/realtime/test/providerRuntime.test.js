@@ -443,3 +443,99 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
   assert.equal(emitted[0].payload?.scope?.kind, "workspace");
   assert.equal(emitted[0].payload?.scope?.id, 11);
 });
+
+test("RealtimeServiceProvider emits only the matching dispatcher event for each service method event", async () => {
+  const app = createSingletonApp();
+  app.instance(KERNEL_TOKENS.Fastify, {
+    server: createServer()
+  });
+  app.singleton("authService", () => ({
+    async authenticateRequest() {
+      return {
+        authenticated: false
+      };
+    }
+  }));
+  app.singleton("workspaceMembershipsRepository", () => ({
+    async listActiveWorkspaceIdsByUserId() {
+      return [];
+    }
+  }));
+  installServiceRegistrationApi(app);
+  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
+  app.service(
+    "test.workspace.settings.service",
+    () => ({
+      async updateSettings() {
+        return { id: 11 };
+      }
+    }),
+    {
+      events: {
+        updateSettings: [
+          {
+            type: "entity.changed",
+            source: "workspace",
+            entity: "settings",
+            operation: "updated",
+            realtime: {
+              event: "workspace.settings.changed",
+              audience: "all_workspace_users"
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            realtime: {
+              event: "users.bootstrap.changed",
+              audience: "all_workspace_users"
+            }
+          }
+        ]
+      }
+    }
+  );
+
+  const provider = new RealtimeServiceProvider();
+  provider.register(app);
+  await provider.boot(app);
+
+  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const emitted = [];
+  io.to = (room) => {
+    return {
+      emit(eventName, payload) {
+        emitted.push({
+          room,
+          eventName,
+          payload
+        });
+        return null;
+      }
+    };
+  };
+
+  const service = app.make("test.workspace.settings.service");
+  await service.updateSettings(
+    { id: 11 },
+    {
+      context: {
+        actor: {
+          id: 4
+        },
+        visibilityContext: {
+          workspaceOwnerId: 11
+        }
+      }
+    }
+  );
+  await provider.shutdown(app);
+
+  assert.equal(emitted.length, 2);
+  assert.deepEqual(
+    emitted.map((entry) => entry.eventName).sort(),
+    ["users.bootstrap.changed", "workspace.settings.changed"]
+  );
+});

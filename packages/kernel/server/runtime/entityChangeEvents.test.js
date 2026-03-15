@@ -42,3 +42,39 @@ test("entity change publisher emits normalized event payload", async () => {
   assert.equal(payload?.meta?.service?.method, "createRecord");
   assert.equal(published.length, 1);
 });
+
+test("entity change publisher infers workspace scope from service context when visibility owner ids are missing", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "workspace",
+    entity: "settings"
+  });
+
+  const payload = await publishEntityChange(
+    "updated",
+    11,
+    {
+      context: {
+        actor: { id: 17 },
+        workspace: { id: 23 },
+        visibilityContext: {
+          visibility: "workspace"
+        }
+      }
+    },
+    {
+      service: {
+        token: "users.workspace.settings.service",
+        method: "updateWorkspaceSettings"
+      }
+    }
+  );
+
+  assert.deepEqual(payload?.scope, { kind: "workspace", id: 23 });
+  assert.equal(published.length, 1);
+});

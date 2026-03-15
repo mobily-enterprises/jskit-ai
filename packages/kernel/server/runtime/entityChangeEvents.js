@@ -12,20 +12,32 @@ function toPositiveInteger(value) {
   return parsed;
 }
 
-function resolveDefaultScope(visibilityContext = {}) {
+function resolveContextWorkspaceOwnerId(context = {}) {
+  const workspace =
+    context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || context?.request?.workspace;
+  return toPositiveInteger(workspace?.id);
+}
+
+function resolveContextUserOwnerId(context = {}) {
+  const actor = context?.actor || context?.user || context?.request?.user;
+  return toPositiveInteger(actor?.id);
+}
+
+function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
+  const runtimeContext = normalizeObject(runtime?.context);
   const workspaceOwnerId = toPositiveInteger(visibilityContext.workspaceOwnerId);
-  if (workspaceOwnerId > 0) {
+  if (workspaceOwnerId > 0 || resolveContextWorkspaceOwnerId(runtimeContext) > 0) {
     return {
       kind: "workspace",
-      id: workspaceOwnerId
+      id: workspaceOwnerId > 0 ? workspaceOwnerId : resolveContextWorkspaceOwnerId(runtimeContext)
     };
   }
 
   const userOwnerId = toPositiveInteger(visibilityContext.userOwnerId);
-  if (userOwnerId > 0) {
+  if (userOwnerId > 0 || resolveContextUserOwnerId(runtimeContext) > 0) {
     return {
       kind: "user",
-      id: userOwnerId
+      id: userOwnerId > 0 ? userOwnerId : resolveContextUserOwnerId(runtimeContext)
     };
   }
 
