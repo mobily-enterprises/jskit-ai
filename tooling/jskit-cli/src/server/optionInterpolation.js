@@ -337,12 +337,16 @@ async function promptForRequiredOption({
   const promptLabel = String(optionSchema?.promptLabel || "").trim();
   const promptHint = String(optionSchema?.promptHint || "").trim();
   const required = Boolean(optionSchema?.required);
+  const allowEmpty = optionSchema?.allowEmpty === true;
 
   if (!stdin?.isTTY || !stdout?.isTTY) {
     if (defaultValue) {
       return defaultValue;
     }
     if (required) {
+      if (allowEmpty) {
+        return "";
+      }
       throw createCliError(
         `${ownerType} ${ownerId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>.`
       );
@@ -389,7 +393,7 @@ async function promptForRequiredOption({
   if (!answer && defaultValue) {
     return defaultValue;
   }
-  if (!answer && required) {
+  if (!answer && required && !allowEmpty) {
     throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
   }
   return answer || "";

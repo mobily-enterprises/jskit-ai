@@ -443,14 +443,18 @@ function parseArgs(argv) {
       const withoutPrefix = token.slice(2);
       const hasInlineValue = withoutPrefix.includes("=");
       const optionName = hasInlineValue ? withoutPrefix.slice(0, withoutPrefix.indexOf("=")) : withoutPrefix;
-      const optionValue = hasInlineValue
-        ? withoutPrefix.slice(withoutPrefix.indexOf("=") + 1).trim()
-        : String(args.shift() || "").trim();
+      const optionValueRaw = hasInlineValue
+        ? withoutPrefix.slice(withoutPrefix.indexOf("=") + 1)
+        : args.shift();
 
       if (!/^[a-z][a-z0-9-]*$/.test(optionName)) {
         throw createCliError(`Unknown option: ${token}`, { showUsage: true });
       }
-      if (!optionValue || optionValue.startsWith("-")) {
+      if (typeof optionValueRaw !== "string") {
+        throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
+      }
+      const optionValue = optionValueRaw.trim();
+      if (!hasInlineValue && optionValue.startsWith("-")) {
         throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
       }
 
@@ -2702,13 +2706,21 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
   const optionNames = Object.keys(optionSchemas);
   const resolved = {};
+  const inlineOptionValues = ensureObject(inlineOptions);
+  const hasInlineOption = (name) => Object.prototype.hasOwnProperty.call(inlineOptionValues, name);
 
   for (const optionName of optionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
-    const inlineValue = inlineOptions[optionName];
-    if (typeof inlineValue === "string" && inlineValue.trim()) {
-      resolved[optionName] = inlineValue.trim();
-      continue;
+    const allowEmpty = schema.allowEmpty === true;
+    if (hasInlineOption(optionName)) {
+      const inlineValue = String(inlineOptionValues[optionName] || "").trim();
+      if (inlineValue || allowEmpty) {
+        resolved[optionName] = inlineValue;
+        continue;
+      }
+      if (schema.required) {
+        throw createCliError(`Package ${packageEntry.packageId} option ${optionName} requires a non-empty value.`);
+      }
     }
 
     if (typeof schema.defaultValue === "string" && schema.defaultValue.trim()) {
