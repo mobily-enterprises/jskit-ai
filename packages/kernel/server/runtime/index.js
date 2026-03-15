@@ -11,9 +11,6 @@ export {
 export { parsePositiveInteger } from "./integers.js";
 export { safeRequestUrl, safePathnameFromRequest, buildLoginRedirectPathFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 export { normalizePagination } from "./pagination.js";
-export { buildPublishRequestMeta, normalizeHeaderValue, publishSafely, resolvePublishMethod, warnPublishFailure } from "./realtimePublish.js";
-export { createRealtimeEventEnvelope, createRealtimeEventsBus, createTargetedChatEventEnvelope, normalizeEntityId, normalizePositiveIntegerArray, normalizePositiveIntegerOrNull, normalizeScopeKind, normalizeStringifiedPositiveIntegerOrNull, normalizeStringOrNull } from "./realtimeEvents.js";
-export { createService } from "./realtimeEventsService.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";
 export { resolveLoggerLevel, createFastifyLoggerOptions, registerRequestLoggingHooks, registerApiErrorHandler, ensureApiErrorHandling, resolveDatabaseErrorCode, recordDbErrorBestEffort, runGracefulShutdown } from "./fastifyBootstrap.js";

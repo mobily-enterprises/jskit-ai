@@ -8,10 +8,7 @@ import * as fastifyBootstrap from "./fastifyBootstrap.js";
 import * as integers from "./integers.js";
 import * as lockfile from "./lib/lockfile.js";
 import * as pagination from "./pagination.js";
-import * as realtimeEvents from "./realtimeEvents.js";
-import * as realtimeEventsService from "./realtimeEventsService.js";
 import * as realtimeNormalization from "./realtimeNormalization.js";
-import * as realtimePublish from "./realtimePublish.js";
 import * as requestUrl from "./requestUrl.js";
 import * as routeUtils from "./routeUtils.js";
 import * as runtimeAssembly from "./runtimeAssembly.js";
@@ -31,10 +28,7 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   integers: Object.freeze({ ...integers }),
   lockfile: Object.freeze({ ...lockfile }),
   pagination: Object.freeze({ ...pagination }),
-  realtimeEvents: Object.freeze({ ...realtimeEvents }),
-  realtimeEventsService: Object.freeze({ ...realtimeEventsService }),
   realtimeNormalization: Object.freeze({ ...realtimeNormalization }),
-  realtimePublish: Object.freeze({ ...realtimePublish }),
   requestUrl: Object.freeze({ ...requestUrl }),
   routeUtils: Object.freeze({ ...routeUtils }),
   runtimeAssembly: Object.freeze({ ...runtimeAssembly }),
