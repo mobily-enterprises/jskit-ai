@@ -31,7 +31,8 @@ function useAddEdit({
   buildRawPayload,
   buildSavePayload,
   onSaveSuccess,
-  messages = {}
+  messages = {},
+  realtime = null
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
@@ -44,7 +45,8 @@ function useAddEdit({
     permissionSets: {
       view: viewPermissions,
       save: savePermissions
-    }
+    },
+    realtime
   });
   const routeContext = operationScope.routeContext;
   const resolvedMessages = resolveResourceMessages(resource, {

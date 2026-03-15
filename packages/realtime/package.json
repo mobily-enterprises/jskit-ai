@@ -13,6 +13,7 @@
     "./client": "./src/client/RealtimeClientProvider.js",
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
     "./client/listeners": "./src/client/listeners.js",
+    "./client/composables/*": "./src/client/composables/*.js",
     "./client/runtime": "./src/client/runtime.js",
     "./client/tokens": "./src/client/tokens.js"
   },

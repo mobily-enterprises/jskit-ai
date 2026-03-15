@@ -15,7 +15,8 @@ function useView({
   notFoundStatuses = [404],
   notFoundMessage = "Record not found.",
   model,
-  mapLoadedToModel
+  mapLoadedToModel,
+  realtime = null
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
@@ -26,7 +27,8 @@ function useView({
     queryKeyFactory,
     permissionSets: {
       view: viewPermissions
-    }
+    },
+    realtime
   });
   const canView = operationScope.permissionGate("view");
 

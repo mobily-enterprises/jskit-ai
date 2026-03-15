@@ -14,6 +14,7 @@ import {
   DEFAULT_USER_SETTINGS,
   coerceWorkspaceColor
 } from "./settings.js";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "./events/workspaceEvents.js";
 
 const USERS_SHARED_API = Object.freeze({
   OWNER_ROLE_ID,
@@ -26,7 +27,8 @@ const USERS_SHARED_API = Object.freeze({
   hasPermission,
   DEFAULT_WORKSPACE_COLOR,
   DEFAULT_USER_SETTINGS,
-  coerceWorkspaceColor
+  coerceWorkspaceColor,
+  WORKSPACE_SETTINGS_CHANGED_EVENT
 });
 
 export {
@@ -41,5 +43,6 @@ export {
   DEFAULT_WORKSPACE_COLOR,
   DEFAULT_USER_SETTINGS,
   coerceWorkspaceColor,
+  WORKSPACE_SETTINGS_CHANGED_EVENT,
   USERS_SHARED_API
 };

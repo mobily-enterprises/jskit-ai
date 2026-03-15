@@ -56,6 +56,10 @@ export default Object.freeze({
         {
           subpath: "./client/listeners",
           summary: "Exports client listener registration helpers for provider-level realtime subscriptions."
+        },
+        {
+          subpath: "./client/composables/*",
+          summary: "Exports component-level realtime socket composables."
         }
       ],
       containerTokens: {

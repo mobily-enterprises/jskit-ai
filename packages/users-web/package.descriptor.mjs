@@ -141,6 +141,7 @@ export default Object.freeze({
         "@uppy/image-editor": "^4.2.0",
         "@uppy/xhr-upload": "^5.1.1",
         "@jskit-ai/http-runtime": "0.1.0",
+        "@jskit-ai/realtime": "0.1.0",
         "@jskit-ai/kernel": "0.1.0",
         "@jskit-ai/shell-web": "0.1.0",
         "@jskit-ai/users-core": "0.1.0",

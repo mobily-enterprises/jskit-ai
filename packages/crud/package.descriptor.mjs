@@ -140,13 +140,6 @@ export default Object.freeze({
         id: "crud-local-package-client-index-${option:namespace|snake}"
       },
       {
-        from: "templates/src/local-package/client/providers/CrudClientProvider.js",
-        to: "packages/${option:namespace|kebab}/src/client/providers/${option:namespace|pascal}ClientProvider.js",
-        reason: "Install app-local CRUD realtime client provider.",
-        category: "crud",
-        id: "crud-local-package-client-provider-${option:namespace|snake}"
-      },
-      {
         from: "templates/src/local-package/server/diTokens.js",
         to: "packages/${option:namespace|kebab}/src/server/diTokens.js",
         reason: "Install app-local CRUD server DI token constants.",

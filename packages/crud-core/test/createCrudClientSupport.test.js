@@ -6,7 +6,8 @@ import {
   invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
-  toRouteRecordId
+  toRouteRecordId,
+  resolveCrudRecordChangedEvent
 } from "../src/client/composables/crudClientSupportHelpers.js";
 
 test("resolveCrudClientConfig normalizes namespace, visibility, and derives relativePath", () => {
@@ -81,4 +82,9 @@ test("toRouteRecordId parses scalar and array params safely", () => {
   assert.equal(toRouteRecordId("42"), 42);
   assert.equal(toRouteRecordId(["7"]), 7);
   assert.equal(toRouteRecordId("not-a-number"), 0);
+});
+
+test("resolveCrudRecordChangedEvent normalizes namespace into event channel", () => {
+  assert.equal(resolveCrudRecordChangedEvent("Customers"), "customers.record.changed");
+  assert.equal(resolveCrudRecordChangedEvent("customer-orders"), "customer_orders.record.changed");
 });

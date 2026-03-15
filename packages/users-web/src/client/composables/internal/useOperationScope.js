@@ -1,5 +1,6 @@
 import { computed, unref } from "vue";
 import { useScopeRuntime } from "../useScopeRuntime.js";
+import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
 import {
   normalizePermissions,
   resolvePermissionAccess,
@@ -38,7 +39,8 @@ function useOperationScope({
   model,
   readEnabled = true,
   queryKeyFactory = null,
-  permissionSets = {}
+  permissionSets = {},
+  realtime = null
 } = {}) {
   const normalizedPermissionSets = normalizePermissionSets(permissionSets);
   const scopeRuntime = useScopeRuntime({
@@ -75,6 +77,11 @@ function useOperationScope({
       visibility: normalizedVisibility
     })
   );
+  const realtimeBinding = useOperationRealtime({
+    realtime,
+    queryKey: typeof queryKeyFactory === "function" ? queryKey : null,
+    enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(apiPath.value))
+  });
 
   function permissionGate(key = "") {
     const list = normalizedPermissionSets[String(key || "")] || [];
@@ -114,6 +121,7 @@ function useOperationScope({
     apiPath,
     queryEnabled,
     queryKey,
+    realtime: realtimeBinding,
     permissionGate,
     loadError,
     isLoading

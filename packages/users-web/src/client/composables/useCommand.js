@@ -23,7 +23,8 @@ function useCommand({
   buildCommandOptions,
   onRunSuccess,
   onRunError,
-  messages = {}
+  messages = {},
+  realtime = null
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
@@ -34,7 +35,8 @@ function useCommand({
     readEnabled: false,
     permissionSets: {
       run: runPermissions
-    }
+    },
+    realtime
   });
   const routeContext = operationScope.routeContext;
   const canRun = operationScope.permissionGate("run");

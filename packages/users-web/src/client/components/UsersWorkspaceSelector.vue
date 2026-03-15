@@ -13,6 +13,8 @@ import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { normalizePermissionList } from "../lib/permissions.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
+import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/workspaceEvents";
 
 const props = defineProps({
   surface: {
@@ -117,6 +119,7 @@ const authenticated = computed(() => Boolean(bootstrapQuery.query.data.value?.se
 const workspaces = computed(() => normalizeWorkspaceList(bootstrapQuery.query.data.value?.workspaces));
 const activeWorkspace = computed(() => findWorkspaceBySlug(workspaces.value, routeWorkspaceSlug.value));
 const permissions = computed(() => normalizePermissionList(bootstrapQuery.query.data.value?.permissions));
+const activeWorkspaceId = computed(() => Number(activeWorkspace.value?.id || 0));
 
 async function navigateToWorkspace(slug) {
   const normalizedSlug = String(slug || "").trim();
@@ -232,6 +235,20 @@ watch(
     void bootstrapQuery.query.refetch();
   }
 );
+
+useRealtimeEvent({
+  event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+  enabled: computed(() => authenticated.value && activeWorkspaceId.value > 0),
+  matches: ({ payload = {} }) => {
+    const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
+    const scopeKind = String(scope.kind || "").trim().toLowerCase();
+    const scopeId = Number(scope.id || 0);
+    return scopeKind === "workspace" && scopeId > 0 && scopeId === activeWorkspaceId.value;
+  },
+  onEvent: async () => {
+    await bootstrapQuery.query.refetch();
+  }
+});
 
 </script>
 

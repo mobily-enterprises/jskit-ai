@@ -15,7 +15,8 @@ function useList({
   getNextPageParam,
   selectItems,
   requestOptions,
-  queryOptions
+  queryOptions,
+  realtime = null
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
@@ -26,7 +27,8 @@ function useList({
     queryKeyFactory,
     permissionSets: {
       view: viewPermissions
-    }
+    },
+    realtime
   });
   const canView = operationScope.permissionGate("view");
 

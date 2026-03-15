@@ -1,8 +1,10 @@
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
 import {
   REALTIME_RUNTIME_CLIENT_TOKEN,
-  REALTIME_SOCKET_CLIENT_TOKEN
+  REALTIME_SOCKET_CLIENT_TOKEN,
+  REALTIME_SOCKET_CLIENT_INJECTION_KEY
 } from "./tokens.js";
 import { resolveRealtimeClientListeners } from "./listeners.js";
 
@@ -199,6 +201,16 @@ class RealtimeClientProvider {
 
     this.socket = socket;
     this.detach = detach;
+
+    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+      return;
+    }
+
+    const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
+    if (!vueApp || typeof vueApp.provide !== "function") {
+      return;
+    }
+    vueApp.provide(REALTIME_SOCKET_CLIENT_INJECTION_KEY, socket);
   }
 
   shutdown(app) {

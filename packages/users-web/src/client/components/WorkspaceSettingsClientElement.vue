@@ -95,6 +95,7 @@ import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/workspaceEvents";
 import { useAddEdit } from "../composables/useAddEdit.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
@@ -123,6 +124,9 @@ const addEdit = useAddEdit({
   placementSource: "users-web.workspace-settings-view",
   fallbackLoadError: "Unable to load workspace settings.",
   fieldErrorKeys: ["name", "avatarUrl", "color"],
+  realtime: {
+    event: WORKSPACE_SETTINGS_CHANGED_EVENT
+  },
   model: workspaceForm,
   parseInput: (rawPayload) =>
     validateOperationSection({

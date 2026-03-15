@@ -37,12 +37,7 @@ export default Object.freeze({
       ]
     },
     client: {
-      providers: [
-        {
-          entrypoint: "src/client/providers/${option:namespace|pascal}ClientProvider.js",
-          export: "${option:namespace|pascal}ClientProvider"
-        }
-      ]
+      providers: []
     }
   },
   metadata: {

@@ -10,6 +10,7 @@ import {
   crudViewQueryKey,
   toRouteRecordId
 } from "./crudClientSupportHelpers.js";
+import { useCrudRealtimeInvalidation } from "./useCrudRealtimeInvalidation.js";
 
 function useCrudClientContext(source = {}) {
   const crudConfig = resolveCrudClientConfig(source);
@@ -82,6 +83,7 @@ function normalizeRecordIdParam(value) {
 function useCrudRecordRuntime(source = {}, { recordIdParam = "recordId" } = {}) {
   const normalizedRecordIdParam = normalizeRecordIdParam(recordIdParam);
   const crudContext = useCrudClientContext(source);
+  useCrudRealtimeInvalidation(crudContext.crudConfig.namespace);
   const router = useRouter();
   const recordId = computed(() => toRouteRecordId(crudContext.route.params[normalizedRecordIdParam]));
   const apiSuffix = computed(() => `${crudContext.crudConfig.relativePath}/${recordId.value}`);
@@ -125,6 +127,7 @@ function useCrudRecordRuntime(source = {}, { recordIdParam = "recordId" } = {}) 
 
 function useCrudCreateRuntime(source = {}) {
   const crudContext = useCrudClientContext(source);
+  useCrudRealtimeInvalidation(crudContext.crudConfig.namespace);
   const router = useRouter();
   const listPath = crudContext.listPath;
   const apiSuffix = crudContext.crudConfig.relativePath;
@@ -153,6 +156,7 @@ function useCrudCreateRuntime(source = {}) {
 
 function useCrudListRuntime(source = {}) {
   const crudContext = useCrudClientContext(source);
+  useCrudRealtimeInvalidation(crudContext.crudConfig.namespace);
   const createPath = crudContext.createPath;
   const apiSuffix = crudContext.crudConfig.relativePath;
 

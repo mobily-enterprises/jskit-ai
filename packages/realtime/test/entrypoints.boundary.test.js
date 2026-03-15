@@ -24,6 +24,7 @@ test("token entrypoints export runtime token constants", () => {
   assert.equal(serverTokens.REALTIME_SOCKET_IO_SERVER_TOKEN, "runtime.realtime.io");
   assert.equal(clientTokens.REALTIME_RUNTIME_CLIENT_TOKEN, "runtime.realtime.client");
   assert.equal(clientTokens.REALTIME_SOCKET_CLIENT_TOKEN, "runtime.realtime.client.socket");
+  assert.equal(typeof clientTokens.REALTIME_SOCKET_CLIENT_INJECTION_KEY, "symbol");
   assert.equal(typeof clientTokens.REALTIME_CLIENT_LISTENER_TAG, "symbol");
 });
 

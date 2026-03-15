@@ -71,6 +71,13 @@ function crudScopeQueryKey(namespace = "") {
   return Object.freeze(["crud", normalizeQueryToken(namespace)]);
 }
 
+function resolveCrudRecordChangedEvent(namespace = "") {
+  const normalizedNamespace = requireCrudNamespace(namespace, {
+    context: "resolveCrudRecordChangedEvent"
+  });
+  return `${normalizedNamespace.replace(/-/g, "_")}.record.changed`;
+}
+
 async function invalidateCrudQueries(queryClient, namespace = "") {
   if (!queryClient || typeof queryClient.invalidateQueries !== "function") {
     throw new TypeError("invalidateCrudQueries requires queryClient.invalidateQueries().");
@@ -95,6 +102,7 @@ export {
   requireCrudNamespace,
   resolveCrudClientConfig,
   formatDateTime,
+  resolveCrudRecordChangedEvent,
   crudScopeQueryKey,
   invalidateCrudQueries,
   crudListQueryKey,

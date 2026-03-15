@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "../../shared/events/workspaceEvents.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
@@ -15,8 +16,8 @@ function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
 }
 
 function registerWorkspaceSettings(app) {
-  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
-    throw new Error("registerWorkspaceSettings requires application singleton()/actions().");
+  if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function" || typeof app.service !== "function") {
+    throw new Error("registerWorkspaceSettings requires application singleton()/service()/actions().");
   }
 
   app.singleton("workspaceSettingsRepository", (scope) => {
@@ -27,12 +28,31 @@ function registerWorkspaceSettings(app) {
     });
   });
 
-  app.singleton("users.workspace.settings.service", (scope) => {
-    return createWorkspaceSettingsService({
-      workspacesRepository: scope.make("workspacesRepository"),
-      workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
-    });
-  });
+  app.service(
+    "users.workspace.settings.service",
+    (scope) =>
+      createWorkspaceSettingsService({
+        workspacesRepository: scope.make("workspacesRepository"),
+        workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
+      }),
+    {
+      events: Object.freeze({
+        updateWorkspaceSettings: Object.freeze([
+          Object.freeze({
+            type: "entity.changed",
+            source: "workspace",
+            entity: "settings",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: Object.freeze({
+              event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+              audience: "all_workspace_users"
+            })
+          })
+        ])
+      })
+    }
+  );
 
   app.actions(
     withActionDefaults(workspaceSettingsActions, {
