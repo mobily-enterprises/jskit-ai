@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveResourceMessages } from "../src/client/composables/scopeHelpers.js";
+import { computed } from "vue";
+import { resolveApiSuffix, resolveResourceMessages } from "../src/client/composables/scopeHelpers.js";
 
 test("resolveResourceMessages merges defaults with resource messages", () => {
   const messages = resolveResourceMessages(
@@ -22,4 +23,16 @@ test("resolveResourceMessages merges defaults with resource messages", () => {
     saveSuccess: "Workspace settings updated.",
     saveError: "Unable to update workspace settings."
   });
+});
+
+test("resolveApiSuffix unwraps computed refs", () => {
+  const suffix = computed(() => "/customers/42");
+
+  assert.equal(resolveApiSuffix(suffix), "/customers/42");
+});
+
+test("resolveApiSuffix unwraps function-returned computed refs", () => {
+  const suffix = computed(() => "/customers/42");
+
+  assert.equal(resolveApiSuffix(() => suffix), "/customers/42");
 });

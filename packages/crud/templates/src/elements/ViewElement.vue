@@ -15,15 +15,15 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="view.loadError" type="error" variant="tonal" class="mb-4">
-          {{ view.loadError }}
+        <v-alert v-if="view.loadError.value" type="error" variant="tonal" class="mb-4">
+          {{ view.loadError.value }}
         </v-alert>
 
-        <v-alert v-else-if="view.isNotFound" type="warning" variant="tonal" class="mb-4">
-          {{ view.notFoundError }}
+        <v-alert v-else-if="view.isNotFound.value" type="warning" variant="tonal" class="mb-4">
+          {{ view.notFoundError.value }}
         </v-alert>
 
-        <div v-else-if="view.isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
+        <div v-else-if="view.isLoading.value" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
           <span>Loading ${option:namespace|singular|default(record)}...</span>
         </div>
@@ -102,7 +102,6 @@ const view = useView({
     model.updatedAt = String(payload.updatedAt || "");
   }
 });
-
 const deleteCommand = useCommand({
   visibility: crudModuleConfig.visibility,
   apiSuffix,
