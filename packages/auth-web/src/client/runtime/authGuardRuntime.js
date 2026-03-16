@@ -87,30 +87,18 @@ function isAuthGuardRuntime(value) {
 }
 
 function applyAuthContext(nextState, placementRuntime) {
-  const currentContext = placementRuntime.getContext();
-  const nextContext = {
-    ...(currentContext && typeof currentContext === "object" ? currentContext : {}),
-    auth: {
-      authenticated: nextState.authenticated,
-      oauthDefaultProvider: nextState.oauthDefaultProvider,
-      oauthProviders: nextState.oauthProviders
-    }
-  };
-
-  if (nextState.authenticated && nextState.username) {
-    nextContext.user = {
-      ...(currentContext.user && typeof currentContext.user === "object" ? currentContext.user : {}),
-      name: currentContext?.user?.name || nextState.username,
-      displayName: currentContext?.user?.displayName || nextState.username
-    };
-  } else {
-    delete nextContext.user;
-  }
-
-  placementRuntime.setContext(nextContext, {
-    replace: true,
+  placementRuntime.setContext(
+    {
+      auth: {
+        authenticated: nextState.authenticated,
+        oauthDefaultProvider: nextState.oauthDefaultProvider,
+        oauthProviders: nextState.oauthProviders
+      }
+    },
+    {
     source: "auth-web"
-  });
+    }
+  );
 }
 
 async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImplementation = globalThis.fetch } = {}) {

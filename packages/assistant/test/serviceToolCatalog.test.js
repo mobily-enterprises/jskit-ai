@@ -40,7 +40,7 @@ test("service tool catalog hides methods user cannot execute", () => {
       domain: "demo",
       version: 1,
       kind: "query",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -51,6 +51,15 @@ test("service tool catalog hides methods user cannot execute", () => {
       },
       inputValidator: {
         schema: { type: "object", additionalProperties: true }
+      },
+      outputValidator: {
+        schema: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
       },
       idempotency: "none",
       audit: {
@@ -66,7 +75,7 @@ test("service tool catalog hides methods user cannot execute", () => {
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -78,6 +87,12 @@ test("service tool catalog hides methods user cannot execute", () => {
       },
       inputValidator: {
         schema: { type: "object", additionalProperties: true }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          additionalProperties: true
+        }
       },
       idempotency: "optional",
       audit: {
@@ -121,7 +136,7 @@ test("service tool catalog hides methods user cannot execute", () => {
   assert.equal(privilegedTools.length, 2);
 });
 
-test("service tool catalog executes tool call and injects action context", async () => {
+test("service tool catalog does not expose non-action-backed service methods", async () => {
   const app = createApp();
 
   app.service(
@@ -148,10 +163,10 @@ test("service tool catalog executes tool call and injects action context", async
     permissions: []
   };
   const toolSet = catalog.resolveToolSet(context);
-  assert.equal(toolSet.tools.length, 1);
+  assert.equal(toolSet.tools.length, 0);
 
   const execution = await catalog.executeToolCall({
-    toolName: toolSet.tools[0].name,
+    toolName: "demo_profile_service_updateprofile",
     argumentsText: JSON.stringify({
       args: [{ displayName: "Merc" }],
       options: {
@@ -162,14 +177,70 @@ test("service tool catalog executes tool call and injects action context", async
     toolSet
   });
 
-  assert.equal(execution.ok, true);
-  assert.deepEqual(execution.result, {
-    patch: {
-      displayName: "Merc"
-    },
-    actorId: 22,
-    source: "assistant"
+  assert.equal(execution.ok, false);
+  assert.deepEqual(execution.error, {
+    code: "assistant_tool_unknown",
+    message: "Unknown tool."
   });
+});
+
+test("service tool catalog hides actions that are not automation-enabled", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.non_automation.service",
+    () => ({
+      listRecords() {
+        return [];
+      }
+    })
+  );
+
+  app.actions([
+    {
+      id: "demo.non_automation.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        nonAutomationService: "demo.non_automation.service"
+      },
+      inputValidator: {
+        schema: Type.Object({}, { additionalProperties: false })
+      },
+      outputValidator: {
+        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.non_automation.list"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.nonAutomationService.listRecords(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: { id: 1 },
+    permissions: [],
+    channel: "internal",
+    surface: "admin"
+  });
+
+  assert.equal(toolSet.tools.length, 0);
 });
 
 test("service tool catalog honors barred service methods", () => {
@@ -217,7 +288,7 @@ test("service tool catalog materializes service methods once and filters per req
       domain: "demo",
       version: 1,
       kind: "query",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -329,7 +400,7 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -399,7 +470,7 @@ test("service tool catalog can require input/output schemas for tool exposure", 
       domain: "demo",
       version: 1,
       kind: "query",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -499,7 +570,7 @@ test("service tool catalog derives method schemas from action contributors when 
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -564,7 +635,7 @@ test("service tool catalog derives input schema from array action validators", (
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -651,7 +722,7 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -736,7 +807,7 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -839,7 +910,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
       domain: "demo",
       version: 1,
       kind: "command",
-      channels: ["internal"],
+      channels: ["automation"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {

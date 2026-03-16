@@ -66,8 +66,7 @@ function resolveAssistantConfig(scope) {
     }),
     timeoutMs,
     barredServiceMethods: normalizeStringArray(assistantConfig.barredServiceMethods),
-    toolSkipServicePrefixes: normalizeStringArray(assistantConfig.toolSkipServicePrefixes),
-    requireToolSchemas: assistantConfig.requireToolSchemas === true
+    toolSkipServicePrefixes: normalizeStringArray(assistantConfig.toolSkipServicePrefixes)
   });
 }
 
@@ -107,8 +106,7 @@ class AssistantServiceProvider {
 
       return createServiceToolCatalog(scope, {
         barredServiceMethods: config.barredServiceMethods,
-        skipServicePrefixes: skipPrefixes,
-        requireMethodSchemas: config.requireToolSchemas
+        skipServicePrefixes: skipPrefixes
       });
     });
 

@@ -9,7 +9,7 @@ const accountNotificationsActions = Object.freeze([
     id: "settings.notifications.update",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {

@@ -2,17 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createAuthGuardRuntime } from "../src/client/runtime/authGuardRuntime.js";
 
-function createPlacementRuntimeStub() {
-  let context = {};
+function createPlacementRuntimeStub(initialContext = {}) {
+  let context = initialContext && typeof initialContext === "object" ? { ...initialContext } : {};
   const setCalls = [];
 
   return {
     getContext() {
       return context;
     },
-    setContext(nextContext) {
-      context = nextContext;
-      setCalls.push(nextContext);
+    setContext(nextContext = {}, { replace = false } = {}) {
+      const patch = nextContext && typeof nextContext === "object" ? nextContext : {};
+      context = replace ? { ...patch } : { ...context, ...patch };
+      setCalls.push(context);
     },
     setCalls
   };
@@ -102,6 +103,53 @@ test("auth guard runtime keeps previous auth state on transient refresh failure"
   await runtime.refresh();
   assert.equal(runtime.getState().authenticated, true);
   assert.equal(placementRuntime.setCalls.length, setCallCountBeforeTransientFailure);
+});
+
+test("auth guard runtime only updates placement auth context", async () => {
+  const placementRuntime = createPlacementRuntimeStub({
+    user: {
+      id: 1,
+      displayName: "Existing User"
+    },
+    workspace: {
+      id: 9,
+      slug: "acme"
+    }
+  });
+
+  const runtime = createAuthGuardRuntime({
+    placementRuntime,
+    fetchImplementation: async () => {
+      return {
+        ok: true,
+        async json() {
+          return {
+            authenticated: true,
+            username: "ada",
+            oauthProviders: [{ id: "github", label: "GitHub" }],
+            oauthDefaultProvider: "github"
+          };
+        }
+      };
+    }
+  });
+
+  await runtime.initialize();
+
+  const context = placementRuntime.getContext();
+  assert.deepEqual(context.user, {
+    id: 1,
+    displayName: "Existing User"
+  });
+  assert.deepEqual(context.workspace, {
+    id: 9,
+    slug: "acme"
+  });
+  assert.deepEqual(context.auth, {
+    authenticated: true,
+    oauthDefaultProvider: "github",
+    oauthProviders: [{ id: "github", label: "GitHub" }]
+  });
 });
 
 test("auth guard runtime refreshes on reconnect/focus/visibility when explicitly enabled", async () => {

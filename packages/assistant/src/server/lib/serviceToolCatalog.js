@@ -1,23 +1,10 @@
-import { requireAuth, resolveServiceRegistrations } from "@jskit-ai/kernel/server/runtime";
+import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
 import { mergeValidators } from "@jskit-ai/kernel/shared/validators";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
-const DEFAULT_TOOL_INPUT_SCHEMA = Object.freeze({
-  type: "object",
-  properties: {
-    args: {
-      type: "array",
-      items: {}
-    },
-    options: {
-      type: "object",
-      additionalProperties: true
-    }
-  },
-  additionalProperties: true
-});
+const AUTOMATION_CHANNEL = "automation";
 
 function normalizeBarredEntry(value) {
   return normalizeText(value).toLowerCase();
@@ -69,55 +56,6 @@ function resolveUniqueToolName(baseName, used) {
 
   used.add(candidate);
   return candidate;
-}
-
-function parseToolArguments(argumentsText) {
-  const source = String(argumentsText || "").trim();
-  if (!source) {
-    return {
-      args: [],
-      options: {}
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    if (Array.isArray(parsed)) {
-      return {
-        args: parsed,
-        options: {}
-      };
-    }
-
-    if (!parsed || typeof parsed !== "object") {
-      return {
-        args: [parsed],
-        options: {}
-      };
-    }
-
-    const parsedArgs = Array.isArray(parsed.args) ? parsed.args : [];
-    const parsedOptions = parsed.options && typeof parsed.options === "object" && !Array.isArray(parsed.options)
-      ? parsed.options
-      : {};
-
-    if (Array.isArray(parsed.args) || Object.hasOwn(parsed, "options")) {
-      return {
-        args: parsedArgs,
-        options: parsedOptions
-      };
-    }
-
-    return {
-      args: [parsed],
-      options: {}
-    };
-  } catch {
-    return {
-      args: [],
-      options: {}
-    };
-  }
 }
 
 function parseToolPayload(argumentsText) {
@@ -253,6 +191,11 @@ function extractJsonSchema(validator) {
   return schema;
 }
 
+function hasAutomationChannel(action = {}) {
+  const channels = Array.isArray(action.channels) ? action.channels : [];
+  return channels.some((channel) => normalizeText(channel).toLowerCase() === AUTOMATION_CHANNEL);
+}
+
 function resolveActionBackedMethodSchemas(scope) {
   if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
     return new Map();
@@ -268,6 +211,9 @@ function resolveActionBackedMethodSchemas(scope) {
     const actions = Array.isArray(contributor?.actions) ? contributor.actions : [];
     for (const action of actions) {
       if (!action || typeof action !== "object") {
+        continue;
+      }
+      if (!hasAutomationChannel(action)) {
         continue;
       }
 
@@ -317,16 +263,15 @@ function resolveActionBackedMethodSchemas(scope) {
 
 function resolveServiceMethodEntries(
   scope,
-  { barredServiceMethods = [], skipServicePrefixes = [], requireMethodSchemas = false } = {}
+  { barredServiceMethods = [], skipServicePrefixes = [] } = {}
 ) {
-  const registrations = resolveServiceRegistrations(scope);
   const actionBackedSchemas = resolveActionBackedMethodSchemas(scope);
   const barredSet = normalizeBarredMethodSet(barredServiceMethods);
   const usedToolNames = new Set();
   const entries = [];
 
-  for (const registration of registrations) {
-    const serviceToken = normalizeText(registration?.serviceToken);
+  for (const actionBackedMethodSchema of actionBackedSchemas.values()) {
+    const serviceToken = normalizeText(actionBackedMethodSchema?.serviceToken);
     if (!serviceToken) {
       continue;
     }
@@ -337,46 +282,40 @@ function resolveServiceMethodEntries(
       continue;
     }
 
-    const service = scope.make(serviceToken);
-    if (!service || typeof service !== "object") {
+    const methodName = normalizeText(actionBackedMethodSchema?.methodName);
+    if (!methodName) {
       continue;
     }
 
-    for (const [methodName, method] of Object.entries(service)) {
-      if (typeof method !== "function") {
-        continue;
-      }
-
-      if (isMethodBarred(barredSet, serviceToken, methodName)) {
-        continue;
-      }
-
-      const actionBackedMethodSchema = actionBackedSchemas.get(toServiceMethodKey(serviceToken, methodName)) || null;
-      const inputSchema = actionBackedMethodSchema?.inputSchema || null;
-      const outputSchema = actionBackedMethodSchema?.outputSchema || null;
-      const description = normalizeText(actionBackedMethodSchema?.description);
-      const methodPermission = normalizePermissionSpec(actionBackedMethodSchema?.permission);
-
-      if (requireMethodSchemas && (!inputSchema || !outputSchema)) {
-        continue;
-      }
-      const toolName = resolveUniqueToolName(`${serviceToken}_${methodName}`, usedToolNames);
-      entries.push(
-        Object.freeze({
-          descriptor: Object.freeze({
-            name: toolName,
-            serviceToken,
-            methodName,
-            actionId: actionBackedMethodSchema?.actionId || null,
-            actionVersion: Number(actionBackedMethodSchema?.actionVersion) || null,
-            description: description || `Call ${serviceToken}.${methodName}().`,
-            parameters: inputSchema || DEFAULT_TOOL_INPUT_SCHEMA,
-            outputSchema
-          }),
-          permission: methodPermission
-        })
-      );
+    if (isMethodBarred(barredSet, serviceToken, methodName)) {
+      continue;
     }
+
+    const inputSchema = actionBackedMethodSchema?.inputSchema || null;
+    const outputSchema = actionBackedMethodSchema?.outputSchema || null;
+    const description = normalizeText(actionBackedMethodSchema?.description);
+    const methodPermission = normalizePermissionSpec(actionBackedMethodSchema?.permission);
+    const actionId = normalizeText(actionBackedMethodSchema?.actionId);
+
+    if (!actionId || !inputSchema || !outputSchema) {
+      continue;
+    }
+    const toolName = resolveUniqueToolName(`${serviceToken}_${methodName}`, usedToolNames);
+    entries.push(
+      Object.freeze({
+        descriptor: Object.freeze({
+          name: toolName,
+          serviceToken,
+          methodName,
+          actionId,
+          actionVersion: Number(actionBackedMethodSchema?.actionVersion) || null,
+          description: description || `Call ${serviceToken}.${methodName}().`,
+          parameters: inputSchema,
+          outputSchema
+        }),
+        permission: methodPermission
+      })
+    );
   }
 
   return Object.freeze(entries.sort((left, right) => left.descriptor.name.localeCompare(right.descriptor.name)));
@@ -384,7 +323,7 @@ function resolveServiceMethodEntries(
 
 function createServiceToolCatalog(
   scope,
-  { barredServiceMethods = [], skipServicePrefixes = [], requireMethodSchemas = false } = {}
+  { barredServiceMethods = [], skipServicePrefixes = [] } = {}
 ) {
   if (!scope || typeof scope.make !== "function") {
     throw new Error("createServiceToolCatalog requires container scope.make().");
@@ -402,8 +341,7 @@ function createServiceToolCatalog(
 
     methodEntries = resolveServiceMethodEntries(scope, {
       barredServiceMethods,
-      skipServicePrefixes: normalizedSkipPrefixes,
-      requireMethodSchemas
+      skipServicePrefixes: normalizedSkipPrefixes
     });
     return methodEntries;
   }
@@ -457,62 +395,47 @@ function createServiceToolCatalog(
       };
     }
 
-    if (descriptor.actionId && scope.has("actionExecutor")) {
-      const actionExecutor = scope.make("actionExecutor");
-      if (actionExecutor && typeof actionExecutor.execute === "function") {
-        try {
-          const actionInput = parseToolPayload(argumentsText);
-          if (actionInput && typeof actionInput === "object" && !Array.isArray(actionInput)) {
-            const workspaceSlug = resolveWorkspaceSlug(context, actionInput);
-            if (workspaceSlug && !Object.hasOwn(actionInput, "workspaceSlug")) {
-              actionInput.workspaceSlug = workspaceSlug;
-            }
-          }
-
-          const result = await actionExecutor.execute({
-            actionId: descriptor.actionId,
-            version: descriptor.actionVersion || null,
-            input: actionInput,
-            context
-          });
-          return {
-            ok: true,
-            result
-          };
-        } catch (error) {
-          const status = Number(error?.status || error?.statusCode || 500);
-          return {
-            ok: false,
-            error: {
-              code: String(error?.code || "assistant_tool_failed").trim() || "assistant_tool_failed",
-              message: status >= 500 ? "Tool call failed." : String(error?.message || "Tool call failed."),
-              status: Number.isInteger(status) ? status : 500
-            }
-          };
-        }
-      }
-    }
-
-    const service = scope.make(descriptor.serviceToken);
-    const method = service?.[descriptor.methodName];
-    if (typeof method !== "function") {
+    if (!scope.has("actionExecutor")) {
       return {
         ok: false,
         error: {
-          code: "assistant_tool_missing",
-          message: "Tool is unavailable."
+          code: "assistant_tool_unavailable",
+          message: "Tool executor is unavailable.",
+          status: 500
+        }
+      };
+    }
+    const actionExecutor = scope.make("actionExecutor");
+    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+      return {
+        ok: false,
+        error: {
+          code: "assistant_tool_unavailable",
+          message: "Tool executor is unavailable.",
+          status: 500
         }
       };
     }
 
-    const parsedArguments = parseToolArguments(argumentsText);
-    const methodOptions = {
-      ...normalizeObject(parsedArguments.options),
-      context
-    };
-
     try {
-      const result = await method(...parsedArguments.args, methodOptions);
+      const actionInput = parseToolPayload(argumentsText);
+      if (actionInput && typeof actionInput === "object" && !Array.isArray(actionInput)) {
+        const workspaceSlug = resolveWorkspaceSlug(context, actionInput);
+        if (workspaceSlug && !Object.hasOwn(actionInput, "workspaceSlug")) {
+          actionInput.workspaceSlug = workspaceSlug;
+        }
+      }
+      const executionContext = {
+        ...context,
+        channel: AUTOMATION_CHANNEL
+      };
+
+      const result = await actionExecutor.execute({
+        actionId: descriptor.actionId,
+        version: descriptor.actionVersion || null,
+        input: actionInput,
+        context: executionContext
+      });
       return {
         ok: true,
         result

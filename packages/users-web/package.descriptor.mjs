@@ -72,7 +72,8 @@ export default Object.freeze({
           "users.web.workspace-members.menu-item",
           "users.web.profile.element",
           "users.web.members-admin.element",
-          "users.web.workspace-settings.element"
+          "users.web.workspace-settings.element",
+          "users.web.bootstrap-placement.runtime"
         ]
       }
     },

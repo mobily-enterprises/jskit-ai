@@ -10,7 +10,7 @@ const workspaceDirectoryActions = Object.freeze([
     id: "workspace.workspaces.list",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {

@@ -10,7 +10,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     id: "workspace.invitations.pending.list",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -35,7 +35,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     id: "workspace.invite.redeem",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {

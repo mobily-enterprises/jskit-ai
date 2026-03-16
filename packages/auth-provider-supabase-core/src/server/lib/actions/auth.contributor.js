@@ -180,10 +180,25 @@ const authActions = Object.freeze([
     id: "auth.logout",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfaces: AUTH_SURFACES,
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
+    outputValidator: {
+      schema: {
+        type: "object",
+        properties: {
+          ok: {
+            type: "boolean"
+          },
+          clearSession: {
+            type: "boolean"
+          }
+        },
+        required: ["ok", "clearSession"],
+        additionalProperties: false
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "auth.logout"

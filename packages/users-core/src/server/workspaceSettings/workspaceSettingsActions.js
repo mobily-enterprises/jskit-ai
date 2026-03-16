@@ -15,7 +15,7 @@ const workspaceSettingsActions = Object.freeze([
     id: "workspace.settings.read",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -41,7 +41,7 @@ const workspaceSettingsActions = Object.freeze([
     id: "workspace.settings.update",
     version: 1,
     kind: "command",
-    channels: ["api", "assistant_tool", "internal"],
+    channels: ["api", "assistant_tool", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {

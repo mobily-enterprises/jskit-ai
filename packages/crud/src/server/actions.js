@@ -14,7 +14,7 @@ function createActions({ actionIdPrefix } = {}) {
       id: actionIds.list,
       version: 1,
       kind: "query",
-      channels: ["api", "internal"],
+      channels: ["api", "automation", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -38,7 +38,7 @@ function createActions({ actionIdPrefix } = {}) {
       id: actionIds.view,
       version: 1,
       kind: "query",
-      channels: ["api", "internal"],
+      channels: ["api", "automation", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -62,7 +62,7 @@ function createActions({ actionIdPrefix } = {}) {
       id: actionIds.create,
       version: 1,
       kind: "command",
-      channels: ["api", "internal"],
+      channels: ["api", "automation", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -86,7 +86,7 @@ function createActions({ actionIdPrefix } = {}) {
       id: actionIds.update,
       version: 1,
       kind: "command",
-      channels: ["api", "internal"],
+      channels: ["api", "automation", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {
@@ -111,7 +111,7 @@ function createActions({ actionIdPrefix } = {}) {
       id: actionIds.delete,
       version: 1,
       kind: "command",
-      channels: ["api", "internal"],
+      channels: ["api", "automation", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
       permission: {

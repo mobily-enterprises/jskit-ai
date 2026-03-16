@@ -9,7 +9,7 @@ const accountSecurityActions = Object.freeze([
     id: "settings.security.password.change",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -32,7 +32,7 @@ const accountSecurityActions = Object.freeze([
     id: "settings.security.password_method.toggle",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -60,7 +60,7 @@ const accountSecurityActions = Object.freeze([
     id: "settings.security.oauth.link.start",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -88,7 +88,7 @@ const accountSecurityActions = Object.freeze([
     id: "settings.security.oauth.unlink",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -116,7 +116,7 @@ const accountSecurityActions = Object.freeze([
     id: "settings.security.sessions.logout_others",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {

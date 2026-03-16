@@ -8,7 +8,7 @@ const consoleSettingsActions = Object.freeze([
     id: "console.settings.read",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
     consoleUsersOnly: false,
     permission: {
@@ -31,7 +31,7 @@ const consoleSettingsActions = Object.freeze([
     id: "console.settings.update",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
     consoleUsersOnly: false,
     permission: {

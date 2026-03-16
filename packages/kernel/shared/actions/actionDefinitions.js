@@ -3,7 +3,7 @@ import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
-const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "internal", "worker"]);
+const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "automation", "internal", "worker"]);
 const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", "all", "any"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);

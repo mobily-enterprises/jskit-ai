@@ -7,6 +7,10 @@ import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMe
 import ProfileClientElement from "../components/ProfileClientElement.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
 import WorkspaceSettingsClientElement from "../components/WorkspaceSettingsClientElement.vue";
+import {
+  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN,
+  createBootstrapPlacementRuntime
+} from "../runtime/bootstrapPlacementRuntime.js";
 
 const USERS_WEB_WORKSPACE_SELECTOR_TOKEN = "users.web.workspace.selector";
 const USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN = "users.web.workspace.tools.widget";
@@ -20,6 +24,7 @@ const USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN = "users.web.workspace-settings
 
 class UsersWebClientProvider {
   static id = "users.web.client";
+  static dependsOn = ["shell.web.client"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {
@@ -35,6 +40,29 @@ class UsersWebClientProvider {
     app.singleton(USERS_WEB_PROFILE_ELEMENT_TOKEN, () => ProfileClientElement);
     app.singleton(USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN, () => MembersAdminClientElement);
     app.singleton(USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN, () => WorkspaceSettingsClientElement);
+    app.singleton(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN, (scope) => createBootstrapPlacementRuntime({ app: scope }));
+  }
+
+  async boot(app) {
+    if (!app || typeof app.make !== "function") {
+      throw new Error("UsersWebClientProvider requires application make().");
+    }
+
+    const runtime = app.make(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN);
+    if (runtime && typeof runtime.initialize === "function") {
+      await runtime.initialize();
+    }
+  }
+
+  shutdown(app) {
+    if (!app || typeof app.make !== "function") {
+      return;
+    }
+
+    const runtime = app.make(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN);
+    if (runtime && typeof runtime.shutdown === "function") {
+      runtime.shutdown();
+    }
   }
 }
 
@@ -48,5 +76,6 @@ export {
   USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN,
   USERS_WEB_PROFILE_ELEMENT_TOKEN,
   USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN,
-  USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN
+  USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN,
+  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN
 };

@@ -10,7 +10,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.roles.list",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -32,7 +32,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.members.list",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -56,7 +56,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.member.role.update",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -83,7 +83,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.invites.list",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -107,7 +107,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.invite.create",
     version: 1,
     kind: "command",
-    channels: ["api", "assistant_tool", "internal"],
+    channels: ["api", "assistant_tool", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {
@@ -143,7 +143,7 @@ const workspaceMembersActions = Object.freeze([
     id: "workspace.invite.revoke",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
     permission: {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
@@ -9,18 +9,8 @@ import {
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
 import { mdiBriefcaseOutline } from "@mdi/js";
-import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
-import { normalizePermissionList } from "../lib/permissions.js";
-import {
-  findWorkspaceBySlug,
-  normalizeWorkspaceList,
-  resolvePlacementUserFromBootstrapPayload
-} from "../lib/bootstrap.js";
+import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
-import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
-import {
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
 
 const props = defineProps({
   surface: {
@@ -41,7 +31,7 @@ const navigatingToWorkspace = ref("");
 const errorMessage = ref("");
 const route = useRoute();
 const router = useRouter();
-const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+const { context: placementContext } = useWebPlacementContext();
 const paths = usePaths();
 
 function resolveBrowserPath() {
@@ -52,16 +42,6 @@ function resolveBrowserPath() {
   return pathname || "/";
 }
 
-function resolveBrowserFullPath() {
-  if (typeof window !== "object" || !window || !window.location) {
-    return "/";
-  }
-  const pathname = String(window.location.pathname || "").trim() || "/";
-  const search = String(window.location.search || "").trim();
-  const hash = String(window.location.hash || "").trim();
-  return `${pathname}${search}${hash}`;
-}
-
 const currentPath = computed(() => {
   const routePath = String(route?.path || "").trim();
   if (routePath) {
@@ -69,30 +49,6 @@ const currentPath = computed(() => {
   }
   return resolveBrowserPath();
 });
-
-const currentFullPath = computed(() => {
-  const routeFullPath = String(route?.fullPath || "").trim();
-  if (routeFullPath) {
-    return routeFullPath;
-  }
-  return resolveBrowserFullPath();
-});
-
-function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, permissions, user }) {
-  const patch = {
-    workspace: currentWorkspace,
-    workspaces: availableWorkspaces,
-    permissions
-  };
-  if (user !== undefined) {
-    patch.user = user;
-  }
-
-  mergePlacementContext(
-    patch,
-    "users-web.workspace-selector"
-  );
-}
 
 const currentSurfaceId = computed(() => {
   return resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) || props.surface;
@@ -120,43 +76,16 @@ const routeWorkspaceSlug = computed(() => {
   ).trim();
 });
 
-const bootstrapQuery = useBootstrapQuery({
-  workspaceSlug: routeWorkspaceSlug,
-  enabled: true
+const authenticated = computed(() => Boolean(placementContext.value?.auth?.authenticated));
+const workspaces = computed(() => normalizeWorkspaceList(placementContext.value?.workspaces));
+const activeWorkspace = computed(() => {
+  const workspaceFromRoute = findWorkspaceBySlug(workspaces.value, routeWorkspaceSlug.value);
+  if (workspaceFromRoute) {
+    return workspaceFromRoute;
+  }
+
+  return normalizeWorkspaceEntry(placementContext.value?.workspace);
 });
-
-const loading = computed(() => Boolean(bootstrapQuery.query.isPending.value || bootstrapQuery.query.isFetching.value));
-const authenticated = computed(() => Boolean(bootstrapQuery.query.data.value?.session?.authenticated));
-const workspaces = computed(() => normalizeWorkspaceList(bootstrapQuery.query.data.value?.workspaces));
-const activeWorkspace = computed(() => findWorkspaceBySlug(workspaces.value, routeWorkspaceSlug.value));
-const activeWorkspaceId = computed(() => Number(activeWorkspace.value?.id || 0));
-
-function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-  const currentWorkspaceSlug = String(routeWorkspaceSlug.value || "").trim();
-  if (!currentWorkspaceSlug) {
-    // Global surfaces (for example "/") do not have a route workspace; selector must refresh on bootstrap changes.
-    return true;
-  }
-
-  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
-  if (payloadWorkspaceSlug) {
-    return payloadWorkspaceSlug === currentWorkspaceSlug;
-  }
-
-  const scope = payload?.scope && typeof payload.scope === "object" ? payload.scope : {};
-  const scopeKind = String(scope.kind || "").trim().toLowerCase();
-  const scopeId = Number(scope.id || 0);
-  if (scopeKind === "workspace" && scopeId > 0) {
-    const currentWorkspaceId = Number(activeWorkspaceId.value || 0);
-    if (currentWorkspaceId > 0) {
-      return scopeId === currentWorkspaceId;
-    }
-    // Route workspace exists but workspace cache is not resolved yet; prefer refresh over stale UI.
-    return true;
-  }
-
-  return true;
-}
 
 async function navigateToWorkspace(slug) {
   const normalizedSlug = String(slug || "").trim();
@@ -237,53 +166,6 @@ const activeWorkspaceLabel = computed(() => {
   return "Workspace";
 });
 
-watch(
-  () => bootstrapQuery.query.data.value,
-  (payload) => {
-    const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
-    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, routeWorkspaceSlug.value);
-    const user = resolvePlacementUserFromBootstrapPayload(payload, placementContext.value?.user);
-    applyShellWorkspaceContext({
-      currentWorkspace,
-      availableWorkspaces,
-      permissions: normalizePermissionList(payload?.permissions),
-      user
-    });
-  },
-  {
-    immediate: true
-  }
-);
-
-watch(
-  () => bootstrapQuery.query.error.value,
-  (nextError) => {
-    if (!nextError) {
-      return;
-    }
-    const message = String(nextError?.message || "").trim();
-    if (message) {
-      errorMessage.value = message;
-    }
-  }
-);
-
-watch(
-  () => currentFullPath.value,
-  () => {
-    void bootstrapQuery.query.refetch();
-  }
-);
-
-useRealtimeEvent({
-  event: USERS_BOOTSTRAP_CHANGED_EVENT,
-  enabled: authenticated,
-  matches: isCurrentWorkspaceEvent,
-  onEvent: async () => {
-    await bootstrapQuery.query.refetch();
-  }
-});
-
 </script>
 
 <template>
@@ -293,7 +175,6 @@ useRealtimeEvent({
         v-bind="activatorProps"
         variant="text"
         class="text-none"
-        :loading="loading"
         :prepend-icon="mdiBriefcaseOutline"
       >
         {{ activeWorkspaceLabel }}

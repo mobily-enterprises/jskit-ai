@@ -31,7 +31,7 @@ const accountProfileActions = Object.freeze([
     id: "settings.read",
     version: 1,
     kind: "query",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -54,7 +54,7 @@ const accountProfileActions = Object.freeze([
     id: "settings.profile.update",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -82,7 +82,7 @@ const accountProfileActions = Object.freeze([
     id: "settings.profile.avatar.upload",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
@@ -110,7 +110,7 @@ const accountProfileActions = Object.freeze([
     id: "settings.profile.avatar.delete",
     version: 1,
     kind: "command",
-    channels: ["api", "internal"],
+    channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
     permission: {
