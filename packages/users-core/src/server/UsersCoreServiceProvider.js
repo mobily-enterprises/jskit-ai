@@ -30,7 +30,7 @@ import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettin
 class UsersCoreServiceProvider {
   static id = "users.core";
 
-  static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "auth.provider"];
+  static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider"];
 
   register(app) {
     registerUsersCoreApi(app, USERS_SHARED_API);

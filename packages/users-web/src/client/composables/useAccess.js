@@ -3,6 +3,7 @@ import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   USERS_BOOTSTRAP_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
@@ -35,20 +36,35 @@ function useAccess({
   const accessRequired = resolveAccessModeEnabled(normalizedAccessMode, {
     hasPermissionRequirements: hasPermissionRequirements === true
   });
+  const { context: placementContext } = useWebPlacementContext();
   const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
+  const hasPlacementBootstrapPermissions = computed(() => {
+    const source = placementContext.value;
+    if (!source || typeof source !== "object") {
+      return false;
+    }
+    return Object.hasOwn(source, "permissions");
+  });
+  const placementPermissions = computed(() => normalizePermissionList(placementContext.value?.permissions));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
   const bootstrap = accessRequired
     ? useBootstrapQuery({
         workspaceSlug: normalizedWorkspaceSlug,
-        enabled: queryEnabled
+        enabled: computed(() => queryEnabled.value && !hasPlacementBootstrapPermissions.value)
       })
     : null;
 
-  const permissions = computed(() =>
-    accessRequired ? normalizePermissionList(bootstrap.query.data.value?.permissions) : []
-  );
-  const bootstrapError = computed(() => {
+  const permissions = computed(() => {
     if (!accessRequired) {
+      return [];
+    }
+    if (hasPlacementBootstrapPermissions.value) {
+      return placementPermissions.value;
+    }
+    return normalizePermissionList(bootstrap.query.data.value?.permissions);
+  });
+  const bootstrapError = computed(() => {
+    if (!accessRequired || hasPlacementBootstrapPermissions.value) {
       return "";
     }
 
@@ -60,7 +76,9 @@ function useAccess({
     return String(error?.message || "Unable to load permissions.").trim();
   });
   const isBootstrapping = computed(() =>
-    accessRequired ? Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value) : false
+    accessRequired && !hasPlacementBootstrapPermissions.value
+      ? Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value)
+      : false
   );
   const realtimeEnabled = computed(() =>
     accessRequired && normalizedWorkspaceSlug.value.length > 0
@@ -127,7 +145,7 @@ function useAccess({
   }
 
   async function refreshBootstrap() {
-    if (!accessRequired) {
+    if (!accessRequired || hasPlacementBootstrapPermissions.value) {
       return null;
     }
 

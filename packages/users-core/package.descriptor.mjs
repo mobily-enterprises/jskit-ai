@@ -6,7 +6,8 @@ export default Object.freeze({
   dependsOn: [
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
-    "@jskit-ai/http-runtime"
+    "@jskit-ai/http-runtime",
+    "@jskit-ai/storage-runtime"
   ],
   capabilities: {
     provides: [
@@ -16,6 +17,7 @@ export default Object.freeze({
     requires: [
       "runtime.actions",
       "runtime.database",
+      "runtime.storage",
       "auth.provider",
       "auth.policy"
     ]

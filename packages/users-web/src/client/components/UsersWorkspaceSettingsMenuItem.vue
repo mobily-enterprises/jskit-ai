@@ -39,6 +39,13 @@ const props = defineProps({
 
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 const paths = usePaths();
+const hasPlacementPermissions = computed(() => {
+  const source = placementContext.value;
+  if (!source || typeof source !== "object") {
+    return false;
+  }
+  return Object.hasOwn(source, "permissions");
+});
 
 function writeShellPermissions(permissionList) {
   mergePlacementContext(
@@ -51,7 +58,7 @@ function writeShellPermissions(permissionList) {
 
 const bootstrapQuery = useBootstrapQuery({
   workspaceSlug: paths.workspaceSlug,
-  enabled: true
+  enabled: computed(() => !hasPlacementPermissions.value)
 });
 const workspaceSettingsEventsEnabled = computed(() => Boolean(paths.workspaceSlug.value));
 
@@ -65,9 +72,8 @@ function isCurrentWorkspaceEvent({ payload = {} } = {}) {
 }
 
 const permissions = computed(() => {
-  const shellPermissions = normalizePermissionList(placementContext.value?.permissions);
-  if (shellPermissions.length > 0) {
-    return shellPermissions;
+  if (hasPlacementPermissions.value) {
+    return normalizePermissionList(placementContext.value?.permissions);
   }
   return normalizePermissionList(bootstrapQuery.query.data.value?.permissions);
 });

@@ -34,13 +34,6 @@ export { registerApiRouteDefinitions } from "./apiRouteRegistration.js";
 export { defaultMissingHandler, normalizeIdempotencyKey, requireIdempotencyKey } from "./routeUtils.js";
 export { ModuleConfigError, defineModuleConfig } from "./moduleConfig.js";
 export { resolveFsBasePath } from "./storagePaths.js";
-export {
-  STORAGE_DRIVER_ENV_KEY,
-  STORAGE_FS_BASE_PATH_ENV_KEY,
-  DEFAULT_STORAGE_DRIVER,
-  normalizeStorageDriver,
-  createStorageBinding
-} from "./storageRuntime.js";
 export { readLockFromApp } from "./lib/lockfile.js";
 export { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";
 export { collectDomainFieldErrors, assertNoDomainRuleFailures } from "./domainRules.js";

@@ -2,8 +2,8 @@ import { mkdirSync } from "node:fs";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 import memoryDriver from "unstorage/drivers/memory";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { resolveFsBasePath } from "./storagePaths.js";
+import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { resolveFsBasePath } from "@jskit-ai/kernel/server/runtime/storagePaths";
 
 const STORAGE_DRIVER_ENV_KEY = "JSKIT_STORAGE_DRIVER";
 const STORAGE_FS_BASE_PATH_ENV_KEY = "JSKIT_STORAGE_FS_BASE_PATH";

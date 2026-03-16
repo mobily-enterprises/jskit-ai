@@ -4,7 +4,6 @@ import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
-import { useBootstrapQuery } from "@jskit-ai/users-web/client/composables/useBootstrapQuery";
 import {
   ASSISTANT_STREAM_EVENT_TYPES,
   ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
@@ -244,8 +243,10 @@ function mapTranscriptEntriesToAssistantState(entries) {
 }
 
 function resolveWorkspaceScope(bootstrapData = {}, workspaceSlug = "") {
-  const activeWorkspace = bootstrapData?.activeWorkspace && typeof bootstrapData.activeWorkspace === "object"
-    ? bootstrapData.activeWorkspace
+  const activeWorkspace = bootstrapData?.workspace && typeof bootstrapData.workspace === "object"
+    ? bootstrapData.workspace
+    : bootstrapData?.activeWorkspace && typeof bootstrapData.activeWorkspace === "object"
+      ? bootstrapData.activeWorkspace
     : null;
 
   return {
@@ -281,10 +282,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const runtimePolicy = resolveRuntimePolicy();
   const runtimeApi = createRuntimeApi(api);
   const queryClient = useQueryClient();
-  const { workspaceSlugFromRoute, currentSurfaceId } = useWorkspaceRouteContext();
-  const bootstrapQuery = useBootstrapQuery({
-    workspaceSlug: workspaceSlugFromRoute
-  });
+  const { workspaceSlugFromRoute, currentSurfaceId, placementContext } = useWorkspaceRouteContext();
 
   const messages = ref([]);
   const input = ref("");
@@ -295,8 +293,8 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const conversationId = ref(null);
   const abortController = ref(null);
 
-  const bootstrapPayload = computed(() => bootstrapQuery.query.data.value || {});
-  const workspaceScope = computed(() => resolveWorkspaceScope(bootstrapPayload.value, workspaceSlugFromRoute.value));
+  const placementSnapshot = computed(() => normalizeObject(placementContext.value));
+  const workspaceScope = computed(() => resolveWorkspaceScope(placementSnapshot.value, workspaceSlugFromRoute.value));
   const hasWorkspaceScope = computed(() => Boolean(workspaceScope.value.workspaceSlug));
   const activeConversationId = computed(() => normalizeText(conversationId.value));
   const isAdminSurface = computed(() => currentSurfaceId.value === "admin");
@@ -735,12 +733,11 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   });
 
   const viewer = computed(() => {
-    const profile = normalizeObject(bootstrapPayload.value.profile);
-    const avatar = normalizeObject(profile.avatar);
+    const user = normalizeObject(placementSnapshot.value.user);
 
     return {
-      displayName: normalizeText(profile.displayName) || "You",
-      avatarUrl: normalizeText(avatar.effectiveUrl)
+      displayName: normalizeText(user.displayName || user.name) || "You",
+      avatarUrl: normalizeText(user.avatarUrl)
     };
   });
 
