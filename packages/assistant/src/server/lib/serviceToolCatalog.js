@@ -45,12 +45,14 @@ function sanitizeToolName(value) {
 }
 
 function resolveUniqueToolName(baseName, used) {
-  const normalizedBase = sanitizeToolName(baseName).slice(0, 56) || "tool";
-  let candidate = normalizedBase;
+  const normalizedBase = sanitizeToolName(baseName) || "tool";
+  let candidate = normalizedBase.slice(0, 64);
   let suffix = 1;
 
   while (used.has(candidate)) {
-    candidate = `${normalizedBase}_${suffix}`.slice(0, 64);
+    const suffixText = `_${suffix}`;
+    const baseBudget = Math.max(1, 64 - suffixText.length);
+    candidate = `${normalizedBase.slice(0, baseBudget)}${suffixText}`;
     suffix += 1;
   }
 

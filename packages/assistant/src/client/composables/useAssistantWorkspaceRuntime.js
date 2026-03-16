@@ -207,13 +207,6 @@ function mapTranscriptEntriesToAssistantState(entries) {
       const toolEvent = ensureToolEvent(toolCallId, toolName);
       toolEvent.arguments = String(entry?.contentText || "");
       toolEvent.status = "pending";
-      messages.push({
-        id: messageId,
-        role: "assistant",
-        kind: "tool_event",
-        text: `Tool call: ${toolName}`,
-        status: "tool_call"
-      });
       continue;
     }
 
@@ -226,13 +219,6 @@ function mapTranscriptEntriesToAssistantState(entries) {
       toolEvent.status = failed ? "failed" : "done";
       toolEvent.result = failed ? null : parsedResult.result;
       toolEvent.error = failed ? parsedResult.error || metadata.error || null : null;
-      messages.push({
-        id: messageId,
-        role: "assistant",
-        kind: "tool_event",
-        text: failed ? `Tool result: ${toolName} failed` : `Tool result: ${toolName} completed`,
-        status: "tool_result"
-      });
     }
   }
 
@@ -612,13 +598,6 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
                   error: null
                 }
               ];
-              appendMessage({
-                id: buildId("tool_event"),
-                role: "assistant",
-                kind: "tool_event",
-                text: `Tool call: ${normalizeToolName(event?.name)}`,
-                status: "tool_call"
-              });
               return;
             }
 
@@ -639,16 +618,6 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
                   };
                 });
               }
-
-              appendMessage({
-                id: buildId("tool_event"),
-                role: "assistant",
-                kind: "tool_event",
-                text: event?.ok === false
-                  ? `Tool result: ${normalizeToolName(event?.name)} failed`
-                  : `Tool result: ${normalizeToolName(event?.name)} completed`,
-                status: "tool_result"
-              });
               return;
             }
 
