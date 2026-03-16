@@ -5,18 +5,19 @@ import {
 import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
 
 function useWorkspaceRouteContext() {
-  const { route, placementContext, mergePlacementContext, currentSurfaceId } = useSurfaceRouteContext();
+  const { route, routePath, placementContext, mergePlacementContext, currentSurfaceId } = useSurfaceRouteContext();
   const workspaceSlugFromRoute = computed(() => {
     const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
       placementContext.value,
       currentSurfaceId.value,
-      route.path
+      routePath.value
     );
     return String(workspaceSlug || "").trim();
   });
 
   return Object.freeze({
     route,
+    routePath,
     placementContext,
     mergePlacementContext,
     currentSurfaceId,

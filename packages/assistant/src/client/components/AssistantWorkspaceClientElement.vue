@@ -3,7 +3,7 @@
     :meta="runtime.meta"
     :state="runtime.state"
     :actions="runtime.actions"
-    :viewer="runtime.viewer"
+    :viewer="runtime.viewer.value"
   />
 </template>
 

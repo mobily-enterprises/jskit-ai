@@ -3,6 +3,7 @@ import {
   normalizeLowerText,
   normalizeText,
   toIsoString,
+  toNullableDateTime,
   toNullableIso,
   nowDb
 } from "./repositoryUtils.js";
@@ -91,7 +92,7 @@ function createRepository(knex) {
       .update({
         avatar_storage_key: avatar.avatarStorageKey || null,
         avatar_version: avatar.avatarVersion == null ? null : String(avatar.avatarVersion),
-        avatar_updated_at: avatar.avatarUpdatedAt ? toIsoString(avatar.avatarUpdatedAt) : nowDb()
+        avatar_updated_at: toNullableDateTime(avatar.avatarUpdatedAt) || nowDb()
       });
 
     return findById(userId);

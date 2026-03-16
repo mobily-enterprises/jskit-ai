@@ -27,7 +27,7 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
+async function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -75,7 +75,7 @@ function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
   };
 
   const provider = new UsersCoreServiceProvider();
-  provider.boot(app);
+  await provider.boot(app);
 
   return registeredRoutes;
 }
@@ -91,8 +91,8 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
   };
 }
 
-test("workspace and settings routes attach only the shared transport normalizers they actually use", () => {
-  const routes = registerUsersRoutes();
+test("workspace and settings routes attach only the shared transport normalizers they actually use", async () => {
+  const routes = await registerUsersRoutes();
 
   const workspaceSettings = findRoute(routes, {
     method: "GET",
@@ -134,8 +134,8 @@ test("workspace and settings routes attach only the shared transport normalizers
   assert.equal(typeof consoleSettingsPatch?.bodyValidator?.normalize, "function");
 });
 
-test("workspace settings routes mount one canonical workspace endpoint", () => {
-  const routes = registerUsersRoutes();
+test("workspace settings routes mount one canonical workspace endpoint", async () => {
+  const routes = await registerUsersRoutes();
   const workspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -162,7 +162,7 @@ test("workspace settings routes mount one canonical workspace endpoint", () => {
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {
-  const routes = registerUsersRoutes();
+  const routes = await registerUsersRoutes();
   const workspaceInviteRedeem = findRoute(routes, {
     method: "POST",
     path: "/api/workspace/invitations/redeem"
@@ -231,7 +231,7 @@ test("workspace invite and member handlers build action input from request.input
 });
 
 test("workspace settings route handlers build action input from request.input", async () => {
-  const routes = registerUsersRoutes();
+  const routes = await registerUsersRoutes();
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -260,7 +260,7 @@ test("workspace settings route handlers build action input from request.input", 
 });
 
 test("account route handlers build action input from request.input", async () => {
-  const routes = registerUsersRoutes({
+  const routes = await registerUsersRoutes({
     authService: {
       writeSessionCookies() {}
     }
@@ -362,7 +362,7 @@ test("account route handlers build action input from request.input", async () =>
 });
 
 test("console settings route handlers use request.input payloads", async () => {
-  const routes = registerUsersRoutes();
+  const routes = await registerUsersRoutes();
   const calls = [];
   const executeAction = async (payload) => {
     calls.push(payload);

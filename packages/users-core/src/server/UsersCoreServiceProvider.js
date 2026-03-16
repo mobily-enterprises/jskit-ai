@@ -26,6 +26,7 @@ import { registerAccountNotifications } from "./accountNotifications/registerAcc
 import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
+import { registerAvatarMultipartSupport } from "./accountProfile/registerAvatarMultipartSupport.js";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -48,13 +49,14 @@ class UsersCoreServiceProvider {
     registerConsoleSettings(app);
   }
 
-  boot(app) {
+  async boot(app) {
     bootWorkspaceDirectoryRoutes(app);
     if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
       bootWorkspacePendingInvitations(app);
     }
     bootWorkspaceSettings(app);
     bootWorkspaceMembers(app);
+    await registerAvatarMultipartSupport(app);
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);

@@ -109,7 +109,7 @@ function normalizeReturnToPath(value, fallback = "/") {
   return rawValue;
 }
 
-const backTarget = computed(() => normalizeReturnToPath(route.query?.returnTo, "/"));
+const backTarget = computed(() => normalizeReturnToPath(route?.query?.returnTo, "/"));
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");
@@ -531,8 +531,8 @@ function setupAvatarUploader() {
   uppy.on("upload-success", (_file, response) => {
     const data = response?.body;
     if (!data || typeof data !== "object") {
-      avatarDeleteCommand.messageType.value = "error";
-      avatarDeleteCommand.message.value = "Avatar uploaded, but the response payload was invalid.";
+      avatarDeleteCommand.messageType = "error";
+      avatarDeleteCommand.message = "Avatar uploaded, but the response payload was invalid.";
       return;
     }
 
@@ -544,8 +544,8 @@ function setupAvatarUploader() {
       dashboard.closeModal();
     }
 
-    avatarDeleteCommand.messageType.value = "success";
-    avatarDeleteCommand.message.value = "Avatar uploaded.";
+    avatarDeleteCommand.messageType = "success";
+    avatarDeleteCommand.message = "Avatar uploaded.";
     selectedAvatarFileName.value = "";
   });
 
@@ -558,15 +558,15 @@ function setupAvatarUploader() {
           ? body.details.fieldErrors
           : {};
 
-    avatarDeleteCommand.messageType.value = "error";
-    avatarDeleteCommand.message.value = String(
+    avatarDeleteCommand.messageType = "error";
+    avatarDeleteCommand.message = String(
       fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."
     );
   });
 
   uppy.on("restriction-failed", (_file, error) => {
-    avatarDeleteCommand.messageType.value = "error";
-    avatarDeleteCommand.message.value = String(error?.message || "Selected avatar file does not meet upload restrictions.");
+    avatarDeleteCommand.messageType = "error";
+    avatarDeleteCommand.message = String(error?.message || "Selected avatar file does not meet upload restrictions.");
   });
 
   uppy.on("complete", (result) => {
@@ -586,13 +586,13 @@ function setupAvatarUploader() {
 }
 
 async function openAvatarEditor() {
-  avatarDeleteCommand.message.value = "";
+  avatarDeleteCommand.message = "";
   setupAvatarUploader();
 
   const uppy = avatarUppy.value;
   if (!uppy) {
-    avatarDeleteCommand.messageType.value = "error";
-    avatarDeleteCommand.message.value = "Avatar editor is unavailable in this environment.";
+    avatarDeleteCommand.messageType = "error";
+    avatarDeleteCommand.message = "Avatar editor is unavailable in this environment.";
     return;
   }
 

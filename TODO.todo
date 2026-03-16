@@ -64,9 +64,11 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Provide a kenel-level function to know the root of the pages, have modules go relative to that
   X Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
   
+  X Avatar not appearing in chat
+
   - If logged out, redirect to login immediately, check page permissions if not logged out
   - Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
-  - Place roles and permissions in app-owned config
+  - Place roles and permissions in app-owned config. Check config for assistant?
   
   - Theme seems to change when going to user settings screen
   
