@@ -1,5 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -16,12 +15,6 @@ function createService({
   if (!userSettingsRepository || !userProfilesRepository) {
     throw new Error("accountNotificationsService requires repositories.");
   }
-
-  const servicePermissions = Object.freeze({
-    updateNotifications: Object.freeze({
-      require: "authenticated"
-    })
-  });
 
   async function updateNotifications(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
@@ -40,12 +33,9 @@ function createService({
     });
   }
 
-  return createAuthorizedService(
-    {
-      updateNotifications
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    updateNotifications
+  });
 }
 
 export { createService };

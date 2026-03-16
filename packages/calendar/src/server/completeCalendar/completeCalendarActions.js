@@ -9,6 +9,9 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarInputValidators.weekQueryValidator],
     outputValidator: completeCalendarResource.operations.list.outputValidator,
     idempotency: "none",
@@ -30,6 +33,9 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: completeCalendarInputValidators.routeParamsValidator,
     outputValidator: completeCalendarResource.operations.view.outputValidator,
     idempotency: "none",
@@ -51,6 +57,9 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarResource.operations.create.bodyValidator],
     outputValidator: completeCalendarResource.operations.create.outputValidator,
     idempotency: "optional",
@@ -72,6 +81,9 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [completeCalendarInputValidators.routeParamsValidator, completeCalendarResource.operations.patch.bodyValidator],
     outputValidator: completeCalendarResource.operations.patch.outputValidator,
     idempotency: "optional",
@@ -94,6 +106,9 @@ const completeCalendarActions = Object.freeze([
     channels: ["api", "internal"],
     surfaces: ["admin"],
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: completeCalendarInputValidators.routeParamsValidator,
     outputValidator: completeCalendarResource.operations.delete.outputValidator,
     idempotency: "optional",

@@ -1,5 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -16,21 +15,6 @@ function createService({
   if (!userSettingsRepository || !userProfilesRepository) {
     throw new Error("accountProfileService requires repositories.");
   }
-
-  const servicePermissions = Object.freeze({
-    getForUser: Object.freeze({
-      require: "authenticated"
-    }),
-    updateProfile: Object.freeze({
-      require: "authenticated"
-    }),
-    uploadAvatar: Object.freeze({
-      require: "authenticated"
-    }),
-    deleteAvatar: Object.freeze({
-      require: "authenticated"
-    })
-  });
 
   async function getForUser(request, user, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
@@ -91,15 +75,12 @@ function createService({
     throw new AppError(501, "Avatar deletion is not implemented in users-core yet.");
   }
 
-  return createAuthorizedService(
-    {
-      getForUser,
-      updateProfile,
-      uploadAvatar,
-      deleteAvatar
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    getForUser,
+    updateProfile,
+    uploadAvatar,
+    deleteAvatar
+  });
 }
 
 export { createService };

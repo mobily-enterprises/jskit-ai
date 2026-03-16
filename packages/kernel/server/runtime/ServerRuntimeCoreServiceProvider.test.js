@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { createContainer } from "../container/lib/container.js";
 import { registerDomainEventListener } from "./domainEvents.js";
 import { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";
@@ -17,8 +16,6 @@ test("ServerRuntimeCoreServiceProvider registers runtime.server and default doma
 
   const domainEvents = app.make("domainEvents");
   assert.equal(typeof domainEvents.publish, "function");
-  const schemaCatalog = app.make(KERNEL_TOKENS.ServiceSchemaCatalog);
-  assert.equal(typeof schemaCatalog.listServiceMethodSchemas, "function");
 });
 
 test("ServerRuntimeCoreServiceProvider default domainEvents dispatches registered listeners", async () => {

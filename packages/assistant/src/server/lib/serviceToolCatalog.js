@@ -1,6 +1,6 @@
 import { requireAuth, resolveServiceRegistrations } from "@jskit-ai/kernel/server/runtime";
 import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { mergeValidators } from "@jskit-ai/kernel/shared/validators";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const DEFAULT_TOOL_INPUT_SCHEMA = Object.freeze({
@@ -157,7 +157,7 @@ function parseToolPayload(argumentsText) {
 }
 
 function canInvokeMethod(permission, context) {
-  const permissionSpec = permission && typeof permission === "object" ? permission : { require: "none" };
+  const permissionSpec = normalizePermissionSpec(permission);
 
   try {
     requireAuth(
@@ -172,21 +172,19 @@ function canInvokeMethod(permission, context) {
   }
 }
 
-function resolveMethodSchema(scope, serviceToken, methodName) {
-  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
-    return null;
-  }
+function normalizePermissionSpec(permission) {
+  const source = permission && typeof permission === "object" && !Array.isArray(permission)
+    ? permission
+    : {};
+  const requireMode = normalizeText(source.require || "none").toLowerCase();
+  const permissions = Array.isArray(source.permissions) ? source.permissions : [];
 
-  if (!scope.has(KERNEL_TOKENS.ServiceSchemaCatalog)) {
-    return null;
-  }
-
-  const catalog = scope.make(KERNEL_TOKENS.ServiceSchemaCatalog);
-  if (!catalog || typeof catalog.getServiceMethodSchema !== "function") {
-    return null;
-  }
-
-  return catalog.getServiceMethodSchema(serviceToken, methodName);
+  return Object.freeze({
+    require: requireMode || "none",
+    permissions,
+    message: normalizeText(source.message),
+    code: normalizeText(source.code)
+  });
 }
 
 function toServiceMethodKey(serviceToken, methodName) {
@@ -199,6 +197,18 @@ function toServiceMethodKey(serviceToken, methodName) {
 }
 
 function extractJsonSchema(validator) {
+  if (Array.isArray(validator)) {
+    try {
+      const merged = mergeValidators(validator, {
+        context: "assistant tool validator",
+        requireSchema: false
+      });
+      return extractJsonSchema(merged);
+    } catch {
+      return null;
+    }
+  }
+
   if (!validator || typeof validator !== "object" || Array.isArray(validator)) {
     return null;
   }
@@ -253,7 +263,8 @@ function resolveActionBackedMethodSchemas(scope) {
           inputSchema,
           outputSchema,
           actionId: String(action.id || "").trim() || null,
-          actionVersion: Number(action.version) || 1
+          actionVersion: Number(action.version) || 1,
+          permission: normalizePermissionSpec(action.permission)
         });
         const existing = entries.get(key);
         if (!existing || Number(action.version) >= Number(existing.version || 0)) {
@@ -299,10 +310,6 @@ function resolveServiceMethodEntries(
       continue;
     }
 
-    const servicePermissions = service?.servicePermissions && typeof service.servicePermissions === "object"
-      ? service.servicePermissions
-      : {};
-
     for (const [methodName, method] of Object.entries(service)) {
       if (typeof method !== "function") {
         continue;
@@ -312,12 +319,13 @@ function resolveServiceMethodEntries(
         continue;
       }
 
-      const methodPermission = servicePermissions?.[methodName] || { require: "none" };
-      const methodSchema =
-        resolveMethodSchema(scope, serviceToken, methodName) ||
-        actionBackedSchemas.get(toServiceMethodKey(serviceToken, methodName)) ||
-        null;
-      if (requireMethodSchemas && (!methodSchema?.inputSchema || !methodSchema?.outputSchema)) {
+      const actionBackedMethodSchema = actionBackedSchemas.get(toServiceMethodKey(serviceToken, methodName)) || null;
+      const inputSchema = actionBackedMethodSchema?.inputSchema || null;
+      const outputSchema = actionBackedMethodSchema?.outputSchema || null;
+      const description = normalizeText(actionBackedMethodSchema?.description);
+      const methodPermission = normalizePermissionSpec(actionBackedMethodSchema?.permission);
+
+      if (requireMethodSchemas && (!inputSchema || !outputSchema)) {
         continue;
       }
       const toolName = resolveUniqueToolName(`${serviceToken}_${methodName}`, usedToolNames);
@@ -327,11 +335,11 @@ function resolveServiceMethodEntries(
             name: toolName,
             serviceToken,
             methodName,
-            actionId: methodSchema?.actionId || null,
-            actionVersion: Number(methodSchema?.actionVersion) || null,
-            description: normalizeText(methodSchema?.description) || `Call ${serviceToken}.${methodName}().`,
-            parameters: methodSchema?.inputSchema || DEFAULT_TOOL_INPUT_SCHEMA,
-            outputSchema: methodSchema?.outputSchema || null
+            actionId: actionBackedMethodSchema?.actionId || null,
+            actionVersion: Number(actionBackedMethodSchema?.actionVersion) || null,
+            description: description || `Call ${serviceToken}.${methodName}().`,
+            parameters: inputSchema || DEFAULT_TOOL_INPUT_SCHEMA,
+            outputSchema
           }),
           permission: methodPermission
         })

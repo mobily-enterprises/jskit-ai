@@ -3,7 +3,6 @@ import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository } from "./repository.js";
 import {
   createService,
-  servicePermissions,
   serviceEvents
 } from "./service.js";
 import { createActions } from "./actions.js";
@@ -41,7 +40,6 @@ class ${option:namespace|pascal}ServiceProvider {
         });
       },
       {
-        permissions: servicePermissions,
         events: serviceEvents
       }
     );

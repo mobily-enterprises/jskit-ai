@@ -1,6 +1,5 @@
-import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeText } from "../../shared/support/normalize.js";
 import { createEntityChangePublisher } from "./entityChangeEvents.js";
-import { createAuthorizedService, getServicePermissions } from "./serviceAuthorization.js";
 
 const SERVICE_REGISTRATION_TAG = Symbol.for("jskit.runtime.services.registrations");
 const ENTITY_CHANGED_EVENT_TYPE = "entity.changed";
@@ -169,7 +168,9 @@ function normalizeServiceEventSpec(entry, { context = "service event" } = {}) {
 
 function normalizeServiceMetadata(value = {}) {
   const source = normalizePlainObject(value);
-  const permissions = normalizePlainObject(source.permissions);
+  if (Object.hasOwn(source, "permissions")) {
+    throw new TypeError("service metadata.permissions is no longer supported. Define permissions on actions.");
+  }
   const eventsSource = normalizePlainObject(source.events);
   const events = {};
 
@@ -186,44 +187,8 @@ function normalizeServiceMetadata(value = {}) {
   }
 
   return Object.freeze({
-    permissions: Object.freeze({ ...permissions }),
     events: Object.freeze(events)
   });
-}
-
-function normalizeServicePermissionsForDefinition(serviceDefinition, serviceMetadata) {
-  const service = normalizePlainObject(serviceDefinition);
-  const declaredPermissions = normalizePlainObject(serviceMetadata.permissions);
-  const inheritedPermissions = getServicePermissions(service);
-  const methodNames = Object.entries(service)
-    .filter(([, value]) => typeof value === "function")
-    .map(([name]) => name);
-  const methodNameSet = new Set(methodNames);
-  const normalizedPermissions = {};
-
-  for (const methodName of methodNames) {
-    if (Object.hasOwn(declaredPermissions, methodName)) {
-      normalizedPermissions[methodName] = normalizeObject(declaredPermissions[methodName]);
-      continue;
-    }
-
-    if (Object.hasOwn(inheritedPermissions, methodName)) {
-      normalizedPermissions[methodName] = normalizeObject(inheritedPermissions[methodName]);
-      continue;
-    }
-
-    normalizedPermissions[methodName] = Object.freeze({
-      require: "none"
-    });
-  }
-
-  for (const key of Object.keys(declaredPermissions)) {
-    if (!methodNameSet.has(key)) {
-      throw new TypeError(`service metadata.permissions.${key} does not match a service method.`);
-    }
-  }
-
-  return Object.freeze(normalizedPermissions);
 }
 
 function normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata) {
@@ -378,12 +343,10 @@ function createServiceMethodEventPublisher(scope, serviceToken, methodName, spec
 function materializeServiceRegistration(scope, registrationSpec) {
   const service = registrationSpec.factory(scope);
   const normalizedService = normalizePlainObject(service);
-  const permissions = normalizeServicePermissionsForDefinition(normalizedService, registrationSpec.metadata);
   const events = normalizeServiceEventsForDefinition(normalizedService, registrationSpec.metadata);
-  const authorizedService = createAuthorizedService(normalizedService, permissions);
   const wrappedService = {};
 
-  for (const [methodName, method] of Object.entries(authorizedService)) {
+  for (const [methodName, method] of Object.entries(normalizedService)) {
     if (typeof method !== "function") {
       continue;
     }
@@ -420,12 +383,6 @@ function materializeServiceRegistration(scope, registrationSpec) {
     };
   }
 
-  Object.defineProperty(wrappedService, "servicePermissions", {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: permissions
-  });
   Object.defineProperty(wrappedService, "serviceEvents", {
     enumerable: false,
     configurable: false,

@@ -13,7 +13,6 @@ const KERNEL_TOKENS = Object.freeze({
   WorkerKernel: Symbol.for("jskit.queue.workerKernel"),
   Knex: Symbol.for("jskit.database.knex"),
   TransactionManager: Symbol.for("jskit.database.transactionManager"),
-  ServiceSchemaCatalog: Symbol.for("jskit.runtime.serviceSchemaCatalog"),
   HealthService: Symbol.for("jskit.health.service"),
   SurfaceRuntime: Symbol.for("jskit.surface.runtime")
 });

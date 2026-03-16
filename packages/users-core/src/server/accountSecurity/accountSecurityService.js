@@ -1,6 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createValidationError } from "@jskit-ai/kernel/server/runtime";
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -17,24 +16,6 @@ function createService({
   if (!userSettingsRepository || !userProfilesRepository) {
     throw new Error("accountSecurityService requires repositories.");
   }
-
-  const servicePermissions = Object.freeze({
-    changePassword: Object.freeze({
-      require: "authenticated"
-    }),
-    setPasswordMethodEnabled: Object.freeze({
-      require: "authenticated"
-    }),
-    startOAuthProviderLink: Object.freeze({
-      require: "authenticated"
-    }),
-    unlinkOAuthProvider: Object.freeze({
-      require: "authenticated"
-    }),
-    logoutOtherSessions: Object.freeze({
-      require: "authenticated"
-    })
-  });
 
   async function changePassword(request, user, payload = {}, options = {}) {
     if (!authService || typeof authService.changePassword !== "function") {
@@ -110,16 +91,13 @@ function createService({
     return authService.signOutOtherSessions(request);
   }
 
-  return createAuthorizedService(
-    {
-      changePassword,
-      setPasswordMethodEnabled,
-      startOAuthProviderLink,
-      unlinkOAuthProvider,
-      logoutOtherSessions
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    changePassword,
+    setPasswordMethodEnabled,
+    startOAuthProviderLink,
+    unlinkOAuthProvider,
+    logoutOtherSessions
+  });
 }
 
 export { createService };

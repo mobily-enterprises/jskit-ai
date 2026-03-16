@@ -330,3 +330,67 @@ test("action registry enforces consoleUsersOnly for non-operator actors", async 
     }
   );
 });
+
+test("action registry enforces action-level permissions", async () => {
+  const registry = createActionRegistry({
+    contributors: [
+      {
+        contributorId: "tests.permissions",
+        domain: "workspace",
+        actions: [
+          {
+            id: "workspace.settings.update",
+            version: 1,
+            domain: "workspace",
+            kind: "command",
+            channels: ["api", "internal"],
+            surfaces: ["app"],
+            consoleUsersOnly: false,
+            permission: {
+              require: "all",
+              permissions: ["workspace.settings.update"]
+            },
+            inputValidator: { schema: createPassThroughSchema() },
+            idempotency: "optional",
+            audit: {
+              actionName: "workspace.settings.update"
+            },
+            observability: {},
+            async execute() {
+              return { ok: true };
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  await assert.rejects(
+    () =>
+      registry.execute({
+        actionId: "workspace.settings.update",
+        context: {
+          channel: "api",
+          surface: "app",
+          actor: { id: 7 },
+          permissions: ["workspace.settings.view"]
+        }
+      }),
+    (error) => {
+      assert.equal(error.code, "ACTION_PERMISSION_DENIED");
+      return true;
+    }
+  );
+
+  const allowed = await registry.execute({
+    actionId: "workspace.settings.update",
+    context: {
+      channel: "api",
+      surface: "app",
+      actor: { id: 7 },
+      permissions: ["workspace.settings.update"]
+    }
+  });
+
+  assert.deepEqual(allowed, { ok: true });
+});

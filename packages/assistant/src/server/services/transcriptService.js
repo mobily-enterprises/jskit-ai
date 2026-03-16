@@ -7,24 +7,6 @@ const MAX_PAGE_SIZE = 200;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const MAX_MESSAGES_PAGE_SIZE = 500;
 
-const servicePermissions = Object.freeze({
-  createConversationForTurn: Object.freeze({
-    require: "authenticated"
-  }),
-  appendMessage: Object.freeze({
-    require: "authenticated"
-  }),
-  completeConversation: Object.freeze({
-    require: "authenticated"
-  }),
-  listConversationsForUser: Object.freeze({
-    require: "authenticated"
-  }),
-  getConversationMessagesForUser: Object.freeze({
-    require: "authenticated"
-  })
-});
-
 const serviceEvents = Object.freeze({
   createConversationForTurn: Object.freeze([
     Object.freeze({
@@ -323,6 +305,5 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
 
 export {
   createTranscriptService,
-  servicePermissions,
   serviceEvents
 };

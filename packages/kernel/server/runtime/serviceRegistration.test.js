@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createContainer } from "../container/lib/container.js";
-import { getServicePermissions } from "./serviceAuthorization.js";
 import {
   installServiceRegistrationApi,
   resolveServiceRegistrations
 } from "./serviceRegistration.js";
 
-test("installServiceRegistrationApi exposes app.service and default require:none", async () => {
+test("installServiceRegistrationApi exposes app.service and publishes declared events", async () => {
   const app = createContainer();
   const published = [];
   app.singleton("domainEvents", () => ({
@@ -55,7 +54,6 @@ test("installServiceRegistrationApi exposes app.service and default require:none
   });
 
   assert.equal(result.id, 41);
-  assert.equal(getServicePermissions(service).createRecord.require, "none");
   assert.equal(service.serviceEvents.createRecord[0].realtime.audience, "all_workspace_users");
   assert.equal(published.length, 1);
   assert.equal(published[0].source, "crud");
@@ -65,7 +63,7 @@ test("installServiceRegistrationApi exposes app.service and default require:none
   assert.equal(published[0].meta?.realtime?.event, "customers.record.changed");
 });
 
-test("app.service enforces declared permissions", () => {
+test("app.service rejects deprecated permissions metadata", () => {
   const app = createContainer();
   app.singleton("domainEvents", () => ({
     async publish() {
@@ -74,26 +72,24 @@ test("app.service enforces declared permissions", () => {
   }));
   installServiceRegistrationApi(app);
 
-  app.service(
-    "test.secure.service",
-    () => ({
-      async listRecords() {
-        return [];
-      }
-    }),
-    {
-      permissions: {
-        listRecords: {
-          require: "authenticated"
-        }
-      }
-    }
-  );
-
-  const service = app.make("test.secure.service");
   assert.throws(
-    () => service.listRecords({}),
-    (error) => error?.status === 401 && error?.message === "Authentication required."
+    () =>
+      app.service(
+        "test.secure.service",
+        () => ({
+          async listRecords() {
+            return [];
+          }
+        }),
+        {
+          permissions: {
+            listRecords: {
+              require: "authenticated"
+            }
+          }
+        }
+      ),
+    /metadata\.permissions is no longer supported/
   );
 });
 
@@ -112,20 +108,15 @@ test("resolveServiceRegistrations returns declared service metadata", () => {
       async createRecord() {
         return { id: 1 };
       }
-    }),
-    {
-      permissions: {
-        createRecord: {
-          require: "authenticated"
-        }
-      }
-    }
+    })
   );
 
   const entries = resolveServiceRegistrations(app);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].serviceToken, "test.registry.service");
-  assert.equal(entries[0].metadata.permissions.createRecord.require, "authenticated");
+  assert.deepEqual(entries[0].metadata, {
+    events: {}
+  });
 });
 
 test("app.service keeps realtime audience callbacks", () => {

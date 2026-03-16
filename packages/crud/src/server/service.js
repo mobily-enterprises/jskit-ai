@@ -1,21 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-const servicePermissions = Object.freeze({
-  listRecords: Object.freeze({
-    require: "authenticated"
-  }),
-  getRecord: Object.freeze({
-    require: "authenticated"
-  }),
-  createRecord: Object.freeze({
-    require: "authenticated"
-  }),
-  updateRecord: Object.freeze({
-    require: "authenticated"
-  }),
-  deleteRecord: Object.freeze({
-    require: "authenticated"
-  })
-});
 
 const serviceEvents = Object.freeze({
   createRecord: Object.freeze([
@@ -110,4 +93,4 @@ function createService({ crudRepository } = {}) {
   });
 }
 
-export { createService, servicePermissions, serviceEvents };
+export { createService, serviceEvents };

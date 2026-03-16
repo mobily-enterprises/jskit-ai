@@ -1,5 +1,3 @@
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
-
 function toPositiveInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -9,13 +7,6 @@ function toPositiveInteger(value) {
 }
 
 function createAuthSessionEventsService() {
-  const servicePermissions = Object.freeze({
-    notifySessionChanged: Object.freeze({
-      require: "none",
-      permissions: Object.freeze([])
-    })
-  });
-
   async function notifySessionChanged(options = {}) {
     const actorId = toPositiveInteger(options?.context?.actor?.id);
     if (!actorId) {
@@ -27,12 +18,9 @@ function createAuthSessionEventsService() {
     };
   }
 
-  return createAuthorizedService(
-    {
-      notifySessionChanged
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    notifySessionChanged
+  });
 }
 
 export { createAuthSessionEventsService };

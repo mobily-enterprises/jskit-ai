@@ -4,10 +4,12 @@ import { normalizeText } from "./textNormalization.js";
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
 const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "internal", "worker"]);
+const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", "all", "any"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_CHANNEL_SET = new Set(ACTION_CHANNELS);
+const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
 const ACTION_DOMAIN_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
 class ActionRuntimeError extends Error {
@@ -187,6 +189,58 @@ function normalizeActionOutputValidator(value, fieldName, { required = false } =
   });
 }
 
+function normalizePermissionList(value) {
+  const source = Array.isArray(value) ? value : [value];
+  return Object.freeze(
+    Array.from(
+      new Set(
+        source
+          .map((entry) => normalizeText(entry))
+          .filter(Boolean)
+      )
+    )
+  );
+}
+
+function normalizeActionPermission(permission, actionId) {
+  if (permission == null) {
+    return Object.freeze({
+      require: "none",
+      permissions: Object.freeze([]),
+      message: "",
+      code: ""
+    });
+  }
+
+  if (!isPlainObject(permission)) {
+    throw createActionRuntimeError(
+      500,
+      `Action definition \"${actionId}\" permission must be an object when provided.`,
+      {
+        code: "ACTION_DEFINITION_INVALID"
+      }
+    );
+  }
+
+  const requireMode = normalizeText(permission.require || "authenticated").toLowerCase();
+  if (!ACTION_PERMISSION_REQUIRE_SET.has(requireMode)) {
+    throw createActionRuntimeError(
+      500,
+      `Action definition \"${actionId}\" permission.require must be one of: ${ACTION_PERMISSION_REQUIRE_MODES.join(", ")}.`,
+      {
+        code: "ACTION_DEFINITION_INVALID"
+      }
+    );
+  }
+
+  return Object.freeze({
+    require: requireMode,
+    permissions: normalizePermissionList(permission.permissions),
+    message: normalizeText(permission.message),
+    code: normalizeText(permission.code)
+  });
+}
+
 function normalizeAuditConfig(audit, { actionId }) {
   const source = audit && typeof audit === "object" ? audit : {};
   const actionName = normalizeText(source.actionName || actionId);
@@ -334,16 +388,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
-  if (Object.prototype.hasOwnProperty.call(source, "permission")) {
-    throw createActionRuntimeError(
-      500,
-      `Action definition \"${id}\" must not define permission. Enforce authorization in the service layer.`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
-  }
-
   return Object.freeze({
     id,
     version,
@@ -359,6 +403,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
       required: false
     }),
     idempotency,
+    permission: normalizeActionPermission(source.permission, id),
     audit: normalizeAuditConfig(source.audit, {
       actionId: id
     }),
@@ -410,6 +455,7 @@ const __testables = {
   normalizeSingleActionValidator,
   normalizeActionValidators,
   normalizeActionOutputValidator,
+  normalizeActionPermission,
   normalizeAuditConfig,
   normalizeObservabilityConfig,
   normalizeAssistantToolConfig

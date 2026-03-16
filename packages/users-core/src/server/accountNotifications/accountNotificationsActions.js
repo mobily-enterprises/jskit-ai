@@ -12,6 +12,9 @@ const accountNotificationsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userSettingsResource.operations.notificationsUpdate.bodyValidator,
     outputValidator: userSettingsResource.operations.view.outputValidator,
     idempotency: "optional",

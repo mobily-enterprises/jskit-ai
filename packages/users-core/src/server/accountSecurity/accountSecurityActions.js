@@ -12,6 +12,9 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userSettingsResource.operations.passwordChange.bodyValidator,
     outputValidator: userSettingsResource.operations.passwordChange.outputValidator,
     idempotency: "none",
@@ -32,6 +35,9 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userSettingsResource.operations.passwordMethodToggle.bodyValidator,
     outputValidator: userSettingsResource.operations.passwordMethodToggle.outputValidator,
     idempotency: "none",
@@ -57,6 +63,9 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [userSettingsResource.operations.oauthLinkStart.paramsValidator, userSettingsResource.operations.oauthLinkStart.queryValidator],
     outputValidator: userSettingsResource.operations.oauthLinkStart.outputValidator,
     idempotency: "none",
@@ -82,6 +91,9 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userSettingsResource.operations.oauthUnlink.paramsValidator,
     outputValidator: userSettingsResource.operations.oauthUnlink.outputValidator,
     idempotency: "none",
@@ -107,6 +119,9 @@ const accountSecurityActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userSettingsResource.operations.logoutOtherSessions.bodyValidator,
     outputValidator: userSettingsResource.operations.logoutOtherSessions.outputValidator,
     idempotency: "none",

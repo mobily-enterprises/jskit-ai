@@ -6,18 +6,6 @@ const MAX_HISTORY_MESSAGES = 20;
 const MAX_INPUT_CHARS = 8000;
 const MAX_TOOL_ROUNDS = 4;
 
-const servicePermissions = Object.freeze({
-  streamChat: Object.freeze({
-    require: "authenticated"
-  }),
-  listConversations: Object.freeze({
-    require: "authenticated"
-  }),
-  getConversationMessages: Object.freeze({
-    require: "authenticated"
-  })
-});
-
 function normalizeConversationId(value) {
   const parsed = parsePositiveInteger(value);
   return parsed > 0 ? parsed : null;
@@ -544,6 +532,5 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
 }
 
 export {
-  createChatService,
-  servicePermissions
+  createChatService
 };

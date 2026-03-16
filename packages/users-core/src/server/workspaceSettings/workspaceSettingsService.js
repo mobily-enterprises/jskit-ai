@@ -1,22 +1,10 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 
 function createService({ workspacesRepository, workspaceSettingsRepository } = {}) {
   if (!workspacesRepository || !workspaceSettingsRepository) {
     throw new Error("workspaceSettingsService requires workspacesRepository and workspaceSettingsRepository.");
   }
-
-  const servicePermissions = Object.freeze({
-    getWorkspaceSettings: Object.freeze({
-      require: "any",
-      permissions: Object.freeze(["workspace.settings.view", "workspace.settings.update"])
-    }),
-    updateWorkspaceSettings: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.settings.update"])
-    })
-  });
 
   async function getWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, options);
@@ -46,13 +34,10 @@ function createService({ workspacesRepository, workspaceSettingsRepository } = {
     return getWorkspaceSettings(nextWorkspace, options);
   }
 
-  return createAuthorizedService(
-    {
-      getWorkspaceSettings,
-      updateWorkspaceSettings
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    getWorkspaceSettings,
+    updateWorkspaceSettings
+  });
 }
 
 export { createService };

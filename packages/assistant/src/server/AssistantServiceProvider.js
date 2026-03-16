@@ -3,13 +3,9 @@ import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRepository as createConversationsRepository } from "./repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "./repositories/messagesRepository.js";
-import {
-  createChatService,
-  servicePermissions as chatServicePermissions
-} from "./services/chatService.js";
+import { createChatService } from "./services/chatService.js";
 import {
   createTranscriptService,
-  servicePermissions as transcriptServicePermissions,
   serviceEvents as transcriptServiceEvents
 } from "./services/transcriptService.js";
 import { createAiClient } from "./lib/aiClient.js";
@@ -121,7 +117,6 @@ class AssistantServiceProvider {
           messagesRepository: scope.make(ASSISTANT_MESSAGES_REPOSITORY_TOKEN)
         }),
       {
-        permissions: transcriptServicePermissions,
         events: transcriptServiceEvents
       }
     );
@@ -135,7 +130,6 @@ class AssistantServiceProvider {
           serviceToolCatalog: scope.make(ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN)
         }),
       {
-        permissions: chatServicePermissions,
         events: {}
       }
     );

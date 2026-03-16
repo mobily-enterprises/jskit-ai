@@ -10,6 +10,9 @@ const assistantActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [routeParamsValidator, assistantResource.operations.chatStream.bodyValidator],
     idempotency: "optional",
     audit: {
@@ -31,6 +34,9 @@ const assistantActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [routeParamsValidator, assistantResource.operations.conversationsList.queryValidator],
     outputValidator: assistantResource.operations.conversationsList.outputValidator,
     idempotency: "none",
@@ -51,6 +57,9 @@ const assistantActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: [
       routeParamsValidator,
       assistantResource.operations.conversationMessagesList.paramsValidator,

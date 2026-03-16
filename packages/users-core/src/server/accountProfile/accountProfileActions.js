@@ -34,6 +34,9 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: userSettingsResource.operations.view.outputValidator,
     idempotency: "none",
@@ -54,6 +57,9 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userProfileResource.operations.patch.bodyValidator,
     outputValidator: settingsProfileUpdateOutputValidator,
     idempotency: "optional",
@@ -79,6 +85,9 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userProfileResource.operations.avatarUpload.bodyValidator,
     outputValidator: userProfileResource.operations.avatarUpload.outputValidator,
     idempotency: "none",
@@ -104,6 +113,9 @@ const accountProfileActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: userProfileResource.operations.avatarDelete.bodyValidator,
     outputValidator: userProfileResource.operations.avatarDelete.outputValidator,
     idempotency: "none",

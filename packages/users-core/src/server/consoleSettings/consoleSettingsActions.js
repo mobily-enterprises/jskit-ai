@@ -11,6 +11,9 @@ const consoleSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "console",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: consoleSettingsResource.operations.view.outputValidator,
     idempotency: "none",
@@ -31,6 +34,9 @@ const consoleSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "console",
     consoleUsersOnly: false,
+    permission: {
+      require: "authenticated"
+    },
     inputValidator: consoleSettingsResource.operations.replace.bodyValidator,
     outputValidator: consoleSettingsResource.operations.replace.outputValidator,
     idempotency: "optional",

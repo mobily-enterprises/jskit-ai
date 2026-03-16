@@ -24,17 +24,6 @@ function registerWorkspacePendingInvitations(app) {
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository")
       }),
     {
-      permissions: Object.freeze({
-        listPendingInvitesForUser: Object.freeze({
-          require: "authenticated"
-        }),
-        acceptInviteByToken: Object.freeze({
-          require: "authenticated"
-        }),
-        refuseInviteByToken: Object.freeze({
-          require: "authenticated"
-        })
-      }),
       events: deepFreeze({
         acceptInviteByToken: [
           {

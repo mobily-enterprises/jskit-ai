@@ -16,6 +16,7 @@ export {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,
+  ensureActionPermissionAllowed,
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";

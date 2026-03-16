@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Type } from "typebox";
 import { createContainer } from "@jskit-ai/kernel/server/container";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
@@ -17,50 +17,10 @@ function createApp() {
   return app;
 }
 
-function toSchemaCatalogKey(serviceToken, methodName) {
-  return `${String(serviceToken || "").trim().toLowerCase()}.${String(methodName || "").trim().toLowerCase()}`;
-}
-
-function bindServiceSchemaCatalog(app, entries = []) {
-  const normalizedEntries = Array.isArray(entries) ? entries : [entries];
-  const byKey = new Map();
-  for (const entry of normalizedEntries) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-
-    const key = toSchemaCatalogKey(entry.serviceToken, entry.methodName);
-    if (!key || key === ".") {
-      continue;
-    }
-
-    byKey.set(key, Object.freeze({
-      serviceToken: String(entry.serviceToken || "").trim(),
-      methodName: String(entry.methodName || "").trim(),
-      key: `${String(entry.serviceToken || "").trim()}.${String(entry.methodName || "").trim()}`,
-      description: String(entry.description || "").trim(),
-      inputSchema: entry.inputSchema || null,
-      outputSchema: entry.outputSchema || null
-    }));
-  }
-
-  const list = Object.freeze([...byKey.values()]);
-  app.singleton(
-    KERNEL_TOKENS.ServiceSchemaCatalog,
-    () =>
-      Object.freeze({
-        getServiceMethodSchema(serviceToken, methodName) {
-          return byKey.get(toSchemaCatalogKey(serviceToken, methodName)) || null;
-        },
-        listServiceMethodSchemas() {
-          return list;
-        }
-      })
-  );
-}
-
 test("service tool catalog hides methods user cannot execute", () => {
   const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
 
   app.service(
     "demo.customers.service",
@@ -71,32 +31,93 @@ test("service tool catalog hides methods user cannot execute", () => {
       deleteRecord() {
         return { ok: true };
       }
-    }),
+    })
+  );
+
+  app.actions([
     {
-      permissions: {
-        listRecords: {
-          require: "authenticated"
-        },
-        deleteRecord: {
-          require: "all",
-          permissions: ["customers.delete"]
-        }
+      id: "demo.customers.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        customersService: "demo.customers.service"
+      },
+      inputValidator: {
+        schema: { type: "object", additionalProperties: true }
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.customers.list"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.customersService.listRecords(input);
+      }
+    },
+    {
+      id: "demo.customers.delete",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "all",
+        permissions: ["customers.delete"]
+      },
+      dependencies: {
+        customersService: "demo.customers.service"
+      },
+      inputValidator: {
+        schema: { type: "object", additionalProperties: true }
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.customers.delete"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.customersService.deleteRecord(input);
       }
     }
-  );
+  ]);
+
+  const internalContext = {
+    channel: "internal",
+    surface: "admin"
+  };
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: []
   });
 
-  const unauthenticatedTools = catalog.resolveToolSet({ permissions: [] }).tools;
+  const unauthenticatedTools = catalog.resolveToolSet({
+    ...internalContext,
+    permissions: []
+  }).tools;
   assert.equal(unauthenticatedTools.length, 0);
 
-  const authenticatedTools = catalog.resolveToolSet({ actor: { id: 9 }, permissions: [] }).tools;
+  const authenticatedTools = catalog.resolveToolSet({
+    ...internalContext,
+    actor: { id: 9 },
+    permissions: []
+  }).tools;
   assert.equal(authenticatedTools.length, 1);
   assert.equal(authenticatedTools[0].methodName, "listRecords");
 
-  const privilegedTools = catalog.resolveToolSet({ actor: { id: 9 }, permissions: ["customers.delete"] }).tools;
+  const privilegedTools = catalog.resolveToolSet({
+    ...internalContext,
+    actor: { id: 9 },
+    permissions: ["customers.delete"]
+  }).tools;
   assert.equal(privilegedTools.length, 2);
 });
 
@@ -113,14 +134,7 @@ test("service tool catalog executes tool call and injects action context", async
           source: String(options?.source || "")
         };
       }
-    }),
-    {
-      permissions: {
-        updateProfile: {
-          require: "authenticated"
-        }
-      }
-    }
+    })
   );
 
   const catalog = createServiceToolCatalog(app, {
@@ -167,14 +181,7 @@ test("service tool catalog honors barred service methods", () => {
       listEntries() {
         return [];
       }
-    }),
-    {
-      permissions: {
-        listEntries: {
-          require: "authenticated"
-        }
-      }
-    }
+    })
   );
 
   const catalog = createServiceToolCatalog(app, {
@@ -188,6 +195,8 @@ test("service tool catalog honors barred service methods", () => {
 
 test("service tool catalog materializes service methods once and filters per request", () => {
   const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
   let factoryCalls = 0;
 
   app.service(
@@ -199,15 +208,42 @@ test("service tool catalog materializes service methods once and filters per req
           return [];
         }
       };
-    },
-    {
-      permissions: {
-        listRecords: {
-          require: "authenticated"
-        }
-      }
     }
   );
+
+  app.actions([
+    {
+      id: "demo.cached.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        cachedService: "demo.cached.service"
+      },
+      inputValidator: {
+        schema: { type: "object", additionalProperties: true }
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.cached.list"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.cachedService.listRecords(input);
+      }
+    }
+  ]);
+
+  const internalContext = {
+    channel: "internal",
+    surface: "admin"
+  };
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: []
@@ -215,15 +251,28 @@ test("service tool catalog materializes service methods once and filters per req
 
   assert.equal(factoryCalls, 0);
 
-  catalog.resolveToolSet({ permissions: [] });
-  catalog.resolveToolSet({ actor: { id: 1 }, permissions: [] });
-  catalog.resolveToolSet({ actor: { id: 2 }, permissions: ["demo.read"] });
+  catalog.resolveToolSet({
+    ...internalContext,
+    permissions: []
+  });
+  catalog.resolveToolSet({
+    ...internalContext,
+    actor: { id: 1 },
+    permissions: []
+  });
+  catalog.resolveToolSet({
+    ...internalContext,
+    actor: { id: 2 },
+    permissions: ["demo.read"]
+  });
 
   assert.equal(factoryCalls, 1);
 });
 
-test("service tool catalog uses runtime service schema catalog for tool contracts", () => {
+test("service tool catalog uses action-backed schemas for tool contracts", () => {
   const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
 
   const inputSchema = Object.freeze({
     type: "object",
@@ -271,22 +320,43 @@ test("service tool catalog uses runtime service schema catalog for tool contract
           ok: Boolean(payload?.displayName)
         };
       }
-    }),
+    })
+  );
+
+  app.actions([
     {
-      permissions: {
-        updateRecord: {
-          require: "authenticated"
-        }
+      id: "demo.schemas.update",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        schemasService: "demo.schemas.service"
+      },
+      inputValidator: {
+        schema: inputSchema
+      },
+      outputValidator: {
+        schema: outputSchema
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.schemas.update"
+      },
+      observability: {},
+      assistantTool: {
+        description: "Update profile display name."
+      },
+      async execute(input, _context, deps) {
+        return deps.schemasService.updateRecord(input);
       }
     }
-  );
-  bindServiceSchemaCatalog(app, {
-    serviceToken: "demo.schemas.service",
-    methodName: "updateRecord",
-    description: "Update profile display name.",
-    inputSchema,
-    outputSchema
-  });
+  ]);
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: []
@@ -304,6 +374,8 @@ test("service tool catalog uses runtime service schema catalog for tool contract
 
 test("service tool catalog can require input/output schemas for tool exposure", () => {
   const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
 
   app.service(
     "demo.strict.service",
@@ -318,43 +390,52 @@ test("service tool catalog can require input/output schemas for tool exposure", 
           ok: true
         };
       }
-    }),
+    })
+  );
+
+  app.actions([
     {
-      permissions: {
-        noSchema: {
-          require: "authenticated"
-        },
-        withSchema: {
-          require: "authenticated"
+      id: "demo.strict.with_schema",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        strictService: "demo.strict.service"
+      },
+      inputValidator: {
+        schema: {
+          type: "object",
+          additionalProperties: false
         }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            ok: {
+              type: "boolean"
+            }
+          },
+          required: ["ok"],
+          additionalProperties: false
+        }
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.strict.with_schema"
+      },
+      observability: {},
+      async execute(_input, _context, deps) {
+        return deps.strictService.withSchema();
       }
     }
-  );
-  bindServiceSchemaCatalog(app, {
-    serviceToken: "demo.strict.service",
-    methodName: "withSchema",
-    inputSchema: {
-      type: "object",
-      properties: {
-        args: {
-          type: "array",
-          minItems: 0,
-          maxItems: 0
-        }
-      },
-      additionalProperties: false
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        ok: {
-          type: "boolean"
-        }
-      },
-      required: ["ok"],
-      additionalProperties: false
-    }
-  });
+  ]);
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: [],
@@ -409,14 +490,7 @@ test("service tool catalog derives method schemas from action contributors when 
           ...payload
         };
       }
-    }),
-    {
-      permissions: {
-        createRecord: {
-          require: "authenticated"
-        }
-      }
-    }
+    })
   );
 
   app.actions([
@@ -428,6 +502,9 @@ test("service tool catalog derives method schemas from action contributors when 
       channels: ["internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       dependencies: {
         customersService: "demo.customers.service"
       },
@@ -464,6 +541,96 @@ test("service tool catalog derives method schemas from action contributors when 
   assert.equal(createTool.outputSchema, outputSchema);
 });
 
+test("service tool catalog derives input schema from array action validators", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.array_schema.service",
+    () => ({
+      createRecord(payload = {}) {
+        return {
+          id: 1,
+          ...payload
+        };
+      }
+    })
+  );
+
+  app.actions([
+    {
+      id: "demo.array_schema.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        arraySchemaService: "demo.array_schema.service"
+      },
+      inputValidator: [
+        {
+          schema: Type.Object(
+            {
+              workspaceSlug: Type.String({ minLength: 1 })
+            },
+            { additionalProperties: false }
+          )
+        },
+        {
+          schema: Type.Object(
+            {
+              name: Type.String({ minLength: 1 }),
+              surname: Type.String({ minLength: 1 })
+            },
+            { additionalProperties: false }
+          )
+        }
+      ],
+      outputValidator: {
+        schema: Type.Object(
+          {
+            id: Type.Integer()
+          },
+          { additionalProperties: true }
+        )
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.array_schema.create"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.arraySchemaService.createRecord(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: {
+      id: 1
+    },
+    permissions: [],
+    channel: "internal",
+    surface: "admin"
+  });
+  const createTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.array_schema.service" && tool.methodName === "createRecord");
+
+  assert.ok(createTool);
+  assert.equal(createTool.parameters?.type, "object");
+  assert.equal(typeof createTool.parameters?.properties?.workspaceSlug, "object");
+  assert.equal(typeof createTool.parameters?.properties?.name, "object");
+  assert.equal(typeof createTool.parameters?.properties?.surname, "object");
+});
+
 test("service tool catalog executes action-backed tools with object payloads", async () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
@@ -478,14 +645,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
           payload
         };
       }
-    }),
-    {
-      permissions: {
-        updateRecord: {
-          require: "authenticated"
-        }
-      }
-    }
+    })
   );
 
   app.actions([
@@ -497,6 +657,9 @@ test("service tool catalog executes action-backed tools with object payloads", a
       channels: ["internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       dependencies: {
         customersService: "demo.customers.service"
       },

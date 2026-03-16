@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "typebox";
 
-import { normalizeActionInput, normalizeActionOutput } from "./policies.js";
+import { ensureActionPermissionAllowed, normalizeActionInput, normalizeActionOutput } from "./policies.js";
 
 test("function schema returns normalized value when ok", async () => {
   const definition = {
@@ -111,4 +111,62 @@ test("action output normalization runs before output validation", async () => {
 
   const result = await normalizeActionOutput(definition, { ok: 1 }, {});
   assert.deepEqual(result, { ok: true });
+});
+
+test("action permission denies unauthenticated access when required", () => {
+  assert.throws(
+    () =>
+      ensureActionPermissionAllowed(
+        {
+          id: "tests.secure",
+          permission: {
+            require: "authenticated"
+          }
+        },
+        {
+          permissions: []
+        }
+      ),
+    (error) => error?.statusCode === 401 && error?.code === "ACTION_AUTHENTICATION_REQUIRED"
+  );
+});
+
+test("action permission enforces required permissions", () => {
+  assert.throws(
+    () =>
+      ensureActionPermissionAllowed(
+        {
+          id: "tests.secure.perm",
+          permission: {
+            require: "all",
+            permissions: ["workspace.settings.update"]
+          }
+        },
+        {
+          actor: {
+            id: 7
+          },
+          permissions: ["workspace.settings.view"]
+        }
+      ),
+    (error) => error?.statusCode === 403 && error?.code === "ACTION_PERMISSION_DENIED"
+  );
+
+  assert.doesNotThrow(() =>
+    ensureActionPermissionAllowed(
+      {
+        id: "tests.secure.perm",
+        permission: {
+          require: "all",
+          permissions: ["workspace.settings.update"]
+        }
+      },
+      {
+        actor: {
+          id: 7
+        },
+        permissions: ["workspace.settings.update"]
+      }
+    )
+  );
 });

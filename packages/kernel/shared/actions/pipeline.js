@@ -2,6 +2,7 @@ import {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,
+  ensureActionPermissionAllowed,
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";
@@ -98,6 +99,7 @@ async function executeActionPipeline({
     ensureActionChannelAllowed(definition, normalizedContext);
     ensureActionSurfaceAllowed(definition, normalizedContext);
     ensureActionConsoleUsersOnlyAllowed(definition, normalizedContext);
+    ensureActionPermissionAllowed(definition, normalizedContext);
 
     const normalizedInput = await normalizeActionInput(definition, input, normalizedContext);
 

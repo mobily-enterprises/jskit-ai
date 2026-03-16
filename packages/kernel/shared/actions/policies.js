@@ -53,6 +53,90 @@ function ensureActionConsoleUsersOnlyAllowed(definition, context) {
   }
 }
 
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 0;
+  }
+
+  return parsed;
+}
+
+function normalizePermissionList(value) {
+  const source = Array.isArray(value) ? value : [value];
+  return source.map((entry) => normalizeText(entry)).filter(Boolean);
+}
+
+function hasPermission(permissionSet = [], permission = "") {
+  const requiredPermission = normalizeText(permission);
+  if (!requiredPermission) {
+    return true;
+  }
+
+  const permissions = normalizePermissionList(permissionSet);
+  return permissions.includes("*") || permissions.includes(requiredPermission);
+}
+
+function ensureActionPermissionAllowed(definition, context) {
+  const permission = definition?.permission && typeof definition.permission === "object"
+    ? definition.permission
+    : { require: "none" };
+  const mode = normalizeLowerText(permission.require || "none");
+
+  if (mode === "none") {
+    return;
+  }
+
+  const actorId = toPositiveInteger(context?.actor?.id);
+  if (actorId < 1) {
+    throw createActionRuntimeError(401, permission.message || "Authentication required.", {
+      code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",
+      details: {
+        actionId: definition?.id
+      }
+    });
+  }
+
+  if (mode === "authenticated") {
+    return;
+  }
+
+  const requiredPermissions = normalizePermissionList(permission.permissions);
+  if (requiredPermissions.length < 1) {
+    return;
+  }
+
+  const actorPermissions = normalizePermissionList(context?.permissions);
+  if (mode === "all") {
+    for (const requiredPermission of requiredPermissions) {
+      if (hasPermission(actorPermissions, requiredPermission)) {
+        continue;
+      }
+
+      throw createActionRuntimeError(403, permission.message || "Forbidden.", {
+        code: permission.code || "ACTION_PERMISSION_DENIED",
+        details: {
+          actionId: definition?.id,
+          permission: requiredPermission
+        }
+      });
+    }
+
+    return;
+  }
+
+  const hasAnyPermission = requiredPermissions.some((requiredPermission) => hasPermission(actorPermissions, requiredPermission));
+  if (!hasAnyPermission) {
+    throw createActionRuntimeError(403, permission.message || "Forbidden.", {
+      code: permission.code || "ACTION_PERMISSION_DENIED",
+      details: {
+        actionId: definition?.id,
+        requiredPermissions
+      }
+    });
+  }
+}
+
 function normalizeSchemaValidationErrors(schema) {
   const errors = Array.isArray(schema?.errors) ? schema.errors : [];
   if (errors.length < 1) {
@@ -283,6 +367,7 @@ export {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionConsoleUsersOnlyAllowed,
+  ensureActionPermissionAllowed,
   normalizeActionInput,
   normalizeActionOutput,
   __testables

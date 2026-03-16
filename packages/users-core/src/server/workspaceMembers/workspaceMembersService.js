@@ -1,6 +1,5 @@
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createAuthorizedService } from "@jskit-ai/kernel/server/runtime";
 import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID, createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function createService({
@@ -17,33 +16,6 @@ function createService({
   }
 
   const assignableRoleIds = ASSIGNABLE_ROLE_IDS;
-  const servicePermissions = Object.freeze({
-    listRoles: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.roles.view"])
-    }),
-    listMembers: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.members.view"])
-    }),
-    updateMemberRole: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.members.manage"])
-    }),
-    listInvites: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.members.view"])
-    }),
-    createInvite: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.members.invite"])
-    }),
-    revokeInvite: Object.freeze({
-      require: "all",
-      permissions: Object.freeze(["workspace.invites.revoke"])
-    })
-  });
-
   async function listRoles(options = {}) {
     return createWorkspaceRoleCatalog();
   }
@@ -158,17 +130,14 @@ function createService({
     return listInvitesPayload(workspace, options);
   }
 
-  return createAuthorizedService(
-    {
-      listRoles,
-      listMembers,
-      updateMemberRole,
-      listInvites,
-      createInvite,
-      revokeInvite
-    },
-    servicePermissions
-  );
+  return Object.freeze({
+    listRoles,
+    listMembers,
+    updateMemberRole,
+    listInvites,
+    createInvite,
+    revokeInvite
+  });
 }
 
 export { createService };

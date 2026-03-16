@@ -13,6 +13,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.roles.view"]
+    },
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.rolesList.outputValidator,
     idempotency: "none",
@@ -31,6 +35,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.members.view"]
+    },
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.membersList.outputValidator,
     idempotency: "none",
@@ -51,6 +59,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.members.manage"]
+    },
     inputValidator: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.bodyValidator],
     outputValidator: workspaceMembersResource.operations.updateMemberRole.outputValidator,
     idempotency: "optional",
@@ -74,6 +86,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.members.view"]
+    },
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.invitesList.outputValidator,
     idempotency: "none",
@@ -94,6 +110,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.members.invite"]
+    },
     inputValidator: [routeParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
     outputValidator: workspaceMembersResource.operations.createInvite.outputValidator,
     idempotency: "optional",
@@ -126,6 +146,10 @@ const workspaceMembersActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.invites.revoke"]
+    },
     inputValidator: routeParamsValidator,
     outputValidator: workspaceMembersResource.operations.revokeInvite.outputValidator,
     idempotency: "optional",

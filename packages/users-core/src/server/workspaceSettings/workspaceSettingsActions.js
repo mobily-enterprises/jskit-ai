@@ -18,6 +18,10 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "any",
+      permissions: ["workspace.settings.view", "workspace.settings.update"]
+    },
     inputValidator: routeParamsValidator,
     outputValidator: workspaceSettingsResource.operations.view.outputValidator,
     idempotency: "none",
@@ -40,6 +44,10 @@ const workspaceSettingsActions = Object.freeze([
     channels: ["api", "assistant_tool", "internal"],
     surfacesFrom: "workspace",
     consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.settings.update"]
+    },
     inputValidator: [routeParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
     outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
     idempotency: "optional",

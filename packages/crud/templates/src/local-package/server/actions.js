@@ -15,6 +15,9 @@ function createActions() {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       inputValidator: [routeParamsValidator, cursorPaginationQueryValidator],
       outputValidator: crudResource.operations.list.outputValidator,
       idempotency: "none",
@@ -36,6 +39,9 @@ function createActions() {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       inputValidator: [routeParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.view.outputValidator,
       idempotency: "none",
@@ -57,6 +63,9 @@ function createActions() {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       inputValidator: [routeParamsValidator, crudResource.operations.create.bodyValidator],
       outputValidator: crudResource.operations.create.outputValidator,
       idempotency: "optional",
@@ -78,6 +87,9 @@ function createActions() {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       inputValidator: [routeParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
       outputValidator: crudResource.operations.patch.outputValidator,
       idempotency: "optional",
@@ -100,6 +112,9 @@ function createActions() {
       channels: ["api", "internal"],
       surfaces: ["admin"],
       consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
       inputValidator: [routeParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.delete.outputValidator,
       idempotency: "optional",

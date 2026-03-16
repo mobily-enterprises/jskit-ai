@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requireAuth, createAuthorizedService, getServicePermissions } from "./serviceAuthorization.js";
+import { requireAuth } from "./serviceAuthorization.js";
 
 test("requireAuth allows public mode without actor", () => {
   assert.doesNotThrow(() =>
@@ -67,86 +67,5 @@ test("requireAuth allows wildcard permission for any mode", () => {
         permissions: ["workspace.settings.view", "workspace.settings.update"]
       }
     )
-  );
-});
-
-test("createAuthorizedService enforces declared permissions and exposes metadata", async () => {
-  const service = createAuthorizedService(
-    {
-      async list(_query = {}, options = {}) {
-        return options.context.actor.id;
-      },
-      async view(_id, options = {}) {
-        return options.context.actor.id;
-      },
-      async publicPing() {
-        return "ok";
-      }
-    },
-    {
-      list: { require: "all", permissions: ["records.view"] },
-      view: { require: "any", permissions: ["records.view", "records.manage"] },
-      publicPing: { require: "none" }
-    }
-  );
-
-  assert.throws(
-    () =>
-      service.list(
-        {},
-        {
-          context: {
-            actor: { id: 1 },
-            permissions: []
-          }
-        }
-      ),
-    (error) => error?.statusCode === 403
-  );
-
-  const listResult = await service.list(
-    {},
-    {
-      context: {
-        actor: { id: 1 },
-        permissions: ["records.view"]
-      }
-    }
-  );
-  assert.equal(listResult, 1);
-
-  const pingResult = await service.publicPing();
-  assert.equal(pingResult, "ok");
-
-  const permissions = getServicePermissions(service);
-  assert.equal(permissions.list.require, "all");
-  assert.deepEqual(permissions.view.permissions, ["records.view", "records.manage"]);
-  assert.equal(permissions.publicPing.require, "none");
-});
-
-test("createAuthorizedService rejects missing and unknown permission keys", () => {
-  assert.throws(
-    () =>
-      createAuthorizedService(
-        {
-          async list() {}
-        },
-        {}
-      ),
-    /servicePermissions\.list/
-  );
-
-  assert.throws(
-    () =>
-      createAuthorizedService(
-        {
-          async list() {}
-        },
-        {
-          list: { require: "none" },
-          create: { require: "none" }
-        }
-      ),
-    /unknown servicePermissions key/
   );
 });
