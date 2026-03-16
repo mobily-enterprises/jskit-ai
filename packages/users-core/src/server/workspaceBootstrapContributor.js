@@ -11,6 +11,7 @@ import {
   mapWorkspaceSettingsPublic,
   mapWorkspaceSummary
 } from "./common/formatters/workspaceFormatter.js";
+import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 
 function normalizePendingInvites(invites) {
@@ -191,14 +192,7 @@ function createWorkspaceBootstrapContributor({
           profile: {
             displayName: latestProfile.displayName,
             email: latestProfile.email,
-            avatar: {
-              uploadedUrl: null,
-              gravatarUrl: "",
-              effectiveUrl: "",
-              hasUploadedAvatar: false,
-              size: Number(userSettings.avatarSize || 64),
-              version: latestProfile.avatarVersion || null
-            }
+            avatar: accountAvatarFormatter(latestProfile, userSettings)
           },
           app: appState,
           workspaces: [...workspaces],

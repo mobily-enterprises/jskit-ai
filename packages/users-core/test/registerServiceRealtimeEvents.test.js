@@ -50,6 +50,8 @@ test("account register functions publish account.settings.changed for update ope
   const profile = findServiceCall(profileApp.serviceCalls, "users.accountProfile.service");
   assert.equal(profile?.metadata?.events?.updateProfile?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
   assert.equal(profile?.metadata?.events?.updateProfile?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(profile?.metadata?.events?.uploadAvatar?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
+  assert.equal(profile?.metadata?.events?.uploadAvatar?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(profile?.metadata?.events?.deleteAvatar?.[0]?.realtime?.event, ACCOUNT_SETTINGS_CHANGED_EVENT);
   assert.equal(profile?.metadata?.events?.deleteAvatar?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
 

@@ -5,6 +5,7 @@
     :data-testid="uiTestIds.root"
     tabindex="-1"
     @focus="onRootFocus"
+    @pointerdown.capture="onRootPointerDown"
   >
     <v-row class="assistant-layout h-100 flex-grow-1 my-0">
       <v-col cols="12" lg="8" class="assistant-main-col d-flex flex-column overflow-hidden">
@@ -288,6 +289,7 @@ const emit = defineEmits([
 const SCROLL_BOTTOM_THRESHOLD_PX = 30;
 const MIN_VIEWPORT_HEIGHT_PX = 360;
 const VIEWPORT_BOTTOM_GUTTER_PX = 12;
+const ROOT_FOCUS_POINTER_GUARD_MS = 200;
 
 function toRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -452,6 +454,7 @@ const rootRef = ref(null);
 const messagesPanelRef = ref(null);
 const composerRef = ref(null);
 const shouldAutoScrollToBottom = ref(true);
+const lastRootPointerDownAt = ref(0);
 
 const currentUserScreenName = computed(() => viewer.value.displayName);
 const currentUserAvatarUrl = computed(() => viewer.value.avatarUrl);
@@ -674,8 +677,15 @@ function onRootFocus(event) {
   if (event?.target !== rootElement) {
     return;
   }
+  if (Date.now() - Number(lastRootPointerDownAt.value || 0) < ROOT_FOCUS_POINTER_GUARD_MS) {
+    return;
+  }
 
   void focusComposerWithRetry(false);
+}
+
+function onRootPointerDown() {
+  lastRootPointerDownAt.value = Date.now();
 }
 
 function normalizeScrollValue(value) {

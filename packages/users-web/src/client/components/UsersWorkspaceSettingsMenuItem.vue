@@ -101,13 +101,6 @@ watch(
   }
 );
 
-watch(
-  () => placementContext.value?.workspace?.slug,
-  () => {
-    void bootstrapQuery.query.refetch();
-  }
-);
-
 useRealtimeEvent({
   event: USERS_BOOTSTRAP_CHANGED_EVENT,
   enabled: workspaceSettingsEventsEnabled,

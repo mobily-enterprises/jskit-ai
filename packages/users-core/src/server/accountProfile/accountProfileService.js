@@ -10,10 +10,11 @@ import {
 function createService({
   userSettingsRepository,
   userProfilesRepository,
-  authService
+  authService,
+  avatarService
 } = {}) {
-  if (!userSettingsRepository || !userProfilesRepository) {
-    throw new Error("accountProfileService requires repositories.");
+  if (!userSettingsRepository || !userProfilesRepository || !avatarService) {
+    throw new Error("accountProfileService requires repositories and avatarService.");
   }
 
   async function getForUser(request, user, options = {}) {
@@ -65,21 +66,58 @@ function createService({
     };
   }
 
-  async function uploadAvatar(_request, _user, _payload = {}, options = {}) {
+  async function uploadAvatar(request, user, payload = {}, options = {}) {
     void options;
-    throw new AppError(501, "Avatar upload is not implemented in users-core yet.");
+
+    const avatarUpload = await avatarService.uploadForUser(user, payload);
+    const profile = avatarUpload?.profile || null;
+    if (!profile) {
+      throw new AppError(500, "Avatar upload completed without a profile result.");
+    }
+
+    const settings = await userSettingsRepository.ensureForUserId(profile.id);
+    const securityStatus = await resolveSecurityStatus(authService, request);
+
+    return accountSettingsResponseFormatter({
+      profile,
+      settings,
+      securityStatus,
+      authService
+    });
   }
 
-  async function deleteAvatar(_request, _user, _payload = {}, options = {}) {
+  async function deleteAvatar(request, user, _payload = {}, options = {}) {
     void options;
-    throw new AppError(501, "Avatar deletion is not implemented in users-core yet.");
+
+    const profile = await avatarService.clearForUser(user);
+    const settings = await userSettingsRepository.ensureForUserId(profile.id);
+    const securityStatus = await resolveSecurityStatus(authService, request);
+
+    return accountSettingsResponseFormatter({
+      profile,
+      settings,
+      securityStatus,
+      authService
+    });
+  }
+
+  async function readAvatar(_request, user, _payload = {}, options = {}) {
+    void options;
+
+    const avatar = await avatarService.readForUser(user);
+    if (!avatar) {
+      throw new AppError(404, "Avatar not found.");
+    }
+
+    return avatar;
   }
 
   return Object.freeze({
     getForUser,
     updateProfile,
     uploadAvatar,
-    deleteAvatar
+    deleteAvatar,
+    readAvatar
   });
 }
 

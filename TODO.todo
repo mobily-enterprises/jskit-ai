@@ -63,19 +63,19 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Major code cleanup, make sure there is no "contract", make things actually work
   X Provide a kenel-level function to know the root of the pages, have modules go relative to that
   X Clean up code for the CRUD and the addEdit methods, make sure CRUD has all best practices, ALL of them
-  O If logged out, redirect to login immediately, check page permissions if not logged out
- 
-  - Delete setting table for workspace completely
+  
+  - If logged out, redirect to login immediately, check page permissions if not logged out
+  - Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
   - Place roles and permissions in app-owned config
+  
+  - Theme seems to change when going to user settings screen
   
   - Re-add icons
 
   - cli: offer help for package paramters
-  - Theme seems to change when going to user settings screen
   - A new workspace seems to be created after changing username (!!!)
   
   - Spurious chat settings in profile_settings
- 
  
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   
@@ -84,8 +84,6 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
  
   - Alert system (queue + element), use it for invites
   
-  
-
 
   - FINAL STEP: Do infrastructure deploy, easy way
  

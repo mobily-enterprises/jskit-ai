@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
-    "typebox": "^1.0.81"
+    "typebox": "^1.0.81",
+    "unstorage": "^1.17.3"
   },
   "scripts": {
     "test": "node --test"

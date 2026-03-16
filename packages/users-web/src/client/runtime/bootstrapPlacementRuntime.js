@@ -107,6 +107,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   let refreshQueue = Promise.resolve();
   let shutdownRequested = false;
   let authSignature = resolveAuthSignature(placementRuntime.getContext());
+  let lastRouteWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
 
   function writePlacementContext(payload = {}, state = {}, source = BOOTSTRAP_PLACEMENT_SOURCE) {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
@@ -213,6 +214,11 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
 
     if (router && typeof router.afterEach === "function") {
       const removeAfterEach = router.afterEach(() => {
+        const nextWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
+        if (nextWorkspaceSlug === lastRouteWorkspaceSlug) {
+          return;
+        }
+        lastRouteWorkspaceSlug = nextWorkspaceSlug;
         void queueRefresh("route");
       });
       cleanup.push(() => {

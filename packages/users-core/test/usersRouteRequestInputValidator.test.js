@@ -43,6 +43,17 @@ function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
   const bindings = new Map([
     [KERNEL_TOKENS.HttpRouter, router],
     ["authService", authService],
+    [
+      "users.accountProfile.service",
+      {
+        async readAvatar() {
+          return {
+            mimeType: "image/png",
+            buffer: Buffer.from([])
+          };
+        }
+      }
+    ],
     ["actionExecutor", {}],
     ["users.workspace.tenancy.enabled", true]
   ]);

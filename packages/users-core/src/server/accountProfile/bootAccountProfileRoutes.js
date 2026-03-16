@@ -3,6 +3,7 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { USERS_ACCOUNT_PROFILE_SERVICE_TOKEN } from "./registerAccountProfile.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -11,6 +12,7 @@ function bootAccountProfileRoutes(app) {
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const authService = app.make("authService");
+  const accountProfileService = app.make(USERS_ACCOUNT_PROFILE_SERVICE_TOKEN);
 
   router.register(
     "GET",
@@ -61,6 +63,30 @@ function bootAccountProfileRoutes(app) {
       }
 
       reply.code(200).send(result?.settings || result);
+    }
+  );
+
+  router.register(
+    "GET",
+    "/api/settings/profile/avatar",
+    {
+      auth: "required",
+      meta: {
+        tags: ["settings"],
+        summary: "Read authenticated user's uploaded avatar."
+      }
+    },
+    async function (request, reply) {
+      const avatar = await accountProfileService.readAvatar(request, request.user, {}, {
+        context: {
+          actor: request.user
+        }
+      });
+
+      reply
+        .header("Cache-Control", "private, max-age=31536000, immutable")
+        .header("Content-Type", avatar.mimeType)
+        .send(avatar.buffer);
     }
   );
 

@@ -130,6 +130,11 @@ export default Object.freeze({
           summary: "Update profile settings."
         },
         {
+          method: "GET",
+          path: "/api/settings/profile/avatar",
+          summary: "Read authenticated user's uploaded avatar."
+        },
+        {
           method: "POST",
           path: "/api/settings/profile/avatar",
           summary: "Upload profile avatar."

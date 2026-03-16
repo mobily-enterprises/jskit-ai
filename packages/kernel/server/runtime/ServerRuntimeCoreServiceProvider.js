@@ -19,6 +19,7 @@ import * as serviceRegistration from "./serviceRegistration.js";
 import * as entityChangeEvents from "./entityChangeEvents.js";
 import * as securityAudit from "./securityAudit.js";
 import * as storagePaths from "./storagePaths.js";
+import * as storageRuntime from "./storageRuntime.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 
 const SERVER_RUNTIME_CORE_API = Object.freeze({
@@ -42,7 +43,8 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   serviceRegistration: Object.freeze({ ...serviceRegistration }),
   entityChangeEvents: Object.freeze({ ...entityChangeEvents }),
   securityAudit: Object.freeze({ ...securityAudit }),
-  storagePaths: Object.freeze({ ...storagePaths })
+  storagePaths: Object.freeze({ ...storagePaths }),
+  storageRuntime: Object.freeze({ ...storageRuntime })
 });
 
 class ServerRuntimeCoreServiceProvider {
@@ -57,6 +59,7 @@ class ServerRuntimeCoreServiceProvider {
 
     app.singleton("runtime.server", () => SERVER_RUNTIME_CORE_API);
     app.singleton("domainEvents", (scope) => domainEvents.createDomainEvents(scope));
+    app.singleton(KERNEL_TOKENS.Storage, (scope) => storageRuntime.createStorageBinding(scope));
   }
 
   boot(app) {

@@ -19,6 +19,7 @@ import { createAssistantWorkspaceApi } from "../lib/assistantApi.js";
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
+const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
 const HISTORY_PAGE = 1;
 const RESTORE_MESSAGES_PAGE = 1;
 const ACTIVE_CONVERSATION_STORAGE_PREFIX = "assistant.activeConversationId";
@@ -26,6 +27,15 @@ const ACTIVE_CONVERSATION_STORAGE_PREFIX = "assistant.activeConversationId";
 function toPositiveInteger(value, fallback = 0) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function toNonNegativeInteger(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
     return fallback;
   }
 
@@ -251,7 +261,8 @@ function resolveRuntimePolicy() {
   return Object.freeze({
     timeoutMs: toPositiveInteger(assistantConfig.timeoutMs, DEFAULT_STREAM_TIMEOUT_MS),
     historyPageSize: toPositiveInteger(assistantConfig.historyPageSize, DEFAULT_HISTORY_PAGE_SIZE),
-    restoreMessagesPageSize: toPositiveInteger(assistantConfig.restoreMessagesPageSize, DEFAULT_MESSAGES_PAGE_SIZE)
+    restoreMessagesPageSize: toPositiveInteger(assistantConfig.restoreMessagesPageSize, DEFAULT_MESSAGES_PAGE_SIZE),
+    historyStaleTimeMs: toNonNegativeInteger(assistantConfig.historyStaleTimeMs, DEFAULT_HISTORY_STALE_TIME_MS)
   });
 }
 
@@ -305,6 +316,8 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
         pageSize: runtimePolicy.historyPageSize
       }),
     enabled: computed(() => hasWorkspaceScope.value),
+    staleTime: runtimePolicy.historyStaleTimeMs,
+    refetchOnMount: false,
     refetchOnWindowFocus: false
   });
 

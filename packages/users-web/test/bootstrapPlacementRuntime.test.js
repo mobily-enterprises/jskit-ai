@@ -256,6 +256,11 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
   await runtime.initialize();
   assert.deepEqual(fetchCalls, ["acme"]);
 
+  router.currentRoute.value.path = "/app/w/acme/customers";
+  router.emitAfterEach();
+  await flushTasks();
+  assert.deepEqual(fetchCalls, ["acme"]);
+
   router.currentRoute.value.path = "/app/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
