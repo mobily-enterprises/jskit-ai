@@ -534,11 +534,13 @@ async function onSelectConversation(conversation) {
   emit("conversation:select", payload);
   emitInteraction("conversation:select", payload);
   await invokeAction("selectConversation", payload, () => selectConversation(conversation));
+  await focusComposerWithRetry(true);
 }
 
 async function selectConversationFromPicker(conversation) {
   await onSelectConversation(conversation);
   conversationPickerOpen.value = false;
+  await focusComposerWithRetry(true);
 }
 
 async function onStartNewConversation() {
@@ -549,11 +551,13 @@ async function onStartNewConversation() {
     source: "history"
   });
   await invokeAction("startNewConversation", {}, startNewConversation);
+  await focusComposerWithRetry(true);
 }
 
-function startNewConversationFromPicker() {
-  void onStartNewConversation();
+async function startNewConversationFromPicker() {
+  await onStartNewConversation();
   conversationPickerOpen.value = false;
+  await focusComposerWithRetry(true);
 }
 
 async function onSendMessage() {
@@ -1012,12 +1016,16 @@ onBeforeUnmount(() => {
   display: none;
 }
 
+.assistant-composer-textarea :deep(.v-field__overlay) {
+  display: none;
+}
+
 .assistant-composer-textarea :deep(.v-field__input) {
-  padding-block: 0.34rem;
+  padding-block: 0.5rem 0.46rem;
 }
 
 .assistant-composer-textarea :deep(textarea) {
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 .assistant-history-start-button {

@@ -91,10 +91,24 @@ function registerRoutes(app) {
           context: {
             surface: "admin"
           },
-          input: {
-            ...request.input.params,
-            ...request.input.body
-          },
+          input: (() => {
+            const body = request.input.body;
+            const input = {
+              workspaceSlug: request.input.params.workspaceSlug,
+              messageId: body.messageId,
+              input: body.input
+            };
+            if (Object.hasOwn(body, "conversationId")) {
+              input.conversationId = body.conversationId;
+            }
+            if (Object.hasOwn(body, "history")) {
+              input.history = body.history;
+            }
+            if (Object.hasOwn(body, "clientContext")) {
+              input.clientContext = body.clientContext;
+            }
+            return input;
+          })(),
           deps: {
             streamWriter,
             abortSignal: abortController.signal
@@ -156,7 +170,7 @@ function registerRoutes(app) {
           surface: "admin"
         },
         input: {
-          ...request.input.params,
+          workspaceSlug: request.input.params.workspaceSlug,
           ...request.input.query
         }
       });
@@ -188,7 +202,8 @@ function registerRoutes(app) {
           surface: "admin"
         },
         input: {
-          ...request.input.params,
+          workspaceSlug: request.input.params.workspaceSlug,
+          conversationId: request.input.params.conversationId,
           ...request.input.query
         }
       });

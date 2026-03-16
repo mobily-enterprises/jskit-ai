@@ -25,6 +25,17 @@ function normalizeRouteParams(input = {}) {
   return normalized;
 }
 
+function normalizeWorkspaceSlugParams(input = {}) {
+  const source = normalizeObjectInput(input);
+  const normalized = {};
+
+  if (Object.hasOwn(source, "workspaceSlug")) {
+    normalized.workspaceSlug = normalizeText(source.workspaceSlug).toLowerCase();
+  }
+
+  return normalized;
+}
+
 const routeParamsValidator = Object.freeze({
   schema: Type.Object(
     {
@@ -38,4 +49,14 @@ const routeParamsValidator = Object.freeze({
   normalize: normalizeRouteParams
 });
 
-export { routeParamsValidator };
+const workspaceSlugParamsValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
+    },
+    { additionalProperties: false }
+  ),
+  normalize: normalizeWorkspaceSlugParams
+});
+
+export { routeParamsValidator, workspaceSlugParamsValidator };

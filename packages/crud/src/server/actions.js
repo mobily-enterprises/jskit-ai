@@ -2,7 +2,7 @@ import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { crudResource } from "../shared/crud/crudResource.js";
 import { createActionIds } from "./actionIds.js";
 
@@ -20,7 +20,7 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [routeParamsValidator, cursorPaginationQueryValidator],
+      inputValidator: [workspaceSlugParamsValidator, cursorPaginationQueryValidator],
       outputValidator: crudResource.operations.list.outputValidator,
       idempotency: "none",
       audit: {
@@ -44,7 +44,7 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [routeParamsValidator, recordIdParamsValidator],
+      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.view.outputValidator,
       idempotency: "none",
       audit: {
@@ -68,7 +68,7 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [routeParamsValidator, crudResource.operations.create.bodyValidator],
+      inputValidator: [workspaceSlugParamsValidator, crudResource.operations.create.bodyValidator],
       outputValidator: crudResource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
@@ -92,7 +92,7 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [routeParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
+      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
       outputValidator: crudResource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
@@ -117,7 +117,7 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [routeParamsValidator, recordIdParamsValidator],
+      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
       outputValidator: crudResource.operations.delete.outputValidator,
       idempotency: "optional",
       audit: {

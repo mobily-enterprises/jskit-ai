@@ -631,6 +631,191 @@ test("service tool catalog derives input schema from array action validators", (
   assert.equal(typeof createTool.parameters?.properties?.surname, "object");
 });
 
+test("service tool catalog hides workspaceSlug parameter when workspace context is already resolved", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.workspace_scope.service",
+    () => ({
+      createRecord(payload = {}) {
+        return payload;
+      }
+    })
+  );
+
+  app.actions([
+    {
+      id: "demo.workspace_scope.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        workspaceScopeService: "demo.workspace_scope.service"
+      },
+      inputValidator: {
+        schema: Type.Object(
+          {
+            workspaceSlug: Type.String({ minLength: 1 }),
+            name: Type.String({ minLength: 1 })
+          },
+          { additionalProperties: false }
+        )
+      },
+      outputValidator: {
+        schema: Type.Object(
+          {
+            workspaceSlug: Type.String({ minLength: 1 }),
+            name: Type.String({ minLength: 1 })
+          },
+          { additionalProperties: false }
+        )
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.workspace_scope.create"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.workspaceScopeService.createRecord(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: {
+      id: 1
+    },
+    permissions: [],
+    channel: "internal",
+    surface: "admin",
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          slug: "tonymobily3"
+        }
+      }
+    }
+  });
+  const createTool = toolSet.tools.find(
+    (tool) => tool.serviceToken === "demo.workspace_scope.service" && tool.methodName === "createRecord"
+  );
+
+  assert.ok(createTool);
+  assert.equal(Object.hasOwn(createTool.parameters.properties, "workspaceSlug"), false);
+  assert.equal(typeof createTool.parameters.properties.name, "object");
+});
+
+test("service tool catalog injects workspaceSlug from requestMeta request params", async () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.workspace_injection.service",
+    () => ({
+      createRecord(payload = {}) {
+        return payload;
+      }
+    })
+  );
+
+  app.actions([
+    {
+      id: "demo.workspace_injection.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        workspaceInjectionService: "demo.workspace_injection.service"
+      },
+      inputValidator: {
+        schema: Type.Object(
+          {
+            workspaceSlug: Type.String({ minLength: 1 }),
+            name: Type.String({ minLength: 1 })
+          },
+          { additionalProperties: false }
+        )
+      },
+      outputValidator: {
+        schema: Type.Object(
+          {
+            workspaceSlug: Type.String({ minLength: 1 }),
+            name: Type.String({ minLength: 1 })
+          },
+          { additionalProperties: false }
+        )
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.workspace_injection.create"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.workspaceInjectionService.createRecord(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const context = {
+    actor: {
+      id: 1
+    },
+    permissions: [],
+    channel: "internal",
+    surface: "admin",
+    requestMeta: {
+      request: {
+        input: {
+          params: {
+            workspaceSlug: "tonymobily3"
+          }
+        }
+      }
+    }
+  };
+  const toolSet = catalog.resolveToolSet(context);
+  const createTool = toolSet.tools.find(
+    (tool) => tool.serviceToken === "demo.workspace_injection.service" && tool.methodName === "createRecord"
+  );
+  assert.ok(createTool);
+
+  const execution = await catalog.executeToolCall({
+    toolName: createTool.name,
+    argumentsText: JSON.stringify({
+      name: "Merc"
+    }),
+    context,
+    toolSet
+  });
+
+  assert.equal(execution.ok, true);
+  assert.deepEqual(execution.result, {
+    workspaceSlug: "tonymobily3",
+    name: "Merc"
+  });
+});
+
 test("service tool catalog executes action-backed tools with object payloads", async () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();

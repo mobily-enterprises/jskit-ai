@@ -1,4 +1,4 @@
-import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { assistantResource } from "../shared/assistantResource.js";
 import { actionIds } from "./actionIds.js";
 
@@ -13,7 +13,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [routeParamsValidator, assistantResource.operations.chatStream.bodyValidator],
+    inputValidator: [workspaceSlugParamsValidator, assistantResource.operations.chatStream.bodyValidator],
     idempotency: "optional",
     audit: {
       actionName: actionIds.chatStream
@@ -37,7 +37,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [routeParamsValidator, assistantResource.operations.conversationsList.queryValidator],
+    inputValidator: [workspaceSlugParamsValidator, assistantResource.operations.conversationsList.queryValidator],
     outputValidator: assistantResource.operations.conversationsList.outputValidator,
     idempotency: "none",
     audit: {
@@ -61,7 +61,7 @@ const assistantActions = Object.freeze([
       require: "authenticated"
     },
     inputValidator: [
-      routeParamsValidator,
+      workspaceSlugParamsValidator,
       assistantResource.operations.conversationMessagesList.paramsValidator,
       assistantResource.operations.conversationMessagesList.queryValidator
     ],

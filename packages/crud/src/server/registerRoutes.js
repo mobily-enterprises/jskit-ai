@@ -79,13 +79,19 @@ function registerRoutes(
       })
     },
     async function (request, reply) {
+      const listInput = {
+        workspaceSlug: request.input.params.workspaceSlug
+      };
+      if (request.input.query.cursor != null) {
+        listInput.cursor = request.input.query.cursor;
+      }
+      if (request.input.query.limit != null) {
+        listInput.limit = request.input.query.limit;
+      }
       const response = await request.executeAction({
         actionId: resolvedActionIds.list,
         context: { surface: "admin" },
-        input: {
-          ...request.input.params,
-          ...request.input.query
-        }
+        input: listInput
       });
       reply.code(200).send(response);
     }
@@ -110,7 +116,10 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.view,
         context: { surface: "admin" },
-        input: request.input.params
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          recordId: request.input.params.recordId
+        }
       });
       reply.code(200).send(response);
     }
@@ -140,7 +149,7 @@ function registerRoutes(
         actionId: resolvedActionIds.create,
         context: { surface: "admin" },
         input: {
-          ...request.input.params,
+          workspaceSlug: request.input.params.workspaceSlug,
           ...request.input.body
         }
       });
@@ -172,7 +181,8 @@ function registerRoutes(
         actionId: resolvedActionIds.update,
         context: { surface: "admin" },
         input: {
-          ...request.input.params,
+          workspaceSlug: request.input.params.workspaceSlug,
+          recordId: request.input.params.recordId,
           ...request.input.body
         }
       });
@@ -199,7 +209,10 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.delete,
         context: { surface: "admin" },
-        input: request.input.params
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          recordId: request.input.params.recordId
+        }
       });
       reply.code(200).send(response);
     }

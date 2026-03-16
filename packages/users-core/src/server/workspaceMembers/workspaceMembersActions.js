@@ -3,7 +3,7 @@ import {
   resolveWorkspace
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
-import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
+import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 const workspaceMembersActions = Object.freeze([
   {
@@ -17,7 +17,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.roles.view"]
     },
-    inputValidator: routeParamsValidator,
+    inputValidator: workspaceSlugParamsValidator,
     outputValidator: workspaceMembersResource.operations.rolesList.outputValidator,
     idempotency: "none",
     audit: {
@@ -39,7 +39,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.view"]
     },
-    inputValidator: routeParamsValidator,
+    inputValidator: workspaceSlugParamsValidator,
     outputValidator: workspaceMembersResource.operations.membersList.outputValidator,
     idempotency: "none",
     audit: {
@@ -63,7 +63,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.manage"]
     },
-    inputValidator: [routeParamsValidator, workspaceMembersResource.operations.updateMemberRole.bodyValidator],
+    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.updateMemberRole.inputValidator],
     outputValidator: workspaceMembersResource.operations.updateMemberRole.outputValidator,
     idempotency: "optional",
     audit: {
@@ -90,7 +90,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.view"]
     },
-    inputValidator: routeParamsValidator,
+    inputValidator: workspaceSlugParamsValidator,
     outputValidator: workspaceMembersResource.operations.invitesList.outputValidator,
     idempotency: "none",
     audit: {
@@ -114,7 +114,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.invite"]
     },
-    inputValidator: [routeParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
+    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
     outputValidator: workspaceMembersResource.operations.createInvite.outputValidator,
     idempotency: "optional",
     audit: {
@@ -150,7 +150,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.invites.revoke"]
     },
-    inputValidator: routeParamsValidator,
+    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.revokeInvite.inputValidator],
     outputValidator: workspaceMembersResource.operations.revokeInvite.outputValidator,
     idempotency: "optional",
     audit: {

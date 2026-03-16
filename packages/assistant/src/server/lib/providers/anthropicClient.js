@@ -6,6 +6,7 @@ import {
   normalizeContentText,
   normalizeModel,
   normalizeObject,
+  normalizeOptionalHttpUrl,
   normalizeTimeoutMs,
   parseJsonObjectOrDefault
 } from "./common.js";
@@ -14,10 +15,6 @@ const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-latest";
 const DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com";
 const DEFAULT_ANTHROPIC_MAX_TOKENS = 4096;
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
-
-function sanitizeBaseUrl(baseUrl) {
-  return String(baseUrl || DEFAULT_ANTHROPIC_BASE_URL).replace(/\/+$/, "");
-}
 
 function normalizeTemperature(value, fallback = 0.2) {
   const parsed = Number(value);
@@ -265,7 +262,7 @@ async function fetchAnthropicMessage({
   }
 
   try {
-    const response = await fetch(`${sanitizeBaseUrl(baseUrl)}/v1/messages`, {
+    const response = await fetch(`${baseUrl}/v1/messages`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -313,7 +310,9 @@ function createAnthropicClient({
   timeoutMs = 120_000
 } = {}) {
   const normalizedApiKey = normalizeText(apiKey);
-  const normalizedBaseUrl = sanitizeBaseUrl(normalizeText(baseUrl) || DEFAULT_ANTHROPIC_BASE_URL);
+  const normalizedBaseUrl = normalizeOptionalHttpUrl(normalizeText(baseUrl) || DEFAULT_ANTHROPIC_BASE_URL, {
+    context: "assistant anthropic baseUrl"
+  });
   const normalizedModel = normalizeModel(model, DEFAULT_ANTHROPIC_MODEL);
 
   if (enabled !== true || !normalizedApiKey) {

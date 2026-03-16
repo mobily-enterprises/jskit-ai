@@ -1,7 +1,7 @@
 import { resolveWorkspace } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
-import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
+import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function withWorkspaceRoleCatalog(payload = {}) {
   return {
@@ -22,7 +22,7 @@ const workspaceSettingsActions = Object.freeze([
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
     },
-    inputValidator: routeParamsValidator,
+    inputValidator: workspaceSlugParamsValidator,
     outputValidator: workspaceSettingsResource.operations.view.outputValidator,
     idempotency: "none",
     audit: {
@@ -48,7 +48,7 @@ const workspaceSettingsActions = Object.freeze([
       require: "all",
       permissions: ["workspace.settings.update"]
     },
-    inputValidator: [routeParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
+    inputValidator: [workspaceSlugParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
     outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
     idempotency: "optional",
     audit: {

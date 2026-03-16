@@ -2,6 +2,7 @@ import { requireAuth, resolveServiceRegistrations } from "@jskit-ai/kernel/serve
 import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
 import { mergeValidators } from "@jskit-ai/kernel/shared/validators";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
 const DEFAULT_TOOL_INPUT_SCHEMA = Object.freeze({
   type: "object",
@@ -196,6 +197,37 @@ function toServiceMethodKey(serviceToken, methodName) {
   return `${token}.${method}`;
 }
 
+function stripWorkspaceSlugFromSchema(schema, context = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return schema;
+  }
+
+  const workspaceSlug = resolveWorkspaceSlug(context);
+  if (!workspaceSlug) {
+    return schema;
+  }
+
+  if (schema.type !== "object" || !schema.properties || typeof schema.properties !== "object") {
+    return schema;
+  }
+
+  if (!Object.hasOwn(schema.properties, "workspaceSlug")) {
+    return schema;
+  }
+
+  const properties = { ...schema.properties };
+  delete properties.workspaceSlug;
+
+  const requiredSource = Array.isArray(schema.required) ? schema.required : [];
+  const required = requiredSource.filter((entry) => entry !== "workspaceSlug");
+
+  return {
+    ...schema,
+    properties,
+    ...(Array.isArray(schema.required) ? { required } : {})
+  };
+}
+
 function extractJsonSchema(validator) {
   if (Array.isArray(validator)) {
     try {
@@ -384,8 +416,13 @@ function createServiceToolCatalog(
         continue;
       }
 
-      tools.push(entry.descriptor);
-      byName.set(entry.descriptor.name, entry.descriptor);
+      const descriptor = Object.freeze({
+        ...entry.descriptor,
+        parameters: stripWorkspaceSlugFromSchema(entry.descriptor.parameters, context)
+      });
+
+      tools.push(descriptor);
+      byName.set(descriptor.name, descriptor);
     }
 
     return Object.freeze({
@@ -425,14 +462,9 @@ function createServiceToolCatalog(
       if (actionExecutor && typeof actionExecutor.execute === "function") {
         try {
           const actionInput = parseToolPayload(argumentsText);
-          if (
-            actionInput &&
-            typeof actionInput === "object" &&
-            !Array.isArray(actionInput) &&
-            !Object.hasOwn(actionInput, "workspaceSlug")
-          ) {
-            const workspaceSlug = normalizeText(context?.workspace?.slug).toLowerCase();
-            if (workspaceSlug) {
+          if (actionInput && typeof actionInput === "object" && !Array.isArray(actionInput)) {
+            const workspaceSlug = resolveWorkspaceSlug(context, actionInput);
+            if (workspaceSlug && !Object.hasOwn(actionInput, "workspaceSlug")) {
               actionInput.workspaceSlug = workspaceSlug;
             }
           }

@@ -107,8 +107,8 @@ function bootAccountSecurityRoutes(app) {
       const result = await request.executeAction({
         actionId: "settings.security.oauth.link.start",
         input: {
-          ...request.input.params,
-          ...request.input.query
+          provider: request.input.params.provider,
+          returnTo: request.input.query.returnTo
         }
       });
 

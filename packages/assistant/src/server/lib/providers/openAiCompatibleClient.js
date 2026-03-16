@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { createDisabledClient, normalizeModel, normalizeTimeoutMs } from "./common.js";
+import {
+  createDisabledClient,
+  normalizeModel,
+  normalizeOptionalHttpUrl,
+  normalizeTimeoutMs
+} from "./common.js";
 
 function createOpenAiCompatibleClient({
   enabled = true,
@@ -22,7 +27,9 @@ function createOpenAiCompatibleClient({
     });
   }
 
-  const normalizedBaseUrl = normalizeText(baseUrl);
+  const normalizedBaseUrl = normalizeOptionalHttpUrl(baseUrl, {
+    context: `assistant ${normalizedProvider} baseUrl`
+  });
   const client = new OpenAI({
     apiKey: normalizedApiKey,
     ...(normalizedBaseUrl ? { baseURL: normalizedBaseUrl } : {}),

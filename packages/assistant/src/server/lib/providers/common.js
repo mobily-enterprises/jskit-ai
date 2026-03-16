@@ -30,6 +30,28 @@ function normalizeModel(value, fallback = "") {
   return normalizeText(value) || fallback;
 }
 
+function normalizeOptionalHttpUrl(value, { context = "assistant baseUrl" } = {}) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return "";
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new TypeError(`${context} must be an absolute http(s) URL.`);
+  }
+
+  const protocol = String(parsed.protocol || "").toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    throw new TypeError(`${context} must be an absolute http(s) URL.`);
+  }
+
+  const serialized = parsed.toString();
+  return serialized.replace(/\/+$/g, "") || serialized;
+}
+
 function createDisabledClient({ provider = DEFAULT_AI_PROVIDER, model = "" } = {}) {
   const disabledError = () => {
     throw new AppError(503, "Assistant provider is not configured.");
@@ -126,6 +148,7 @@ export {
   normalizeProvider,
   normalizeTimeoutMs,
   normalizeModel,
+  normalizeOptionalHttpUrl,
   createDisabledClient,
   createProviderRequestError,
   normalizeObject,

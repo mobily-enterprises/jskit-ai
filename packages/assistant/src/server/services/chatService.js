@@ -1,6 +1,7 @@
 import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ASSISTANT_STREAM_EVENT_TYPES } from "../../shared/streamEvents.js";
+import { resolveWorkspaceSlug } from "../lib/resolveWorkspaceSlug.js";
 
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_INPUT_CHARS = 8000;
@@ -136,19 +137,24 @@ function buildToolContractLine(toolDescriptor = {}) {
   return `${name}: input=${toCompactJson(inputSchema)} output=${toCompactJson(outputSchema, "null")}`;
 }
 
-function buildSystemPrompt({ toolDescriptors = [] } = {}) {
+function buildSystemPrompt({ toolDescriptors = [], workspaceSlug = "" } = {}) {
   const toolSummary = toolDescriptors.length > 0
     ? `Available tools: ${toolDescriptors.map((entry) => entry.name).join(", ")}.`
     : "No tools are currently available for this user/session.";
   const toolContracts = toolDescriptors.length > 0
     ? `Tool contracts: ${toolDescriptors.map((entry) => buildToolContractLine(entry)).filter(Boolean).join(" | ")}.`
     : "Tool contracts: none.";
+  const normalizedWorkspaceSlug = normalizeText(workspaceSlug).toLowerCase();
+  const workspaceLine = normalizedWorkspaceSlug
+    ? `Current workspace slug: ${normalizedWorkspaceSlug}.`
+    : "Current workspace slug is unavailable.";
 
   return [
     "You are the workspace assistant.",
     "Use tools when they are necessary and only when available.",
     "Do not mention tools that are not available.",
     "When answering schema questions, rely only on tool contracts and tool results.",
+    workspaceLine,
     toolSummary,
     toolContracts
   ].join(" ");
@@ -294,7 +300,8 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
     const toolSet = serviceToolCatalog.resolveToolSet(context);
     const toolSchemas = toolSet.tools.map((tool) => serviceToolCatalog.toOpenAiToolSchema(tool));
     const systemPrompt = buildSystemPrompt({
-      toolDescriptors: toolSet.tools
+      toolDescriptors: toolSet.tools,
+      workspaceSlug: resolveWorkspaceSlug(context, source)
     });
 
     const messages = [

@@ -10,6 +10,7 @@ import {
 } from "./services/transcriptService.js";
 import { createAiClient } from "./lib/aiClient.js";
 import { createServiceToolCatalog } from "./lib/serviceToolCatalog.js";
+import { normalizeOptionalHttpUrl } from "./lib/providers/common.js";
 import { assistantActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
 import {
@@ -45,7 +46,9 @@ function resolveAssistantConfig(scope) {
 
   const provider = normalizeText(env.AI_PROVIDER || assistantConfig.provider).toLowerCase() || "openai";
   const apiKey = normalizeText(env.AI_API_KEY || assistantConfig.apiKey);
-  const baseUrl = normalizeText(env.AI_BASE_URL || assistantConfig.baseUrl);
+  const baseUrl = normalizeOptionalHttpUrl(env.AI_BASE_URL || assistantConfig.baseUrl, {
+    context: "assistant AI_BASE_URL"
+  });
   const model = normalizeText(assistantConfig.model);
   const timeoutMs = normalizeInteger(
     env.AI_TIMEOUT_MS || assistantConfig.timeoutMs,
@@ -83,6 +86,8 @@ class AssistantServiceProvider {
       throw new Error("AssistantServiceProvider requires application singleton()/service()/actions().");
     }
 
+    const config = resolveAssistantConfig(app);
+
     app.singleton(ASSISTANT_CONVERSATIONS_REPOSITORY_TOKEN, (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
       return createConversationsRepository(knex);
@@ -93,13 +98,11 @@ class AssistantServiceProvider {
       return createMessagesRepository(knex);
     });
 
-    app.singleton(ASSISTANT_AI_CLIENT_TOKEN, (scope) => {
-      const config = resolveAssistantConfig(scope);
+    app.singleton(ASSISTANT_AI_CLIENT_TOKEN, () => {
       return createAiClient(config.ai);
     });
 
     app.singleton(ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN, (scope) => {
-      const config = resolveAssistantConfig(scope);
       const skipPrefixes = ["assistant.", ...config.toolSkipServicePrefixes];
 
       return createServiceToolCatalog(scope, {
