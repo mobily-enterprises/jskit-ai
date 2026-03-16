@@ -9,6 +9,7 @@ const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contrib
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
 const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "workspace", "console"]);
+const SERVICE_METHOD_CALL_PATTERN = /deps\.([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
 let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
 
 function normalizePlainObject(value) {
@@ -41,6 +42,53 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
   }
 
   return Object.freeze(normalized);
+}
+
+function resolveActionServiceMethodBindings(actionDefinition, dependencyMap = {}) {
+  if (!actionDefinition || typeof actionDefinition.execute !== "function") {
+    return Object.freeze([]);
+  }
+
+  const source = String(actionDefinition.execute || "");
+  if (!source) {
+    return Object.freeze([]);
+  }
+
+  const normalizedDependencyMap = normalizePlainObject(dependencyMap);
+  const bindings = [];
+  const seen = new Set();
+
+  for (const match of source.matchAll(SERVICE_METHOD_CALL_PATTERN)) {
+    const dependencyName = String(match?.[1] || "").trim();
+    const methodName = String(match?.[2] || "").trim();
+    if (!dependencyName || !methodName) {
+      continue;
+    }
+    if (!Object.hasOwn(normalizedDependencyMap, dependencyName)) {
+      continue;
+    }
+
+    const token = normalizedDependencyMap[dependencyName];
+    if (typeof token !== "string" || !token.trim()) {
+      continue;
+    }
+
+    const serviceToken = token.trim();
+    const key = `${serviceToken.toLowerCase()}.${methodName.toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+
+    bindings.push(
+      Object.freeze({
+        serviceToken,
+        methodName
+      })
+    );
+  }
+
+  return Object.freeze(bindings);
 }
 
 function normalizeContributorList(value) {
@@ -188,6 +236,7 @@ function materializeAction(scope, actionDefinition) {
   const actionDependencies = materializeDependencies(scope, source.dependencies, {
     context: `action ${String(source.id || "<unknown>")}.dependencies`
   });
+  const actionServiceMethodBindings = resolveActionServiceMethodBindings(source, source.dependencies);
   const resolvedDependencies = actionDependencies;
 
   if (Object.hasOwn(source, "surfaces") && Object.hasOwn(source, "surfacesFrom")) {
@@ -196,6 +245,10 @@ function materializeAction(scope, actionDefinition) {
 
   delete materialized.dependencies;
   delete materialized.surfacesFrom;
+
+  if (actionServiceMethodBindings.length > 0) {
+    materialized.serviceMethodBindings = actionServiceMethodBindings;
+  }
 
   if (Object.hasOwn(source, "surfacesFrom")) {
     const resolvedSurfaces = resolveSurfaceIdsFromSource(scope, source.surfacesFrom, {

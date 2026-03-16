@@ -135,6 +135,49 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   assert.deepEqual(result, { echoed: { value: "ok" }, ok: true });
 });
 
+test("ActionRuntimeServiceProvider annotates action definitions with service method bindings", () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton("test.customer.service", () => ({
+    createRecord(input) {
+      return input;
+    }
+  }));
+
+  app.actions([
+    {
+      id: "test.customer.create",
+      domain: "workspace",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      dependencies: {
+        customerService: "test.customer.service"
+      },
+      inputValidator: EMPTY_INPUT_VALIDATOR,
+      idempotency: "optional",
+      audit: { actionName: "test.customer.create" },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.customerService.createRecord(input);
+      }
+    }
+  ]);
+
+  const contributors = resolveActionContributors(app);
+  const action = contributors[0]?.actions?.[0];
+  assert.deepEqual(action?.serviceMethodBindings, [
+    {
+      serviceToken: "test.customer.service",
+      methodName: "createRecord"
+    }
+  ]);
+});
+
 test("app.actions + resolveActionContributors provide canonical contributor wiring", () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();

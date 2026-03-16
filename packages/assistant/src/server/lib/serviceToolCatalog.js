@@ -1,4 +1,5 @@
 import { requireAuth, resolveServiceRegistrations } from "@jskit-ai/kernel/server/runtime";
+import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -118,6 +119,43 @@ function parseToolArguments(argumentsText) {
   }
 }
 
+function parseToolPayload(argumentsText) {
+  const source = String(argumentsText || "").trim();
+  if (!source) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    if (Array.isArray(parsed.args) || Object.hasOwn(parsed, "options")) {
+      const args = Array.isArray(parsed.args) ? parsed.args : [];
+      const options = parsed.options && typeof parsed.options === "object" && !Array.isArray(parsed.options)
+        ? parsed.options
+        : {};
+
+      if (args.length === 1 && args[0] && typeof args[0] === "object" && !Array.isArray(args[0])) {
+        return {
+          ...args[0],
+          ...options
+        };
+      }
+
+      return {
+        args,
+        ...options
+      };
+    }
+
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
 function canInvokeMethod(permission, context) {
   const permissionSpec = permission && typeof permission === "object" ? permission : { require: "none" };
 
@@ -151,11 +189,95 @@ function resolveMethodSchema(scope, serviceToken, methodName) {
   return catalog.getServiceMethodSchema(serviceToken, methodName);
 }
 
+function toServiceMethodKey(serviceToken, methodName) {
+  const token = normalizeText(serviceToken).toLowerCase();
+  const method = normalizeText(methodName).toLowerCase();
+  if (!token || !method) {
+    return "";
+  }
+  return `${token}.${method}`;
+}
+
+function extractJsonSchema(validator) {
+  if (!validator || typeof validator !== "object" || Array.isArray(validator)) {
+    return null;
+  }
+
+  const schema = validator.schema;
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return null;
+  }
+
+  return schema;
+}
+
+function resolveActionBackedMethodSchemas(scope) {
+  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
+    return new Map();
+  }
+  if (typeof scope.resolveTag !== "function") {
+    return new Map();
+  }
+
+  const entries = new Map();
+  const contributors = resolveActionContributors(scope);
+
+  for (const contributor of contributors) {
+    const actions = Array.isArray(contributor?.actions) ? contributor.actions : [];
+    for (const action of actions) {
+      if (!action || typeof action !== "object") {
+        continue;
+      }
+
+      const bindings = Array.isArray(action.serviceMethodBindings) ? action.serviceMethodBindings : [];
+      if (bindings.length < 1) {
+        continue;
+      }
+
+      const assistantTool = action.assistantTool && typeof action.assistantTool === "object" ? action.assistantTool : null;
+      const inputSchema = extractJsonSchema(assistantTool?.inputValidator) || extractJsonSchema(action.inputValidator);
+      const outputSchema = extractJsonSchema(action.outputValidator);
+      const description = normalizeText(assistantTool?.description) || `Call ${String(action.id || "").trim()}.`;
+
+      for (const binding of bindings) {
+        const key = toServiceMethodKey(binding?.serviceToken, binding?.methodName);
+        if (!key) {
+          continue;
+        }
+
+        const nextEntry = Object.freeze({
+          serviceToken: String(binding.serviceToken || "").trim(),
+          methodName: String(binding.methodName || "").trim(),
+          key: `${String(binding.serviceToken || "").trim()}.${String(binding.methodName || "").trim()}`,
+          description,
+          inputSchema,
+          outputSchema,
+          actionId: String(action.id || "").trim() || null,
+          actionVersion: Number(action.version) || 1
+        });
+        const existing = entries.get(key);
+        if (!existing || Number(action.version) >= Number(existing.version || 0)) {
+          entries.set(
+            key,
+            Object.freeze({
+              ...nextEntry,
+              version: Number(action.version) || 1
+            })
+          );
+        }
+      }
+    }
+  }
+
+  return entries;
+}
+
 function resolveServiceMethodEntries(
   scope,
   { barredServiceMethods = [], skipServicePrefixes = [], requireMethodSchemas = false } = {}
 ) {
   const registrations = resolveServiceRegistrations(scope);
+  const actionBackedSchemas = resolveActionBackedMethodSchemas(scope);
   const barredSet = normalizeBarredMethodSet(barredServiceMethods);
   const usedToolNames = new Set();
   const entries = [];
@@ -191,7 +313,10 @@ function resolveServiceMethodEntries(
       }
 
       const methodPermission = servicePermissions?.[methodName] || { require: "none" };
-      const methodSchema = resolveMethodSchema(scope, serviceToken, methodName);
+      const methodSchema =
+        resolveMethodSchema(scope, serviceToken, methodName) ||
+        actionBackedSchemas.get(toServiceMethodKey(serviceToken, methodName)) ||
+        null;
       if (requireMethodSchemas && (!methodSchema?.inputSchema || !methodSchema?.outputSchema)) {
         continue;
       }
@@ -202,6 +327,8 @@ function resolveServiceMethodEntries(
             name: toolName,
             serviceToken,
             methodName,
+            actionId: methodSchema?.actionId || null,
+            actionVersion: Number(methodSchema?.actionVersion) || null,
             description: normalizeText(methodSchema?.description) || `Call ${serviceToken}.${methodName}().`,
             parameters: methodSchema?.inputSchema || DEFAULT_TOOL_INPUT_SCHEMA,
             outputSchema: methodSchema?.outputSchema || null
@@ -226,16 +353,25 @@ function createServiceToolCatalog(
   const normalizedSkipPrefixes = (Array.isArray(skipServicePrefixes) ? skipServicePrefixes : [skipServicePrefixes])
     .map((entry) => normalizeText(entry).toLowerCase())
     .filter(Boolean);
-  const methodEntries = resolveServiceMethodEntries(scope, {
-    barredServiceMethods,
-    skipServicePrefixes: normalizedSkipPrefixes,
-    requireMethodSchemas
-  });
+  let methodEntries = null;
+
+  function resolveOrCreateMethodEntries() {
+    if (methodEntries) {
+      return methodEntries;
+    }
+
+    methodEntries = resolveServiceMethodEntries(scope, {
+      barredServiceMethods,
+      skipServicePrefixes: normalizedSkipPrefixes,
+      requireMethodSchemas
+    });
+    return methodEntries;
+  }
 
   function resolveToolSet(context = {}) {
     const tools = [];
     const byName = new Map();
-    for (const entry of methodEntries) {
+    for (const entry of resolveOrCreateMethodEntries()) {
       if (!canInvokeMethod(entry.permission, context)) {
         continue;
       }
@@ -274,6 +410,47 @@ function createServiceToolCatalog(
           message: "Unknown tool."
         }
       };
+    }
+
+    if (descriptor.actionId && scope.has("actionExecutor")) {
+      const actionExecutor = scope.make("actionExecutor");
+      if (actionExecutor && typeof actionExecutor.execute === "function") {
+        try {
+          const actionInput = parseToolPayload(argumentsText);
+          if (
+            actionInput &&
+            typeof actionInput === "object" &&
+            !Array.isArray(actionInput) &&
+            !Object.hasOwn(actionInput, "workspaceSlug")
+          ) {
+            const workspaceSlug = normalizeText(context?.workspace?.slug).toLowerCase();
+            if (workspaceSlug) {
+              actionInput.workspaceSlug = workspaceSlug;
+            }
+          }
+
+          const result = await actionExecutor.execute({
+            actionId: descriptor.actionId,
+            version: descriptor.actionVersion || null,
+            input: actionInput,
+            context
+          });
+          return {
+            ok: true,
+            result
+          };
+        } catch (error) {
+          const status = Number(error?.status || error?.statusCode || 500);
+          return {
+            ok: false,
+            error: {
+              code: String(error?.code || "assistant_tool_failed").trim() || "assistant_tool_failed",
+              message: status >= 500 ? "Tool call failed." : String(error?.message || "Tool call failed."),
+              status: Number.isInteger(status) ? status : 500
+            }
+          };
+        }
+      }
     }
 
     const service = scope.make(descriptor.serviceToken);

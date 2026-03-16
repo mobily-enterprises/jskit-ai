@@ -54,74 +54,6 @@ function normalizeMethodName(value, { context = "service method" } = {}) {
   return methodName;
 }
 
-function normalizeSchemaValidator(value, { context = "service schema" } = {}) {
-  if (value == null) {
-    return null;
-  }
-
-  if (typeof value === "function") {
-    return Object.freeze({
-      schema: value
-    });
-  }
-
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError(`${context} must be an object/function validator.`);
-  }
-
-  if (Object.prototype.hasOwnProperty.call(value, "schema")) {
-    const schema = value.schema;
-    if (schema == null || (typeof schema !== "function" && (typeof schema !== "object" || Array.isArray(schema)))) {
-      throw new TypeError(`${context}.schema must be a function or object.`);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(value, "normalize") && value.normalize != null && typeof value.normalize !== "function") {
-      throw new TypeError(`${context}.normalize must be a function when provided.`);
-    }
-
-    return Object.freeze({
-      schema,
-      ...(typeof value.normalize === "function" ? { normalize: value.normalize } : {})
-    });
-  }
-
-  return Object.freeze({
-    schema: value
-  });
-}
-
-function normalizeServiceMethodSchemaSpec(value, { context = "service schema" } = {}) {
-  const source = normalizePlainObject(value);
-
-  if (Object.keys(source).length < 1) {
-    throw new TypeError(`${context} must define at least one property.`);
-  }
-
-  const description = normalizeText(source.description);
-  const input = normalizeSchemaValidator(
-    Object.prototype.hasOwnProperty.call(source, "input") ? source.input : source.inputValidator,
-    {
-      context: `${context}.input`
-    }
-  );
-  const output = normalizeSchemaValidator(
-    Object.prototype.hasOwnProperty.call(source, "output") ? source.output : source.outputValidator,
-    {
-      context: `${context}.output`
-    }
-  );
-
-  if (!input && !output) {
-    throw new TypeError(`${context} must define input and/or output schema.`);
-  }
-
-  return Object.freeze({
-    ...(description ? { description } : {}),
-    ...(input ? { input } : {}),
-    ...(output ? { output } : {})
-  });
-}
-
 function toPositiveInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -239,9 +171,7 @@ function normalizeServiceMetadata(value = {}) {
   const source = normalizePlainObject(value);
   const permissions = normalizePlainObject(source.permissions);
   const eventsSource = normalizePlainObject(source.events);
-  const schemasSource = normalizePlainObject(source.schemas);
   const events = {};
-  const schemas = {};
 
   for (const [methodName, eventEntries] of Object.entries(eventsSource)) {
     const normalizedMethodName = normalizeMethodName(methodName, {
@@ -255,19 +185,9 @@ function normalizeServiceMetadata(value = {}) {
     events[normalizedMethodName] = Object.freeze(normalizedEventEntries);
   }
 
-  for (const [methodName, schemaSpec] of Object.entries(schemasSource)) {
-    const normalizedMethodName = normalizeMethodName(methodName, {
-      context: "service metadata.schemas method"
-    });
-    schemas[normalizedMethodName] = normalizeServiceMethodSchemaSpec(schemaSpec, {
-      context: `service metadata.schemas.${normalizedMethodName}`
-    });
-  }
-
   return Object.freeze({
     permissions: Object.freeze({ ...permissions }),
-    events: Object.freeze(events),
-    schemas: Object.freeze(schemas)
+    events: Object.freeze(events)
   });
 }
 
@@ -339,29 +259,6 @@ function normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata)
   }
 
   return Object.freeze(normalizedEvents);
-}
-
-function normalizeServiceSchemasForDefinition(serviceDefinition, serviceMetadata) {
-  const service = normalizePlainObject(serviceDefinition);
-  const methodNameSet = new Set(
-    Object.entries(service)
-      .filter(([, value]) => typeof value === "function")
-      .map(([name]) => name)
-  );
-  const declaredSchemas = normalizePlainObject(serviceMetadata.schemas);
-  const normalizedSchemas = {};
-
-  for (const [methodName, schemaSpec] of Object.entries(declaredSchemas)) {
-    if (!methodNameSet.has(methodName)) {
-      throw new TypeError(`service metadata.schemas.${methodName} does not match a service method.`);
-    }
-
-    normalizedSchemas[methodName] = normalizeServiceMethodSchemaSpec(schemaSpec, {
-      context: `service metadata.schemas.${methodName}`
-    });
-  }
-
-  return Object.freeze(normalizedSchemas);
 }
 
 function resolveMethodOptions(args = []) {
@@ -483,7 +380,6 @@ function materializeServiceRegistration(scope, registrationSpec) {
   const normalizedService = normalizePlainObject(service);
   const permissions = normalizeServicePermissionsForDefinition(normalizedService, registrationSpec.metadata);
   const events = normalizeServiceEventsForDefinition(normalizedService, registrationSpec.metadata);
-  const schemas = normalizeServiceSchemasForDefinition(normalizedService, registrationSpec.metadata);
   const authorizedService = createAuthorizedService(normalizedService, permissions);
   const wrappedService = {};
 
@@ -541,12 +437,6 @@ function materializeServiceRegistration(scope, registrationSpec) {
     configurable: false,
     writable: false,
     value: registrationSpec.serviceToken
-  });
-  Object.defineProperty(wrappedService, "serviceSchemas", {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: schemas
   });
 
   return Object.freeze(wrappedService);

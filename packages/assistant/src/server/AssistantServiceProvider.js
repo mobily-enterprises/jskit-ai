@@ -68,7 +68,7 @@ function resolveAssistantConfig(scope) {
     timeoutMs,
     barredServiceMethods: normalizeStringArray(assistantConfig.barredServiceMethods),
     toolSkipServicePrefixes: normalizeStringArray(assistantConfig.toolSkipServicePrefixes),
-    requireToolSchemas: assistantConfig.requireToolSchemas !== false
+    requireToolSchemas: assistantConfig.requireToolSchemas === true
   });
 }
 

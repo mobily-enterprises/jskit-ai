@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createContainer } from "@jskit-ai/kernel/server/container";
+import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { createServiceSchemaCatalog, installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
+import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 function createApp() {
@@ -13,8 +14,49 @@ function createApp() {
     }
   }));
   installServiceRegistrationApi(app);
-  app.singleton(KERNEL_TOKENS.ServiceSchemaCatalog, (scope) => createServiceSchemaCatalog(scope));
   return app;
+}
+
+function toSchemaCatalogKey(serviceToken, methodName) {
+  return `${String(serviceToken || "").trim().toLowerCase()}.${String(methodName || "").trim().toLowerCase()}`;
+}
+
+function bindServiceSchemaCatalog(app, entries = []) {
+  const normalizedEntries = Array.isArray(entries) ? entries : [entries];
+  const byKey = new Map();
+  for (const entry of normalizedEntries) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const key = toSchemaCatalogKey(entry.serviceToken, entry.methodName);
+    if (!key || key === ".") {
+      continue;
+    }
+
+    byKey.set(key, Object.freeze({
+      serviceToken: String(entry.serviceToken || "").trim(),
+      methodName: String(entry.methodName || "").trim(),
+      key: `${String(entry.serviceToken || "").trim()}.${String(entry.methodName || "").trim()}`,
+      description: String(entry.description || "").trim(),
+      inputSchema: entry.inputSchema || null,
+      outputSchema: entry.outputSchema || null
+    }));
+  }
+
+  const list = Object.freeze([...byKey.values()]);
+  app.singleton(
+    KERNEL_TOKENS.ServiceSchemaCatalog,
+    () =>
+      Object.freeze({
+        getServiceMethodSchema(serviceToken, methodName) {
+          return byKey.get(toSchemaCatalogKey(serviceToken, methodName)) || null;
+        },
+        listServiceMethodSchemas() {
+          return list;
+        }
+      })
+  );
 }
 
 test("service tool catalog hides methods user cannot execute", () => {
@@ -171,7 +213,7 @@ test("service tool catalog materializes service methods once and filters per req
     skipServicePrefixes: []
   });
 
-  assert.equal(factoryCalls, 1);
+  assert.equal(factoryCalls, 0);
 
   catalog.resolveToolSet({ permissions: [] });
   catalog.resolveToolSet({ actor: { id: 1 }, permissions: [] });
@@ -235,20 +277,16 @@ test("service tool catalog uses runtime service schema catalog for tool contract
         updateRecord: {
           require: "authenticated"
         }
-      },
-      schemas: {
-        updateRecord: {
-          description: "Update profile display name.",
-          input: {
-            schema: inputSchema
-          },
-          output: {
-            schema: outputSchema
-          }
-        }
       }
     }
   );
+  bindServiceSchemaCatalog(app, {
+    serviceToken: "demo.schemas.service",
+    methodName: "updateRecord",
+    description: "Update profile display name.",
+    inputSchema,
+    outputSchema
+  });
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: []
@@ -289,38 +327,34 @@ test("service tool catalog can require input/output schemas for tool exposure", 
         withSchema: {
           require: "authenticated"
         }
-      },
-      schemas: {
-        withSchema: {
-          input: {
-            schema: {
-              type: "object",
-              properties: {
-                args: {
-                  type: "array",
-                  minItems: 0,
-                  maxItems: 0
-                }
-              },
-              additionalProperties: false
-            }
-          },
-          output: {
-            schema: {
-              type: "object",
-              properties: {
-                ok: {
-                  type: "boolean"
-                }
-              },
-              required: ["ok"],
-              additionalProperties: false
-            }
-          }
-        }
       }
     }
   );
+  bindServiceSchemaCatalog(app, {
+    serviceToken: "demo.strict.service",
+    methodName: "withSchema",
+    inputSchema: {
+      type: "object",
+      properties: {
+        args: {
+          type: "array",
+          minItems: 0,
+          maxItems: 0
+        }
+      },
+      additionalProperties: false
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        ok: {
+          type: "boolean"
+        }
+      },
+      required: ["ok"],
+      additionalProperties: false
+    }
+  });
 
   const catalog = createServiceToolCatalog(app, {
     skipServicePrefixes: [],
@@ -333,4 +367,211 @@ test("service tool catalog can require input/output schemas for tool exposure", 
 
   assert.equal(toolSet.tools.length, 1);
   assert.equal(toolSet.tools[0].methodName, "withSchema");
+});
+
+test("service tool catalog derives method schemas from action contributors when catalog is empty", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  const inputSchema = Object.freeze({
+    type: "object",
+    properties: {
+      workspaceSlug: {
+        type: "string"
+      },
+      name: {
+        type: "string"
+      },
+      surname: {
+        type: "string"
+      }
+    },
+    additionalProperties: false
+  });
+  const outputSchema = Object.freeze({
+    type: "object",
+    properties: {
+      id: {
+        type: "integer"
+      }
+    },
+    required: ["id"],
+    additionalProperties: false
+  });
+
+  app.service(
+    "demo.customers.service",
+    () => ({
+      createRecord(payload = {}) {
+        return {
+          id: 1,
+          ...payload
+        };
+      }
+    }),
+    {
+      permissions: {
+        createRecord: {
+          require: "authenticated"
+        }
+      }
+    }
+  );
+
+  app.actions([
+    {
+      id: "demo.customers.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      dependencies: {
+        customersService: "demo.customers.service"
+      },
+      inputValidator: {
+        schema: inputSchema
+      },
+      outputValidator: {
+        schema: outputSchema
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.customers.create"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.customersService.createRecord(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: {
+      id: 1
+    },
+    permissions: []
+  });
+  const createTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.customers.service" && tool.methodName === "createRecord");
+
+  assert.ok(createTool);
+  assert.equal(createTool.parameters, inputSchema);
+  assert.equal(createTool.outputSchema, outputSchema);
+});
+
+test("service tool catalog executes action-backed tools with object payloads", async () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.customers.service",
+    () => ({
+      updateRecord(recordId, payload = {}) {
+        return {
+          id: Number(recordId),
+          payload
+        };
+      }
+    }),
+    {
+      permissions: {
+        updateRecord: {
+          require: "authenticated"
+        }
+      }
+    }
+  );
+
+  app.actions([
+    {
+      id: "demo.customers.update",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["internal"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      dependencies: {
+        customersService: "demo.customers.service"
+      },
+      inputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            recordId: {
+              type: "integer",
+              minimum: 1
+            },
+            name: {
+              type: "string"
+            }
+          },
+          required: ["recordId"],
+          additionalProperties: false
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: {
+              type: "integer"
+            }
+          },
+          required: ["id"],
+          additionalProperties: true
+        }
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.customers.update"
+      },
+      observability: {},
+      async execute(input, context, deps) {
+        const { recordId, ...patch } = input;
+        return deps.customersService.updateRecord(recordId, patch, {
+          context
+        });
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipServicePrefixes: []
+  });
+  const context = {
+    actor: {
+      id: 1
+    },
+    permissions: [],
+    channel: "internal",
+    surface: "admin"
+  };
+  const toolSet = catalog.resolveToolSet(context);
+  const updateTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.customers.service" && tool.methodName === "updateRecord");
+  assert.ok(updateTool);
+
+  const execution = await catalog.executeToolCall({
+    toolName: updateTool.name,
+    argumentsText: JSON.stringify({
+      recordId: 7,
+      name: "Merc"
+    }),
+    context,
+    toolSet
+  });
+
+  assert.equal(execution.ok, true);
+  assert.deepEqual(execution.result, {
+    id: 7,
+    payload: {
+      name: "Merc"
+    }
+  });
 });
