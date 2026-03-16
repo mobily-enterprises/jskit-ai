@@ -166,3 +166,67 @@ test("app.service keeps realtime audience callbacks", () => {
   const service = app.make("test.audience.service");
   assert.equal(typeof service.serviceEvents.updateRecord[0].realtime.audience, "function");
 });
+
+test("app.service preserves declared method schemas and exposes them on materialized service", async () => {
+  const app = createContainer();
+  app.singleton("domainEvents", () => ({
+    async publish() {
+      return null;
+    }
+  }));
+  installServiceRegistrationApi(app);
+
+  const inputSchema = Object.freeze({
+    type: "object",
+    properties: {
+      value: {
+        type: "string"
+      }
+    },
+    required: ["value"],
+    additionalProperties: false
+  });
+  const outputSchema = Object.freeze({
+    type: "object",
+    properties: {
+      ok: {
+        type: "boolean"
+      }
+    },
+    required: ["ok"],
+    additionalProperties: false
+  });
+
+  app.service(
+    "test.schema.service",
+    () => ({
+      async mutate(payload = {}) {
+        return {
+          ok: Boolean(payload?.value)
+        };
+      }
+    }),
+    {
+      schemas: {
+        mutate: {
+          description: "Mutate value.",
+          input: {
+            schema: inputSchema
+          },
+          output: {
+            schema: outputSchema
+          }
+        }
+      }
+    }
+  );
+
+  const registrations = resolveServiceRegistrations(app);
+  assert.equal(registrations.length, 1);
+  assert.equal(registrations[0].metadata.schemas.mutate.input.schema, inputSchema);
+  assert.equal(registrations[0].metadata.schemas.mutate.output.schema, outputSchema);
+
+  const service = app.make("test.schema.service");
+  assert.equal(service.serviceSchemas.mutate.input.schema, inputSchema);
+  assert.equal(service.serviceSchemas.mutate.output.schema, outputSchema);
+});

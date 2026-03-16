@@ -26,6 +26,7 @@ export {
   resolveServiceRegistrations,
   installServiceRegistrationApi
 } from "./serviceRegistration.js";
+export { createServiceSchemaCatalog } from "./schemaCatalog.js";
 export { resolveDefaultScope, createEntityChangePublisher, createNoopEntityChangePublisher } from "./entityChangeEvents.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";

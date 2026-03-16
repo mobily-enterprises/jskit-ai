@@ -172,3 +172,80 @@ test("workspace action context contributor always resolves and stores resolved c
     permissions: ["workspace.settings.update"]
   });
 });
+
+test("workspace action context contributor resolves context for workspace-visible routes outside legacy action list", async () => {
+  const calls = [];
+  const contributor = createWorkspaceActionContextContributor({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options) {
+        calls.push({ user, workspaceSlug, options });
+        return {
+          workspace: {
+            id: 33,
+            slug: "acme"
+          },
+          membership: {
+            roleId: "admin"
+          },
+          permissions: ["assistant.chat.use"]
+        };
+      }
+    }
+  });
+
+  const request = {
+    user: {
+      id: 42
+    },
+    routeOptions: {
+      config: {
+        visibility: "workspace"
+      }
+    }
+  };
+
+  const contribution = await contributor.contribute({
+    actionId: "assistant.conversations.list",
+    input: {
+      workspaceSlug: "acme"
+    },
+    context: {
+      requestMeta: {
+        request
+      }
+    },
+    request
+  });
+
+  assert.deepEqual(calls, [
+    {
+      user: request.user,
+      workspaceSlug: "acme",
+      options: {
+        request
+      }
+    }
+  ]);
+  assert.deepEqual(contribution, {
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          id: 33,
+          slug: "acme"
+        },
+        membership: {
+          roleId: "admin"
+        },
+        permissions: ["assistant.chat.use"]
+      }
+    },
+    workspace: {
+      id: 33,
+      slug: "acme"
+    },
+    membership: {
+      roleId: "admin"
+    },
+    permissions: ["assistant.chat.use"]
+  });
+});

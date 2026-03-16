@@ -3,6 +3,7 @@ import {
   requireServiceMethod,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 
 const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
   "workspace.roles.list",
@@ -14,6 +15,7 @@ const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
   "workspace.invite.create",
   "workspace.invite.revoke"
 ]);
+const WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET = new Set(["workspace", "workspace_user"]);
 
 function createWorkspaceActionContextContributor({ workspaceService } = {}) {
   const contributorId = "users.workspace.context";
@@ -23,12 +25,16 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
   return Object.freeze({
     contributorId,
     async contribute({ actionId, input, context, request } = {}) {
-      if (!WORKSPACE_CONTEXT_ACTION_IDS.includes(String(actionId || "").trim())) {
+      const payload = normalizeObject(input);
+      if (!Object.prototype.hasOwnProperty.call(payload, "workspaceSlug")) {
         return {};
       }
 
-      const payload = normalizeObject(input);
-      if (!Object.prototype.hasOwnProperty.call(payload, "workspaceSlug")) {
+      const actionName = String(actionId || "").trim();
+      const hasLegacyWorkspaceActionId = WORKSPACE_CONTEXT_ACTION_IDS.includes(actionName);
+      const routeVisibility = normalizeRouteVisibility(request?.routeOptions?.config?.visibility);
+      const hasWorkspaceRouteVisibility = WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET.has(routeVisibility);
+      if (!hasLegacyWorkspaceActionId && !hasWorkspaceRouteVisibility) {
         return {};
       }
 

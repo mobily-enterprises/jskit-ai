@@ -66,9 +66,16 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   O If logged out, redirect to login immediately, check page permissions if not logged out
  
   - Delete setting table for workspace completely
+  - Place roles and permissions in app-owned config
+  
+  - Re-add icons
+
+  - cli: offer help for package paramters
+  - Theme seems to change when going to user settings screen
+  - A new workspace seems to be created after changing username (!!!)
+  
   - Spurious chat settings in profile_settings
  
-  - Place roles and permissions in app-owned config
  
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   
@@ -77,16 +84,17 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
  
   - Alert system (queue + element), use it for invites
   
-  - Re-add icons
   
+
+
   - FINAL STEP: Do infrastructure deploy, easy way
  
   PORT OVER:
   X Realtime
-  - AI agent
-  - Chat
+  X AI agent
   
   LATER:
+  - Chat
   - Billing
   - Communications (email, sms)
   - Operations

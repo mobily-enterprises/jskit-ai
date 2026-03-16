@@ -14,6 +14,7 @@ import * as requestUrl from "./requestUrl.js";
 import * as routeUtils from "./routeUtils.js";
 import * as runtimeAssembly from "./runtimeAssembly.js";
 import * as runtimeKernel from "./runtimeKernel.js";
+import * as schemaCatalog from "./schemaCatalog.js";
 import * as serviceAuthorization from "./serviceAuthorization.js";
 import * as serviceRegistration from "./serviceRegistration.js";
 import * as entityChangeEvents from "./entityChangeEvents.js";
@@ -38,6 +39,7 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   routeUtils: Object.freeze({ ...routeUtils }),
   runtimeAssembly: Object.freeze({ ...runtimeAssembly }),
   runtimeKernel: Object.freeze({ ...runtimeKernel }),
+  schemaCatalog: Object.freeze({ ...schemaCatalog }),
   serviceAuthorization: Object.freeze({ ...serviceAuthorization }),
   serviceRegistration: Object.freeze({ ...serviceRegistration }),
   entityChangeEvents: Object.freeze({ ...entityChangeEvents }),
@@ -56,6 +58,7 @@ class ServerRuntimeCoreServiceProvider {
     serviceRegistration.installServiceRegistrationApi(app);
 
     app.singleton("runtime.server", () => SERVER_RUNTIME_CORE_API);
+    app.singleton(KERNEL_TOKENS.ServiceSchemaCatalog, (scope) => schemaCatalog.createServiceSchemaCatalog(scope));
     app.singleton("domainEvents", (scope) => domainEvents.createDomainEvents(scope));
   }
 

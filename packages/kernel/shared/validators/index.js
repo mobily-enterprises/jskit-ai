@@ -1,4 +1,5 @@
 export { normalizeObjectInput } from "./inputNormalization.js";
+export { createToolArgsSchema } from "./createToolArgsSchema.js";
 export { createCursorListValidator } from "./createCursorListValidator.js";
 export { cursorPaginationQueryValidator } from "./cursorPaginationQueryValidator.js";
 export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
