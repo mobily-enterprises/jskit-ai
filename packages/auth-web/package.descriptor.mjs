@@ -24,7 +24,7 @@ export default Object.freeze({
   },
   "runtime": {
     "server": {
-      "providerEntrypoint": "src/server/index.js",
+      "providerEntrypoint": "src/server/providers/AuthWebServiceProvider.js",
       "providers": [
         {
           "entrypoint": "src/server/providers/AuthWebServiceProvider.js",

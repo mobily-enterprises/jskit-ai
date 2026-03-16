@@ -104,7 +104,7 @@ test("auth guard runtime keeps previous auth state on transient refresh failure"
   assert.equal(placementRuntime.setCalls.length, setCallCountBeforeTransientFailure);
 });
 
-test("auth guard runtime refreshes on reconnect visibility and notifies subscribers", async () => {
+test("auth guard runtime refreshes on reconnect/focus/visibility when explicitly enabled", async () => {
   const originalWindow = globalThis.window;
   const originalDocument = globalThis.document;
   const windowStub = createEventTargetStub();
@@ -125,6 +125,7 @@ test("auth guard runtime refreshes on reconnect visibility and notifies subscrib
     const runtime = createAuthGuardRuntime({
       placementRuntime,
       refreshOnForeground: true,
+      refreshOnReconnect: true,
       fetchImplementation: async () => {
         callCount += 1;
         return {
@@ -170,7 +171,7 @@ test("auth guard runtime refreshes on reconnect visibility and notifies subscrib
   }
 });
 
-test("auth guard runtime throttles focus and visibility session refreshes within interval", async () => {
+test("auth guard runtime does not refresh on browser events when foreground/reconnect refresh is disabled", async () => {
   const originalWindow = globalThis.window;
   const originalDocument = globalThis.document;
   const windowStub = createEventTargetStub();
@@ -213,6 +214,10 @@ test("auth guard runtime throttles focus and visibility session refreshes within
     assert.equal(callCount, 1);
 
     documentStub.emit("visibilitychange");
+    await flushPendingRefresh();
+    assert.equal(callCount, 1);
+
+    windowStub.emit("online");
     await flushPendingRefresh();
     assert.equal(callCount, 1);
   } finally {

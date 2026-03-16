@@ -16,7 +16,6 @@
     "./client/shellRouting": "./client/shellRouting.js",
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
     "./client/vite": "./client/vite/index.js",
-    "./server": "./server/index.js",
     "./server/actions": "./server/actions/index.js",
     "./server/actions/*": "./server/actions/*.js",
     "./server/container": "./server/container/index.js",

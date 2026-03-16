@@ -31,6 +31,17 @@ export default Object.freeze({
     }
   },
   metadata: {
+    client: {
+      optimizeDeps: {
+        include: [
+          "@uppy/core",
+          "@uppy/dashboard",
+          "@uppy/image-editor",
+          "@uppy/compressor",
+          "@uppy/xhr-upload"
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {

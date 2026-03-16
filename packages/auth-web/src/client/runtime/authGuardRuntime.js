@@ -5,6 +5,7 @@ const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = "/api/session";
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
 const DEFAULT_REFRESH_ON_FOREGROUND = false;
+const DEFAULT_REFRESH_ON_RECONNECT = false;
 const DEFAULT_REALTIME_REFRESH_EVENTS = Object.freeze(["users.bootstrap.changed", "auth.session.changed"]);
 const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
@@ -286,6 +287,7 @@ function createAuthGuardRuntime({
   loginRoute = DEFAULT_LOGIN_ROUTE,
   fetchImplementation = globalThis.fetch,
   refreshOnForeground = DEFAULT_REFRESH_ON_FOREGROUND,
+  refreshOnReconnect = DEFAULT_REFRESH_ON_RECONNECT,
   realtimeSocket = null,
   realtimeRefreshEvents = DEFAULT_REALTIME_REFRESH_EVENTS
 } = {}) {
@@ -296,6 +298,7 @@ function createAuthGuardRuntime({
   let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
   let currentLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
   const foregroundRefreshEnabled = refreshOnForeground === true;
+  const reconnectRefreshEnabled = refreshOnReconnect === true;
   const socket = asRealtimeSocket(realtimeSocket);
   const realtimeEvents = normalizeRealtimeRefreshEvents(realtimeRefreshEvents);
   let authState = DEFAULT_AUTH_STATE;
@@ -385,7 +388,9 @@ function createAuthGuardRuntime({
 
       const windowTarget = getWindowEventTarget();
       if (windowTarget) {
-        windowTarget.addEventListener("online", onReconnect);
+        if (reconnectRefreshEnabled) {
+          windowTarget.addEventListener("online", onReconnect);
+        }
         if (foregroundRefreshEnabled) {
           windowTarget.addEventListener("focus", onWindowFocus);
         }

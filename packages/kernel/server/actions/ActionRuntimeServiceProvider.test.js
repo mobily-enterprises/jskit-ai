@@ -192,6 +192,67 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
   );
 });
 
+test("action runtime execute merges static and per-execution dependencies", async () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["app"];
+    },
+    listWorkspaceSurfaceIds() {
+      return ["app"];
+    }
+  }));
+
+  app.singleton("test.static.service", () => ({
+    label: "static"
+  }));
+
+  app.actions([
+    {
+      id: "test.deps.merge",
+      domain: "workspace",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfaces: ["app"],
+      consoleUsersOnly: false,
+      dependencies: {
+        staticService: "test.static.service"
+      },
+      inputValidator: EMPTY_INPUT_VALIDATOR,
+      idempotency: "none",
+      audit: { actionName: "test.deps.merge" },
+      observability: {},
+      async execute(_input, _context, deps) {
+        return {
+          staticLabel: deps.staticService?.label || "",
+          dynamicValue: deps.dynamicValue || ""
+        };
+      }
+    }
+  ]);
+
+  const actionExecutor = app.make("actionExecutor");
+  const result = await actionExecutor.execute({
+    actionId: "test.deps.merge",
+    context: {
+      channel: "internal",
+      surface: "app"
+    },
+    deps: {
+      dynamicValue: "runtime"
+    }
+  });
+
+  assert.deepEqual(result, {
+    staticLabel: "static",
+    dynamicValue: "runtime"
+  });
+});
+
 test("app.actions accepts custom action domains", () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();

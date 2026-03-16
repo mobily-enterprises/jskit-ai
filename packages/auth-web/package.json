@@ -6,7 +6,6 @@
     "test": "node --test"
   },
   "exports": {
-    "./server": "./src/server/index.js",
     "./server/controllers/AuthController": "./src/server/controllers/AuthController.js",
     "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
     "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",

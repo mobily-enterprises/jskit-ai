@@ -208,8 +208,14 @@ function materializeAction(scope, actionDefinition) {
   }
 
   if (typeof source.execute === "function") {
-    materialized.execute = async function executeMaterializedAction(input, context) {
-      return source.execute(input, context, resolvedDependencies);
+    materialized.execute = async function executeMaterializedAction(input, context, runtimeDependencies = {}) {
+      const runtimeDeps = normalizePlainObject(runtimeDependencies);
+      const mergedDependencies = Object.freeze({
+        ...resolvedDependencies,
+        ...runtimeDeps
+      });
+
+      return source.execute(input, context, mergedDependencies);
     };
   }
 

@@ -6,7 +6,6 @@
     "test": "node --test"
   },
   "exports": {
-    "./server": "./src/server/index.js",
     "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
     "./server/providers/RbacServiceProvider": "./src/server/providers/RbacServiceProvider.js",
     "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",

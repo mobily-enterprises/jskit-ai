@@ -3,12 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import * as clientApi from "../src/client/index.js";
-import * as serverApi from "../src/server/index.js";
 import * as sharedApi from "../src/shared/index.js";
+import { HttpValidatorsServiceProvider } from "../src/server/providers/HttpValidatorsServiceProvider.js";
+import { HttpClientRuntimeServiceProvider } from "../src/server/providers/HttpClientRuntimeServiceProvider.js";
 
-test("package exports include explicit shared entrypoint", async () => {
+test("package exports include explicit shared entrypoint and no server barrel", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
+  assert.equal(exportsMap["./server"], undefined);
   assert.equal(exportsMap["./shared"], "./src/shared/index.js");
 });
 
@@ -19,11 +21,9 @@ test("client entrypoint exports client runtime and client providers only", () =>
   assert.equal(typeof clientApi.withStandardErrorResponses, "undefined");
 });
 
-test("server entrypoint exports server providers only", () => {
-  assert.equal(typeof serverApi.HttpValidatorsServiceProvider, "function");
-  assert.equal(typeof serverApi.HttpClientRuntimeServiceProvider, "function");
-  assert.equal(typeof serverApi.createHttpClient, "undefined");
-  assert.equal(typeof serverApi.withStandardErrorResponses, "undefined");
+test("server provider modules export server providers only", () => {
+  assert.equal(typeof HttpValidatorsServiceProvider, "function");
+  assert.equal(typeof HttpClientRuntimeServiceProvider, "function");
 });
 
 test("shared entrypoint exports shared validators only", () => {

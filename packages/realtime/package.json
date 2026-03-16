@@ -6,7 +6,6 @@
     "test": "node --test"
   },
   "exports": {
-    "./server": "./src/server/RealtimeServiceProvider.js",
     "./server/RealtimeServiceProvider": "./src/server/RealtimeServiceProvider.js",
     "./server/runtime": "./src/server/runtime.js",
     "./server/tokens": "./src/server/tokens.js",

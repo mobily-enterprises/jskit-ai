@@ -90,6 +90,10 @@ function normalizeDescriptorClientProviders(value) {
   return Object.freeze(providers);
 }
 
+function normalizeDescriptorClientOptimizeIncludeSpecifiers(value) {
+  return Object.freeze(toSortedUniqueStrings(value));
+}
+
 async function resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState }) {
   const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
   const packagePathFromSource = String(installedPackageState?.source?.packagePath || "").trim();
@@ -150,6 +154,25 @@ async function resolveDescriptorClientProviders({ appRoot, packageId, installedP
   }
 }
 
+async function resolveDescriptorClientOptimizeIncludeSpecifiers({ appRoot, packageId, installedPackageState }) {
+  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
+    appRoot,
+    packageId,
+    installedPackageState
+  });
+  if (!descriptorPath) {
+    return Object.freeze([]);
+  }
+
+  try {
+    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptor = ensureObject(descriptorModule?.default);
+    return normalizeDescriptorClientOptimizeIncludeSpecifiers(descriptor?.metadata?.client?.optimizeDeps?.include);
+  } catch {
+    return Object.freeze([]);
+  }
+}
+
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
@@ -175,13 +198,19 @@ async function resolveInstalledClientModules({ appRoot, lockPath }) {
       packageId,
       installedPackageState
     });
+    const descriptorClientOptimizeIncludeSpecifiers = await resolveDescriptorClientOptimizeIncludeSpecifiers({
+      appRoot,
+      packageId,
+      installedPackageState
+    });
 
     modules.push(
       Object.freeze({
         packageId,
         sourceType: String(installedPackageState?.source?.type || "").trim().toLowerCase(),
         descriptorUiRoutes,
-        descriptorClientProviders
+        descriptorClientProviders,
+        descriptorClientOptimizeIncludeSpecifiers
       })
     );
   }
@@ -209,7 +238,10 @@ function normalizeClientModuleDescriptors(value) {
       packageId,
       sourceType,
       descriptorUiRoutes: normalizeDescriptorUiRoutes(record.descriptorUiRoutes),
-      descriptorClientProviders: normalizeDescriptorClientProviders(record.descriptorClientProviders)
+      descriptorClientProviders: normalizeDescriptorClientProviders(record.descriptorClientProviders),
+      descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeIncludeSpecifiers(
+        record.descriptorClientOptimizeIncludeSpecifiers
+      )
     });
   }
 
@@ -261,9 +293,12 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);
   return toSortedUniqueStrings(
-    moduleDescriptors
+    [
+      ...moduleDescriptors
       .filter((entry) => !localSourceTypes.has(entry.sourceType))
-      .map((entry) => `${entry.packageId}/client`)
+      .map((entry) => `${entry.packageId}/client`),
+      ...moduleDescriptors.flatMap((entry) => entry.descriptorClientOptimizeIncludeSpecifiers || [])
+    ]
   );
 }
 

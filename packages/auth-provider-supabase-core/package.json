@@ -6,7 +6,6 @@
     "test": "node --test"
   },
   "exports": {
-    "./server": "./src/server/index.js",
     "./server/providers/AuthSupabaseServiceProvider": "./src/server/providers/AuthSupabaseServiceProvider.js",
     "./server/providers/AuthProviderServiceProvider": "./src/server/providers/AuthProviderServiceProvider.js",
     "./server/lib/index": "./src/server/lib/index.js",

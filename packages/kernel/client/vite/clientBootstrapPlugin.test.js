@@ -168,6 +168,11 @@ test("resolveInstalledClientModules returns installed modules with client export
       }
     },
     metadata: {
+      client: {
+        optimizeDeps: {
+          include: ["mime-match"]
+        }
+      },
       ui: {
         routes: [
           {
@@ -195,6 +200,8 @@ test("resolveInstalledClientModules returns installed modules with client export
   assert.equal(Array.isArray(modules[0].descriptorClientProviders), true);
   assert.equal(modules[0].descriptorClientProviders.length, 1);
   assert.equal(modules[0].descriptorClientProviders[0].export, "HasClientProvider");
+  assert.equal(Array.isArray(modules[0].descriptorClientOptimizeIncludeSpecifiers), true);
+  assert.deepEqual(modules[0].descriptorClientOptimizeIncludeSpecifiers, ["mime-match"]);
 });
 
 test("resolveInstalledClientModules resolves descriptor via source.packagePath", async () => {
@@ -374,6 +381,15 @@ test("createJskitClientBootstrapPlugin config excludes only local package client
         "./client": "./src/client/index.js"
       }
     });
+    await writeDescriptor(path.join(localPackageRoot, "package.descriptor.mjs"), {
+      metadata: {
+        client: {
+          optimizeDeps: {
+            include: ["mime-match"]
+          }
+        }
+      }
+    });
 
     const remotePackageRoot = path.join(tempRoot, "node_modules", "@example", "remote-client");
     await mkdir(remotePackageRoot, { recursive: true });
@@ -389,7 +405,7 @@ test("createJskitClientBootstrapPlugin config excludes only local package client
     const result = await plugin.config({});
 
     assert.deepEqual(result.optimizeDeps.exclude, ["@example/local-client/client"]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client"]);
+    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
   } finally {
     process.chdir(previousCwd);
   }

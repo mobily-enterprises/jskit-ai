@@ -8,7 +8,6 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/completeCalendar/*": "./src/client/completeCalendar/*.vue",
-    "./server": "./src/server/index.js",
     "./server/CalendarServiceProvider": "./src/server/CalendarServiceProvider.js",
     "./shared": "./src/shared/index.js",
     "./shared/completeCalendar/*": "./src/shared/completeCalendar/*.js"

@@ -51,7 +51,7 @@ export default Object.freeze({
   },
   runtime: {
     server: {
-      providerEntrypoint: "src/server/index.js",
+      providerEntrypoint: "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
       providers: [
         {
           entrypoint: "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
