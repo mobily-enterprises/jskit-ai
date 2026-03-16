@@ -333,7 +333,94 @@ function parseDsmlToolCallsFromText(value = "") {
   return calls;
 }
 
-async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true } = {}) {
+function createDsmlDeltaSanitizer() {
+  let inTag = false;
+  let tagBuffer = "";
+  let suppressedDepth = 0;
+
+  function resolveTagType(rawTag = "") {
+    const normalizedTag = String(rawTag || "").toLowerCase();
+    if (normalizedTag.includes("function_calls")) {
+      return "function_calls";
+    }
+    if (normalizedTag.includes("tool_calls")) {
+      return "tool_calls";
+    }
+    if (normalizedTag.includes("invoke")) {
+      return "invoke";
+    }
+    return "";
+  }
+
+  function processTag(rawTag = "") {
+    const source = String(rawTag || "");
+    const inner = source.slice(1, -1).trim();
+    const isClosing = inner.startsWith("/");
+    const isSelfClosing = inner.endsWith("/");
+    const tagType = resolveTagType(inner);
+
+    if (suppressedDepth > 0) {
+      if (tagType && isClosing) {
+        suppressedDepth = Math.max(0, suppressedDepth - 1);
+      } else if (tagType && !isClosing && !isSelfClosing) {
+        suppressedDepth += 1;
+      }
+      return "";
+    }
+
+    if (!tagType) {
+      return source;
+    }
+
+    if (!isClosing && !isSelfClosing) {
+      suppressedDepth = 1;
+    }
+    return "";
+  }
+
+  function process(delta = "") {
+    const source = String(delta || "");
+    if (!source) {
+      return "";
+    }
+
+    let output = "";
+    for (const char of source) {
+      if (inTag) {
+        tagBuffer += char;
+        if (char === ">") {
+          inTag = false;
+          output += processTag(tagBuffer);
+          tagBuffer = "";
+        }
+        continue;
+      }
+
+      if (char === "<") {
+        inTag = true;
+        tagBuffer = "<";
+        continue;
+      }
+
+      if (suppressedDepth < 1) {
+        output += char;
+      }
+    }
+
+    return output;
+  }
+
+  function flush() {
+    return "";
+  }
+
+  return Object.freeze({
+    process,
+    flush
+  });
+}
+
+async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true, deltaSanitizer = null } = {}) {
   let assistantText = "";
   const toolCallsByIndex = new Map();
 
@@ -345,10 +432,16 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
     if (textDelta) {
       assistantText += textDelta;
       if (emitDeltas) {
-        streamWriter.sendAssistantDelta({
-          type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
-          delta: textDelta
-        });
+        const safeDelta =
+          deltaSanitizer && typeof deltaSanitizer.process === "function"
+            ? String(deltaSanitizer.process(textDelta) || "")
+            : textDelta;
+        if (safeDelta) {
+          streamWriter.sendAssistantDelta({
+            type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
+            delta: safeDelta
+          });
+        }
       }
     }
 
@@ -388,6 +481,16 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
     if (parsedDsmlCalls.length > 0) {
       toolCalls = parsedDsmlCalls;
       assistantText = normalizeText(sanitizeAssistantMessageText(assistantText));
+    }
+  }
+
+  if (emitDeltas && deltaSanitizer && typeof deltaSanitizer.flush === "function") {
+    const trailing = String(deltaSanitizer.flush() || "");
+    if (trailing) {
+      streamWriter.sendAssistantDelta({
+        type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
+        delta: trailing
+      });
     }
   }
 
@@ -651,7 +754,8 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
         const completion = await consumeCompletionStream({
           stream: completionStream,
           streamWriter,
-          emitDeltas: false
+          emitDeltas: true,
+          deltaSanitizer: createDsmlDeltaSanitizer()
         });
 
         const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
@@ -723,7 +827,9 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
 
         const completion = await consumeCompletionStream({
           stream: completionStream,
-          streamWriter
+          streamWriter,
+          emitDeltas: true,
+          deltaSanitizer: createDsmlDeltaSanitizer()
         });
 
         const toolCalls = completion.toolCalls.filter((entry) => entry.name);

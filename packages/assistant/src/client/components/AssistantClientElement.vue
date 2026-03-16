@@ -50,6 +50,11 @@
                       <span class="message-typing-dot" />
                       <span class="message-typing-dot" />
                     </div>
+                    <div
+                      v-else-if="isAssistantChatMessage(message)"
+                      class="message-text message-text--markdown text-body-2"
+                      v-html="assistantMessageHtml(message)"
+                    />
                     <div v-else class="message-text text-body-2">{{ message.text }}</div>
                   </div>
                 </div>
@@ -219,7 +224,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+import { renderMarkdownToSafeHtml } from "../lib/markdownRenderer.js";
 
 const DEFAULT_COPY = Object.freeze({
   emptyState: "I am here to help",
@@ -290,6 +296,7 @@ const SCROLL_BOTTOM_THRESHOLD_PX = 30;
 const MIN_VIEWPORT_HEIGHT_PX = 360;
 const VIEWPORT_BOTTOM_GUTTER_PX = 12;
 const ROOT_FOCUS_POINTER_GUARD_MS = 200;
+const MESSAGE_MARKDOWN_RENDER_THROTTLE_MS = 40;
 
 function toRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -455,6 +462,10 @@ const messagesPanelRef = ref(null);
 const composerRef = ref(null);
 const shouldAutoScrollToBottom = ref(true);
 const lastRootPointerDownAt = ref(0);
+const renderedAssistantMessagesById = shallowRef(Object.freeze({}));
+
+const assistantMarkdownCacheById = new Map();
+let markdownRenderTimeoutId = null;
 
 const currentUserScreenName = computed(() => viewer.value.displayName);
 const currentUserAvatarUrl = computed(() => viewer.value.avatarUrl);
@@ -493,6 +504,84 @@ function showAssistantTypingIndicator(message) {
     normalizeText(message?.status).toLowerCase() === "streaming" &&
     normalizeText(message?.text).length < 1
   );
+}
+
+function isAssistantChatMessage(message) {
+  return (
+    normalizeText(message?.role).toLowerCase() === "assistant" &&
+    normalizeText(message?.kind).toLowerCase() === "chat"
+  );
+}
+
+function renderAssistantMarkdownSnapshot() {
+  const entries = Array.isArray(messages.value) ? messages.value : [];
+  const nextRenderedById = {};
+  const activeMessageIds = new Set();
+
+  for (const message of entries) {
+    if (!isAssistantChatMessage(message)) {
+      continue;
+    }
+
+    const messageId = String(message?.id || "");
+    if (!messageId) {
+      continue;
+    }
+
+    activeMessageIds.add(messageId);
+    const text = String(message?.text || "");
+    const cached = assistantMarkdownCacheById.get(messageId);
+    const cacheKey = text;
+
+    if (cached && cached.cacheKey === cacheKey) {
+      nextRenderedById[messageId] = cached.html;
+      continue;
+    }
+
+    const renderedHtml = renderMarkdownToSafeHtml(text);
+    assistantMarkdownCacheById.set(messageId, {
+      cacheKey,
+      html: renderedHtml
+    });
+    nextRenderedById[messageId] = renderedHtml;
+  }
+
+  for (const [messageId] of assistantMarkdownCacheById) {
+    if (!activeMessageIds.has(messageId)) {
+      assistantMarkdownCacheById.delete(messageId);
+    }
+  }
+
+  renderedAssistantMessagesById.value = Object.freeze(nextRenderedById);
+}
+
+function scheduleAssistantMarkdownRender({ immediate = false } = {}) {
+  if (immediate) {
+    if (markdownRenderTimeoutId) {
+      clearTimeout(markdownRenderTimeoutId);
+      markdownRenderTimeoutId = null;
+    }
+    renderAssistantMarkdownSnapshot();
+    return;
+  }
+
+  if (markdownRenderTimeoutId) {
+    return;
+  }
+
+  markdownRenderTimeoutId = setTimeout(() => {
+    markdownRenderTimeoutId = null;
+    renderAssistantMarkdownSnapshot();
+  }, MESSAGE_MARKDOWN_RENDER_THROTTLE_MS);
+}
+
+function assistantMessageHtml(message) {
+  const messageId = String(message?.id || "");
+  if (!messageId) {
+    return "";
+  }
+
+  return String(renderedAssistantMessagesById.value[messageId] || "");
 }
 
 function resolveConversationActorLabel(conversation) {
@@ -765,6 +854,14 @@ const lastMessageSignature = computed(() => {
   return `${entries.length}|${last.id}|${last.role}|${last.kind}|${String(last.text || "").length}|${last.status}`;
 });
 
+const assistantMarkdownSignature = computed(() => {
+  const entries = Array.isArray(messages.value) ? messages.value : [];
+  return entries
+    .filter((message) => isAssistantChatMessage(message))
+    .map((message) => `${String(message.id || "")}\u0000${String(message.text || "")}`)
+    .join("\u0001");
+});
+
 watch(
   () => normalizeText(conversationId.value),
   async (nextConversationId, previousConversationId) => {
@@ -776,6 +873,16 @@ watch(
     await nextTick();
     scrollMessagesToBottom();
     focusComposer(false);
+  },
+  {
+    immediate: true
+  }
+);
+
+watch(
+  assistantMarkdownSignature,
+  () => {
+    scheduleAssistantMarkdownRender();
   },
   {
     immediate: true
@@ -824,6 +931,9 @@ watch(
 );
 
 onMounted(async () => {
+  scheduleAssistantMarkdownRender({
+    immediate: true
+  });
   await nextTick();
   syncViewportHeight();
   window.addEventListener("resize", syncViewportHeight, {
@@ -849,6 +959,12 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (markdownRenderTimeoutId) {
+    clearTimeout(markdownRenderTimeoutId);
+    markdownRenderTimeoutId = null;
+  }
+
+  assistantMarkdownCacheById.clear();
   if (typeof window === "undefined") {
     return;
   }
@@ -1001,6 +1117,52 @@ onBeforeUnmount(() => {
 .message-text {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.message-text--markdown {
+  white-space: normal;
+}
+
+.message-text--markdown :deep(p),
+.message-text--markdown :deep(ul),
+.message-text--markdown :deep(ol),
+.message-text--markdown :deep(pre),
+.message-text--markdown :deep(blockquote),
+.message-text--markdown :deep(h1),
+.message-text--markdown :deep(h2),
+.message-text--markdown :deep(h3),
+.message-text--markdown :deep(h4) {
+  margin-block: 0 0.6rem;
+}
+
+.message-text--markdown :deep(p:last-child),
+.message-text--markdown :deep(ul:last-child),
+.message-text--markdown :deep(ol:last-child),
+.message-text--markdown :deep(pre:last-child),
+.message-text--markdown :deep(blockquote:last-child),
+.message-text--markdown :deep(h1:last-child),
+.message-text--markdown :deep(h2:last-child),
+.message-text--markdown :deep(h3:last-child),
+.message-text--markdown :deep(h4:last-child) {
+  margin-bottom: 0;
+}
+
+.message-text--markdown :deep(code) {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 4px;
+  padding: 0.1rem 0.28rem;
+}
+
+.message-text--markdown :deep(pre) {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: 8px;
+  overflow-x: auto;
+  padding: 0.6rem 0.72rem;
+}
+
+.message-text--markdown :deep(pre code) {
+  background: transparent;
+  padding: 0;
 }
 
 .message-typing {

@@ -102,6 +102,8 @@ export default Object.freeze({
         "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
         "@tanstack/vue-query": "^5.90.5",
+        "dompurify": "^3.3.3",
+        "marked": "^17.0.4",
         "openai": "^6.22.0",
         "typebox": "^1.0.81",
         "vuetify": "^4.0.0"

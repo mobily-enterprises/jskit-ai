@@ -605,3 +605,214 @@ test("chat service retries plain-language recovery before fallback when post-fai
     "I could not run one workspace operation, but I can continue with the others."
   );
 });
+
+test("chat service recovery streams sanitized text without DSML tag leakage", async () => {
+  const emittedAssistantMessages = [];
+  const streamedDeltas = [];
+  let streamCall = 0;
+
+  const aiClient = {
+    enabled: true,
+    provider: "openai",
+    defaultModel: "gpt-test",
+    async createChatCompletionStream() {
+      streamCall += 1;
+
+      if (streamCall === 1) {
+        return (async function* generateInitialToolCall() {
+          yield {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: "tool_1",
+                      function: {
+                        name: "users_workspace_service_listworkspacesforauthenticatedus",
+                        arguments: "{}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+        })();
+      }
+
+      if (streamCall === 2) {
+        return (async function* generateRecoveryDsmlAndText() {
+          yield {
+            choices: [
+              {
+                delta: {
+                  content:
+                    "<｜DSML｜function_calls>\n<｜DSML｜invoke name=\"users_console_settings_service_getsettings\"></｜DSML｜invoke>\n</｜DSML｜function_calls>Interim notes from successful operations."
+                }
+              }
+            ]
+          };
+        })();
+      }
+
+      return (async function* generateFinalRecoveryAnswer() {
+        yield {
+          choices: [
+            {
+              delta: {
+                content: "Final response from available data."
+              }
+            }
+          ]
+        };
+      })();
+    }
+  };
+
+  const transcriptService = {
+    async createConversationForTurn() {
+      return {
+        conversation: {
+          id: 200
+        }
+      };
+    },
+    async appendMessage() {
+      return null;
+    },
+    async completeConversation() {
+      return null;
+    }
+  };
+
+  const serviceToolCatalog = {
+    resolveToolSet() {
+      const first = {
+        name: "users_workspace_service_listworkspacesforauthenticatedus",
+        actionId: "workspace.list",
+        actionVersion: 1,
+        description: "List workspaces for actor.",
+        parameters: {
+          type: "object",
+          properties: {},
+          additionalProperties: false
+        },
+        outputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: true
+        }
+      };
+      const second = {
+        name: "users_console_settings_service_getsettings",
+        actionId: "console.settings.get",
+        actionVersion: 1,
+        description: "Read console settings.",
+        parameters: {
+          type: "object",
+          properties: {},
+          additionalProperties: false
+        },
+        outputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: true
+        }
+      };
+
+      return {
+        tools: [first, second],
+        byName: new Map([
+          [first.name, first],
+          [second.name, second]
+        ])
+      };
+    },
+    toOpenAiToolSchema(tool = {}) {
+      return {
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }
+      };
+    },
+    async executeToolCall({ toolName = "" } = {}) {
+      if (toolName === "users_workspace_service_listworkspacesforauthenticatedus") {
+        return {
+          ok: false,
+          error: {
+            code: "assistant_tool_failed",
+            message: "Workspace listing failed.",
+            status: 500
+          }
+        };
+      }
+
+      if (toolName === "users_console_settings_service_getsettings") {
+        return {
+          ok: true,
+          result: {
+            locale: "en"
+          }
+        };
+      }
+
+      return {
+        ok: false,
+        error: {
+          code: "assistant_tool_unknown",
+          message: "Unknown tool.",
+          status: 400
+        }
+      };
+    }
+  };
+
+  const streamWriter = {
+    sendMeta() {},
+    sendAssistantDelta(payload = {}) {
+      streamedDeltas.push(String(payload.delta || ""));
+    },
+    sendAssistantMessage(payload = {}) {
+      emittedAssistantMessages.push(String(payload.text || ""));
+    },
+    sendToolCall() {},
+    sendToolResult() {},
+    sendError() {},
+    sendDone() {}
+  };
+
+  const chatService = createChatService({
+    aiClient,
+    transcriptService,
+    serviceToolCatalog
+  });
+
+  await chatService.streamChat(
+    {
+      messageId: "msg_stream_sanitized",
+      input: "Tell me everything."
+    },
+    {
+      context: {
+        actor: {
+          id: 7
+        },
+        workspace: {
+          id: 1,
+          slug: "tonymobily3"
+        },
+        surface: "admin"
+      },
+      streamWriter
+    }
+  );
+
+  const streamedText = streamedDeltas.join("");
+  assert.equal(streamedText.includes("DSML"), false, streamedText);
+  assert.equal(streamedText.includes("Interim notes from successful operations."), true);
+  assert.equal(emittedAssistantMessages[0], "Final response from available data.");
+});
