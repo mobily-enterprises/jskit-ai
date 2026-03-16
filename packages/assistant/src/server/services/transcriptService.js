@@ -6,6 +6,8 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const MAX_MESSAGES_PAGE_SIZE = 500;
+const DEFAULT_CONVERSATION_TITLE = "New conversation";
+const MAX_CONVERSATION_TITLE_LENGTH = 80;
 
 const serviceEvents = Object.freeze({
   createConversationForTurn: Object.freeze([
@@ -95,6 +97,19 @@ function normalizeConversationStatus(value, fallback = "active") {
   return fallback;
 }
 
+function deriveConversationTitleFromMessage(contentText) {
+  const normalized = String(contentText == null ? "" : contentText).replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized.slice(0, MAX_CONVERSATION_TITLE_LENGTH).trim();
+}
+
+function isDefaultConversationTitle(value) {
+  return normalizeText(value).toLowerCase() === DEFAULT_CONVERSATION_TITLE.toLowerCase();
+}
+
 function createTranscriptService({ conversationsRepository, messagesRepository } = {}) {
   if (!conversationsRepository || !messagesRepository) {
     throw new Error("createTranscriptService requires conversationsRepository and messagesRepository.");
@@ -135,7 +150,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     const createdConversation = await conversationsRepository.create({
       workspaceId,
       createdByUserId: actorUserId,
-      title: normalizeText(source.title) || "New conversation",
+      title: normalizeText(source.title) || DEFAULT_CONVERSATION_TITLE,
       status: "active",
       provider: normalizeText(source.provider),
       model: normalizeText(source.model),
@@ -177,6 +192,17 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     });
 
     await conversationsRepository.incrementMessageCount(numericConversationId, 1);
+
+    const messageRole = normalizeText(source.role).toLowerCase();
+    const messageKind = normalizeText(source.kind).toLowerCase() || "chat";
+    if (messageRole === "user" && messageKind === "chat" && isDefaultConversationTitle(conversation.title)) {
+      const derivedTitle = deriveConversationTitleFromMessage(source.contentText);
+      if (derivedTitle) {
+        await conversationsRepository.updateById(numericConversationId, {
+          title: derivedTitle
+        });
+      }
+    }
 
     return {
       conversationId: numericConversationId,

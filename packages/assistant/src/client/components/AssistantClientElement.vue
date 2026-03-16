@@ -1,5 +1,11 @@
 <template>
-  <section ref="rootRef" :class="rootClasses.concat(['d-flex', 'flex-column', 'h-100', 'ga-1'])" :data-testid="uiTestIds.root">
+  <section
+    ref="rootRef"
+    :class="rootClasses.concat(['d-flex', 'flex-column', 'h-100', 'ga-1'])"
+    :data-testid="uiTestIds.root"
+    tabindex="-1"
+    @focus="onRootFocus"
+  >
     <v-row class="assistant-layout h-100 flex-grow-1 my-0">
       <v-col cols="12" lg="8" class="assistant-main-col d-flex flex-column overflow-hidden">
         <v-card rounded="lg" elevation="1" border class="assistant-main-card d-flex flex-column flex-grow-1">
@@ -63,7 +69,7 @@
                   density="comfortable"
                   auto-grow
                   hide-details="auto"
-                  :disabled="isStreaming || isRestoringConversation"
+                  :disabled="isRestoringConversation"
                   @keydown="onHandleInputKeydown"
                 />
 
@@ -212,7 +218,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const DEFAULT_COPY = Object.freeze({
   emptyState: "I am here to help",
@@ -660,6 +666,18 @@ async function focusComposerWithRetry(selectText = false) {
   focusComposer(selectText);
 }
 
+function onRootFocus(event) {
+  const rootElement = rootRef.value;
+  if (!(rootElement instanceof HTMLElement)) {
+    return;
+  }
+  if (event?.target !== rootElement) {
+    return;
+  }
+
+  void focusComposerWithRetry(false);
+}
+
 function normalizeScrollValue(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -801,7 +819,24 @@ onMounted(async () => {
   window.addEventListener("resize", syncViewportHeight, {
     passive: true
   });
+  await focusComposerWithRetry(false);
 });
+
+onActivated(async () => {
+  syncViewportHeight();
+  await focusComposerWithRetry(false);
+});
+
+watch(
+  () => isRestoringConversation.value,
+  async (isNowRestoring, wasRestoring) => {
+    if (isNowRestoring || !wasRestoring) {
+      return;
+    }
+
+    await focusComposerWithRetry(false);
+  }
+);
 
 onBeforeUnmount(() => {
   if (typeof window === "undefined") {
@@ -1051,7 +1086,13 @@ onBeforeUnmount(() => {
   }
 
   .assistant-history-card {
-    flex: 1.65;
+    flex: 1 1 auto;
+  }
+
+  .assistant-tools-card {
+    flex: 0 0 var(--assistant-tools-panel-height, 320px);
+    max-height: var(--assistant-tools-panel-height, 320px);
+    min-height: var(--assistant-tools-panel-height, 320px);
   }
 }
 </style>

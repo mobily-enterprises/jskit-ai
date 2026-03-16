@@ -485,6 +485,11 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   }
 
   function handleInputKeydown(event) {
+    if (event?.key === "Enter" && isStreaming.value) {
+      event.preventDefault();
+      return;
+    }
+
     if (
       event?.key === "Enter" &&
       event?.shiftKey !== true &&
