@@ -11,7 +11,11 @@ import {
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { normalizePermissionList } from "../lib/permissions.js";
-import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
+import {
+  findWorkspaceBySlug,
+  normalizeWorkspaceList,
+  resolvePlacementUserFromBootstrapPayload
+} from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import {
@@ -74,13 +78,18 @@ const currentFullPath = computed(() => {
   return resolveBrowserFullPath();
 });
 
-function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, permissions }) {
+function applyShellWorkspaceContext({ currentWorkspace, availableWorkspaces, permissions, user }) {
+  const patch = {
+    workspace: currentWorkspace,
+    workspaces: availableWorkspaces,
+    permissions
+  };
+  if (user !== undefined) {
+    patch.user = user;
+  }
+
   mergePlacementContext(
-    {
-      workspace: currentWorkspace,
-      workspaces: availableWorkspaces,
-      permissions
-    },
+    patch,
     "users-web.workspace-selector"
   );
 }
@@ -233,10 +242,12 @@ watch(
   (payload) => {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
     const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, routeWorkspaceSlug.value);
+    const user = resolvePlacementUserFromBootstrapPayload(payload, placementContext.value?.user);
     applyShellWorkspaceContext({
       currentWorkspace,
       availableWorkspaces,
-      permissions: normalizePermissionList(payload?.permissions)
+      permissions: normalizePermissionList(payload?.permissions),
+      user
     });
   },
   {
