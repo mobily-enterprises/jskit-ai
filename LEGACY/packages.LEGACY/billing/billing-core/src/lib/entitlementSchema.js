@@ -59,9 +59,9 @@ function validateStringListSchema(value) {
 }
 
 const SCHEMA_VALIDATORS = Object.freeze({
-  "entitlement.boolean.v1": validateBooleanSchema,
-  "entitlement.quota.v1": validateQuotaSchema,
-  "entitlement.string_list.v1": validateStringListSchema
+  "entitlement.boolean.v": validateBooleanSchema,
+  "entitlement.quota.v": validateQuotaSchema,
+  "entitlement.string_list.v": validateStringListSchema
 });
 
 function resolveSchemaValidator(schemaVersion) {

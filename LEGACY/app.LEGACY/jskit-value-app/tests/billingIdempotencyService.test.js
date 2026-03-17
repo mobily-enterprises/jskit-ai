@@ -320,7 +320,7 @@ test("assertReplayProvenanceCompatible does not emit stripe-specific drift guard
           provider: "paddle",
           operationKey: "op_paddle_1",
           billableEntityId: 71,
-          providerApiVersion: "paddle-api-v1",
+          providerApiVersion: "paddle-api-v",
           providerSdkVersion: "1.2.3"
         },
         runtimeProviderSdkVersion: "1.2.3",

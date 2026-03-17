@@ -23,7 +23,7 @@ function createUnsignedJwt(payloadOverrides = {}) {
   const payload = {
     sub: "user-1",
     email: "user@example.com",
-    iss: `${SUPABASE_URL}/auth/v1`,
+    iss: `${SUPABASE_URL}/auth/v`,
     aud: "authenticated",
     role: "authenticated",
     aal: "aal1",
@@ -168,31 +168,31 @@ function createSupabaseFetchMock({
   return async (input, init) => {
     const request = parseFetchInput(input, init);
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       if (refreshToken !== undefined) {
         return resolveSupabaseMockResponse(refreshToken, request);
       }
     }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "password") {
       if (passwordToken !== undefined) {
         return resolveSupabaseMockResponse(passwordToken, request);
       }
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       if (userGet !== undefined) {
         return resolveSupabaseMockResponse(userGet, request);
       }
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "PUT") {
       if (userPut !== undefined) {
         return resolveSupabaseMockResponse(userPut, request);
       }
     }
 
-    if (request.url.pathname === "/auth/v1/logout") {
+    if (request.url.pathname === "/auth/v/logout") {
       if (logout !== undefined) {
         return resolveSupabaseMockResponse(logout, request);
       }
@@ -206,7 +206,7 @@ function createSupabaseFetchMock({
   };
 }
 
-async function createJwtFixture({ issuer = `${SUPABASE_URL}/auth/v1`, audience = "authenticated" } = {}) {
+async function createJwtFixture({ issuer = `${SUPABASE_URL}/auth/v`, audience = "authenticated" } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("ES256");
   const jwk = await exportJWK(publicKey);
   jwk.kid = "kid-1";
@@ -678,7 +678,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
 
-    if (request.url.pathname === "/auth/v1/signup" && request.method === "POST") {
+    if (request.url.pathname === "/auth/v/signup" && request.method === "POST") {
       if (request.body.email === "already@example.com") {
         return jsonResponse(400, { message: "User already registered" });
       }
@@ -719,7 +719,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "password") {
       if (request.body.email === "invalid@example.com") {
         return jsonResponse(400, { message: "Invalid login credentials" });
       }
@@ -732,7 +732,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/recover" && request.method === "POST") {
+    if (request.url.pathname === "/auth/v/recover" && request.method === "POST") {
       if (request.body.email === "throw@example.com") {
         throw new Error("network timeout");
       }
@@ -742,7 +742,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       return jsonResponse(200, {});
     }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "pkce") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "pkce") {
       if (request.body.auth_code === "throwcode") {
         throw new Error("network timeout");
       }
@@ -761,7 +761,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/verify" && request.method === "POST") {
+    if (request.url.pathname === "/auth/v/verify" && request.method === "POST") {
       if (request.body.token_hash === "bad-hash") {
         return jsonResponse(429, { message: "too many attempts" });
       }
@@ -774,15 +774,15 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return supabaseResetFetch(input, init);
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return supabaseResetFetch(input, init);
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "PUT") {
       return supabaseResetFetch(input, init);
     }
 
@@ -1166,14 +1166,14 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
 
-    if (request.url.pathname === "/auth/v1/.well-known/jwks.json") {
+    if (request.url.pathname === "/auth/v/.well-known/jwks.json") {
       if (request.url.searchParams.get("mode") === "timeout") {
         throw new Error("network timeout");
       }
       return jsonResponse(200, jwtFixture.jwks);
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       const authHeader = String(request.headers.Authorization || "");
       if (authHeader === `Bearer ${fallbackNoUserToken}`) {
         return jsonResponse(200, false);
@@ -1202,7 +1202,7 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
       return jsonResponse(401, { message: "invalid token" });
     }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       if (request.body.refresh_token === "rt-invalid") {
         return jsonResponse(401, { message: "invalid refresh token" });
       }
@@ -1537,7 +1537,7 @@ test("completePasswordRecovery maps thrown exchange errors to transient auth err
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "pkce") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "pkce") {
       throw new Error("network timeout");
     }
 
@@ -1571,7 +1571,7 @@ test("authenticateRequest returns transient failure when jwks fetch is transient
 
   const fetchMock = mock.method(globalThis, "fetch", async (input) => {
     const url = new URL(typeof input === "string" ? input : input.url);
-    if (url.pathname === "/auth/v1/.well-known/jwks.json") {
+    if (url.pathname === "/auth/v/.well-known/jwks.json") {
       throw new Error("network timeout while loading jwks");
     }
 
@@ -1724,7 +1724,7 @@ test("authService maps profile/password/session-management errors", async () => 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(401, {
         error: "invalid_grant",
         error_description: "Invalid refresh token"
@@ -2340,7 +2340,7 @@ test("authService oauthComplete accepts OAuth hash token pairs", async () => {
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({ sub: "supabase-oauth", email: "oauth@example.com" }),
         refresh_token: "oauth-refresh-next",
@@ -2353,7 +2353,7 @@ test("authService oauthComplete accepts OAuth hash token pairs", async () => {
       });
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-oauth",
         email: "oauth@example.com",
@@ -2404,7 +2404,7 @@ test("authService setPasswordSignInEnabled disables even when password rotation 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-user-1",
@@ -2428,7 +2428,7 @@ test("authService setPasswordSignInEnabled disables even when password rotation 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-user-1",
         email: "user@example.com",
@@ -2442,7 +2442,7 @@ test("authService setPasswordSignInEnabled disables even when password rotation 
       });
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "PUT") {
       return jsonResponse(400, {
         message: "Requires recent reauthentication"
       });
@@ -2508,7 +2508,7 @@ test("authService setPasswordSignInEnabled validates payload and requires config
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-oauth-only",
@@ -2531,7 +2531,7 @@ test("authService setPasswordSignInEnabled validates payload and requires config
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-oauth-only",
         email: "oauth-only@example.com",
@@ -2594,7 +2594,7 @@ test("authService setPasswordSignInEnabled continues when password secret rotati
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-user-throw",
@@ -2617,7 +2617,7 @@ test("authService setPasswordSignInEnabled continues when password secret rotati
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-user-throw",
         email: "throw@example.com",
@@ -2630,7 +2630,7 @@ test("authService setPasswordSignInEnabled continues when password secret rotati
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "PUT") {
       throw new Error("Requires recent reauthentication");
     }
     throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
@@ -2688,7 +2688,7 @@ test("authService setPasswordSignInEnabled syncs profile when password secret ro
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-user-sync",
@@ -2714,7 +2714,7 @@ test("authService setPasswordSignInEnabled syncs profile when password secret ro
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-user-sync",
         email: "sync@example.com",
@@ -2727,7 +2727,7 @@ test("authService setPasswordSignInEnabled syncs profile when password secret ro
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "PUT") {
       return jsonResponse(200, {
         id: "supabase-user-sync",
         email: "sync@example.com",
@@ -2782,7 +2782,7 @@ test("authService getSecurityStatus resolves auth methods from current request c
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-security-status",
@@ -2805,7 +2805,7 @@ test("authService getSecurityStatus resolves auth methods from current request c
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-security-status",
         email: "security@example.com",
@@ -2856,7 +2856,7 @@ test("authService setPasswordSignInEnabled rejects disabling when password sign-
 
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+    if (request.url.pathname === "/auth/v/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
       return jsonResponse(200, {
         access_token: createUnsignedJwt({
           sub: "supabase-password-disabled",
@@ -2879,7 +2879,7 @@ test("authService setPasswordSignInEnabled rejects disabling when password sign-
         }
       });
     }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       return jsonResponse(200, {
         id: "supabase-password-disabled",
         email: "disabled@example.com",

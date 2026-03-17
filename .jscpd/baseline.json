@@ -37696,7 +37696,7 @@
     {
       "format": "javascript",
       "lines": 30,
-      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v1=abc\"\n      }),\n    /correlation/i\n  );\n\n  const failedRow = billingRepository.__rows.get(\"evt_operation_key_only\"",
+      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v=abc\"\n      }),\n    /correlation/i\n  );\n\n  const failedRow = billingRepository.__rows.get(\"evt_operation_key_only\"",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/billingWebhookService.test.js",
@@ -37732,7 +37732,7 @@
     {
       "format": "javascript",
       "lines": 27,
-      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v1=abc\"\n      }),\n    /findBillableEntityById is not a function|lockEntityAggregate/i",
+      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v=abc\"\n      }),\n    /findBillableEntityById is not a function|lockEntityAggregate/i",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/billingWebhookService.test.js",
@@ -37768,7 +37768,7 @@
     {
       "format": "javascript",
       "lines": 28,
-      "fragment": ",\n              metadata: {}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v1=abc\"\n      }),\n    /findBillableEntityById is not a function|correlate invoice/i",
+      "fragment": ",\n              metadata: {}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(\n    () =>\n      webhookService.processProviderEvent({\n        provider: \"stripe\",\n        rawBody: Buffer.from(\"{}\"),\n        signatureHeader: \"t=123,v=abc\"\n      }),\n    /findBillableEntityById is not a function|correlate invoice/i",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/billingWebhookService.test.js",
@@ -37804,7 +37804,7 @@
     {
       "format": "javascript",
       "lines": 26,
-      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(() =>\n    webhookService.processProviderEvent({\n      provider: \"stripe\",\n      rawBody: Buffer.from(\"{}\"),\n      signatureHeader: \"t=123,v1=abc\"\n    })\n  )",
+      "fragment": "}\n            }\n          }\n        };\n      },\n      async retrieveCheckoutSession() {\n        return null;\n      },\n      async retrieveSubscription() {\n        return null;\n      },\n      async retrieveInvoice() {\n        return null;\n      }\n    },\n    billingCheckoutSessionService: {},\n    stripeWebhookEndpointSecret: \"whsec_test\"\n  });\n\n  await assert.rejects(() =>\n    webhookService.processProviderEvent({\n      provider: \"stripe\",\n      rawBody: Buffer.from(\"{}\"),\n      signatureHeader: \"t=123,v=abc\"\n    })\n  )",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/billingWebhookService.test.js",

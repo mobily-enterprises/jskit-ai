@@ -54,7 +54,7 @@ This document freezes the guardrails defined in A_FRAMEWORK_ALRIGHT.md sections 
 
 ## Data Contract Freeze
 
-### `package.descriptor.mjs` (v1)
+### `package.descriptor.mjs` (v)
 
 Each descriptor **must** include:
 

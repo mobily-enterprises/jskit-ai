@@ -1940,7 +1940,7 @@ Eyebrow raised: architecture vocabulary is appearing in a calculator repo. Tiny 
 
 Eyebrow raised: this is beginning to look like a tiny platform. Mid-sized sweep across the codebase. Named commit: a rare moment of narrative clarity. Framework instincts are beginning to emerge.
 
-## Commit 0216: Lock chat API and realtime contracts for v1
+## Commit 0216: Lock chat API and realtime contracts for unversioned API
 
 - Date: `2026-02-22`
 - Hash: `ff51720f`
@@ -7213,4 +7213,3 @@ Total disbelief: we have entered complete framework territory. Broad blast radiu
 - Areas touched: `tooling(4)`
 
 Total disbelief: this is industrial-scale repo evolution. A healthy chunk of refactor energy. 'WIP' appears again, confidently unspecific. Any resemblance to a simple annuity tool is now ceremonial.
-

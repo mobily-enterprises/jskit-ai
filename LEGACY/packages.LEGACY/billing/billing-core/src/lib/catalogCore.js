@@ -346,7 +346,7 @@ function mapPlanTemplatesToConsoleEntitlements(templates = [], definitionById = 
 
       return {
         code: String(definition.code || ""),
-        schemaVersion: normalizeOptionalString(metadata.schemaVersion) || "entitlement.quota.v1",
+        schemaVersion: normalizeOptionalString(metadata.schemaVersion) || "entitlement.quota.v",
         valueJson,
         grantKind: String(template.grantKind || "plan_base"),
         effectivePolicy: String(template.effectivePolicy || "on_assignment_current"),

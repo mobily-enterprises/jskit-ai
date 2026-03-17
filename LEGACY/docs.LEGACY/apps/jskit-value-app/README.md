@@ -440,7 +440,7 @@ npm run lint
 npm run format:check
 ```
 
-## API contracts (v1)
+## API contracts (v)
 
 This endpoint inventory is generated from `server/modules/api/routes.js` + `server/fastify/registerApiRoutes.js`.
 

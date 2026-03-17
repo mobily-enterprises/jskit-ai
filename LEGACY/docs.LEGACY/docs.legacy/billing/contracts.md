@@ -116,7 +116,7 @@ Runtime enforcement kernel contract (`billingService.executeWithEntitlementConsu
   - enforces capacity/quota/balance constraints before executing `action`.
   - executes `action` and consumption write in one transaction.
   - for metered/balance types, writes idempotent rows in `billing_entitlement_consumptions`.
-  - for capacity types, recomputes with domain-provided count resolver (no consumption row in scaffold v1).
+  - for capacity types, recomputes with domain-provided count resolver (no consumption row in scaffold v).
   - emits billing-limit realtime invalidation after commit.
 
 Deterministic limit-exceeded error contract:

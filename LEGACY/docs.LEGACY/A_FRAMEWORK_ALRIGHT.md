@@ -95,7 +95,7 @@ Current status: `jskit` core has the first implementation of package descriptors
 
 ## 5) Data Contract Freeze (Do First)
 
-## 5.1 `package.descriptor.mjs` (v1)
+## 5.1 `package.descriptor.mjs` (v)
 
 Required fields:
 
@@ -645,7 +645,7 @@ Passing means:
 
 ---
 
-## 8) Bundle Catalog Proposal (Initial v1)
+## 8) Bundle Catalog Proposal (Initial v)
 
 Use this as the first concrete bundle set to implement and validate.
 

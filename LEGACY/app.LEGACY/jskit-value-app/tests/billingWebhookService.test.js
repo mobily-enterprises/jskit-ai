@@ -126,7 +126,7 @@ test("billing webhook service persists failed webhook event state when projectio
       webhookService.processProviderEvent({
         provider: "stripe",
         rawBody: Buffer.from("{}"),
-        signatureHeader: "t=123,v1=abc"
+        signatureHeader: "t=123,v=abc"
       }),
     /correlation/i
   );
@@ -176,7 +176,7 @@ test("billing webhook service captures operation_key correlation on failed event
       webhookService.processProviderEvent({
         provider: "stripe",
         rawBody: Buffer.from("{}"),
-        signatureHeader: "t=123,v1=abc"
+        signatureHeader: "t=123,v=abc"
       }),
     /correlation/i
   );
@@ -236,7 +236,7 @@ test("billing webhook service resolves billable entity correlation from customer
       webhookService.processProviderEvent({
         provider: "stripe",
         rawBody: Buffer.from("{}"),
-        signatureHeader: "t=123,v1=abc"
+        signatureHeader: "t=123,v=abc"
       }),
     /findBillableEntityById is not a function|lockEntityAggregate/i
   );
@@ -296,7 +296,7 @@ test("billing webhook service resolves invoice correlation from customer ownersh
       webhookService.processProviderEvent({
         provider: "stripe",
         rawBody: Buffer.from("{}"),
-        signatureHeader: "t=123,v1=abc"
+        signatureHeader: "t=123,v=abc"
       }),
     /findBillableEntityById is not a function|correlate invoice/i
   );
@@ -388,7 +388,7 @@ test("billing webhook service fails closed when canonical provider event id is m
     webhookService.processProviderEvent({
       provider: "stripe",
       rawBody: Buffer.from("{}"),
-      signatureHeader: "t=123,v1=abc"
+      signatureHeader: "t=123,v=abc"
     })
   );
 

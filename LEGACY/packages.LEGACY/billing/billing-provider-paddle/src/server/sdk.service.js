@@ -751,7 +751,7 @@ function createService({
     return {
       provider: BILLING_PROVIDER_PADDLE,
       providerSdkName: "paddle-rest",
-      providerSdkVersion: "http-fetch-v1",
+      providerSdkVersion: "http-fetch-v",
       providerApiVersion: normalizedApiBaseUrl
     };
   }

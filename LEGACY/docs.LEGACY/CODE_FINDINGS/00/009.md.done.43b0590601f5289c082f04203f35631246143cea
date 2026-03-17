@@ -2,7 +2,7 @@
 - Severity: High
 - Pattern type: 1 Hardcoded branch default; 5 Validation vs execution mismatch
 - File + line(s): `/home/merc/Development/current/jskit-ai/packages/runtime/action-runtime-core/src/shared/contracts.js:51`, `/home/merc/Development/current/jskit-ai/packages/runtime/action-runtime-core/src/shared/registry.js:80`
-- Why it can drift/fail: invalid action version input is coerced to `v1` instead of rejected.
+- Why it can drift/fail: invalid action version input is coerced to `v` instead of rejected.
 - Concrete impact: callers can execute wrong action version with no explicit error.
 - Exact remediation: validate requested version as integer >= 1 and return an explicit invalid-version error.
 

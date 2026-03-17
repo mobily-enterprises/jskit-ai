@@ -36,7 +36,7 @@ test("action registry executes latest version by default", async () => {
             },
             observability: {},
             async execute() {
-              calls.push("v1");
+              calls.push("version-one");
               return {
                 version: 1
               };

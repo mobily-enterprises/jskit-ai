@@ -2,7 +2,7 @@
 - Severity: Low
 - Pattern type: AI slop; Test fixture duplication
 - File + line(s): `apps/jskit-value-app/tests/authService.test.js:658-668`, `apps/jskit-value-app/tests/authService.test.js:1525-1556`, `apps/jskit-value-app/tests/authService.test.js:1753-1790`, `apps/jskit-value-app/tests/authService.test.js:1826-1876`
-- Why it can drift/fail: The test file repeats near-identical fetch-mock branches for Supabase endpoints (`/auth/v1/user`, `/auth/v1/token`) across many test cases. This is copy-paste scaffolding that makes it easy to update one stub but forget the others, leading to inconsistent test behavior.
+- Why it can drift/fail: The test file repeats near-identical fetch-mock branches for Supabase endpoints (`/auth/v/user`, `/auth/v/token`) across many test cases. This is copy-paste scaffolding that makes it easy to update one stub but forget the others, leading to inconsistent test behavior.
 - Concrete impact: Fragile tests and higher maintenance cost when API response shapes change or new fields are needed.
 - Exact remediation: Create a shared test helper that builds a Supabase fetch mock (e.g., `createSupabaseFetchMock({ user, token, error })`) and reuse it across tests to centralize response shapes.
 

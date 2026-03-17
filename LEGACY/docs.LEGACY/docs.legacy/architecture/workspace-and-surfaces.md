@@ -222,7 +222,7 @@ Two-surface expansion track:
 
 1. `defaultInviteRole`: app-global only, or workspace-overridable.
 2. Workspace creation policy in multi-workspace mode.
-3. Role definitions: manifest-only in v1, or workspace-customizable later.
+3. Role definitions: manifest-only in v, or workspace-customizable later.
 4. Whether `/api/bootstrap` should include CSRF token.
 5. Slug mutability and redirect policy.
-6. Owner transfer behavior in v1.
+6. Owner transfer behavior in v.

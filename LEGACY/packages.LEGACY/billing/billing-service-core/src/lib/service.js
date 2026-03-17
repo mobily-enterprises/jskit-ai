@@ -670,7 +670,7 @@ function createService(options = {}) {
             id: Number(template.id),
             planId: Number(template.planId),
             code: String(definition.code || ""),
-            schemaVersion: "entitlement.template.v1",
+            schemaVersion: "entitlement.template.v",
             valueJson: {
               amount: Number(template.amount || 0),
               grantKind: String(template.grantKind || ""),

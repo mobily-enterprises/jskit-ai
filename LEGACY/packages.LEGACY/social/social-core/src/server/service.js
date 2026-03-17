@@ -2833,7 +2833,7 @@ function createService({
     return {
       "@context": [
         "https://www.w3.org/ns/activitystreams",
-        "https://w3id.org/security/v1"
+        "https://w3id.org/security/v"
       ],
       id: actor.actorUri,
       type: "Person",

@@ -63,7 +63,7 @@ test("getSecurityStatus uses explicit-token user lookup and never calls identiti
       throw new Error("Unexpected identities endpoint request.");
     }
 
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+    if (request.url.pathname === "/auth/v/user" && request.method === "GET") {
       userAuthHeaders.push(request.headers.Authorization || request.headers.authorization || "");
       return jsonResponse(200, {
         id: "supabase-user-1",

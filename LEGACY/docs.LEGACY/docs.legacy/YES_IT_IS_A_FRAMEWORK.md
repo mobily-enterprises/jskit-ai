@@ -1488,9 +1488,9 @@ Example:
 - `trusted-partner`: full access with compatibility contract enforcement
 - `untrusted`: future mode, restricted to out-of-process API hooks only
 
-### 24.2 Extension restrictions for v1
+### 24.2 Extension restrictions for v
 
-For v1 third-party in-process support:
+For v third-party in-process support:
 
 1. no direct mutation of existing module artifacts
 2. no hook to replace core auth policy

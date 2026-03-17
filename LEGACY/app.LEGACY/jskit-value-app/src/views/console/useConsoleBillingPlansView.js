@@ -125,9 +125,9 @@ const PLAN_ENTITLEMENTS_EDITOR_SCHEMA = Object.freeze({
             type: "string",
             title: "Schema version",
             description: helpLines(
-              "Naming: use the schema id exactly (example: entitlement.quota.v1).",
+              "Naming: use the schema id exactly (example: entitlement.quota.v).",
               "Purpose: tells backend how to validate the value payload.",
-              "Common values: entitlement.quota.v1 (limit/interval/enforcement), entitlement.boolean.v1 (enabled), entitlement.string_list.v1 (values)."
+              "Common values: entitlement.quota.v (limit/interval/enforcement), entitlement.boolean.v (enabled), entitlement.string_list.v (values)."
             ),
             minLength: 1,
             maxLength: 120
@@ -174,7 +174,7 @@ const PLAN_ENTITLEMENTS_EDITOR_SCHEMA = Object.freeze({
                 title: "Enabled",
                 description: helpLines(
                   "Naming: true or false.",
-                  "Purpose: boolean switch for entitlement.boolean.v1 definitions.",
+                  "Purpose: boolean switch for entitlement.boolean.v definitions.",
                   "Values: true=enabled, false=disabled."
                 )
               },
@@ -183,7 +183,7 @@ const PLAN_ENTITLEMENTS_EDITOR_SCHEMA = Object.freeze({
                 title: "Values",
                 description: helpLines(
                   "Naming: non-empty unique strings.",
-                  "Purpose: list payload for entitlement.string_list.v1 definitions.",
+                  "Purpose: list payload for entitlement.string_list.v definitions.",
                   "Values: each item is one allowed string in that list."
                 ),
                 uniqueItems: true,
