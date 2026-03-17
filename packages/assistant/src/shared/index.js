@@ -15,12 +15,8 @@ export {
 
 export {
   ASSISTANT_STREAM_EVENT_TYPES,
-  ASSISTANT_STREAM_EVENT_TYPE_VALUES,
-  ASSISTANT_STREAM_DONE_STATUSES,
   ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
-  normalizeAssistantStreamEventType,
-  isAssistantStreamEventType,
-  normalizeAssistantStreamEvent
+  normalizeAssistantStreamEventType
 } from "./streamEvents.js";
 
 export {

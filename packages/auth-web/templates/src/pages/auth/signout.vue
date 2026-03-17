@@ -1,10 +1,12 @@
-<script>
-export const routeMeta = {
-  jskit: {
-    scope: "global"
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "scope": "global"
+    }
   }
-};
-</script>
+}
+</route>
 
 <script setup>
 import DefaultSignOutView from "@jskit-ai/auth-web/client/views/DefaultSignOutView";

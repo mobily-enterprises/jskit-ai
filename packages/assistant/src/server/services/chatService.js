@@ -1,6 +1,7 @@
 import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ASSISTANT_STREAM_EVENT_TYPES } from "../../shared/streamEvents.js";
+import { mapStreamError } from "../lib/ndjson.js";
 import { resolveWorkspaceSlug } from "../lib/resolveWorkspaceSlug.js";
 
 const MAX_HISTORY_MESSAGES = 20;
@@ -497,17 +498,6 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
   return {
     assistantText,
     toolCalls
-  };
-}
-
-function mapStreamError(error) {
-  const status = Number(error?.status || error?.statusCode || 500);
-  const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
-
-  return {
-    code: String(error?.code || "assistant_stream_failed").trim() || "assistant_stream_failed",
-    message: safeStatus >= 500 ? "Assistant stream failed." : String(error?.message || "Request failed."),
-    status: safeStatus
   };
 }
 

@@ -667,13 +667,17 @@ async function onSelectConversation(conversation) {
   emit("conversation:select", payload);
   emitInteraction("conversation:select", payload);
   await invokeAction("selectConversation", payload, () => selectConversation(conversation));
-  await focusComposerWithRetry(true);
+  await requestComposerFocus({
+    selectText: true
+  });
 }
 
 async function selectConversationFromPicker(conversation) {
   await onSelectConversation(conversation);
   conversationPickerOpen.value = false;
-  await focusComposerWithRetry(true);
+  await requestComposerFocus({
+    selectText: true
+  });
 }
 
 async function onStartNewConversation() {
@@ -684,13 +688,17 @@ async function onStartNewConversation() {
     source: "history"
   });
   await invokeAction("startNewConversation", {}, startNewConversation);
-  await focusComposerWithRetry(true);
+  await requestComposerFocus({
+    selectText: true
+  });
 }
 
 async function startNewConversationFromPicker() {
   await onStartNewConversation();
   conversationPickerOpen.value = false;
-  await focusComposerWithRetry(true);
+  await requestComposerFocus({
+    selectText: true
+  });
 }
 
 async function onSendMessage() {
@@ -793,6 +801,10 @@ async function focusComposerWithRetry(selectText = false) {
   focusComposer(selectText);
 }
 
+async function requestComposerFocus({ selectText = false } = {}) {
+  await focusComposerWithRetry(selectText);
+}
+
 function onRootFocus(event) {
   const rootElement = rootRef.value;
   if (!(rootElement instanceof HTMLElement)) {
@@ -805,7 +817,7 @@ function onRootFocus(event) {
     return;
   }
 
-  void focusComposerWithRetry(false);
+  void requestComposerFocus();
 }
 
 function onRootPointerDown() {
@@ -907,7 +919,7 @@ watch(
     shouldAutoScrollToBottom.value = true;
     await nextTick();
     scrollMessagesToBottom();
-    focusComposer(false);
+    await requestComposerFocus();
   },
   {
     immediate: true
@@ -974,12 +986,12 @@ onMounted(async () => {
   window.addEventListener("resize", syncViewportHeight, {
     passive: true
   });
-  await focusComposerWithRetry(false);
+  await requestComposerFocus();
 });
 
 onActivated(async () => {
   syncViewportHeight();
-  await focusComposerWithRetry(false);
+  await requestComposerFocus();
 });
 
 watch(
@@ -989,7 +1001,7 @@ watch(
       return;
     }
 
-    await focusComposerWithRetry(false);
+    await requestComposerFocus();
   }
 );
 

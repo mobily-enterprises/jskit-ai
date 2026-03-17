@@ -22,16 +22,43 @@ function normalizePathname(pathname) {
   return squashed.replace(/\/+$/, "") || "/";
 }
 
-function resolveRouteScope(route) {
+function resolveOwnRouteScope(route) {
   const source = route && typeof route === "object" ? route : {};
   const metaJskit =
     source.meta && typeof source.meta === "object" && source.meta.jskit && typeof source.meta.jskit === "object"
       ? source.meta.jskit
       : {};
-  const normalizedScope = String(source.scope || metaJskit.scope || "surface")
+  const normalizedScope = String(source.scope || metaJskit.scope || "")
     .trim()
     .toLowerCase();
+  if (!normalizedScope) {
+    return "";
+  }
   return normalizedScope === "global" ? "global" : "surface";
+}
+
+function routeTreeHasGlobalScope(route) {
+  const source = route && typeof route === "object" ? route : {};
+  if (resolveOwnRouteScope(source) === "global") {
+    return true;
+  }
+
+  const children = Array.isArray(source.children) ? source.children : [];
+  for (const child of children) {
+    if (routeTreeHasGlobalScope(child)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function resolveRouteScope(route) {
+  const ownScope = resolveOwnRouteScope(route);
+  if (ownScope) {
+    return ownScope;
+  }
+  return routeTreeHasGlobalScope(route) ? "global" : "surface";
 }
 
 function resolveRouteSurface(route, surfaceRuntime) {

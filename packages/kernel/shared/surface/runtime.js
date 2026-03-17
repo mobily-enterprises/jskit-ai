@@ -391,18 +391,41 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const normalizedMode = surfaceRuntime.normalizeSurfaceMode(surfaceMode);
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 
-  function resolveRouteScope(route) {
+  function resolveOwnRouteScope(route) {
     const metaScope =
       route && route.meta && route.meta.jskit && typeof route.meta.jskit === "object"
         ? route.meta.jskit.scope
         : "";
-    const normalizedScope = String(route?.scope || metaScope || "surface")
+    const normalizedScope = String(route?.scope || metaScope || "")
       .trim()
       .toLowerCase();
-    if (normalizedScope === "global") {
-      return "global";
+    if (!normalizedScope) {
+      return "";
     }
-    return "surface";
+    return normalizedScope === "global" ? "global" : "surface";
+  }
+
+  function routeTreeHasGlobalScope(route) {
+    if (resolveOwnRouteScope(route) === "global") {
+      return true;
+    }
+
+    const children = Array.isArray(route?.children) ? route.children : [];
+    for (const child of children) {
+      if (routeTreeHasGlobalScope(child)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function resolveRouteScope(route) {
+    const ownScope = resolveOwnRouteScope(route);
+    if (ownScope) {
+      return ownScope;
+    }
+    return routeTreeHasGlobalScope(route) ? "global" : "surface";
   }
 
   function resolveRouteSurface(route) {

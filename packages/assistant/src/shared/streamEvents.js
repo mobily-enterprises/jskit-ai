@@ -9,7 +9,6 @@ const ASSISTANT_STREAM_EVENT_TYPES = Object.freeze({
 });
 
 const ASSISTANT_STREAM_EVENT_TYPE_VALUES = Object.freeze(Object.values(ASSISTANT_STREAM_EVENT_TYPES));
-const ASSISTANT_STREAM_DONE_STATUSES = Object.freeze(["completed", "failed", "aborted"]);
 const ASSISTANT_TRANSCRIPT_CHANGED_EVENT = "assistant.transcript.changed";
 const STREAM_EVENT_TYPE_SET = new Set(ASSISTANT_STREAM_EVENT_TYPE_VALUES);
 
@@ -26,27 +25,8 @@ function normalizeAssistantStreamEventType(value, fallback = "") {
   return normalized;
 }
 
-function isAssistantStreamEventType(value) {
-  return normalizeAssistantStreamEventType(value) !== "";
-}
-
-function normalizeAssistantStreamEvent(event) {
-  if (!event || typeof event !== "object") {
-    return null;
-  }
-
-  return {
-    ...event,
-    type: normalizeAssistantStreamEventType(event.type, "")
-  };
-}
-
 export {
   ASSISTANT_STREAM_EVENT_TYPES,
-  ASSISTANT_STREAM_EVENT_TYPE_VALUES,
-  ASSISTANT_STREAM_DONE_STATUSES,
   ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
-  normalizeAssistantStreamEventType,
-  isAssistantStreamEventType,
-  normalizeAssistantStreamEvent
+  normalizeAssistantStreamEventType
 };
