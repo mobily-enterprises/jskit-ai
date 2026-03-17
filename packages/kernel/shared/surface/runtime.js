@@ -6,6 +6,10 @@ const TENANCY_MODE_PERSONAL = "personal";
 const TENANCY_MODE_WORKSPACE = "workspace";
 const TENANCY_MODES = Object.freeze([TENANCY_MODE_NONE, TENANCY_MODE_PERSONAL, TENANCY_MODE_WORKSPACE]);
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function uniqueSurfaceIds(ids) {
   const seen = new Set();
   const ordered = [];
@@ -21,12 +25,13 @@ function uniqueSurfaceIds(ids) {
 }
 
 function resolveSurfaceIds({ surfaces = {} } = {}) {
-  const fromSurfaces = uniqueSurfaceIds(
-    Object.entries(surfaces || {}).map(([key, value]) => {
-      const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-      return record.id || key;
-    })
-  );
+  const surfaceCandidates = [];
+  for (const [key, value] of Object.entries(isRecord(surfaces) ? surfaces : {})) {
+    const record = isRecord(value) ? value : {};
+    surfaceCandidates.push(record.id || key);
+  }
+
+  const fromSurfaces = uniqueSurfaceIds(surfaceCandidates);
   if (fromSurfaces.length > 0) {
     return fromSurfaces;
   }
@@ -63,7 +68,7 @@ function validateTenancyModeAgainstSurfaces({ tenancyMode, enabledSurfaceIds = [
 }
 
 function normalizeWorkspaceSurfacePolicy(policy = {}) {
-  const source = policy && typeof policy === "object" && !Array.isArray(policy) ? policy : {};
+  const source = isRecord(policy) ? policy : {};
   const preferredSurfaceIds = uniqueSurfaceIds(
     Array.isArray(source.preferredSurfaceIds) ? source.preferredSurfaceIds : []
   );
@@ -75,20 +80,33 @@ function normalizeWorkspaceSurfacePolicy(policy = {}) {
 }
 
 function applyWorkspaceSurfacePolicyToSurfaces({ surfaces = {}, policy = {} } = {}) {
-  const sourceSurfaces = surfaces && typeof surfaces === "object" && !Array.isArray(surfaces) ? surfaces : {};
+  const sourceSurfaces = isRecord(surfaces) ? surfaces : {};
   const normalizedPolicy = normalizeWorkspaceSurfacePolicy(policy);
-  const entries = Object.entries(sourceSurfaces).map(([key, value]) => {
-    const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const entries = [];
+  const nextSurfaces = new Map();
+  const enabledEntries = [];
+  const enabledEntriesBySurfaceId = new Map();
+
+  for (const [key, value] of Object.entries(sourceSurfaces)) {
+    const record = isRecord(value) ? value : {};
     const surfaceId = normalizeSurfaceId(record.id || key);
-    return { key, surfaceId, record };
-  });
-  const nextSurfaces = new Map(entries.map(({ key, record }) => [key, { ...record }]));
-  const enabledEntries = entries.filter(
-    ({ key, surfaceId }) => Boolean(surfaceId) && nextSurfaces.get(key)?.enabled !== false
-  );
+    const entry = { key, surfaceId };
+    entries.push(entry);
+    nextSurfaces.set(key, { ...record });
+
+    const nextSurface = nextSurfaces.get(key);
+    if (!surfaceId || nextSurface?.enabled === false) {
+      continue;
+    }
+
+    enabledEntries.push(entry);
+    if (!enabledEntriesBySurfaceId.has(surfaceId)) {
+      enabledEntriesBySurfaceId.set(surfaceId, entry);
+    }
+  }
 
   for (const surfaceId of normalizedPolicy.preferredSurfaceIds) {
-    const matchedEntry = enabledEntries.find((entry) => entry.surfaceId === surfaceId);
+    const matchedEntry = enabledEntriesBySurfaceId.get(surfaceId);
     if (!matchedEntry) {
       continue;
     }
@@ -107,38 +125,39 @@ function applyWorkspaceSurfacePolicyToSurfaces({ surfaces = {}, policy = {} } = 
     }
   }
 
-  return Object.fromEntries(entries.map(({ key }) => [key, nextSurfaces.get(key) || {}]));
+  const normalizedSurfaces = {};
+  for (const entry of entries) {
+    normalizedSurfaces[entry.key] = nextSurfaces.get(entry.key) || {};
+  }
+  return normalizedSurfaces;
 }
 
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
   const tenancyMode = normalizeTenancyMode(options?.tenancyMode);
-  const sourceSurfaces = options?.surfaces && typeof options.surfaces === "object" ? options.surfaces : {};
-  const hasWorkspaceSurfacePolicy = Object.prototype.hasOwnProperty.call(options, "workspaceSurfacePolicy");
-  const policySurfaces = hasWorkspaceSurfacePolicy
-    ? applyWorkspaceSurfacePolicyToSurfaces({
-        surfaces: sourceSurfaces,
-        policy: options.workspaceSurfacePolicy
-      })
-    : sourceSurfaces;
+  const sourceSurfaces = isRecord(options?.surfaces) ? options.surfaces : {};
+  const hasWorkspaceSurfacePolicy = Object.hasOwn(options, "workspaceSurfacePolicy");
+  let policySurfaces = sourceSurfaces;
+  if (hasWorkspaceSurfacePolicy) {
+    policySurfaces = applyWorkspaceSurfacePolicyToSurfaces({
+      surfaces: sourceSurfaces,
+      policy: options.workspaceSurfacePolicy
+    });
+  }
   const surfaceIds = resolveSurfaceIds({
     surfaces: policySurfaces
   });
 
-  const normalizedSurfaces = Object.fromEntries(
-    surfaceIds.map((surfaceId) => {
-      const source = policySurfaces[surfaceId] || {};
-      return [
-        surfaceId,
-        {
-          id: surfaceId,
-          prefix: source?.prefix,
-          requiresWorkspace: Boolean(source?.requiresWorkspace),
-          enabled: source?.enabled !== false
-        }
-      ];
-    })
-  );
+  const normalizedSurfaces = {};
+  for (const surfaceId of surfaceIds) {
+    const source = isRecord(policySurfaces[surfaceId]) ? policySurfaces[surfaceId] : {};
+    normalizedSurfaces[surfaceId] = {
+      id: surfaceId,
+      prefix: source.prefix,
+      requiresWorkspace: Boolean(source.requiresWorkspace),
+      enabled: source.enabled !== false
+    };
+  }
 
   const defaultSurfaceId = normalizeSurfaceId(options?.defaultSurfaceId) || surfaceIds[0];
   const registry = createSurfaceRegistry({
@@ -161,8 +180,11 @@ function createSurfaceRuntime(options = {}) {
     enabledSurfaceIds,
     normalizedSurfaces
   });
+  const defaultSurfaceSource = isRecord(normalizedSurfaces[registry.DEFAULT_SURFACE_ID])
+    ? normalizedSurfaces[registry.DEFAULT_SURFACE_ID]
+    : {};
   const defaultSurfaceDefinition = Object.freeze({
-    ...(normalizedSurfaces[registry.DEFAULT_SURFACE_ID] || {})
+    ...defaultSurfaceSource
   });
 
   function normalizeSurfaceMode(value) {
@@ -192,11 +214,16 @@ function createSurfaceRuntime(options = {}) {
 
   function listSurfaceDefinitions({ enabledOnly = false } = {}) {
     const ids = enabledOnly ? enabledSurfaceIds : surfaceIds;
-    return ids.map((surfaceId) =>
-      Object.freeze({
-        ...(normalizedSurfaces[surfaceId] || {})
-      })
-    );
+    const definitions = [];
+    for (const surfaceId of ids) {
+      const source = isRecord(normalizedSurfaces[surfaceId]) ? normalizedSurfaces[surfaceId] : {};
+      definitions.push(
+        Object.freeze({
+          ...source
+        })
+      );
+    }
+    return definitions;
   }
 
   function surfaceRequiresWorkspace(surfaceId) {
@@ -261,11 +288,15 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const normalizedMode = surfaceRuntime.normalizeSurfaceMode(surfaceMode);
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 
+  function readRouteJskitMeta(route) {
+    if (!isRecord(route) || !isRecord(route.meta) || !isRecord(route.meta.jskit)) {
+      return {};
+    }
+    return route.meta.jskit;
+  }
+
   function resolveOwnRouteScope(route) {
-    const metaScope =
-      route && route.meta && route.meta.jskit && typeof route.meta.jskit === "object"
-        ? route.meta.jskit.scope
-        : "";
+    const metaScope = readRouteJskitMeta(route).scope;
     const normalizedScope = String(route?.scope || metaScope || "")
       .trim()
       .toLowerCase();
@@ -299,10 +330,7 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   }
 
   function resolveRouteSurface(route) {
-    const metaSurface =
-      route && route.meta && route.meta.jskit && typeof route.meta.jskit === "object"
-        ? route.meta.jskit.surface
-        : "";
+    const metaSurface = readRouteJskitMeta(route).surface;
     const normalizedSurface = normalizeSurfaceId(route?.surface || metaSurface);
     if (normalizedSurface) {
       return normalizedSurface;

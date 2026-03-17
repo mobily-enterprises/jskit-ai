@@ -1,25 +1,33 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
-function accountSecurityStatusFormatter(securityStatus = {}) {
-  const source = securityStatus && typeof securityStatus === "object" ? securityStatus : {};
-  const authPolicy = source.authPolicy && typeof source.authPolicy === "object" ? source.authPolicy : {};
-  const authMethods = Array.isArray(source.authMethods) ? source.authMethods : [];
-  const enabledMethodsCount = authMethods.filter((method) => method?.enabled === true).length;
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeMfa(source) {
+  const mfaSource = isRecord(source?.mfa) ? source.mfa : {};
+  const methods = [];
+  for (const entry of Array.isArray(mfaSource.methods) ? mfaSource.methods : []) {
+    const normalized = normalizeText(entry);
+    if (!normalized) {
+      continue;
+    }
+    methods.push(normalized);
+  }
 
   return {
-    mfa: {
-      status: normalizeText(source?.mfa?.status) || "not_enabled",
-      enrolled: Boolean(source?.mfa?.enrolled),
-      methods: Array.isArray(source?.mfa?.methods) ? source.mfa.methods.map((entry) => normalizeText(entry)).filter(Boolean) : []
-    },
-    sessions: {
-      canSignOutOtherDevices: true
-    },
-    authPolicy: {
-      minimumEnabledMethods: Number(authPolicy.minimumEnabledMethods) > 0 ? Number(authPolicy.minimumEnabledMethods) : 1,
-      enabledMethodsCount
-    },
-    authMethods: authMethods.map((method) => ({
+    status: normalizeText(mfaSource.status) || "not_enabled",
+    enrolled: Boolean(mfaSource.enrolled),
+    methods
+  };
+}
+
+function normalizeAuthMethods(sourceMethods) {
+  const methods = [];
+  let enabledMethodsCount = 0;
+
+  for (const method of Array.isArray(sourceMethods) ? sourceMethods : []) {
+    const normalizedMethod = {
       id: normalizeText(method?.id),
       kind: normalizeText(method?.kind),
       provider: method?.provider == null ? null : normalizeText(method.provider),
@@ -30,7 +38,36 @@ function accountSecurityStatusFormatter(securityStatus = {}) {
       canDisable: method?.canDisable === true,
       supportsSecretUpdate: method?.supportsSecretUpdate === true,
       requiresCurrentPassword: method?.requiresCurrentPassword === true
-    }))
+    };
+
+    if (normalizedMethod.enabled) {
+      enabledMethodsCount += 1;
+    }
+    methods.push(normalizedMethod);
+  }
+
+  return {
+    methods,
+    enabledMethodsCount
+  };
+}
+
+function accountSecurityStatusFormatter(securityStatus = {}) {
+  const source = isRecord(securityStatus) ? securityStatus : {};
+  const authPolicy = isRecord(source.authPolicy) ? source.authPolicy : {};
+  const { methods: authMethods, enabledMethodsCount } = normalizeAuthMethods(source.authMethods);
+  const minimumEnabledMethods = Number(authPolicy.minimumEnabledMethods);
+
+  return {
+    mfa: normalizeMfa(source),
+    sessions: {
+      canSignOutOtherDevices: true
+    },
+    authPolicy: {
+      minimumEnabledMethods: minimumEnabledMethods > 0 ? minimumEnabledMethods : 1,
+      enabledMethodsCount
+    },
+    authMethods
   };
 }
 

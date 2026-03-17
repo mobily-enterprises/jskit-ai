@@ -23,6 +23,7 @@ function ensureArray(value) {
 
 const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
 const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
+const NOOP = () => {};
 
 function isPlacementDebugEnabled() {
   if (typeof globalThis !== "object" || !globalThis) {
@@ -47,10 +48,20 @@ function debugLog(message, payload = null) {
 }
 
 function createRuntimeLogger(logger) {
-  const runtimeLogger = isRecord(logger) ? logger : null;
+  const runtimeLogger = isRecord(logger) ? logger : {};
+  let warn = NOOP;
+  let error = NOOP;
+
+  if (typeof runtimeLogger.warn === "function") {
+    warn = runtimeLogger.warn.bind(runtimeLogger);
+  }
+  if (typeof runtimeLogger.error === "function") {
+    error = runtimeLogger.error.bind(runtimeLogger);
+  }
+
   return Object.freeze({
-    warn: typeof runtimeLogger?.warn === "function" ? runtimeLogger.warn.bind(runtimeLogger) : () => {},
-    error: typeof runtimeLogger?.error === "function" ? runtimeLogger.error.bind(runtimeLogger) : () => {}
+    warn,
+    error
   });
 }
 
@@ -265,14 +276,16 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
   function setContext(value = {}, { replace = false, source = "placement-context" } = {}) {
     const next = isRecord(value) ? { ...value } : {};
-    sharedContext = Object.freeze(
-      replace
-        ? next
-        : {
-            ...sharedContext,
-            ...next
-          }
-    );
+
+    let nextContext = next;
+    if (!replace) {
+      nextContext = {
+        ...sharedContext,
+        ...next
+      };
+    }
+
+    sharedContext = Object.freeze(nextContext);
     debugLog("setContext", {
       replace,
       source,

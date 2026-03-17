@@ -2,6 +2,24 @@ import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createActionValidationError({
+  status = 400,
+  message = "Validation failed.",
+  code = "ACTION_VALIDATION_FAILED",
+  details,
+  cause
+} = {}) {
+  return createActionRuntimeError(status, message, {
+    code,
+    details,
+    cause
+  });
+}
+
 function ensureActionChannelAllowed(definition, context) {
   const channel = normalizeLowerText(context?.channel);
   const allowedChannels = Array.isArray(definition?.channels) ? definition.channels : [];
@@ -78,9 +96,7 @@ function hasPermission(permissionSet = [], permission = "") {
 }
 
 function ensureActionPermissionAllowed(definition, context) {
-  const permission = definition?.permission && typeof definition.permission === "object"
-    ? definition.permission
-    : { require: "none" };
+  const permission = isRecord(definition?.permission) ? definition.permission : { require: "none" };
   const mode = normalizeLowerText(permission.require || "none");
 
   if (mode === "none") {
@@ -154,8 +170,7 @@ function normalizeSchemaValidationErrors(schema) {
 }
 
 function buildSchemaValidatorError({ phase, definition } = {}) {
-  return createActionRuntimeError(400, "Validation failed.", {
-    code: "ACTION_VALIDATION_FAILED",
+  return createActionValidationError({
     details: {
       error: "Schema validator must return { ok, value, errors } or throw.",
       phase,
@@ -177,19 +192,19 @@ function normalizeTypeBoxValidationErrors(schema, payload) {
 }
 
 function normalizeFunctionSchemaResult(result, payload, { phase, definition } = {}) {
-  if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
+  if (!isRecord(result) || typeof result.ok !== "boolean") {
     throw buildSchemaValidatorError({ phase, definition });
   }
 
   if (result.ok) {
-    if (Object.prototype.hasOwnProperty.call(result, "value")) {
+    if (Object.hasOwn(result, "value")) {
       return result.value;
     }
     return payload;
   }
 
   const details = {};
-  if (Object.prototype.hasOwnProperty.call(result, "errors")) {
+  if (Object.hasOwn(result, "errors")) {
     if (Array.isArray(result.errors)) {
       const fieldErrors = normalizeSchemaValidationErrors({ errors: result.errors });
       if (fieldErrors) {
@@ -204,8 +219,7 @@ function normalizeFunctionSchemaResult(result, payload, { phase, definition } = 
     }
   }
 
-  throw createActionRuntimeError(400, "Validation failed.", {
-    code: "ACTION_VALIDATION_FAILED",
+  throw createActionValidationError({
     details: Object.keys(details).length > 0 ? details : undefined
   });
 }
@@ -241,7 +255,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
     return normalizeFunctionSchemaResult(result, payload, { phase, definition });
   }
 
-  if (typeof schema !== "object" || Array.isArray(schema)) {
+  if (!isRecord(schema)) {
     throw buildSchemaValidatorError({ phase, definition });
   }
 
@@ -257,9 +271,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
   if (typeof schema.check === "function") {
     const valid = await schema.check(payload);
     if (!valid) {
-      throw createActionRuntimeError(400, "Validation failed.", {
-        code: "ACTION_VALIDATION_FAILED"
-      });
+      throw createActionValidationError();
     }
     return payload;
   }
@@ -267,8 +279,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
   if (typeof schema.validate === "function") {
     const valid = await schema.validate(payload);
     if (!valid) {
-      throw createActionRuntimeError(400, "Validation failed.", {
-        code: "ACTION_VALIDATION_FAILED",
+      throw createActionValidationError({
         details: {
           fieldErrors: normalizeSchemaValidationErrors(schema)
         }
@@ -282,8 +293,7 @@ async function validateSchemaPayload(schema, payload, { phase, definition }) {
     return payload;
   }
 
-  throw createActionRuntimeError(400, "Validation failed.", {
-    code: "ACTION_VALIDATION_FAILED",
+  throw createActionValidationError({
     details: {
       fieldErrors
     }
@@ -308,8 +318,7 @@ async function normalizeActionInput(definition, input, context) {
       throw error;
     }
 
-    throw createActionRuntimeError(400, "Validation failed.", {
-      code: "ACTION_VALIDATION_FAILED",
+    throw createActionValidationError({
       details: {
         error: String(error?.message || "Invalid input.")
       },
@@ -337,14 +346,18 @@ async function normalizeActionOutput(definition, output, context) {
     });
   } catch (error) {
     if (error?.code === "ACTION_VALIDATION_FAILED") {
-      throw createActionRuntimeError(500, "Action output validation failed.", {
+      throw createActionValidationError({
+        status: 500,
+        message: "Action output validation failed.",
         code: "ACTION_OUTPUT_VALIDATION_FAILED",
         details: error.details,
         cause: error
       });
     }
 
-    throw createActionRuntimeError(500, "Action output validation failed.", {
+    throw createActionValidationError({
+      status: 500,
+      message: "Action output validation failed.",
       code: "ACTION_OUTPUT_VALIDATION_FAILED",
       details: {
         error: String(error?.message || "Invalid output.")

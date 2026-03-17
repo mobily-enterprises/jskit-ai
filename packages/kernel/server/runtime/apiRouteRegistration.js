@@ -1,53 +1,69 @@
 import { defaultMissingHandler } from "./routeUtils.js";
 import { normalizeRouteVisibility } from "../../shared/support/visibility.js";
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function buildBaseRouteOptions(route) {
-  return {
-    method: route.method,
-    url: route.path,
-    ...(route.schema ? { schema: route.schema } : {}),
-    ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
-    config: {
-      ...(route.rateLimit ? { rateLimit: route.rateLimit } : {})
-    }
+  if (!isRecord(route)) {
+    throw new TypeError("Route definition must be an object.");
+  }
+
+  const sourceRoute = route;
+  const routeOptions = {
+    method: sourceRoute.method,
+    url: sourceRoute.path,
+    config: {}
   };
+
+  if (sourceRoute.schema) {
+    routeOptions.schema = sourceRoute.schema;
+  }
+  if (sourceRoute.bodyLimit) {
+    routeOptions.bodyLimit = sourceRoute.bodyLimit;
+  }
+  if (sourceRoute.rateLimit) {
+    routeOptions.config.rateLimit = sourceRoute.rateLimit;
+  }
+
+  return routeOptions;
 }
 
 function normalizeRoutePolicyConfig(routeOptions, route) {
-  const sourceRouteOptions = routeOptions && typeof routeOptions === "object" ? routeOptions : {};
-  const sourceConfig =
-    sourceRouteOptions.config && typeof sourceRouteOptions.config === "object" ? sourceRouteOptions.config : {};
-  const sourceRoute = route && typeof route === "object" ? route : {};
+  const sourceRouteOptions = isRecord(routeOptions) ? routeOptions : {};
+  const sourceConfig = isRecord(sourceRouteOptions.config) ? sourceRouteOptions.config : {};
+  const sourceRoute = isRecord(route) ? route : {};
 
   const nextConfig = {
     ...sourceConfig
   };
 
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "auth")) {
+  if (Object.hasOwn(sourceRoute, "auth")) {
     nextConfig.authPolicy = sourceRoute.auth;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspacePolicy")) {
+  if (Object.hasOwn(sourceRoute, "workspacePolicy")) {
     nextConfig.workspacePolicy = sourceRoute.workspacePolicy;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspaceSurface")) {
+  if (Object.hasOwn(sourceRoute, "workspaceSurface")) {
     nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
+  if (Object.hasOwn(sourceRoute, "visibility")) {
     nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
+  if (Object.hasOwn(sourceRoute, "permission")) {
     nextConfig.permission = sourceRoute.permission;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerParam")) {
+  if (Object.hasOwn(sourceRoute, "ownerParam")) {
     nextConfig.ownerParam = sourceRoute.ownerParam;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "userField")) {
+  if (Object.hasOwn(sourceRoute, "userField")) {
     nextConfig.userField = sourceRoute.userField;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerResolver")) {
+  if (Object.hasOwn(sourceRoute, "ownerResolver")) {
     nextConfig.ownerResolver = sourceRoute.ownerResolver;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "csrfProtection")) {
+  if (Object.hasOwn(sourceRoute, "csrfProtection")) {
     nextConfig.csrfProtection = sourceRoute.csrfProtection;
   }
 
@@ -76,7 +92,10 @@ function registerApiRouteDefinitions(
 
   for (const route of routeList) {
     const routeOptions = routePolicyApplier(buildBaseRouteOptions(route), route);
-    const routeHandler = route && typeof route.handler === "function" ? route.handler : fallbackHandler;
+    let routeHandler = fallbackHandler;
+    if (isRecord(route) && typeof route.handler === "function") {
+      routeHandler = route.handler;
+    }
     fastify.route({
       ...routeOptions,
       handler: async (request, reply) => {

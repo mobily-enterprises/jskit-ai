@@ -17,6 +17,42 @@ function normalizeIdentityProviderId(value) {
     .toLowerCase();
 }
 
+function normalizeProviderIdList(providerIds) {
+  const normalized = [];
+  for (const providerId of Array.isArray(providerIds) ? providerIds : []) {
+    const provider = normalizeIdentityProviderId(providerId);
+    if (!provider) {
+      continue;
+    }
+    normalized.push(provider);
+  }
+  return normalized;
+}
+
+function countEnabledMethods(methods) {
+  let count = 0;
+  for (const method of methods) {
+    if (method?.enabled === true) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function countConfiguredIdentityMethods(methods) {
+  let count = 0;
+  for (const method of methods) {
+    if (method.kind === AUTH_METHOD_KIND_OAUTH && method.configured) {
+      count += 1;
+      continue;
+    }
+    if (method.kind === AUTH_METHOD_KIND_PASSWORD && method.configured) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function collectProviderIdsFromSupabaseUser(user) {
   const providerIds = new Set();
 
@@ -45,9 +81,7 @@ function collectProviderIdsFromSupabaseUser(user) {
 }
 
 function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
-  const normalizedProviders = Array.isArray(providerIds)
-    ? providerIds.map(normalizeIdentityProviderId).filter(Boolean)
-    : [];
+  const normalizedProviders = normalizeProviderIdList(providerIds);
   const uniqueProviders = new Set(normalizedProviders);
   const passwordSignInEnabled = options.passwordSignInEnabled !== false;
   const passwordSetupRequired = options.passwordSetupRequired === true;
@@ -108,18 +142,10 @@ function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
     }
   }
 
-  const enabledMethodsCount = methods.reduce((count, method) => (method.enabled ? count + 1 : count), 0);
+  const enabledMethodsCount = countEnabledMethods(methods);
   const minimumEnabledMethods = AUTH_METHOD_MINIMUM_ENABLED;
   const canDisableAny = enabledMethodsCount > minimumEnabledMethods;
-  const configuredIdentityMethodCount = methods.reduce((count, method) => {
-    if (method.kind === AUTH_METHOD_KIND_OAUTH && method.configured) {
-      return count + 1;
-    }
-    if (method.kind === AUTH_METHOD_KIND_PASSWORD && method.configured) {
-      return count + 1;
-    }
-    return count;
-  }, 0);
+  const configuredIdentityMethodCount = countConfiguredIdentityMethods(methods);
 
   for (const method of methods) {
     if (method.kind === AUTH_METHOD_KIND_OAUTH) {
@@ -144,11 +170,14 @@ function buildAuthMethodsStatusFromSupabaseUser(user, options = {}) {
 
 function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus) {
   const minimumEnabledMethods = Number(authMethodsStatus?.minimumEnabledMethods || AUTH_METHOD_MINIMUM_ENABLED);
-  const enabledMethodsCount = Number.isFinite(Number(authMethodsStatus?.enabledMethodsCount))
-    ? Number(authMethodsStatus.enabledMethodsCount)
-    : Array.isArray(authMethodsStatus?.methods)
-      ? authMethodsStatus.methods.reduce((count, method) => (method?.enabled ? count + 1 : count), 0)
-      : 0;
+  let enabledMethodsCount = 0;
+
+  const storedCount = Number(authMethodsStatus?.enabledMethodsCount);
+  if (Number.isFinite(storedCount)) {
+    enabledMethodsCount = storedCount;
+  } else if (Array.isArray(authMethodsStatus?.methods)) {
+    enabledMethodsCount = countEnabledMethods(authMethodsStatus.methods);
+  }
 
   return {
     mfa: {

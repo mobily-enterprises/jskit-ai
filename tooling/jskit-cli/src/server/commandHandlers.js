@@ -831,9 +831,13 @@ function createCommandHandlers(deps) {
             const position = String(record.position || "").trim();
             const reason = String(record.reason || "").trim();
             const reasonSuffix = reason ? `: ${reason}` : "";
-            const mutationLabel = op === "append-text"
-              ? `${op} ${file}${position ? ` [${position}]` : ""}`
-              : `${op} ${file} ${key}`.trim();
+            let mutationLabel = `${op} ${file} ${key}`.trim();
+            if (op === "append-text") {
+              mutationLabel = `${op} ${file}`;
+              if (position) {
+                mutationLabel = `${mutationLabel} [${position}]`;
+              }
+            }
             stdout.write(`- ${color.item(mutationLabel)}${reasonSuffix}\n`);
           }
         }
@@ -845,7 +849,12 @@ function createCommandHandlers(deps) {
             const category = String(group.category || "").trim();
             const reason = String(group.reason || "").trim();
             const files = ensureArray(group.files);
-            const marker = groupId ? `id:${groupId}` : category ? `category:${category}` : "";
+            let marker = "";
+            if (groupId) {
+              marker = `id:${groupId}`;
+            } else if (category) {
+              marker = `category:${category}`;
+            }
             const markerSuffix = marker ? ` (${marker})` : "";
             for (const file of files) {
               const targetPath = String(ensureObject(file).to || "").trim();

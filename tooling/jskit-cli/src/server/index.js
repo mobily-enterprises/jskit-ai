@@ -65,22 +65,40 @@ const KNOWN_COMMANDS = new Set([
   "doctor",
   "lint-descriptors"
 ]);
+const COMMAND_ALIASES = Object.freeze({
+  view: "show",
+  ls: "list"
+});
+
+function normalizeMutationExtension(value) {
+  const extension = String(value || "").trim();
+  if (!extension) {
+    return "";
+  }
+  if (extension.startsWith(".")) {
+    return extension;
+  }
+  return `.${extension}`;
+}
+
+function resolveCommandAlias(rawCommand) {
+  const command = String(rawCommand || "").trim();
+  if (!command) {
+    return "";
+  }
+  return COMMAND_ALIASES[command] || command;
+}
 
 function normalizeFileMutationRecord(value) {
   const record = ensureObject(value);
   const op = String(record.op || "copy-file").trim().toLowerCase() || "copy-file";
-  const extension = String(record.extension || "").trim();
   return {
     op,
     from: String(record.from || "").trim(),
     to: String(record.to || "").trim(),
     toDir: String(record.toDir || "").trim(),
     slug: String(record.slug || "").trim(),
-    extension: extension
-      ? extension.startsWith(".")
-        ? extension
-        : `.${extension}`
-      : "",
+    extension: normalizeMutationExtension(record.extension),
     preserveOnRemove: record.preserveOnRemove === true,
     id: String(record.id || "").trim(),
     category: String(record.category || "").trim(),
@@ -692,7 +710,7 @@ function parseArgs(argv) {
   }
 
   const rawCommand = String(args.shift() || "help").trim() || "help";
-  const command = rawCommand === "view" ? "show" : rawCommand === "ls" ? "list" : rawCommand;
+  const command = resolveCommandAlias(rawCommand);
 
   if (!KNOWN_COMMANDS.has(command)) {
     throw createCliError(`Unknown command: ${rawCommand}`, { showUsage: true });
@@ -2454,11 +2472,18 @@ async function describePackageExports({ packageRoot, packageJson }) {
       targetExists = await fileExists(absoluteTargetPath);
     }
 
+    let targetType = "external";
+    if (isPattern) {
+      targetType = "pattern";
+    } else if (isRelativeTarget) {
+      targetType = "file";
+    }
+
     records.push({
       subpath,
       condition,
       target,
-      targetType: isPattern ? "pattern" : isRelativeTarget ? "file" : "external",
+      targetType,
       targetExists
     });
   }
