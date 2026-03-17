@@ -171,8 +171,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(notFoundView, /The page you requested does not exist\./);
 
     const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.match(indexView, /import ShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout";/);
-    assert.match(indexView, /title="welcome"/);
+    assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
+    assert.match(indexView, /welcome/);
     assert.doesNotMatch(indexView, /const appTitle =/);
 
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
@@ -381,8 +381,8 @@ test("create-app applies explicit app title when --title is provided", async () 
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);
 
     const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.match(indexView, /import ShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout";/);
-    assert.match(indexView, /title="welcome"/);
+    assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
+    assert.match(indexView, /welcome/);
   });
 });
 
@@ -398,6 +398,20 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
     assert.equal(procfile, "web: npm run start\n");
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
+
+    const addShellWebResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "shell-web", "--no-install"]
+    });
+    assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
+
+    const appWrapper = await readFile(path.join(appRoot, "src/pages/app.vue"), "utf8");
+    const adminWrapper = await readFile(path.join(appRoot, "src/pages/admin.vue"), "utf8");
+    const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+
+    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
   });
 });
 

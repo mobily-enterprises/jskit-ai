@@ -234,10 +234,21 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions.app.requiresWorkspace = true;\nconfig.surfaceDefinitions.admin.requiresWorkspace = true;\nconfig.surfaceDefinitions.console.requiresWorkspace = false;\n",
+          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.surfaceDefinitions.console = {",
+        value:
+          "\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.app || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.admin || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.console || {}),\n  requiresWorkspace: false\n};\n",
+        reason: "Append workspace surface defaults into app-owned config.",
+        category: "users-core",
+        id: "users-core-surface-config"
       },
       {
         op: "append-text",

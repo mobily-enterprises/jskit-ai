@@ -106,6 +106,27 @@ export default Object.freeze({
         id: "shell-web-page-root"
       },
       {
+        from: "templates/src/pages/app.vue",
+        to: "src/pages/app.vue",
+        reason: "Install shell-driven app wrapper page.",
+        category: "shell-web",
+        id: "shell-web-page-app-wrapper"
+      },
+      {
+        from: "templates/src/pages/admin.vue",
+        to: "src/pages/admin.vue",
+        reason: "Install shell-driven admin wrapper page.",
+        category: "shell-web",
+        id: "shell-web-page-admin-wrapper"
+      },
+      {
+        from: "templates/src/pages/console.vue",
+        to: "src/pages/console.vue",
+        reason: "Install shell-driven console wrapper page.",
+        category: "shell-web",
+        id: "shell-web-page-console-wrapper"
+      },
+      {
         from: "templates/src/pages/admin/index.vue",
         to: "src/pages/admin/index.vue",
         reason: "Install shell-driven admin page starter.",
