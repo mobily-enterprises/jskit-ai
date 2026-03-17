@@ -332,10 +332,6 @@ function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClie
     return resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders);
   }
 
-  if (typeof moduleNamespace.bootClient === "function") {
-    return [];
-  }
-
   const providerClasses = [];
   for (const value of Object.values(moduleNamespace)) {
     if (isProviderClass(value)) {
@@ -399,7 +395,7 @@ function assertRoutesDeclaredInDescriptor({
   descriptorRouteDeclarations = null
 } = {}) {
   const normalizedSource = String(source || "").trim();
-  if (normalizedSource !== "clientRoutes" && normalizedSource !== "bootClient") {
+  if (normalizedSource !== "clientRoutes") {
     return;
   }
 
@@ -631,7 +627,6 @@ async function bootClientModules({
       {
         packageId: entry.packageId,
         providerExports: providers.map((providerClass) => String(providerClass.id || providerClass.name || "").trim()),
-        hasBootClient: typeof entry.module.bootClient === "function",
         hasClientRoutes: Array.isArray(entry.module.clientRoutes) && entry.module.clientRoutes.length > 0
       },
       "Discovered client module capabilities."
@@ -708,31 +703,7 @@ async function bootClientModules({
     const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
     registerRoutesForEntry(moduleRoutes, entry.packageId, "clientRoutes", descriptorRouteDeclarations);
 
-    if (typeof entry.module.bootClient === "function") {
-      await entry.module.bootClient(
-        Object.freeze({
-          packageId: entry.packageId,
-          app,
-          router,
-          runtimeApp,
-          surfaceRuntime,
-          surfaceMode,
-          env: isRecord(env) ? { ...env } : {},
-          logger: log,
-          registerRoutes(routeList) {
-            return registerRoutesForEntry(routeList, entry.packageId, "bootClient", descriptorRouteDeclarations);
-          }
-        })
-      );
-      log.debug(
-        {
-          packageId: entry.packageId,
-          routerRoutes: summarizeRouterRoutes(router)
-        },
-        "Completed module bootClient hook."
-      );
-      bootedPackages.push(entry.packageId);
-    }
+    bootedPackages.push(entry.packageId);
   }
 
   const registeredRouteCount = routeResults.reduce((sum, result) => sum + result.registeredCount, 0);

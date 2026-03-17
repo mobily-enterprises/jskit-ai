@@ -26,43 +26,10 @@ export { AUTH_GUARD_RUNTIME_CLIENT_TOKEN } from "./runtime/tokens.js";
 
 const routeComponents = Object.freeze({
   "auth-login": DefaultLoginView,
-  "auth-signout": DefaultSignOutView
+  "auth-signout": DefaultSignOutView,
+  "auth-default-login": DefaultLoginView
 });
 
 const clientProviders = Object.freeze([AuthWebClientProvider]);
 
-function buildDefaultLoginRoute({ component = DefaultLoginView, path = "/auth/default-login", meta = {} } = {}) {
-  return {
-    id: "auth.default-login",
-    name: "auth-default-login",
-    path,
-    scope: "global",
-    component,
-    meta: {
-      ...meta,
-      guard: {
-        policy: "public",
-        ...(meta?.guard || {})
-      },
-      jskit: {
-        scope: "global",
-        routeId: "auth.default-login"
-      }
-    }
-  };
-}
-
-export function bootDefaultLoginRoute(context = {}) {
-  const { registerRoutes, ...options } = context;
-  if (typeof registerRoutes !== "function") {
-    throw new Error("bootDefaultLoginRoute requires registerRoutes().");
-  }
-
-  registerRoutes([buildDefaultLoginRoute(options)]);
-}
-
-async function bootClient(context) {
-  bootDefaultLoginRoute(context);
-}
-
-export { routeComponents, clientProviders, bootClient };
+export { routeComponents, clientProviders };

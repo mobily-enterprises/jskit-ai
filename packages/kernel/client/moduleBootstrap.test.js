@@ -87,12 +87,11 @@ test("registerClientModuleRoutes filters surface routes by mode", () => {
   assert.equal(router.routes[0].path, "/admin/dashboard");
 });
 
-test("bootClientModules registers clientRoutes and bootClient manual routes", async () => {
+test("bootClientModules registers descriptor and clientRoutes with providers only", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
   const loginComponent = {};
-  const manualComponent = {};
 
   const result = await bootClientModules({
     clientModules: [
@@ -154,19 +153,7 @@ test("bootClientModules registers clientRoutes and bootClient manual routes", as
               scope: "global",
               component: loginComponent
             }
-          ],
-          async bootClient(context) {
-            events.push(`bootClient:${context.packageId}`);
-            context.registerRoutes([
-              {
-                id: "auth.callback",
-                name: "auth-callback",
-                path: "/auth/callback",
-                scope: "global",
-                component: manualComponent
-              }
-            ]);
-          }
+          ]
         }
       }
     ],
@@ -176,15 +163,14 @@ test("bootClientModules registers clientRoutes and bootClient manual routes", as
     logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.deepEqual(events, ["register", "boot", "bootClient:@example/zeta"]);
+  assert.deepEqual(events, ["register", "boot"]);
   assert.equal(result.providerCount, 1);
-  assert.equal(result.routeCount, 3);
-  assert.equal(router.routes.length, 3);
+  assert.equal(result.routeCount, 2);
+  assert.equal(router.routes.length, 2);
   assert.equal(router.routes[0].path, "/auth/default-login-2");
   assert.equal(router.routes[0].component, loginComponent);
   assert.equal(router.routes[1].path, "/auth/login");
   assert.equal(router.routes[1].component, loginComponent);
-  assert.equal(router.routes[2].component, manualComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
 });
 
@@ -218,7 +204,7 @@ test("bootClientModules rejects clientRoutes without components", async () => {
   );
 });
 
-test("bootClientModules rejects non-declared programmatic routes", async () => {
+test("bootClientModules rejects non-declared global clientRoutes", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const loginComponent = {};
@@ -241,17 +227,15 @@ test("bootClientModules rejects non-declared programmatic routes", async () => {
             routeComponents: {
               "auth-login": loginComponent
             },
-            async bootClient(context) {
-              context.registerRoutes([
-                {
-                  id: "auth.callback",
-                  name: "auth-callback",
-                  path: "/auth/callback",
-                  scope: "global",
-                  component: loginComponent
-                }
-              ]);
-            }
+            clientRoutes: [
+              {
+                id: "auth.callback",
+                name: "auth-callback",
+                path: "/auth/callback",
+                scope: "global",
+                component: loginComponent
+              }
+            ]
           }
         }
       ],
@@ -264,7 +248,7 @@ test("bootClientModules rejects non-declared programmatic routes", async () => {
   );
 });
 
-test("bootClientModules allows non-declared surface programmatic routes", async () => {
+test("bootClientModules allows non-declared surface clientRoutes", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const dashboardComponent = {};
@@ -275,17 +259,15 @@ test("bootClientModules allows non-declared surface programmatic routes", async 
         packageId: "@example/surface-programmatic",
         descriptorUiRoutes: [],
         module: {
-          async bootClient(context) {
-            context.registerRoutes([
-              {
-                id: "admin.projects",
-                name: "admin-projects",
-                path: "/admin/projects",
-                scope: "surface",
-                component: dashboardComponent
-              }
-            ]);
-          }
+          clientRoutes: [
+            {
+              id: "admin.projects",
+              name: "admin-projects",
+              path: "/admin/projects",
+              scope: "surface",
+              component: dashboardComponent
+            }
+          ]
         }
       }
     ],

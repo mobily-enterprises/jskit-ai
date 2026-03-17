@@ -166,23 +166,11 @@ export default Object.freeze({
           "scope": "global",
           "name": "auth-default-login",
           "componentKey": "auth-default-login",
-          "autoRegister": false,
-          "guard": {
-            "policy": "public"
-          },
-          "purpose": "Default module-supplied login screen."
-        },
-        {
-          "id": "auth.default-login-2",
-          "path": "/auth/default-login-2",
-          "scope": "global",
-          "name": "auth-default-login-2",
-          "componentKey": "auth-login",
           "autoRegister": true,
           "guard": {
             "policy": "public"
           },
-          "purpose": "Auto-registered default login route from descriptor metadata."
+          "purpose": "Default module-supplied login screen."
         }
       ],
       "elements": [],
