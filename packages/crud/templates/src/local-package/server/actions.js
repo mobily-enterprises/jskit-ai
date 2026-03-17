@@ -66,7 +66,12 @@ function createActions() {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, crudResource.operations.create.bodyValidator],
+      inputValidator: [
+        workspaceSlugParamsValidator,
+        {
+          payload: crudResource.operations.create.bodyValidator
+        }
+      ],
       outputValidator: crudResource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
@@ -74,7 +79,7 @@ function createActions() {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.${option:namespace|camel}Service.createRecord(input, {
+        return deps.${option:namespace|camel}Service.createRecord(input.payload, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -90,7 +95,13 @@ function createActions() {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
+      inputValidator: [
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator,
+        {
+          patch: crudResource.operations.patch.bodyValidator
+        }
+      ],
       outputValidator: crudResource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
@@ -98,8 +109,7 @@ function createActions() {
       },
       observability: {},
       async execute(input, context, deps) {
-        const { recordId, ...patch } = input;
-        return deps.${option:namespace|camel}Service.updateRecord(recordId, patch, {
+        return deps.${option:namespace|camel}Service.updateRecord(input.recordId, input.patch, {
           context,
           visibilityContext: context?.visibilityContext
         });

@@ -31,8 +31,8 @@ function registerCompleteCalendarRoutes(app) {
         actionId: "completeCalendar.week.list",
         context: { surface: "admin" },
         input: {
-          ...request.input.params,
-          ...request.input.query
+          workspaceSlug: request.input.params.workspaceSlug,
+          query: request.input.query
         }
       });
       reply.code(200).send(response);
@@ -58,7 +58,10 @@ function registerCompleteCalendarRoutes(app) {
       const response = await request.executeAction({
         actionId: "completeCalendar.view",
         context: { surface: "admin" },
-        input: request.input.params
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          eventId: request.input.params.eventId
+        }
       });
       reply.code(200).send(response);
     }
@@ -88,8 +91,8 @@ function registerCompleteCalendarRoutes(app) {
         actionId: "completeCalendar.create",
         context: { surface: "admin" },
         input: {
-          ...request.input.params,
-          ...request.input.body
+          workspaceSlug: request.input.params.workspaceSlug,
+          payload: request.input.body
         }
       });
       reply.code(201).send(response);
@@ -120,8 +123,9 @@ function registerCompleteCalendarRoutes(app) {
         actionId: "completeCalendar.update",
         context: { surface: "admin" },
         input: {
-          ...request.input.params,
-          ...request.input.body
+          workspaceSlug: request.input.params.workspaceSlug,
+          eventId: request.input.params.eventId,
+          patch: request.input.body
         }
       });
       reply.code(200).send(response);
@@ -147,7 +151,10 @@ function registerCompleteCalendarRoutes(app) {
       const response = await request.executeAction({
         actionId: "completeCalendar.delete",
         context: { surface: "admin" },
-        input: request.input.params
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          eventId: request.input.params.eventId
+        }
       });
       reply.code(200).send(response);
     }

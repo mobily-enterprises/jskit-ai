@@ -37,7 +37,12 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [workspaceSlugParamsValidator, assistantResource.operations.conversationsList.queryValidator],
+    inputValidator: [
+      workspaceSlugParamsValidator,
+      {
+        query: assistantResource.operations.conversationsList.queryValidator
+      }
+    ],
     outputValidator: assistantResource.operations.conversationsList.outputValidator,
     idempotency: "none",
     audit: {
@@ -45,7 +50,7 @@ const assistantActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.chatService.listConversations(input, {
+      return deps.chatService.listConversations(input.query, {
         context
       });
     }
@@ -63,7 +68,9 @@ const assistantActions = Object.freeze([
     inputValidator: [
       workspaceSlugParamsValidator,
       assistantResource.operations.conversationMessagesList.paramsValidator,
-      assistantResource.operations.conversationMessagesList.queryValidator
+      {
+        query: assistantResource.operations.conversationMessagesList.queryValidator
+      }
     ],
     outputValidator: assistantResource.operations.conversationMessagesList.outputValidator,
     idempotency: "none",
@@ -72,7 +79,7 @@ const assistantActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.chatService.getConversationMessages(input.conversationId, input, {
+      return deps.chatService.getConversationMessages(input.conversationId, input.query, {
         context
       });
     }

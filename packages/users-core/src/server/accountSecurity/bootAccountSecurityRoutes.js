@@ -35,7 +35,9 @@ function bootAccountSecurityRoutes(app) {
     async function (request, reply) {
       const result = await request.executeAction({
         actionId: "settings.security.password.change",
-        input: request.input.body
+        input: {
+          payload: request.input.body
+        }
       });
 
       if (result?.session && typeof authService.writeSessionCookies === "function") {
@@ -73,7 +75,9 @@ function bootAccountSecurityRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "settings.security.password_method.toggle",
-        input: request.input.body
+        input: {
+          payload: request.input.body
+        }
       });
 
       reply.code(200).send(response);
@@ -140,7 +144,9 @@ function bootAccountSecurityRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "settings.security.oauth.unlink",
-        input: request.input.params
+        input: {
+          provider: request.input.params.provider
+        }
       });
 
       reply.code(200).send(response);

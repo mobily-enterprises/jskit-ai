@@ -15,7 +15,9 @@ const accountPreferencesActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.preferencesUpdate.bodyValidator,
+    inputValidator: {
+      payload: userSettingsResource.operations.preferencesUpdate.bodyValidator
+    },
     outputValidator: userSettingsResource.operations.view.outputValidator,
     idempotency: "optional",
     audit: {
@@ -26,7 +28,7 @@ const accountPreferencesActions = Object.freeze([
       return deps.accountPreferencesService.updatePreferences(
         resolveRequest(context),
         resolveUser(context, input),
-        input,
+        input.payload,
         {
           context
         }

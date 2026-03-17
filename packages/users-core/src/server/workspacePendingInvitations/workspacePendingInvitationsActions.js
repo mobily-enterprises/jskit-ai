@@ -41,7 +41,9 @@ const workspacePendingInvitationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: workspaceInviteResource.operations.redeem.bodyValidator,
+    inputValidator: {
+      payload: workspaceInviteResource.operations.redeem.bodyValidator
+    },
     outputValidator: workspaceInviteResource.operations.redeem.outputValidator,
     idempotency: "optional",
     audit: {
@@ -49,12 +51,13 @@ const workspacePendingInvitationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
+      const payload = input.payload || {};
       const user = resolveUser(context, input);
 
-      if (input.decision === "accept") {
+      if (payload.decision === "accept") {
         return deps.workspacePendingInvitationsService.acceptInviteByToken({
           user,
-          token: input.token
+          token: payload.token
         }, {
           context
         });
@@ -62,7 +65,7 @@ const workspacePendingInvitationsActions = Object.freeze([
 
       return deps.workspacePendingInvitationsService.refuseInviteByToken({
         user,
-        token: input.token
+        token: payload.token
       }, {
         context
       });

@@ -55,7 +55,9 @@ function bootAccountProfileRoutes(app) {
     async function (request, reply) {
       const result = await request.executeAction({
         actionId: "settings.profile.update",
-        input: request.input.body
+        input: {
+          payload: request.input.body
+        }
       });
 
       if (result?.session && typeof authService.writeSessionCookies === "function") {

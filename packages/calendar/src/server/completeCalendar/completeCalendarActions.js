@@ -12,7 +12,12 @@ const completeCalendarActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarInputValidators.weekQueryValidator],
+    inputValidator: [
+      completeCalendarInputValidators.workspaceParamsValidator,
+      {
+        query: completeCalendarInputValidators.weekQueryValidator
+      }
+    ],
     outputValidator: completeCalendarResource.operations.list.outputValidator,
     idempotency: "none",
     audit: {
@@ -20,7 +25,7 @@ const completeCalendarActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.completeCalendarService.listWeek(input, {
+      return deps.completeCalendarService.listWeek(input.query, {
         context,
         visibilityContext: context?.visibilityContext
       });
@@ -60,7 +65,12 @@ const completeCalendarActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [completeCalendarInputValidators.workspaceParamsValidator, completeCalendarResource.operations.create.bodyValidator],
+    inputValidator: [
+      completeCalendarInputValidators.workspaceParamsValidator,
+      {
+        payload: completeCalendarResource.operations.create.bodyValidator
+      }
+    ],
     outputValidator: completeCalendarResource.operations.create.outputValidator,
     idempotency: "optional",
     audit: {
@@ -68,7 +78,7 @@ const completeCalendarActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.completeCalendarService.createEvent(input, {
+      return deps.completeCalendarService.createEvent(input.payload, {
         context,
         visibilityContext: context?.visibilityContext
       });
@@ -84,7 +94,12 @@ const completeCalendarActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [completeCalendarInputValidators.routeParamsValidator, completeCalendarResource.operations.patch.bodyValidator],
+    inputValidator: [
+      completeCalendarInputValidators.routeParamsValidator,
+      {
+        patch: completeCalendarResource.operations.patch.bodyValidator
+      }
+    ],
     outputValidator: completeCalendarResource.operations.patch.outputValidator,
     idempotency: "optional",
     audit: {
@@ -92,8 +107,7 @@ const completeCalendarActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const { eventId, ...patch } = input;
-      return deps.completeCalendarService.updateEvent(eventId, patch, {
+      return deps.completeCalendarService.updateEvent(input.eventId, input.patch, {
         context,
         visibilityContext: context?.visibilityContext
       });

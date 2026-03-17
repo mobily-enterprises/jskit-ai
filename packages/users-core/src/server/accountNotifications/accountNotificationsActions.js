@@ -15,7 +15,9 @@ const accountNotificationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.notificationsUpdate.bodyValidator,
+    inputValidator: {
+      payload: userSettingsResource.operations.notificationsUpdate.bodyValidator
+    },
     outputValidator: userSettingsResource.operations.view.outputValidator,
     idempotency: "optional",
     audit: {
@@ -26,7 +28,7 @@ const accountNotificationsActions = Object.freeze([
       return deps.accountNotificationsService.updateNotifications(
         resolveRequest(context),
         resolveUser(context, input),
-        input,
+        input.payload,
         {
           context
         }

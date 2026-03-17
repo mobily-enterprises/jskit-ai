@@ -171,7 +171,7 @@ function registerRoutes(app) {
         },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.query
+          query: request.input.query
         }
       });
 
@@ -204,7 +204,7 @@ function registerRoutes(app) {
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           conversationId: request.input.params.conversationId,
-          ...request.input.query
+          query: request.input.query
         }
       });
 

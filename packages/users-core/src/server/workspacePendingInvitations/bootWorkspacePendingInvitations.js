@@ -51,7 +51,9 @@ function bootWorkspacePendingInvitations(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "workspace.invite.redeem",
-        input: request.input.body
+        input: {
+          payload: request.input.body
+        }
       });
       reply.code(200).send(response);
     }

@@ -60,7 +60,9 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userProfileResource.operations.patch.bodyValidator,
+    inputValidator: {
+      payload: userProfileResource.operations.patch.bodyValidator
+    },
     outputValidator: settingsProfileUpdateOutputValidator,
     idempotency: "optional",
     audit: {
@@ -71,7 +73,7 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
         resolveUser(context, input),
-        input,
+        input.payload,
         {
           context
         }

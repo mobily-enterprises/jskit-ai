@@ -15,7 +15,9 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.passwordChange.bodyValidator,
+    inputValidator: {
+      payload: userSettingsResource.operations.passwordChange.bodyValidator
+    },
     outputValidator: userSettingsResource.operations.passwordChange.outputValidator,
     idempotency: "none",
     audit: {
@@ -23,9 +25,14 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.changePassword(resolveRequest(context), resolveUser(context, input), input, {
-        context
-      });
+      return deps.accountSecurityService.changePassword(
+        resolveRequest(context),
+        resolveUser(context, input),
+        input.payload,
+        {
+          context
+        }
+      );
     }
   },
   {
@@ -38,7 +45,9 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.passwordMethodToggle.bodyValidator,
+    inputValidator: {
+      payload: userSettingsResource.operations.passwordMethodToggle.bodyValidator
+    },
     outputValidator: userSettingsResource.operations.passwordMethodToggle.outputValidator,
     idempotency: "none",
     audit: {
@@ -49,7 +58,7 @@ const accountSecurityActions = Object.freeze([
       return deps.accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
         resolveUser(context, input),
-        input,
+        input.payload,
         {
           context
         }

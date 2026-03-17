@@ -60,7 +60,7 @@ function bootWorkspaceSettings(app) {
         actionId: "workspace.settings.update",
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.body
+          patch: request.input.body
         }
       });
       reply.code(200).send(response);

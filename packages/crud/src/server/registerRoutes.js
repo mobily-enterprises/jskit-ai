@@ -150,7 +150,7 @@ function registerRoutes(
         context: { surface: "admin" },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.body
+          payload: request.input.body
         }
       });
       reply.code(201).send(response);
@@ -183,7 +183,7 @@ function registerRoutes(
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           recordId: request.input.params.recordId,
-          ...request.input.body
+          patch: request.input.body
         }
       });
       reply.code(200).send(response);

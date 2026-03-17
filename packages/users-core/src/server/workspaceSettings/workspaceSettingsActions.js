@@ -48,7 +48,12 @@ const workspaceSettingsActions = Object.freeze([
       require: "all",
       permissions: ["workspace.settings.update"]
     },
-    inputValidator: [workspaceSlugParamsValidator, workspaceSettingsResource.operations.patch.bodyValidator],
+    inputValidator: [
+      workspaceSlugParamsValidator,
+      {
+        patch: workspaceSettingsResource.operations.patch.bodyValidator
+      }
+    ],
     outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
     idempotency: "optional",
     audit: {
@@ -57,13 +62,14 @@ const workspaceSettingsActions = Object.freeze([
     observability: {},
     assistantTool: {
       description: "Update workspace settings.",
-      inputValidator: workspaceSettingsResource.operations.patch.bodyValidator
+      inputValidator: {
+        patch: workspaceSettingsResource.operations.patch.bodyValidator
+      }
     },
     async execute(input, context, deps) {
-      const { workspaceSlug: _workspaceSlug, ...workspaceSettingsPatch } = input;
       const response = await deps.workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
-        workspaceSettingsPatch,
+        input.patch,
         {
           context
         }

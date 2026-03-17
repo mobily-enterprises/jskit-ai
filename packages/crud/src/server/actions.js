@@ -68,7 +68,12 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, crudResource.operations.create.bodyValidator],
+      inputValidator: [
+        workspaceSlugParamsValidator,
+        {
+          payload: crudResource.operations.create.bodyValidator
+        }
+      ],
       outputValidator: crudResource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
@@ -76,7 +81,7 @@ function createActions({ actionIdPrefix } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.crudService.createRecord(input, {
+        return deps.crudService.createRecord(input.payload, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -92,7 +97,13 @@ function createActions({ actionIdPrefix } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, crudResource.operations.patch.bodyValidator],
+      inputValidator: [
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator,
+        {
+          patch: crudResource.operations.patch.bodyValidator
+        }
+      ],
       outputValidator: crudResource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
@@ -100,8 +111,7 @@ function createActions({ actionIdPrefix } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        const { recordId, ...patch } = input;
-        return deps.crudService.updateRecord(recordId, patch, {
+        return deps.crudService.updateRecord(input.recordId, input.patch, {
           context,
           visibilityContext: context?.visibilityContext
         });

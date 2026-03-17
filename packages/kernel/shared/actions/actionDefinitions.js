@@ -1,4 +1,6 @@
+import { Type } from "typebox";
 import { mergeValidators } from "../validators/mergeValidators.js";
+import { normalizeObjectInput } from "../validators/inputNormalization.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -133,6 +135,69 @@ function normalizeSingleActionValidator(value, fieldName, { required = false } =
   });
 }
 
+function isActionValidatorShape(value) {
+  return (
+    isPlainObject(value) &&
+    (Object.prototype.hasOwnProperty.call(value, "schema") || Object.prototype.hasOwnProperty.call(value, "normalize"))
+  );
+}
+
+function normalizeSectionActionValidatorMap(value, fieldName) {
+  if (!isPlainObject(value) || isActionValidatorShape(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length < 1) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must define at least one section validator.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  const schemaProperties = {};
+  const sectionNormalizers = [];
+
+  for (const [rawKey, rawValidator] of entries) {
+    const sectionKey = normalizeText(rawKey);
+    if (!sectionKey) {
+      throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
+        code: "ACTION_DEFINITION_INVALID"
+      });
+    }
+
+    const sectionValidator = normalizeSingleActionValidator(rawValidator, `${fieldName}.${sectionKey}`, {
+      required: true
+    });
+
+    schemaProperties[sectionKey] = sectionValidator.schema;
+    sectionNormalizers.push({
+      key: sectionKey,
+      normalize: typeof sectionValidator.normalize === "function" ? sectionValidator.normalize : null
+    });
+  }
+
+  return Object.freeze({
+    schema: Type.Object(schemaProperties, {
+      additionalProperties: false
+    }),
+    async normalize(payload, meta) {
+      const source = normalizeObjectInput(payload);
+      const normalized = {};
+
+      for (const section of sectionNormalizers) {
+        if (!Object.hasOwn(source, section.key)) {
+          continue;
+        }
+
+        const sectionPayload = source[section.key];
+        normalized[section.key] = section.normalize ? await section.normalize(sectionPayload, meta) : sectionPayload;
+      }
+
+      return normalized;
+    }
+  });
+}
+
 function mergeNormalizedActionValidators(validators, fieldName) {
   return mergeValidators(validators, {
     context: `Action definition ${fieldName}`,
@@ -167,12 +232,18 @@ function normalizeActionValidators(value, fieldName, { required = false } = {}) 
   }
 
   const validators = validatorsSource.map((entry, index) => {
-    const validator = normalizeSingleActionValidator(entry, `${fieldName}[${index}]`, {
+    const contextFieldName = `${fieldName}[${index}]`;
+    const sectionMapValidator = normalizeSectionActionValidatorMap(entry, contextFieldName);
+    if (sectionMapValidator) {
+      return sectionMapValidator;
+    }
+
+    const validator = normalizeSingleActionValidator(entry, contextFieldName, {
       required: true
     });
 
     if (!validator) {
-      throw createActionRuntimeError(500, `Action definition ${fieldName}[${index}] is required.`, {
+      throw createActionRuntimeError(500, `Action definition ${contextFieldName} is required.`, {
         code: "ACTION_DEFINITION_INVALID"
       });
     }
@@ -184,7 +255,7 @@ function normalizeActionValidators(value, fieldName, { required = false } = {}) 
 }
 
 function normalizeActionOutputValidator(value, fieldName, { required = false } = {}) {
-  return normalizeSingleActionValidator(value, fieldName, {
+  return normalizeActionValidators(value, fieldName, {
     required
   });
 }
@@ -299,7 +370,7 @@ function normalizeAssistantToolConfig(assistantTool) {
   const assistantToolInputValidator =
     typeof inputValidator === "undefined"
       ? null
-      : normalizeSingleActionValidator(inputValidator, "assistantTool.inputValidator");
+      : normalizeActionValidators(inputValidator, "assistantTool.inputValidator");
   if (typeof assistantTool.inputJsonSchema !== "undefined") {
     throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.inputValidator.", {
       code: "ACTION_DEFINITION_INVALID"
@@ -453,6 +524,7 @@ const __testables = {
   normalizePositiveInteger,
   normalizeStringArray,
   normalizeSingleActionValidator,
+  normalizeSectionActionValidatorMap,
   normalizeActionValidators,
   normalizeActionOutputValidator,
   normalizeActionPermission,
