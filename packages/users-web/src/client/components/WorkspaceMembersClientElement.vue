@@ -6,7 +6,6 @@
 
     <MembersAdminClientElement
       v-else
-      mode="workspace"
       :forms="forms"
       :options="options"
       :collections="collections"
