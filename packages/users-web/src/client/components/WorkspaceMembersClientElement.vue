@@ -20,7 +20,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
-import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { useCommand } from "../composables/useCommand.js";
 import { useList } from "../composables/useList.js";
 import { useView } from "../composables/useView.js";
@@ -29,6 +28,8 @@ import { useAccess } from "../composables/useAccess.js";
 import { useUiFeedback } from "../composables/useUiFeedback.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
+import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
+import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 import {
   WORKSPACE_SETTINGS_CHANGED_EVENT,
   WORKSPACE_MEMBERS_CHANGED_EVENT,
@@ -96,16 +97,6 @@ const workspaceInvitesApiPath = computed(() =>
   })
 );
 
-function workspaceQueryKey(kind, surfaceId = "", workspaceSlug = "") {
-  return [
-    "users-web",
-    "workspace",
-    String(kind || ""),
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ];
-}
-
 function workspaceMembersPath(memberId) {
   return `${workspaceMembersApiPath.value}/${Number(memberId || 0)}`;
 }
@@ -123,12 +114,7 @@ const access = useAccess({
 });
 
 function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
-  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
-  if (!payloadWorkspaceSlug) {
-    return true;
-  }
-
-  return payloadWorkspaceSlug === String(workspaceSlugFromRoute.value || "").trim();
+  return matchesCurrentWorkspaceEvent(payload, workspaceSlugFromRoute.value);
 }
 
 const canViewMembers = computed(() => {
@@ -295,7 +281,8 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
 const workspaceSettingsView = useView({
   visibility: "workspace",
   apiSuffix: "/settings",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("settings", surfaceId, workspaceSlug),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    buildWorkspaceQueryKey("settings", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.invite"],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
@@ -307,7 +294,7 @@ const workspaceSettingsView = useView({
 const workspaceRolesView = useView({
   visibility: "workspace",
   apiSuffix: "/roles",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("roles", surfaceId, workspaceSlug),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => buildWorkspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
   fallbackLoadError: "Unable to load workspace roles."
 });
@@ -315,7 +302,8 @@ const workspaceRolesView = useView({
 const workspaceMembersList = useList({
   visibility: "workspace",
   apiSuffix: "/members",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("members", surfaceId, workspaceSlug),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    buildWorkspaceQueryKey("members", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_MEMBERS_CHANGED_EVENT,
@@ -328,7 +316,8 @@ const workspaceMembersList = useList({
 const workspaceInvitesList = useList({
   visibility: "workspace",
   apiSuffix: "/invites",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("invites", surfaceId, workspaceSlug),
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    buildWorkspaceQueryKey("invites", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_INVITES_CHANGED_EVENT,

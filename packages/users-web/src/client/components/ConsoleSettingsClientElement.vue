@@ -54,11 +54,6 @@ const form = reactive({
   assistantSystemPromptWorkspace: ""
 });
 
-const CONSOLE_SETTINGS_MESSAGES = Object.freeze({
-  saveSuccess: "Console settings updated.",
-  saveError: "Unable to update console settings."
-});
-
 const addEdit = useAddEdit({
   visibility: "public",
   apiSuffix: "/console/settings",
@@ -80,7 +75,10 @@ const addEdit = useAddEdit({
   buildRawPayload: (model) => ({
     assistantSystemPromptWorkspace: model.assistantSystemPromptWorkspace
   }),
-  messages: CONSOLE_SETTINGS_MESSAGES
+  messages: {
+    saveSuccess: "Console settings updated.",
+    saveError: "Unable to update console settings."
+  }
 });
 </script>
 

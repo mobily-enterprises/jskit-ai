@@ -14,6 +14,7 @@ function useCommandCore({
   buildCommandOptions,
   onRunSuccess,
   onRunError,
+  suppressSuccessMessage = false,
   messages = {}
 } = {}) {
   const queryClient = useQueryClient();
@@ -90,7 +91,9 @@ function useCommandCore({
         });
       }
 
-      feedback?.success?.(String(messages.success || "Completed."));
+      if (!suppressSuccessMessage) {
+        feedback?.success?.(String(messages.success || "Completed."));
+      }
       return response;
     } catch (error) {
       fieldBag?.apply?.(resolveFieldErrors(error));

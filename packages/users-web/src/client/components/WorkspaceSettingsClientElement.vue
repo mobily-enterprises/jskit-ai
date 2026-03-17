@@ -89,7 +89,6 @@
 <script setup>
 import { computed, reactive, watch } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
 import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
@@ -98,6 +97,8 @@ import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { normalizePermissionList } from "../lib/permissions.js";
+import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
+import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 
@@ -145,25 +146,15 @@ watch(
 );
 
 function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
-  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
-  if (!payloadWorkspaceSlug) {
-    return true;
-  }
-
-  return payloadWorkspaceSlug === String(routeContext.workspaceSlugFromRoute.value || "").trim();
+  return matchesCurrentWorkspaceEvent(payload, routeContext.workspaceSlugFromRoute.value);
 }
 
 const addEdit = useAddEdit({
   visibility: "workspace",
   resource: workspaceSettingsResource,
   apiSuffix: "/settings",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    "users-web",
-    "settings",
-    "workspace",
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
+    buildWorkspaceQueryKey("settings", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-settings-view",

@@ -17,6 +17,7 @@ import {
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { usePaths } from "../composables/usePaths.js";
+import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
 
 const props = defineProps({
   label: {
@@ -63,12 +64,7 @@ const bootstrapQuery = useBootstrapQuery({
 const workspaceSettingsEventsEnabled = computed(() => Boolean(paths.workspaceSlug.value));
 
 function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-  const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
-  if (!payloadWorkspaceSlug) {
-    return true;
-  }
-
-  return payloadWorkspaceSlug === String(paths.workspaceSlug.value || "").trim();
+  return matchesCurrentWorkspaceEvent(payload, paths.workspaceSlug.value);
 }
 
 const permissions = computed(() => {

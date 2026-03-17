@@ -178,7 +178,7 @@ function reportAccountFeedback({
   });
 }
 
-function toObject(value) {
+function normalizeSettingsPayload(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
@@ -225,7 +225,7 @@ function applyAvatarData(avatar) {
 }
 
 function applySettingsData(payload) {
-  const data = toObject(payload);
+  const data = normalizeSettingsPayload(payload);
 
   profileForm.displayName = String(data.profile?.displayName || "");
   profileForm.email = String(data.profile?.email || "");
@@ -246,6 +246,10 @@ function applySettingsData(payload) {
   applyThemePreference(preferencesForm.theme);
 }
 
+const mapAccountSettingsPayload = (_model, payload = {}) => {
+  applySettingsData(payload);
+};
+
 const settingsView = useView({
   visibility: "public",
   apiSuffix: "/settings",
@@ -254,9 +258,7 @@ const settingsView = useView({
     event: ACCOUNT_SETTINGS_CHANGED_EVENT
   },
   fallbackLoadError: "Unable to load settings.",
-  mapLoadedToModel: (_unusedModel, payload = {}) => {
-    applySettingsData(payload);
-  }
+  mapLoadedToModel: mapAccountSettingsPayload
 });
 
 const profileAddEdit = useAddEdit({
@@ -268,9 +270,7 @@ const profileAddEdit = useAddEdit({
   fallbackSaveError: "Unable to update profile.",
   fieldErrorKeys: ["displayName"],
   model: profileForm,
-  mapLoadedToModel: (_model, payload = {}) => {
-    applySettingsData(payload);
-  },
+  mapLoadedToModel: mapAccountSettingsPayload,
   buildRawPayload: (model) => ({
     displayName: String(model.displayName || "").trim()
   }),
@@ -307,9 +307,7 @@ const preferencesAddEdit = useAddEdit({
   fallbackSaveError: "Unable to update preferences.",
   fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
   model: preferencesForm,
-  mapLoadedToModel: (_model, payload = {}) => {
-    applySettingsData(payload);
-  },
+  mapLoadedToModel: mapAccountSettingsPayload,
   buildRawPayload: (model) => ({
     theme: model.theme,
     locale: model.locale,
@@ -333,9 +331,7 @@ const notificationsAddEdit = useAddEdit({
   writeMethod: "PATCH",
   fallbackSaveError: "Unable to update notifications.",
   model: notificationsForm,
-  mapLoadedToModel: (_model, payload = {}) => {
-    applySettingsData(payload);
-  },
+  mapLoadedToModel: mapAccountSettingsPayload,
   buildRawPayload: (model) => ({
     productUpdates: Boolean(model.productUpdates),
     accountActivity: Boolean(model.accountActivity),

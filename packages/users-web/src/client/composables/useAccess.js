@@ -4,6 +4,7 @@ import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
 import {
   USERS_BOOTSTRAP_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
@@ -85,12 +86,7 @@ function useAccess({
   );
 
   function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-    const payloadWorkspaceSlug = String(payload?.workspaceSlug || "").trim();
-    if (!payloadWorkspaceSlug) {
-      return true;
-    }
-
-    return payloadWorkspaceSlug === normalizedWorkspaceSlug.value;
+    return matchesCurrentWorkspaceEvent(payload, normalizedWorkspaceSlug.value);
   }
 
   if (accessRequired && typeof mergePlacementContext === "function") {

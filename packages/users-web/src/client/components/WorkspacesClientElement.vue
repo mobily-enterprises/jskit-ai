@@ -7,7 +7,6 @@ import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
@@ -40,7 +39,7 @@ const redeemInviteModel = reactive({
   token: "",
   decision: ""
 });
-const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", normalizeQueryToken("")]);
+const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", "__none__"]);
 
 const bootstrapView = useView({
   visibility: "public",
@@ -65,13 +64,13 @@ const redeemInviteCommand = useCommand({
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
   fallbackRunError: "Unable to respond to invitation.",
+  suppressSuccessMessage: true,
   model: redeemInviteModel,
   buildRawPayload: (model) => ({
     token: String(model.token || "").trim(),
     decision: String(model.decision || "").trim().toLowerCase()
   }),
   messages: {
-    success: "",
     error: "Unable to respond to invitation."
   }
 });

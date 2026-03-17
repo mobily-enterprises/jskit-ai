@@ -8,7 +8,7 @@
             <v-card-subtitle class="px-0">Create a new ${option:namespace|singular|default(record)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="text" :to="listPath || undefined">Cancel</v-btn>
+          <v-btn variant="text" :to="listPath">Cancel</v-btn>
           <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
             Save ${option:namespace|singular|default(record)}
           </v-btn>

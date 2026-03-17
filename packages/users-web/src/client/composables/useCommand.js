@@ -26,6 +26,7 @@ function useCommand({
   buildCommandOptions,
   onRunSuccess,
   onRunError,
+  suppressSuccessMessage = false,
   messages = {},
   realtime = null
 } = {}) {
@@ -68,6 +69,7 @@ function useCommand({
     buildCommandOptions,
     onRunSuccess,
     onRunError,
+    suppressSuccessMessage: Boolean(suppressSuccessMessage),
     messages: {
       validation: "Fix invalid values and try again.",
       success: "Completed.",

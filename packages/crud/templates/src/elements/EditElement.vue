@@ -8,7 +8,7 @@
             <v-card-subtitle class="px-0">Update the selected ${option:namespace|singular|default(record)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="text" :to="detailPath || listPath">Cancel</v-btn>
+          <v-btn variant="text" :to="viewPath || listPath">Cancel</v-btn>
           <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
             Save changes
           </v-btn>
@@ -66,7 +66,6 @@ const recordForm = reactive({
   name: "",
   surname: ""
 });
-const detailPath = viewPath;
 
 const addEdit = useAddEdit({
   visibility: crudModuleConfig.visibility,

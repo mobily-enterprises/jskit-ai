@@ -278,7 +278,7 @@ export function useDefaultLoginView() {
   );
   const rememberedAccountDisplayName = computed(() => String(rememberedAccount.value?.displayName || "your account"));
   const rememberedAccountMaskedEmail = computed(() => String(rememberedAccount.value?.maskedEmail || ""));
-  const rememberedAccountSwitchLabel = computed(() => "Use another account");
+  const rememberedAccountSwitchLabel = "Use another account";
 
   const authTitle = computed(() => {
     if (isRegister.value) {

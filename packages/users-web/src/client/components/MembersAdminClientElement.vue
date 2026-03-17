@@ -144,6 +144,7 @@
 
 <script setup>
 import { computed, toRefs, unref } from "vue";
+import { requireBoolean, requireRecord } from "../support/contractGuards.js";
 
 const props = defineProps({
   forms: {
@@ -176,28 +177,13 @@ const props = defineProps({
   }
 });
 
-function requireRecord(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError(`MembersAdminClientElement expects ${label} to be an object.`);
-  }
-  return value;
-}
-
-function resolveLoadedState(value) {
-  const resolved = unref(value);
-  if (typeof resolved === "boolean") {
-    return resolved;
-  }
-  return true;
-}
-
-requireRecord(props.forms, "forms");
-requireRecord(props.options, "options");
-requireRecord(props.collections, "collections");
-requireRecord(props.permissions, "permissions");
-requireRecord(props.feedback, "feedback");
-requireRecord(props.status, "status");
-requireRecord(props.actions, "actions");
+requireRecord(props.forms, "forms", "MembersAdminClientElement");
+requireRecord(props.options, "options", "MembersAdminClientElement");
+requireRecord(props.collections, "collections", "MembersAdminClientElement");
+requireRecord(props.permissions, "permissions", "MembersAdminClientElement");
+requireRecord(props.feedback, "feedback", "MembersAdminClientElement");
+requireRecord(props.status, "status", "MembersAdminClientElement");
+requireRecord(props.actions, "actions", "MembersAdminClientElement");
 
 const {
   forms,
@@ -209,8 +195,10 @@ const {
   actions
 } = toRefs(props);
 
-const inviteForm = computed(() => requireRecord(forms.value.invite, "forms.invite"));
-const workspaceForm = computed(() => requireRecord(forms.value.workspace, "forms.workspace"));
+const inviteForm = computed(() => requireRecord(forms.value.invite, "forms.invite", "MembersAdminClientElement"));
+const workspaceForm = computed(() =>
+  requireRecord(forms.value.workspace, "forms.workspace", "MembersAdminClientElement")
+);
 
 const memberRows = computed(() => {
   const source = collections.value.members;
@@ -238,7 +226,15 @@ const canManageMembers = computed(() => Boolean(unref(permissions.value.canManag
 const canRevokeInvites = computed(() => Boolean(unref(permissions.value.canRevokeInvites)));
 const isCreatingInvite = computed(() => Boolean(unref(status.value.isCreatingInvite)));
 const isRevokingInvite = computed(() => Boolean(unref(status.value.isRevokingInvite)));
-const workspaceInvitePolicyLoaded = computed(() => resolveLoadedState(status.value.hasLoadedWorkspaceSettings));
+const workspaceInvitePolicyLoaded = computed(() =>
+  requireBoolean(status.value.hasLoadedWorkspaceSettings, "status.hasLoadedWorkspaceSettings", "MembersAdminClientElement")
+);
+const membersListLoaded = computed(() =>
+  requireBoolean(status.value.hasLoadedMembersList, "status.hasLoadedMembersList", "MembersAdminClientElement")
+);
+const inviteListLoaded = computed(() =>
+  requireBoolean(status.value.hasLoadedInviteList, "status.hasLoadedInviteList", "MembersAdminClientElement")
+);
 
 const showWorkspaceInviteLoadingSkeleton = computed(
   () => canInviteMembers.value && !workspaceInvitePolicyLoaded.value
@@ -247,7 +243,7 @@ const showWorkspaceInviteLoadingSkeleton = computed(
 const showMembersLoadingSkeleton = computed(
   () =>
     canViewMembers.value &&
-    (!resolveLoadedState(status.value.hasLoadedMembersList) || !resolveLoadedState(status.value.hasLoadedInviteList))
+    (!membersListLoaded.value || !inviteListLoaded.value)
 );
 
 const revokeInviteId = computed(() => Number(unref(feedback.value.revokeInviteId) || 0));
