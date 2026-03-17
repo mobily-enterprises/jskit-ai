@@ -2,7 +2,7 @@
 
 Last updated: 2026-02-25 (UTC)
 
-This project exposes Prometheus-format metrics at `GET /api/v1/metrics`.
+This project exposes Prometheus-format metrics at `GET /api/metrics`.
 Action runtime executions are also observable through structured logs and audit events.
 
 ## 1) Endpoint and environment
@@ -14,7 +14,7 @@ Environment variables:
 
 Behavior:
 
-- When `METRICS_ENABLED=false`, `/api/v1/metrics` returns `404`.
+- When `METRICS_ENABLED=false`, `/api/metrics` returns `404`.
 - When `METRICS_BEARER_TOKEN` is set, callers must send:
   - `Authorization: Bearer <token>`
 
@@ -53,14 +53,14 @@ Billing guardrails:
 
 Notes:
 
-- `route` uses Fastify route templates (for example, `/api/v1/admin/workspace/invites/:inviteId`) to avoid high cardinality.
+- `route` uses Fastify route templates (for example, `/api/admin/workspace/invites/:inviteId`) to avoid high cardinality.
 - Do not add user identifiers or request IDs to labels.
 
 Social/federation operational usage:
 
 - Track social API health with route filters such as:
-  - `/api/v1/workspace/social/*`
-  - `/api/v1/workspace/admin/social/*`
+  - `/api/workspace/social/*`
+  - `/api/workspace/admin/social/*`
 - Track federation ingress/lookup endpoint behavior via:
   - `/.well-known/webfinger`
   - `/ap/inbox`
@@ -116,7 +116,7 @@ Prometheus scrape job example:
 ```yaml
 scrape_configs:
   - job_name: jskit-app
-    metrics_path: /api/v1/metrics
+    metrics_path: /api/metrics
     scheme: https
     static_configs:
       - targets: ["your-host.example.com"]
@@ -138,7 +138,7 @@ Trigger when readiness is unavailable for 5 minutes:
 sum_over_time(up{job="jskit-app"}[5m]) == 0
 ```
 
-If your platform supports HTTP health checks directly, alert when `GET /api/v1/ready` is non-200 for 5 minutes.
+If your platform supports HTTP health checks directly, alert when `GET /api/ready` is non-200 for 5 minutes.
 
 ### Error-rate alert
 
@@ -171,7 +171,7 @@ Tune this by action filter for high-value operations.
 ```promql
 histogram_quantile(
   0.95,
-  sum by (le) (rate(app_http_request_duration_seconds_bucket{route!="/api/v1/metrics"}[5m]))
+  sum by (le) (rate(app_http_request_duration_seconds_bucket{route!="/api/metrics"}[5m]))
 )
 ```
 
@@ -237,9 +237,9 @@ sum by (surface) (
 ### Social + federation error-rate slice (5m)
 
 ```promql
-sum(rate(app_http_5xx_total{route=~"/api/v1/workspace/social.*|/api/v1/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m]))
+sum(rate(app_http_5xx_total{route=~"/api/workspace/social.*|/api/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m]))
 /
-clamp_min(sum(rate(app_http_requests_total{route=~"/api/v1/workspace/social.*|/api/v1/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m])), 1)
+clamp_min(sum(rate(app_http_requests_total{route=~"/api/workspace/social.*|/api/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m])), 1)
 ```
 
 ## 7) Action telemetry verification checklist

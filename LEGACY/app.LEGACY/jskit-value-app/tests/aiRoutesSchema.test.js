@@ -66,7 +66,7 @@ test("ai route rejects malformed request body and accepts valid payload", async 
 
   const invalid = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/ai/chat/stream",
+    url: "/api/workspace/ai/chat/stream",
     payload: {
       input: "hello"
     }
@@ -76,7 +76,7 @@ test("ai route rejects malformed request body and accepts valid payload", async 
 
   const valid = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/ai/chat/stream",
+    url: "/api/workspace/ai/chat/stream",
     payload: {
       messageId: "message_1",
       input: "hello"
@@ -87,35 +87,35 @@ test("ai route rejects malformed request body and accepts valid payload", async 
 
   const invalidConversationsQuery = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/ai/conversations?pageSize=201"
+    url: "/api/workspace/ai/conversations?pageSize=201"
   });
 
   assert.equal(invalidConversationsQuery.statusCode, 400);
 
   const validConversations = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/ai/conversations?page=1&pageSize=20"
+    url: "/api/workspace/ai/conversations?page=1&pageSize=20"
   });
 
   assert.equal(validConversations.statusCode, 200);
 
   const invalidMessagesParams = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/ai/conversations/not-a-number/messages"
+    url: "/api/workspace/ai/conversations/not-a-number/messages"
   });
 
   assert.equal(invalidMessagesParams.statusCode, 400);
 
   const invalidMessagesQuery = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/ai/conversations/7/messages?pageSize=999"
+    url: "/api/workspace/ai/conversations/7/messages?pageSize=999"
   });
 
   assert.equal(invalidMessagesQuery.statusCode, 400);
 
   const validMessages = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/ai/conversations/7/messages?page=1&pageSize=100"
+    url: "/api/workspace/ai/conversations/7/messages?page=1&pageSize=100"
   });
 
   assert.equal(validMessages.statusCode, 200);

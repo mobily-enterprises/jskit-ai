@@ -40,22 +40,22 @@ function buildRouteMap() {
 test("billing API routes are selector-compatible with optional workspace policy", () => {
   const routeMap = buildRouteMap();
   const selectorCompatibleRoutes = [
-    "GET /api/v1/billing/plans",
-    "GET /api/v1/billing/products",
-    "GET /api/v1/billing/purchases",
-    "GET /api/v1/billing/plan-state",
-    "GET /api/v1/billing/payment-methods",
-    "POST /api/v1/billing/payment-methods/sync",
-    "POST /api/v1/billing/payment-methods/:paymentMethodId/default",
-    "POST /api/v1/billing/payment-methods/:paymentMethodId/detach",
-    "DELETE /api/v1/billing/payment-methods/:paymentMethodId",
-    "GET /api/v1/billing/limitations",
-    "GET /api/v1/billing/timeline",
-    "POST /api/v1/billing/checkout",
-    "POST /api/v1/billing/plan-change",
-    "POST /api/v1/billing/plan-change/cancel",
-    "POST /api/v1/billing/portal",
-    "POST /api/v1/billing/payment-links"
+    "GET /api/billing/plans",
+    "GET /api/billing/products",
+    "GET /api/billing/purchases",
+    "GET /api/billing/plan-state",
+    "GET /api/billing/payment-methods",
+    "POST /api/billing/payment-methods/sync",
+    "POST /api/billing/payment-methods/:paymentMethodId/default",
+    "POST /api/billing/payment-methods/:paymentMethodId/detach",
+    "DELETE /api/billing/payment-methods/:paymentMethodId",
+    "GET /api/billing/limitations",
+    "GET /api/billing/timeline",
+    "POST /api/billing/checkout",
+    "POST /api/billing/plan-change",
+    "POST /api/billing/plan-change/cancel",
+    "POST /api/billing/portal",
+    "POST /api/billing/payment-links"
   ];
 
   for (const key of selectorCompatibleRoutes) {
@@ -69,15 +69,15 @@ test("billing API routes are selector-compatible with optional workspace policy"
 test("billing write routes do not depend on prehandler workspace permission checks", () => {
   const routeMap = buildRouteMap();
   const writeRoutes = [
-    "POST /api/v1/billing/payment-methods/sync",
-    "POST /api/v1/billing/payment-methods/:paymentMethodId/default",
-    "POST /api/v1/billing/payment-methods/:paymentMethodId/detach",
-    "DELETE /api/v1/billing/payment-methods/:paymentMethodId",
-    "POST /api/v1/billing/checkout",
-    "POST /api/v1/billing/plan-change",
-    "POST /api/v1/billing/plan-change/cancel",
-    "POST /api/v1/billing/portal",
-    "POST /api/v1/billing/payment-links"
+    "POST /api/billing/payment-methods/sync",
+    "POST /api/billing/payment-methods/:paymentMethodId/default",
+    "POST /api/billing/payment-methods/:paymentMethodId/detach",
+    "DELETE /api/billing/payment-methods/:paymentMethodId",
+    "POST /api/billing/checkout",
+    "POST /api/billing/plan-change",
+    "POST /api/billing/plan-change/cancel",
+    "POST /api/billing/portal",
+    "POST /api/billing/payment-links"
   ];
 
   for (const key of writeRoutes) {
@@ -89,7 +89,7 @@ test("billing write routes do not depend on prehandler workspace permission chec
 
 test("stripe webhook route remains public and workspace-agnostic", () => {
   const routeMap = buildRouteMap();
-  const route = routeMap.get("POST /api/v1/billing/webhooks/stripe");
+  const route = routeMap.get("POST /api/billing/webhooks/stripe");
 
   assert.ok(route);
   assert.equal(route.auth, "public");

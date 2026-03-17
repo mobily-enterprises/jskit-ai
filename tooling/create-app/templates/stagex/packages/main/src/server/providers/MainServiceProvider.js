@@ -73,18 +73,18 @@ class MainServiceProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
     const controller = app.make(CONTACT_CONTROLLER);
 
-    router.register("POST", "/api/v1/contacts/intake", contactIntakePostRouteValidator, (request, reply) =>
+    router.register("POST", "/api/contacts/intake", contactIntakePostRouteValidator, (request, reply) =>
       controller.intake(request, reply)
     );
 
     router.register(
       "POST",
-      "/api/v1/contacts/preview-followup",
+      "/api/contacts/preview-followup",
       contactPreviewFollowupPostRouteValidator,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
-    router.register("GET", "/api/v1/contacts/:contactId", contactByIdGetRouteValidator, (request, reply) =>
+    router.register("GET", "/api/contacts/:contactId", contactByIdGetRouteValidator, (request, reply) =>
       controller.show(request, reply)
     );
   }

@@ -5,7 +5,7 @@ function createApi({ request }) {
         page: String(page),
         pageSize: String(pageSize)
       });
-      return request(`/api/v1/history?${params.toString()}`);
+      return request(`/api/history?${params.toString()}`);
     }
   };
 }

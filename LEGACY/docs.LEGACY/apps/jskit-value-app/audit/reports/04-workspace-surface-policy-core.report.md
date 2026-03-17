@@ -20,8 +20,8 @@ None. Re-audited 2026-02-26; no currently open issues found in required scope.
 ### [04-ISSUE-001] Path-based surface resolution misclassified admin workspace APIs as `app`
 - Fixed on: 2026-02-26
 - How fixed:
-  - Moved workspace-admin HTTP routes to an explicit admin namespace (`/api/admin/workspace/*`, versioned to `/api/v1/admin/workspace/*` at registration time) so pathname-derived surface resolution is structurally correct.
-  - Updated app-side workspace admin API clients to call `/api/v1/admin/workspace/*` endpoints.
+  - Moved workspace-admin HTTP routes to an explicit admin namespace (`/api/admin/workspace/*`, versioned to `/api/admin/workspace/*` at registration time) so pathname-derived surface resolution is structurally correct.
+  - Updated app-side workspace admin API clients to call `/api/admin/workspace/*` endpoints.
   - Updated transport command-correlation route patterns for admin writes to the new namespace.
   - Hardened auth-failure observability surface attribution to prefer route metadata (`meta.workspaceSurface`) first, then `x-surface-id`, then pathname fallback.
   - Updated route examples/docs and policy/transport tests to the new contract.
@@ -58,10 +58,10 @@ None. Re-audited 2026-02-26; no currently open issues found in required scope.
 - Fixed on: 2026-02-26
 - How fixed:
   - Added `tests/workspaceRoutePolicyDefaults.test.js` to assert route-manifest policy metadata for workspace self-service endpoints:
-    - `GET /api/v1/workspaces`
-    - `POST /api/v1/workspaces/select`
-    - `GET /api/v1/workspace/invitations/pending`
-    - `POST /api/v1/workspace/invitations/redeem`
+    - `GET /api/workspaces`
+    - `POST /api/workspaces/select`
+    - `GET /api/workspace/invitations/pending`
+    - `POST /api/workspace/invitations/redeem`
   - The new test locks expected selector-safe metadata (`auth: "required"` with no forced `workspacePolicy`, `workspaceSurface`, or `permission`) and also asserts that admin workspace routes remain explicitly workspace-scoped.
 - Code changes were applied in:
   - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js`

@@ -59,7 +59,7 @@ If no billable-entity selector is provided, workspace selector precedence is:
 
 Endpoint:
 
-- `GET /api/v1/billing/limitations`
+- `GET /api/billing/limitations`
 
 Response shape:
 
@@ -151,9 +151,9 @@ Notes:
 
 Routes requiring `Idempotency-Key` request header:
 
-- `POST /api/v1/billing/checkout`
-- `POST /api/v1/billing/portal`
-- `POST /api/v1/billing/payment-links`
+- `POST /api/billing/checkout`
+- `POST /api/billing/portal`
+- `POST /api/billing/payment-links`
 
 Missing header behavior:
 
@@ -197,11 +197,11 @@ Error envelope:
 
 Endpoints:
 
-- `GET /api/v1/billing/plan-state`
-- `POST /api/v1/billing/plan-change`
-- `POST /api/v1/billing/plan-change/cancel`
+- `GET /api/billing/plan-state`
+- `POST /api/billing/plan-change`
+- `POST /api/billing/plan-change/cancel`
 
-`GET /api/v1/billing/plan-state` response guarantees:
+`GET /api/billing/plan-state` response guarantees:
 
 - `currentPlan`: active plan currently applied to the entity (or `null`).
 - `nextPlanChange`: pending scheduled change (or `null`).
@@ -211,7 +211,7 @@ Endpoints:
   - `required_now`
   - `allow_without_payment_method`
 
-`POST /api/v1/billing/plan-change` request body:
+`POST /api/billing/plan-change` request body:
 
 ```json
 {
@@ -229,7 +229,7 @@ Behavior contract:
 - If no active subscription exists and target is paid, response can require checkout (`mode: "checkout_required"` + `checkout` payload).
 - Free-plan moves do not require Stripe checkout and apply directly.
 
-`POST /api/v1/billing/plan-change/cancel` behavior:
+`POST /api/billing/plan-change/cancel` behavior:
 
 - Cancels only a pending scheduled change.
 - Returns `{ "canceled": true|false, "state": ... }`.
@@ -240,10 +240,10 @@ Console purchase operations are global-surface admin endpoints and are separate 
 
 Endpoints:
 
-- `GET /api/v1/console/billing/purchases`
-- `POST /api/v1/console/billing/purchases/:purchaseId/refund`
-- `POST /api/v1/console/billing/purchases/:purchaseId/void`
-- `POST /api/v1/console/billing/purchases/:purchaseId/corrections`
+- `GET /api/console/billing/purchases`
+- `POST /api/console/billing/purchases/:purchaseId/refund`
+- `POST /api/console/billing/purchases/:purchaseId/void`
+- `POST /api/console/billing/purchases/:purchaseId/corrections`
 
 Idempotency contract:
 
@@ -283,17 +283,17 @@ Console assignment/subscription admin endpoints are global-surface operations an
 
 Plan assignment endpoints:
 
-- `GET /api/v1/console/billing/plan-assignments`
-- `POST /api/v1/console/billing/plan-assignments`
-- `PATCH /api/v1/console/billing/plan-assignments/:assignmentId`
-- `POST /api/v1/console/billing/plan-assignments/:assignmentId/cancel`
+- `GET /api/console/billing/plan-assignments`
+- `POST /api/console/billing/plan-assignments`
+- `PATCH /api/console/billing/plan-assignments/:assignmentId`
+- `POST /api/console/billing/plan-assignments/:assignmentId/cancel`
 
 Subscription endpoints:
 
-- `GET /api/v1/console/billing/subscriptions`
-- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/change-plan`
-- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel`
-- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel-at-period-end`
+- `GET /api/console/billing/subscriptions`
+- `POST /api/console/billing/subscriptions/:providerSubscriptionId/change-plan`
+- `POST /api/console/billing/subscriptions/:providerSubscriptionId/cancel`
+- `POST /api/console/billing/subscriptions/:providerSubscriptionId/cancel-at-period-end`
 
 Idempotency contract:
 
@@ -317,9 +317,9 @@ Deterministic error codes:
 
 Workspace billing payment-method endpoints:
 
-- `POST /api/v1/billing/payment-methods/:paymentMethodId/default`
-- `POST /api/v1/billing/payment-methods/:paymentMethodId/detach`
-- `DELETE /api/v1/billing/payment-methods/:paymentMethodId`
+- `POST /api/billing/payment-methods/:paymentMethodId/default`
+- `POST /api/billing/payment-methods/:paymentMethodId/detach`
+- `DELETE /api/billing/payment-methods/:paymentMethodId`
 
 Idempotency contract:
 

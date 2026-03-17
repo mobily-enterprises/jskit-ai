@@ -178,26 +178,26 @@ test("social route schemas validate expected payloads and query params", async (
 
   const invalidFeed = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/social/feed?limit=0"
+    url: "/api/workspace/social/feed?limit=0"
   });
   assert.equal(invalidFeed.statusCode, 400);
 
   const validFeed = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/social/feed?limit=20"
+    url: "/api/workspace/social/feed?limit=20"
   });
   assert.equal(validFeed.statusCode, 200);
 
   const invalidPost = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/social/posts",
+    url: "/api/workspace/social/posts",
     payload: {}
   });
   assert.equal(invalidPost.statusCode, 400);
 
   const validPost = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/social/posts",
+    url: "/api/workspace/social/posts",
     payload: {
       contentText: "hello social"
     }
@@ -206,14 +206,14 @@ test("social route schemas validate expected payloads and query params", async (
 
   const invalidFollow = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/social/follows",
+    url: "/api/workspace/social/follows",
     payload: {}
   });
   assert.equal(invalidFollow.statusCode, 400);
 
   const validFollow = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/social/follows",
+    url: "/api/workspace/social/follows",
     payload: {
       handle: "alice@example.test"
     }
@@ -222,7 +222,7 @@ test("social route schemas validate expected payloads and query params", async (
 
   const invalidModerationRule = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/admin/social/moderation/rules",
+    url: "/api/workspace/admin/social/moderation/rules",
     payload: {
       ruleScope: "domain",
       domain: "example.test",
@@ -233,7 +233,7 @@ test("social route schemas validate expected payloads and query params", async (
 
   const validModerationRule = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/admin/social/moderation/rules",
+    url: "/api/workspace/admin/social/moderation/rules",
     payload: {
       ruleScope: "domain",
       domain: "example.test",

@@ -68,9 +68,9 @@ The project includes a Provider that uses `router.register()` to add the specifi
 
 The fully working server exposes these endpoints:
 
-- `POST /api/v1/contacts/intake`
-- `POST /api/v1/contacts/preview-followup`
-- `GET /api/v1/contacts/:contactId`
+- `POST /api/contacts/intake`
+- `POST /api/contacts/preview-followup`
+- `GET /api/contacts/:contactId`
 
 The two `POST` routes are business-logic-heavy on purpose:
 
@@ -90,7 +90,7 @@ npm run dev
 ```
 
 ```bash
-curl -i -X POST "http://localhost:3000/api/v1/contacts/intake" \
+curl -i -X POST "http://localhost:3000/api/contacts/intake" \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Alice Jones",
@@ -105,7 +105,7 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/intake" \
 ```
 
 ```bash
-curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
+curl -i -X POST "http://localhost:3000/api/contacts/preview-followup" \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Alice Jones",
@@ -120,7 +120,7 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
 ```
 
 ```bash
-curl -i "http://localhost:3000/api/v1/docs/ch03/stage-1/contacts/contact-does-not-exist"
+curl -i "http://localhost:3000/api/docs/ch03/stage-1/contacts/contact-does-not-exist"
 ```
 
 ### The verdict
@@ -615,7 +615,7 @@ Provider now passes route contracts directly (instead of spreading and overridin
 ```js
 router.register(
   "POST",
-  "/api/v1/docs/ch03/stage-6/contacts/intake",
+  "/api/docs/ch03/stage-6/contacts/intake",
   contactIntakePostRouteContractStage6,
   (request, reply) => controller.intake(request, reply)
 );
@@ -1025,8 +1025,8 @@ The dedicated persistence chapter (to be added later) should cover production pa
 
 ## Suggested Tests For This Chapter
 
-- `POST /api/v1/docs/ch03/stage-7/contacts/intake` duplicate email mapped as domain conflict
-- `POST /api/v1/docs/ch03/stage-6/contacts/intake` success (input normalized through Stage 6 route contract)
+- `POST /api/docs/ch03/stage-7/contacts/intake` duplicate email mapped as domain conflict
+- `POST /api/docs/ch03/stage-6/contacts/intake` success (input normalized through Stage 6 route contract)
 - schema-level validation failure for malformed request payload
 
 ## What You Should Take Away

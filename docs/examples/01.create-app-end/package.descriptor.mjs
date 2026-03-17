@@ -28,7 +28,7 @@ export default Object.freeze({
       routes: [
         {
           method: "GET",
-          path: "/api/v1/docs/ch01/hello"
+          path: "/api/docs/ch01/hello"
         }
       ]
     },

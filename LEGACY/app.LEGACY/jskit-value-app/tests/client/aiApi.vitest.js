@@ -54,7 +54,7 @@ describe("ai api stream client", () => {
     );
 
     expect(requestStream).toHaveBeenCalledWith(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         body: {
@@ -173,7 +173,7 @@ describe("ai api stream client", () => {
       status: "completed"
     });
 
-    expect(request).toHaveBeenCalledWith("/api/v1/workspace/ai/conversations?page=2&pageSize=25&status=completed");
+    expect(request).toHaveBeenCalledWith("/api/workspace/ai/conversations?page=2&pageSize=25&status=completed");
   });
 
   it("loads assistant conversation messages with encoded id and query params", async () => {
@@ -190,7 +190,7 @@ describe("ai api stream client", () => {
       pageSize: 500
     });
 
-    expect(request).toHaveBeenCalledWith("/api/v1/workspace/ai/conversations/42/messages?page=1&pageSize=500");
+    expect(request).toHaveBeenCalledWith("/api/workspace/ai/conversations/42/messages?page=1&pageSize=500");
   });
 
   it("parses NDJSON events across chunk boundaries", async () => {
@@ -201,7 +201,7 @@ describe("ai api stream client", () => {
     );
 
     await __testables.requestStream(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         headers: {
@@ -240,7 +240,7 @@ describe("ai api stream client", () => {
     );
 
     await __testables.requestStream(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         headers: {
@@ -275,7 +275,7 @@ describe("ai api stream client", () => {
     global.fetch.mockResolvedValueOnce(createNdjsonResponse(['{"type":"done"}\n']));
 
     await __testables.requestStream(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         headers: {
@@ -307,7 +307,7 @@ describe("ai api stream client", () => {
     );
 
     await __testables.requestStream(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         headers: {
@@ -343,7 +343,7 @@ describe("ai api stream client", () => {
     });
 
     const streamPromise = __testables.requestStream(
-      "/api/v1/workspace/ai/chat/stream",
+      "/api/workspace/ai/chat/stream",
       {
         method: "POST",
         signal: abortController.signal,

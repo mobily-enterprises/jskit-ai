@@ -61,7 +61,7 @@ All workspace-owned entities are keyed by `workspace_id` with dedupe/uniqueness 
 
 ### Authenticated workspace APIs
 
-Workspace endpoints live under `/api/v1/workspace/...` and enforce route policy metadata:
+Workspace endpoints live under `/api/workspace/...` and enforce route policy metadata:
 
 - end-user social routes: `workspacePolicy=required`, `workspaceSurface=app`
 - moderation routes: `workspacePolicy=required`, `workspaceSurface=admin`

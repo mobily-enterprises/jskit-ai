@@ -30460,7 +30460,7 @@
     {
       "format": "javascript",
       "lines": 14,
-      "fragment": "?${queryString}` : \"\"}`);\n    },\n    getAiTranscriptMessages(conversationId, query = {}) {\n      const encodedConversationId = encodeURIComponent(String(conversationId || \"\").trim());\n      const params = new URLSearchParams();\n      if (query.page != null) {\n        params.set(\"page\", String(query.page));\n      }\n      if (query.pageSize != null) {\n        params.set(\"pageSize\", String(query.pageSize));\n      }\n      const queryString = params.toString();\n      return request(\n        `/api/v1/console/ai/transcripts/",
+      "fragment": "?${queryString}` : \"\"}`);\n    },\n    getAiTranscriptMessages(conversationId, query = {}) {\n      const encodedConversationId = encodeURIComponent(String(conversationId || \"\").trim());\n      const params = new URLSearchParams();\n      if (query.page != null) {\n        params.set(\"page\", String(query.page));\n      }\n      if (query.pageSize != null) {\n        params.set(\"pageSize\", String(query.pageSize));\n      }\n      const queryString = params.toString();\n      return request(\n        `/api/console/ai/transcripts/",
       "tokens": 0,
       "firstFile": {
         "name": "packages/ai-agent/assistant-client-runtime/src/shared/consoleTranscriptsApi.js",
@@ -30496,7 +30496,7 @@
     {
       "format": "javascript",
       "lines": 14,
-      "fragment": "if (query.from) {\n        params.set(\"from\", String(query.from));\n      }\n      if (query.to) {\n        params.set(\"to\", String(query.to));\n      }\n      if (query.limit != null) {\n        params.set(\"limit\", String(query.limit));\n      }\n      if (query.format) {\n        params.set(\"format\", String(query.format));\n      }\n      const queryString = params.toString();\n      return request(`/api/v1/console/ai/transcripts/export${queryString ? `",
+      "fragment": "if (query.from) {\n        params.set(\"from\", String(query.from));\n      }\n      if (query.to) {\n        params.set(\"to\", String(query.to));\n      }\n      if (query.limit != null) {\n        params.set(\"limit\", String(query.limit));\n      }\n      if (query.format) {\n        params.set(\"format\", String(query.format));\n      }\n      const queryString = params.toString();\n      return request(`/api/console/ai/transcripts/export${queryString ? `",
       "tokens": 0,
       "firstFile": {
         "name": "packages/ai-agent/assistant-client-runtime/src/shared/consoleTranscriptsApi.js",
@@ -36832,7 +36832,7 @@
     {
       "format": "javascript",
       "lines": 19,
-      "fragment": ", async () => {\n  const permissionsBySlug = {\n    acme: [\"projects.read\"]\n  };\n  const { app, port, realtimeEventsService } = await createRealtimeTestApp({\n    permissionsBySlug\n  });\n  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;\n\n  const socket = await openRealtimeWebSocket(url, {\n    headers: {\n      cookie: \"sid=ok\"\n    }\n  });\n\n  socket.send(\n    JSON.stringify({\n      type: \"subscribe\",\n      requestId: \"req-evict-subscribe\"",
+      "fragment": ", async () => {\n  const permissionsBySlug = {\n    acme: [\"projects.read\"]\n  };\n  const { app, port, realtimeEventsService } = await createRealtimeTestApp({\n    permissionsBySlug\n  });\n  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;\n\n  const socket = await openRealtimeWebSocket(url, {\n    headers: {\n      cookie: \"sid=ok\"\n    }\n  });\n\n  socket.send(\n    JSON.stringify({\n      type: \"subscribe\",\n      requestId: \"req-evict-subscribe\"",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/realtimeRoutes.test.js",
@@ -36868,7 +36868,7 @@
     {
       "format": "javascript",
       "lines": 18,
-      "fragment": ", async () => {\n  const { app, port } = await createRealtimeTestApp({\n    permissionsBySlug: {\n      acme: []\n    }\n  });\n  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;\n\n  const socket = await openRealtimeWebSocket(url, {\n    headers: {\n      cookie: \"sid=ok\"\n    }\n  });\n\n  socket.send(\n    JSON.stringify({\n      type: \"subscribe\",\n      requestId: \"req-2b\"",
+      "fragment": ", async () => {\n  const { app, port } = await createRealtimeTestApp({\n    permissionsBySlug: {\n      acme: []\n    }\n  });\n  const url = `ws://127.0.0.1:${port}/api/realtime`;\n\n  const socket = await openRealtimeWebSocket(url, {\n    headers: {\n      cookie: \"sid=ok\"\n    }\n  });\n\n  socket.send(\n    JSON.stringify({\n      type: \"subscribe\",\n      requestId: \"req-2b\"",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/realtimeRoutes.test.js",
@@ -38308,7 +38308,7 @@
     {
       "format": "javascript",
       "lines": 20,
-      "fragment": ", async () => {\n  const app = Fastify();\n  installTestErrorHandler(app);\n  await app.register(authPlugin, {\n    authService: {\n      async authenticateRequest() {\n        return {\n          authenticated: false,\n          clearSession: false,\n          session: null,\n          transientFailure: false\n        };\n      },\n      writeSessionCookies() {},\n      clearSessionCookies() {}\n    },\n    nodeEnv: \"test\"\n  });\n\n  app.get(\"/api/v1/token\"",
+      "fragment": ", async () => {\n  const app = Fastify();\n  installTestErrorHandler(app);\n  await app.register(authPlugin, {\n    authService: {\n      async authenticateRequest() {\n        return {\n          authenticated: false,\n          clearSession: false,\n          session: null,\n          transientFailure: false\n        };\n      },\n      writeSessionCookies() {},\n      clearSessionCookies() {}\n    },\n    nodeEnv: \"test\"\n  });\n\n  app.get(\"/api/token\"",
       "tokens": 0,
       "firstFile": {
         "name": "apps/jskit-value-app/tests/authPermissions.test.js",

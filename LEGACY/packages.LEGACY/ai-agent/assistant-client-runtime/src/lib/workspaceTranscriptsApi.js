@@ -21,7 +21,7 @@ function createApi({ request }) {
         params.set("createdByUserId", String(query.createdByUserId));
       }
       const queryString = params.toString();
-      return request(`/api/v1/admin/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/admin/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },
     getAiTranscriptMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -34,7 +34,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/v1/admin/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/admin/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     },
     exportAiTranscript(conversationId, query = {}) {
@@ -54,7 +54,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/v1/admin/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
+        `/api/admin/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
       );
     }
   };

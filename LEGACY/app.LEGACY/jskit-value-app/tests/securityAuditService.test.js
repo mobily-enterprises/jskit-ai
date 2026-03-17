@@ -25,7 +25,7 @@ test("security audit service normalizes events and redacts sensitive metadata", 
     workspaceId: "7",
     requestId: "req-1",
     method: "post",
-    path: "/api/v1/workspace/acme/invites",
+    path: "/api/workspace/acme/invites",
     ipAddress: "203.0.113.10",
     userAgent: "Jest Agent",
     metadata: {

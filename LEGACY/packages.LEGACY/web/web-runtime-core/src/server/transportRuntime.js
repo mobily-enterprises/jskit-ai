@@ -1,80 +1,80 @@
 import { createHttpClient } from "@jskit-ai/http-client-runtime/server";
 
-const DEFAULT_API_PATH_PREFIX = "/api/v1/";
-const DEFAULT_AI_STREAM_URL = "/api/v1/workspace/ai/chat/stream";
-const DEFAULT_CSRF_SESSION_PATH = "/api/v1/session";
+const DEFAULT_API_PATH_PREFIX = "/api/";
+const DEFAULT_AI_STREAM_URL = "/api/workspace/ai/chat/stream";
+const DEFAULT_CSRF_SESSION_PATH = "/api/session";
 const DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES = Object.freeze([
   {
     method: "POST",
-    pattern: /^\/api\/v1\/workspace\/projects$/
+    pattern: /^\/api\/workspace\/projects$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/v1\/workspace\/projects\/[^/]+$/
+    pattern: /^\/api\/workspace\/projects\/[^/]+$/
   },
   {
     method: "PUT",
-    pattern: /^\/api\/v1\/workspace\/projects\/[^/]+$/
+    pattern: /^\/api\/workspace\/projects\/[^/]+$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/v1\/admin\/workspace\/settings$/
+    pattern: /^\/api\/admin\/workspace\/settings$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/v1\/admin\/workspace\/members\/[^/]+\/role$/
+    pattern: /^\/api\/admin\/workspace\/members\/[^/]+\/role$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/admin\/workspace\/invites$/
+    pattern: /^\/api\/admin\/workspace\/invites$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/v1\/admin\/workspace\/invites\/[^/]+$/
+    pattern: /^\/api\/admin\/workspace\/invites\/[^/]+$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/workspace\/ensure$/
+    pattern: /^\/api\/chat\/workspace\/ensure$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/dm\/ensure$/
+    pattern: /^\/api\/chat\/dm\/ensure$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/messages$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/messages$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/reserve$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/reserve$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/upload$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/upload$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/[^/]+$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/[^/]+$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/read$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/read$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/typing$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/typing$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/reactions$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/reactions$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/reactions$/
+    pattern: /^\/api\/chat\/threads\/[^/]+\/reactions$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/workspace\/invitations\/redeem$/
+    pattern: /^\/api\/workspace\/invitations\/redeem$/
   }
 ]);
 

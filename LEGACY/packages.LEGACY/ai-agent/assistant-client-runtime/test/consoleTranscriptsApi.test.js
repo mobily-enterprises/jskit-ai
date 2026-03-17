@@ -18,7 +18,7 @@ test("consoleTranscriptsApi uses console transcript routes", async () => {
   await api.getAiTranscriptMessages("conv/2", { page: 1, pageSize: 50 });
   await api.exportAiTranscripts({ workspaceId: 12, role: "assistant", format: "csv" });
 
-  assert.equal(calls[0], "/api/v1/console/ai/transcripts?page=3&pageSize=10&workspaceId=12&status=failed");
-  assert.equal(calls[1], "/api/v1/console/ai/transcripts/conv%2F2/messages?page=1&pageSize=50");
-  assert.equal(calls[2], "/api/v1/console/ai/transcripts/export?workspaceId=12&role=assistant&format=csv");
+  assert.equal(calls[0], "/api/console/ai/transcripts?page=3&pageSize=10&workspaceId=12&status=failed");
+  assert.equal(calls[1], "/api/console/ai/transcripts/conv%2F2/messages?page=1&pageSize=50");
+  assert.equal(calls[2], "/api/console/ai/transcripts/export?workspaceId=12&role=assistant&format=csv");
 });

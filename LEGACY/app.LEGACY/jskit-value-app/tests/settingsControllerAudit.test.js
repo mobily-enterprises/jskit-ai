@@ -8,7 +8,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-settings-1",
     method: "PATCH",
-    url: "/api/v1/settings/security/methods/password",
+    url: "/api/settings/security/methods/password",
     headers: {
       "x-forwarded-for": "203.0.113.21",
       "user-agent": "settings-action-test"
@@ -43,7 +43,7 @@ test("settings controller delegates security writes to canonical actions", async
   await controller.setPasswordMethodEnabled(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/v1/settings/security/methods/password",
+      url: "/api/settings/security/methods/password",
       body: { enabled: true }
     }),
     passwordReply
@@ -54,7 +54,7 @@ test("settings controller delegates security writes to canonical actions", async
   await controller.unlinkOAuthProvider(
     createBaseRequest({
       method: "DELETE",
-      url: "/api/v1/settings/security/oauth/google",
+      url: "/api/settings/security/oauth/google",
       params: { provider: "google" }
     }),
     unlinkReply

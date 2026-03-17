@@ -45,7 +45,7 @@ function createApi({ request, requestStream }) {
       }
 
       await requestStream(
-        "/api/v1/workspace/ai/chat/stream",
+        "/api/workspace/ai/chat/stream",
         {
           method: "POST",
           body: payload,
@@ -66,7 +66,7 @@ function createApi({ request, requestStream }) {
       appendQueryParam(params, "to", query.to);
       appendQueryParam(params, "status", query.status);
       const queryString = params.toString();
-      return request(`/api/v1/workspace/ai/conversations${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/workspace/ai/conversations${queryString ? `?${queryString}` : ""}`);
     },
     getConversationMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -75,7 +75,7 @@ function createApi({ request, requestStream }) {
       appendQueryParam(params, "pageSize", query.pageSize);
       const queryString = params.toString();
       return request(
-        `/api/v1/workspace/ai/conversations/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/workspace/ai/conversations/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     }
   };

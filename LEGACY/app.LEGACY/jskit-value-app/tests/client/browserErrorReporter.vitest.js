@@ -46,7 +46,7 @@ describe("browserErrorReporter", () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch.mock.calls[0][0]).toBe("/api/v1/console/errors/browser");
+    expect(global.fetch.mock.calls[0][0]).toBe("/api/console/errors/browser");
     expect(global.fetch.mock.calls[0][1]).toMatchObject({
       method: "POST",
       credentials: "same-origin",

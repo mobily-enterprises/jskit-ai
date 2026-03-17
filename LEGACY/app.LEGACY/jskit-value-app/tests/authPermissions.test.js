@@ -18,7 +18,7 @@ async function createApp(authService, routeConfig) {
   installTestErrorHandler(app);
   await app.register(authPlugin, { authService, nodeEnv: "test" });
 
-  app.get("/api/v1/protected/:id", {
+  app.get("/api/protected/:id", {
     config: routeConfig || { authPolicy: "required" },
     async handler(request) {
       return {
@@ -48,7 +48,7 @@ test("required policy returns stable 401 contract when unauthenticated", async (
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/protected/abc"
+    url: "/api/protected/abc"
   });
 
   assert.equal(response.statusCode, 401);
@@ -78,7 +78,7 @@ test("required policy injects request.user", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/protected/xyz"
+    url: "/api/protected/xyz"
   });
 
   assert.equal(response.statusCode, 200);
@@ -116,7 +116,7 @@ test("own policy returns stable 403 contract when owner does not match", async (
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/protected/99"
+    url: "/api/protected/99"
   });
 
   assert.equal(response.statusCode, 403);
@@ -146,7 +146,7 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
     nodeEnv: "test"
   });
 
-  app.get("/api/v1/csrf-token", {
+  app.get("/api/csrf-token", {
     config: {
       authPolicy: "public"
     },
@@ -157,7 +157,7 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
     }
   });
 
-  app.post("/api/v1/public-action", {
+  app.post("/api/public-action", {
     config: {
       authPolicy: "public"
     },
@@ -168,7 +168,7 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
 
   const blockedResponse = await app.inject({
     method: "POST",
-    url: "/api/v1/public-action",
+    url: "/api/public-action",
     payload: {
       action: "demo"
     }
@@ -179,7 +179,7 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
 
   const tokenResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/csrf-token"
+    url: "/api/csrf-token"
   });
 
   assert.equal(tokenResponse.statusCode, 200);
@@ -188,7 +188,7 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
 
   const allowedResponse = await app.inject({
     method: "POST",
-    url: "/api/v1/public-action",
+    url: "/api/public-action",
     headers: {
       "csrf-token": tokenPayload.csrfToken,
       cookie: cookieHeader
@@ -205,11 +205,11 @@ test("csrf protection blocks missing token and accepts a valid token", async () 
 
 test("malformed URL path returns 400 instead of crashing", async () => {
   const app = Fastify();
-  app.get("/api/v1/echo/:id", async (request) => ({ id: request.params.id }));
+  app.get("/api/echo/:id", async (request) => ({ id: request.params.id }));
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/echo/%E0%A4%A"
+    url: "/api/echo/%E0%A4%A"
   });
 
   assert.equal(response.statusCode, 400);
@@ -291,7 +291,7 @@ test("required auth policy propagates session cookie operations and transient fa
   });
 
   app.get(
-    "/api/v1/required",
+    "/api/required",
     {
       config: { authPolicy: "required" }
     },
@@ -300,14 +300,14 @@ test("required auth policy propagates session cookie operations and transient fa
 
   const okResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/required"
+    url: "/api/required"
   });
   assert.equal(okResponse.statusCode, 200);
   assert.deepEqual(sideEffects, ["clear", "write"]);
 
   const transientResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/required",
+    url: "/api/required",
     headers: {
       "x-mode": "transient"
     }
@@ -341,7 +341,7 @@ test("own auth policy supports ownerResolver, unresolved owners, and matching ow
   });
 
   app.get(
-    "/api/v1/own/match/:id",
+    "/api/own/match/:id",
     {
       config: {
         authPolicy: "own",
@@ -354,7 +354,7 @@ test("own auth policy supports ownerResolver, unresolved owners, and matching ow
   );
 
   app.get(
-    "/api/v1/own/unresolved",
+    "/api/own/unresolved",
     {
       config: {
         authPolicy: "own"
@@ -364,7 +364,7 @@ test("own auth policy supports ownerResolver, unresolved owners, and matching ow
   );
 
   app.get(
-    "/api/v1/own/field/:tenantId",
+    "/api/own/field/:tenantId",
     {
       config: {
         authPolicy: "own",
@@ -377,20 +377,20 @@ test("own auth policy supports ownerResolver, unresolved owners, and matching ow
 
   const matchResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/own/match/42"
+    url: "/api/own/match/42"
   });
   assert.equal(matchResponse.statusCode, 200);
 
   const unresolvedResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/own/unresolved"
+    url: "/api/own/unresolved"
   });
   assert.equal(unresolvedResponse.statusCode, 400);
   assert.equal(JSON.parse(unresolvedResponse.payload).error, "Route owner could not be resolved.");
 
   const fieldResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/own/field/tenant-1"
+    url: "/api/own/field/tenant-1"
   });
   assert.equal(fieldResponse.statusCode, 200);
   await app.close();
@@ -417,7 +417,7 @@ test("invalid auth policy returns 500", async () => {
   });
 
   app.get(
-    "/api/v1/bad-policy",
+    "/api/bad-policy",
     {
       config: {
         authPolicy: "unknown-policy"
@@ -428,7 +428,7 @@ test("invalid auth policy returns 500", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/bad-policy"
+    url: "/api/bad-policy"
   });
   assert.equal(response.statusCode, 500);
   assert.equal(JSON.parse(response.payload).error, "Invalid route auth policy configuration.");
@@ -454,21 +454,21 @@ test("csrf protection accepts x-csrf-token and x-xsrf-token header variants", as
     nodeEnv: "test"
   });
 
-  app.get("/api/v1/token", { config: { authPolicy: "public" } }, async (_request, reply) => ({
+  app.get("/api/token", { config: { authPolicy: "public" } }, async (_request, reply) => ({
     csrfToken: await reply.generateCsrf()
   }));
-  app.post("/api/v1/action", { config: { authPolicy: "public" } }, async () => ({ ok: true }));
+  app.post("/api/action", { config: { authPolicy: "public" } }, async () => ({ ok: true }));
 
   const tokenResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/token"
+    url: "/api/token"
   });
   const tokenPayload = JSON.parse(tokenResponse.payload);
   const cookieHeader = tokenResponse.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
 
   const xCsrf = await app.inject({
     method: "POST",
-    url: "/api/v1/action",
+    url: "/api/action",
     headers: {
       "x-csrf-token": tokenPayload.csrfToken,
       cookie: cookieHeader
@@ -478,7 +478,7 @@ test("csrf protection accepts x-csrf-token and x-xsrf-token header variants", as
 
   const xXsrf = await app.inject({
     method: "POST",
-    url: "/api/v1/action",
+    url: "/api/action",
     headers: {
       "x-xsrf-token": tokenPayload.csrfToken,
       cookie: cookieHeader
@@ -508,7 +508,7 @@ test("csrf protection can be disabled per route", async () => {
   });
 
   app.post(
-    "/api/v1/no-csrf",
+    "/api/no-csrf",
     {
       config: {
         authPolicy: "public",
@@ -520,7 +520,7 @@ test("csrf protection can be disabled per route", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/v1/no-csrf"
+    url: "/api/no-csrf"
   });
   assert.equal(response.statusCode, 200);
   await app.close();
@@ -561,14 +561,14 @@ test("auth plugin emits auth failure observability events", async () => {
   });
 
   app.get(
-    "/api/v1/protected",
+    "/api/protected",
     {
       config: { authPolicy: "required" }
     },
     async () => ({ ok: true })
   );
   app.get(
-    "/api/v1/workspace/settings",
+    "/api/workspace/settings",
     {
       config: {
         authPolicy: "required",
@@ -581,13 +581,13 @@ test("auth plugin emits auth failure observability events", async () => {
 
   const unauthenticated = await app.inject({
     method: "GET",
-    url: "/api/v1/protected"
+    url: "/api/protected"
   });
   assert.equal(unauthenticated.statusCode, 401);
 
   const transient = await app.inject({
     method: "GET",
-    url: "/api/v1/protected",
+    url: "/api/protected",
     headers: {
       "x-mode": "transient"
     }
@@ -595,7 +595,7 @@ test("auth plugin emits auth failure observability events", async () => {
   assert.equal(transient.statusCode, 503);
   const adminScoped = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/settings"
+    url: "/api/workspace/settings"
   });
   assert.equal(adminScoped.statusCode, 401);
 

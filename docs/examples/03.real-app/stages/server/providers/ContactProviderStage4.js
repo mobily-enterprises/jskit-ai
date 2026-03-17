@@ -35,7 +35,7 @@ class ContactProviderStage4 {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/intake",
+      "/api/docs/ch03/stage-4/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -48,7 +48,7 @@ class ContactProviderStage4 {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
+      "/api/docs/ch03/stage-4/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -61,7 +61,7 @@ class ContactProviderStage4 {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-4/contacts/:contactId",
+      "/api/docs/ch03/stage-4/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );

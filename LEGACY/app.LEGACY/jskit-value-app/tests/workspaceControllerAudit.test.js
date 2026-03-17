@@ -8,7 +8,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-1",
     method: "POST",
-    url: "/api/v1/workspace/acme/invites",
+    url: "/api/workspace/acme/invites",
     headers: {
       "x-forwarded-for": "203.0.113.11, 198.51.100.4",
       "user-agent": "workspace-action-test"
@@ -77,7 +77,7 @@ test("workspace controller delegates critical writes to canonical actions", asyn
   await controller.updateWorkspaceMemberRole(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/v1/workspace/acme/members/22/role",
+      url: "/api/workspace/acme/members/22/role",
       params: { memberUserId: "22" },
       body: { roleId: "admin" }
     }),
@@ -89,7 +89,7 @@ test("workspace controller delegates critical writes to canonical actions", asyn
   await controller.createWorkspaceInvite(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/workspace/acme/invites",
+      url: "/api/workspace/acme/invites",
       body: { email: "invitee@example.com", roleId: "member" }
     }),
     createInviteReply
@@ -100,7 +100,7 @@ test("workspace controller delegates critical writes to canonical actions", asyn
   await controller.revokeWorkspaceInvite(
     createBaseRequest({
       method: "DELETE",
-      url: "/api/v1/workspace/acme/invites/501",
+      url: "/api/workspace/acme/invites/501",
       params: { inviteId: "501" }
     }),
     revokeReply
@@ -111,7 +111,7 @@ test("workspace controller delegates critical writes to canonical actions", asyn
   await controller.respondToPendingInviteByToken(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/workspace/invitations/redeem",
+      url: "/api/workspace/invitations/redeem",
       body: { token: "invite-secret-token", decision: "accept" }
     }),
     redeemReply

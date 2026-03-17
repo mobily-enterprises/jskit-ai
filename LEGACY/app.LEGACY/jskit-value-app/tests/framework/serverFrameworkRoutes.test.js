@@ -43,8 +43,8 @@ test("composeRouteModules supports module filtering", () => {
   });
   const routeSignatures = routes.map((route) => `${route.method} ${route.path}`);
 
-  assert.equal(routeSignatures.includes("GET /api/v1/health"), true);
-  assert.equal(routeSignatures.includes("POST /api/v1/login"), true);
-  assert.equal(routeSignatures.includes("POST /api/v1/deg2rad"), true);
-  assert.equal(routeSignatures.includes("GET /api/v1/workspace/projects"), false);
+  assert.equal(routeSignatures.includes("GET /api/health"), true);
+  assert.equal(routeSignatures.includes("POST /api/login"), true);
+  assert.equal(routeSignatures.includes("POST /api/deg2rad"), true);
+  assert.equal(routeSignatures.includes("GET /api/workspace/projects"), false);
 });

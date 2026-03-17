@@ -20,7 +20,7 @@ function installErrorHandler(app) {
 async function issueCsrfToken(app) {
   const tokenResponse = await app.inject({
     method: "GET",
-    url: "/api/v1/csrf-token"
+    url: "/api/csrf-token"
   });
 
   const tokenPayload = JSON.parse(tokenResponse.payload);
@@ -62,7 +62,7 @@ test("ai route rejects unauthenticated requests", async () => {
   });
 
   app.get(
-    "/api/v1/csrf-token",
+    "/api/csrf-token",
     {
       config: {
         authPolicy: "public"
@@ -93,7 +93,7 @@ test("ai route rejects unauthenticated requests", async () => {
   const { token, cookieHeader } = await issueCsrfToken(app);
   const response = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/ai/chat/stream",
+    url: "/api/workspace/ai/chat/stream",
     headers: {
       "csrf-token": token,
       cookie: cookieHeader
@@ -149,7 +149,7 @@ test("ai route enforces required permission in auth pre-handler", async () => {
   });
 
   app.get(
-    "/api/v1/csrf-token",
+    "/api/csrf-token",
     {
       config: {
         authPolicy: "public"
@@ -183,7 +183,7 @@ test("ai route enforces required permission in auth pre-handler", async () => {
   const { token, cookieHeader } = await issueCsrfToken(app);
   const response = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/ai/chat/stream",
+    url: "/api/workspace/ai/chat/stream",
     headers: {
       "csrf-token": token,
       cookie: cookieHeader

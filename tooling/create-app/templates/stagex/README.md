@@ -32,9 +32,9 @@ App configuration files:
 
 Contact API routes:
 
-- `POST /api/v1/contacts/intake`
-- `POST /api/v1/contacts/preview-followup`
-- `GET /api/v1/contacts/:contactId`
+- `POST /api/contacts/intake`
+- `POST /api/contacts/preview-followup`
+- `GET /api/contacts/:contactId`
 
 ## Add Capabilities
 

@@ -3,28 +3,28 @@ import { buildOptionalIdempotencyHeaders } from "./idempotencyHeaders.js";
 function createApi({ request }) {
   return {
     listPlans() {
-      return request("/api/v1/billing/plans");
+      return request("/api/billing/plans");
     },
     listProducts() {
-      return request("/api/v1/billing/products");
+      return request("/api/billing/products");
     },
     listPurchases() {
-      return request("/api/v1/billing/purchases");
+      return request("/api/billing/purchases");
     },
     getPlanState() {
-      return request("/api/v1/billing/plan-state");
+      return request("/api/billing/plan-state");
     },
     listPaymentMethods() {
-      return request("/api/v1/billing/payment-methods");
+      return request("/api/billing/payment-methods");
     },
     syncPaymentMethods() {
-      return request("/api/v1/billing/payment-methods/sync", {
+      return request("/api/billing/payment-methods/sync", {
         method: "POST"
       });
     },
     setDefaultPaymentMethod(paymentMethodId, payload = {}, options = {}) {
       const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
-      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}/default`, {
+      return request(`/api/billing/payment-methods/${encodedPaymentMethodId}/default`, {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {
@@ -34,7 +34,7 @@ function createApi({ request }) {
     },
     detachPaymentMethod(paymentMethodId, payload = {}, options = {}) {
       const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
-      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}/detach`, {
+      return request(`/api/billing/payment-methods/${encodedPaymentMethodId}/detach`, {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {
@@ -44,7 +44,7 @@ function createApi({ request }) {
     },
     removePaymentMethod(paymentMethodId, options = {}) {
       const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
-      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}`, {
+      return request(`/api/billing/payment-methods/${encodedPaymentMethodId}`, {
         method: "DELETE",
         headers: buildOptionalIdempotencyHeaders(options, {
           required: true
@@ -52,7 +52,7 @@ function createApi({ request }) {
       });
     },
     getLimitations() {
-      return request("/api/v1/billing/limitations");
+      return request("/api/billing/limitations");
     },
     getTimeline(query = {}) {
       const params = new URLSearchParams();
@@ -72,10 +72,10 @@ function createApi({ request }) {
         params.set("providerEventId", String(query.providerEventId));
       }
       const queryString = params.toString();
-      return request(`/api/v1/billing/timeline${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/billing/timeline${queryString ? `?${queryString}` : ""}`);
     },
     startCheckout(payload, options = {}) {
-      return request("/api/v1/billing/checkout", {
+      return request("/api/billing/checkout", {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {
@@ -84,7 +84,7 @@ function createApi({ request }) {
       });
     },
     requestPlanChange(payload, options = {}) {
-      return request("/api/v1/billing/plan-change", {
+      return request("/api/billing/plan-change", {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {
@@ -93,7 +93,7 @@ function createApi({ request }) {
       });
     },
     cancelPendingPlanChange(options = {}) {
-      return request("/api/v1/billing/plan-change/cancel", {
+      return request("/api/billing/plan-change/cancel", {
         method: "POST",
         headers: buildOptionalIdempotencyHeaders(options, {
           required: true
@@ -101,7 +101,7 @@ function createApi({ request }) {
       });
     },
     createPortal(payload, options = {}) {
-      return request("/api/v1/billing/portal", {
+      return request("/api/billing/portal", {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {
@@ -110,7 +110,7 @@ function createApi({ request }) {
       });
     },
     createPaymentLink(payload, options = {}) {
-      return request("/api/v1/billing/payment-links", {
+      return request("/api/billing/payment-links", {
         method: "POST",
         body: payload,
         headers: buildOptionalIdempotencyHeaders(options, {

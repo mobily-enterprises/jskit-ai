@@ -1,6 +1,6 @@
 // docs:start:formrequest_route_upgrade
 router.post(
-  "/api/v1/contacts/intake",
+  "/api/contacts/intake",
   {
     schema: {
       body: contactIntakePreviewBodySchema,

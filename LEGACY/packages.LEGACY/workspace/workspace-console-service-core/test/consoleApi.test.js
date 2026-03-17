@@ -30,9 +30,9 @@ test("consoleApi exposes console core methods only", async () => {
   await api.updateMemberRole("member/7", { roleId: "console" });
   await api.redeemInvite({ token: "abc" });
 
-  assert.equal(calls[0].url, "/api/v1/console/bootstrap");
-  assert.equal(calls[1].url, "/api/v1/console/members/member%2F7/role");
+  assert.equal(calls[0].url, "/api/console/bootstrap");
+  assert.equal(calls[1].url, "/api/console/members/member%2F7/role");
   assert.equal(calls[1].options.method, "PATCH");
-  assert.equal(calls[2].url, "/api/v1/console/invitations/redeem");
+  assert.equal(calls[2].url, "/api/console/invitations/redeem");
   assert.equal(calls[2].options.method, "POST");
 });

@@ -212,7 +212,7 @@ Example:
 - mount key: `social.workspace`
 - default path: `/social`
 - relative route: `/feed`
-- effective route: `/api/v1/workspace{mount}/feed`
+- effective route: `/api/workspace{mount}/feed`
 
 ### 4.3.2 Central URL policy
 
@@ -1325,11 +1325,11 @@ Validation rules:
 Reserved namespaces for this app profile:
 
 - `/api`
-- `/api/v1`
-- `/api/v1/docs`
-- `/api/v1/metrics`
-- `/api/v1/health`
-- `/api/v1/ready`
+- `/api`
+- `/api/docs`
+- `/api/metrics`
+- `/api/health`
+- `/api/ready`
 - `/admin`
 - `/console`
 - `/login`
@@ -1340,7 +1340,7 @@ Reserved namespaces for this app profile:
 Rules:
 
 - Feature modules cannot override reserved namespaces directly.
-- Feature mounts under `/api/v1/workspace/*` and `/api/v1/console/*` are allowed if scoped.
+- Feature mounts under `/api/workspace/*` and `/api/console/*` are allowed if scoped.
 
 ### 22.4 URL override file structure
 
@@ -1705,7 +1705,7 @@ For each optional pack:
 
 Expose framework diagnostics in non-production:
 
-- `GET /api/v1/framework/diagnostics`
+- `GET /api/framework/diagnostics`
 
 Contains:
 

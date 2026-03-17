@@ -43,7 +43,7 @@ test("console error logs repository helpers normalize metadata and map rows", ()
     created_at: "2026-01-01T00:00:00.000Z",
     request_id: "req-1",
     method: "GET",
-    path: "/api/v1/demo",
+    path: "/api/demo",
     status_code: 500,
     error_name: "Error",
     message: "failed",

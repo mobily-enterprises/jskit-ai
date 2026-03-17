@@ -4,4 +4,4 @@ Chapter 1 end-state example.
 
 Includes one provider and one route:
 
-- `GET /api/v1/docs/ch01/hello`
+- `GET /api/docs/ch01/hello`

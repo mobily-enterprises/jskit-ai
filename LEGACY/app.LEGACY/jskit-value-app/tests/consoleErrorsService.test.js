@@ -243,7 +243,7 @@ test("console errors service records normalized browser and server payloads", as
   await fixture.service.recordServerError({
     requestId: "req-1",
     method: "GET",
-    path: "/api/v1/demo",
+    path: "/api/demo",
     statusCode: 502,
     message: "upstream failed",
     userId: 42,
@@ -260,7 +260,7 @@ test("console errors service records normalized browser and server payloads", as
 
   assert.equal(fixture.calls.insertServerError.length, 1);
   assert.equal(fixture.calls.insertServerError[0].statusCode, 502);
-  assert.equal(fixture.calls.insertServerError[0].path, "/api/v1/demo");
+  assert.equal(fixture.calls.insertServerError[0].path, "/api/demo");
 });
 
 test("console errors service simulates different server-side failure types", async () => {

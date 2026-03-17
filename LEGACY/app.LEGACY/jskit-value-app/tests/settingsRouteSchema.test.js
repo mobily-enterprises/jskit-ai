@@ -222,7 +222,7 @@ test("settings get route returns expected payload", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/settings"
+    url: "/api/settings"
   });
 
   assert.equal(response.statusCode, 200);
@@ -237,7 +237,7 @@ test("settings profile route validates display name input", async () => {
 
   const invalid = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/profile",
+    url: "/api/settings/profile",
     payload: {
       displayName: ""
     }
@@ -246,7 +246,7 @@ test("settings profile route validates display name input", async () => {
 
   const valid = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/profile",
+    url: "/api/settings/profile",
     payload: {
       displayName: "valid-name"
     }
@@ -261,7 +261,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const invalidPassword = await app.inject({
     method: "POST",
-    url: "/api/v1/settings/security/change-password",
+    url: "/api/settings/security/change-password",
     payload: {
       currentPassword: "",
       newPassword: "short",
@@ -272,7 +272,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const validPassword = await app.inject({
     method: "POST",
-    url: "/api/v1/settings/security/change-password",
+    url: "/api/settings/security/change-password",
     payload: {
       currentPassword: "old-password",
       newPassword: "new-password-123",
@@ -283,7 +283,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const logoutOthers = await app.inject({
     method: "POST",
-    url: "/api/v1/settings/security/logout-others"
+    url: "/api/settings/security/logout-others"
   });
   assert.equal(logoutOthers.statusCode, 200);
 
@@ -296,7 +296,7 @@ test("settings chat route validates chat payload", async () => {
 
   const invalid = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/chat",
+    url: "/api/settings/chat",
     payload: {
       allowGlobalDms: "yes"
     }
@@ -305,7 +305,7 @@ test("settings chat route validates chat payload", async () => {
 
   const valid = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/chat",
+    url: "/api/settings/chat",
     payload: {
       publicChatId: "demo-user",
       allowWorkspaceDms: true,
@@ -325,27 +325,27 @@ test("settings extension routes validate extension id and payload", async () => 
 
   const invalidId = await app.inject({
     method: "GET",
-    url: "/api/v1/settings/extensions/INVALID_ID"
+    url: "/api/settings/extensions/INVALID_ID"
   });
   assert.equal(invalidId.statusCode, 400);
 
   const read = await app.inject({
     method: "GET",
-    url: "/api/v1/settings/extensions/projects.preferences"
+    url: "/api/settings/extensions/projects.preferences"
   });
   assert.equal(read.statusCode, 200);
   assert.equal(JSON.parse(read.payload).extensionId, "projects.preferences");
 
   const invalidPatch = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/extensions/projects.preferences",
+    url: "/api/settings/extensions/projects.preferences",
     payload: {}
   });
   assert.equal(invalidPatch.statusCode, 400);
 
   const validPatch = await app.inject({
     method: "PATCH",
-    url: "/api/v1/settings/extensions/projects.preferences",
+    url: "/api/settings/extensions/projects.preferences",
     payload: {
       defaultView: "board"
     }
@@ -362,7 +362,7 @@ test("oauth complete route accepts strict camelCase payload shape only", async (
 
   const valid = await app.inject({
     method: "POST",
-    url: "/api/v1/oauth/complete",
+    url: "/api/oauth/complete",
     payload: {
       provider: "google",
       accessToken: "access-token",
@@ -373,7 +373,7 @@ test("oauth complete route accepts strict camelCase payload shape only", async (
 
   const invalidSnakeCase = await app.inject({
     method: "POST",
-    url: "/api/v1/oauth/complete",
+    url: "/api/oauth/complete",
     payload: {
       provider: "google",
       access_token: "access-token",

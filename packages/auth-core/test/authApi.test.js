@@ -30,10 +30,10 @@ test("authApi exposes the expected methods and request routes", async () => {
   await api.login({ email: "x@example.com" });
   await api.logout();
 
-  assert.equal(calls[0].url, "/api/v1/session");
-  assert.equal(calls[1].url, "/api/v1/login");
+  assert.equal(calls[0].url, "/api/session");
+  assert.equal(calls[1].url, "/api/login");
   assert.equal(calls[1].options.method, "POST");
-  assert.equal(calls[2].url, "/api/v1/logout");
+  assert.equal(calls[2].url, "/api/logout");
   assert.equal(calls[2].options.method, "POST");
 });
 
@@ -42,6 +42,6 @@ test("authApi oauthStartUrl builds versioned provider path with optional returnT
     request: async () => ({})
   });
 
-  assert.equal(api.oauthStartUrl("GitHub"), "/api/v1/oauth/github/start");
-  assert.equal(api.oauthStartUrl("github", { returnTo: "/console" }), "/api/v1/oauth/github/start?returnTo=%2Fconsole");
+  assert.equal(api.oauthStartUrl("GitHub"), "/api/oauth/github/start");
+  assert.equal(api.oauthStartUrl("github", { returnTo: "/console" }), "/api/oauth/github/start?returnTo=%2Fconsole");
 });

@@ -8,7 +8,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-console-1",
     method: "POST",
-    url: "/api/v1/console/invites",
+    url: "/api/console/invites",
     headers: {
       "x-forwarded-for": "198.51.100.10, 203.0.113.4",
       "user-agent": "console-action-test"
@@ -56,7 +56,7 @@ test("console controller delegates critical writes to canonical actions", async 
   await controller.updateMemberRole(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/v1/console/members/22/role",
+      url: "/api/console/members/22/role",
       params: { memberUserId: "22" },
       body: { roleId: "moderator" }
     }),
@@ -68,7 +68,7 @@ test("console controller delegates critical writes to canonical actions", async 
   await controller.createInvite(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/invites",
+      url: "/api/console/invites",
       body: { email: "invitee@example.com", roleId: "moderator" }
     }),
     createReply
@@ -79,7 +79,7 @@ test("console controller delegates critical writes to canonical actions", async 
   await controller.updateAssistantSettings(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/v1/console/settings",
+      url: "/api/console/settings",
       body: {
         assistantSystemPromptWorkspace: "Use concise language."
       }
@@ -92,7 +92,7 @@ test("console controller delegates critical writes to canonical actions", async 
   await controller.revokeInvite(
     createBaseRequest({
       method: "DELETE",
-      url: "/api/v1/console/invites/401",
+      url: "/api/console/invites/401",
       params: { inviteId: "401" }
     }),
     revokeReply
@@ -103,7 +103,7 @@ test("console controller delegates critical writes to canonical actions", async 
   await controller.respondToPendingInviteByToken(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/invitations/redeem",
+      url: "/api/console/invitations/redeem",
       body: { token: "console-secret-token", decision: "accept" }
     }),
     redeemReply
@@ -156,7 +156,7 @@ test("console controller delegates entitlement definition reads to canonical act
   await controller.listBillingEntitlementDefinitions(
     createBaseRequest({
       method: "GET",
-      url: "/api/v1/console/billing/entitlement-definitions",
+      url: "/api/console/billing/entitlement-definitions",
       query: { includeInactive: "false" }
     }),
     listReply
@@ -167,7 +167,7 @@ test("console controller delegates entitlement definition reads to canonical act
   await controller.getBillingEntitlementDefinition(
     createBaseRequest({
       method: "GET",
-      url: "/api/v1/console/billing/entitlement-definitions/7",
+      url: "/api/console/billing/entitlement-definitions/7",
       params: { definitionId: "7" }
     }),
     getReply
@@ -219,7 +219,7 @@ test("console controller delegates purchase operations to canonical actions", as
   await controller.listBillingPurchases(
     createBaseRequest({
       method: "GET",
-      url: "/api/v1/console/billing/purchases",
+      url: "/api/console/billing/purchases",
       query: {
         workspaceSlug: "acme"
       }
@@ -232,7 +232,7 @@ test("console controller delegates purchase operations to canonical actions", as
   await controller.refundBillingPurchase(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/purchases/91/refund",
+      url: "/api/console/billing/purchases/91/refund",
       headers: {
         "idempotency-key": "idem_refund_91"
       },
@@ -251,7 +251,7 @@ test("console controller delegates purchase operations to canonical actions", as
   await controller.voidBillingPurchase(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/purchases/91/void",
+      url: "/api/console/billing/purchases/91/void",
       headers: {
         "idempotency-key": "idem_void_91"
       },
@@ -270,7 +270,7 @@ test("console controller delegates purchase operations to canonical actions", as
   await controller.createBillingPurchaseCorrection(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/purchases/91/corrections",
+      url: "/api/console/billing/purchases/91/corrections",
       headers: {
         "idempotency-key": "idem_correction_91"
       },
@@ -351,7 +351,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.listBillingPlanAssignments(
     createBaseRequest({
       method: "GET",
-      url: "/api/v1/console/billing/plan-assignments",
+      url: "/api/console/billing/plan-assignments",
       query: {
         workspaceSlug: "acme"
       }
@@ -364,7 +364,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.createBillingPlanAssignment(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/plan-assignments",
+      url: "/api/console/billing/plan-assignments",
       headers: {
         "idempotency-key": "idem_assignment_create_1"
       },
@@ -381,7 +381,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.updateBillingPlanAssignment(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/v1/console/billing/plan-assignments/22",
+      url: "/api/console/billing/plan-assignments/22",
       headers: {
         "idempotency-key": "idem_assignment_update_22"
       },
@@ -400,7 +400,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.cancelBillingPlanAssignment(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/plan-assignments/22/cancel",
+      url: "/api/console/billing/plan-assignments/22/cancel",
       headers: {
         "idempotency-key": "idem_assignment_cancel_22"
       },
@@ -417,7 +417,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.listBillingSubscriptions(
     createBaseRequest({
       method: "GET",
-      url: "/api/v1/console/billing/subscriptions",
+      url: "/api/console/billing/subscriptions",
       query: {
         provider: "stripe"
       }
@@ -430,7 +430,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.changeBillingSubscriptionPlan(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/subscriptions/sub_123/change-plan",
+      url: "/api/console/billing/subscriptions/sub_123/change-plan",
       headers: {
         "idempotency-key": "idem_subscription_change_123"
       },
@@ -449,7 +449,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.cancelBillingSubscription(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/subscriptions/sub_123/cancel",
+      url: "/api/console/billing/subscriptions/sub_123/cancel",
       headers: {
         "idempotency-key": "idem_subscription_cancel_123"
       },
@@ -466,7 +466,7 @@ test("console controller delegates assignment and subscription operations to can
   await controller.cancelBillingSubscriptionAtPeriodEnd(
     createBaseRequest({
       method: "POST",
-      url: "/api/v1/console/billing/subscriptions/sub_123/cancel-at-period-end",
+      url: "/api/console/billing/subscriptions/sub_123/cancel-at-period-end",
       headers: {
         "idempotency-key": "idem_subscription_cape_123"
       },
@@ -515,7 +515,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.refundBillingPurchase(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/purchases/100/refund",
+            url: "/api/console/billing/purchases/100/refund",
             params: { purchaseId: "100" },
             body: { reasonCode: "manual_refund" }
           }),
@@ -527,7 +527,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.voidBillingPurchase(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/purchases/100/void",
+            url: "/api/console/billing/purchases/100/void",
             params: { purchaseId: "100" },
             body: { reasonCode: "manual_void" }
           }),
@@ -539,7 +539,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.createBillingPurchaseCorrection(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/purchases/100/corrections",
+            url: "/api/console/billing/purchases/100/corrections",
             params: { purchaseId: "100" },
             body: { amountMinor: -100, currency: "USD" }
           }),
@@ -551,7 +551,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.createBillingPlanAssignment(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/plan-assignments",
+            url: "/api/console/billing/plan-assignments",
             body: {
               billableEntityId: 10,
               planId: 12
@@ -565,7 +565,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.updateBillingPlanAssignment(
           createBaseRequest({
             method: "PATCH",
-            url: "/api/v1/console/billing/plan-assignments/9",
+            url: "/api/console/billing/plan-assignments/9",
             params: { assignmentId: "9" },
             body: { status: "upcoming" }
           }),
@@ -577,7 +577,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.cancelBillingPlanAssignment(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/plan-assignments/9/cancel",
+            url: "/api/console/billing/plan-assignments/9/cancel",
             params: { assignmentId: "9" },
             body: {}
           }),
@@ -589,7 +589,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.changeBillingSubscriptionPlan(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/subscriptions/sub_9/change-plan",
+            url: "/api/console/billing/subscriptions/sub_9/change-plan",
             params: { providerSubscriptionId: "sub_9" },
             body: { planId: 12 }
           }),
@@ -601,7 +601,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.cancelBillingSubscription(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/subscriptions/sub_9/cancel",
+            url: "/api/console/billing/subscriptions/sub_9/cancel",
             params: { providerSubscriptionId: "sub_9" },
             body: {}
           }),
@@ -613,7 +613,7 @@ test("console controller purchase mutations require Idempotency-Key header", asy
         controller.cancelBillingSubscriptionAtPeriodEnd(
           createBaseRequest({
             method: "POST",
-            url: "/api/v1/console/billing/subscriptions/sub_9/cancel-at-period-end",
+            url: "/api/console/billing/subscriptions/sub_9/cancel-at-period-end",
             params: { providerSubscriptionId: "sub_9" },
             body: {}
           }),
@@ -651,7 +651,7 @@ test("console controller rethrows action errors", async () => {
       controller.revokeInvite(
         createBaseRequest({
           method: "DELETE",
-          url: "/api/v1/console/invites/999",
+          url: "/api/console/invites/999",
           params: { inviteId: "999" }
         }),
         reply

@@ -34,7 +34,7 @@ Creates service methods for:
 
 ### `createConsoleErrorsApi(httpClient)` (`client/consoleErrorsApi`)
 
-Client API wrapper for `/api/v1/console/errors/*` and `/api/v1/console/simulate/server-error` endpoints.
+Client API wrapper for `/api/console/errors/*` and `/api/console/simulate/server-error` endpoints.
 
 ### `createBrowserErrorPayloadTools(...)` (`browserPayload`)
 

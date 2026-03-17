@@ -27,7 +27,7 @@ function buildApp({ metricsEnabled = true, metricsBearerToken = "" } = {}) {
   });
   metricsRegistry.observeHttpRequest({
     method: "GET",
-    route: "/api/v1/demo",
+    route: "/api/demo",
     surface: "app",
     statusCode: 200,
     durationMs: 12
@@ -57,7 +57,7 @@ test("observability route serves Prometheus metrics text", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/metrics"
+    url: "/api/metrics"
   });
 
   assert.equal(response.statusCode, 200);
@@ -75,13 +75,13 @@ test("observability route enforces bearer token and disabled behavior", async ()
 
   const unauthorized = await protectedApp.inject({
     method: "GET",
-    url: "/api/v1/metrics"
+    url: "/api/metrics"
   });
   assert.equal(unauthorized.statusCode, 401);
 
   const authorized = await protectedApp.inject({
     method: "GET",
-    url: "/api/v1/metrics",
+    url: "/api/metrics",
     headers: {
       authorization: "Bearer top-secret"
     }
@@ -92,7 +92,7 @@ test("observability route enforces bearer token and disabled behavior", async ()
   const disabledApp = buildApp({ metricsEnabled: false });
   const disabled = await disabledApp.inject({
     method: "GET",
-    url: "/api/v1/metrics"
+    url: "/api/metrics"
   });
   assert.equal(disabled.statusCode, 404);
   await disabledApp.close();

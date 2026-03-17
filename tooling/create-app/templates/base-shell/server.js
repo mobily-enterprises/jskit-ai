@@ -15,7 +15,7 @@ async function createServer() {
   registerTypeBoxFormats();
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
-  app.get("/api/v1/health", async () => {
+  app.get("/api/health", async () => {
     return {
       ok: true,
       app: "__APP_NAME__"

@@ -151,7 +151,7 @@ test("registerApiRoutes supports custom routes and route defaults", async () => 
     controllers: noopControllers(),
     routes: [
       {
-        path: "/api/v1/custom",
+        path: "/api/custom",
         method: "GET",
         handler: async (request, reply, url) => {
           capturedMeta = {
@@ -166,7 +166,7 @@ test("registerApiRoutes supports custom routes and route defaults", async () => 
         }
       },
       {
-        path: "/api/v1/custom-with-schema",
+        path: "/api/custom-with-schema",
         method: "GET",
         auth: "own",
         ownerParam: "id",
@@ -191,7 +191,7 @@ test("registerApiRoutes supports custom routes and route defaults", async () => 
     ]
   });
 
-  const first = await app.inject({ method: "GET", url: "/api/v1/custom" });
+  const first = await app.inject({ method: "GET", url: "/api/custom" });
   assert.equal(first.statusCode, 200);
   assert.deepEqual(capturedMeta, {
     authPolicy: "public",
@@ -199,10 +199,10 @@ test("registerApiRoutes supports custom routes and route defaults", async () => 
     userField: "id",
     ownerResolverType: "object",
     csrfProtection: true,
-    urlPath: "/api/v1/custom"
+    urlPath: "/api/custom"
   });
 
-  const second = await app.inject({ method: "GET", url: "/api/v1/custom-with-schema" });
+  const second = await app.inject({ method: "GET", url: "/api/custom-with-schema" });
   assert.equal(second.statusCode, 200);
 
   await app.close();

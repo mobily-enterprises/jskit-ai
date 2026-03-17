@@ -6,7 +6,6 @@ import {
   ref
 } from "vue";
 import { useWebPlacementRuntime } from "../placement/inject.js";
-import { explodePayload } from "../placement/debug.js";
 
 const props = defineProps({
   surface: {
@@ -48,22 +47,11 @@ onBeforeUnmount(() => {
 
 const placements = computed(() => {
   void revision.value;
-  const resolved = placementRuntime.getPlacements({
+  return placementRuntime.getPlacements({
     surface: props.surface,
     slot: props.placement,
     context: props.context
   });
-  const detail = explodePayload({
-    surface: props.surface,
-    placement: props.placement,
-    count: resolved.length,
-    ids: resolved.map((entry) => entry.id),
-    context: props.context
-  });
-  console.log(
-    `[shell-outlet-debug] resolved placements\n${JSON.stringify(detail, null, 2)}`
-  );
-  return resolved;
 });
 </script>
 

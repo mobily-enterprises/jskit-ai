@@ -47,7 +47,7 @@ Use this as first-line UX verification when debugging reports like "tab B did no
 
 ## Incident triage checklist
 
-1. Verify socket path and auth cookies are present on `/api/v1/realtime`.
+1. Verify socket path and auth cookies are present on `/api/realtime`.
 2. Confirm subscribe ack includes expected topics for the active surface.
 3. Confirm mutation path publishes from action/service layer (not controller-only).
 4. Confirm event envelope includes required scope fields:

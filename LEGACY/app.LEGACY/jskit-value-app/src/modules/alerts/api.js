@@ -5,10 +5,10 @@ function createApi({ request }) {
         page: String(page),
         pageSize: String(pageSize)
       });
-      return request(`/api/v1/alerts?${params.toString()}`);
+      return request(`/api/alerts?${params.toString()}`);
     },
     markAllRead() {
-      return request("/api/v1/alerts/read-all", {
+      return request("/api/alerts/read-all", {
         method: "POST"
       });
     }

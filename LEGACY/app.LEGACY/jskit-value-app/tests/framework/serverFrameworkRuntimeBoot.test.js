@@ -53,9 +53,9 @@ test("boot runtime wires filtered profile health handler", async () => {
   });
 
   const healthRoute = routes.find(
-    (route) => route.method === "GET" && route.path === "/api/v1/health"
+    (route) => route.method === "GET" && route.path === "/api/health"
   );
-  assert.ok(healthRoute, "Expected /api/v1/health to be wired.");
+  assert.ok(healthRoute, "Expected /api/health to be wired.");
 
   const reply = createReplyRecorder();
   await healthRoute.handler({}, reply);

@@ -10,7 +10,7 @@ class MainHelloProvider {
     const router = app.make(KERNEL_TOKENS.HttpRouter);
 
     router.get(
-      "/api/v1/docs/ch01/hello",
+      "/api/docs/ch01/hello",
       {
         meta: {
           tags: ["docs-ch01"],

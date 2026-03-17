@@ -20,7 +20,7 @@ Current reality:
 
 - Auth slice is partially migrated and mostly aligned.
 - `auth-web` wrappers were improved (login and signout scaffolds are now thin).
-- `manual-app` now has baseline server health endpoint (`/api/v1/health`) and basic FS routing setup.
+- `manual-app` now has baseline server health endpoint (`/api/health`) and basic FS routing setup.
 - Auth install is currently blocked because two required packages were missing from active `packages/` (`http-client-runtime`, `http-contracts`) and were being resolved from npm registry.
 - Those two packages have now been copied from legacy into active packages but still require normalization/pass and integration verification.
 
@@ -99,12 +99,12 @@ Template destination can still stay route-folder-oriented in app (e.g. `src/view
 
 ### 2.4 Baseline health route in template and manual-app
 
-Decision: base server should own `/api/v1/health` to support immediate app sanity checks.
+Decision: base server should own `/api/health` to support immediate app sanity checks.
 
 Added route:
 
 ```js
-app.get("/api/v1/health", async () => ({ ok: true, app: "..." }));
+app.get("/api/health", async () => ({ ok: true, app: "..." }));
 ```
 
 Applied to:
@@ -139,9 +139,9 @@ Applied to:
 ### 3.2 base-shell template / manual-app
 
 1. `tooling/create-app/templates/base-shell/server.js`
-   - Added `/api/v1/health` route.
+   - Added `/api/health` route.
 2. `/home/merc/Development/current/manual-app/server.js`
-   - Added `/api/v1/health` route.
+   - Added `/api/health` route.
 
 ### 3.3 newly copied packages (uncommitted)
 
@@ -256,7 +256,7 @@ So yes, auth-web currently does need `http-contracts` (unless refactored to inli
 4. Re-run add/install in `manual-app` with local package resolution working.
 5. Verify end-to-end:
    - server starts
-   - `/api/v1/health` works
+   - `/api/health` works
    - `/login` loads
    - signout wrapper resolves
 
@@ -282,7 +282,7 @@ So yes, auth-web currently does need `http-contracts` (unless refactored to inli
 
 ## 10) Known Risks / Regression Traps
 
-1. Duplicate routes (`/api/v1/health`) if both baseline and future module register same path.
+1. Duplicate routes (`/api/health`) if both baseline and future module register same path.
 2. Partial installs can leave lock/package.json mismatch.
 3. Legacy-copied packages may violate new strict conventions until explicitly normalized.
 4. Descriptor capability metadata still mixes old conceptual model in places; runtime truth should remain provider code.
@@ -294,7 +294,7 @@ So yes, auth-web currently does need `http-contracts` (unless refactored to inli
 
 ### Verified recently
 
-1. `manual-app` `createServer()` inject test for `/api/v1/health` returned 200 payload.
+1. `manual-app` `createServer()` inject test for `/api/health` returned 200 payload.
 2. Descriptor parse check for `auth-web/package.descriptor.mjs` succeeded.
 
 ### Not fully verified yet
@@ -328,7 +328,7 @@ So yes, auth-web currently does need `http-contracts` (unless refactored to inli
    - `npm run server`
    - `npm run dev`
 6. Validate:
-   - `GET /api/v1/health` -> `{ ok: true, app: ... }`
+   - `GET /api/health` -> `{ ok: true, app: ... }`
    - `/login` renders package default login view through wrapper
    - signout wrapper imports package default signout view correctly
 
@@ -361,7 +361,7 @@ When resuming work immediately:
 
 1. Final policy for root `.` exports across all packages (strict removal vs transitional throw module).
 2. Final shape of capability metadata in fully provider-centric world.
-3. Whether `/api/v1/health` remains permanently baseline-owned or delegated to dedicated module package later.
+3. Whether `/api/health` remains permanently baseline-owned or delegated to dedicated module package later.
 4. Whether login wrapper should also be explicit (no dynamic prop) to mirror signout preference fully.
 
 ---

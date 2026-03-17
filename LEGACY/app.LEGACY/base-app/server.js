@@ -4,7 +4,7 @@ import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 function createServer() {
   const app = Fastify({ logger: true });
 
-  app.get("/api/v1/health", async () => {
+  app.get("/api/health", async () => {
     return {
       ok: true,
       app: "base-app"

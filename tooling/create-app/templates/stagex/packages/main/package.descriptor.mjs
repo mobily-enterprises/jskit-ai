@@ -28,9 +28,9 @@ export default Object.freeze({
   metadata: {
     server: {
       routes: [
-        { method: "POST", path: "/api/v1/contacts/intake" },
-        { method: "POST", path: "/api/v1/contacts/preview-followup" },
-        { method: "GET", path: "/api/v1/contacts/:contactId" }
+        { method: "POST", path: "/api/contacts/intake" },
+        { method: "POST", path: "/api/contacts/preview-followup" },
+        { method: "GET", path: "/api/contacts/:contactId" }
       ]
     },
     ui: {

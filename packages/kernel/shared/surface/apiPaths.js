@@ -1,7 +1,7 @@
 import { normalizePathname } from "./paths.js";
 
 const API_BASE_PATH = "/api";
-const API_PREFIX = "/api/v1";
+const API_PREFIX = "/api";
 const API_PREFIX_SLASH = `${API_PREFIX}/`;
 const API_DOCS_PATH = `${API_PREFIX}/docs`;
 const API_REALTIME_PATH = `${API_PREFIX}/realtime`;

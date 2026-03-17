@@ -6,12 +6,12 @@ import { createControllerProxy } from "./helpers/createControllerProxy.js";
 test("console API routes default to optional workspace policy on console surface", () => {
   const routes = buildRoutes(createControllerProxy());
   const consoleBootstrapRoute = routes.find(
-    (route) => route.method === "GET" && route.path === "/api/v1/console/bootstrap"
+    (route) => route.method === "GET" && route.path === "/api/console/bootstrap"
   );
   const consolePurchasesRoute = routes.find(
-    (route) => route.method === "GET" && route.path === "/api/v1/console/billing/purchases"
+    (route) => route.method === "GET" && route.path === "/api/console/billing/purchases"
   );
-  const workspaceBootstrapRoute = routes.find((route) => route.method === "GET" && route.path === "/api/v1/bootstrap");
+  const workspaceBootstrapRoute = routes.find((route) => route.method === "GET" && route.path === "/api/bootstrap");
 
   assert.ok(consoleBootstrapRoute);
   assert.equal(consoleBootstrapRoute.workspacePolicy, "optional");
@@ -41,7 +41,7 @@ test("console defaults do not apply to console-like prefixes", () => {
 
   try {
     const routes = buildRoutes(createControllerProxy());
-    const syntheticRoute = routes.find((route) => route.path === "/api/v1/consolex/synthetic");
+    const syntheticRoute = routes.find((route) => route.path === "/api/consolex/synthetic");
     assert.ok(syntheticRoute);
     assert.equal(syntheticRoute.workspacePolicy, undefined);
     assert.equal(syntheticRoute.workspaceSurface, undefined);

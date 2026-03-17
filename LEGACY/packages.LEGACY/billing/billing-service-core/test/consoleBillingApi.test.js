@@ -53,11 +53,11 @@ test("consoleBillingApi preserves console billing method contract", async () => 
   await api.createEntitlementDefinition({ code: "feature.a" });
   await api.deleteEntitlementDefinition("ent/1", {}, { idempotencyKey: "idem-delete" });
 
-  assert.equal(calls[0].url, "/api/v1/console/billing/events?page=1&pageSize=25&workspaceSlug=acme");
-  assert.equal(calls[1].url, "/api/v1/console/billing/plans/plan%2F1");
+  assert.equal(calls[0].url, "/api/console/billing/events?page=1&pageSize=25&workspaceSlug=acme");
+  assert.equal(calls[1].url, "/api/console/billing/plans/plan%2F1");
   assert.equal(calls[1].options.method, "PATCH");
-  assert.equal(calls[2].url, "/api/v1/console/billing/entitlement-definitions");
+  assert.equal(calls[2].url, "/api/console/billing/entitlement-definitions");
   assert.deepEqual(calls[2].options.headers, {});
-  assert.equal(calls[3].url, "/api/v1/console/billing/entitlement-definitions/ent%2F1");
+  assert.equal(calls[3].url, "/api/console/billing/entitlement-definitions/ent%2F1");
   assert.equal(calls[3].options.headers["Idempotency-Key"], "idem-delete");
 });

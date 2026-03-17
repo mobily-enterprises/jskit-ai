@@ -45,9 +45,9 @@ Now we move from "first route" to "real feature architecture."
 
 We will build a `contacts` feature with three routes:
 
-- `POST /api/v1/contacts/intake`
-- `POST /api/v1/contacts/preview-followup`
-- `GET /api/v1/contacts/:contactId`
+- `POST /api/contacts/intake`
+- `POST /api/contacts/preview-followup`
+- `GET /api/contacts/:contactId`
 
 The two `POST` routes are business-logic-heavy on purpose:
 
@@ -175,7 +175,7 @@ class Stage1MonolithProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/intake",
+      "/api/docs/ch03/stage-1/contacts/intake",
       contactIntakePostRouteContract,
       async (request, reply) => {
         const qualified = qualifyContact(request.body);
@@ -223,7 +223,7 @@ class Stage1MonolithProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
+      "/api/docs/ch03/stage-1/contacts/preview-followup",
       contactPreviewFollowupPostRouteContract,
       async (request, reply) => {
         const qualified = qualifyContact(request.body);
@@ -254,7 +254,7 @@ class Stage1MonolithProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-1/contacts/:contactId",
+      "/api/docs/ch03/stage-1/contacts/:contactId",
       contactByIdGetRouteContract,
       async (request, reply) => {
         const contactId = String(request.params?.contactId || "").trim();
@@ -489,7 +489,7 @@ npm run dev
 ```
 
 ```bash
-curl -i -X POST "http://localhost:3000/api/v1/contacts/intake" \
+curl -i -X POST "http://localhost:3000/api/contacts/intake" \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Alice Jones",
@@ -504,7 +504,7 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/intake" \
 ```
 
 ```bash
-curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
+curl -i -X POST "http://localhost:3000/api/contacts/preview-followup" \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Alice Jones",
@@ -519,7 +519,7 @@ curl -i -X POST "http://localhost:3000/api/v1/contacts/preview-followup" \
 ```
 
 ```bash
-curl -i "http://localhost:3000/api/v1/docs/ch03/stage-1/contacts/contact-does-not-exist"
+curl -i "http://localhost:3000/api/docs/ch03/stage-1/contacts/contact-does-not-exist"
 ```
 
 ### Why this hurts
@@ -570,7 +570,7 @@ class Stage2ControllerProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/intake",
+      "/api/docs/ch03/stage-2/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -583,7 +583,7 @@ class Stage2ControllerProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-2/contacts/preview-followup",
+      "/api/docs/ch03/stage-2/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -596,7 +596,7 @@ class Stage2ControllerProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-2/contacts/:contactId",
+      "/api/docs/ch03/stage-2/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -906,7 +906,7 @@ class Stage3ServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/intake",
+      "/api/docs/ch03/stage-3/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -919,7 +919,7 @@ class Stage3ServiceProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-3/contacts/preview-followup",
+      "/api/docs/ch03/stage-3/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -932,7 +932,7 @@ class Stage3ServiceProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-3/contacts/:contactId",
+      "/api/docs/ch03/stage-3/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -1284,7 +1284,7 @@ class Stage4RepositoryProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/intake",
+      "/api/docs/ch03/stage-4/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -1297,7 +1297,7 @@ class Stage4RepositoryProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-4/contacts/preview-followup",
+      "/api/docs/ch03/stage-4/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -1310,7 +1310,7 @@ class Stage4RepositoryProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-4/contacts/:contactId",
+      "/api/docs/ch03/stage-4/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -1702,7 +1702,7 @@ class Stage5ActionProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-5/contacts/intake",
+      "/api/docs/ch03/stage-5/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -1715,7 +1715,7 @@ class Stage5ActionProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-5/contacts/preview-followup",
+      "/api/docs/ch03/stage-5/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -1728,7 +1728,7 @@ class Stage5ActionProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-5/contacts/:contactId",
+      "/api/docs/ch03/stage-5/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -2273,7 +2273,7 @@ class Stage6LayeredProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-6/contacts/intake",
+      "/api/docs/ch03/stage-6/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -2286,7 +2286,7 @@ class Stage6LayeredProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-6/contacts/preview-followup",
+      "/api/docs/ch03/stage-6/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -2299,7 +2299,7 @@ class Stage6LayeredProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-6/contacts/:contactId",
+      "/api/docs/ch03/stage-6/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -2943,7 +2943,7 @@ class Stage8ErrorErgonomicsProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-8/contacts/intake",
+      "/api/docs/ch03/stage-8/contacts/intake",
       {
         ...contactIntakePostRouteContract,
         meta: {
@@ -2957,7 +2957,7 @@ class Stage8ErrorErgonomicsProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-8/contacts/preview-followup",
+      "/api/docs/ch03/stage-8/contacts/preview-followup",
       {
         ...contactPreviewFollowupPostRouteContract,
         meta: {
@@ -2971,7 +2971,7 @@ class Stage8ErrorErgonomicsProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-8/contacts/:contactId",
+      "/api/docs/ch03/stage-8/contacts/:contactId",
       contactByIdGetRouteContract,
       (request, reply) => controller.show(request, reply)
     );
@@ -3533,10 +3533,10 @@ class Stage9RuntimeContextProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-9/contacts/intake",
+      "/api/docs/ch03/stage-9/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-9/contacts/intake",
+        path: "/api/docs/ch03/stage-9/contacts/intake",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-9"],
@@ -3548,10 +3548,10 @@ class Stage9RuntimeContextProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
+      "/api/docs/ch03/stage-9/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-9/contacts/preview-followup",
+        path: "/api/docs/ch03/stage-9/contacts/preview-followup",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-9"],
@@ -3563,7 +3563,7 @@ class Stage9RuntimeContextProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-9/contacts/:contactId",
+      "/api/docs/ch03/stage-9/contacts/:contactId",
       {
         ...contactByIdGetRouteContractStage7,
         middleware: stage9ContactsMiddleware,
@@ -4022,10 +4022,10 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/intake",
+      "/api/docs/ch03/stage-10/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
+        path: "/api/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-10"],
@@ -4037,10 +4037,10 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
+      "/api/docs/ch03/stage-10/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
+        path: "/api/docs/ch03/stage-10/contacts/preview-followup",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-10"],
@@ -4052,7 +4052,7 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
+      "/api/docs/ch03/stage-10/contacts/:contactId",
       {
         ...contactByIdGetRouteContractStage7,
         middleware: stage10ContactsMiddleware,
@@ -4148,10 +4148,10 @@ The dedicated persistence chapter (to be added later) should cover production pa
 
 ## Suggested Tests For This Chapter
 
-- `POST /api/v1/docs/ch03/stage-6/contacts/intake` success
-- `POST /api/v1/docs/ch03/stage-8/contacts/intake` duplicate email mapped as domain conflict
-- `POST /api/v1/docs/ch03/stage-9/contacts/intake` partner lead without consent fails in middleware
-- `POST /api/v1/docs/ch03/stage-7/contacts/intake` success (input normalized through Stage 7 route contract)
+- `POST /api/docs/ch03/stage-6/contacts/intake` success
+- `POST /api/docs/ch03/stage-8/contacts/intake` duplicate email mapped as domain conflict
+- `POST /api/docs/ch03/stage-9/contacts/intake` partner lead without consent fails in middleware
+- `POST /api/docs/ch03/stage-7/contacts/intake` success (input normalized through Stage 7 route contract)
 - schema-level validation failure for malformed request payload
 - startup config contract failure for Stage 10 invalid env (for example strict mode with too-high starter employee cap)
 
@@ -4297,10 +4297,10 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/intake",
+      "/api/docs/ch03/stage-10/contacts/intake",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/intake",
+        path: "/api/docs/ch03/stage-10/contacts/intake",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-10"],
@@ -4312,10 +4312,10 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
+      "/api/docs/ch03/stage-10/contacts/preview-followup",
       {
         method: "POST",
-        path: "/api/v1/docs/ch03/stage-10/contacts/preview-followup",
+        path: "/api/docs/ch03/stage-10/contacts/preview-followup",
         ...sharedOptions,
         meta: {
           tags: ["docs-stage-10"],
@@ -4327,7 +4327,7 @@ class Stage10ConfigContractProvider {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-10/contacts/:contactId",
+      "/api/docs/ch03/stage-10/contacts/:contactId",
       {
         ...contactByIdGetRouteContractStage7,
         middleware: stage10ContactsMiddleware,

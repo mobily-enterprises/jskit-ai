@@ -20,11 +20,11 @@ function defaultResolveSurfaceFromPathname(pathname) {
     .trim()
     .toLowerCase();
 
-  if (normalizedPathname.startsWith("/admin") || normalizedPathname.startsWith("/api/v1/admin")) {
+  if (normalizedPathname.startsWith("/admin") || normalizedPathname.startsWith("/api/admin")) {
     return "admin";
   }
 
-  if (normalizedPathname.startsWith("/console") || normalizedPathname.startsWith("/api/v1/console")) {
+  if (normalizedPathname.startsWith("/console") || normalizedPathname.startsWith("/api/console")) {
     return "console";
   }
 

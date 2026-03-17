@@ -16,7 +16,7 @@ Each provider exposes two routes with its own stage-specific prefix so all stage
 
 Example prefixes:
 
-- `/api/v1/docs/ch03/stage-1/...`
-- `/api/v1/docs/ch03/stage-7/...`
+- `/api/docs/ch03/stage-1/...`
+- `/api/docs/ch03/stage-7/...`
 
 Use the same request body used in Chapter 3 (`contacts/intake` and `contacts/preview-followup`).

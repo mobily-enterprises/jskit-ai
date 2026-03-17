@@ -1651,7 +1651,7 @@ Default registry includes:
 - `admin` prefix `"/admin"`, requiresWorkspace true
 - `console` prefix `"/console"`, requiresWorkspace false
 
-API path resolver maps `/api/v1/console/...` to surface `console` by prefix matching.
+API path resolver maps `/api/console/...` to surface `console` by prefix matching.
 
 In app shared exports (`apps/jskit-value-app/shared/surfacePaths.js`), these defaults are re-exported and used by auth/runtime.
 
@@ -1940,7 +1940,7 @@ Management operations (`members`, `invites`, `roles`) require dedicated `console
 ### Surface routing details
 
 - Default surfaces include `console` with prefix `/console` and `requiresWorkspace: false` (`appSurfaces.js:5-20`).
-- `resolveSurfaceFromApiPathname` matches surface prefixes under the API namespace; console paths under `/api/v1/console` resolve to `console` (`paths.js:104-118`).
+- `resolveSurfaceFromApiPathname` matches surface prefixes under the API namespace; console paths under `/api/console` resolve to `console` (`paths.js:104-118`).
 - `resolveSurfaceFromPathname` checks API surface first, then path prefixes, else defaults to the fallback surface (`paths.js:120-138`).
 
 ### User resolution in action helpers (potential misuse vectors)
@@ -1961,7 +1961,7 @@ Management operations (`members`, `invites`, `roles`) require dedicated `console
 
 ### Console errors API client shape
 
-- Console errors client calls `/api/v1/console/errors/browser` for public report and `/api/v1/console/simulate/server-error` for server simulations (`consoleErrorsApi.js:25-30`).
+- Console errors client calls `/api/console/errors/browser` for public report and `/api/console/simulate/server-error` for server simulations (`consoleErrorsApi.js:25-30`).
 
 ### Console errors service behavior details (permission and metrics)
 

@@ -73,7 +73,7 @@ Check these when applicable to the selected domain:
 - channels/surfaces/permission/idempotency metadata coherence
 
 4. API contract/versioning:
-- versioned `/api/v1/*` paths
+- versioned `/api/*` paths
 - schema and error/response shape consistency
 
 5. Security/error handling:

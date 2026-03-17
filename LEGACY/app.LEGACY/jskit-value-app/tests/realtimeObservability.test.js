@@ -17,7 +17,7 @@ test("realtime observability emits subscribe error + socket connect/disconnect e
       observed.push({ ...payload });
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -79,7 +79,7 @@ test("realtime observability emits subscription eviction events when authorizati
       observed.push({ ...payload });
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {

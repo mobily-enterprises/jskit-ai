@@ -50,20 +50,20 @@ export default Object.freeze({
   metadata: {
     server: {
       routes: [
-        { method: "POST", path: "/api/v1/docs/ch03/stage-1/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-1/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-2/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-2/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-3/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-3/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-4/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-4/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-5/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-6/contacts/preview-followup" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/intake" },
-        { method: "POST", path: "/api/v1/docs/ch03/stage-7/contacts/preview-followup" }
+        { method: "POST", path: "/api/docs/ch03/stage-1/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-1/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-2/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-2/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-3/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-3/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-4/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-4/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-5/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-5/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-6/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-6/contacts/preview-followup" },
+        { method: "POST", path: "/api/docs/ch03/stage-7/contacts/intake" },
+        { method: "POST", path: "/api/docs/ch03/stage-7/contacts/preview-followup" }
       ]
     },
     ui: {

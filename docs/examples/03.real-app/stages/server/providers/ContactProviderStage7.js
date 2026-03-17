@@ -68,21 +68,21 @@ class ContactProviderStage7 {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-7/contacts/intake",
+      "/api/docs/ch03/stage-7/contacts/intake",
       contactIntakePostRouteContractStage7,
       (request, reply) => controller.intake(request, reply)
     );
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-7/contacts/preview-followup",
+      "/api/docs/ch03/stage-7/contacts/preview-followup",
       contactPreviewFollowupPostRouteContractStage7,
       (request, reply) => controller.previewFollowup(request, reply)
     );
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-7/contacts/:contactId",
+      "/api/docs/ch03/stage-7/contacts/:contactId",
       contactByIdGetRouteContractStage7,
       (request, reply) => controller.show(request, reply)
     );

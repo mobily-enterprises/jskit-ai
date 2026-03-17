@@ -64,7 +64,7 @@ test("auth plugin internal branches: token resolution and /api guard fallbacks",
   assert.equal(getToken({ headers: {} }), null);
 
   await state.preHandler({ method: "GET", raw: {}, url: undefined }, {});
-  await state.preHandler({ method: "GET", raw: {}, url: "/api/v1/public", routeOptions: {} }, {});
+  await state.preHandler({ method: "GET", raw: {}, url: "/api/public", routeOptions: {} }, {});
   assert.equal(authCalls, 0);
 });
 
@@ -95,7 +95,7 @@ test("auth plugin internal branch: csrf callback error is propagated", async () 
       state.preHandler(
         {
           method: "POST",
-          raw: { url: "/api/v1/public-action" },
+          raw: { url: "/api/public-action" },
           routeOptions: { config: { authPolicy: "public" } },
           headers: {}
         },
@@ -138,7 +138,7 @@ test("auth plugin internal branches: own policy resolver nulls and ownerParam ty
       state.preHandler(
         {
           method: "GET",
-          raw: { url: "/api/v1/own-a" },
+          raw: { url: "/api/own-a" },
           headers: { "x-profile": "null" },
           routeOptions: {
             config: {
@@ -165,7 +165,7 @@ test("auth plugin internal branches: own policy resolver nulls and ownerParam ty
       state.preHandler(
         {
           method: "GET",
-          raw: { url: "/api/v1/own-b" },
+          raw: { url: "/api/own-b" },
           headers: {},
           params: { id: 7 },
           routeOptions: {
@@ -186,7 +186,7 @@ test("auth plugin internal branches: own policy resolver nulls and ownerParam ty
       state.preHandler(
         {
           method: "GET",
-          raw: { url: "/api/v1/own-c" },
+          raw: { url: "/api/own-c" },
           headers: {},
           routeOptions: {
             config: {
@@ -245,7 +245,7 @@ test("auth plugin resolves console context permissions when console surface is r
 
   const request = {
     method: "GET",
-    raw: { url: "/api/v1/console/billing/purchases" },
+    raw: { url: "/api/console/billing/purchases" },
     headers: {},
     routeOptions: {
       config: {

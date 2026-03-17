@@ -45,7 +45,7 @@ test("shouldServePathForSurface allows api and matching enabled surfaces", () =>
   assert.equal(
     shouldServePathForSurface({
       surfaceRuntime,
-      pathname: "/api/v1/health",
+      pathname: "/api/health",
       serverSurface: "admin"
     }),
     true

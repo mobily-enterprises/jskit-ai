@@ -35,9 +35,9 @@ test("workspaceBillingApi preserves workspace billing method contract", async ()
   await api.setDefaultPaymentMethod("pm/123", { reason: "user" }, { idempotencyKey: "idem-fixed" });
   await api.createPaymentLink({ planId: "pro" });
 
-  assert.equal(calls[0].url, "/api/v1/billing/timeline?page=2&pageSize=10&source=checkout");
-  assert.equal(calls[1].url, "/api/v1/billing/payment-methods/pm%2F123/default");
+  assert.equal(calls[0].url, "/api/billing/timeline?page=2&pageSize=10&source=checkout");
+  assert.equal(calls[1].url, "/api/billing/payment-methods/pm%2F123/default");
   assert.equal(calls[1].options.headers["Idempotency-Key"], "idem-fixed");
-  assert.equal(calls[2].url, "/api/v1/billing/payment-links");
+  assert.equal(calls[2].url, "/api/billing/payment-links");
   assert.match(calls[2].options.headers["Idempotency-Key"], /^idem_/);
 });

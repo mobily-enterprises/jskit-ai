@@ -6,7 +6,7 @@ Minimal JSKIT starter shell.
 
 This is the smallest practical JSKIT app host:
 
-- tiny Fastify server (`/api/v1/health`)
+- tiny Fastify server (`/api/health`)
 - tiny Vue client shell
 - standardized scripts via `@jskit-ai/app-scripts`
 

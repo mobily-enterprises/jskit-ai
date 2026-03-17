@@ -167,7 +167,7 @@ test("history route accepts query strings for page and pageSize", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/history?page=1&pageSize=10"
+    url: "/api/history?page=1&pageSize=10"
   });
 
   assert.equal(response.statusCode, 200);
@@ -182,7 +182,7 @@ test("history route rejects out-of-range pageSize", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/history?page=1&pageSize=101"
+    url: "/api/history?page=1&pageSize=101"
   });
 
   assert.equal(response.statusCode, 400);

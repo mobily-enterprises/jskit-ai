@@ -10,7 +10,7 @@ test("metrics registry records HTTP request counters and latency histogram", () 
 
   registry.observeHttpRequest({
     method: "get",
-    route: "/api/v1/health",
+    route: "/api/health",
     surface: "app",
     statusCode: 503,
     durationMs: 220
@@ -19,16 +19,16 @@ test("metrics registry records HTTP request counters and latency histogram", () 
   const output = registry.renderPrometheusMetrics();
   assert.match(
     output,
-    /app_http_requests_total\{method="GET",route="\/api\/v1\/health",surface="app",status_class="5xx"\} 1/
+    /app_http_requests_total\{method="GET",route="\/api\/health",surface="app",status_class="5xx"\} 1/
   );
-  assert.match(output, /app_http_5xx_total\{route="\/api\/v1\/health",surface="app"\} 1/);
+  assert.match(output, /app_http_5xx_total\{route="\/api\/health",surface="app"\} 1/);
   assert.match(
     output,
-    /app_http_request_duration_seconds_bucket\{method="GET",route="\/api\/v1\/health",surface="app",le="0.5"\} 1/
+    /app_http_request_duration_seconds_bucket\{method="GET",route="\/api\/health",surface="app",le="0.5"\} 1/
   );
   assert.match(
     output,
-    /app_http_request_duration_seconds_sum\{method="GET",route="\/api\/v1\/health",surface="app"\} 0.22/
+    /app_http_request_duration_seconds_sum\{method="GET",route="\/api\/health",surface="app"\} 0.22/
   );
 });
 

@@ -35,11 +35,11 @@ These are not cosmetic. Several findings are functional correctness or portabili
 ### High
 2. API contract drift between versioned and unversioned auth endpoints
 - Files:
-  - `packages/access-core/src/lib/authApi.js` (hardcoded `/api/v1/*`)
-  - `packages/http-client-runtime/src/lib/client.js` (default CSRF session path `/api/v1/session`)
+  - `packages/access-core/src/lib/authApi.js` (hardcoded `/api/*`)
+  - `packages/http-client-runtime/src/lib/client.js` (default CSRF session path `/api/session`)
   - `packages/auth-web/src/server/routes/authRoutes.js` (registers `/api/*` routes)
   - `packages/auth-web/src/client/composables/useDefaultLoginView.js` (uses `/api/*`)
-  - `packages/auth-web/src/client/runtime/useSignOut.js` (mixes `/api/logout` and `/api/v1/logout`)
+  - `packages/auth-web/src/client/runtime/useSignOut.js` (mixes `/api/logout` and `/api/logout`)
 - Why this is a slop marker:
   - Multiple “truths” for one contract.
   - Behavior depends on which helper path is used.
@@ -166,7 +166,7 @@ These are not cosmetic. Several findings are functional correctness or portabili
 
 ## Prioritized Remediation Targets
 1. Enforce dry-run invariants so *no write path can execute* under `--dry-run`.
-2. Canonicalize auth route/version constants (`/api` vs `/api/v1`) in one shared module.
+2. Canonicalize auth route/version constants (`/api` vs `/api`) in one shared module.
 3. Choose one client-route registration contract and deprecate/remove the other.
 4. Collapse `auth-web` runtime/template/api clones to generated or shared sources.
 5. Extract shared kernel policy mapping and descriptor resolution helpers.

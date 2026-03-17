@@ -226,14 +226,14 @@ Evidence:
 // packages/web/web-runtime-core/src/transportRuntime.js
 const DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES = [
   ...,
-  { method: "POST", pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/typing$/ }
+  { method: "POST", pattern: /^\/api\/chat\/threads\/[^/]+\/typing$/ }
 ];
 ```
 
 Missing examples:
-- `POST /api/v1/chat/threads/:threadId/reactions`
-- `DELETE /api/v1/chat/threads/:threadId/reactions`
-- `POST /api/v1/workspace/invitations/redeem`
+- `POST /api/chat/threads/:threadId/reactions`
+- `DELETE /api/chat/threads/:threadId/reactions`
+- `POST /api/workspace/invitations/redeem`
 
 How to fix:
 1. Add missing patterns to correlated write route list.

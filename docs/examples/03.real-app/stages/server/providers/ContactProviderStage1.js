@@ -91,7 +91,7 @@ class ContactProviderStage1 {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/intake",
+      "/api/docs/ch03/stage-1/contacts/intake",
       contactIntakePostRouteContract,
       async (request, reply) => {
         const qualified = qualifyContact(request.body);
@@ -139,7 +139,7 @@ class ContactProviderStage1 {
 
     router.register(
       "POST",
-      "/api/v1/docs/ch03/stage-1/contacts/preview-followup",
+      "/api/docs/ch03/stage-1/contacts/preview-followup",
       contactPreviewFollowupPostRouteContract,
       async (request, reply) => {
         const qualified = qualifyContact(request.body);
@@ -170,7 +170,7 @@ class ContactProviderStage1 {
 
     router.register(
       "GET",
-      "/api/v1/docs/ch03/stage-1/contacts/:contactId",
+      "/api/docs/ch03/stage-1/contacts/:contactId",
       contactByIdGetRouteContract,
       async (request, reply) => {
         const contactId = String(request.params?.contactId || "").trim();

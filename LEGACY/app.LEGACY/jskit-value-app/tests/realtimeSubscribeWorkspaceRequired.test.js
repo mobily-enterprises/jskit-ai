@@ -5,7 +5,7 @@ import { createRealtimeTestApp, openRealtimeWebSocket, waitForRealtimeMessage } 
 
 test("missing subscribe workspaceSlug returns workspace_required and does not resolve workspace context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -33,7 +33,7 @@ test("missing subscribe workspaceSlug returns workspace_required and does not re
 
 test("missing subscribe workspaceSlug is allowed for user-scoped topics and skips workspace context resolution", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -62,7 +62,7 @@ test("missing subscribe workspaceSlug is allowed for user-scoped topics and skip
 
 test("missing subscribe workspaceSlug with mixed topic scopes still returns workspace_required", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -90,7 +90,7 @@ test("missing subscribe workspaceSlug with mixed topic scopes still returns work
 
 test("blank unsubscribe workspaceSlug returns workspace_required and does not resolve workspace context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -119,7 +119,7 @@ test("blank unsubscribe workspaceSlug returns workspace_required and does not re
 
 test("blank unsubscribe workspaceSlug is allowed for user-scoped topics", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {

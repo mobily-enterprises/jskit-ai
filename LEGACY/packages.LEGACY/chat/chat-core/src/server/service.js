@@ -597,7 +597,7 @@ function computeBufferSha256Hex(buffer) {
 }
 
 function buildAttachmentDeliveryPath(attachmentId) {
-  return `/api/v1/chat/attachments/${Number(attachmentId)}/content`;
+  return `/api/chat/attachments/${Number(attachmentId)}/content`;
 }
 
 function isAttachmentReserveReplayCompatible(existingAttachment, reservePayload) {

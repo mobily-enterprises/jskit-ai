@@ -83,7 +83,7 @@ http://localhost:5173/console
 
 Expected:
 - Pages render from filesystem routing (`src/pages`).
-- `GET /api/v1/health` returns `200` from the shell server bootstrap.
+- `GET /api/health` returns `200` from the shell server bootstrap.
 - Additional API routes are added as you install or build JSKIT modules/providers.
 
 
@@ -232,7 +232,7 @@ The first backend example should start from the blank template as-is: one provid
 
 The example below adds:
 
-- `GET /api/v1/main/hello?name=alice`
+- `GET /api/main/hello?name=alice`
 
 Validation is still handled at three levels:
 
@@ -315,10 +315,10 @@ class MainServiceProvider {
 
     router.register(
       "GET",
-      "/api/v1/main/hello",
+      "/api/main/hello",
       {
         method: "GET",
-        path: "/api/v1/main/hello",
+        path: "/api/main/hello",
         schema: {
           tags: ["main"],
           summary: "Example hello endpoint from @local/main",
@@ -364,7 +364,7 @@ metadata: {
     routes: [
       {
         method: "GET",
-        path: "/api/v1/main/hello",
+        path: "/api/main/hello",
         summary: "Hello endpoint from the local main module."
       }
     ]
@@ -382,7 +382,7 @@ metadata: {
 Restart your backend server and call:
 
 ```bash
-curl "http://localhost:3000/api/v1/main/hello?name=alice"
+curl "http://localhost:3000/api/main/hello?name=alice"
 ```
 
 Expected shape:
@@ -400,10 +400,10 @@ Optional validation checks:
 
 ```bash
 # Transport-level validation (query too long -> 400)
-curl "http://localhost:3000/api/v1/main/hello?name=$(printf '%081d' 1)"
+curl "http://localhost:3000/api/main/hello?name=$(printf '%081d' 1)"
 
 # Domain-level validation (reserved name -> 422)
-curl "http://localhost:3000/api/v1/main/hello?name=admin"
+curl "http://localhost:3000/api/main/hello?name=admin"
 ```
 
 This pattern scales well:

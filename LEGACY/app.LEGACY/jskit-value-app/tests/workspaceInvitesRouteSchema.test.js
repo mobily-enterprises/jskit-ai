@@ -70,7 +70,7 @@ test("workspace invites route serializes invite workspace payload including colo
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/admin/workspace/invites"
+    url: "/api/admin/workspace/invites"
   });
 
   assert.equal(response.statusCode, 200);

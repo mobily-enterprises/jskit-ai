@@ -41,9 +41,9 @@ Use this checklist before shipping changes to production.
 - [ ] Start app with production env: `npm run -w apps/jskit-value-app start`.
 - [ ] Verify startup has no runtime errors.
 - [ ] Verify action registry initialization has no `ACTION_DEFINITION_DUPLICATE` or definition validation startup errors.
-- [ ] Verify `GET /api/v1/health` returns `200`.
-- [ ] Verify `GET /api/v1/ready` returns `200` when dependencies are healthy.
-- [ ] Verify `/api/v1/docs` availability policy matches environment expectations (disabled in production by default).
+- [ ] Verify `GET /api/health` returns `200`.
+- [ ] Verify `GET /api/ready` returns `200` when dependencies are healthy.
+- [ ] Verify `/api/docs` availability policy matches environment expectations (disabled in production by default).
 
 ## 5. Security checks
 
@@ -78,8 +78,8 @@ Use this checklist before shipping changes to production.
 
 - [ ] Tag release commit and record changelog.
 - [ ] Confirm monitoring/alerting is active.
-- [ ] Confirm `GET /api/v1/metrics` is scrapeable in production (auth header configured if token-protected).
-- [ ] Confirm uptime alert is enabled (`/api/v1/ready` non-200 for sustained window).
+- [ ] Confirm `GET /api/metrics` is scrapeable in production (auth header configured if token-protected).
+- [ ] Confirm uptime alert is enabled (`/api/ready` non-200 for sustained window).
 - [ ] Confirm error-rate alert is enabled (5xx ratio threshold over rolling window).
 - [ ] Confirm dashboard panels exist for p95 latency, error rate, auth failures, and invite redemption funnel.
 - [ ] Confirm `docs/operations/observability.md` is current for this release.

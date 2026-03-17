@@ -17,7 +17,7 @@ const healthColor = computed(() => {
 
 onMounted(async () => {
   try {
-    const response = await fetch("/api/v1/health");
+    const response = await fetch("/api/health");
     const payload = await response.json();
     health.value = payload?.ok ? "ok" : "unhealthy";
   } catch {

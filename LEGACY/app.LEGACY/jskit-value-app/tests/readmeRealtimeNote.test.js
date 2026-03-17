@@ -7,7 +7,7 @@ test("README includes realtime inventory exemption note outside API contracts ma
   const readme = readFileSync(readmePath, "utf8");
 
   const notePattern =
-    /`(?:GET\s+)?\/api\/v1\/realtime`[\s\S]*outside the generated API contracts inventory \(`buildRoutes` path\)\./;
+    /`(?:GET\s+)?\/api\/realtime`[\s\S]*outside the generated API contracts inventory \(`buildRoutes` path\)\./;
   const startMarker = "<!-- API_CONTRACTS_START -->";
   const endMarker = "<!-- API_CONTRACTS_END -->";
 

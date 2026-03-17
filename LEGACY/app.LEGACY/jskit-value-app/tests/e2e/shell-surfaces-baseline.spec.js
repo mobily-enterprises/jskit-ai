@@ -102,13 +102,13 @@ function buildAlertsResponse() {
 }
 
 async function installShellApiMocks(page) {
-  await page.route("**/api/v1/**", async (route) => {
+  await page.route("**/api/**", async (route) => {
     const request = route.request();
     const method = request.method().toUpperCase();
     const url = new URL(request.url());
     const pathname = url.pathname;
 
-    if (pathname === "/api/v1/bootstrap" && method === "GET") {
+    if (pathname === "/api/bootstrap" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -117,7 +117,7 @@ async function installShellApiMocks(page) {
       return;
     }
 
-    if (pathname === "/api/v1/session" && method === "GET") {
+    if (pathname === "/api/session" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -126,7 +126,7 @@ async function installShellApiMocks(page) {
       return;
     }
 
-    if (pathname === "/api/v1/console/bootstrap" && method === "GET") {
+    if (pathname === "/api/console/bootstrap" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -135,7 +135,7 @@ async function installShellApiMocks(page) {
       return;
     }
 
-    if (pathname === "/api/v1/alerts" && method === "GET") {
+    if (pathname === "/api/alerts" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -144,7 +144,7 @@ async function installShellApiMocks(page) {
       return;
     }
 
-    if (pathname === "/api/v1/console/invitations/pending" && method === "GET") {
+    if (pathname === "/api/console/invitations/pending" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -153,7 +153,7 @@ async function installShellApiMocks(page) {
       return;
     }
 
-    if (pathname === "/api/v1/workspace/invitations/pending" && method === "GET") {
+    if (pathname === "/api/workspace/invitations/pending" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,

@@ -15,7 +15,7 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 
 1. Surfaces are `app`, `admin`, `console`.
 2. `app` and `admin` are workspace-bound; `console` is global (no workspace required).
-3. API paths are versioned through `shared/apiPaths.js` and normalized to `/api/v1/*`.
+3. API paths are versioned through `shared/apiPaths.js` and normalized to `/api/*`.
 4. Server runtime is assembled via `@jskit-ai/platform-server-runtime` using:
 - `server/runtime/repositories.js`
 - `server/runtime/services.js`
@@ -24,7 +24,7 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 - `server/framework/composeRuntime.js`
 5. Route registration uses `server/modules/api/routes.js` and `server/fastify/registerApiRoutes.js`; route metadata drives auth/workspace policy.
 6. Auth/workspace enforcement is via `@jskit-ai/fastify-auth-policy` in `server/fastify/auth.plugin.js`.
-7. Client bootstraps from `src/app/bootstrap/runtime.js` and initializes auth/workspace/console state from `/api/v1/bootstrap`.
+7. Client bootstraps from `src/app/bootstrap/runtime.js` and initializes auth/workspace/console state from `/api/bootstrap`.
 8. Realtime mechanics are package-owned; app owns policy in:
 - `shared/topicRegistry.js`
 - `server/fastify/realtime/subscribeContext.js`

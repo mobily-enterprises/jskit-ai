@@ -145,7 +145,7 @@ test("workspace projects route accepts page and pageSize query", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/v1/workspace/projects?page=2&pageSize=25"
+    url: "/api/workspace/projects?page=2&pageSize=25"
   });
 
   assert.equal(response.statusCode, 200);
@@ -162,7 +162,7 @@ test("workspace projects route rejects invalid create payload", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/v1/workspace/projects",
+    url: "/api/workspace/projects",
     payload: {
       name: "Demo",
       status: "invalid"
@@ -181,7 +181,7 @@ test("workspace projects route supports put replace payload", async () => {
 
   const response = await app.inject({
     method: "PUT",
-    url: "/api/v1/workspace/projects/1",
+    url: "/api/workspace/projects/1",
     payload: {
       name: "Demo",
       status: "draft"

@@ -20,84 +20,84 @@ function toQueryString(query = {}) {
 function createApi({ request }) {
   return {
     listFeed(query = {}) {
-      return request(`/api/v1/workspace/social/feed${toQueryString(query)}`);
+      return request(`/api/workspace/social/feed${toQueryString(query)}`);
     },
     createPost(payload) {
-      return request("/api/v1/workspace/social/posts", {
+      return request("/api/workspace/social/posts", {
         method: "POST",
         body: payload
       });
     },
     getPost(postId) {
       const encodedPostId = encodeURIComponent(String(postId || "").trim());
-      return request(`/api/v1/workspace/social/posts/${encodedPostId}`);
+      return request(`/api/workspace/social/posts/${encodedPostId}`);
     },
     updatePost(postId, payload) {
       const encodedPostId = encodeURIComponent(String(postId || "").trim());
-      return request(`/api/v1/workspace/social/posts/${encodedPostId}`, {
+      return request(`/api/workspace/social/posts/${encodedPostId}`, {
         method: "PATCH",
         body: payload
       });
     },
     deletePost(postId) {
       const encodedPostId = encodeURIComponent(String(postId || "").trim());
-      return request(`/api/v1/workspace/social/posts/${encodedPostId}`, {
+      return request(`/api/workspace/social/posts/${encodedPostId}`, {
         method: "DELETE"
       });
     },
     createComment(postId, payload) {
       const encodedPostId = encodeURIComponent(String(postId || "").trim());
-      return request(`/api/v1/workspace/social/posts/${encodedPostId}/comments`, {
+      return request(`/api/workspace/social/posts/${encodedPostId}/comments`, {
         method: "POST",
         body: payload
       });
     },
     deleteComment(commentId) {
       const encodedCommentId = encodeURIComponent(String(commentId || "").trim());
-      return request(`/api/v1/workspace/social/comments/${encodedCommentId}`, {
+      return request(`/api/workspace/social/comments/${encodedCommentId}`, {
         method: "DELETE"
       });
     },
     requestFollow(payload) {
-      return request("/api/v1/workspace/social/follows", {
+      return request("/api/workspace/social/follows", {
         method: "POST",
         body: payload
       });
     },
     undoFollow(followId) {
       const encodedFollowId = encodeURIComponent(String(followId || "").trim());
-      return request(`/api/v1/workspace/social/follows/${encodedFollowId}`, {
+      return request(`/api/workspace/social/follows/${encodedFollowId}`, {
         method: "DELETE"
       });
     },
     searchActors(query = {}) {
-      return request(`/api/v1/workspace/social/actors/search${toQueryString(query)}`);
+      return request(`/api/workspace/social/actors/search${toQueryString(query)}`);
     },
     getActorProfile(actorId) {
       const encodedActorId = encodeURIComponent(String(actorId || "").trim());
-      return request(`/api/v1/workspace/social/actors/${encodedActorId}`);
+      return request(`/api/workspace/social/actors/${encodedActorId}`);
     },
     listNotifications(query = {}) {
-      return request(`/api/v1/workspace/social/notifications${toQueryString(query)}`);
+      return request(`/api/workspace/social/notifications${toQueryString(query)}`);
     },
     markNotificationsRead(payload = {}) {
-      return request("/api/v1/workspace/social/notifications/read", {
+      return request("/api/workspace/social/notifications/read", {
         method: "POST",
         body: payload
       });
     },
     listModerationRules(query = {}) {
-      return request(`/api/v1/workspace/admin/social/moderation/rules${toQueryString(query)}`);
+      return request(`/api/workspace/admin/social/moderation/rules${toQueryString(query)}`);
     },
     createModerationRule(payload = {}) {
-      return request("/api/v1/workspace/admin/social/moderation/rules", {
+      return request("/api/workspace/admin/social/moderation/rules", {
         method: "POST",
         body: payload
       });
     },
     deleteModerationRule(ruleId) {
       const encodedRuleId = encodeURIComponent(String(ruleId || "").trim());
-      return request(`/api/v1/workspace/admin/social/moderation/rules/${encodedRuleId}`, {
+      return request(`/api/workspace/admin/social/moderation/rules/${encodedRuleId}`, {
         method: "DELETE"
       });
     }

@@ -22,8 +22,21 @@ function ensureArray(value) {
 }
 
 const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
+const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
+
+function isPlacementDebugEnabled() {
+  if (typeof globalThis !== "object" || !globalThis) {
+    return false;
+  }
+
+  return globalThis[PLACEMENT_DEBUG_FLAG] === true;
+}
 
 function debugLog(message, payload = null) {
+  if (!isPlacementDebugEnabled()) {
+    return;
+  }
+
   if (payload === null || payload === undefined) {
     console.log(`${PLACEMENT_DEBUG_PREFIX} ${message}`);
     return;

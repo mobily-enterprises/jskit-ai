@@ -21,7 +21,7 @@ function createApi({ request }) {
         params.set("status", String(query.status));
       }
       const queryString = params.toString();
-      return request(`/api/v1/console/ai/transcripts${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/console/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },
     getAiTranscriptMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -34,7 +34,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/v1/console/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/console/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     },
     exportAiTranscripts(query = {}) {
@@ -61,7 +61,7 @@ function createApi({ request }) {
         params.set("format", String(query.format));
       }
       const queryString = params.toString();
-      return request(`/api/v1/console/ai/transcripts/export${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/console/ai/transcripts/export${queryString ? `?${queryString}` : ""}`);
     }
   };
 }

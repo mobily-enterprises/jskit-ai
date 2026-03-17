@@ -1,4 +1,4 @@
-const DEG2RAD_API_PATH = "/api/v1/deg2rad";
+const DEG2RAD_API_PATH = "/api/deg2rad";
 
 function createApi({ request }) {
   return {

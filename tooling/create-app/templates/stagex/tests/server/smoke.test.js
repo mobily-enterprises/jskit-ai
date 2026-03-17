@@ -17,14 +17,14 @@ test("contact routes handle intake, preview, conflicts, validation, and not-foun
 
   const intake = await app.inject({
     method: "POST",
-    url: "/api/v1/contacts/intake",
+    url: "/api/contacts/intake",
     payload: validPayload
   });
   assert.equal(intake.statusCode, 200);
 
   const validationFailure = await app.inject({
     method: "POST",
-    url: "/api/v1/contacts/intake",
+    url: "/api/contacts/intake",
     payload: {
       ...validPayload,
       plan: "starter",
@@ -35,14 +35,14 @@ test("contact routes handle intake, preview, conflicts, validation, and not-foun
 
   const duplicate = await app.inject({
     method: "POST",
-    url: "/api/v1/contacts/intake",
+    url: "/api/contacts/intake",
     payload: validPayload
   });
   assert.equal(duplicate.statusCode, 409);
 
   const preview = await app.inject({
     method: "POST",
-    url: "/api/v1/contacts/preview-followup",
+    url: "/api/contacts/preview-followup",
     payload: {
       ...validPayload,
       email: "preview@example.com"
@@ -52,7 +52,7 @@ test("contact routes handle intake, preview, conflicts, validation, and not-foun
 
   const missing = await app.inject({
     method: "GET",
-    url: "/api/v1/contacts/does-not-exist"
+    url: "/api/contacts/does-not-exist"
   });
   assert.equal(missing.statusCode, 404);
 

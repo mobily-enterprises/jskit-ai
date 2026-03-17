@@ -50,5 +50,5 @@ Client:
   - `apps/jskit-value-app/server/runtime/services.js` passes `appServerExtensions.settings` into `userSettingsService`.
   - `apps/jskit-value-app/server/modules/settings/service.js` resolves and executes extension validators/persistence/projection.
   - `apps/jskit-value-app/server/modules/settings/routes.js` exposes:
-    - `GET /api/v1/settings/extensions/:extensionId`
-    - `PATCH /api/v1/settings/extensions/:extensionId`
+    - `GET /api/settings/extensions/:extensionId`
+    - `PATCH /api/settings/extensions/:extensionId`

@@ -32,9 +32,9 @@ test("workspaceApi exposes workspace core methods only", async () => {
   await api.updateMemberRole("user/42", { roleId: "owner" });
   await api.revokeInvite("inv/123");
 
-  assert.equal(calls[0].url, "/api/v1/bootstrap");
-  assert.equal(calls[1].url, "/api/v1/admin/workspace/members/user%2F42/role");
+  assert.equal(calls[0].url, "/api/bootstrap");
+  assert.equal(calls[1].url, "/api/admin/workspace/members/user%2F42/role");
   assert.equal(calls[1].options.method, "PATCH");
-  assert.equal(calls[2].url, "/api/v1/admin/workspace/invites/inv%2F123");
+  assert.equal(calls[2].url, "/api/admin/workspace/invites/inv%2F123");
   assert.equal(calls[2].options.method, "DELETE");
 });

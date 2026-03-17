@@ -3,13 +3,8 @@ import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
 import { useAuthGuardRuntime } from "./inject.js";
 
-const SIGN_OUT_ENDPOINTS = Object.freeze(["/api/logout", "/api/v1/logout"]);
-const RETRYABLE_STATUS_CODES = new Set([404, 405, 501]);
+const SIGN_OUT_ENDPOINT = "/api/logout";
 const SESSION_ENDPOINT = "/api/session";
-
-function statusCodeOf(error) {
-  return Number(error?.status || error?.statusCode || 0);
-}
 
 function normalizeReturnToPath(value, fallback = "/") {
   const normalized = String(value || "").trim();
@@ -48,30 +43,7 @@ function createHttpLogoutApi() {
     async logout() {
       const initialSession = await readSessionState();
       const wasAuthenticated = Boolean(initialSession?.authenticated);
-      let lastRetryableError = null;
-      let lastMaybeSuccessfulError = null;
-      let attempted = false;
-
-      for (const endpoint of SIGN_OUT_ENDPOINTS) {
-        attempted = true;
-
-        try {
-          await authHttpRequest(endpoint, { method: "POST" });
-          lastMaybeSuccessfulError = null;
-          break;
-        } catch (error) {
-          const statusCode = statusCodeOf(error);
-          if (RETRYABLE_STATUS_CODES.has(statusCode)) {
-            lastRetryableError = error;
-            continue;
-          }
-          if (statusCode === 401 || statusCode === 403) {
-            lastMaybeSuccessfulError = error;
-            break;
-          }
-          throw error;
-        }
-      }
+      await authHttpRequest(SIGN_OUT_ENDPOINT, { method: "POST" });
 
       const signedOut = await waitForSignedOutState();
       if (signedOut) {
@@ -80,12 +52,6 @@ function createHttpLogoutApi() {
 
       if (!wasAuthenticated) {
         return;
-      }
-
-      const statusCode =
-        statusCodeOf(lastMaybeSuccessfulError) || statusCodeOf(lastRetryableError) || (attempted ? 0 : 500);
-      if (statusCode > 0) {
-        throw new Error(`Logout did not terminate the server session (status ${statusCode}).`);
       }
 
       throw new Error("Logout did not terminate the server session.");

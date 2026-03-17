@@ -33,10 +33,10 @@ test("workspace self-service routes keep required auth and selector-safe policy 
   const routes = buildRoutes(createNoopControllers());
 
   const expectations = [
-    ["GET", "/api/v1/workspaces"],
-    ["POST", "/api/v1/workspaces/select"],
-    ["GET", "/api/v1/workspace/invitations/pending"],
-    ["POST", "/api/v1/workspace/invitations/redeem"]
+    ["GET", "/api/workspaces"],
+    ["POST", "/api/workspaces/select"],
+    ["GET", "/api/workspace/invitations/pending"],
+    ["POST", "/api/workspace/invitations/redeem"]
   ];
 
   for (const [method, path] of expectations) {
@@ -51,7 +51,7 @@ test("workspace self-service routes keep required auth and selector-safe policy 
 
 test("workspace admin routes remain explicitly workspace-scoped", () => {
   const routes = buildRoutes(createNoopControllers());
-  const route = findRoute(routes, "GET", "/api/v1/admin/workspace/settings");
+  const route = findRoute(routes, "GET", "/api/admin/workspace/settings");
 
   assert.ok(route);
   assert.equal(route.auth, "required");

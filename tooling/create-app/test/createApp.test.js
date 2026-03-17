@@ -74,7 +74,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(favicon, /<svg/);
 
     const serverSmoke = await readFile(path.join(appRoot, "tests/server/smoke.test.js"), "utf8");
-    assert.match(serverSmoke, /GET \/api\/v1\/health returns not found/);
+    assert.match(serverSmoke, /GET \/api\/health returns not found/);
 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
@@ -190,9 +190,9 @@ test("create-app scaffolds stagex with main service provider and contact routes"
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /template: `stagex`/);
-    assert.match(readme, /POST \/api\/v1\/contacts\/intake/);
-    assert.match(readme, /POST \/api\/v1\/contacts\/preview-followup/);
-    assert.match(readme, /GET \/api\/v1\/contacts\/:contactId/);
+    assert.match(readme, /POST \/api\/contacts\/intake/);
+    assert.match(readme, /POST \/api\/contacts\/preview-followup/);
+    assert.match(readme, /GET \/api\/contacts\/:contactId/);
 
     const localMainServerEntrypoint = await readFile(path.join(appRoot, "packages/main/src/server/index.js"), "utf8");
     assert.match(localMainServerEntrypoint, /export \{ MainServiceProvider \}/);
@@ -206,17 +206,17 @@ test("create-app scaffolds stagex with main service provider and contact routes"
     assert.match(localMainProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
     assert.match(localMainProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
     assert.match(localMainProvider, /app\.instance\("appConfig", appConfig\);/);
-    assert.match(localMainProvider, /\/api\/v1\/contacts\/intake/);
-    assert.match(localMainProvider, /\/api\/v1\/contacts\/preview-followup/);
-    assert.match(localMainProvider, /\/api\/v1\/contacts\/:contactId/);
+    assert.match(localMainProvider, /\/api\/contacts\/intake/);
+    assert.match(localMainProvider, /\/api\/contacts\/preview-followup/);
+    assert.match(localMainProvider, /\/api\/contacts\/:contactId/);
     assert.doesNotMatch(localMainProvider, /stage-7|Stage7|stage7/);
 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
     assert.match(localMainDescriptor, /discover:\s*\{/);
     assert.match(localMainDescriptor, /dir:\s*"src\/server\/providers"/);
-    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/intake"/);
-    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/preview-followup"/);
-    assert.match(localMainDescriptor, /path:\s*"\/api\/v1\/contacts\/:contactId"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/contacts\/intake"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/contacts\/preview-followup"/);
+    assert.match(localMainDescriptor, /path:\s*"\/api\/contacts\/:contactId"/);
 
     const contactRouteValidators = await readFile(
       path.join(appRoot, "packages/main/src/shared/schemas/contactRouteValidators.js"),

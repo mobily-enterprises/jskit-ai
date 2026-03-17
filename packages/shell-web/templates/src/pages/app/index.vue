@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/vue-query";
 const healthQuery = useQuery({
   queryKey: ["shell-web", "health"],
   queryFn: async () => {
-    const response = await fetch("/api/v1/health");
+    const response = await fetch("/api/health");
     if (!response.ok) {
       throw new Error("Health request failed.");
     }

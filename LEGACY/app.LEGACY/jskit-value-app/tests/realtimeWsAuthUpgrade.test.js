@@ -5,7 +5,7 @@ import { createRealtimeTestApp, openRealtimeWebSocket, waitForRealtimeMessage } 
 
 test("websocket auth is enforced on real upgrade path and authenticated subscribe carries auth context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
 
   await assert.rejects(
     () => openRealtimeWebSocket(url),
