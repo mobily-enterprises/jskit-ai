@@ -14,10 +14,6 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-          {{ loadError }}
-        </v-alert>
-
         <v-table density="comfortable">
           <thead>
             <tr>
@@ -72,7 +68,6 @@ const records = useList({
 });
 
 const items = records.items;
-const loadError = records.loadError;
 const isLoading = records.isLoading;
 const hasMore = records.hasMore;
 const isLoadingMore = records.isLoadingMore;

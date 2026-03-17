@@ -5,14 +5,22 @@ import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   WEB_PLACEMENT_RUNTIME_INJECTION_KEY
 } from "../src/client/placement/tokens.js";
+import {
+  SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN,
+  SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY,
+  SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN,
+  SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY
+} from "../src/client/error/tokens.js";
 import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
 
 function createAppDouble() {
   const singletons = new Map();
+  const singletonInstances = new Map();
   const provided = [];
   const plugins = [];
 
   const vueApp = {
+    config: {},
     use(plugin, options) {
       plugins.push({ plugin, options });
       return this;
@@ -37,11 +45,16 @@ function createAppDouble() {
       if (token === CLIENT_MODULE_VUE_APP_TOKEN) {
         return vueApp;
       }
+      if (singletonInstances.has(token)) {
+        return singletonInstances.get(token);
+      }
       const factory = singletons.get(token);
       if (!factory) {
         throw new Error(`Unknown token ${String(token)}`);
       }
-      return factory(this);
+      const instance = factory(this);
+      singletonInstances.set(token, instance);
+      return instance;
     },
     resolveTag() {
       return [];
@@ -55,14 +68,30 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
 
   provider.register(app);
   assert.equal(app.singletons.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN), true);
+  assert.equal(app.singletons.has(SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN), true);
+  assert.equal(app.singletons.has(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN), true);
 
   await provider.boot(app);
   assert.equal(app.plugins.length, 1);
   assert.equal(typeof app.plugins[0].plugin.install, "function");
   assert.equal(typeof app.plugins[0].options?.queryClient, "object");
-  assert.equal(app.provided.length, 1);
-  assert.equal(app.provided[0].key, WEB_PLACEMENT_RUNTIME_INJECTION_KEY);
-  assert.equal(typeof app.provided[0].value.getPlacements, "function");
-  assert.equal(typeof app.provided[0].value.getContext, "function");
-  assert.equal(typeof app.provided[0].value.setContext, "function");
+
+  const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
+
+  assert.equal(providedByKey.has(WEB_PLACEMENT_RUNTIME_INJECTION_KEY), true);
+  assert.equal(providedByKey.has(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY), true);
+  assert.equal(providedByKey.has(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY), true);
+
+  const placementRuntime = providedByKey.get(WEB_PLACEMENT_RUNTIME_INJECTION_KEY);
+  assert.equal(typeof placementRuntime.getPlacements, "function");
+  assert.equal(typeof placementRuntime.getContext, "function");
+  assert.equal(typeof placementRuntime.setContext, "function");
+
+  const errorRuntime = providedByKey.get(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY);
+  assert.equal(typeof errorRuntime.report, "function");
+  assert.equal(typeof errorRuntime.configure, "function");
+
+  const errorStore = providedByKey.get(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY);
+  assert.equal(typeof errorStore.getState, "function");
+  assert.equal(typeof errorStore.present, "function");
 });

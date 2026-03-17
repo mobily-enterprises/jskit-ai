@@ -4,7 +4,10 @@ import { useEndpointResource } from "./useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
 import { useUiFeedback } from "./useUiFeedback.js";
 import { useFieldErrorBag } from "./useFieldErrorBag.js";
-import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
+import {
+  setupRouteChangeCleanup,
+  setupOperationErrorReporting
+} from "./operationUiHelpers.js";
 
 function useCommand({
   visibility = "workspace",
@@ -48,7 +51,9 @@ function useCommand({
     fallbackSaveError: fallbackRunError
   });
 
-  const feedback = useUiFeedback();
+  const feedback = useUiFeedback({
+    source: `${placementSource}.feedback`
+  });
   const fieldBag = useFieldErrorBag(fieldErrorKeys);
 
   const command = useCommandCore({
@@ -80,6 +85,10 @@ function useCommand({
 
   const loadError = operationScope.loadError();
   const isLoading = operationScope.isLoading();
+  setupOperationErrorReporting({
+    source: `${placementSource}.load`,
+    loadError
+  });
 
   return proxyRefs({
     canRun,

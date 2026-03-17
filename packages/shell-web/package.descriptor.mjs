@@ -6,7 +6,8 @@ export default Object.freeze({
   dependsOn: [],
   capabilities: {
     provides: [
-      "runtime.web-placement"
+      "runtime.web-placement",
+      "runtime.web-error"
     ],
     requires: []
   },
@@ -33,12 +34,18 @@ export default Object.freeze({
         {
           subpath: "./client/placement",
           summary: "Exports app-owned placement registry helpers, slot validators, and placement runtime tokens."
+        },
+        {
+          subpath: "./client/error",
+          summary: "Exports app-level error runtime, policy contract, and material presenter factories."
         }
       ],
       containerTokens: {
         server: [],
         client: [
-          "runtime.web-placement.client"
+          "runtime.web-placement.client",
+          "runtime.web-error.client",
+          "runtime.web-error.presentation-store.client"
         ]
       }
     },
@@ -87,9 +94,16 @@ export default Object.freeze({
       {
         from: "templates/src/App.vue",
         to: "src/App.vue",
-        reason: "Install full-width shell app root so shell layouts render edge-to-edge.",
+        reason: "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
         category: "shell-web",
         id: "shell-web-app-root"
+      },
+      {
+        from: "templates/src/error.js",
+        to: "src/error.js",
+        reason: "Install app-owned error runtime policy and presenter config scaffold.",
+        category: "shell-web",
+        id: "shell-web-error-config"
       },
       {
         from: "templates/src/placement.js",

@@ -47,10 +47,6 @@
               <div v-if="state.selectedAvatarFileName" class="text-caption text-medium-emphasis mb-2">
                 {{ copyText.selectedFilePrefix }} {{ state.selectedAvatarFileName }}
               </div>
-
-              <v-alert v-if="state.avatarMessage" :type="state.avatarMessageType" variant="tonal" class="mb-0">
-                {{ state.avatarMessage }}
-              </v-alert>
             </v-col>
           </v-row>
 
@@ -77,11 +73,6 @@
               />
             </v-col>
           </v-row>
-
-          <v-alert v-if="state.profileMessage" :type="state.profileMessageType" variant="tonal" class="mb-3">
-            {{ state.profileMessage }}
-          </v-alert>
-
           <v-btn type="submit" color="primary" :loading="state.profileMutation.isPending.value" :data-testid="uiTestIds.submitButton">
             {{ copyText.saveProfile }}
           </v-btn>

@@ -1,5 +1,6 @@
 import { useListCore } from "./useListCore.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
+import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useList({
   visibility = "workspace",
@@ -49,6 +50,10 @@ function useList({
 
   const loadError = operationScope.loadError(list.loadError);
   const isLoading = operationScope.isLoading(list.isLoading);
+  setupOperationErrorReporting({
+    source: `${placementSource}.load`,
+    loadError
+  });
 
   return Object.freeze({
     canView,

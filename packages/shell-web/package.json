@@ -7,10 +7,12 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
+    "./client/error": "./src/client/error/index.js",
     "./client/placement": "./src/client/placement/index.js",
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
+    "./client/components/ShellErrorHost": "./src/client/components/ShellErrorHost.vue",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js"
   },
   "dependencies": {

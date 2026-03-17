@@ -1,4 +1,5 @@
 import { computed, onMounted, ref } from "vue";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { performSignOutRequest } from "../runtime/useSignOut.js";
 import { useAuthGuardRuntime } from "../runtime/inject.js";
 
@@ -39,9 +40,27 @@ export function useDefaultSignOutView() {
   const authGuardRuntime = useAuthGuardRuntime({
     required: true
   });
+  const errorRuntime = useShellWebErrorRuntime();
   const status = ref("pending");
   const errorMessage = ref("");
   const returnToPath = ref("/");
+
+  function setErrorMessage(message, dedupeKey = "") {
+    const normalizedMessage = String(message || "").trim();
+    errorMessage.value = normalizedMessage;
+    if (!normalizedMessage) {
+      return;
+    }
+
+    errorRuntime.report({
+      source: "auth-web.default-signout-view",
+      message: normalizedMessage,
+      severity: "error",
+      channel: "banner",
+      dedupeKey: dedupeKey || `auth-web.default-signout-view:error:${normalizedMessage}`,
+      dedupeWindowMs: 3000
+    });
+  }
 
   const loginRoute = computed(() => {
     const params = new URLSearchParams({
@@ -56,7 +75,7 @@ export function useDefaultSignOutView() {
 
   async function executeSignOut() {
     status.value = "pending";
-    errorMessage.value = "";
+    setErrorMessage("");
 
     try {
       await performSignOutRequest({
@@ -66,7 +85,7 @@ export function useDefaultSignOutView() {
       navigateToPath(loginRoute.value, { replace: true });
     } catch (error) {
       status.value = "error";
-      errorMessage.value = String(error?.message || "Sign out failed.");
+      setErrorMessage(String(error?.message || "Sign out failed."));
     }
   }
 

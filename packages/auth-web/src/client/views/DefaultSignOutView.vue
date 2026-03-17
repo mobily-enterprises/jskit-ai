@@ -9,9 +9,9 @@
             Please wait while we end your session.
           </p>
 
-          <v-alert v-if="status === 'error'" type="error" variant="tonal" class="mb-4">
+          <p v-if="status === 'error'" class="text-body-1 text-medium-emphasis mb-4">
             {{ errorMessage || "Sign out failed. Please try again." }}
-          </v-alert>
+          </p>
 
           <div class="d-flex ga-3">
             <v-btn

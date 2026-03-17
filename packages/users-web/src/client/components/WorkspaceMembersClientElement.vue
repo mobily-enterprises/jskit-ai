@@ -1,8 +1,8 @@
 <template>
   <section class="workspace-members-page">
-    <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
+    <p v-if="loadError" class="text-body-2 text-medium-emphasis mb-4">
       {{ loadError }}
-    </v-alert>
+    </p>
 
     <MembersAdminClientElement
       v-else
@@ -29,6 +29,7 @@ import { usePaths } from "../composables/usePaths.js";
 import { useAccess } from "../composables/useAccess.js";
 import { useUiFeedback } from "../composables/useUiFeedback.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import {
   WORKSPACE_SETTINGS_CHANGED_EVENT,
   WORKSPACE_MEMBERS_CHANGED_EVENT,
@@ -80,6 +81,7 @@ const feedback = Object.freeze({
 const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
   useWorkspaceRouteContext();
 const usersPaths = usePaths();
+const errorRuntime = useShellWebErrorRuntime();
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceMembersApiPath = computed(() =>
@@ -417,6 +419,24 @@ const loadError = computed(() => {
 
   return access.bootstrapError.value;
 });
+
+watch(
+  loadError,
+  (nextLoadError) => {
+    if (!nextLoadError) {
+      return;
+    }
+    errorRuntime.report({
+      source: "users-web.workspace-members-view",
+      severity: "error",
+      channel: "banner",
+      message: String(nextLoadError || "Unable to load workspace members."),
+      dedupeKey: `users-web.workspace-members-view:bootstrap:${nextLoadError}`,
+      dedupeWindowMs: 3000
+    });
+  },
+  { immediate: true }
+);
 
 const actions = Object.freeze({
   submitInvite,

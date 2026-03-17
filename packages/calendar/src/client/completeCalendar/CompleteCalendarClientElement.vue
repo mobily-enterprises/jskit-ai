@@ -25,16 +25,6 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
-
-        <v-alert v-if="moveCommand.message" :type="moveCommand.messageType" variant="tonal" class="mb-4">
-          {{ moveCommand.message }}
-        </v-alert>
-
-        <v-alert v-if="createCommand.message" :type="createCommand.messageType" variant="tonal" class="mb-4">
-          {{ createCommand.message }}
-        </v-alert>
-
         <FullCalendar ref="calendarRef" :options="calendarOptions" />
       </v-card-text>
     </v-card>
@@ -251,10 +241,6 @@ const contactOptions = computed(() => {
 });
 
 const contactOptionsWithoutAll = computed(() => contactOptions.value.filter((entry) => entry.id > 0));
-
-const loadError = computed(() => {
-  return String(weekView.loadError.value || contactsList.loadError.value || "");
-});
 
 const isRefreshing = computed(() => Boolean(weekView.isLoading.value || contactsList.isLoading.value));
 const BUSINESS_START_TIME = "09:00:00";

@@ -7,13 +7,13 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="addEdit.loadError" type="error" variant="tonal" class="mb-4">
+        <p v-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
           {{ addEdit.loadError }}
-        </v-alert>
+        </p>
 
-        <v-alert v-else-if="!addEdit.canView" type="warning" variant="tonal" class="mb-4">
+        <p v-else-if="!addEdit.canView" class="text-body-2 text-medium-emphasis mb-4">
           You do not have permission to view workspace settings.
-        </v-alert>
+        </p>
 
         <template v-else>
           <v-form @submit.prevent="addEdit.submit" novalidate>
@@ -80,10 +80,6 @@
               </v-col>
             </v-row>
           </v-form>
-
-          <v-alert v-if="addEdit.message" :type="addEdit.messageType" variant="tonal" class="mt-4 mb-0">
-            {{ addEdit.message }}
-          </v-alert>
         </template>
       </v-card-text>
     </v-card>

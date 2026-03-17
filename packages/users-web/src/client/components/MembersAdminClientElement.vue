@@ -13,26 +13,22 @@
               <v-skeleton-loader type="text@2, paragraph, button" class="mb-3" />
             </template>
             <template v-else>
-              <v-alert
+              <p
                 v-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
-                type="warning"
-                variant="tonal"
-                class="mb-3"
+                class="text-body-2 text-medium-emphasis mb-3"
               >
                 {{ copyText.workspaceInvitesUnavailable }}
-              </v-alert>
-              <v-alert
+              </p>
+              <p
                 v-else-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
-                type="info"
-                variant="tonal"
-                class="mb-3"
+                class="text-body-2 text-medium-emphasis mb-3"
               >
                 {{ copyText.workspaceInvitesDisabled }}
-              </v-alert>
+              </p>
 
-              <v-alert v-if="!canInviteMembers" type="info" variant="tonal" class="mb-3">
+              <p v-if="!canInviteMembers" class="text-body-2 text-medium-emphasis mb-3">
                 {{ copyText.noInvitePermission }}
-              </v-alert>
+              </p>
 
               <template v-else-if="canShowInviteForm">
                 <v-form @submit.prevent="onSubmitInvite" novalidate>
@@ -70,10 +66,6 @@
                 </v-form>
               </template>
             </template>
-
-            <v-alert v-if="inviteMessage" :type="inviteMessageType" variant="tonal" class="mt-3 mb-0">
-              {{ inviteMessage }}
-            </v-alert>
           </v-card-text>
         </v-card>
       </v-col>
@@ -92,13 +84,9 @@
               <v-skeleton-loader type="text, list-item-two-line@2" />
             </template>
             <template v-else>
-              <v-alert v-if="membersMessage" :type="membersMessageType" variant="tonal" class="mb-3">
-                {{ membersMessage }}
-              </v-alert>
-
-              <v-alert v-if="!canViewMembers" type="info" variant="tonal" class="mb-0">
+              <p v-if="!canViewMembers" class="text-body-2 text-medium-emphasis mb-0">
                 {{ copyText.noViewPermission }}
-              </v-alert>
+              </p>
 
               <template v-else>
                 <div class="text-caption text-medium-emphasis mb-2">{{ copyText.membersSectionTitle }}</div>
@@ -182,10 +170,6 @@
                   :actions="guardedActions"
                   :mode="resolvedMode"
                 />
-
-                <v-alert v-if="teamMessage" :type="teamMessageType" variant="tonal" class="mt-3 mb-0">
-                  {{ teamMessage }}
-                </v-alert>
               </template>
             </template>
           </v-card-text>
@@ -431,12 +415,6 @@ const showMembersLoadingSkeleton = computed(
     (!resolveLoadedState(status.value.hasLoadedMembersList) || !resolveLoadedState(status.value.hasLoadedInviteList))
 );
 
-const inviteMessage = computed(() => String(unref(feedback.value.inviteMessage) || ""));
-const inviteMessageType = computed(() => String(unref(feedback.value.inviteMessageType) || "success"));
-const membersMessage = computed(() => String(unref(feedback.value.membersMessage) || ""));
-const membersMessageType = computed(() => String(unref(feedback.value.membersMessageType) || "success"));
-const teamMessage = computed(() => String(unref(feedback.value.teamMessage) || ""));
-const teamMessageType = computed(() => String(unref(feedback.value.teamMessageType) || "success"));
 const revokeInviteId = computed(() => Number(unref(feedback.value.revokeInviteId) || 0));
 
 const workspaceInvitesAvailable = computed(() => Boolean(unref(workspaceForm.value.invitesAvailable)));

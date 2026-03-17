@@ -11,10 +11,6 @@
       <v-col cols="12" lg="8" class="assistant-main-col d-flex flex-column overflow-hidden">
         <v-card rounded="lg" elevation="1" border class="assistant-main-card d-flex flex-column flex-grow-1">
           <v-card-text class="assistant-main-card-text d-flex flex-column flex-grow-1">
-            <v-alert v-if="error" type="error" variant="tonal" density="comfortable" class="mb-3">
-              {{ error }}
-            </v-alert>
-
             <div
               ref="messagesPanelRef"
               class="messages-panel mb-3 flex-grow-1"
@@ -348,7 +344,6 @@ const messages = state.messages;
 const input = state.input;
 const isStreaming = state.isStreaming;
 const isRestoringConversation = state.isRestoringConversation;
-const error = state.error;
 const pendingToolEvents = state.pendingToolEvents;
 const conversationId = state.conversationId;
 const conversationHistory = state.conversationHistory;

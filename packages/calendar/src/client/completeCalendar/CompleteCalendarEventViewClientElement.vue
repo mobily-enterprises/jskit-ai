@@ -14,17 +14,7 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="addEdit.loadError" type="error" variant="tonal" class="mb-4">{{ addEdit.loadError }}</v-alert>
-
-        <v-alert v-if="addEdit.message" :type="addEdit.messageType" variant="tonal" class="mb-4">
-          {{ addEdit.message }}
-        </v-alert>
-
-        <v-alert v-if="deleteCommand.message" :type="deleteCommand.messageType" variant="tonal" class="mb-4">
-          {{ deleteCommand.message }}
-        </v-alert>
-
-        <v-form @submit.prevent="submit">
+        <v-form v-if="!addEdit.loadError" @submit.prevent="submit">
           <v-select
             v-model="form.contactId"
             :items="contactOptions"
