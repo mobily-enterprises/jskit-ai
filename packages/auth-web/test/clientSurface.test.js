@@ -51,10 +51,6 @@ test("auth-web package exports composables for default auth views", () => {
     "./src/client/composables/useDefaultSignOutView.js"
   );
   assert.equal(
-    exportsMap["./client/routes"],
-    "./src/client/routes/registerClientRoutes.js"
-  );
-  assert.equal(
     exportsMap["./client/views/AuthProfileWidget"],
     "./src/client/views/AuthProfileWidget.vue"
   );

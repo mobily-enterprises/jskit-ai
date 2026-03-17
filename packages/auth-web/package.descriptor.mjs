@@ -55,10 +55,6 @@ export default Object.freeze({
         {
           "subpath": "./server",
           "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
-        },
-        {
-          "subpath": "./client/routes",
-          "summary": "Exports client route registration helper for auth surfaces."
         }
       ],
       "containerTokens": {

@@ -10,7 +10,6 @@
     "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
     "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",
     "./client": "./src/client/index.js",
-    "./client/routes": "./src/client/routes/registerClientRoutes.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
     "./client/views/AuthProfileWidget": "./src/client/views/AuthProfileWidget.vue",

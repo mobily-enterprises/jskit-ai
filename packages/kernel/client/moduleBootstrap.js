@@ -331,15 +331,7 @@ function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClie
   if (Array.isArray(descriptorClientProviders) && descriptorClientProviders.length > 0) {
     return resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders);
   }
-
-  const providerClasses = [];
-  for (const value of Object.values(moduleNamespace)) {
-    if (isProviderClass(value)) {
-      providerClasses.push(value);
-    }
-  }
-
-  return providerClasses;
+  return [];
 }
 
 function normalizeDescriptorUiRoutes(value) {

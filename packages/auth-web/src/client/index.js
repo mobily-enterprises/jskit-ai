@@ -13,7 +13,6 @@ export { useDefaultSignOutView } from "./composables/useDefaultSignOutView.js";
 export { resolveSurfaceLinkTarget } from "./lib/surfaceLinkTarget.js";
 export { authHttpRequest, clearAuthCsrfTokenCache } from "./api/AuthHttpClient.js";
 export { useSignOut, createSignOutAction, performSignOutRequest } from "./composables/useSignOut.js";
-export { registerClientRoutes } from "./routes/registerClientRoutes.js";
 export {
   createAuthGuardRuntime,
   isAuthGuardRuntime,

@@ -92,22 +92,24 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
   const loginComponent = {};
+  class ExampleClientProvider {
+    static id = "example.client";
+    register(app) {
+      events.push("register");
+      app.instance("example.value", 42);
+    }
+    boot() {
+      events.push("boot");
+    }
+  }
 
   const result = await bootClientModules({
     clientModules: [
       {
         packageId: "@example/alpha",
         module: {
-          ExampleClientProvider: class {
-            static id = "example.client";
-            register(app) {
-              events.push("register");
-              app.instance("example.value", 42);
-            }
-            boot() {
-              events.push("boot");
-            }
-          }
+          clientProviders: [ExampleClientProvider],
+          ExampleClientProvider
         }
       },
       {
@@ -172,6 +174,40 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   assert.equal(router.routes[1].path, "/auth/login");
   assert.equal(router.routes[1].component, loginComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
+});
+
+test("bootClientModules does not auto-discover providers from module exports", async () => {
+  const router = createRouterStub();
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const events = [];
+
+  class ExampleClientProvider {
+    static id = "example.client";
+    register() {
+      events.push("register");
+    }
+    boot() {
+      events.push("boot");
+    }
+  }
+
+  const result = await bootClientModules({
+    clientModules: [
+      {
+        packageId: "@example/no-provider-declaration",
+        module: {
+          ExampleClientProvider
+        }
+      }
+    ],
+    router,
+    surfaceRuntime,
+    surfaceMode: "all",
+    logger: { info() {}, warn() {}, error() {} }
+  });
+
+  assert.equal(result.providerCount, 0);
+  assert.deepEqual(events, []);
 });
 
 test("bootClientModules rejects clientRoutes without components", async () => {
