@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes } from "./runtime.js";
+import { createSurfaceRuntime, filterRoutesBySurface } from "./runtime.js";
 
 test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () => {
   const runtime = createSurfaceRuntime({
@@ -113,6 +113,51 @@ test("filterRoutesBySurface always keeps global routes", () => {
   );
 });
 
+test("filterRoutesBySurface keeps parent route when a nested descendant is global", () => {
+  const runtime = createSurfaceRuntime({
+    tenancyMode: "none",
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "", enabled: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true }
+    }
+  });
+
+  const filteredAdmin = filterRoutesBySurface(
+    [
+      {
+        path: "/account",
+        children: [
+          {
+            path: "settings",
+            children: [
+              {
+                path: "",
+                component: {},
+                meta: {
+                  jskit: {
+                    scope: "global"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      { path: "/admin/users" }
+    ],
+    {
+      surfaceRuntime: runtime,
+      surfaceMode: "admin"
+    }
+  );
+
+  assert.deepEqual(
+    filteredAdmin.map((route) => route.path),
+    ["/account", "/admin/users"]
+  );
+});
+
 test("createSurfaceRuntime rejects workspace surfaces when tenancyMode is none", () => {
   assert.throws(
     () =>
@@ -191,58 +236,4 @@ test("createSurfaceRuntime applies workspace surface policy fallback to first en
   });
 
   assert.deepEqual(runtime.listWorkspaceSurfaceIds(), ["web"]);
-});
-
-test("collectClientModuleRoutes normalizes scope metadata", () => {
-  const routes = collectClientModuleRoutes({
-    clientModules: [
-      {
-        packageId: "@jskit-ai/test-auth",
-        module: {
-          registerClientRoutes({ registerRoute }) {
-            registerRoute({
-              id: "auth.login",
-              path: "/auth/login",
-              scope: "global",
-              component: () => null
-            });
-          }
-        }
-      }
-    ]
-  });
-
-  assert.equal(routes.length, 1);
-  assert.equal(routes[0].scope, "global");
-  assert.equal(routes[0].meta.jskit.scope, "global");
-  assert.equal(routes[0].meta.jskit.packageId, "@jskit-ai/test-auth");
-});
-
-test("collectClientModuleRoutes resolves component via resolveComponent when componentPath is declared", () => {
-  const routes = collectClientModuleRoutes({
-    clientModules: [
-      {
-        packageId: "@jskit-ai/test-auth",
-        module: {
-          registerClientRoutes({ registerRoute }) {
-            registerRoute({
-              id: "auth.login",
-              path: "/auth/login",
-              scope: "global",
-              componentPath: "/src/views/auth/LoginView.vue"
-            });
-          }
-        }
-      }
-    ],
-    resolveComponent(route) {
-      if (route.componentPath === "/src/views/auth/LoginView.vue") {
-        return () => null;
-      }
-      return null;
-    }
-  });
-
-  assert.equal(routes.length, 1);
-  assert.equal(typeof routes[0].component, "function");
 });

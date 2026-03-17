@@ -1,6 +1,6 @@
 export { createSurfaceRegistry, normalizeSurfaceId } from "../../shared/surface/registry.js";
 export { createSurfacePathHelpers } from "../../shared/surface/paths.js";
-export { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes } from "../../shared/surface/runtime.js";
+export { createSurfaceRuntime, filterRoutesBySurface } from "../../shared/surface/runtime.js";
 export { escapeRegExp } from "../../shared/surface/escapeRegExp.js";
 export {
   API_BASE_PATH,

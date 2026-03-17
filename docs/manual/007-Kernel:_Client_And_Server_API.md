@@ -80,7 +80,6 @@ Shared surface entrypoint (`@jskit-ai/kernel/shared/surface`) exports:
 - `createSurfacePathHelpers`
 - `createSurfaceRuntime`
 - `filterRoutesBySurface`
-- `collectClientModuleRoutes`
 - `escapeRegExp`
 - `API_BASE_PATH`
 - `API_MAJOR_VERSION`
@@ -256,7 +255,6 @@ Server surface entrypoint (`@jskit-ai/kernel/server/surface`) exports:
 - `createSurfacePathHelpers`
 - `createSurfaceRuntime`
 - `filterRoutesBySurface`
-- `collectClientModuleRoutes`
 - `escapeRegExp`
 - `API_BASE_PATH`
 - `API_MAJOR_VERSION`

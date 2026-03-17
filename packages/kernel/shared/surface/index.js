@@ -6,8 +6,7 @@ export {
   TENANCY_MODE_WORKSPACE,
   normalizeTenancyMode,
   createSurfaceRuntime,
-  filterRoutesBySurface,
-  collectClientModuleRoutes
+  filterRoutesBySurface
 } from "./runtime.js";
 export { escapeRegExp } from "./escapeRegExp.js";
 export {

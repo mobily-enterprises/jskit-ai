@@ -66,3 +66,45 @@ test("buildSurfaceAwareRoutes rewrites workspace-required surfaces to canonical 
   assert.equal(routePaths.includes("/console/w/:workspaceSlug/settings"), false);
   assert.equal(routePaths.includes("/auth/login"), true);
 });
+
+test("buildSurfaceAwareRoutes preserves parent path when nested descendants are global", () => {
+  const surfaceRuntime = createSurfaceRuntime({
+    tenancyMode: "workspace",
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "/", enabled: true, requiresWorkspace: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true, requiresWorkspace: true }
+    }
+  });
+
+  const routes = buildSurfaceAwareRoutes({
+    routes: [
+      {
+        path: "/account",
+        children: [
+          {
+            path: "settings",
+            children: [
+              {
+                path: "",
+                component: {},
+                meta: {
+                  jskit: {
+                    scope: "global"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    surfaceRuntime,
+    surfaceMode: "all",
+    notFoundComponent: {}
+  });
+
+  const routePaths = routes.map((route) => route.path);
+  assert.equal(routePaths.includes("/account"), true);
+  assert.equal(routePaths.includes("/w/:workspaceSlug/account"), false);
+});

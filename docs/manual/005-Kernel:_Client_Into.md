@@ -438,7 +438,6 @@ Runnable chapter example packages:
 - `createSurfacePathHelpers`
 - `createSurfaceRuntime`
 - `filterRoutesBySurface`
-- `collectClientModuleRoutes`
 - `DEFAULT_SURFACES`
 - `DEFAULT_ROUTES`
 - `createDefaultAppSurfaceRegistry`

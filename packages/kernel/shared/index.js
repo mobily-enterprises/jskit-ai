@@ -20,7 +20,7 @@ export {
 
 export { createSurfaceRegistry, normalizeSurfaceId } from "./surface/registry.js";
 export { createSurfacePathHelpers } from "./surface/paths.js";
-export { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes } from "./surface/runtime.js";
+export { createSurfaceRuntime, filterRoutesBySurface } from "./surface/runtime.js";
 export { escapeRegExp } from "./surface/escapeRegExp.js";
 export {
   API_BASE_PATH,
