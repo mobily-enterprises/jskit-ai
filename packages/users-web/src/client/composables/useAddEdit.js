@@ -4,7 +4,10 @@ import { useEndpointResource } from "./useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
 import { useUiFeedback } from "./useUiFeedback.js";
 import { useFieldErrorBag } from "./useFieldErrorBag.js";
-import { setupRouteChangeCleanup } from "./operationUiHelpers.js";
+import {
+  setupRouteChangeCleanup,
+  setupOperationErrorReporting
+} from "./operationUiHelpers.js";
 import {
   resolveResourceMessages
 } from "./scopeHelpers.js";
@@ -77,7 +80,9 @@ function useAddEdit({
     fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });
 
-  const feedback = useUiFeedback();
+  const feedback = useUiFeedback({
+    source: `${placementSource}.feedback`
+  });
   const fieldBag = useFieldErrorBag(fieldErrorKeys);
 
   const addEdit = useAddEditCore({
@@ -104,6 +109,10 @@ function useAddEdit({
 
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
+  setupOperationErrorReporting({
+    source: `${placementSource}.load`,
+    loadError
+  });
 
   return proxyRefs({
     canView,

@@ -16,11 +16,7 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="addEdit.loadError" type="error" variant="tonal" class="mb-4">
-          {{ addEdit.loadError }}
-        </v-alert>
-
-        <v-form v-else @submit.prevent="addEdit.submit" novalidate>
+        <v-form v-if="!addEdit.loadError" @submit.prevent="addEdit.submit" novalidate>
           <v-row>
             <v-col cols="12" md="6">
               <v-text-field
@@ -46,10 +42,6 @@
             </v-col>
           </v-row>
         </v-form>
-
-        <v-alert v-if="addEdit.message" :type="addEdit.messageType" variant="tonal" class="mt-4 mb-0">
-          {{ addEdit.message }}
-        </v-alert>
       </v-card-text>
     </v-card>
   </section>

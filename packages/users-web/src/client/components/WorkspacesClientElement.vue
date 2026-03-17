@@ -8,6 +8,7 @@ import {
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
@@ -23,9 +24,8 @@ const route = useRoute();
 const router = useRouter();
 const { context: placementContext } = useWebPlacementContext();
 const paths = usePaths();
+const errorRuntime = useShellWebErrorRuntime();
 
-const message = ref("");
-const messageType = ref("error");
 const selectingWorkspaceSlug = ref("");
 const bootstrapModel = reactive({
   sessionAuthenticated: false,
@@ -95,6 +95,27 @@ const pendingInvites = computed(() => {
 });
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
+
+function reportFeedback({
+  message,
+  severity = "error",
+  channel = "banner",
+  dedupeKey = ""
+} = {}) {
+  const normalizedMessage = String(message || "").trim();
+  if (!normalizedMessage) {
+    return;
+  }
+
+  errorRuntime.report({
+    source: "users-web.workspaces-view",
+    message: normalizedMessage,
+    severity,
+    channel,
+    dedupeKey: dedupeKey || `users-web.workspaces-view:${severity}:${normalizedMessage}`,
+    dedupeWindowMs: 3000
+  });
+}
 
 function resolveCurrentPathname() {
   const routePath = String(route?.path || "").trim();
@@ -194,19 +215,26 @@ async function openWorkspace(workspaceSlug) {
 
   const targetPath = workspaceHomePath(normalizedSlug);
   if (!targetPath) {
-    messageType.value = "error";
-    message.value = "Workspace surface is not configured.";
+    reportFeedback({
+      message: "Workspace surface is not configured.",
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.workspaces-view:workspace-surface-missing"
+    });
     return;
   }
 
   selectingWorkspaceSlug.value = normalizedSlug;
-  message.value = "";
 
   try {
     await router.push(targetPath);
   } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to open workspace.");
+    reportFeedback({
+      message: String(error?.message || "Unable to open workspace."),
+      severity: "error",
+      channel: "banner",
+      dedupeKey: `users-web.workspaces-view:open-workspace:${normalizedSlug}`
+    });
   } finally {
     selectingWorkspaceSlug.value = "";
   }
@@ -225,7 +253,6 @@ async function respondToInvite(invite, decision) {
   };
   redeemInviteModel.token = token;
   redeemInviteModel.decision = normalizedDecision;
-  message.value = "";
 
   try {
     await redeemInviteCommand.run();
@@ -241,13 +268,21 @@ async function respondToInvite(invite, decision) {
       return;
     }
 
-    messageType.value = "success";
-    message.value = "Invitation refused.";
+    reportFeedback({
+      message: "Invitation refused.",
+      severity: "success",
+      channel: "snackbar",
+      dedupeKey: `users-web.workspaces-view:invite-refused:${token}`
+    });
   } catch (error) {
-    messageType.value = "error";
-    message.value = String(
-      error?.message || (normalizedDecision === "accept" ? "Unable to accept invite." : "Unable to refuse invite.")
-    );
+    reportFeedback({
+      message: String(
+        error?.message || (normalizedDecision === "accept" ? "Unable to accept invite." : "Unable to refuse invite.")
+      ),
+      severity: "error",
+      channel: "banner",
+      dedupeKey: `users-web.workspaces-view:invite-${normalizedDecision}:${token}`
+    });
   } finally {
     inviteAction.value = {
       token: "",
@@ -287,16 +322,6 @@ watch(
   }
 );
 
-watch(
-  () => bootstrapView.loadError.value,
-  (nextError) => {
-    if (!nextError) {
-      return;
-    }
-    messageType.value = "error";
-    message.value = String(nextError || "Unable to load workspaces.");
-  }
-);
 </script>
 
 <template>
@@ -310,10 +335,6 @@ watch(
         <v-divider />
 
         <v-card-text class="pt-4">
-          <v-alert v-if="message" :type="messageType" variant="tonal" class="mb-4">
-            {{ message }}
-          </v-alert>
-
           <v-row>
             <v-col cols="12" md="6">
               <template v-if="isBootstrapping">

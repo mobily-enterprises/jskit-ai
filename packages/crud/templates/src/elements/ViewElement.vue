@@ -15,13 +15,9 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="view.loadError.value" type="error" variant="tonal" class="mb-4">
-          {{ view.loadError.value }}
-        </v-alert>
-
-        <v-alert v-else-if="view.isNotFound.value" type="warning" variant="tonal" class="mb-4">
-          {{ view.notFoundError.value }}
-        </v-alert>
+        <div v-if="view.loadError.value || view.isNotFound.value" class="text-body-2 text-medium-emphasis py-2">
+          Record unavailable.
+        </div>
 
         <div v-else-if="view.isLoading.value" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
@@ -49,9 +45,6 @@
           </v-row>
         </template>
 
-        <v-alert v-if="deleteCommand.message" :type="deleteCommand.messageType" variant="tonal" class="mt-4 mb-0">
-          {{ deleteCommand.message }}
-        </v-alert>
       </v-card-text>
     </v-card>
   </section>

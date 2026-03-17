@@ -12,6 +12,7 @@ import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
 import ProfileClientElement from "./ProfileClientElement.vue";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useCommand } from "../composables/useCommand.js";
@@ -90,6 +91,7 @@ const DEFAULTS = Object.freeze({
 
 const route = useRoute();
 const queryClient = useQueryClient();
+const errorRuntime = useShellWebErrorRuntime();
 
 const accountSettingsQueryKey = ["users-web", "settings", "account"];
 
@@ -147,7 +149,6 @@ const profileAvatar = reactive({
 
 const selectedAvatarFileName = ref("");
 const avatarUppy = ref(null);
-const loadError = ref("");
 
 const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
 
@@ -155,6 +156,27 @@ const profileInitials = computed(() => {
   const source = String(profileForm.displayName || profileForm.email || "U").trim();
   return source.slice(0, 2).toUpperCase() || "U";
 });
+
+function reportAccountFeedback({
+  message,
+  severity = "error",
+  channel = "banner",
+  dedupeKey = ""
+} = {}) {
+  const normalizedMessage = String(message || "").trim();
+  if (!normalizedMessage) {
+    return;
+  }
+
+  errorRuntime.report({
+    source: "users-web.account-settings-view",
+    message: normalizedMessage,
+    severity,
+    channel,
+    dedupeKey: dedupeKey || `users-web.account-settings-view:${severity}:${normalizedMessage}`,
+    dedupeWindowMs: 3000
+  });
+}
 
 function toObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -328,23 +350,12 @@ const notificationsAddEdit = useAddEdit({
 
 const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
 
-watch(
-  () => settingsView.loadError.value,
-  (nextError) => {
-    loadError.value = String(nextError || "").trim();
-  },
-  {
-    immediate: true
-  }
-);
-
 const page = Object.freeze({
   meta: {
     settingsSections: SETTINGS_SECTIONS
   },
   state: reactive({
-    activeTab,
-    loadError
+    activeTab
   })
 });
 
@@ -353,12 +364,8 @@ const profileState = reactive({
   profileAvatar,
   profileInitials,
   selectedAvatarFileName,
-  avatarMessage: avatarDeleteCommand.message,
-  avatarMessageType: avatarDeleteCommand.messageType,
   profileForm,
   profileFieldErrors: profileAddEdit.fieldErrors,
-  profileMessage: profileAddEdit.message,
-  profileMessageType: profileAddEdit.messageType,
   avatarDeleteMutation: markRaw({
     isPending: avatarDeleteCommand.isRunning
   }),
@@ -386,8 +393,6 @@ const preferences = Object.freeze({
   state: reactive({
     preferencesForm,
     preferencesFieldErrors: preferencesAddEdit.fieldErrors,
-    preferencesMessage: preferencesAddEdit.message,
-    preferencesMessageType: preferencesAddEdit.messageType,
     preferencesMutation: markRaw({
       isPending: preferencesAddEdit.isSaving
     })
@@ -400,8 +405,6 @@ const preferences = Object.freeze({
 const notifications = Object.freeze({
   state: reactive({
     notificationsForm,
-    notificationsMessage: notificationsAddEdit.message,
-    notificationsMessageType: notificationsAddEdit.messageType,
     notificationsMutation: markRaw({
       isPending: notificationsAddEdit.isSaving
     })
@@ -531,8 +534,12 @@ function setupAvatarUploader() {
   uppy.on("upload-success", (_file, response) => {
     const data = response?.body;
     if (!data || typeof data !== "object") {
-      avatarDeleteCommand.messageType = "error";
-      avatarDeleteCommand.message = "Avatar uploaded, but the response payload was invalid.";
+      reportAccountFeedback({
+        message: "Avatar uploaded, but the response payload was invalid.",
+        severity: "error",
+        channel: "banner",
+        dedupeKey: "users-web.account-settings-view:avatar-upload-invalid-response"
+      });
       return;
     }
 
@@ -544,8 +551,12 @@ function setupAvatarUploader() {
       dashboard.closeModal();
     }
 
-    avatarDeleteCommand.messageType = "success";
-    avatarDeleteCommand.message = "Avatar uploaded.";
+    reportAccountFeedback({
+      message: "Avatar uploaded.",
+      severity: "success",
+      channel: "snackbar",
+      dedupeKey: "users-web.account-settings-view:avatar-uploaded"
+    });
     selectedAvatarFileName.value = "";
   });
 
@@ -558,15 +569,21 @@ function setupAvatarUploader() {
           ? body.details.fieldErrors
           : {};
 
-    avatarDeleteCommand.messageType = "error";
-    avatarDeleteCommand.message = String(
-      fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."
-    );
+    reportAccountFeedback({
+      message: String(fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."),
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.account-settings-view:avatar-upload-error"
+    });
   });
 
   uppy.on("restriction-failed", (_file, error) => {
-    avatarDeleteCommand.messageType = "error";
-    avatarDeleteCommand.message = String(error?.message || "Selected avatar file does not meet upload restrictions.");
+    reportAccountFeedback({
+      message: String(error?.message || "Selected avatar file does not meet upload restrictions."),
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.account-settings-view:avatar-upload-restriction"
+    });
   });
 
   uppy.on("complete", (result) => {
@@ -586,13 +603,16 @@ function setupAvatarUploader() {
 }
 
 async function openAvatarEditor() {
-  avatarDeleteCommand.message = "";
   setupAvatarUploader();
 
   const uppy = avatarUppy.value;
   if (!uppy) {
-    avatarDeleteCommand.messageType = "error";
-    avatarDeleteCommand.message = "Avatar editor is unavailable in this environment.";
+    reportAccountFeedback({
+      message: "Avatar editor is unavailable in this environment.",
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.account-settings-view:avatar-editor-unavailable"
+    });
     return;
   }
 
@@ -651,10 +671,6 @@ onBeforeUnmount(() => {
       <v-divider />
 
       <v-card-text class="pt-4">
-        <v-alert v-if="page.state.loadError" type="error" variant="tonal" class="mb-4">
-          {{ page.state.loadError }}
-        </v-alert>
-
         <v-progress-linear v-if="loadingSettings" indeterminate class="mb-4" />
 
         <v-row class="settings-layout" no-gutters>
@@ -794,16 +810,6 @@ onBeforeUnmount(() => {
                           />
                         </v-col>
                       </v-row>
-
-                      <v-alert
-                        v-if="preferences.state.preferencesMessage"
-                        :type="preferences.state.preferencesMessageType"
-                        variant="tonal"
-                        class="mb-3"
-                      >
-                        {{ preferences.state.preferencesMessage }}
-                      </v-alert>
-
                       <v-btn type="submit" color="primary" :loading="preferences.state.preferencesMutation.isPending.value">
                         Save preferences
                       </v-btn>
@@ -842,16 +848,6 @@ onBeforeUnmount(() => {
                         disabled
                         class="mb-4"
                       />
-
-                      <v-alert
-                        v-if="notifications.state.notificationsMessage"
-                        :type="notifications.state.notificationsMessageType"
-                        variant="tonal"
-                        class="mb-3"
-                      >
-                        {{ notifications.state.notificationsMessage }}
-                      </v-alert>
-
                       <v-btn
                         type="submit"
                         color="primary"

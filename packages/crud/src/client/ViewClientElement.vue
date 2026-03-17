@@ -15,13 +15,9 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-          {{ loadError }}
-        </v-alert>
-
-        <v-alert v-else-if="isNotFound" type="warning" variant="tonal" class="mb-4">
-          {{ notFoundError }}
-        </v-alert>
+        <div v-if="loadError || isNotFound" class="text-body-2 text-medium-emphasis py-2">
+          Record unavailable.
+        </div>
 
         <div v-else-if="isLoading" class="d-flex align-center ga-3 text-medium-emphasis">
           <v-progress-circular indeterminate size="18" width="2" />
@@ -49,9 +45,6 @@
           </v-row>
         </template>
 
-        <v-alert v-if="deleteCommand.message" :type="deleteCommand.messageType" variant="tonal" class="mt-4 mb-0">
-          {{ deleteCommand.message }}
-        </v-alert>
       </v-card-text>
     </v-card>
   </section>
@@ -104,7 +97,6 @@ const view = useView({
 });
 const loadError = computed(() => view.loadError.value);
 const isNotFound = computed(() => view.isNotFound.value);
-const notFoundError = computed(() => view.notFoundError.value);
 const isLoading = computed(() => view.isLoading.value);
 
 const deleteCommand = useCommand({

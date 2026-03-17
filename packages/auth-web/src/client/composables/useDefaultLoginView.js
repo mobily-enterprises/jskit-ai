@@ -14,6 +14,7 @@ import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/
 import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { authHttpRequest } from "../runtime/authHttpClient.js";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 
@@ -276,6 +277,7 @@ function resolveValidationMessage(validationResult, fallbackMessage = "Validatio
 
 export function useDefaultLoginView() {
   const queryClient = useQueryClient();
+  const errorRuntime = useShellWebErrorRuntime();
   const sessionQueryKey = Object.freeze(["auth-web", "session"]);
   const mode = ref("login");
   const email = ref("");
@@ -452,9 +454,60 @@ export function useDefaultLoginView() {
     )
   );
 
+  function reportAuthFeedback({
+    message,
+    severity = "error",
+    channel = "banner",
+    dedupeKey = ""
+  } = {}) {
+    const normalizedMessage = String(message || "").trim();
+    if (!normalizedMessage) {
+      return;
+    }
+
+    errorRuntime.report({
+      source: "auth-web.default-login-view",
+      message: normalizedMessage,
+      severity,
+      channel,
+      dedupeKey: dedupeKey || `auth-web.default-login-view:${severity}:${normalizedMessage}`,
+      dedupeWindowMs: 3000
+    });
+  }
+
+  function setErrorMessage(message, dedupeKey = "") {
+    const normalizedMessage = String(message || "").trim();
+    errorMessage.value = normalizedMessage;
+    if (!normalizedMessage) {
+      return;
+    }
+
+    reportAuthFeedback({
+      message: normalizedMessage,
+      severity: "error",
+      channel: "banner",
+      dedupeKey
+    });
+  }
+
+  function setInfoMessage(message, dedupeKey = "") {
+    const normalizedMessage = String(message || "").trim();
+    infoMessage.value = normalizedMessage;
+    if (!normalizedMessage) {
+      return;
+    }
+
+    reportAuthFeedback({
+      message: normalizedMessage,
+      severity: "info",
+      channel: "snackbar",
+      dedupeKey
+    });
+  }
+
   function clearTransientMessages() {
-    errorMessage.value = "";
-    infoMessage.value = "";
+    setErrorMessage("");
+    setInfoMessage("");
   }
 
   function resetTransientValidationState() {
@@ -631,20 +684,20 @@ export function useDefaultLoginView() {
     const oauthErrorDescription = callbackParams.errorDescription;
 
     if (!provider) {
-      errorMessage.value = "OAuth provider is missing from callback.";
+      setErrorMessage("OAuth provider is missing from callback.", "auth-web.default-login-view:oauth-missing-provider");
       stripOAuthParamsFromLocation();
       return true;
     }
 
     if (oauthError) {
-      errorMessage.value = oauthErrorDescription || oauthError;
+      setErrorMessage(oauthErrorDescription || oauthError, "auth-web.default-login-view:oauth-callback-error");
       stripOAuthParamsFromLocation();
       return true;
     }
 
     loading.value = true;
-    errorMessage.value = "";
-    infoMessage.value = "";
+    setErrorMessage("");
+    setInfoMessage("");
 
     try {
       const payload = {
@@ -676,7 +729,7 @@ export function useDefaultLoginView() {
       stripOAuthParamsFromLocation();
       await completeLogin();
     } catch (error) {
-      errorMessage.value = String(error?.message || "Unable to complete OAuth sign-in.");
+      setErrorMessage(String(error?.message || "Unable to complete OAuth sign-in."));
       stripOAuthParamsFromLocation();
     } finally {
       loading.value = false;
@@ -732,7 +785,7 @@ export function useDefaultLoginView() {
           method: "POST",
           body: forgotPayload
         });
-        infoMessage.value = "Password reset instructions sent.";
+        setInfoMessage("Password reset instructions sent.", "auth-web.default-login-view:password-reset-sent");
         return;
       }
 
@@ -780,7 +833,7 @@ export function useDefaultLoginView() {
       });
       await completeLogin();
     } catch (error) {
-      errorMessage.value = String(error?.message || "Authentication failed.");
+      setErrorMessage(String(error?.message || "Authentication failed."));
     } finally {
       loading.value = false;
     }
@@ -788,8 +841,8 @@ export function useDefaultLoginView() {
 
   async function requestOtpCode() {
     otpRequestPending.value = true;
-    errorMessage.value = "";
-    infoMessage.value = "";
+    setErrorMessage("");
+    setInfoMessage("");
     try {
       const normalizedEmail = String(email.value || "").trim().toLowerCase();
       const otpRequestPayload = {
@@ -804,9 +857,9 @@ export function useDefaultLoginView() {
         method: "POST",
         body: otpRequestPayload
       });
-      infoMessage.value = "One-time code sent. Check your inbox.";
+      setInfoMessage("One-time code sent. Check your inbox.", "auth-web.default-login-view:otp-code-sent");
     } catch (error) {
-      errorMessage.value = String(error?.message || "Unable to request one-time code.");
+      setErrorMessage(String(error?.message || "Unable to request one-time code."));
     } finally {
       otpRequestPending.value = false;
     }
@@ -826,12 +879,12 @@ export function useDefaultLoginView() {
     };
     const parsedParams = validateCommandParams(authLoginOAuthStartCommand, paramsPayload);
     if (!parsedParams.ok) {
-      errorMessage.value = resolveValidationMessage(parsedParams, "OAuth provider id is invalid.");
+      setErrorMessage(resolveValidationMessage(parsedParams, "OAuth provider id is invalid."));
       return;
     }
     const parsedQuery = validateCommandQuery(authLoginOAuthStartCommand, queryPayload);
     if (!parsedQuery.ok) {
-      errorMessage.value = resolveValidationMessage(parsedQuery, "OAuth return path is invalid.");
+      setErrorMessage(resolveValidationMessage(parsedQuery, "OAuth return path is invalid."));
       return;
     }
 
@@ -851,7 +904,7 @@ export function useDefaultLoginView() {
         return;
       }
     } catch (error) {
-      errorMessage.value = String(error?.message || "Unable to initialize sign in.");
+      setErrorMessage(String(error?.message || "Unable to initialize sign in."));
     } finally {
       loading.value = false;
     }

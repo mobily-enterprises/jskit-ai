@@ -143,15 +143,6 @@
                 {{ oauthProviderButtonLabel(provider) }}
               </v-btn>
             </div>
-
-            <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
-              {{ errorMessage }}
-            </v-alert>
-
-            <v-alert v-if="infoMessage" type="info" variant="tonal" class="mb-4">
-              {{ infoMessage }}
-            </v-alert>
-
             <v-btn
               data-testid="auth-submit"
               block
@@ -224,8 +215,6 @@ const {
   oauthProviderIcon,
   startOAuthSignIn,
   oauthProviderButtonLabel,
-  errorMessage,
-  infoMessage,
   canSubmit,
   submitLabel
 } = useDefaultLoginView();

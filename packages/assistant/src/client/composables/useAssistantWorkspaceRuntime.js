@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
 import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
 import {
@@ -265,6 +266,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const runtimePolicy = resolveRuntimePolicy();
   const runtimeApi = createRuntimeApi(api);
   const queryClient = useQueryClient();
+  const errorRuntime = useShellWebErrorRuntime();
   const { workspaceSlugFromRoute, currentSurfaceId, placementContext } = useWorkspaceRouteContext();
 
   const messages = ref([]);
@@ -283,6 +285,23 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const isAdminSurface = computed(() => currentSurfaceId.value === "admin");
   const canSend = computed(() => !isStreaming.value && !isRestoringConversation.value && Boolean(normalizeText(input.value)));
   const canStartNewConversation = computed(() => !isStreaming.value);
+
+  function setRuntimeError(message, dedupeKey = "") {
+    const normalizedMessage = normalizeText(message);
+    error.value = normalizedMessage;
+    if (!normalizedMessage) {
+      return;
+    }
+
+    errorRuntime.report({
+      source: "assistant.workspace-runtime",
+      message: normalizedMessage,
+      severity: "error",
+      channel: "banner",
+      dedupeKey: dedupeKey || `assistant.workspace-runtime:error:${normalizedMessage}`,
+      dedupeWindowMs: 3000
+    });
+  }
 
   const conversationHistoryCollection = usePagedCollection({
     queryKey: computed(() =>
@@ -455,7 +474,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
     const previousConversationId = conversationId.value;
     conversationId.value = String(parsedConversationId);
     isRestoringConversation.value = true;
-    error.value = "";
+    setRuntimeError("");
 
     try {
       const response = await queryClient.fetchQuery({
@@ -476,7 +495,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       input.value = "";
     } catch (loadError) {
       conversationId.value = previousConversationId;
-      error.value = normalizeText(loadError?.message) || "Unable to load conversation.";
+      setRuntimeError(normalizeText(loadError?.message) || "Unable to load conversation.");
     } finally {
       isRestoringConversation.value = false;
     }
@@ -494,7 +513,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
     messages.value = [];
     pendingToolEvents.value = [];
     input.value = "";
-    error.value = "";
+    setRuntimeError("");
     conversationId.value = null;
     writeStoredActiveConversationId(workspaceScope.value.workspaceSlug, 0);
     isStreaming.value = false;
@@ -554,7 +573,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
     });
 
     input.value = "";
-    error.value = "";
+    setRuntimeError("");
     isStreaming.value = true;
 
     const streamAbortController = new AbortController();
@@ -644,7 +663,10 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
             }
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR) {
-              error.value = normalizeText(event?.message) || "Assistant request failed.";
+              setRuntimeError(
+                normalizeText(event?.message) || "Assistant request failed.",
+                "assistant.workspace-runtime:stream-event-error"
+              );
               updateMessage(assistantMessageId, {
                 status: "error"
               });
@@ -661,7 +683,9 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       const assistantMessage = findMessage(assistantMessageId);
       const assistantMessageText = normalizeText(assistantMessage?.text);
       if (!assistantMessageText && streamDoneStatus !== "aborted") {
-        error.value = error.value || "Assistant returned no output.";
+        if (!error.value) {
+          setRuntimeError("Assistant returned no output.", "assistant.workspace-runtime:empty-output");
+        }
         updateMessage(assistantMessageId, {
           status: "error"
         });
@@ -680,7 +704,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
           status: "canceled"
         });
       } else {
-        error.value = normalizeText(streamError?.message) || "Assistant request failed.";
+        setRuntimeError(normalizeText(streamError?.message) || "Assistant request failed.");
         updateMessage(assistantMessageId, {
           status: "error"
         });
