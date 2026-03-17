@@ -1,5 +1,6 @@
 import { watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
+import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 
 function useAddEditCore({
@@ -103,7 +104,7 @@ function useAddEditCore({
 
       feedback?.success?.(String(messages.saveSuccess || "Saved."));
     } catch (error) {
-      fieldBag?.apply?.(error?.details?.fieldErrors || error?.fieldErrors);
+      fieldBag?.apply?.(resolveFieldErrors(error));
       feedback?.error?.(error, String(messages.saveError || "Unable to save."));
     }
   }

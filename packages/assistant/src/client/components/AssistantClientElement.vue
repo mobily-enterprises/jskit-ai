@@ -245,6 +245,11 @@
 
 <script setup>
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+import { createComponentInteractionEmitter } from "@jskit-ai/kernel/client";
+import {
+  normalizeObject,
+  normalizeOneOf
+} from "@jskit-ai/kernel/shared/support/normalize";
 import { renderMarkdownToSafeHtml } from "../lib/markdownRenderer.js";
 
 const DEFAULT_COPY = Object.freeze({
@@ -312,29 +317,16 @@ const emit = defineEmits([
   "message:send",
   "stream:cancel"
 ]);
+const {
+  emitInteraction,
+  invokeAction
+} = createComponentInteractionEmitter(emit);
 
 const SCROLL_BOTTOM_THRESHOLD_PX = 30;
 const MIN_VIEWPORT_HEIGHT_PX = 360;
 const VIEWPORT_BOTTOM_GUTTER_PX = 12;
 const ROOT_FOCUS_POINTER_GUARD_MS = 200;
 const MESSAGE_MARKDOWN_RENDER_THROTTLE_MS = 40;
-
-function toRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function normalizeVariantValue(value, supported, fallback) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (!supported.includes(normalized)) {
-    return fallback;
-  }
-  return normalized;
-}
 
 const meta = props.meta;
 const state = props.state;
@@ -365,21 +357,21 @@ const loadMoreConversationHistory = actions.loadMoreConversationHistory;
 
 const copyText = computed(() => ({
   ...DEFAULT_COPY,
-  ...toRecord(props.copy)
+  ...normalizeObject(props.copy)
 }));
 
 const resolvedVariant = computed(() => {
-  const variant = toRecord(props.variant);
+  const variant = normalizeObject(props.variant);
   return {
-    layout: normalizeVariantValue(variant.layout, ["compact", "comfortable"], "comfortable"),
-    surface: normalizeVariantValue(variant.surface, ["plain", "carded"], "carded"),
-    density: normalizeVariantValue(variant.density, ["compact", "comfortable"], "comfortable"),
-    tone: normalizeVariantValue(variant.tone, ["neutral", "emphasized"], "neutral")
+    layout: normalizeOneOf(variant.layout, ["compact", "comfortable"], "comfortable"),
+    surface: normalizeOneOf(variant.surface, ["plain", "carded"], "carded"),
+    density: normalizeOneOf(variant.density, ["compact", "comfortable"], "comfortable"),
+    tone: normalizeOneOf(variant.tone, ["neutral", "emphasized"], "neutral")
   };
 });
 
 const resolvedFeatures = computed(() => {
-  const features = toRecord(props.features);
+  const features = normalizeObject(props.features);
   return {
     historyPanel: features.historyPanel !== false,
     toolsPanel: features.toolsPanel !== false,
@@ -389,7 +381,7 @@ const resolvedFeatures = computed(() => {
 });
 
 const uiClasses = computed(() => {
-  const classes = toRecord(toRecord(props.ui).classes);
+  const classes = normalizeObject(normalizeObject(props.ui).classes);
   return {
     root: String(classes.root || "").trim(),
     messagesPanel: String(classes.messagesPanel || "").trim(),
@@ -398,7 +390,7 @@ const uiClasses = computed(() => {
 });
 
 const uiTestIds = computed(() => {
-  const testIds = toRecord(toRecord(props.ui).testIds);
+  const testIds = normalizeObject(normalizeObject(props.ui).testIds);
   return {
     root: String(testIds.root || "assistant-client-element"),
     messagesPanel: String(testIds.messagesPanel || "assistant-messages-panel"),
@@ -421,36 +413,6 @@ const rootClasses = computed(() => {
   return classes;
 });
 
-function emitInteraction(type, payload = {}) {
-  emit("interaction", {
-    type,
-    ...payload
-  });
-}
-
-async function invokeAction(actionName, payload, callback) {
-  emit("action:started", {
-    action: actionName,
-    payload
-  });
-  try {
-    if (typeof callback === "function") {
-      await callback();
-    }
-    emit("action:succeeded", {
-      action: actionName,
-      payload
-    });
-  } catch (errorValue) {
-    emit("action:failed", {
-      action: actionName,
-      payload,
-      message: String(errorValue?.message || "Action failed")
-    });
-    throw errorValue;
-  }
-}
-
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -472,7 +434,7 @@ function normalizeConversationStatus(value) {
 }
 
 const viewer = computed(() => {
-  const source = toRecord(props.viewer);
+  const source = normalizeObject(props.viewer);
   return {
     displayName: normalizeText(source.displayName) || "You",
     avatarUrl: normalizeText(source.avatarUrl)

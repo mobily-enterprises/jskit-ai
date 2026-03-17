@@ -83,6 +83,15 @@ function useOperationScope({
     enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(apiPath.value))
   });
 
+  function queryCanRun(accessGate = true) {
+    return computed(() =>
+      queryEnabled.value &&
+      hasRouteWorkspaceSlug.value &&
+      Boolean(apiPath.value) &&
+      Boolean(unref(accessGate))
+    );
+  }
+
   function permissionGate(key = "") {
     const list = normalizedPermissionSets[String(key || "")] || [];
     return computed(() => resolvePermissionAccess(accessRuntime, list));
@@ -121,6 +130,7 @@ function useOperationScope({
     apiPath,
     queryEnabled,
     queryKey,
+    queryCanRun,
     realtime: realtimeBinding,
     permissionGate,
     loadError,

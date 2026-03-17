@@ -1,10 +1,7 @@
-function normalizeFieldErrors(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
+import {
+  createValidationFailure,
+  resolveFieldErrors
+} from "@jskit-ai/http-runtime/client";
 
 function validateOperationInput({
   parseInput,
@@ -30,10 +27,16 @@ function validateOperationInput({
   }
 
   if (!parseResult.ok) {
-    fieldBag?.apply?.(normalizeFieldErrors(parseResult.fieldErrors));
-    feedback?.error?.(null, String(validationMessage || "Validation failed."));
+    const failure = createValidationFailure({
+      error: String(validationMessage || "Validation failed."),
+      code: "validation_failed",
+      fieldErrors: parseResult.fieldErrors
+    });
+    fieldBag?.apply?.(resolveFieldErrors(failure));
+    feedback?.error?.(failure, failure.error);
     return {
       ok: false,
+      failure,
       parseResult,
       parsedInput: null
     };

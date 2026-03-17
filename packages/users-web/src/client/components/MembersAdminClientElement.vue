@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { computed, unref } from "vue";
+import { computed, toRefs, unref } from "vue";
 
 const props = defineProps({
   forms: {
@@ -191,13 +191,23 @@ function resolveLoadedState(value) {
   return true;
 }
 
-const forms = computed(() => requireRecord(props.forms, "forms"));
-const options = computed(() => requireRecord(props.options, "options"));
-const collections = computed(() => requireRecord(props.collections, "collections"));
-const permissions = computed(() => requireRecord(props.permissions, "permissions"));
-const feedback = computed(() => requireRecord(props.feedback, "feedback"));
-const status = computed(() => requireRecord(props.status, "status"));
-const actions = computed(() => requireRecord(props.actions, "actions"));
+requireRecord(props.forms, "forms");
+requireRecord(props.options, "options");
+requireRecord(props.collections, "collections");
+requireRecord(props.permissions, "permissions");
+requireRecord(props.feedback, "feedback");
+requireRecord(props.status, "status");
+requireRecord(props.actions, "actions");
+
+const {
+  forms,
+  options,
+  collections,
+  permissions,
+  feedback,
+  status,
+  actions
+} = toRefs(props);
 
 const inviteForm = computed(() => requireRecord(forms.value.invite, "forms.invite"));
 const workspaceForm = computed(() => requireRecord(forms.value.workspace, "forms.workspace"));

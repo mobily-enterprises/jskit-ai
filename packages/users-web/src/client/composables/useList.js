@@ -35,11 +35,7 @@ function useList({
   const list = useListCore({
     queryKey: operationScope.queryKey,
     path: operationScope.apiPath,
-    enabled: () =>
-      operationScope.queryEnabled.value &&
-      operationScope.hasRouteWorkspaceSlug.value &&
-      Boolean(operationScope.apiPath.value) &&
-      canView.value,
+    enabled: operationScope.queryCanRun(canView),
     initialPageParam,
     getNextPageParam,
     selectItems,

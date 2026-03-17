@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/vue-query";
+import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 
 function useCommandCore({
@@ -92,7 +93,7 @@ function useCommandCore({
       feedback?.success?.(String(messages.success || "Completed."));
       return response;
     } catch (error) {
-      fieldBag?.apply?.(error?.details?.fieldErrors || error?.fieldErrors);
+      fieldBag?.apply?.(resolveFieldErrors(error));
 
       if (typeof onRunError === "function") {
         await onRunError(error, {

@@ -95,6 +95,26 @@ const workspaceInvitesApiPath = computed(() =>
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );
+
+function workspaceQueryKey(kind, surfaceId = "", workspaceSlug = "") {
+  return [
+    "users-web",
+    "workspace",
+    String(kind || ""),
+    normalizeQueryToken(surfaceId),
+    normalizeQueryToken(workspaceSlug)
+  ];
+}
+
+function workspaceMembersPath(memberId) {
+  return `${workspaceMembersApiPath.value}/${Number(memberId || 0)}`;
+}
+
+function workspaceInvitePath(inviteId) {
+  const encodedInviteId = encodeURIComponent(String(inviteId || ""));
+  return `${workspaceInvitesApiPath.value}/${encodedInviteId}`;
+}
+
 const access = useAccess({
   workspaceSlug: workspaceSlugFromRoute,
   enabled: hasRouteWorkspaceSlug,
@@ -275,13 +295,7 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
 const workspaceSettingsView = useView({
   visibility: "workspace",
   apiSuffix: "/settings",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    "users-web",
-    "settings",
-    "workspace",
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("settings", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.invite"],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
@@ -293,13 +307,7 @@ const workspaceSettingsView = useView({
 const workspaceRolesView = useView({
   visibility: "workspace",
   apiSuffix: "/roles",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    "users-web",
-    "workspace",
-    "roles",
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
   fallbackLoadError: "Unable to load workspace roles."
 });
@@ -307,13 +315,7 @@ const workspaceRolesView = useView({
 const workspaceMembersList = useList({
   visibility: "workspace",
   apiSuffix: "/members",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    "users-web",
-    "workspace",
-    "members",
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("members", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_MEMBERS_CHANGED_EVENT,
@@ -326,13 +328,7 @@ const workspaceMembersList = useList({
 const workspaceInvitesList = useList({
   visibility: "workspace",
   apiSuffix: "/invites",
-  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-    "users-web",
-    "workspace",
-    "invites",
-    normalizeQueryToken(surfaceId),
-    normalizeQueryToken(workspaceSlug)
-  ],
+  queryKeyFactory: (surfaceId = "", workspaceSlug = "") => workspaceQueryKey("invites", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_INVITES_CHANGED_EVENT,
@@ -367,10 +363,9 @@ const revokeInviteCommand = useCommand({
   buildRawPayload: () => ({}),
   buildCommandPayload: () => undefined,
   buildCommandOptions: (_parsed, { context }) => {
-    const encodedInviteId = encodeURIComponent(String(context?.inviteId || ""));
     return {
       method: "DELETE",
-      path: `${workspaceInvitesApiPath.value}/${encodedInviteId}`
+      path: workspaceInvitePath(context?.inviteId)
     };
   },
   messages: {
@@ -389,10 +384,9 @@ const memberRoleCommand = useCommand({
     roleId: String(context?.roleId || "").trim().toLowerCase()
   }),
   buildCommandOptions: (_parsed, { context }) => {
-    const memberUserId = Number(context?.memberUserId || 0);
     return {
       method: "PATCH",
-      path: `${workspaceMembersApiPath.value}/${memberUserId}/role`
+      path: `${workspaceMembersPath(context?.memberUserId)}/role`
     };
   },
   messages: {

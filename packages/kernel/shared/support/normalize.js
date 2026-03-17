@@ -45,6 +45,24 @@ function normalizeInteger(value, { fallback = 0, min = null, max = null } = {}) 
   return next;
 }
 
+function normalizeOneOf(value, allowedValues = [], fallback = "") {
+  const normalized = normalizeText(value).toLowerCase();
+  const supported = Array.isArray(allowedValues)
+    ? allowedValues.map((entry) => normalizeText(entry).toLowerCase()).filter(Boolean)
+    : [];
+
+  if (supported.includes(normalized)) {
+    return normalized;
+  }
+
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  if (normalizedFallback) {
+    return normalizedFallback;
+  }
+
+  return supported[0] || "";
+}
+
 function ensureNonEmptyText(value, label = "value") {
   const normalized = normalizeText(value);
   if (!normalized) {
@@ -61,5 +79,6 @@ export {
   isRecord,
   normalizeArray,
   normalizeInteger,
+  normalizeOneOf,
   ensureNonEmptyText
 };

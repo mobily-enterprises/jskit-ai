@@ -13,6 +13,7 @@ import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
 import ProfileClientElement from "./ProfileClientElement.vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
+import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useCommand } from "../composables/useCommand.js";
@@ -115,7 +116,6 @@ const backTarget = computed(() => normalizeReturnToPath(route?.query?.returnTo, 
 
 const vuetifyTheme = useTheme();
 const activeTab = ref("profile");
-const settingsRecord = reactive({});
 
 const profileForm = reactive({
   displayName: "",
@@ -254,8 +254,7 @@ const settingsView = useView({
     event: ACCOUNT_SETTINGS_CHANGED_EVENT
   },
   fallbackLoadError: "Unable to load settings.",
-  model: settingsRecord,
-  mapLoadedToModel: (_model, payload = {}) => {
+  mapLoadedToModel: (_unusedModel, payload = {}) => {
     applySettingsData(payload);
   }
 });
@@ -562,12 +561,7 @@ function setupAvatarUploader() {
 
   uppy.on("upload-error", (_file, error, response) => {
     const body = response?.body && typeof response.body === "object" ? response.body : {};
-    const fieldErrors =
-      body?.fieldErrors && typeof body.fieldErrors === "object"
-        ? body.fieldErrors
-        : body?.details?.fieldErrors && typeof body.details.fieldErrors === "object"
-          ? body.details.fieldErrors
-          : {};
+    const fieldErrors = resolveFieldErrors(body);
 
     reportAccountFeedback({
       message: String(fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."),

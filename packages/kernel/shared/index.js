@@ -7,6 +7,7 @@ export {
   isRecord,
   normalizeArray,
   normalizeInteger,
+  normalizeOneOf,
   ensureNonEmptyText
 } from "./support/normalize.js";
 export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./support/linkPath.js";

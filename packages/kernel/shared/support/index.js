@@ -6,6 +6,7 @@ export {
   isRecord,
   normalizeArray,
   normalizeInteger,
+  normalizeOneOf,
   ensureNonEmptyText
 } from "./normalize.js";
 export { pickOwnProperties } from "./pickOwnProperties.js";

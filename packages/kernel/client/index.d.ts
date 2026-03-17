@@ -162,3 +162,10 @@ export function bootstrapClientShellApp(options?: {
     debugEnabled: boolean;
   }>
 >;
+
+export function createComponentInteractionEmitter(
+  emit: (eventName: string, payload: any) => void
+): Readonly<{
+  emitInteraction: (type: string, payload?: Record<string, any>) => void;
+  invokeAction: (actionName: string, payload: any, callback?: () => Promise<any> | any) => Promise<void>;
+}>;

@@ -205,7 +205,7 @@ function readOAuthCallbackParamsFromLocation() {
   };
 }
 
-function validateCommandBody(commandResource, payload) {
+function validateCommandSection(commandResource, section, payload) {
   if (!commandResource || !commandResource.operation) {
     return {
       ok: true,
@@ -216,39 +216,7 @@ function validateCommandBody(commandResource, payload) {
 
   return validateOperationSection({
     operation: commandResource.operation,
-    section: "bodyValidator",
-    value: payload
-  });
-}
-
-function validateCommandParams(commandResource, payload) {
-  if (!commandResource || !commandResource.operation) {
-    return {
-      ok: true,
-      fieldErrors: {},
-      globalErrors: []
-    };
-  }
-
-  return validateOperationSection({
-    operation: commandResource.operation,
-    section: "paramsValidator",
-    value: payload
-  });
-}
-
-function validateCommandQuery(commandResource, payload) {
-  if (!commandResource || !commandResource.operation) {
-    return {
-      ok: true,
-      fieldErrors: {},
-      globalErrors: []
-    };
-  }
-
-  return validateOperationSection({
-    operation: commandResource.operation,
-    section: "queryValidator",
+    section,
     value: payload
   });
 }
@@ -373,7 +341,7 @@ export function useDefaultLoginView() {
       : {
           email: normalizedEmail
         };
-    const parsed = validateCommandBody(command, payload);
+    const parsed = validateCommandSection(command, "bodyValidator", payload);
     const message = parsed.fieldErrors?.email;
     if (message) {
       return [String(message)];
@@ -389,7 +357,7 @@ export function useDefaultLoginView() {
 
     const normalizedEmail = String(email.value || "").trim().toLowerCase();
     const command = isRegister.value ? authRegisterCommand : authLoginPasswordCommand;
-    const parsed = validateCommandBody(command, {
+    const parsed = validateCommandSection(command, "bodyValidator", {
       email: normalizedEmail,
       password: String(password.value || "")
     });
@@ -418,7 +386,7 @@ export function useDefaultLoginView() {
       return [];
     }
 
-    const parsed = validateCommandBody(authLoginOtpVerifyCommand, {
+    const parsed = validateCommandSection(authLoginOtpVerifyCommand, "bodyValidator", {
       token: String(otpCode.value || "").trim()
     });
     const message = parsed.fieldErrors?.token;
@@ -711,7 +679,7 @@ export function useDefaultLoginView() {
         payload.refreshToken = callbackParams.refreshToken;
       }
 
-      const parsedPayload = validateCommandBody(authLoginOAuthCompleteCommand, payload);
+      const parsedPayload = validateCommandSection(authLoginOAuthCompleteCommand, "bodyValidator", payload);
       if (!parsedPayload.ok) {
         throw new Error(resolveValidationMessage(parsedPayload, "Invalid OAuth callback payload."));
       }
@@ -756,7 +724,7 @@ export function useDefaultLoginView() {
           email: normalizedEmail,
           password: String(password.value || "")
         };
-        const parsedRegister = validateCommandBody(authRegisterCommand, registerPayload);
+        const parsedRegister = validateCommandSection(authRegisterCommand, "bodyValidator", registerPayload);
         if (!parsedRegister.ok) {
           throw new Error(resolveValidationMessage(parsedRegister, "Unable to register."));
         }
@@ -776,7 +744,7 @@ export function useDefaultLoginView() {
 
       if (isForgot.value) {
         const forgotPayload = { email: normalizedEmail };
-        const parsedForgot = validateCommandBody(authPasswordResetRequestCommand, forgotPayload);
+        const parsedForgot = validateCommandSection(authPasswordResetRequestCommand, "bodyValidator", forgotPayload);
         if (!parsedForgot.ok) {
           throw new Error(resolveValidationMessage(parsedForgot, "Unable to request password reset."));
         }
@@ -795,7 +763,7 @@ export function useDefaultLoginView() {
           token: String(otpCode.value || "").trim(),
           type: "email"
         };
-        const parsedOtp = validateCommandBody(authLoginOtpVerifyCommand, otpPayload);
+        const parsedOtp = validateCommandSection(authLoginOtpVerifyCommand, "bodyValidator", otpPayload);
         if (!parsedOtp.ok) {
           throw new Error(resolveValidationMessage(parsedOtp, "Unable to verify one-time code."));
         }
@@ -817,7 +785,7 @@ export function useDefaultLoginView() {
         email: normalizedEmail,
         password: String(password.value || "")
       };
-      const parsedLogin = validateCommandBody(authLoginPasswordCommand, loginPayload);
+      const parsedLogin = validateCommandSection(authLoginPasswordCommand, "bodyValidator", loginPayload);
       if (!parsedLogin.ok) {
         throw new Error(resolveValidationMessage(parsedLogin, "Unable to sign in."));
       }
@@ -849,7 +817,7 @@ export function useDefaultLoginView() {
         email: normalizedEmail,
         returnTo: requestedReturnTo.value
       };
-      const parsedRequest = validateCommandBody(authLoginOtpRequestCommand, otpRequestPayload);
+      const parsedRequest = validateCommandSection(authLoginOtpRequestCommand, "bodyValidator", otpRequestPayload);
       if (!parsedRequest.ok) {
         throw new Error(resolveValidationMessage(parsedRequest, "Unable to request one-time code."));
       }
@@ -877,12 +845,12 @@ export function useDefaultLoginView() {
     const queryPayload = {
       returnTo: requestedReturnTo.value
     };
-    const parsedParams = validateCommandParams(authLoginOAuthStartCommand, paramsPayload);
+    const parsedParams = validateCommandSection(authLoginOAuthStartCommand, "paramsValidator", paramsPayload);
     if (!parsedParams.ok) {
       setErrorMessage(resolveValidationMessage(parsedParams, "OAuth provider id is invalid."));
       return;
     }
-    const parsedQuery = validateCommandQuery(authLoginOAuthStartCommand, queryPayload);
+    const parsedQuery = validateCommandSection(authLoginOAuthStartCommand, "queryValidator", queryPayload);
     if (!parsedQuery.ok) {
       setErrorMessage(resolveValidationMessage(parsedQuery, "OAuth return path is invalid."));
       return;

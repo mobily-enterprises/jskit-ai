@@ -32,3 +32,6 @@ export {
   createSurfaceShellRouter as createShellRouter,
   bootstrapClientShellApp
 } from "./shellBootstrap.js";
+export {
+  createComponentInteractionEmitter
+} from "./componentInteraction.js";

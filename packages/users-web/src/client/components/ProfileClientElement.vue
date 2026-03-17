@@ -4,7 +4,7 @@
       class="profile-client-card"
       :class="uiClasses.card"
       :rounded="resolvedVariant.surface === 'plain' ? '0' : 'lg'"
-      :elevation="resolvedVariant.surface === 'plain' ? 0 : 0"
+      :elevation="0"
       :border="resolvedVariant.surface !== 'plain'"
       :variant="resolvedVariant.surface === 'plain' ? 'text' : undefined"
       :data-testid="uiTestIds.card"
@@ -88,6 +88,11 @@
 
 <script setup>
 import { computed } from "vue";
+import { createComponentInteractionEmitter } from "@jskit-ai/kernel/client";
+import {
+  normalizeObject,
+  normalizeOneOf
+} from "@jskit-ai/kernel/shared/support/normalize";
 
 const DEFAULT_COPY = Object.freeze({
   title: "Profile",
@@ -131,43 +136,30 @@ const props = defineProps({
 
 const emit = defineEmits(["action:started", "action:succeeded", "action:failed", "interaction", "profile:submit", "avatar:replace", "avatar:remove"]);
 
-function toRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function normalizeVariantValue(value, supported, fallback) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (!supported.includes(normalized)) {
-    return fallback;
-  }
-  return normalized;
-}
-
 const state = props.state;
 const actions = props.actions;
+const {
+  emitInteraction,
+  invokeAction
+} = createComponentInteractionEmitter(emit);
 
 const copyText = computed(() => ({
   ...DEFAULT_COPY,
-  ...toRecord(props.copy)
+  ...normalizeObject(props.copy)
 }));
 
 const resolvedVariant = computed(() => {
-  const variant = toRecord(props.variant);
+  const variant = normalizeObject(props.variant);
   return {
-    layout: normalizeVariantValue(variant.layout, ["compact", "comfortable"], "comfortable"),
-    surface: normalizeVariantValue(variant.surface, ["plain", "carded"], "carded"),
-    density: normalizeVariantValue(variant.density, ["compact", "comfortable"], "comfortable"),
-    tone: normalizeVariantValue(variant.tone, ["neutral", "emphasized"], "neutral")
+    layout: normalizeOneOf(variant.layout, ["compact", "comfortable"], "comfortable"),
+    surface: normalizeOneOf(variant.surface, ["plain", "carded"], "carded"),
+    density: normalizeOneOf(variant.density, ["compact", "comfortable"], "comfortable"),
+    tone: normalizeOneOf(variant.tone, ["neutral", "emphasized"], "neutral")
   };
 });
 
 const resolvedFeatures = computed(() => {
-  const features = toRecord(props.features);
+  const features = normalizeObject(props.features);
   return {
     header: features.header !== false,
     removeAvatar: features.removeAvatar !== false
@@ -175,7 +167,7 @@ const resolvedFeatures = computed(() => {
 });
 
 const uiClasses = computed(() => {
-  const classes = toRecord(toRecord(props.ui).classes);
+  const classes = normalizeObject(normalizeObject(props.ui).classes);
   return {
     root: String(classes.root || "").trim(),
     card: String(classes.card || "").trim()
@@ -183,7 +175,7 @@ const uiClasses = computed(() => {
 });
 
 const uiTestIds = computed(() => {
-  const testIds = toRecord(toRecord(props.ui).testIds);
+  const testIds = normalizeObject(normalizeObject(props.ui).testIds);
   return {
     root: String(testIds.root || "profile-client-element"),
     card: String(testIds.card || "profile-client-card"),
@@ -206,36 +198,6 @@ const rootClasses = computed(() => {
   }
   return classes;
 });
-
-function emitInteraction(type, payload = {}) {
-  emit("interaction", {
-    type,
-    ...payload
-  });
-}
-
-async function invokeAction(actionName, payload, callback) {
-  emit("action:started", {
-    action: actionName,
-    payload
-  });
-  try {
-    if (typeof callback === "function") {
-      await callback();
-    }
-    emit("action:succeeded", {
-      action: actionName,
-      payload
-    });
-  } catch (errorValue) {
-    emit("action:failed", {
-      action: actionName,
-      payload,
-      message: String(errorValue?.message || "Action failed")
-    });
-    throw errorValue;
-  }
-}
 
 async function onSubmitProfile() {
   const payload = {
