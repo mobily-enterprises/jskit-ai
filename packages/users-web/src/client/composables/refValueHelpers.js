@@ -5,6 +5,10 @@ function resolveEnabledRef(value) {
     return true;
   }
 
+  if (typeof value === "function") {
+    return Boolean(value());
+  }
+
   return Boolean(unref(value));
 }
 

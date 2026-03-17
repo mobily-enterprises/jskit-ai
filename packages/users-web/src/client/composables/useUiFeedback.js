@@ -1,12 +1,5 @@
 import { ref } from "vue";
-
-function toErrorMessage(error, fallbackMessage) {
-  if (typeof fallbackMessage === "string" && fallbackMessage.trim()) {
-    return fallbackMessage.trim();
-  }
-
-  return String(error?.message || "Request failed.").trim();
-}
+import { toUiErrorMessage } from "./errorMessageHelpers.js";
 
 function useUiFeedback({ initialType = "success" } = {}) {
   const message = ref("");
@@ -23,7 +16,7 @@ function useUiFeedback({ initialType = "success" } = {}) {
 
   function error(errorValue, fallbackMessage = "") {
     messageType.value = "error";
-    message.value = toErrorMessage(errorValue, fallbackMessage);
+    message.value = toUiErrorMessage(errorValue, fallbackMessage, "Request failed.");
   }
 
   return Object.freeze({

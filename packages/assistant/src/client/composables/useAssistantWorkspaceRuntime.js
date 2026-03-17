@@ -1,9 +1,10 @@
 import { computed, ref, watch } from "vue";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
+import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
+import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
 import {
   MAX_INPUT_CHARS,
   ASSISTANT_STREAM_EVENT_TYPES,
@@ -283,7 +284,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const canSend = computed(() => !isStreaming.value && !isRestoringConversation.value && Boolean(normalizeText(input.value)));
   const canStartNewConversation = computed(() => !isStreaming.value);
 
-  const conversationHistoryQuery = useInfiniteQuery({
+  const conversationHistoryCollection = usePagedCollection({
     queryKey: computed(() =>
       assistantConversationsListQueryKey(workspaceScope.value, {
         pageSize: runtimePolicy.historyPageSize
@@ -303,40 +304,29 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       }
       return page + 1;
     },
+    selectItems(page) {
+      return Array.isArray(page?.entries) ? page.entries : [];
+    },
+    dedupeBy(entry) {
+      const conversationNumericId = toPositiveInteger(entry?.id, 0);
+      return conversationNumericId > 0 ? String(conversationNumericId) : normalizeText(entry?.id);
+    },
     enabled: computed(() => hasWorkspaceScope.value),
-    staleTime: runtimePolicy.historyStaleTimeMs,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false
+    queryOptions: {
+      staleTime: runtimePolicy.historyStaleTimeMs,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false
+    },
+    fallbackLoadError: "Unable to load conversation history."
   });
 
-  const conversationHistory = computed(() => {
-    const pages = Array.isArray(conversationHistoryQuery.data.value?.pages) ? conversationHistoryQuery.data.value.pages : [];
-    const entries = [];
-    const seenConversationIds = new Set();
-
-    for (const page of pages) {
-      const pageEntries = Array.isArray(page?.entries) ? page.entries : [];
-      for (const entry of pageEntries) {
-        const conversationNumericId = toPositiveInteger(entry?.id, 0);
-        const dedupeKey = conversationNumericId > 0 ? String(conversationNumericId) : normalizeText(entry?.id);
-        if (dedupeKey && seenConversationIds.has(dedupeKey)) {
-          continue;
-        }
-        if (dedupeKey) {
-          seenConversationIds.add(dedupeKey);
-        }
-        entries.push(entry);
-      }
-    }
-
-    return entries;
-  });
+  const conversationHistory = conversationHistoryCollection.items;
   const conversationHistoryLoading = computed(
-    () => Boolean(conversationHistoryQuery.isFetching.value && !conversationHistoryQuery.isFetchingNextPage.value)
+    () => Boolean(conversationHistoryCollection.isLoading.value && !conversationHistoryCollection.isLoadingMore.value)
   );
-  const conversationHistoryLoadingMore = computed(() => Boolean(conversationHistoryQuery.isFetchingNextPage.value));
-  const conversationHistoryHasMore = computed(() => Boolean(conversationHistoryQuery.hasNextPage.value));
-  const conversationHistoryError = computed(() => String(conversationHistoryQuery.error.value?.message || ""));
+  const conversationHistoryLoadingMore = conversationHistoryCollection.isLoadingMore;
+  const conversationHistoryHasMore = conversationHistoryCollection.hasMore;
+  const conversationHistoryError = conversationHistoryCollection.loadError;
 
   watch(conversationId, (nextConversationId, previousConversationId) => {
     const workspaceSlug = workspaceScope.value.workspaceSlug;
@@ -444,18 +434,11 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       return;
     }
 
-    await conversationHistoryQuery.refetch();
+    await conversationHistoryCollection.reload();
   }
 
   async function loadMoreConversationHistory() {
-    if (!hasWorkspaceScope.value) {
-      return;
-    }
-    if (!conversationHistoryHasMore.value || conversationHistoryLoadingMore.value) {
-      return;
-    }
-
-    await conversationHistoryQuery.fetchNextPage();
+    await conversationHistoryCollection.loadMore();
   }
 
   async function selectConversationById(nextConversationId) {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
+import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 
 const props = defineProps({
   label: {
@@ -52,7 +53,7 @@ const resolvedTo = computed(() => {
     returnTo
   });
 
-  return `${target}${target.includes("?") ? "&" : "?"}${queryParams.toString()}`;
+  return appendQueryString(target, queryParams.toString());
 });
 </script>
 

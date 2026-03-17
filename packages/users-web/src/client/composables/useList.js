@@ -10,7 +10,6 @@ function useList({
   readEnabled = true,
   placementSource = "users-web.list",
   fallbackLoadError = "Unable to load list.",
-  pageParamName = "cursor",
   initialPageParam = null,
   getNextPageParam,
   selectItems,
@@ -40,7 +39,6 @@ function useList({
       operationScope.hasRouteWorkspaceSlug.value &&
       Boolean(operationScope.apiPath.value) &&
       canView.value,
-    pageParamName,
     initialPageParam,
     getNextPageParam,
     selectItems,

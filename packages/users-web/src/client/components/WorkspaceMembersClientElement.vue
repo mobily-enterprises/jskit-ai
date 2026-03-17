@@ -319,7 +319,6 @@ const workspaceMembersList = useList({
     matches: isCurrentWorkspaceRealtimeEvent
   },
   selectItems: (payload) => normalizeMembers(payload?.members),
-  getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace members."
 });
 
@@ -339,7 +338,6 @@ const workspaceInvitesList = useList({
     matches: isCurrentWorkspaceRealtimeEvent
   },
   selectItems: (payload) => normalizeInvites(payload?.invites),
-  getNextPageParam: (payload) => payload?.nextCursor ?? null,
   fallbackLoadError: "Unable to load workspace invites."
 });
 

@@ -3,6 +3,7 @@ import {
   buildAssistantWorkspaceApiPath,
   normalizeAssistantStreamEventType
 } from "../../shared/index.js";
+import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 
 function buildStreamEventError(event) {
   const message = String(event?.message || "Assistant request failed.");
@@ -85,9 +86,8 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
       appendQueryParam(params, "page", query.page);
       appendQueryParam(params, "pageSize", query.pageSize);
       appendQueryParam(params, "status", query.status);
-      const queryString = params.toString();
 
-      return request(`${basePath}/conversations${queryString ? `?${queryString}` : ""}`);
+      return request(appendQueryString(`${basePath}/conversations`, params.toString()));
     },
 
     getConversationMessages(workspaceSlug, conversationId, query = {}) {
@@ -96,11 +96,8 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
       const params = new URLSearchParams();
       appendQueryParam(params, "page", query.page);
       appendQueryParam(params, "pageSize", query.pageSize);
-      const queryString = params.toString();
 
-      return request(
-        `${basePath}/conversations/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
-      );
+      return request(appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()));
     }
   });
 }

@@ -3,14 +3,7 @@ import { useMutation, useQuery } from "@tanstack/vue-query";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { asPlainObject } from "./scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
-
-function toErrorMessage(error, fallback) {
-  if (!error) {
-    return "";
-  }
-
-  return String(error?.message || fallback || "Request failed.").trim();
-}
+import { toQueryErrorMessage } from "./errorMessageHelpers.js";
 
 function useEndpointResource({
   queryKey,
@@ -75,8 +68,8 @@ function useEndpointResource({
   const data = computed(() => query.data.value);
   const isLoading = computed(() => Boolean(queryEnabled.value && (query.isPending.value || query.isFetching.value)));
   const isSaving = computed(() => Boolean(mutation.isPending.value));
-  const loadError = computed(() => toErrorMessage(query.error.value, fallbackLoadError));
-  const saveError = computed(() => toErrorMessage(mutation.error.value, fallbackSaveError));
+  const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, "Request failed."));
+  const saveError = computed(() => toQueryErrorMessage(mutation.error.value, fallbackSaveError, "Request failed."));
 
   async function reload() {
     return query.refetch();
