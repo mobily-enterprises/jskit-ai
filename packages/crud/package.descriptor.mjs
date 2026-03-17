@@ -72,10 +72,6 @@ export default Object.freeze({
         {
           subpath: "./shared",
           summary: "Exports shared CRUD resource and module config helpers."
-        },
-        {
-          subpath: "./client/*",
-          summary: "Exports CRUD Vue client elements."
         }
       ],
       containerTokens: {
