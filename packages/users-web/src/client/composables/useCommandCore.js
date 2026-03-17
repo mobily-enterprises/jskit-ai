@@ -5,6 +5,7 @@ import { validateOperationInput } from "./operationValidationHelpers.js";
 function useCommandCore({
   model,
   resource,
+  writeMethod = "POST",
   canRun,
   fieldBag,
   feedback,
@@ -18,6 +19,7 @@ function useCommandCore({
   messages = {}
 } = {}) {
   const queryClient = useQueryClient();
+  const normalizedWriteMethod = String(writeMethod || "POST").trim().toUpperCase();
 
   const running = resource?.isSaving;
   const fieldErrors = fieldBag?.errors;
@@ -64,7 +66,7 @@ function useCommandCore({
           resource,
           context
         })
-      : parsedInput;
+      : (normalizedWriteMethod === "DELETE" ? undefined : parsedInput);
 
     const options = typeof buildCommandOptions === "function"
       ? buildCommandOptions(parsedInput, {

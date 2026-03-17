@@ -9,7 +9,7 @@
           </div>
           <v-spacer />
           <v-btn variant="text" :to="listPath">Back to ${option:namespace|plural|default(records)}</v-btn>
-          <v-btn color="primary" variant="outlined" :to="editPath || undefined" :disabled="!editPath">Edit</v-btn>
+          <v-btn color="primary" variant="outlined" :to="editPath" :disabled="!editPath">Edit</v-btn>
           <v-btn color="error" variant="tonal" :loading="deleteCommand.isRunning" @click="confirmDelete">Delete</v-btn>
         </div>
       </v-card-item>

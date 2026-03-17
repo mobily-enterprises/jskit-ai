@@ -9,7 +9,7 @@
           </div>
           <v-spacer />
           <v-btn variant="outlined" :loading="isLoading" @click="records.reload">Refresh</v-btn>
-          <v-btn color="primary" :to="createPath || undefined">New ${option:namespace|singular|default(record)}</v-btn>
+          <v-btn color="primary" :to="createPath">New ${option:namespace|singular|default(record)}</v-btn>
         </div>
       </v-card-item>
       <v-divider />
@@ -32,7 +32,7 @@
               <td>{{ record.surname }}</td>
               <td>{{ crudContext.formatDateTime(record.updatedAt) }}</td>
               <td class="text-right">
-                <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id) || undefined">
+                <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id)">
                   Open
                 </v-btn>
               </td>

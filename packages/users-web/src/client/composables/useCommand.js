@@ -60,6 +60,7 @@ function useCommand({
   const command = useCommandCore({
     model,
     resource,
+    writeMethod,
     canRun,
     fieldBag,
     feedback,

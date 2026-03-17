@@ -18,7 +18,17 @@ function requireBoolean(value, label = "value", owner = "Contract") {
   return resolved;
 }
 
+function requireFunction(value, label = "value", owner = "Contract") {
+  const resolved = unref(value);
+  if (typeof resolved !== "function") {
+    throw new TypeError(`${owner} expects ${label} to be a function.`);
+  }
+
+  return resolved;
+}
+
 export {
   requireRecord,
-  requireBoolean
+  requireBoolean,
+  requireFunction
 };

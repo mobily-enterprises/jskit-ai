@@ -52,15 +52,13 @@ function useAddEdit({
     realtime
   });
   const routeContext = operationScope.routeContext;
-  const resolvedMessages = resolveResourceMessages(resource, {
-    validation: "Fix invalid values and try again.",
-    saveSuccess: "Saved.",
-    saveError: "Unable to save."
-  });
-  const customMessages = messages && typeof messages === "object" ? messages : {};
   const effectiveMessages = {
-    ...resolvedMessages,
-    ...customMessages
+    ...resolveResourceMessages(resource, {
+      validation: "Fix invalid values and try again.",
+      saveSuccess: "Saved.",
+      saveError: "Unable to save."
+    }),
+    ...(messages && typeof messages === "object" ? messages : {})
   };
 
   const canView = operationScope.permissionGate("view");

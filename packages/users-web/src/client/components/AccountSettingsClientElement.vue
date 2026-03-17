@@ -286,8 +286,6 @@ const avatarDeleteCommand = useCommand({
   writeMethod: "DELETE",
   fallbackRunError: "Unable to remove avatar.",
   model: profileForm,
-  buildRawPayload: () => ({}),
-  buildCommandPayload: () => undefined,
   onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
     applySettingsData(payload);
     commandQueryClient.setQueryData(accountSettingsQueryKey, payload);

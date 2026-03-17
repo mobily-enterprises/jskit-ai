@@ -10,7 +10,7 @@
       :options="options"
       :collections="collections"
       :permissions="permissionState"
-      :feedback="feedback"
+      :revokeInviteId="revokeInviteId"
       :status="status"
       :actions="actions"
     />
@@ -68,15 +68,6 @@ const inviteFeedback = useUiFeedback();
 const membersFeedback = useUiFeedback();
 const teamFeedback = useUiFeedback();
 const revokeInviteId = ref(0);
-const feedback = Object.freeze({
-  inviteMessage: inviteFeedback.message,
-  inviteMessageType: inviteFeedback.messageType,
-  membersMessage: membersFeedback.message,
-  membersMessageType: membersFeedback.messageType,
-  teamMessage: teamFeedback.message,
-  teamMessageType: teamFeedback.messageType,
-  revokeInviteId
-});
 
 const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
   useWorkspaceRouteContext();
@@ -349,8 +340,6 @@ const revokeInviteCommand = useCommand({
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
   fallbackRunError: "Unable to revoke invite.",
-  buildRawPayload: () => ({}),
-  buildCommandPayload: () => undefined,
   buildCommandOptions: (_parsed, { context }) => {
     return {
       method: "DELETE",

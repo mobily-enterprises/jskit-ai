@@ -144,7 +144,7 @@
 
 <script setup>
 import { computed, toRefs, unref } from "vue";
-import { requireBoolean, requireRecord } from "../support/contractGuards.js";
+import { requireBoolean, requireFunction, requireRecord } from "../support/contractGuards.js";
 
 const props = defineProps({
   forms: {
@@ -163,8 +163,8 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  feedback: {
-    type: Object,
+  revokeInviteId: {
+    type: Number,
     required: true
   },
   status: {
@@ -181,7 +181,6 @@ requireRecord(props.forms, "forms", "MembersAdminClientElement");
 requireRecord(props.options, "options", "MembersAdminClientElement");
 requireRecord(props.collections, "collections", "MembersAdminClientElement");
 requireRecord(props.permissions, "permissions", "MembersAdminClientElement");
-requireRecord(props.feedback, "feedback", "MembersAdminClientElement");
 requireRecord(props.status, "status", "MembersAdminClientElement");
 requireRecord(props.actions, "actions", "MembersAdminClientElement");
 
@@ -190,10 +189,24 @@ const {
   options,
   collections,
   permissions,
-  feedback,
+  revokeInviteId,
   status,
   actions
 } = toRefs(props);
+
+const actionHandlers = Object.freeze({
+  submitInvite: requireFunction(actions.value.submitInvite, "actions.submitInvite", "MembersAdminClientElement"),
+  submitRevokeInvite: requireFunction(
+    actions.value.submitRevokeInvite,
+    "actions.submitRevokeInvite",
+    "MembersAdminClientElement"
+  ),
+  submitMemberRoleUpdate: requireFunction(
+    actions.value.submitMemberRoleUpdate,
+    "actions.submitMemberRoleUpdate",
+    "MembersAdminClientElement"
+  )
+});
 
 const inviteForm = computed(() => requireRecord(forms.value.invite, "forms.invite", "MembersAdminClientElement"));
 const workspaceForm = computed(() =>
@@ -246,7 +259,6 @@ const showMembersLoadingSkeleton = computed(
     (!membersListLoaded.value || !inviteListLoaded.value)
 );
 
-const revokeInviteId = computed(() => Number(unref(feedback.value.revokeInviteId) || 0));
 const workspaceInvitesAvailable = computed(() => Boolean(unref(workspaceForm.value.invitesAvailable)));
 const workspaceInvitesEnabled = computed(() => Boolean(unref(workspaceForm.value.invitesEnabled)));
 
@@ -288,9 +300,7 @@ async function onSubmitInvite() {
     return;
   }
 
-  if (typeof actions.value.submitInvite === "function") {
-    await actions.value.submitInvite();
-  }
+  await actionHandlers.submitInvite();
 }
 
 async function onRevokeInvite(inviteId) {
@@ -298,9 +308,7 @@ async function onRevokeInvite(inviteId) {
     return;
   }
 
-  if (typeof actions.value.submitRevokeInvite === "function") {
-    await actions.value.submitRevokeInvite(inviteId);
-  }
+  await actionHandlers.submitRevokeInvite(inviteId);
 }
 
 async function onMemberRoleUpdate(member, roleId) {
@@ -308,9 +316,7 @@ async function onMemberRoleUpdate(member, roleId) {
     return;
   }
 
-  if (typeof actions.value.submitMemberRoleUpdate === "function") {
-    await actions.value.submitMemberRoleUpdate(member, roleId);
-  }
+  await actionHandlers.submitMemberRoleUpdate(member, roleId);
 }
 </script>
 
