@@ -423,6 +423,7 @@ function createDsmlDeltaSanitizer() {
 
 async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true, deltaSanitizer = null } = {}) {
   let assistantText = "";
+  let streamedAssistantText = "";
   const toolCallsByIndex = new Map();
 
   for await (const chunk of stream) {
@@ -438,6 +439,7 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
             ? String(deltaSanitizer.process(textDelta) || "")
             : textDelta;
         if (safeDelta) {
+          streamedAssistantText += safeDelta;
           streamWriter.sendAssistantDelta({
             type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
             delta: safeDelta
@@ -488,6 +490,7 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
   if (emitDeltas && deltaSanitizer && typeof deltaSanitizer.flush === "function") {
     const trailing = String(deltaSanitizer.flush() || "");
     if (trailing) {
+      streamedAssistantText += trailing;
       streamWriter.sendAssistantDelta({
         type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
         delta: trailing
@@ -497,8 +500,32 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
 
   return {
     assistantText,
+    streamedAssistantText,
     toolCalls
   };
+}
+
+function mergeAssistantMessageText(streamedText = "", completionText = "") {
+  const streamed = normalizeText(sanitizeAssistantMessageText(streamedText));
+  const completion = normalizeText(sanitizeAssistantMessageText(completionText));
+
+  if (!streamed) {
+    return completion;
+  }
+  if (!completion) {
+    return streamed;
+  }
+  if (streamed === completion) {
+    return streamed;
+  }
+  if (completion.startsWith(streamed) || completion.includes(streamed)) {
+    return completion;
+  }
+  if (streamed.startsWith(completion) || streamed.includes(completion)) {
+    return streamed;
+  }
+
+  return `${streamed}\n${completion}`;
 }
 
 function createChatService({ aiClient, transcriptService, serviceToolCatalog } = {}) {
@@ -575,9 +602,10 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
         content: source.input
       }
     ];
+    let streamedAssistantText = "";
 
     async function completeWithAssistantMessage(assistantMessageText, { metadata = {} } = {}) {
-      const normalizedAssistantMessageText = normalizeText(sanitizeAssistantMessageText(assistantMessageText));
+      const normalizedAssistantMessageText = mergeAssistantMessageText(streamedAssistantText, assistantMessageText);
       if (!normalizedAssistantMessageText) {
         throw new AppError(502, "Assistant returned no output.");
       }
@@ -747,6 +775,7 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
           emitDeltas: true,
           deltaSanitizer: createDsmlDeltaSanitizer()
         });
+        streamedAssistantText += String(completion.streamedAssistantText || "");
 
         const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (recoveryToolCalls.length > 0) {
@@ -821,6 +850,7 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
           emitDeltas: true,
           deltaSanitizer: createDsmlDeltaSanitizer()
         });
+        streamedAssistantText += String(completion.streamedAssistantText || "");
 
         const toolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (toolCalls.length < 1) {

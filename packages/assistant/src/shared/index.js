@@ -24,3 +24,5 @@ export {
   MAX_HISTORY_MESSAGES,
   assistantResource
 } from "./assistantResource.js";
+
+export { toPositiveInteger } from "./support/positiveInteger.js";

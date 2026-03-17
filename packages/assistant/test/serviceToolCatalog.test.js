@@ -735,6 +735,110 @@ test("service tool catalog derives input schema from array action validators", (
   assert.equal(typeof createTool.parameters?.properties?.surname, "object");
 });
 
+test("service tool catalog preserves section-map validators in tool schemas", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.workspace_settings.service",
+    () => ({
+      updateSettings(input = {}) {
+        return input;
+      }
+    })
+  );
+
+  const patchValidator = Object.freeze({
+    schema: Type.Object(
+      {
+        name: Type.String({ minLength: 1 })
+      },
+      { additionalProperties: false }
+    )
+  });
+
+  app.actions([
+    {
+      id: "demo.workspace.settings.update",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["automation"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        workspaceSettingsService: "demo.workspace_settings.service"
+      },
+      inputValidator: [
+        {
+          schema: Type.Object(
+            {
+              workspaceSlug: Type.String({ minLength: 1 })
+            },
+            { additionalProperties: false }
+          )
+        },
+        {
+          patch: patchValidator
+        }
+      ],
+      outputValidator: {
+        schema: Type.Object(
+          {
+            ok: Type.Boolean()
+          },
+          { additionalProperties: false }
+        )
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.workspace.settings.update"
+      },
+      observability: {},
+      assistantTool: {
+        inputValidator: {
+          patch: patchValidator
+        }
+      },
+      async execute(input, _context, deps) {
+        const result = deps.workspaceSettingsService.updateSettings(input);
+        return {
+          ok: Boolean(result)
+        };
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipActionPrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: { id: 1 },
+    permissions: [],
+    channel: "internal",
+    surface: "admin",
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          slug: "tonymobily3"
+        }
+      }
+    }
+  });
+  const updateTool = toolSet.tools.find((tool) => tool.actionId === "demo.workspace.settings.update");
+
+  assert.ok(updateTool);
+  assert.equal(updateTool.parameters?.type, "object");
+  assert.equal(Object.hasOwn(updateTool.parameters?.properties || {}, "workspaceSlug"), false);
+  assert.equal(typeof updateTool.parameters?.properties?.patch, "object");
+  assert.equal(updateTool.parameters?.properties?.patch.type, "object");
+  assert.equal(typeof updateTool.parameters?.properties?.patch.properties?.name, "object");
+});
+
 test("service tool catalog hides workspaceSlug parameter when workspace context is already resolved", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();

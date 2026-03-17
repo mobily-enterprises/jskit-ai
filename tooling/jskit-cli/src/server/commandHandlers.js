@@ -53,6 +53,7 @@ function createCommandHandlers(deps) {
     restorePackageJsonField,
     readFileBufferIfExists,
     removeEnvValue,
+    removeManagedViteProxyEntries,
     hashBuffer,
     rm
   } = deps;
@@ -1007,6 +1008,7 @@ function createCommandHandlers(deps) {
           scripts: {}
         },
         text: {},
+        vite: {},
         files: [],
         migrations: []
       },
@@ -1361,7 +1363,14 @@ function createCommandHandlers(deps) {
         touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
       }
     }
-  
+
+    await removeManagedViteProxyEntries({
+      appRoot,
+      packageId: resolvedTargetId,
+      managedViteChanges: ensureObject(managed.vite),
+      touchedFiles
+    });
+
     for (const fileChange of ensureArray(managed.files)) {
       const changeRecord = ensureObject(fileChange);
       if (changeRecord.preserveOnRemove === true) {

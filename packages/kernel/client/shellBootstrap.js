@@ -211,7 +211,6 @@ async function bootstrapClientShellApp({
       {
         bootstrap: {
           modules: clientBootstrap?.modules || [],
-          bootedPackages: clientBootstrap?.bootedPackages || [],
           providerCount: Number(clientBootstrap?.providerCount || 0),
           routeCount: Number(clientBootstrap?.routeCount || 0)
         },

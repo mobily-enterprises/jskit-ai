@@ -24,8 +24,6 @@ export { createSurfaceRuntime, filterRoutesBySurface } from "./surface/runtime.j
 export { escapeRegExp } from "./surface/escapeRegExp.js";
 export {
   API_BASE_PATH,
-  API_MAJOR_VERSION,
-  API_VERSION_SEGMENT,
   API_PREFIX,
   API_PREFIX_SLASH,
   API_DOCS_PATH,

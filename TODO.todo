@@ -70,6 +70,11 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   - Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
   - Place roles and permissions in app-owned config. Check config for assistant?
   
+  - Fix displaying of errors, maybe se toasts
+
+  - make  packages/assistant/src/client/composables/useAssistantWorkspaceRuntime.js  "load more" generic
+
+
   - Theme seems to change when going to user settings screen
   
   - Re-add icons

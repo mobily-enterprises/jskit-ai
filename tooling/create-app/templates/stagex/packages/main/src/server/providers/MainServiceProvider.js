@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { config as publicConfig } from "../../../../../config/public.js";
-import { config as serverConfig } from "../../../../../config/server.js";
+import { config as publicConfig } from "../../../../../../config/public.js";
+import { config as serverConfig } from "../../../../../../config/server.js";
 import { ContactController } from "../controllers/ContactController.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";

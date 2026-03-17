@@ -3,10 +3,14 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import VueRouter from "unplugin-vue-router/vite";
 import { createJskitClientBootstrapPlugin } from "@jskit-ai/kernel/client/vite";
-import { toPositiveInt } from "./vite.shared.mjs";
+import { loadViteDevProxyEntries, toPositiveInt } from "./vite.shared.mjs";
 
 const devPort = toPositiveInt(process.env.VITE_DEV_PORT, 5173);
 const apiProxyTarget = String(process.env.VITE_API_PROXY_TARGET || "").trim() || "http://localhost:3000";
+const viteModuleProxyEntries = loadViteDevProxyEntries({
+  appRootUrl: import.meta.url,
+  fallbackTarget: apiProxyTarget
+});
 const clientEntry = (() => {
   const normalized = String(process.env.VITE_CLIENT_ENTRY || "").trim();
   if (!normalized) {
@@ -53,7 +57,8 @@ export default defineConfig({
       "/api": {
         target: apiProxyTarget,
         changeOrigin: true
-      }
+      },
+      ...viteModuleProxyEntries
     }
   }
 });

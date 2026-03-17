@@ -677,8 +677,6 @@ async function bootClientModules({
     routeResults.push(result);
     return result;
   };
-  const bootedPackages = [];
-
   for (const entry of moduleEntries) {
     const descriptorRouteDeclarations = buildDescriptorRouteDeclarationIndex({
       packageId: entry.packageId,
@@ -695,7 +693,6 @@ async function bootClientModules({
     const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
     registerRoutesForEntry(moduleRoutes, entry.packageId, "clientRoutes", descriptorRouteDeclarations);
 
-    bootedPackages.push(entry.packageId);
   }
 
   const registeredRouteCount = routeResults.reduce((sum, result) => sum + result.registeredCount, 0);
@@ -703,7 +700,6 @@ async function bootClientModules({
     log.debug(
       {
         modules: moduleEntries.map((entry) => entry.packageId),
-        booted: bootedPackages,
         providerCount: providerClasses.length,
         routeCount: registeredRouteCount
       },
@@ -721,7 +717,6 @@ async function bootClientModules({
   return Object.freeze({
     runtimeApp,
     modules: Object.freeze(moduleEntries.map((entry) => entry.packageId)),
-    bootedPackages: Object.freeze(bootedPackages),
     providerCount: providerClasses.length,
     routeResults: Object.freeze(routeResults),
     routeCount: registeredRouteCount

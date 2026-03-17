@@ -94,7 +94,6 @@ export function bootClientModules(options?: {
   Readonly<{
     runtimeApp: any;
     modules: readonly string[];
-    bootedPackages: readonly string[];
     providerCount: number;
     routeResults: readonly any[];
     routeCount: number;

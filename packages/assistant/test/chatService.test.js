@@ -814,5 +814,8 @@ test("chat service recovery streams sanitized text without DSML tag leakage", as
   const streamedText = streamedDeltas.join("");
   assert.equal(streamedText.includes("DSML"), false, streamedText);
   assert.equal(streamedText.includes("Interim notes from successful operations."), true);
-  assert.equal(emittedAssistantMessages[0], "Final response from available data.");
+  assert.equal(emittedAssistantMessages.length, 1);
+  assert.equal(emittedAssistantMessages[0].includes("Interim notes from successful operations."), true);
+  assert.equal(emittedAssistantMessages[0].includes("Final response from available data."), true);
+  assert.equal(emittedAssistantMessages[0].includes("DSML"), false);
 });

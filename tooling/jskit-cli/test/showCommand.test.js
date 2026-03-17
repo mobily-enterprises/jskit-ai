@@ -33,8 +33,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /auth\.profile\.widget/);
   assert.match(stdout, /auth\.profile\.menu\.sign-out/);
   assert.match(stdout, /Package exports \(/);
-  assert.match(stdout, /- \.\/server\s+\[ok\]/);
-  assert.doesNotMatch(stdout, /\.\/server -> \.\/src\/server\/index\.js/);
+  assert.match(stdout, /- \.\/server\/controllers\/AuthController \[ok\]/);
   assert.match(stdout, /\.\/client\/views\/DefaultLoginView -> \.\/src\/client\/views\/DefaultLoginView\.vue/);
   assert.doesNotMatch(stdout, /Exported symbols from index files \(/);
   assert.match(stdout, /Container bindings server \(/);
@@ -87,7 +86,8 @@ test("show package --json includes exports, container bindings, and exported sym
 
   assert.equal(payload.packageId, "@jskit-ai/http-runtime");
   assert.ok(Array.isArray(payload.packageExports));
-  assert.ok(payload.packageExports.some((record) => record.subpath === "./server" && record.target === "./src/server/index.js"));
+  assert.ok(payload.packageExports.some((record) => record.subpath === "./client" && record.target === "./src/client/index.js"));
+  assert.ok(payload.packageExports.some((record) => record.subpath === "./shared" && record.target === "./src/shared/index.js"));
 
   const containerBindings = payload.containerBindings || {};
   const serverBindings = Array.isArray(containerBindings.server) ? containerBindings.server : [];
@@ -96,8 +96,8 @@ test("show package --json includes exports, container bindings, and exported sym
   assert.ok(clientBindings.some((record) => record.token === "validators.http.client"));
 
   assert.ok(Array.isArray(payload.exportedSymbols));
-  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/server/index.js"));
   assert.ok(payload.exportedSymbols.some((record) => record.file === "src/client/index.js"));
+  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/shared/index.js"));
   const clientIndex = payload.exportedSymbols.find((record) => record.file === "src/client/index.js");
   assert.ok(clientIndex);
   assert.deepEqual(clientIndex.starReExports, []);

@@ -157,6 +157,18 @@
                 @click="onSelectConversation(conversation)"
               />
             </v-list>
+            <v-btn
+              v-if="conversationHistoryHasMore"
+              block
+              variant="text"
+              size="small"
+              class="mt-2"
+              :loading="conversationHistoryLoadingMore"
+              :disabled="isStreaming || isRestoringConversation || conversationHistoryLoadingMore"
+              @click="onLoadMoreConversations"
+            >
+              {{ copyText.loadOlderConversations }}
+            </v-btn>
           </v-card-text>
         </v-card>
 
@@ -215,6 +227,18 @@
               @click="selectConversationFromPicker(conversation)"
             />
           </v-list>
+          <v-btn
+            v-if="conversationHistoryHasMore"
+            block
+            variant="text"
+            size="small"
+            class="mt-2"
+            :loading="conversationHistoryLoadingMore"
+            :disabled="isStreaming || isRestoringConversation || conversationHistoryLoadingMore"
+            @click="onLoadMoreConversations"
+          >
+            {{ copyText.loadOlderConversations }}
+          </v-btn>
         </v-card-text>
       </v-card>
     </v-bottom-sheet>
@@ -238,6 +262,7 @@ const DEFAULT_COPY = Object.freeze({
   conversationHistory: "Conversation History",
   refresh: "Refresh",
   startNewConversation: "Start new conversation",
+  loadOlderConversations: "Load older conversations",
   noConversations: "No conversations yet.",
   unknownConversationTitle: "New conversation",
   unknownUser: "Unknown user",
@@ -328,6 +353,8 @@ const pendingToolEvents = state.pendingToolEvents;
 const conversationId = state.conversationId;
 const conversationHistory = state.conversationHistory;
 const conversationHistoryLoading = state.conversationHistoryLoading;
+const conversationHistoryLoadingMore = state.conversationHistoryLoadingMore;
+const conversationHistoryHasMore = state.conversationHistoryHasMore;
 const conversationHistoryError = state.conversationHistoryError;
 const isAdminSurface = state.isAdminSurface;
 const canSend = state.canSend;
@@ -339,6 +366,7 @@ const cancelStream = actions.cancelStream;
 const startNewConversation = actions.startNewConversation;
 const selectConversation = actions.selectConversation;
 const refreshConversationHistory = actions.refreshConversationHistory;
+const loadMoreConversationHistory = actions.loadMoreConversationHistory;
 
 const copyText = computed(() => ({
   ...DEFAULT_COPY,
@@ -699,6 +727,15 @@ async function startNewConversationFromPicker() {
   await requestComposerFocus({
     selectText: true
   });
+}
+
+async function onLoadMoreConversations() {
+  if (typeof loadMoreConversationHistory !== "function") {
+    return;
+  }
+
+  emitInteraction("conversation:load-more");
+  await invokeAction("loadMoreConversationHistory", {}, loadMoreConversationHistory);
 }
 
 async function onSendMessage() {

@@ -45,6 +45,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");
     assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
+    assert.match(devBootstrapScript, /DOKKU_APP_NAME/);
     assert.match(devBootstrapScript, /JSKIT_GITHUB_TARBALL_URL/);
     assert.match(devBootstrapScript, /curl -fsSL/);
     assert.doesNotMatch(devBootstrapScript, /Development\/current\/jskit-ai/);
@@ -130,8 +131,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
-    assert.match(localMainServiceProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
-    assert.match(localMainServiceProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
+    assert.match(localMainServiceProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
+    assert.match(localMainServiceProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
     assert.match(localMainServiceProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainServiceProvider, /boot\(\)\s*\{\}/);
     assert.match(localMainServiceProvider, /src\/shared\/schemas/);
@@ -202,8 +203,8 @@ test("create-app scaffolds stagex with main service provider and contact routes"
     );
     assert.match(localMainProvider, /class MainServiceProvider/);
     assert.match(localMainProvider, /static id = "local\.main";/);
-    assert.match(localMainProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
-    assert.match(localMainProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
+    assert.match(localMainProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
+    assert.match(localMainProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
     assert.match(localMainProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainProvider, /\/api\/v1\/contacts\/intake/);
     assert.match(localMainProvider, /\/api\/v1\/contacts\/preview-followup/);

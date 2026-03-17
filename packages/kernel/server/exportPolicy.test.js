@@ -32,32 +32,6 @@ function collectExportTargets(exportsField) {
   return [...new Set(targets)];
 }
 
-function parseNamedExportSpecifiers(specifierSource) {
-  return String(specifierSource || "")
-    .split(",")
-    .map((entry) => entry.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/g, "").trim())
-    .filter(Boolean)
-    .map((entry) => entry.replace(/\s+/g, " "))
-    .map((entry) => {
-      const aliasMatch = /^(.+?)\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(entry);
-      return aliasMatch ? aliasMatch[2] : entry;
-    })
-    .filter((entry) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entry));
-}
-
-function parseExportedSymbolsFromSource(source) {
-  const symbols = new Set();
-  const namedPattern = /export\s*\{([\s\S]*?)\}\s*(?:from\s*["'][^"']+["'])?\s*;?/g;
-  let match = namedPattern.exec(source);
-  while (match) {
-    for (const symbol of parseNamedExportSpecifiers(match[1])) {
-      symbols.add(symbol);
-    }
-    match = namedPattern.exec(source);
-  }
-  return [...symbols].sort((left, right) => left.localeCompare(right));
-}
-
 test("kernel exported JS targets do not use star re-exports", async () => {
   const packageJsonPath = path.join(PACKAGE_ROOT, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
@@ -87,16 +61,8 @@ test("kernel exported JS targets do not use star re-exports", async () => {
   assert.deepEqual(violations, []);
 });
 
-test("kernel server aggregate entrypoint remains provider-only", async () => {
-  const source = await readFile(path.join(PACKAGE_ROOT, "server/index.js"), "utf8");
-  const symbols = parseExportedSymbolsFromSource(source);
-  assert.deepEqual(symbols, [
-    "ContainerCoreServiceProvider",
-    "HttpFastifyServiceProvider",
-    "KernelCoreServiceProvider",
-    "PlatformServerRuntimeServiceProvider",
-    "ServerRuntimeCoreServiceProvider",
-    "SupportCoreServiceProvider",
-    "SurfaceRoutingServiceProvider"
-  ]);
+test("kernel package does not expose deprecated ./server aggregate entrypoint", async () => {
+  const packageJsonPath = path.join(PACKAGE_ROOT, "package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  assert.equal(Object.hasOwn(packageJson.exports || {}, "./server"), false);
 });

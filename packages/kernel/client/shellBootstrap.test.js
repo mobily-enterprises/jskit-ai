@@ -148,7 +148,6 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
       assert.equal(typeof context.logger.debug, "function");
       return {
         modules: ["@example/main"],
-        bootedPackages: ["@example/main"],
         providerCount: 1,
         routeCount: 3
       };

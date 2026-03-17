@@ -1,9 +1,7 @@
 import { normalizePathname } from "./paths.js";
 
 const API_BASE_PATH = "/api";
-const API_MAJOR_VERSION = 1;
-const API_VERSION_SEGMENT = `v${API_MAJOR_VERSION}`;
-const API_PREFIX = `${API_BASE_PATH}/${API_VERSION_SEGMENT}`;
+const API_PREFIX = "/api/v1";
 const API_PREFIX_SLASH = `${API_PREFIX}/`;
 const API_DOCS_PATH = `${API_PREFIX}/docs`;
 const API_REALTIME_PATH = `${API_PREFIX}/realtime`;
@@ -78,8 +76,6 @@ function isVersionedApiPrefixMatch(pathname) {
 
 export {
   API_BASE_PATH,
-  API_MAJOR_VERSION,
-  API_VERSION_SEGMENT,
   API_PREFIX,
   API_PREFIX_SLASH,
   API_DOCS_PATH,

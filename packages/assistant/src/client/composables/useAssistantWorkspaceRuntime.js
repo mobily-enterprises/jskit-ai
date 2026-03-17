@@ -1,16 +1,19 @@
 import { computed, ref, watch } from "vue";
-import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
 import {
+  MAX_INPUT_CHARS,
   ASSISTANT_STREAM_EVENT_TYPES,
   ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
+  MAX_HISTORY_MESSAGES,
   assistantConversationMessagesQueryKey,
   assistantConversationsListQueryKey,
   assistantWorkspaceScopeQueryKey,
-  normalizeAssistantStreamEventType
+  normalizeAssistantStreamEventType,
+  toPositiveInteger
 } from "../../shared/index.js";
 import { assistantHttpClient } from "../lib/assistantHttpClient.js";
 import { createAssistantWorkspaceApi } from "../lib/assistantApi.js";
@@ -22,15 +25,6 @@ const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
 const HISTORY_PAGE = 1;
 const RESTORE_MESSAGES_PAGE = 1;
 const ACTIVE_CONVERSATION_STORAGE_PREFIX = "assistant.activeConversationId";
-
-function toPositiveInteger(value, fallback = 0) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return parsed;
-}
 
 function toNonNegativeInteger(value, fallback = 0) {
   const parsed = Number(value);
@@ -139,7 +133,7 @@ function parseToolResultPayload(value) {
 }
 
 function buildHistory(messages) {
-  return (Array.isArray(messages) ? messages : [])
+  const normalizedHistory = (Array.isArray(messages) ? messages : [])
     .filter((message) => {
       if (!message || typeof message !== "object") {
         return false;
@@ -157,8 +151,10 @@ function buildHistory(messages) {
     })
     .map((message) => ({
       role: message.role,
-      content: String(message.text || "")
+      content: String(message.text || "").slice(0, MAX_INPUT_CHARS)
     }));
+
+  return normalizedHistory.slice(-MAX_HISTORY_MESSAGES);
 }
 
 function mapTranscriptEntriesToAssistantState(entries) {
@@ -287,18 +283,26 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const canSend = computed(() => !isStreaming.value && !isRestoringConversation.value && Boolean(normalizeText(input.value)));
   const canStartNewConversation = computed(() => !isStreaming.value);
 
-  const conversationHistoryQuery = useQuery({
+  const conversationHistoryQuery = useInfiniteQuery({
     queryKey: computed(() =>
       assistantConversationsListQueryKey(workspaceScope.value, {
-        page: HISTORY_PAGE,
         pageSize: runtimePolicy.historyPageSize
       })
     ),
-    queryFn: () =>
+    queryFn: ({ pageParam = HISTORY_PAGE }) =>
       runtimeApi.listConversations(workspaceScope.value.workspaceSlug, {
-        page: HISTORY_PAGE,
+        page: pageParam,
         pageSize: runtimePolicy.historyPageSize
       }),
+    initialPageParam: HISTORY_PAGE,
+    getNextPageParam(lastPage) {
+      const page = toPositiveInteger(lastPage?.page, HISTORY_PAGE);
+      const totalPages = toPositiveInteger(lastPage?.totalPages, HISTORY_PAGE);
+      if (page >= totalPages) {
+        return undefined;
+      }
+      return page + 1;
+    },
     enabled: computed(() => hasWorkspaceScope.value),
     staleTime: runtimePolicy.historyStaleTimeMs,
     refetchOnMount: false,
@@ -306,9 +310,32 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   });
 
   const conversationHistory = computed(() => {
-    return Array.isArray(conversationHistoryQuery.data.value?.entries) ? conversationHistoryQuery.data.value.entries : [];
+    const pages = Array.isArray(conversationHistoryQuery.data.value?.pages) ? conversationHistoryQuery.data.value.pages : [];
+    const entries = [];
+    const seenConversationIds = new Set();
+
+    for (const page of pages) {
+      const pageEntries = Array.isArray(page?.entries) ? page.entries : [];
+      for (const entry of pageEntries) {
+        const conversationNumericId = toPositiveInteger(entry?.id, 0);
+        const dedupeKey = conversationNumericId > 0 ? String(conversationNumericId) : normalizeText(entry?.id);
+        if (dedupeKey && seenConversationIds.has(dedupeKey)) {
+          continue;
+        }
+        if (dedupeKey) {
+          seenConversationIds.add(dedupeKey);
+        }
+        entries.push(entry);
+      }
+    }
+
+    return entries;
   });
-  const conversationHistoryLoading = computed(() => Boolean(conversationHistoryQuery.isFetching.value));
+  const conversationHistoryLoading = computed(
+    () => Boolean(conversationHistoryQuery.isFetching.value && !conversationHistoryQuery.isFetchingNextPage.value)
+  );
+  const conversationHistoryLoadingMore = computed(() => Boolean(conversationHistoryQuery.isFetchingNextPage.value));
+  const conversationHistoryHasMore = computed(() => Boolean(conversationHistoryQuery.hasNextPage.value));
   const conversationHistoryError = computed(() => String(conversationHistoryQuery.error.value?.message || ""));
 
   watch(conversationId, (nextConversationId, previousConversationId) => {
@@ -420,6 +447,17 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
     await conversationHistoryQuery.refetch();
   }
 
+  async function loadMoreConversationHistory() {
+    if (!hasWorkspaceScope.value) {
+      return;
+    }
+    if (!conversationHistoryHasMore.value || conversationHistoryLoadingMore.value) {
+      return;
+    }
+
+    await conversationHistoryQuery.fetchNextPage();
+  }
+
   async function selectConversationById(nextConversationId) {
     const normalizedConversationId = normalizeText(nextConversationId);
     if (!normalizedConversationId || isStreaming.value || isRestoringConversation.value || !hasWorkspaceScope.value) {
@@ -506,7 +544,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   }
 
   async function sendMessage() {
-    const normalizedInput = normalizeText(input.value);
+    const normalizedInput = normalizeText(input.value).slice(0, MAX_INPUT_CHARS);
     if (!normalizedInput || isStreaming.value || isRestoringConversation.value || !hasWorkspaceScope.value) {
       return;
     }
@@ -514,6 +552,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
     const messageId = buildId("message");
     const assistantMessageId = buildId("assistant");
     const history = buildHistory(messages.value);
+    const parsedConversationId = toPositiveInteger(conversationId.value, 0);
 
     appendMessage({
       id: buildId("user"),
@@ -549,7 +588,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
         workspaceScope.value.workspaceSlug,
         {
           messageId,
-          conversationId: conversationId.value ? Number(conversationId.value) : undefined,
+          ...(parsedConversationId > 0 ? { conversationId: parsedConversationId } : {}),
           input: normalizedInput,
           history
         },
@@ -726,6 +765,8 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       activeConversationId,
       conversationHistory,
       conversationHistoryLoading,
+      conversationHistoryLoadingMore,
+      conversationHistoryHasMore,
       conversationHistoryError,
       isAdminSurface,
       canSend,
@@ -739,7 +780,8 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
       clearConversation: startNewConversation,
       selectConversation,
       selectConversationById,
-      refreshConversationHistory
+      refreshConversationHistory,
+      loadMoreConversationHistory
     },
     viewer
   });

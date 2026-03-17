@@ -89,6 +89,16 @@ export default Object.freeze({
     },
     procfile: {},
     files: [],
+    vite: {
+      proxy: [
+        {
+          id: "realtime-socket-io",
+          path: "/socket.io",
+          changeOrigin: true,
+          ws: true
+        }
+      ]
+    },
     text: [
       {
         file: ".env",

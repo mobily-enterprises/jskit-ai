@@ -9,6 +9,16 @@ npm install
 npm run dev
 ```
 
+## Package Bootstrap
+
+`npm install` runs `scripts/dev-bootstrap-jskit.sh` through `preinstall`.
+
+- Default mode is `JSKIT_DEV_BOOTSTRAP=auto`.
+- In Dokku (`DOKKU_APP_NAME`/`DOKKU_APP_TYPE` detected), auto mode runs bootstrap.
+- Outside Dokku, auto mode skips bootstrap (local dev stays quiet).
+
+Set `JSKIT_GITHUB_TARBALL_URL` in Dokku when local JSKIT packages are not published to npm yet.
+
 ## Server
 
 ```bash

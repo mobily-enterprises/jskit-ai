@@ -1,6 +1,6 @@
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
-import { mergeValidators } from "@jskit-ai/kernel/shared/validators";
+import { normalizeActionDefinition } from "@jskit-ai/kernel/shared/actions";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
@@ -181,31 +181,6 @@ function stripWorkspaceSlugFromSchema(schema, context = {}) {
   };
 }
 
-function extractJsonSchema(validator) {
-  if (Array.isArray(validator)) {
-    try {
-      const merged = mergeValidators(validator, {
-        context: "assistant tool validator",
-        requireSchema: false
-      });
-      return extractJsonSchema(merged);
-    } catch {
-      return null;
-    }
-  }
-
-  if (!validator || typeof validator !== "object" || Array.isArray(validator)) {
-    return null;
-  }
-
-  const schema = validator.schema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return null;
-  }
-
-  return schema;
-}
-
 function hasAutomationChannel(action = {}) {
   const channels = Array.isArray(action.channels) ? action.channels : [];
   return channels.some((channel) => normalizeText(channel).toLowerCase() === AUTOMATION_CHANNEL);
@@ -237,14 +212,23 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      const assistantTool = action.assistantTool && typeof action.assistantTool === "object" ? action.assistantTool : null;
-      const inputSchema = extractJsonSchema(assistantTool?.inputValidator) || extractJsonSchema(action.inputValidator);
-      const outputSchema = extractJsonSchema(action.outputValidator);
+      let normalizedAction = null;
+      try {
+        normalizedAction = normalizeActionDefinition(action, {
+          contributorDomain: action.domain
+        });
+      } catch {
+        continue;
+      }
+
+      const assistantTool = normalizedAction.assistantTool;
+      const inputSchema = assistantTool?.inputValidator?.schema || normalizedAction.inputValidator?.schema || null;
+      const outputSchema = normalizedAction.outputValidator?.schema || null;
       if (!inputSchema || !outputSchema) {
         continue;
       }
 
-      const actionVersion = Number(action.version) || 1;
+      const actionVersion = Number(normalizedAction.version) || 1;
       const actionKey = actionId.toLowerCase();
       const nextEntry = Object.freeze({
         actionId,
@@ -253,7 +237,7 @@ function resolveActionBackedToolEntries(scope) {
         description: normalizeText(assistantTool?.description) || `Run ${actionId}.`,
         inputSchema,
         outputSchema,
-        permission: normalizePermissionSpec(action.permission)
+        permission: normalizePermissionSpec(normalizedAction.permission)
       });
       const existing = entriesByActionId.get(actionKey);
       if (!existing || actionVersion >= Number(existing.actionVersion || 0)) {

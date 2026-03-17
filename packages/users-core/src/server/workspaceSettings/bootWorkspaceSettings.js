@@ -1,6 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
+import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function bootWorkspaceSettings(app) {
@@ -12,7 +13,7 @@ function bootWorkspaceSettings(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/settings",
+    resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
       visibility: "workspace",
@@ -38,7 +39,7 @@ function bootWorkspaceSettings(app) {
 
   router.register(
     "PATCH",
-    "/api/w/:workspaceSlug/workspace/settings",
+    resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
       visibility: "workspace",

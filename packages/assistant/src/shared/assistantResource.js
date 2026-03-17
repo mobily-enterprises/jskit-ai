@@ -1,20 +1,12 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { toPositiveInteger } from "./support/positiveInteger.js";
 
 const MAX_INPUT_CHARS = 8000;
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_PAGE_SIZE = 200;
 const MAX_MESSAGE_PAGE_SIZE = 500;
-
-function toPositiveInteger(value, fallback = 0) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return parsed;
-}
 
 function normalizePaginationValue(value, fallback, max) {
   const parsed = toPositiveInteger(value, fallback);

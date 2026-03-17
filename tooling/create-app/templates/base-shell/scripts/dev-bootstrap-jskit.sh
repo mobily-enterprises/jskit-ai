@@ -33,6 +33,26 @@ resolve_local_repo_root() {
   find_jskit_repo_root "$APP_ROOT" || true
 }
 
+is_dokku_environment() {
+  [[ -n "${DOKKU_APP_NAME:-}" || -n "${DOKKU_APP_TYPE:-}" ]]
+}
+
+resolve_bootstrap_mode() {
+  local normalized_mode="$1"
+  if [[ "$normalized_mode" != "auto" ]]; then
+    echo "$normalized_mode"
+    return 0
+  fi
+
+  if is_dokku_environment; then
+    echo "on"
+    return 0
+  fi
+
+  echo "off"
+}
+
+BOOTSTRAP_MODE="$(resolve_bootstrap_mode "$BOOTSTRAP_MODE")"
 LOCAL_REPO_ROOT="$(resolve_local_repo_root)"
 
 if [[ "$BOOTSTRAP_MODE" == "0" || "$BOOTSTRAP_MODE" == "false" || "$BOOTSTRAP_MODE" == "off" ]]; then

@@ -1,6 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import {
   routeParamsValidator,
   workspaceSlugParamsValidator
@@ -15,7 +16,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/roles",
+    resolveWorkspaceRoutePath("/roles"),
     {
       auth: "required",
       visibility: "workspace",
@@ -42,7 +43,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/members",
+    resolveWorkspaceRoutePath("/members"),
     {
       auth: "required",
       visibility: "workspace",
@@ -69,7 +70,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "PATCH",
-    "/api/w/:workspaceSlug/workspace/members/:memberUserId/role",
+    resolveWorkspaceRoutePath("/members/:memberUserId/role"),
     {
       auth: "required",
       visibility: "workspace",
@@ -102,7 +103,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/invites",
+    resolveWorkspaceRoutePath("/invites"),
     {
       auth: "required",
       visibility: "workspace",
@@ -129,7 +130,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "POST",
-    "/api/w/:workspaceSlug/workspace/invites",
+    resolveWorkspaceRoutePath("/invites"),
     {
       auth: "required",
       visibility: "workspace",
@@ -162,7 +163,7 @@ function bootWorkspaceMembers(app) {
 
   router.register(
     "DELETE",
-    "/api/w/:workspaceSlug/workspace/invites/:inviteId",
+    resolveWorkspaceRoutePath("/invites/:inviteId"),
     {
       auth: "required",
       visibility: "workspace",

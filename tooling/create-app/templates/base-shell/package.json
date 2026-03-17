@@ -10,8 +10,6 @@
   "scripts": {
     "server": "node --preserve-symlinks ./bin/server.js",
     "start": "node --preserve-symlinks ./bin/server.js",
-    "preinstall_DELETED": "bash ./scripts/dev-bootstrap-jskit.sh",
-    "postinstall": "npm run link:local:jskit || true",
     "link:local:jskit": "bash ./scripts/link-local-jskit-packages.sh",
     "verdaccio:reset:publish": "bash ./scripts/verdaccio-reset-and-publish-packages.sh",
     "dev": "vite",
@@ -23,7 +21,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "node --test",
-    "test:client": "vitest run tests/client"
+    "test:client": "vitest run tests/client",
+    "preinstall": "bash ./scripts/dev-bootstrap-jskit.sh"
   },
   "dependencies": {
     "@local/main": "file:packages/main",
