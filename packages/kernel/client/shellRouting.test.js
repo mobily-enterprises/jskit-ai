@@ -46,6 +46,16 @@ test("buildSurfaceAwareRoutes rewrites workspace-required surfaces to canonical 
         name: "auth-login",
         scope: "global",
         component: {}
+      },
+      {
+        path: "/",
+        name: "root-global",
+        component: {},
+        meta: {
+          jskit: {
+            scope: "global"
+          }
+        }
       }
     ],
     surfaceRuntime,
@@ -65,6 +75,8 @@ test("buildSurfaceAwareRoutes rewrites workspace-required surfaces to canonical 
   assert.equal(routePaths.includes("/console/settings"), true);
   assert.equal(routePaths.includes("/console/w/:workspaceSlug/settings"), false);
   assert.equal(routePaths.includes("/auth/login"), true);
+  assert.equal(routePaths.includes("/"), true);
+  assert.equal(routePaths.includes("/w/:workspaceSlug"), false);
 });
 
 test("buildSurfaceAwareRoutes preserves parent path when nested descendants are global", () => {
