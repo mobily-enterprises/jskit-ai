@@ -1,7 +1,10 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
-import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
+import {
+  routeParamsValidator,
+  workspaceSlugParamsValidator
+} from "../common/validators/routeParamsValidator.js";
 
 function bootWorkspaceMembers(app) {
   if (!app || typeof app.make !== "function") {
@@ -21,7 +24,7 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "Get workspace role catalog by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       responseValidators: withStandardErrorResponses({
         200: workspaceMembersResource.operations.rolesList.outputValidator
       })
@@ -48,7 +51,7 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "List members by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       responseValidators: withStandardErrorResponses({
         200: workspaceMembersResource.operations.membersList.outputValidator
       })
@@ -108,7 +111,7 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "List workspace invites by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       responseValidators: withStandardErrorResponses({
         200: workspaceMembersResource.operations.invitesList.outputValidator
       })
@@ -135,7 +138,7 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "Create workspace invite by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       bodyValidator: workspaceMembersResource.operations.createInvite.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {

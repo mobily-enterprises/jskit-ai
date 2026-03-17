@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
-import { routeParamsValidator } from "../common/validators/routeParamsValidator.js";
+import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 
 function bootWorkspaceSettings(app) {
   if (!app || typeof app.make !== "function") {
@@ -20,7 +20,7 @@ function bootWorkspaceSettings(app) {
         tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       responseValidators: withStandardErrorResponses({
         200: workspaceSettingsResource.operations.view.outputValidator
       })
@@ -46,7 +46,7 @@ function bootWorkspaceSettings(app) {
         tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       bodyValidator: workspaceSettingsResource.operations.patch.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
