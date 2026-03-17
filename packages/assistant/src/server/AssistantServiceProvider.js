@@ -65,8 +65,8 @@ function resolveAssistantConfig(scope) {
       timeoutMs
     }),
     timeoutMs,
-    barredServiceMethods: normalizeStringArray(assistantConfig.barredServiceMethods),
-    toolSkipServicePrefixes: normalizeStringArray(assistantConfig.toolSkipServicePrefixes)
+    barredActionIds: normalizeStringArray(assistantConfig.barredActionIds),
+    toolSkipActionPrefixes: normalizeStringArray(assistantConfig.toolSkipActionPrefixes)
   });
 }
 
@@ -102,11 +102,11 @@ class AssistantServiceProvider {
     });
 
     app.singleton(ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN, (scope) => {
-      const skipPrefixes = ["assistant.", ...config.toolSkipServicePrefixes];
+      const skipPrefixes = ["assistant.", ...config.toolSkipActionPrefixes];
 
       return createServiceToolCatalog(scope, {
-        barredServiceMethods: config.barredServiceMethods,
-        skipServicePrefixes: skipPrefixes
+        barredActionIds: config.barredActionIds,
+        skipActionPrefixes: skipPrefixes
       });
     });
 

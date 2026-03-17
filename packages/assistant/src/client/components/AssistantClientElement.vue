@@ -513,6 +513,38 @@ function isAssistantChatMessage(message) {
   );
 }
 
+function keepMessagesPanelPinnedToBottom({ behavior = "auto" } = {}) {
+  if (!shouldAutoScrollToBottom.value) {
+    return;
+  }
+
+  scrollMessagesToBottom({
+    behavior
+  });
+
+  void nextTick(() => {
+    if (!shouldAutoScrollToBottom.value) {
+      return;
+    }
+    scrollMessagesToBottom({
+      behavior
+    });
+
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!shouldAutoScrollToBottom.value) {
+        return;
+      }
+      scrollMessagesToBottom({
+        behavior
+      });
+    });
+  });
+}
+
 function renderAssistantMarkdownSnapshot() {
   const entries = Array.isArray(messages.value) ? messages.value : [];
   const nextRenderedById = {};
@@ -553,6 +585,9 @@ function renderAssistantMarkdownSnapshot() {
   }
 
   renderedAssistantMessagesById.value = Object.freeze(nextRenderedById);
+  keepMessagesPanelPinnedToBottom({
+    behavior: "auto"
+  });
 }
 
 function scheduleAssistantMarkdownRender({ immediate = false } = {}) {
@@ -891,20 +926,15 @@ watch(
 
 watch(
   lastMessageSignature,
-  async (_nextSignature, previousSignature) => {
+  () => {
     const entries = Array.isArray(messages.value) ? messages.value : [];
     const last = entries[entries.length - 1];
     if (!last) {
       return;
     }
 
-    await nextTick();
-    if (!shouldAutoScrollToBottom.value) {
-      return;
-    }
-
-    scrollMessagesToBottom({
-      behavior: previousSignature && previousSignature !== "none" ? "smooth" : "auto"
+    keepMessagesPanelPinnedToBottom({
+      behavior: "auto"
     });
   },
   {
@@ -919,14 +949,19 @@ watch(
       return;
     }
 
+    scheduleAssistantMarkdownRender({
+      immediate: true
+    });
+
     await nextTick();
     if (shouldAutoScrollToBottom.value) {
       scrollMessagesToBottom({
-        behavior: "smooth"
+        behavior: "auto"
+      });
+      keepMessagesPanelPinnedToBottom({
+        behavior: "auto"
       });
     }
-
-    await focusComposerWithRetry(true);
   }
 );
 
@@ -1025,7 +1060,12 @@ onBeforeUnmount(() => {
   padding: 12px;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   background: rgba(var(--v-theme-surface-variant), 0.14);
+}
+
+.messages-panel :deep(*) {
+  overflow-anchor: none;
 }
 
 .messages-panel--empty {

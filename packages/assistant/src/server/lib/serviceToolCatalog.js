@@ -10,23 +10,45 @@ function normalizeBarredEntry(value) {
   return normalizeText(value).toLowerCase();
 }
 
-function normalizeBarredMethodSet(value) {
+function normalizeBarredActionSet(value) {
   const source = Array.isArray(value) ? value : [value];
-  return new Set(source.map((entry) => normalizeBarredEntry(entry)).filter(Boolean));
+  const exact = new Set();
+  const prefixes = [];
+
+  for (const entry of source) {
+    const normalized = normalizeBarredEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+
+    if (normalized.endsWith(".*")) {
+      const prefix = normalized.slice(0, -1);
+      if (prefix) {
+        prefixes.push(prefix);
+      }
+      continue;
+    }
+
+    exact.add(normalized);
+  }
+
+  return Object.freeze({
+    exact,
+    prefixes: Object.freeze(prefixes)
+  });
 }
 
-function isMethodBarred(barredSet, serviceToken, methodName) {
-  const token = normalizeText(serviceToken).toLowerCase();
-  const method = normalizeText(methodName).toLowerCase();
-  if (!token || !method) {
+function isActionBarred(barredRules, actionId) {
+  const normalizedActionId = normalizeText(actionId).toLowerCase();
+  if (!normalizedActionId) {
     return true;
   }
 
-  return (
-    barredSet.has(token) ||
-    barredSet.has(`${token}.*`) ||
-    barredSet.has(`${token}.${method}`)
-  );
+  if (barredRules.exact.has(normalizedActionId)) {
+    return true;
+  }
+
+  return barredRules.prefixes.some((prefix) => normalizedActionId.startsWith(prefix));
 }
 
 function sanitizeToolName(value) {
@@ -128,15 +150,6 @@ function normalizePermissionSpec(permission) {
   });
 }
 
-function toServiceMethodKey(serviceToken, methodName) {
-  const token = normalizeText(serviceToken).toLowerCase();
-  const method = normalizeText(methodName).toLowerCase();
-  if (!token || !method) {
-    return "";
-  }
-  return `${token}.${method}`;
-}
-
 function stripWorkspaceSlugFromSchema(schema, context = {}) {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     return schema;
@@ -198,7 +211,7 @@ function hasAutomationChannel(action = {}) {
   return channels.some((channel) => normalizeText(channel).toLowerCase() === AUTOMATION_CHANNEL);
 }
 
-function resolveActionBackedMethodSchemas(scope) {
+function resolveActionBackedToolEntries(scope) {
   if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
     return new Map();
   }
@@ -206,7 +219,7 @@ function resolveActionBackedMethodSchemas(scope) {
     return new Map();
   }
 
-  const entries = new Map();
+  const entriesByActionId = new Map();
   const contributors = resolveActionContributors(scope);
 
   for (const contributor of contributors) {
@@ -219,103 +232,76 @@ function resolveActionBackedMethodSchemas(scope) {
         continue;
       }
 
-      const bindings = Array.isArray(action.serviceMethodBindings) ? action.serviceMethodBindings : [];
-      if (bindings.length < 1) {
+      const actionId = normalizeText(action.id);
+      if (!actionId) {
         continue;
       }
 
       const assistantTool = action.assistantTool && typeof action.assistantTool === "object" ? action.assistantTool : null;
       const inputSchema = extractJsonSchema(assistantTool?.inputValidator) || extractJsonSchema(action.inputValidator);
       const outputSchema = extractJsonSchema(action.outputValidator);
-      const description = normalizeText(assistantTool?.description) || `Call ${String(action.id || "").trim()}.`;
+      if (!inputSchema || !outputSchema) {
+        continue;
+      }
 
-      for (const binding of bindings) {
-        const key = toServiceMethodKey(binding?.serviceToken, binding?.methodName);
-        if (!key) {
-          continue;
-        }
-
-        const nextEntry = Object.freeze({
-          serviceToken: String(binding.serviceToken || "").trim(),
-          methodName: String(binding.methodName || "").trim(),
-          key: `${String(binding.serviceToken || "").trim()}.${String(binding.methodName || "").trim()}`,
-          description,
-          inputSchema,
-          outputSchema,
-          actionId: String(action.id || "").trim() || null,
-          actionVersion: Number(action.version) || 1,
-          permission: normalizePermissionSpec(action.permission)
-        });
-        const existing = entries.get(key);
-        if (!existing || Number(action.version) >= Number(existing.version || 0)) {
-          entries.set(
-            key,
-            Object.freeze({
-              ...nextEntry,
-              version: Number(action.version) || 1
-            })
-          );
-        }
+      const actionVersion = Number(action.version) || 1;
+      const actionKey = actionId.toLowerCase();
+      const nextEntry = Object.freeze({
+        actionId,
+        actionVersion,
+        toolBaseName: actionId,
+        description: normalizeText(assistantTool?.description) || `Run ${actionId}.`,
+        inputSchema,
+        outputSchema,
+        permission: normalizePermissionSpec(action.permission)
+      });
+      const existing = entriesByActionId.get(actionKey);
+      if (!existing || actionVersion >= Number(existing.actionVersion || 0)) {
+        entriesByActionId.set(actionKey, nextEntry);
       }
     }
   }
 
-  return entries;
+  return entriesByActionId;
 }
 
-function resolveServiceMethodEntries(
+function resolveActionToolEntries(
   scope,
-  { barredServiceMethods = [], skipServicePrefixes = [] } = {}
+  { barredActionIds = [], skipActionPrefixes = [] } = {}
 ) {
-  const actionBackedSchemas = resolveActionBackedMethodSchemas(scope);
-  const barredSet = normalizeBarredMethodSet(barredServiceMethods);
+  const actionBackedEntries = resolveActionBackedToolEntries(scope);
+  const barredRules = normalizeBarredActionSet(barredActionIds);
   const usedToolNames = new Set();
   const entries = [];
 
-  for (const actionBackedMethodSchema of actionBackedSchemas.values()) {
-    const serviceToken = normalizeText(actionBackedMethodSchema?.serviceToken);
-    if (!serviceToken) {
+  for (const actionEntry of actionBackedEntries.values()) {
+    const actionId = normalizeText(actionEntry?.actionId);
+    if (!actionId) {
       continue;
     }
 
-    const normalizedToken = serviceToken.toLowerCase();
-    const skipByPrefix = skipServicePrefixes.some((prefix) => normalizedToken.startsWith(prefix));
+    const normalizedActionId = actionId.toLowerCase();
+    const skipByPrefix = skipActionPrefixes.some((prefix) => normalizedActionId.startsWith(prefix));
     if (skipByPrefix) {
       continue;
     }
 
-    const methodName = normalizeText(actionBackedMethodSchema?.methodName);
-    if (!methodName) {
+    if (isActionBarred(barredRules, actionId)) {
       continue;
     }
 
-    if (isMethodBarred(barredSet, serviceToken, methodName)) {
-      continue;
-    }
-
-    const inputSchema = actionBackedMethodSchema?.inputSchema || null;
-    const outputSchema = actionBackedMethodSchema?.outputSchema || null;
-    const description = normalizeText(actionBackedMethodSchema?.description);
-    const methodPermission = normalizePermissionSpec(actionBackedMethodSchema?.permission);
-    const actionId = normalizeText(actionBackedMethodSchema?.actionId);
-
-    if (!actionId || !inputSchema || !outputSchema) {
-      continue;
-    }
-    const toolName = resolveUniqueToolName(`${serviceToken}_${methodName}`, usedToolNames);
+    const toolName = resolveUniqueToolName(actionEntry.toolBaseName, usedToolNames);
     entries.push(
       Object.freeze({
         descriptor: Object.freeze({
           name: toolName,
-          serviceToken,
-          methodName,
           actionId,
-          actionVersion: Number(actionBackedMethodSchema?.actionVersion) || null,
-          description: description || `Call ${serviceToken}.${methodName}().`,
-          parameters: inputSchema,
-          outputSchema
+          actionVersion: Number(actionEntry.actionVersion) || null,
+          description: normalizeText(actionEntry.description) || `Run ${actionId}.`,
+          parameters: actionEntry.inputSchema,
+          outputSchema: actionEntry.outputSchema
         }),
-        permission: methodPermission
+        permission: actionEntry.permission
       })
     );
   }
@@ -325,13 +311,13 @@ function resolveServiceMethodEntries(
 
 function createServiceToolCatalog(
   scope,
-  { barredServiceMethods = [], skipServicePrefixes = [] } = {}
+  { barredActionIds = [], skipActionPrefixes = [] } = {}
 ) {
   if (!scope || typeof scope.make !== "function") {
     throw new Error("createServiceToolCatalog requires container scope.make().");
   }
 
-  const normalizedSkipPrefixes = (Array.isArray(skipServicePrefixes) ? skipServicePrefixes : [skipServicePrefixes])
+  const normalizedSkipPrefixes = (Array.isArray(skipActionPrefixes) ? skipActionPrefixes : [skipActionPrefixes])
     .map((entry) => normalizeText(entry).toLowerCase())
     .filter(Boolean);
   let methodEntries = null;
@@ -341,9 +327,9 @@ function createServiceToolCatalog(
       return methodEntries;
     }
 
-    methodEntries = resolveServiceMethodEntries(scope, {
-      barredServiceMethods,
-      skipServicePrefixes: normalizedSkipPrefixes
+    methodEntries = resolveActionToolEntries(scope, {
+      barredActionIds,
+      skipActionPrefixes: normalizedSkipPrefixes
     });
     return methodEntries;
   }

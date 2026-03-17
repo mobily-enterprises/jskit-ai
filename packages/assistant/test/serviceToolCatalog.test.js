@@ -111,7 +111,7 @@ test("service tool catalog hides methods user cannot execute", () => {
   };
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
 
   const unauthenticatedTools = catalog.resolveToolSet({
@@ -126,7 +126,7 @@ test("service tool catalog hides methods user cannot execute", () => {
     permissions: []
   }).tools;
   assert.equal(authenticatedTools.length, 1);
-  assert.equal(authenticatedTools[0].methodName, "listRecords");
+  assert.equal(authenticatedTools[0].actionId, "demo.customers.list");
 
   const privilegedTools = catalog.resolveToolSet({
     ...internalContext,
@@ -153,7 +153,7 @@ test("service tool catalog does not expose non-action-backed service methods", a
   );
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
 
   const context = {
@@ -231,7 +231,7 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: { id: 1 },
@@ -243,8 +243,10 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
   assert.equal(toolSet.tools.length, 0);
 });
 
-test("service tool catalog honors barred service methods", () => {
+test("service tool catalog honors barred action ids", () => {
   const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
 
   app.service(
     "demo.audit.service",
@@ -255,16 +257,48 @@ test("service tool catalog honors barred service methods", () => {
     })
   );
 
+  app.actions([
+    {
+      id: "demo.audit.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["automation"],
+      surfaces: ["admin"],
+      consoleUsersOnly: false,
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        auditService: "demo.audit.service"
+      },
+      inputValidator: {
+        schema: Type.Object({}, { additionalProperties: false })
+      },
+      outputValidator: {
+        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.audit.list"
+      },
+      observability: {},
+      async execute(input, _context, deps) {
+        return deps.auditService.listEntries(input);
+      }
+    }
+  ]);
+
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: [],
-    barredServiceMethods: ["demo.audit.service.listEntries"]
+    skipActionPrefixes: [],
+    barredActionIds: ["demo.audit.list"]
   });
 
-  const toolSet = catalog.resolveToolSet({ actor: { id: 1 }, permissions: [] });
+  const toolSet = catalog.resolveToolSet({ actor: { id: 1 }, permissions: [], channel: "internal", surface: "admin" });
   assert.equal(toolSet.tools.length, 0);
 });
 
-test("service tool catalog materializes service methods once and filters per request", () => {
+test("service tool catalog materializes action tools once and filters per request", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
@@ -317,7 +351,7 @@ test("service tool catalog materializes service methods once and filters per req
   };
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
 
   assert.equal(factoryCalls, 0);
@@ -430,7 +464,7 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: { id: 1 },
@@ -509,8 +543,7 @@ test("service tool catalog can require input/output schemas for tool exposure", 
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: [],
-    requireMethodSchemas: true
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: { id: 1 },
@@ -518,10 +551,10 @@ test("service tool catalog can require input/output schemas for tool exposure", 
   });
 
   assert.equal(toolSet.tools.length, 1);
-  assert.equal(toolSet.tools[0].methodName, "withSchema");
+  assert.equal(toolSet.tools[0].actionId, "demo.strict.with_schema");
 });
 
-test("service tool catalog derives method schemas from action contributors when catalog is empty", () => {
+test("service tool catalog derives tool schemas from action contributors", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
@@ -597,7 +630,7 @@ test("service tool catalog derives method schemas from action contributors when 
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: {
@@ -605,7 +638,7 @@ test("service tool catalog derives method schemas from action contributors when 
     },
     permissions: []
   });
-  const createTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.customers.service" && tool.methodName === "createRecord");
+  const createTool = toolSet.tools.find((tool) => tool.actionId === "demo.customers.create");
 
   assert.ok(createTool);
   assert.equal(createTool.parameters, inputSchema);
@@ -683,7 +716,7 @@ test("service tool catalog derives input schema from array action validators", (
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: {
@@ -693,7 +726,7 @@ test("service tool catalog derives input schema from array action validators", (
     channel: "internal",
     surface: "admin"
   });
-  const createTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.array_schema.service" && tool.methodName === "createRecord");
+  const createTool = toolSet.tools.find((tool) => tool.actionId === "demo.array_schema.create");
 
   assert.ok(createTool);
   assert.equal(createTool.parameters?.type, "object");
@@ -761,7 +794,7 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const toolSet = catalog.resolveToolSet({
     actor: {
@@ -779,7 +812,7 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
     }
   });
   const createTool = toolSet.tools.find(
-    (tool) => tool.serviceToken === "demo.workspace_scope.service" && tool.methodName === "createRecord"
+    (tool) => tool.actionId === "demo.workspace_scope.create"
   );
 
   assert.ok(createTool);
@@ -846,7 +879,7 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const context = {
     actor: {
@@ -867,7 +900,7 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
   };
   const toolSet = catalog.resolveToolSet(context);
   const createTool = toolSet.tools.find(
-    (tool) => tool.serviceToken === "demo.workspace_injection.service" && tool.methodName === "createRecord"
+    (tool) => tool.actionId === "demo.workspace_injection.create"
   );
   assert.ok(createTool);
 
@@ -962,7 +995,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
   ]);
 
   const catalog = createServiceToolCatalog(app, {
-    skipServicePrefixes: []
+    skipActionPrefixes: []
   });
   const context = {
     actor: {
@@ -973,7 +1006,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
     surface: "admin"
   };
   const toolSet = catalog.resolveToolSet(context);
-  const updateTool = toolSet.tools.find((tool) => tool.serviceToken === "demo.customers.service" && tool.methodName === "updateRecord");
+  const updateTool = toolSet.tools.find((tool) => tool.actionId === "demo.customers.update");
   assert.ok(updateTool);
 
   const execution = await catalog.executeToolCall({
