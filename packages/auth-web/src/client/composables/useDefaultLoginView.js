@@ -13,7 +13,9 @@ import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/a
 import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
 import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
+import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
 import { authHttpRequest } from "../runtime/authHttpClient.js";
+import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
 
@@ -119,22 +121,6 @@ function clearRememberedAccountHint() {
   } catch {
     // best effort only
   }
-}
-
-function normalizeReturnToPath(value, fallback = "/") {
-  const raw = String(value || "").trim();
-  if (
-    !raw ||
-    !raw.startsWith("/") ||
-    raw.startsWith("//") ||
-    raw === "/auth/login" ||
-    raw.startsWith("/auth/login?") ||
-    raw === "/auth/signout" ||
-    raw.startsWith("/auth/signout?")
-  ) {
-    return fallback;
-  }
-  return raw;
 }
 
 function stripOAuthParamsFromLocation() {
@@ -460,7 +446,7 @@ export function useDefaultLoginView() {
   });
 
   const requestedReturnTo = ref(
-    normalizeReturnToPath(
+    normalizeAuthReturnToPath(
       typeof window === "object" ? new URLSearchParams(window.location.search || "").get("returnTo") : "/",
       "/"
     )
@@ -613,7 +599,7 @@ export function useDefaultLoginView() {
   async function refreshSession() {
     const session = await queryClient.fetchQuery({
       queryKey: sessionQueryKey,
-      queryFn: () => request("/api/session"),
+      queryFn: () => request(AUTH_PATHS.SESSION),
       staleTime: 0
     });
     applySessionPayload(session);
@@ -636,7 +622,7 @@ export function useDefaultLoginView() {
       return false;
     }
 
-    requestedReturnTo.value = normalizeReturnToPath(callbackParams.returnTo, requestedReturnTo.value);
+    requestedReturnTo.value = normalizeAuthReturnToPath(callbackParams.returnTo, requestedReturnTo.value);
 
     const provider = String(callbackParams.provider || resolveDefaultOAuthProvider() || "")
       .trim()
@@ -677,7 +663,7 @@ export function useDefaultLoginView() {
         throw new Error(resolveValidationMessage(parsedPayload, "Invalid OAuth callback payload."));
       }
 
-      const oauthResult = await request("/api/oauth/complete", {
+      const oauthResult = await request(AUTH_PATHS.OAUTH_COMPLETE, {
         method: "POST",
         body: payload
       });
@@ -722,7 +708,7 @@ export function useDefaultLoginView() {
           throw new Error(resolveValidationMessage(parsedRegister, "Unable to register."));
         }
 
-        const registerResult = await request("/api/register", {
+        const registerResult = await request(AUTH_PATHS.REGISTER, {
           method: "POST",
           body: registerPayload
         });
@@ -742,7 +728,7 @@ export function useDefaultLoginView() {
           throw new Error(resolveValidationMessage(parsedForgot, "Unable to request password reset."));
         }
 
-        await request("/api/password/forgot", {
+        await request(AUTH_PATHS.PASSWORD_FORGOT, {
           method: "POST",
           body: forgotPayload
         });
@@ -761,7 +747,7 @@ export function useDefaultLoginView() {
           throw new Error(resolveValidationMessage(parsedOtp, "Unable to verify one-time code."));
         }
 
-        const otpResult = await request("/api/login/otp/verify", {
+        const otpResult = await request(AUTH_PATHS.LOGIN_OTP_VERIFY, {
           method: "POST",
           body: otpPayload
         });
@@ -783,7 +769,7 @@ export function useDefaultLoginView() {
         throw new Error(resolveValidationMessage(parsedLogin, "Unable to sign in."));
       }
 
-      const loginResult = await request("/api/login", {
+      const loginResult = await request(AUTH_PATHS.LOGIN, {
         method: "POST",
         body: loginPayload
       });
@@ -814,7 +800,7 @@ export function useDefaultLoginView() {
       if (!parsedRequest.ok) {
         throw new Error(resolveValidationMessage(parsedRequest, "Unable to request one-time code."));
       }
-      await request("/api/login/otp/request", {
+      await request(AUTH_PATHS.LOGIN_OTP_REQUEST, {
         method: "POST",
         body: otpRequestPayload
       });
@@ -850,7 +836,8 @@ export function useDefaultLoginView() {
     }
 
     const params = new URLSearchParams(queryPayload);
-    window.location.assign(`/api/oauth/${encodeURIComponent(provider)}/start?${params.toString()}`);
+    const oauthStartPath = buildAuthOauthStartPath(provider);
+    window.location.assign(`${oauthStartPath}?${params.toString()}`);
   }
 
   onMounted(async () => {

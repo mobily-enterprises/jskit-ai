@@ -6,7 +6,6 @@ export {
 export { default as ShellLayout } from "./components/ShellLayout.vue";
 export { default as ShellOutlet } from "./components/ShellOutlet.vue";
 export {
-  readBrowserPathname,
   resolveWorkspaceSlugFromContextOrPath,
   resolveShellLinkPath,
   useShellLinkResolver
@@ -29,6 +28,7 @@ export {
   EMPTY_WEB_PLACEMENT_RUNTIME,
   useWebPlacementRuntime,
   useWebPlacementContext,
+  resolveRuntimePathname,
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,

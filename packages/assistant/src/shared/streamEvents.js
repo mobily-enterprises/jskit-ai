@@ -8,9 +8,8 @@ const ASSISTANT_STREAM_EVENT_TYPES = Object.freeze({
   DONE: "done"
 });
 
-const ASSISTANT_STREAM_EVENT_TYPE_VALUES = Object.freeze(Object.values(ASSISTANT_STREAM_EVENT_TYPES));
 const ASSISTANT_TRANSCRIPT_CHANGED_EVENT = "assistant.transcript.changed";
-const STREAM_EVENT_TYPE_SET = new Set(ASSISTANT_STREAM_EVENT_TYPE_VALUES);
+const STREAM_EVENT_TYPE_SET = new Set(Object.values(ASSISTANT_STREAM_EVENT_TYPES));
 
 function normalizeAssistantStreamEventType(value, fallback = "") {
   const normalized = String(value || "").trim().toLowerCase();

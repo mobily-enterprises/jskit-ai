@@ -37,7 +37,7 @@ test("authApi exposes the expected methods and request routes", async () => {
   assert.equal(calls[2].options.method, "POST");
 });
 
-test("authApi oauthStartUrl builds versioned provider path with optional returnTo", () => {
+test("authApi oauthStartUrl builds provider path with optional returnTo", () => {
   const api = createApi({
     request: async () => ({})
   });

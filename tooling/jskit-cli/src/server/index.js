@@ -3711,7 +3711,6 @@ const commandHandlers = createCommandHandlers({
   shouldShowPackageExportTarget,
   classifyExportedSymbols,
   deriveProviderDisplayName,
-  runCommandCapture,
   restorePackageJsonField,
   readFileBufferIfExists,
   removeEnvValue,

@@ -1,16 +1,11 @@
-<script setup>
-const title = "";
-const subtitle = "";
-</script>
-
 <template>
   <v-card rounded="lg" elevation="1" border>
     <v-card-item>
       <template #prepend>
         <v-chip color="primary" size="small" label>Admin</v-chip>
       </template>
-      <v-card-title class="text-h5">{{ title }}</v-card-title>
-      <v-card-subtitle>{{ subtitle }}</v-card-subtitle>
+      <v-card-title class="text-h5">Administration</v-card-title>
+      <v-card-subtitle>Privileged workflows and auditing.</v-card-subtitle>
     </v-card-item>
     <v-divider />
     <v-card-text class="d-flex flex-column ga-4">

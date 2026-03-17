@@ -1,18 +1,12 @@
 import { runAuthSignOutFlow } from "@jskit-ai/auth-core/client/signOutFlow";
+import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { authHttpRequest, clearAuthCsrfTokenCache } from "./authHttpClient.js";
 import { useAuthGuardRuntime } from "./inject.js";
+import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 
-const SIGN_OUT_ENDPOINT = "/api/logout";
-const SESSION_ENDPOINT = "/api/session";
-
-function normalizeReturnToPath(value, fallback = "/") {
-  const normalized = String(value || "").trim();
-  if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-  return normalized;
-}
+const SIGN_OUT_ENDPOINT = AUTH_PATHS.LOGOUT;
+const SESSION_ENDPOINT = AUTH_PATHS.SESSION;
 
 async function readSessionState() {
   try {
@@ -87,9 +81,9 @@ function createSignOutAction({ currentSurface, goToEntry, authGuardRuntime, retu
 
   return async function signOut() {
     const resolvedByCallback =
-      typeof resolveReturnToPath === "function" ? normalizeReturnToPath(resolveReturnToPath(), "") : "";
-    const resolvedByOption = normalizeReturnToPath(returnTo, "");
-    const resolvedByCurrentSurface = normalizeReturnToPath(currentSurface?.value, "");
+      typeof resolveReturnToPath === "function" ? normalizeAuthReturnToPath(resolveReturnToPath(), "") : "";
+    const resolvedByOption = normalizeAuthReturnToPath(returnTo, "");
+    const resolvedByCurrentSurface = normalizeAuthReturnToPath(currentSurface?.value, "");
     const resolvedReturnToPath = resolvedByCallback || resolvedByOption || resolvedByCurrentSurface || "/";
     const redirectParams = new URLSearchParams({
       returnTo: resolvedReturnToPath

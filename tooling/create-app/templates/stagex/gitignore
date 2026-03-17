@@ -1,9 +1,0 @@
-node_modules/
-dist/
-coverage/
-test-results/
-.env
-.env.*
-!.env.example
-scripts/verdaccio/storage/
-scripts/verdaccio/htpasswd

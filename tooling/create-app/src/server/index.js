@@ -52,10 +52,6 @@ function buildInitialBundleCommands(initialBundles) {
   return commands;
 }
 
-function buildProgressiveBundleCommands() {
-  return ["npx jskit add auth-base --no-install"];
-}
-
 function validateAppName(appName, { showUsage = true } = {}) {
   if (!appName || typeof appName !== "string") {
     throw createCliError("Missing app name.", { showUsage });
@@ -507,7 +503,6 @@ export async function createApp({
     template: String(template),
     initialBundles: resolvedInitialBundles,
     selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles),
-    progressiveBundleCommands: buildProgressiveBundleCommands(),
     targetDirectory,
     dryRun,
     touchedFiles
@@ -585,9 +580,7 @@ export async function runCli(
         }
       } else {
         stdout.write("Add framework capabilities when ready:\n");
-        for (const command of result.progressiveBundleCommands) {
-          stdout.write(`- ${command}\n`);
-        }
+        stdout.write("- npx jskit add auth-base --no-install\n");
       }
     }
 

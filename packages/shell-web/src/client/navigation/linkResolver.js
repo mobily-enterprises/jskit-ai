@@ -1,6 +1,7 @@
 import { unref } from "vue";
 import { resolveLinkPath, normalizePathname } from "@jskit-ai/kernel/shared";
 import { useWebPlacementContext } from "../placement/inject.js";
+import { resolveRuntimePathname } from "../placement/pathname.js";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -9,13 +10,6 @@ import {
   extractWorkspaceSlugFromSurfacePathname,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "../placement/surfaceContext.js";
-
-function readBrowserPathname() {
-  if (typeof window !== "object" || !window?.location?.pathname) {
-    return "/";
-  }
-  return String(window.location.pathname || "").trim() || "/";
-}
 
 function normalizeSurfaceId(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -50,7 +44,7 @@ function resolveWorkspaceSlugFromContextOrPath({
     return workspaceSlugFromContext;
   }
 
-  const currentPathname = String(pathname || "").trim() || readBrowserPathname();
+  const currentPathname = resolveRuntimePathname(pathname);
   const workspaceSlugMatch = currentPathname.match(/\/w\/([^/]+)/);
   const workspaceSlugFromPath = String(workspaceSlugMatch?.[1] || "").trim();
   if (workspaceSlugFromPath) {
@@ -197,4 +191,4 @@ function useShellLinkResolver({ surface = "", workspaceSlug = "", pathname = "" 
   });
 }
 
-export { readBrowserPathname, resolveWorkspaceSlugFromContextOrPath, resolveShellLinkPath, useShellLinkResolver };
+export { resolveWorkspaceSlugFromContextOrPath, resolveShellLinkPath, useShellLinkResolver };

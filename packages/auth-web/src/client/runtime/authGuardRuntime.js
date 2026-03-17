@@ -1,8 +1,9 @@
 import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
+import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
-const DEFAULT_SESSION_PATH = "/api/session";
+const DEFAULT_SESSION_PATH = AUTH_PATHS.SESSION;
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
 const DEFAULT_REFRESH_ON_FOREGROUND = false;
 const DEFAULT_REFRESH_ON_RECONNECT = false;

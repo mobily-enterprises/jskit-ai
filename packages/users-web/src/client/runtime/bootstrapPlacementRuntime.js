@@ -2,6 +2,7 @@ import { CLIENT_MODULE_ROUTER_TOKEN } from "@jskit-ai/kernel/client/moduleBootst
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   extractWorkspaceSlugFromSurfacePathname,
+  resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
@@ -30,25 +31,9 @@ function createProviderLogger(app) {
   });
 }
 
-function resolveCurrentPath(router) {
-  const routePath = String(router?.currentRoute?.value?.path || "").trim();
-  if (routePath) {
-    return routePath;
-  }
-
-  if (typeof window === "object" && window && window.location) {
-    const pathname = String(window.location.pathname || "").trim();
-    if (pathname) {
-      return pathname;
-    }
-  }
-
-  return "/";
-}
-
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
-  const path = resolveCurrentPath(router);
+  const path = resolveRuntimePathname(router?.currentRoute?.value?.path);
   const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, path) || "")
     .trim()
     .toLowerCase();

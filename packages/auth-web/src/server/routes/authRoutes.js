@@ -10,6 +10,7 @@ import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/
 import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
 import { authLogoutCommand } from "@jskit-ai/auth-core/shared/commands/authLogoutCommand";
 import { authSessionReadCommand } from "@jskit-ai/auth-core/shared/commands/authSessionReadCommand";
+import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
 function buildRoutes(controller) {
   if (!controller) {
@@ -20,7 +21,7 @@ function buildRoutes(controller) {
 
   return [
     {
-      path: "/api/register",
+      path: AUTH_PATHS.REGISTER,
       method: "POST",
       auth: "public",
       meta: {
@@ -41,7 +42,7 @@ function buildRoutes(controller) {
       handler: handler("register")
     },
     {
-      path: "/api/login",
+      path: AUTH_PATHS.LOGIN,
       method: "POST",
       auth: "public",
       meta: {
@@ -62,7 +63,7 @@ function buildRoutes(controller) {
       handler: handler("login")
     },
     {
-      path: "/api/login/otp/request",
+      path: AUTH_PATHS.LOGIN_OTP_REQUEST,
       method: "POST",
       auth: "public",
       meta: {
@@ -83,7 +84,7 @@ function buildRoutes(controller) {
       handler: handler("requestOtpLogin")
     },
     {
-      path: "/api/login/otp/verify",
+      path: AUTH_PATHS.LOGIN_OTP_VERIFY,
       method: "POST",
       auth: "public",
       meta: {
@@ -104,7 +105,7 @@ function buildRoutes(controller) {
       handler: handler("verifyOtpLogin")
     },
     {
-      path: "/api/oauth/:provider/start",
+      path: AUTH_PATHS.OAUTH_START_TEMPLATE,
       method: "GET",
       auth: "public",
       csrfProtection: false,
@@ -127,7 +128,7 @@ function buildRoutes(controller) {
       handler: handler("oauthStart")
     },
     {
-      path: "/api/oauth/complete",
+      path: AUTH_PATHS.OAUTH_COMPLETE,
       method: "POST",
       auth: "public",
       meta: {
@@ -148,7 +149,7 @@ function buildRoutes(controller) {
       handler: handler("oauthComplete")
     },
     {
-      path: "/api/password/forgot",
+      path: AUTH_PATHS.PASSWORD_FORGOT,
       method: "POST",
       auth: "public",
       meta: {
@@ -169,7 +170,7 @@ function buildRoutes(controller) {
       handler: handler("requestPasswordReset")
     },
     {
-      path: "/api/password/recovery",
+      path: AUTH_PATHS.PASSWORD_RECOVERY,
       method: "POST",
       auth: "public",
       meta: {
@@ -190,7 +191,7 @@ function buildRoutes(controller) {
       handler: handler("completePasswordRecovery")
     },
     {
-      path: "/api/password/reset",
+      path: AUTH_PATHS.PASSWORD_RESET,
       method: "POST",
       auth: "required",
       meta: {
@@ -211,7 +212,7 @@ function buildRoutes(controller) {
       handler: handler("resetPassword")
     },
     {
-      path: "/api/logout",
+      path: AUTH_PATHS.LOGOUT,
       method: "POST",
       auth: "public",
       meta: {
@@ -224,7 +225,7 @@ function buildRoutes(controller) {
       handler: handler("logout")
     },
     {
-      path: "/api/session",
+      path: AUTH_PATHS.SESSION,
       method: "GET",
       auth: "public",
       meta: {

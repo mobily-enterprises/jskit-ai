@@ -23,6 +23,7 @@
     "./shared": "./src/shared/index.js",
     "./shared/authApi": "./src/shared/authApi.js",
     "./shared/signOutFlow": "./src/shared/signOutFlow.js",
+    "./shared/authPaths": "./src/shared/authPaths.js",
     "./shared/authConstraints": "./src/shared/authConstraints.js",
     "./shared/authMethods": "./src/shared/authMethods.js",
     "./shared/oauthProviders": "./src/shared/oauthProviders.js",

@@ -30,6 +30,10 @@ export {
 } from "./inject.js";
 
 export {
+  resolveRuntimePathname
+} from "./pathname.js";
+
+export {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,

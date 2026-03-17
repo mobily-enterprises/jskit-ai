@@ -1,9 +1,10 @@
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
+import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
 const authHttpClient = createHttpClient({
   credentials: "include",
   csrf: {
-    sessionPath: "/api/session"
+    sessionPath: AUTH_PATHS.SESSION
   }
 });
 
