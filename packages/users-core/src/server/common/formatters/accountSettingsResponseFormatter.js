@@ -1,5 +1,4 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 
@@ -43,10 +42,6 @@ function accountSettingsResponseFormatter({ profile, settings, securityStatus, a
       productUpdates: settings.productUpdates,
       accountActivity: settings.accountActivity,
       securityAlerts: settings.securityAlerts
-    },
-    chat: {
-      ...(DEFAULT_USER_SETTINGS.chatSettings || {}),
-      ...(settings.chatSettings && typeof settings.chatSettings === "object" ? settings.chatSettings : {})
     }
   };
 }

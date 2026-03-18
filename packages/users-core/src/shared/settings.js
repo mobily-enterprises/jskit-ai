@@ -13,14 +13,7 @@ const DEFAULT_USER_SETTINGS = Object.freeze({
   securityAlerts: true,
   passwordSignInEnabled: true,
   passwordSetupRequired: false,
-  lastActiveWorkspaceId: null,
-  chatSettings: {
-    publicChatId: null,
-    allowWorkspaceDms: true,
-    allowGlobalDms: true,
-    requireSharedWorkspaceForGlobalDm: true,
-    discoverableByPublicChatId: false
-  }
+  lastActiveWorkspaceId: null
 });
 
 function coerceWorkspaceColor(value) {

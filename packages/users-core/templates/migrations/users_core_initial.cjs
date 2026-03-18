@@ -84,7 +84,6 @@ exports.up = async function up(knex) {
     table.boolean("notify_product_updates").notNullable().defaultTo(true);
     table.boolean("notify_account_activity").notNullable().defaultTo(true);
     table.boolean("notify_security_alerts").notNullable().defaultTo(true);
-    table.text("chat_settings_json").notNullable();
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
   });

@@ -157,11 +157,6 @@ export default Object.freeze({
           summary: "Update notification settings."
         },
         {
-          method: "PATCH",
-          path: "/api/settings/chat",
-          summary: "Update chat settings."
-        },
-        {
           method: "POST",
           path: "/api/settings/security/change-password",
           summary: "Set or change password for authenticated user."

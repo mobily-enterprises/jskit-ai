@@ -1,8 +1,6 @@
 import {
   normalizeLowerText,
   normalizeText,
-  parseJson,
-  toDbJson,
   toIsoString,
   nowDb,
   isDuplicateEntryError
@@ -13,8 +11,6 @@ function mapRow(row) {
   if (!row) {
     return null;
   }
-
-  const chatSettings = parseJson(row.chat_settings_json, DEFAULT_USER_SETTINGS.chatSettings);
 
   return {
     userId: Number(row.user_id),
@@ -31,7 +27,6 @@ function mapRow(row) {
     productUpdates: Boolean(row.notify_product_updates),
     accountActivity: Boolean(row.notify_account_activity),
     securityAlerts: Boolean(row.notify_security_alerts),
-    chatSettings,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -60,7 +55,6 @@ function createInsertPayload(userId) {
     notify_product_updates: DEFAULT_USER_SETTINGS.productUpdates,
     notify_account_activity: DEFAULT_USER_SETTINGS.accountActivity,
     notify_security_alerts: DEFAULT_USER_SETTINGS.securityAlerts,
-    chat_settings_json: toDbJson(DEFAULT_USER_SETTINGS.chatSettings),
     created_at: nowDb(),
     updated_at: nowDb()
   };
@@ -144,9 +138,6 @@ function createRepository(knex) {
     if (Object.hasOwn(source, "lastActiveWorkspaceId")) {
       dbPatch.last_active_workspace_id = source.lastActiveWorkspaceId == null ? null : Number(source.lastActiveWorkspaceId);
     }
-    if (Object.hasOwn(source, "chatSettings")) {
-      dbPatch.chat_settings_json = toDbJson(source.chatSettings, ensured.chatSettings);
-    }
 
     await client("user_settings").where({ user_id: Number(userId) }).update(dbPatch);
     return findByUserId(userId, { trx: client });
@@ -181,15 +172,6 @@ function createRepository(knex) {
     return patchUserSettings(userId, { lastActiveWorkspaceId: workspaceId }, options);
   }
 
-  async function updateChatSettings(userId, chatPatch = {}, options = {}) {
-    const current = await ensureForUserId(userId, options);
-    const nextChat = {
-      ...(current.chatSettings || {}),
-      ...(chatPatch && typeof chatPatch === "object" ? chatPatch : {})
-    };
-    return patchUserSettings(userId, { chatSettings: nextChat }, options);
-  }
-
   return Object.freeze({
     findByUserId,
     ensureForUserId,
@@ -198,8 +180,7 @@ function createRepository(knex) {
     updateNotifications,
     updatePasswordSignInEnabled,
     updatePasswordSetupRequired,
-    updateLastActiveWorkspaceId,
-    updateChatSettings
+    updateLastActiveWorkspaceId
   });
 }
 

@@ -46,8 +46,7 @@ const userSettingsOutputSchema = Type.Object(
         securityAlerts: Type.Boolean()
       },
       { additionalProperties: true }
-    ),
-    chat: Type.Object({}, { additionalProperties: true })
+    )
   },
   { additionalProperties: true }
 );
@@ -68,12 +67,7 @@ const userSettingsCreateBodySchema = Type.Object(
     avatarSize: Type.Integer({ minimum: 1 }),
     productUpdates: Type.Boolean(),
     accountActivity: Type.Boolean(),
-    securityAlerts: Type.Boolean(),
-    publicChatId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    allowWorkspaceDms: Type.Boolean(),
-    allowGlobalDms: Type.Boolean(),
-    requireSharedWorkspaceForGlobalDm: Type.Boolean(),
-    discoverableByPublicChatId: Type.Boolean()
+    securityAlerts: Type.Boolean()
   },
   { additionalProperties: false }
 );
@@ -101,17 +95,6 @@ const notificationsUpdateBodyValidator = Object.freeze({
     "productUpdates",
     "accountActivity",
     "securityAlerts"
-  ]),
-  normalize: normalizeObjectInput
-});
-
-const chatUpdateBodyValidator = Object.freeze({
-  schema: pickPatchBody(userSettingsPatchBodySchema, [
-    "publicChatId",
-    "allowWorkspaceDms",
-    "allowGlobalDms",
-    "requireSharedWorkspaceForGlobalDm",
-    "discoverableByPublicChatId"
   ]),
   normalize: normalizeObjectInput
 });
@@ -330,12 +313,6 @@ const userSettingsResource = Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: notificationsUpdateBodyValidator,
-      outputValidator: userSettingsOutputValidator
-    }),
-    chatUpdate: Object.freeze({
-      method: "PATCH",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: chatUpdateBodyValidator,
       outputValidator: userSettingsOutputValidator
     }),
     passwordChange: Object.freeze({
