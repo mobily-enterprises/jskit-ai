@@ -1,6 +1,12 @@
 export { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix } from "./registry.js";
 export { createSurfacePathHelpers } from "./paths.js";
 export {
+  normalizeSurfaceSegmentFromPrefix,
+  parseWorkspacePathname,
+  resolveDefaultWorkspaceSurfaceId,
+  resolveWorkspaceSurfaceIdFromSuffixSegments
+} from "./workspacePathModel.js";
+export {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,

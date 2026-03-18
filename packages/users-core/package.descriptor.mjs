@@ -225,6 +225,16 @@ export default Object.freeze({
         reason: "Install users/workspace core schema migration.",
         category: "migration",
         id: "users-core-initial-schema"
+      },
+      {
+        op: "install-migration",
+        from: "templates/migrations/users_core_console_owner.cjs",
+        toDir: "migrations",
+        slug: "users_core_console_owner",
+        extension: ".cjs",
+        reason: "Install users/workspace console owner migration.",
+        category: "migration",
+        id: "users-core-console-owner-schema"
       }
     ],
     text: [

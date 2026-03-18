@@ -1,13 +1,5 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return null;
-  }
-
-  return parsed;
-}
+import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 
 function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
   if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
@@ -23,7 +15,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
 
       const workspace =
         context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
-      const workspaceOwnerId = toPositiveInteger(workspace?.id);
+      const workspaceOwnerId = parsePositiveInteger(workspace?.id);
       if (!workspaceOwnerId) {
         const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
         const actor = context?.actor || request?.user || null;
@@ -35,7 +27,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, {
           request
         });
-        const resolvedWorkspaceOwnerId = toPositiveInteger(resolvedWorkspaceContext?.workspace?.id);
+        const resolvedWorkspaceOwnerId = parsePositiveInteger(resolvedWorkspaceContext?.workspace?.id);
         if (!resolvedWorkspaceOwnerId) {
           return {};
         }

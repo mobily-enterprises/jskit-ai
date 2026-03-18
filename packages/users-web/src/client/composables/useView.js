@@ -56,7 +56,13 @@ function useView({
   setupOperationErrorReporting({
     source: `${placementSource}.load`,
     loadError,
-    notFoundError: view.notFoundError
+    notFoundError: view.notFoundError,
+    loadActionFactory: () => ({
+      label: "Retry",
+      handler() {
+        void view.refresh();
+      }
+    })
   });
 
   return Object.freeze({

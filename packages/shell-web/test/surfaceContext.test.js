@@ -84,7 +84,7 @@ test("surface path helpers compose root and prefixed surface routes", () => {
   const context = {
     surfaceConfig: {
       tenancyMode: "workspace",
-      enabledSurfaceIds: ["app", "root"],
+      enabledSurfaceIds: ["app", "root", "console"],
       surfacesById: {
         app: {
           id: "app",
@@ -94,6 +94,11 @@ test("surface path helpers compose root and prefixed surface routes", () => {
         root: {
           id: "root",
           prefix: "/",
+          requiresWorkspace: false
+        },
+        console: {
+          id: "console",
+          prefix: "/console",
           requiresWorkspace: false
         }
       }
@@ -111,6 +116,8 @@ test("surface path helpers compose root and prefixed surface routes", () => {
     resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme", "/workspace/settings"),
     "/w/acme/workspace/settings"
   );
+  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "console", "acme"), "/console");
+  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "console", "acme", "/settings"), "/console/settings");
   assert.equal(extractWorkspaceSlugFromSurfacePathname(context, "app", "/w/acme/workspace/settings"), "acme");
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "app", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "root", "/workspace/settings"), "/api/workspace/settings");

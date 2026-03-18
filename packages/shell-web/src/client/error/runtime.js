@@ -204,6 +204,16 @@ function createErrorRuntime({
     }
   }
 
+  function resolveChannelCompatiblePresenter(channel = "") {
+    for (const presenter of byPresenterId.values()) {
+      if (presenter.supports(channel)) {
+        return presenter;
+      }
+    }
+
+    return null;
+  }
+
   function resolvePresenterForDecision(decision) {
     const explicitPresenterId = normalizeText(decision.presenterId);
     if (explicitPresenterId) {
@@ -212,7 +222,17 @@ function createErrorRuntime({
     }
 
     const defaultPresenterId = resolveDefaultPresenterId();
-    return byPresenterId.get(defaultPresenterId);
+    const defaultPresenter = byPresenterId.get(defaultPresenterId);
+    if (defaultPresenter?.supports(decision.channel)) {
+      return defaultPresenter;
+    }
+
+    const compatiblePresenter = resolveChannelCompatiblePresenter(decision.channel);
+    if (!compatiblePresenter) {
+      throw new Error(`No error presenter supports channel "${decision.channel}".`);
+    }
+
+    return compatiblePresenter;
   }
 
   function shouldSkipByDedupe(decision) {

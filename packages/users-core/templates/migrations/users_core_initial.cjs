@@ -88,6 +88,7 @@ exports.up = async function up(knex) {
 
   await knex.schema.createTable("console_settings", (table) => {
     table.integer("id").primary();
+    table.integer("owner_user_id").unsigned().nullable();
     table.text("assistant_system_prompt_workspace").notNullable().defaultTo("");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());

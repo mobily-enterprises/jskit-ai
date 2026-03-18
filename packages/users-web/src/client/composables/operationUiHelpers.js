@@ -10,6 +10,8 @@ function setupOperationErrorReporting({
   source = "users-web.operation",
   loadError = null,
   notFoundError = null,
+  loadActionFactory = null,
+  notFoundActionFactory = null,
   loadChannel = "banner",
   notFoundChannel = "banner",
   loadSeverity = "error",
@@ -23,7 +25,12 @@ function setupOperationErrorReporting({
   const runtime = useShellWebErrorRuntime();
   const normalizedSource = normalizeMessage(source) || "users-web.operation";
 
-  function watchMessage(value, { kind = "load", channel = "banner", severity = "error" } = {}) {
+  function watchMessage(value, {
+    kind = "load",
+    channel = "banner",
+    severity = "error",
+    actionFactory = null
+  } = {}) {
     let lastMessage = "";
 
     watch(
@@ -39,11 +46,18 @@ function setupOperationErrorReporting({
         }
 
         lastMessage = nextMessage;
+        const action = typeof actionFactory === "function"
+          ? actionFactory({
+              message: nextMessage,
+              kind
+            })
+          : null;
         runtime.report({
           source: normalizedSource,
           message: nextMessage,
           severity,
           channel,
+          action,
           dedupeKey: `${normalizedSource}:${kind}:${nextMessage}`,
           dedupeWindowMs
         });
@@ -56,7 +70,8 @@ function setupOperationErrorReporting({
     watchMessage(loadError, {
       kind: "load",
       channel: loadChannel,
-      severity: loadSeverity
+      severity: loadSeverity,
+      actionFactory: loadActionFactory
     });
   }
 
@@ -64,7 +79,8 @@ function setupOperationErrorReporting({
     watchMessage(notFoundError, {
       kind: "not-found",
       channel: notFoundChannel,
-      severity: notFoundSeverity
+      severity: notFoundSeverity,
+      actionFactory: notFoundActionFactory
     });
   }
 }

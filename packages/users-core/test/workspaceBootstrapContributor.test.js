@@ -75,3 +75,65 @@ test("workspace bootstrap contributor passes actor context to pending invites se
   assert.equal(pendingServiceCalls[0].user.id, profile.id);
   assert.equal(pendingServiceCalls[0].options?.context?.actor?.id, profile.id);
 });
+
+test("workspace bootstrap contributor seeds the initial console owner on authenticated bootstrap", async () => {
+  const profile = createAuthenticatedProfile({ id: 12 });
+  const consoleOwnerSeeds = [];
+
+  const contributor = createWorkspaceBootstrapContributor({
+    workspaceService: {
+      async listWorkspacesForUser() {
+        return [];
+      },
+      async resolveWorkspaceContextForUserBySlug() {
+        return null;
+      }
+    },
+    workspacePendingInvitationsService: {
+      async listPendingInvitesForUser() {
+        return [];
+      }
+    },
+    userProfilesRepository: {
+      async findByIdentity() {
+        return profile;
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          theme: "system",
+          locale: "en",
+          timeZone: "UTC",
+          dateFormat: "YYYY-MM-DD",
+          numberFormat: "1,234.56",
+          currencyCode: "USD",
+          avatarSize: 64,
+          productUpdates: true,
+          accountActivity: true,
+          securityAlerts: true
+        };
+      }
+    },
+    workspaceTenancyEnabled: false,
+    consoleService: {
+      async ensureInitialConsoleMember(userId) {
+        consoleOwnerSeeds.push(Number(userId));
+      }
+    }
+  });
+
+  await contributor.contribute({
+    request: {
+      async executeAction() {
+        return {
+          authenticated: true,
+          profile
+        };
+      }
+    },
+    reply: {}
+  });
+
+  assert.deepEqual(consoleOwnerSeeds, [12]);
+});

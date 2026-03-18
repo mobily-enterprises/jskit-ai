@@ -146,7 +146,7 @@ test("error runtime throws when policy presenter is unknown", () => {
   );
 });
 
-test("error runtime throws when selected presenter does not support channel", () => {
+test("error runtime falls back to a channel-compatible presenter when default presenter does not support channel", () => {
   const runtime = createErrorRuntime({
     presenters: [
       createPresenter("module.presenter"),
@@ -163,8 +163,29 @@ test("error runtime throws when selected presenter does not support channel", ()
     })
   });
 
+  const result = runtime.report({ source: "test.runtime", message: "failure" });
+  assert.equal(result.decision.presenterId, "module.presenter");
+});
+
+test("error runtime throws when no presenter supports channel", () => {
+  const runtime = createErrorRuntime({
+    presenters: [
+      createPresenter("module.presenter", { channels: ["snackbar"] }),
+      createPresenter("app.presenter", { channels: ["banner"] })
+    ],
+    moduleDefaultPresenterId: "module.presenter"
+  });
+
+  runtime.configure({
+    defaultPresenterId: "app.presenter",
+    policy: () => ({
+      channel: "dialog",
+      message: "unsupported channel"
+    })
+  });
+
   assert.throws(
     () => runtime.report({ source: "test.runtime", message: "failure" }),
-    /does not support channel "dialog"/,
+    /No error presenter supports channel "dialog"/,
   );
 });

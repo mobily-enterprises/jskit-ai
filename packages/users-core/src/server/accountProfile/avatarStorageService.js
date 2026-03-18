@@ -1,16 +1,13 @@
+import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+
 const AVATAR_STORAGE_PREFIX = "users/avatars";
 const AVATAR_MIME_TYPE_JPEG = "image/jpeg";
 const AVATAR_MIME_TYPE_PNG = "image/png";
 const AVATAR_MIME_TYPE_WEBP = "image/webp";
 const AVATAR_MIME_TYPE_FALLBACK = "application/octet-stream";
 
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
-
 function buildAvatarStorageKey(userId) {
-  const normalizedUserId = toPositiveInteger(userId);
+  const normalizedUserId = parsePositiveInteger(userId);
   if (!normalizedUserId) {
     throw new TypeError("Avatar storage requires a positive integer user id.");
   }

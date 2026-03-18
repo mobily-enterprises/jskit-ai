@@ -1,6 +1,11 @@
 import {
+  normalizePathname,
   normalizeSurfaceId,
   normalizeSurfacePrefix,
+  normalizeSurfaceSegmentFromPrefix,
+  parseWorkspacePathname,
+  resolveDefaultWorkspaceSurfaceId,
+  resolveWorkspaceSurfaceIdFromSuffixSegments,
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,
@@ -37,22 +42,6 @@ function normalizeSurfaceIdList(value) {
   return normalized;
 }
 
-function normalizePathname(pathname) {
-  const rawValue = String(pathname || "/").trim();
-  if (!rawValue) {
-    return "/";
-  }
-
-  const withoutQuery = rawValue.split("?")[0].split("#")[0];
-  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (squashed === "/") {
-    return "/";
-  }
-
-  return squashed.replace(/\/+$/, "") || "/";
-}
-
 function normalizeWorkspaceSuffix(suffix) {
   const rawSuffix = String(suffix || "/").trim();
   if (!rawSuffix || rawSuffix === "/") {
@@ -61,75 +50,50 @@ function normalizeWorkspaceSuffix(suffix) {
   return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
 }
 
-function normalizeSurfaceSegmentFromPrefix(prefix) {
-  const normalizedPrefix = normalizePathname(prefix || "/");
-  if (normalizedPrefix === "/") {
-    return "";
-  }
-  return normalizedPrefix.replace(/^\/+/, "");
-}
-
-function resolveDefaultWorkspaceSurfaceId(surfaceConfig) {
-  const defaultSurfaceId = normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
-  if (defaultSurfaceId && surfaceConfig?.surfacesById?.[defaultSurfaceId]?.requiresWorkspace) {
-    return defaultSurfaceId;
-  }
-  const workspaceSurfaceIds = Array.isArray(surfaceConfig?.workspaceSurfaceIds) ? surfaceConfig.workspaceSurfaceIds : [];
-  return normalizeSurfaceId(workspaceSurfaceIds[0]);
-}
-
-function parseWorkspacePathname(pathname = "") {
-  const normalizedPathname = normalizePathname(pathname);
-  if (!normalizedPathname.startsWith("/w/")) {
-    return null;
-  }
-
-  const trailingPath = normalizedPathname.slice("/w/".length);
-  const segments = trailingPath.split("/").filter(Boolean);
-  if (segments.length < 1) {
-    return null;
-  }
-
-  const [workspaceSlug, ...suffixSegments] = segments;
-  return {
-    workspaceSlug: String(workspaceSlug || "").trim(),
-    suffixSegments
-  };
+function resolveDefaultWorkspaceSurfaceIdFromConfig(surfaceConfig = {}) {
+  return resolveDefaultWorkspaceSurfaceId({
+    defaultSurfaceId: surfaceConfig?.defaultSurfaceId,
+    workspaceSurfaceIds: surfaceConfig?.workspaceSurfaceIds,
+    surfaceRequiresWorkspace: (surfaceId) => Boolean(surfaceConfig?.surfacesById?.[surfaceId]?.requiresWorkspace)
+  });
 }
 
 function resolveWorkspaceSurfaceIdFromPathname(surfaceConfig, pathname = "") {
-  const parsedWorkspacePath = parseWorkspacePathname(pathname);
+  const parsedWorkspacePath = parseWorkspacePathname(pathname, {
+    workspaceBasePath: "/w"
+  });
   if (!parsedWorkspacePath) {
     return "";
   }
 
-  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId(surfaceConfig);
+  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceIdFromConfig(surfaceConfig);
   if (parsedWorkspacePath.suffixSegments.length < 1) {
     return defaultWorkspaceSurfaceId || normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
   }
 
-  const suffixPath = parsedWorkspacePath.suffixSegments.join("/");
-  const workspaceCandidates = (Array.isArray(surfaceConfig?.workspaceSurfaceIds) ? surfaceConfig.workspaceSurfaceIds : [])
+  const workspaceSurfaces = (Array.isArray(surfaceConfig?.workspaceSurfaceIds) ? surfaceConfig.workspaceSurfaceIds : [])
     .map((surfaceId) => normalizeSurfaceId(surfaceId))
-    .filter((surfaceId) => surfaceId && surfaceId !== defaultWorkspaceSurfaceId)
     .map((surfaceId) => {
+      if (!surfaceId) {
+        return null;
+      }
       const definition = surfaceConfig.surfacesById?.[surfaceId];
-      const segment = normalizeSurfaceSegmentFromPrefix(definition?.prefix) || surfaceId;
       return {
-        surfaceId,
-        segment
+        id: surfaceId,
+        prefix: definition?.prefix
       };
     })
-    .filter((entry) => entry.segment)
-    .sort((left, right) => right.segment.length - left.segment.length);
+    .filter(Boolean);
 
-  for (const candidate of workspaceCandidates) {
-    if (suffixPath === candidate.segment || suffixPath.startsWith(`${candidate.segment}/`)) {
-      return candidate.surfaceId;
-    }
-  }
-
-  return defaultWorkspaceSurfaceId || normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
+  return (
+    resolveWorkspaceSurfaceIdFromSuffixSegments({
+      suffixSegments: parsedWorkspacePath.suffixSegments,
+      defaultWorkspaceSurfaceId,
+      workspaceSurfaces
+    }) ||
+    defaultWorkspaceSurfaceId ||
+    normalizeSurfaceId(surfaceConfig?.defaultSurfaceId)
+  );
 }
 
 function normalizeSurfaceConfig(surfaceConfig = {}) {
@@ -318,16 +282,17 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
   const surfaceDefinition = surfaceConfig.surfacesById[normalizedSurfaceId] || null;
   const normalizedSuffix = normalizeWorkspaceSuffix(suffix);
 
-  if (!surfaceDefinition?.requiresWorkspace) {
-    const relativePath =
-      normalizedSuffix === "/" ? `/w/${normalizedWorkspaceSlug}` : `/w/${normalizedWorkspaceSlug}${normalizedSuffix}`;
-    return resolveSurfacePathFromPlacementContext(contextValue, surfaceId, relativePath);
+  if (surfaceDefinition && !surfaceDefinition.requiresWorkspace) {
+    if (normalizedSuffix === "/") {
+      return resolveSurfaceRootPathFromPlacementContext(contextValue, normalizedSurfaceId);
+    }
+    return resolveSurfacePathFromPlacementContext(contextValue, normalizedSurfaceId, normalizedSuffix);
   }
 
   let workspaceRootPath = `/w/${normalizedWorkspaceSlug}`;
-  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId(surfaceConfig);
+  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceIdFromConfig(surfaceConfig);
   if (normalizedSurfaceId && normalizedSurfaceId !== defaultWorkspaceSurfaceId) {
-    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfaceDefinition.prefix) || normalizedSurfaceId;
+    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfaceDefinition?.prefix) || normalizedSurfaceId;
     if (surfaceSegment) {
       workspaceRootPath = `${workspaceRootPath}/${surfaceSegment}`;
     }

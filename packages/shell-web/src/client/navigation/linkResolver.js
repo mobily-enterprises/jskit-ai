@@ -69,6 +69,9 @@ function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = 
   }
 
   if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
+    if (!surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
+      return resolveSurfaceBasePath(context, normalizedSurface);
+    }
     return resolveSurfaceWorkspacePathFromPlacementContext(context, normalizedSurface, normalizedWorkspaceSlug, "/");
   }
 
@@ -122,6 +125,9 @@ function resolveShellLinkPath({
   }
 
   if (normalizedMode === "workspace") {
+    if (hasSurfaceDefinition && !surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
+      return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
+    }
     if (!resolvedWorkspaceSlug) {
       return "";
     }

@@ -1,18 +1,10 @@
-function normalizePathname(pathname) {
-  const rawValue = String(pathname || "/").trim();
-  if (!rawValue) {
-    return "/";
-  }
-
-  const withoutQuery = rawValue.split("?")[0].split("#")[0];
-  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (squashed === "/") {
-    return "/";
-  }
-
-  return squashed.replace(/\/+$/, "") || "/";
-}
+import {
+  normalizePathname,
+  normalizeSurfaceSegmentFromPrefix,
+  parseWorkspacePathname,
+  resolveDefaultWorkspaceSurfaceId as resolveDefaultWorkspaceSurfaceIdFromModel,
+  resolveWorkspaceSurfaceIdFromSuffixSegments
+} from "./workspacePathModel.js";
 
 function matchesPathPrefix(pathname, prefix) {
   const normalizedPathname = normalizePathname(pathname);
@@ -27,34 +19,6 @@ function normalizeWorkspaceSuffix(suffix) {
   }
 
   return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
-}
-
-function normalizeSurfaceSegmentFromPrefix(prefix) {
-  const normalizedPrefix = normalizePathname(prefix || "/");
-  if (normalizedPrefix === "/") {
-    return "";
-  }
-  return normalizedPrefix.replace(/^\/+/, "");
-}
-
-function parseWorkspacePath(pathname, workspaceBasePath) {
-  const normalizedPathname = normalizePathname(pathname);
-  const normalizedWorkspaceBasePath = normalizePathname(workspaceBasePath);
-  if (!normalizedPathname.startsWith(`${normalizedWorkspaceBasePath}/`)) {
-    return null;
-  }
-
-  const trailingPath = normalizedPathname.slice(`${normalizedWorkspaceBasePath}/`.length);
-  const segments = trailingPath.split("/").filter(Boolean);
-  if (segments.length < 1) {
-    return null;
-  }
-
-  const [workspaceSlug, ...suffixSegments] = segments;
-  return {
-    workspaceSlug: String(workspaceSlug || "").trim(),
-    suffixSegments
-  };
 }
 
 function createSurfacePathHelpers(options = {}) {
@@ -115,13 +79,11 @@ function createSurfacePathHelpers(options = {}) {
   }
 
   function resolveDefaultWorkspaceSurfaceId() {
-    const defaultSurface = resolveSurfaceDefinition(defaultSurfaceId);
-    if (defaultSurface?.requiresWorkspace) {
-      return defaultSurfaceId;
-    }
-
-    const [firstWorkspaceSurface] = workspaceSurfaceDefinitions();
-    return normalizeSurface(firstWorkspaceSurface?.id);
+    return resolveDefaultWorkspaceSurfaceIdFromModel({
+      defaultSurfaceId,
+      workspaceSurfaceIds: workspaceSurfaceDefinitions().map((surface) => normalizeSurface(surface.id)),
+      surfaceRequiresWorkspace: (surfaceId) => Boolean(resolveSurfaceDefinition(surfaceId)?.requiresWorkspace)
+    });
   }
 
   function resolveWorkspaceSurfaceSegment(surfaceDefinition, fallbackSurfaceId = "") {
@@ -134,30 +96,14 @@ function createSurfacePathHelpers(options = {}) {
 
   function resolveWorkspaceSurfaceIdFromPathSegments(suffixSegments = []) {
     const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId();
-    if (suffixSegments.length < 1) {
-      return defaultWorkspaceSurfaceId;
-    }
-
-    const suffixPath = suffixSegments.join("/");
-    const candidates = workspaceSurfaceDefinitions()
-      .map((definition) => {
-        const surfaceId = normalizeSurface(definition.id);
-        const segment = resolveWorkspaceSurfaceSegment(definition, surfaceId);
-        return {
-          surfaceId,
-          segment
-        };
-      })
-      .filter((entry) => entry.surfaceId && entry.surfaceId !== defaultWorkspaceSurfaceId && entry.segment)
-      .sort((left, right) => right.segment.length - left.segment.length);
-
-    for (const candidate of candidates) {
-      if (suffixPath === candidate.segment || suffixPath.startsWith(`${candidate.segment}/`)) {
-        return candidate.surfaceId;
-      }
-    }
-
-    return defaultWorkspaceSurfaceId;
+    return resolveWorkspaceSurfaceIdFromSuffixSegments({
+      suffixSegments,
+      defaultWorkspaceSurfaceId,
+      workspaceSurfaces: workspaceSurfaceDefinitions().map((definition) => ({
+        id: definition.id,
+        prefix: definition.prefix
+      }))
+    });
   }
 
   function normalizeSurface(surface) {
@@ -231,7 +177,9 @@ function createSurfacePathHelpers(options = {}) {
       }
     }
 
-    const parsedWorkspacePath = parseWorkspacePath(normalizedPathname, workspaceBasePath);
+    const parsedWorkspacePath = parseWorkspacePathname(normalizedPathname, {
+      workspaceBasePath
+    });
     if (parsedWorkspacePath) {
       const resolvedWorkspaceSurfaceId = resolveWorkspaceSurfaceIdFromPathSegments(parsedWorkspacePath.suffixSegments);
       if (resolvedWorkspaceSurfaceId) {
@@ -341,7 +289,9 @@ function createSurfacePathHelpers(options = {}) {
         return "";
       }
 
-      const parsedWorkspacePath = parseWorkspacePath(pathname, workspaceBasePath);
+      const parsedWorkspacePath = parseWorkspacePathname(pathname, {
+        workspaceBasePath
+      });
       if (!parsedWorkspacePath) {
         return "";
       }

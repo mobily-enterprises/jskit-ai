@@ -113,3 +113,15 @@ test("resolveShellLinkPath keeps console singleton fallback when context is miss
 
   assert.equal(to, "/console/contacts/5");
 });
+
+test("resolveShellLinkPath in workspace mode falls back to surface path for non-workspace surfaces", () => {
+  const to = resolveShellLinkPath({
+    context: createPlacementContext(),
+    surface: "console",
+    mode: "workspace",
+    workspaceRelativePath: "/workspace/ignored",
+    surfaceRelativePath: "/settings"
+  });
+
+  assert.equal(to, "/console/settings");
+});

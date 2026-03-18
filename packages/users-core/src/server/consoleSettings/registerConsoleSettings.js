@@ -1,6 +1,7 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { CONSOLE_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
 import { createService as createConsoleSettingsService } from "./consoleSettingsService.js";
+import { createService as createConsoleService } from "./consoleService.js";
 import { consoleSettingsActions } from "./consoleSettingsActions.js";
 
 function registerConsoleSettings(app) {
@@ -8,11 +9,21 @@ function registerConsoleSettings(app) {
     throw new Error("registerConsoleSettings requires application singleton()/service()/actions().");
   }
 
+  const hasConsoleService = typeof app.has === "function" ? app.has("consoleService") : false;
+  if (!hasConsoleService) {
+    app.singleton("consoleService", (scope) =>
+      createConsoleService({
+        consoleSettingsRepository: scope.make("consoleSettingsRepository")
+      })
+    );
+  }
+
   app.service(
     "users.console.settings.service",
     (scope) =>
       createConsoleSettingsService({
-        consoleSettingsRepository: scope.make("consoleSettingsRepository")
+        consoleSettingsRepository: scope.make("consoleSettingsRepository"),
+        consoleService: scope.make("consoleService")
       }),
     {
       events: Object.freeze({
