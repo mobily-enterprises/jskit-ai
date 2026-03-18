@@ -1,5 +1,3 @@
-import { escapeRegExp } from "./escapeRegExp.js";
-
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
   if (!rawValue) {
@@ -29,6 +27,34 @@ function normalizeWorkspaceSuffix(suffix) {
   }
 
   return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
+}
+
+function normalizeSurfaceSegmentFromPrefix(prefix) {
+  const normalizedPrefix = normalizePathname(prefix || "/");
+  if (normalizedPrefix === "/") {
+    return "";
+  }
+  return normalizedPrefix.replace(/^\/+/, "");
+}
+
+function parseWorkspacePath(pathname, workspaceBasePath) {
+  const normalizedPathname = normalizePathname(pathname);
+  const normalizedWorkspaceBasePath = normalizePathname(workspaceBasePath);
+  if (!normalizedPathname.startsWith(`${normalizedWorkspaceBasePath}/`)) {
+    return null;
+  }
+
+  const trailingPath = normalizedPathname.slice(`${normalizedWorkspaceBasePath}/`.length);
+  const segments = trailingPath.split("/").filter(Boolean);
+  if (segments.length < 1) {
+    return null;
+  }
+
+  const [workspaceSlug, ...suffixSegments] = segments;
+  return {
+    workspaceSlug: String(workspaceSlug || "").trim(),
+    suffixSegments
+  };
 }
 
 function createSurfacePathHelpers(options = {}) {
@@ -64,6 +90,75 @@ function createSurfacePathHelpers(options = {}) {
   };
 
   const workspaceBasePath = normalizePathname(routeConfig.workspaceBasePath);
+
+  function surfaceDefinitions() {
+    return listSurfaceDefinitions().filter((surface) => surface && typeof surface === "object" && !Array.isArray(surface));
+  }
+
+  function resolveSurfaceDefinition(surfaceId) {
+    const normalizedSurfaceId = normalizeSurface(surfaceId);
+    if (!normalizedSurfaceId) {
+      return null;
+    }
+
+    for (const definition of surfaceDefinitions()) {
+      if (normalizeSurface(definition.id) === normalizedSurfaceId) {
+        return definition;
+      }
+    }
+
+    return null;
+  }
+
+  function workspaceSurfaceDefinitions() {
+    return surfaceDefinitions().filter((surface) => Boolean(surface.requiresWorkspace));
+  }
+
+  function resolveDefaultWorkspaceSurfaceId() {
+    const defaultSurface = resolveSurfaceDefinition(defaultSurfaceId);
+    if (defaultSurface?.requiresWorkspace) {
+      return defaultSurfaceId;
+    }
+
+    const [firstWorkspaceSurface] = workspaceSurfaceDefinitions();
+    return normalizeSurface(firstWorkspaceSurface?.id);
+  }
+
+  function resolveWorkspaceSurfaceSegment(surfaceDefinition, fallbackSurfaceId = "") {
+    const segmentFromPrefix = normalizeSurfaceSegmentFromPrefix(surfaceDefinition?.prefix);
+    if (segmentFromPrefix) {
+      return segmentFromPrefix;
+    }
+    return normalizeSurface(fallbackSurfaceId);
+  }
+
+  function resolveWorkspaceSurfaceIdFromPathSegments(suffixSegments = []) {
+    const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId();
+    if (suffixSegments.length < 1) {
+      return defaultWorkspaceSurfaceId;
+    }
+
+    const suffixPath = suffixSegments.join("/");
+    const candidates = workspaceSurfaceDefinitions()
+      .map((definition) => {
+        const surfaceId = normalizeSurface(definition.id);
+        const segment = resolveWorkspaceSurfaceSegment(definition, surfaceId);
+        return {
+          surfaceId,
+          segment
+        };
+      })
+      .filter((entry) => entry.surfaceId && entry.surfaceId !== defaultWorkspaceSurfaceId && entry.segment)
+      .sort((left, right) => right.segment.length - left.segment.length);
+
+    for (const candidate of candidates) {
+      if (suffixPath === candidate.segment || suffixPath.startsWith(`${candidate.segment}/`)) {
+        return candidate.surfaceId;
+      }
+    }
+
+    return defaultWorkspaceSurfaceId;
+  }
 
   function normalizeSurface(surface) {
     return normalizeSurfaceId(surface);
@@ -122,6 +217,28 @@ function createSurfacePathHelpers(options = {}) {
       return apiSurface;
     }
 
+    const nonWorkspacePrefixedSurfaces = prefixedSurfaceDefinitions().filter(
+      (surface) => surface.requiresWorkspace !== true
+    );
+    for (const surface of nonWorkspacePrefixedSurfaces) {
+      const prefix = String(surface.prefix).trim();
+      if (!prefix) {
+        continue;
+      }
+
+      if (normalizedPathname === prefix || normalizedPathname.startsWith(`${prefix}/`)) {
+        return surface.id;
+      }
+    }
+
+    const parsedWorkspacePath = parseWorkspacePath(normalizedPathname, workspaceBasePath);
+    if (parsedWorkspacePath) {
+      const resolvedWorkspaceSurfaceId = resolveWorkspaceSurfaceIdFromPathSegments(parsedWorkspacePath.suffixSegments);
+      if (resolvedWorkspaceSurfaceId) {
+        return resolvedWorkspaceSurfaceId;
+      }
+    }
+
     for (const surface of prefixedSurfaceDefinitions()) {
       const prefix = String(surface.prefix).trim();
       if (!prefix) {
@@ -152,6 +269,7 @@ function createSurfacePathHelpers(options = {}) {
 
   function createSurfacePaths(surface) {
     const normalizedSurface = normalizeSurface(surface);
+    const surfaceDefinition = resolveSurfaceDefinition(normalizedSurface);
     const prefix = resolveSurfacePrefix(normalizedSurface);
 
     const rootPath = prefix || "/";
@@ -161,8 +279,7 @@ function createSurfacePathHelpers(options = {}) {
     const accountSettingsPath = withSurfacePrefix(normalizedSurface, routeConfig.accountSettingsPath);
     const invitationsPath = withSurfacePrefix(normalizedSurface, routeConfig.invitationsPath);
     const publicAuthPaths = new Set([loginPath, resetPasswordPath]);
-    const prefixPattern = prefix ? escapeRegExp(prefix) : "";
-    const workspaceMatcher = new RegExp(`^${prefixPattern}${escapeRegExp(workspaceBasePath)}/([^/]+)`);
+    const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId();
 
     function workspacePath(workspaceSlug, suffix = "/") {
       const slug = String(workspaceSlug || "").trim();
@@ -171,9 +288,24 @@ function createSurfacePathHelpers(options = {}) {
       }
 
       const normalizedSuffix = normalizeWorkspaceSuffix(suffix);
-      const path =
-        normalizedSuffix === "/" ? `${workspaceBasePath}/${slug}` : `${workspaceBasePath}/${slug}${normalizedSuffix}`;
-      return withSurfacePrefix(normalizedSurface, path);
+      if (!surfaceDefinition?.requiresWorkspace) {
+        const path =
+          normalizedSuffix === "/" ? `${workspaceBasePath}/${slug}` : `${workspaceBasePath}/${slug}${normalizedSuffix}`;
+        return withSurfacePrefix(normalizedSurface, path);
+      }
+
+      let workspaceRoot = `${workspaceBasePath}/${slug}`;
+      if (normalizedSurface !== defaultWorkspaceSurfaceId) {
+        const surfaceSegment = resolveWorkspaceSurfaceSegment(surfaceDefinition, normalizedSurface);
+        if (surfaceSegment) {
+          workspaceRoot = `${workspaceRoot}/${surfaceSegment}`;
+        }
+      }
+
+      if (normalizedSuffix === "/") {
+        return normalizePathname(workspaceRoot);
+      }
+      return normalizePathname(`${workspaceRoot}${normalizedSuffix}`);
     }
 
     function workspaceHomePath(workspaceSlug) {
@@ -205,8 +337,21 @@ function createSurfacePathHelpers(options = {}) {
     }
 
     function extractWorkspaceSlug(pathname) {
-      const match = normalizePathname(pathname).match(workspaceMatcher);
-      return match ? String(match[1] || "").trim() : "";
+      if (!surfaceDefinition?.requiresWorkspace) {
+        return "";
+      }
+
+      const parsedWorkspacePath = parseWorkspacePath(pathname, workspaceBasePath);
+      if (!parsedWorkspacePath) {
+        return "";
+      }
+
+      const resolvedSurfaceId = resolveWorkspaceSurfaceIdFromPathSegments(parsedWorkspacePath.suffixSegments);
+      if (resolvedSurfaceId !== normalizedSurface) {
+        return "";
+      }
+
+      return parsedWorkspacePath.workspaceSlug;
     }
 
     return {

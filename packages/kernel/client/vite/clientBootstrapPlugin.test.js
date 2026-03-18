@@ -346,6 +346,7 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
     assert.equal(Array.isArray(result?.optimizeDeps?.exclude), true);
     assert.deepEqual(result.optimizeDeps.exclude, ["already/excluded"]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/has-client/client", "a"]);
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
   }
@@ -406,6 +407,38 @@ test("createJskitClientBootstrapPlugin config excludes only local package client
 
     assert.deepEqual(result.optimizeDeps.exclude, ["@example/local-client/client"]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "vue", "vue-router", "vuetify"]);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin config preserves user resolve fields and merges dedupe", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-resolve-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+      lockVersion: 1,
+      installedPackages: {}
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+    const result = await plugin.config({
+      resolve: {
+        alias: {
+          "@": "/tmp/app/src"
+        },
+        dedupe: ["vue", "custom-lib"]
+      }
+    });
+
+    assert.deepEqual(result.resolve.alias, {
+      "@": "/tmp/app/src"
+    });
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "custom-lib", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
   }

@@ -77,28 +77,86 @@ function resolveRouteSurface(route, surfaceRuntime) {
   return surfaceRuntime.resolveSurfaceFromPathname(source.path || "/");
 }
 
-function resolveWorkspaceCanonicalPath(routePath, surfacePrefix) {
-  const normalizedRoutePath = normalizePathname(routePath);
+function normalizeSurfaceSegmentFromPrefix(surfacePrefix) {
   const normalizedSurfacePrefix = normalizeSurfacePrefixValue(surfacePrefix);
-  const surfaceRootPath = normalizedSurfacePrefix || "/";
-  const workspacePrefix = surfaceRootPath === "/" ? "/w/:workspaceSlug" : `${surfaceRootPath}/w/:workspaceSlug`;
+  if (!normalizedSurfacePrefix) {
+    return "";
+  }
+  return normalizedSurfacePrefix.replace(/^\/+/, "");
+}
+
+function resolveDefaultWorkspaceSurfaceId(surfaceRuntime) {
+  const defaultSurfaceId = String(surfaceRuntime?.DEFAULT_SURFACE_ID || "")
+    .trim()
+    .toLowerCase();
+  if (defaultSurfaceId && surfaceRuntime.surfaceRequiresWorkspace(defaultSurfaceId)) {
+    return defaultSurfaceId;
+  }
+
+  if (typeof surfaceRuntime?.listWorkspaceSurfaceIds === "function") {
+    const workspaceSurfaceIds = surfaceRuntime.listWorkspaceSurfaceIds();
+    const firstWorkspaceSurfaceId = String(Array.isArray(workspaceSurfaceIds) ? workspaceSurfaceIds[0] || "" : "")
+      .trim()
+      .toLowerCase();
+    if (firstWorkspaceSurfaceId) {
+      return firstWorkspaceSurfaceId;
+    }
+  }
+
+  return defaultSurfaceId;
+}
+
+function resolveWorkspaceCanonicalPath(routePath, {
+  surfacePrefix,
+  surfaceId,
+  defaultWorkspaceSurfaceId
+} = {}) {
+  const normalizedRoutePath = normalizePathname(routePath);
+  const workspacePrefix = "/w/:workspaceSlug";
   if (normalizedRoutePath === workspacePrefix || normalizedRoutePath.startsWith(`${workspacePrefix}/`)) {
     return normalizedRoutePath;
   }
 
-  if (surfaceRootPath === "/") {
-    if (normalizedRoutePath === "/") {
-      return workspacePrefix;
+  const normalizedSurfaceId = String(surfaceId || "")
+    .trim()
+    .toLowerCase();
+  const normalizedSurfacePrefix = normalizeSurfacePrefixValue(surfacePrefix);
+  const isDefaultWorkspaceSurface =
+    normalizedSurfaceId && normalizedSurfaceId === String(defaultWorkspaceSurfaceId || "").trim().toLowerCase();
+
+  let relativePath = normalizedRoutePath;
+  if (normalizedSurfacePrefix) {
+    if (relativePath === normalizedSurfacePrefix) {
+      relativePath = "/";
+    } else if (relativePath.startsWith(`${normalizedSurfacePrefix}/`)) {
+      relativePath = relativePath.slice(normalizedSurfacePrefix.length) || "/";
     }
-    return `${workspacePrefix}${normalizedRoutePath}`;
   }
 
-  if (normalizedRoutePath !== surfaceRootPath && !normalizedRoutePath.startsWith(`${surfaceRootPath}/`)) {
-    return normalizedRoutePath;
+  if (isDefaultWorkspaceSurface) {
+    const defaultSurfaceSegment = normalizedSurfaceId ? `/${normalizedSurfaceId}` : "";
+    if (defaultSurfaceSegment) {
+      if (relativePath === defaultSurfaceSegment) {
+        relativePath = "/";
+      } else if (relativePath.startsWith(`${defaultSurfaceSegment}/`)) {
+        relativePath = relativePath.slice(defaultSurfaceSegment.length) || "/";
+      }
+    }
   }
 
-  const suffix = normalizedRoutePath === surfaceRootPath ? "" : normalizedRoutePath.slice(surfaceRootPath.length);
-  return `${workspacePrefix}${suffix}`;
+  let workspaceRoot = workspacePrefix;
+  if (!isDefaultWorkspaceSurface) {
+    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfacePrefix) || normalizedSurfaceId;
+    if (surfaceSegment) {
+      workspaceRoot = `${workspaceRoot}/${surfaceSegment}`;
+    }
+  }
+
+  if (relativePath === "/") {
+    return workspaceRoot;
+  }
+
+  return `${workspaceRoot}${relativePath}`;
 }
 
 function rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime) {
@@ -117,7 +175,11 @@ function rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime) {
     return source;
   }
 
-  const canonicalPath = resolveWorkspaceCanonicalPath(source.path || "/", surfaceDefinition.prefix);
+  const canonicalPath = resolveWorkspaceCanonicalPath(source.path || "/", {
+    surfacePrefix: surfaceDefinition.prefix,
+    surfaceId: routeSurface,
+    defaultWorkspaceSurfaceId: resolveDefaultWorkspaceSurfaceId(surfaceRuntime)
+  });
   if (canonicalPath === normalizePathname(source.path || "/")) {
     return source;
   }

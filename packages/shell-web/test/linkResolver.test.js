@@ -43,7 +43,7 @@ test("resolveShellLinkPath composes workspace path in auto mode when workspace i
     mode: "auto"
   });
 
-  assert.equal(to, "/admin/w/acme/contacts/2");
+  assert.equal(to, "/w/acme/admin/contacts/2");
 });
 
 test("resolveShellLinkPath composes non-workspace path in auto mode for non-workspace surface", () => {
@@ -89,7 +89,7 @@ test("resolveShellLinkPath supports workspace/surface specific relative paths", 
     workspaceRelativePath: "/workspace/settings",
     surfaceRelativePath: "/contacts"
   });
-  assert.equal(withWorkspace, "/admin/w/acme/workspace/settings");
+  assert.equal(withWorkspace, "/w/acme/admin/workspace/settings");
 });
 
 test("resolveShellLinkPath uses deterministic surface fallback when context is missing", () => {
@@ -100,6 +100,16 @@ test("resolveShellLinkPath uses deterministic surface fallback when context is m
     relativePath: "/contacts/5"
   });
 
-  assert.equal(to, "/admin/w/acme/contacts/5");
+  assert.equal(to, "/w/acme/admin/contacts/5");
 });
 
+test("resolveShellLinkPath keeps console singleton fallback when context is missing", () => {
+  const to = resolveShellLinkPath({
+    context: null,
+    surface: "console",
+    workspaceSlug: "acme",
+    relativePath: "/contacts/5"
+  });
+
+  assert.equal(to, "/console/contacts/5");
+});

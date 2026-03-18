@@ -71,7 +71,7 @@ function createPlacementRuntimeStub() {
   };
 }
 
-function createRouterStub(initialPath = "/app/w/acme/dashboard") {
+function createRouterStub(initialPath = "/w/acme/dashboard") {
   const afterEachListeners = [];
   const router = {
     currentRoute: {
@@ -133,7 +133,7 @@ function createAppStub(records = {}) {
 
 test("bootstrap placement runtime writes user/workspace/permissions into placement context", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/app/w/acme/dashboard");
+  const router = createRouterStub("/w/acme/dashboard");
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
@@ -189,7 +189,7 @@ test("bootstrap placement runtime does not mutate placement auth context", async
     },
     { source: "test.seed" }
   );
-  const router = createRouterStub("/app/w/acme/dashboard");
+  const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
@@ -224,7 +224,7 @@ test("bootstrap placement runtime does not mutate placement auth context", async
 
 test("bootstrap placement runtime refetches on route changes and users.bootstrap.changed events", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/app/w/acme/dashboard");
+  const router = createRouterStub("/w/acme/dashboard");
   const socket = createSocketStub();
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
@@ -256,12 +256,12 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
   await runtime.initialize();
   assert.deepEqual(fetchCalls, ["acme"]);
 
-  router.currentRoute.value.path = "/app/w/acme/customers";
+  router.currentRoute.value.path = "/w/acme/customers";
   router.emitAfterEach();
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme"]);
 
-  router.currentRoute.value.path = "/app/w/zen/dashboard";
+  router.currentRoute.value.path = "/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme", "zen"]);
@@ -273,7 +273,7 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
 
 test("bootstrap placement runtime refetches when auth context changes", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/app/w/acme/dashboard");
+  const router = createRouterStub("/w/acme/dashboard");
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({

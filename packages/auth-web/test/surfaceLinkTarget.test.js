@@ -43,7 +43,7 @@ test("resolveSurfaceLinkTarget builds workspace-scoped path for workspace surfac
     nonWorkspaceSuffix: "/projects"
   });
 
-  assert.equal(to, "/admin/w/acme/projects");
+  assert.equal(to, "/w/acme/admin/projects");
 });
 
 test("resolveSurfaceLinkTarget builds non-workspace path for non-workspace surfaces", () => {

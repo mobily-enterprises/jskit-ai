@@ -46,7 +46,7 @@ test("resolveProfileMenuLinks builds admin target from app workspace surface", (
   });
 
   assert.equal(links[0].label, "Go to admin");
-  assert.equal(links[0].to, "/admin/w/acme");
+  assert.equal(links[0].to, "/w/acme/admin");
   assert.equal(links[1].label, "Go to console");
   assert.equal(links[1].to, "/console");
 });
@@ -58,7 +58,7 @@ test("resolveProfileMenuLinks builds app target from admin workspace surface", (
   });
 
   assert.equal(links[0].label, "Go to app");
-  assert.equal(links[0].to, "/app/w/acme");
+  assert.equal(links[0].to, "/w/acme");
   assert.equal(links[1].label, "Go to console");
   assert.equal(links[1].to, "/console");
 });
@@ -71,5 +71,5 @@ test("resolveProfileMenuLinks builds workspace target from console surface", () 
 
   assert.equal(links.length, 1);
   assert.equal(links[0].label, "Go to workspace");
-  assert.equal(links[0].to, "/app/w/acme");
+  assert.equal(links[0].to, "/w/acme");
 });

@@ -161,7 +161,7 @@ test("auth guard runtime refreshes on reconnect/focus/visibility when explicitly
     addEventListener: windowStub.addEventListener,
     removeEventListener: windowStub.removeEventListener,
     location: {
-      pathname: "/app/w/acme",
+      pathname: "/w/acme",
       search: ""
     }
   };
@@ -228,7 +228,7 @@ test("auth guard runtime does not refresh on browser events when foreground/reco
     addEventListener: windowStub.addEventListener,
     removeEventListener: windowStub.removeEventListener,
     location: {
-      pathname: "/app/w/acme",
+      pathname: "/w/acme",
       search: ""
     }
   };

@@ -61,6 +61,77 @@ function normalizeWorkspaceSuffix(suffix) {
   return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
 }
 
+function normalizeSurfaceSegmentFromPrefix(prefix) {
+  const normalizedPrefix = normalizePathname(prefix || "/");
+  if (normalizedPrefix === "/") {
+    return "";
+  }
+  return normalizedPrefix.replace(/^\/+/, "");
+}
+
+function resolveDefaultWorkspaceSurfaceId(surfaceConfig) {
+  const defaultSurfaceId = normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
+  if (defaultSurfaceId && surfaceConfig?.surfacesById?.[defaultSurfaceId]?.requiresWorkspace) {
+    return defaultSurfaceId;
+  }
+  const workspaceSurfaceIds = Array.isArray(surfaceConfig?.workspaceSurfaceIds) ? surfaceConfig.workspaceSurfaceIds : [];
+  return normalizeSurfaceId(workspaceSurfaceIds[0]);
+}
+
+function parseWorkspacePathname(pathname = "") {
+  const normalizedPathname = normalizePathname(pathname);
+  if (!normalizedPathname.startsWith("/w/")) {
+    return null;
+  }
+
+  const trailingPath = normalizedPathname.slice("/w/".length);
+  const segments = trailingPath.split("/").filter(Boolean);
+  if (segments.length < 1) {
+    return null;
+  }
+
+  const [workspaceSlug, ...suffixSegments] = segments;
+  return {
+    workspaceSlug: String(workspaceSlug || "").trim(),
+    suffixSegments
+  };
+}
+
+function resolveWorkspaceSurfaceIdFromPathname(surfaceConfig, pathname = "") {
+  const parsedWorkspacePath = parseWorkspacePathname(pathname);
+  if (!parsedWorkspacePath) {
+    return "";
+  }
+
+  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId(surfaceConfig);
+  if (parsedWorkspacePath.suffixSegments.length < 1) {
+    return defaultWorkspaceSurfaceId || normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
+  }
+
+  const suffixPath = parsedWorkspacePath.suffixSegments.join("/");
+  const workspaceCandidates = (Array.isArray(surfaceConfig?.workspaceSurfaceIds) ? surfaceConfig.workspaceSurfaceIds : [])
+    .map((surfaceId) => normalizeSurfaceId(surfaceId))
+    .filter((surfaceId) => surfaceId && surfaceId !== defaultWorkspaceSurfaceId)
+    .map((surfaceId) => {
+      const definition = surfaceConfig.surfacesById?.[surfaceId];
+      const segment = normalizeSurfaceSegmentFromPrefix(definition?.prefix) || surfaceId;
+      return {
+        surfaceId,
+        segment
+      };
+    })
+    .filter((entry) => entry.segment)
+    .sort((left, right) => right.segment.length - left.segment.length);
+
+  for (const candidate of workspaceCandidates) {
+    if (suffixPath === candidate.segment || suffixPath.startsWith(`${candidate.segment}/`)) {
+      return candidate.surfaceId;
+    }
+  }
+
+  return defaultWorkspaceSurfaceId || normalizeSurfaceId(surfaceConfig?.defaultSurfaceId);
+}
+
 function normalizeSurfaceConfig(surfaceConfig = {}) {
   const source = isRecord(surfaceConfig) ? surfaceConfig : {};
   const enabledSurfaceIds = normalizeSurfaceIdList(source.enabledSurfaceIds);
@@ -241,10 +312,31 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
   if (!normalizedWorkspaceSlug) {
     return resolveSurfaceWorkspacesPathFromPlacementContext(contextValue, surfaceId);
   }
+
+  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
+  const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
+  const surfaceDefinition = surfaceConfig.surfacesById[normalizedSurfaceId] || null;
   const normalizedSuffix = normalizeWorkspaceSuffix(suffix);
-  const relativePath =
-    normalizedSuffix === "/" ? `/w/${normalizedWorkspaceSlug}` : `/w/${normalizedWorkspaceSlug}${normalizedSuffix}`;
-  return resolveSurfacePathFromPlacementContext(contextValue, surfaceId, relativePath);
+
+  if (!surfaceDefinition?.requiresWorkspace) {
+    const relativePath =
+      normalizedSuffix === "/" ? `/w/${normalizedWorkspaceSlug}` : `/w/${normalizedWorkspaceSlug}${normalizedSuffix}`;
+    return resolveSurfacePathFromPlacementContext(contextValue, surfaceId, relativePath);
+  }
+
+  let workspaceRootPath = `/w/${normalizedWorkspaceSlug}`;
+  const defaultWorkspaceSurfaceId = resolveDefaultWorkspaceSurfaceId(surfaceConfig);
+  if (normalizedSurfaceId && normalizedSurfaceId !== defaultWorkspaceSurfaceId) {
+    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfaceDefinition.prefix) || normalizedSurfaceId;
+    if (surfaceSegment) {
+      workspaceRootPath = `${workspaceRootPath}/${surfaceSegment}`;
+    }
+  }
+
+  if (normalizedSuffix === "/") {
+    return normalizePathname(workspaceRootPath);
+  }
+  return normalizePathname(`${workspaceRootPath}${normalizedSuffix}`);
 }
 
 function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "") {
@@ -252,6 +344,12 @@ function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "
   const normalizedPathname =
     normalizePathname(pathname) ||
     (typeof window === "object" && window?.location?.pathname ? normalizePathname(window.location.pathname) : "/");
+
+  const workspaceSurfaceId = resolveWorkspaceSurfaceIdFromPathname(surfaceConfig, normalizedPathname);
+  if (workspaceSurfaceId) {
+    return workspaceSurfaceId;
+  }
+
   const enabledSurfaces = surfaceConfig.enabledSurfaceIds
     .map((surfaceId) => surfaceConfig.surfacesById[surfaceId])
     .filter(Boolean)
@@ -275,19 +373,25 @@ function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId 
   const normalizedPathname = normalizePathname(
     pathname || (typeof window === "object" && window?.location?.pathname ? window.location.pathname : "/")
   );
-  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
-  if (!surfaceDefinition) {
+  const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
+  if (!normalizedSurfaceId) {
+    return "";
+  }
+  if (!surfaceRequiresWorkspaceFromPlacementContext(contextValue, normalizedSurfaceId)) {
     return "";
   }
 
-  const workspaceBasePath = joinSurfacePath(surfaceDefinition.prefix, "/w");
-  if (!normalizedPathname.startsWith(`${workspaceBasePath}/`)) {
+  const parsedWorkspacePath = parseWorkspacePathname(normalizedPathname);
+  if (!parsedWorkspacePath) {
     return "";
   }
 
-  const trailingPath = normalizedPathname.slice(`${workspaceBasePath}/`.length);
-  const [workspaceSlug] = trailingPath.split("/");
-  return String(workspaceSlug || "").trim();
+  const resolvedSurfaceId = resolveSurfaceIdFromPlacementPathname(contextValue, normalizedPathname);
+  if (resolvedSurfaceId !== normalizedSurfaceId) {
+    return "";
+  }
+
+  return parsedWorkspacePath.workspaceSlug;
 }
 
 function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "", apiBasePath = "/api") {

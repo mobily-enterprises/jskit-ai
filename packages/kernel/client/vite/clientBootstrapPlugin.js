@@ -4,6 +4,12 @@ import { pathToFileURL } from "node:url";
 
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
+const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
+  "@tanstack/vue-query",
+  "vue",
+  "vue-router",
+  "vuetify"
+]);
 
 function ensureObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -302,6 +308,12 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
   );
 }
 
+function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
+  const resolveConfig = ensureObject(userResolveConfig);
+  const userDedupe = toSortedUniqueStrings(resolveConfig.dedupe);
+  return toSortedUniqueStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
+}
+
 function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}) {
   return {
     name: "jskit-client-bootstrap",
@@ -317,12 +329,18 @@ function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}
       const userInclude = toSortedUniqueStrings(userOptimizeDeps.include);
       const exclude = toSortedUniqueStrings([...userExclude, ...clientExcludeSpecifiers]);
       const include = toSortedUniqueStrings([...userInclude, ...clientIncludeSpecifiers]);
+      const userResolve = ensureObject(userConfig.resolve);
+      const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
 
       return {
         optimizeDeps: {
           ...userOptimizeDeps,
           include,
           exclude
+        },
+        resolve: {
+          ...userResolve,
+          dedupe
         }
       };
     },

@@ -72,6 +72,16 @@ function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = 
     return resolveSurfaceWorkspacePathFromPlacementContext(context, normalizedSurface, normalizedWorkspaceSlug, "/");
   }
 
+  if (normalizedSurface) {
+    if (normalizedSurface === "console") {
+      return "/console";
+    }
+    if (normalizedSurface === "app") {
+      return `/w/${normalizedWorkspaceSlug}`;
+    }
+    return `/w/${normalizedWorkspaceSlug}/${normalizedSurface}`;
+  }
+
   return resolveLinkPath(resolveSurfaceBasePath(context, normalizedSurface), `/w/${normalizedWorkspaceSlug}`);
 }
 

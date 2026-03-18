@@ -101,17 +101,17 @@ test("surface path helpers compose root and prefixed surface routes", () => {
   };
 
   assert.equal(joinSurfacePath("/admin/", "/members/"), "/admin/members");
-  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/app/w/acme/workspace/settings"), "app");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/workspace/settings"), "app");
   assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/unknown"), "app");
   assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "app"), "/app");
   assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "root"), "/");
   assert.equal(resolveSurfaceWorkspacesPathFromPlacementContext(context, "app"), "/app/workspaces");
-  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme"), "/app/w/acme");
+  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme"), "/w/acme");
   assert.equal(
     resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "acme", "/workspace/settings"),
-    "/app/w/acme/workspace/settings"
+    "/w/acme/workspace/settings"
   );
-  assert.equal(extractWorkspaceSlugFromSurfacePathname(context, "app", "/app/w/acme/workspace/settings"), "acme");
+  assert.equal(extractWorkspaceSlugFromSurfacePathname(context, "app", "/w/acme/workspace/settings"), "acme");
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "app", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfaceApiPathFromPlacementContext(context, "root", "/workspace/settings"), "/api/workspace/settings");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "app", "/workspace/settings"), "/app/workspace/settings");

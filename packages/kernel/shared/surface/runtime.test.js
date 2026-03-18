@@ -49,6 +49,24 @@ test("createSurfaceRuntime resolves pathname by surface prefix", () => {
   assert.equal(runtime.resolveSurfaceFromPathname("/"), "app");
 });
 
+test("createSurfaceRuntime resolves workspace-first surface paths", () => {
+  const runtime = createSurfaceRuntime({
+    tenancyMode: "workspace",
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "/", enabled: true, requiresWorkspace: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true, requiresWorkspace: true },
+      console: { id: "console", prefix: "/console", enabled: true, requiresWorkspace: false }
+    }
+  });
+
+  assert.equal(runtime.resolveSurfaceFromPathname("/w/acme"), "app");
+  assert.equal(runtime.resolveSurfaceFromPathname("/w/acme/projects"), "app");
+  assert.equal(runtime.resolveSurfaceFromPathname("/w/acme/admin"), "admin");
+  assert.equal(runtime.resolveSurfaceFromPathname("/w/acme/admin/contacts"), "admin");
+  assert.equal(runtime.resolveSurfaceFromPathname("/console"), "console");
+});
+
 test("filterRoutesBySurface keeps enabled routes for chosen mode", () => {
   const runtime = createSurfaceRuntime({
     tenancyMode: "none",

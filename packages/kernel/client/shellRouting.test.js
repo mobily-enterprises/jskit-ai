@@ -67,16 +67,15 @@ test("buildSurfaceAwareRoutes rewrites workspace-required surfaces to canonical 
   assert.equal(routePaths.includes("/coffie"), false);
   assert.equal(routePaths.includes("/coffie/members"), false);
   assert.equal(routePaths.includes("/coffie/workspaces"), false);
-  assert.equal(routePaths.includes("/coffie/w/:workspaceSlug"), true);
-  assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/members"), true);
-  assert.equal(routePaths.includes("/coffie/w/:workspaceSlug/workspaces"), true);
+  assert.equal(routePaths.includes("/w/:workspaceSlug"), true);
+  assert.equal(routePaths.includes("/w/:workspaceSlug/members"), true);
+  assert.equal(routePaths.includes("/w/:workspaceSlug/workspaces"), true);
   assert.equal(routePaths.includes("/app/home"), true);
   assert.equal(routePaths.includes("/app/w/:workspaceSlug/home"), false);
   assert.equal(routePaths.includes("/console/settings"), true);
   assert.equal(routePaths.includes("/console/w/:workspaceSlug/settings"), false);
   assert.equal(routePaths.includes("/auth/login"), true);
   assert.equal(routePaths.includes("/"), true);
-  assert.equal(routePaths.includes("/w/:workspaceSlug"), false);
 });
 
 test("buildSurfaceAwareRoutes preserves parent path when nested descendants are global", () => {
