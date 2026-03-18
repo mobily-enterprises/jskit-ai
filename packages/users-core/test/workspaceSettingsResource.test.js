@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import "../test-support/registerDefaultSettingsFields.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
@@ -66,12 +67,12 @@ test("workspace settings output normalizes raw service payloads", () => {
     workspace: {
       id: "7",
       slug: "  mercury  ",
-      name: "  Mercury Workspace  ",
-      ownerUserId: "9",
-      avatarUrl: "  https://example.com/avatar.png  ",
-      color: "#0f6b54"
+      ownerUserId: "9"
     },
     settings: {
+      name: "  Mercury Workspace  ",
+      avatarUrl: "  https://example.com/avatar.png  ",
+      color: "#0f6b54",
       invitesEnabled: false
     },
     roleCatalog: createWorkspaceRoleCatalog()
@@ -81,12 +82,12 @@ test("workspace settings output normalizes raw service payloads", () => {
     workspace: {
       id: 7,
       slug: "mercury",
-      name: "Mercury Workspace",
-      ownerUserId: 9,
-      avatarUrl: "https://example.com/avatar.png",
-      color: "#0F6B54"
+      ownerUserId: 9
     },
     settings: {
+      name: "Mercury Workspace",
+      avatarUrl: "https://example.com/avatar.png",
+      color: "#0F6B54",
       invitesEnabled: false,
       invitesAvailable: true,
       invitesEffective: false

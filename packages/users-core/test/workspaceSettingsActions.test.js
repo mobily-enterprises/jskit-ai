@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import "../test-support/registerDefaultSettingsFields.js";
 import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
 import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";

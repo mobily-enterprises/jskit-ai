@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import "../test-support/registerDefaultSettingsFields.js";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 
 function authorizedOptions(permissions = []) {
@@ -15,7 +16,6 @@ function authorizedOptions(permissions = []) {
 
 function createFixture() {
   const state = {
-    workspacePatch: null,
     settingsPatch: null,
     workspace: {
       id: 7,
@@ -26,25 +26,14 @@ function createFixture() {
       color: "#0F6B54"
     },
     settings: {
+      name: "TonyMobily3",
+      avatarUrl: "",
+      color: "#0F6B54",
       invitesEnabled: true
     }
   };
 
   const service = createService({
-    workspacesRepository: {
-      async findById(id) {
-        return Number(id) === 7 ? { ...state.workspace } : null;
-      },
-      async updateById(workspaceId, patch) {
-        assert.equal(Number(workspaceId), 7);
-        state.workspacePatch = { ...patch };
-        state.workspace = {
-          ...state.workspace,
-          ...patch
-        };
-        return { ...state.workspace };
-      }
-    },
     workspaceSettingsRepository: {
       async ensureForWorkspaceId(workspaceId) {
         assert.equal(Number(workspaceId), 7);
@@ -55,7 +44,7 @@ function createFixture() {
         state.settingsPatch = { ...patch };
         state.settings = {
           ...state.settings,
-          ...(Object.hasOwn(patch, "invitesEnabled") ? { invitesEnabled: patch.invitesEnabled } : {})
+          ...patch
         };
         return state.settings;
       }
@@ -74,11 +63,16 @@ test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEn
   );
 
   assert.deepEqual(response.settings, {
-    invitesEnabled: true
+    name: "TonyMobily3",
+    avatarUrl: "",
+    color: "#0F6B54",
+    invitesEnabled: true,
+    invitesAvailable: true,
+    invitesEffective: true
   });
 });
 
-test("workspaceSettingsService.updateWorkspaceSettings delegates workspace and settings patches to the correct repositories", async () => {
+test("workspaceSettingsService.updateWorkspaceSettings writes editable fields through workspaceSettingsRepository only", async () => {
   const { service, state } = createFixture();
 
   const response = await service.updateWorkspaceSettings(
@@ -90,14 +84,16 @@ test("workspaceSettingsService.updateWorkspaceSettings delegates workspace and s
     authorizedOptions(["workspace.settings.update"])
   );
 
-  assert.deepEqual(state.workspacePatch, {
-    name: "New Name"
-  });
   assert.deepEqual(state.settingsPatch, {
+    name: "New Name",
     invitesEnabled: false
   });
-  assert.equal(response.workspace.name, "New Name");
   assert.deepEqual(response.settings, {
-    invitesEnabled: false
+    name: "New Name",
+    avatarUrl: "",
+    color: "#0F6B54",
+    invitesEnabled: false,
+    invitesAvailable: true,
+    invitesEffective: false
   });
 });

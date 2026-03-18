@@ -235,9 +235,65 @@ export default Object.freeze({
         reason: "Install users/workspace console owner migration.",
         category: "migration",
         id: "users-core-console-owner-schema"
+      },
+      {
+        from: "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",
+        to: "packages/main/src/shared/resources/workspaceSettingsFields.js",
+        preserveOnRemove: true,
+        reason: "Install app-owned workspace settings field definitions.",
+        category: "users-core",
+        id: "users-core-app-owned-workspace-settings-fields"
+      },
+      {
+        from: "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
+        to: "packages/main/src/shared/resources/consoleSettingsFields.js",
+        preserveOnRemove: true,
+        reason: "Install app-owned console settings field definitions.",
+        category: "users-core",
+        id: "users-core-app-owned-console-settings-fields"
       }
     ],
     text: [
+      {
+        op: "append-text",
+        file: "packages/main/src/shared/index.js",
+        position: "top",
+        skipIfContains: "import \"./resources/workspaceSettingsFields.js\";",
+        value: "import \"./resources/workspaceSettingsFields.js\";\n",
+        reason: "Load app-owned workspace settings field definitions inside the main shared module.",
+        category: "users-core",
+        id: "users-core-main-shared-workspace-settings-field-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/shared/index.js",
+        position: "top",
+        skipIfContains: "import \"./resources/consoleSettingsFields.js\";",
+        value: "import \"./resources/consoleSettingsFields.js\";\n",
+        reason: "Load app-owned console settings field definitions inside the main shared module.",
+        category: "users-core",
+        id: "users-core-main-shared-console-settings-field-import"
+      },
+      {
+        op: "append-text",
+        file: "src/main.js",
+        position: "top",
+        skipIfContains: "import \"@local/main/shared\";",
+        value: "import \"@local/main/shared\";\n",
+        reason: "Ensure client runtime loads app-owned shared settings field registration.",
+        category: "users-core",
+        id: "users-core-client-import-main-shared"
+      },
+      {
+        op: "append-text",
+        file: "server.js",
+        position: "top",
+        skipIfContains: "import \"@local/main/shared\";",
+        value: "import \"@local/main/shared\";\n",
+        reason: "Ensure server runtime loads app-owned shared settings field registration.",
+        category: "users-core",
+        id: "users-core-server-import-main-shared"
+      },
       {
         op: "append-text",
         file: "config/public.js",

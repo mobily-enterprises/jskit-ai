@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import "../test-support/registerDefaultSettingsFields.js";
 import { createRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
 function createDefaultWorkspaceSettings() {
@@ -12,6 +13,9 @@ function createKnexStub(rowOverrides = {}) {
     updatePayload: null,
     row: {
       workspace_id: 1,
+      name: "Workspace",
+      avatar_url: "",
+      color: "#0F6B54",
       invites_enabled: 1,
       created_at: "2026-03-09 00:26:35.710",
       updated_at: "2026-03-09 00:26:35.710",
@@ -27,6 +31,9 @@ function createKnexStub(rowOverrides = {}) {
         state.insertedRow = { ...payload };
         state.row = {
           workspace_id: payload.workspace_id,
+          name: payload.name,
+          avatar_url: payload.avatar_url,
+          color: payload.color,
           invites_enabled: payload.invites_enabled,
           created_at: "2026-03-10 00:00:00.000",
           updated_at: "2026-03-10 00:00:00.000"
@@ -44,6 +51,15 @@ function createKnexStub(rowOverrides = {}) {
             state.updatePayload = payload;
             if (Object.hasOwn(payload, "invites_enabled")) {
               state.row.invites_enabled = payload.invites_enabled;
+            }
+            if (Object.hasOwn(payload, "name")) {
+              state.row.name = payload.name;
+            }
+            if (Object.hasOwn(payload, "avatar_url")) {
+              state.row.avatar_url = payload.avatar_url;
+            }
+            if (Object.hasOwn(payload, "color")) {
+              state.row.color = payload.color;
             }
             if (Object.hasOwn(payload, "updated_at")) {
               state.row.updated_at = payload.updated_at;
@@ -68,6 +84,9 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
 
   assert.deepEqual(record, {
     workspaceId: 1,
+    name: "Workspace",
+    avatarUrl: "",
+    color: "#0F6B54",
     invitesEnabled: true,
     createdAt: "2026-03-08T16:26:35.710Z",
     updatedAt: "2026-03-08T16:26:35.710Z"
@@ -98,8 +117,34 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   const record = await repository.ensureForWorkspaceId(5);
 
   assert.equal(state.insertedRow.workspace_id, 5);
+  assert.equal(state.insertedRow.name, "Workspace");
+  assert.equal(state.insertedRow.avatar_url, "");
+  assert.equal(state.insertedRow.color, "#0F6B54");
   assert.equal(state.insertedRow.invites_enabled, false);
+  assert.equal(record.name, "Workspace");
+  assert.equal(record.avatarUrl, "");
+  assert.equal(record.color, "#0F6B54");
   assert.equal(record.invitesEnabled, false);
+});
+
+test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates name/avatar/color columns", async () => {
+  const { knexStub, state } = createKnexStub();
+  const repository = createRepository(knexStub, {
+    defaultInvitesEnabled: true
+  });
+
+  const updated = await repository.updateSettingsByWorkspaceId(1, {
+    name: "New name",
+    avatarUrl: "https://example.com/avatar.png",
+    color: "#123abc"
+  });
+
+  assert.equal(state.updatePayload.name, "New name");
+  assert.equal(state.updatePayload.avatar_url, "https://example.com/avatar.png");
+  assert.equal(state.updatePayload.color, "#123ABC");
+  assert.equal(updated.name, "New name");
+  assert.equal(updated.avatarUrl, "https://example.com/avatar.png");
+  assert.equal(updated.color, "#123ABC");
 });
 
 test("workspaceSettingsRepository can be constructed without validating app config shape", () => {

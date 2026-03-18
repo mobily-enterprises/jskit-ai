@@ -121,8 +121,11 @@ function createService({
     throw new AppError(500, "Unable to generate unique workspace slug.");
   }
 
-  async function ensureWorkspaceSettingsForWorkspace(workspaceId, options = {}) {
-    return workspaceSettingsRepository.ensureForWorkspaceId(workspaceId, options);
+  async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
+    return workspaceSettingsRepository.ensureForWorkspaceId(workspace?.id, {
+      ...options,
+      workspace
+    });
   }
 
   async function ensurePersonalWorkspaceForUser(user, options = {}) {
@@ -134,7 +137,7 @@ function createService({
     const existing = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
     if (existing) {
       await workspaceMembershipsRepository.ensureOwnerMembership(existing.id, normalizedUser.id, options);
-      await ensureWorkspaceSettingsForWorkspace(existing.id, options);
+      await ensureWorkspaceSettingsForWorkspace(existing, options);
       return existing;
     }
 
@@ -152,7 +155,7 @@ function createService({
     );
 
     await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUser.id, options);
-    await ensureWorkspaceSettingsForWorkspace(inserted.id, options);
+    await ensureWorkspaceSettingsForWorkspace(inserted, options);
     return inserted;
   }
 
@@ -227,7 +230,7 @@ function createService({
       throw new AppError(403, "You do not have access to this workspace.");
     }
 
-    const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace.id, options);
+    const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace, options);
     const permissions = buildPermissionsFromMembership(membership);
 
     return {

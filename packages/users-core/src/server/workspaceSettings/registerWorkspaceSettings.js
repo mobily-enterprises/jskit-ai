@@ -36,7 +36,6 @@ function registerWorkspaceSettings(app) {
     "users.workspace.settings.service",
     (scope) =>
       createWorkspaceSettingsService({
-        workspacesRepository: scope.make("workspacesRepository"),
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
       }),
     {

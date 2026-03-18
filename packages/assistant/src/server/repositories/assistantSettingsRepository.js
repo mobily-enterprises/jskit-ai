@@ -15,7 +15,7 @@ function toIso(value) {
 
 function mapConsoleRow(row = {}) {
   return {
-    workspaceSurfacePrompt: String(row.workspace_surface_prompt || ""),
+    workspaceSurfacePrompt: String(row.assistant_workspace_surface_prompt || ""),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at)
   };
@@ -24,7 +24,7 @@ function mapConsoleRow(row = {}) {
 function mapWorkspaceRow(row = {}) {
   return {
     workspaceId: Number(row.workspace_id),
-    appSurfacePrompt: String(row.app_surface_prompt || ""),
+    appSurfacePrompt: String(row.assistant_app_surface_prompt || ""),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at)
   };
@@ -37,20 +37,9 @@ function createRepository(knex) {
 
   async function ensureConsoleSettings(options = {}) {
     const client = options?.trx || knex;
-
-    await client("assistant_console_settings")
-      .insert({
-        id: 1,
-        workspace_surface_prompt: "",
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .onConflict("id")
-      .ignore();
-
-    const row = await client("assistant_console_settings").where({ id: 1 }).first();
+    const row = await client("console_settings").where({ id: 1 }).first();
     if (!row) {
-      throw new Error("assistant_console_settings row missing.");
+      throw new Error("console_settings row missing.");
     }
 
     return mapConsoleRow(row);
@@ -60,14 +49,10 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const nextWorkspaceSurfacePrompt = String(patch.workspaceSurfacePrompt || "");
 
-    await ensureConsoleSettings({
-      trx: client
-    });
-
-    await client("assistant_console_settings")
+    await client("console_settings")
       .where({ id: 1 })
       .update({
-        workspace_surface_prompt: nextWorkspaceSurfacePrompt,
+        assistant_workspace_surface_prompt: nextWorkspaceSurfacePrompt,
         updated_at: new Date()
       });
 
@@ -83,19 +68,9 @@ function createRepository(knex) {
     }
 
     const client = options?.trx || knex;
-    await client("assistant_workspace_settings")
-      .insert({
-        workspace_id: numericWorkspaceId,
-        app_surface_prompt: "",
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .onConflict("workspace_id")
-      .ignore();
-
-    const row = await client("assistant_workspace_settings").where({ workspace_id: numericWorkspaceId }).first();
+    const row = await client("workspace_settings").where({ workspace_id: numericWorkspaceId }).first();
     if (!row) {
-      throw new Error("assistant_workspace_settings row missing.");
+      throw new Error("workspace_settings row missing.");
     }
 
     return mapWorkspaceRow(row);
@@ -114,10 +89,10 @@ function createRepository(knex) {
       trx: client
     });
 
-    await client("assistant_workspace_settings")
+    await client("workspace_settings")
       .where({ workspace_id: numericWorkspaceId })
       .update({
-        app_surface_prompt: nextAppSurfacePrompt,
+        assistant_app_surface_prompt: nextAppSurfacePrompt,
         updated_at: new Date()
       });
 

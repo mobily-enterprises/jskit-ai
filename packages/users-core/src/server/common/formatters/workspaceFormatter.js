@@ -15,10 +15,14 @@ function mapWorkspaceSummary(workspace, membership) {
 
 function mapWorkspaceSettingsPublic(workspaceSettings) {
   const source = workspaceSettings && typeof workspaceSettings === "object" ? workspaceSettings : {};
+  const invitesEnabled = source.invitesEnabled !== false;
   return {
-    invitesEnabled: source.invitesEnabled !== false,
+    name: normalizeText(source.name),
+    color: coerceWorkspaceColor(source.color),
+    avatarUrl: normalizeText(source.avatarUrl),
+    invitesEnabled,
     invitesAvailable: true,
-    invitesEffective: source.invitesEnabled !== false
+    invitesEffective: invitesEnabled
   };
 }
 

@@ -44,9 +44,32 @@ function createRepository(knex) {
     throw new TypeError("workspacesRepository requires knex.");
   }
 
+  function workspaceSelectColumns(client, { includeMembership = false } = {}) {
+    const columns = [
+      "w.id",
+      "w.slug",
+      client.raw("COALESCE(ws.name, w.name) as name"),
+      "w.owner_user_id",
+      "w.is_personal",
+      client.raw("COALESCE(ws.avatar_url, w.avatar_url) as avatar_url"),
+      client.raw("COALESCE(ws.color, w.color) as color"),
+      "w.created_at",
+      "w.updated_at",
+      "w.deleted_at"
+    ];
+    if (includeMembership) {
+      columns.push("wm.role_id", "wm.status as membership_status");
+    }
+    return columns;
+  }
+
   async function findById(workspaceId, options = {}) {
     const client = options?.trx || knex;
-    const row = await client("workspaces").where({ id: Number(workspaceId) }).first();
+    const row = await client("workspaces as w")
+      .leftJoin("workspace_settings as ws", "ws.workspace_id", "w.id")
+      .where({ "w.id": Number(workspaceId) })
+      .select(workspaceSelectColumns(client))
+      .first();
     return mapRow(row);
   }
 
@@ -57,15 +80,21 @@ function createRepository(knex) {
       return null;
     }
 
-    const row = await client("workspaces").where({ slug: normalizedSlug }).first();
+    const row = await client("workspaces as w")
+      .leftJoin("workspace_settings as ws", "ws.workspace_id", "w.id")
+      .where({ "w.slug": normalizedSlug })
+      .select(workspaceSelectColumns(client))
+      .first();
     return mapRow(row);
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
     const client = options?.trx || knex;
-    const row = await client("workspaces")
-      .where({ owner_user_id: Number(userId), is_personal: 1 })
-      .orderBy("id", "asc")
+    const row = await client("workspaces as w")
+      .leftJoin("workspace_settings as ws", "ws.workspace_id", "w.id")
+      .where({ "w.owner_user_id": Number(userId), "w.is_personal": 1 })
+      .orderBy("w.id", "asc")
+      .select(workspaceSelectColumns(client))
       .first();
     return mapRow(row);
   }
@@ -131,24 +160,12 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const rows = await client("workspace_memberships as wm")
       .join("workspaces as w", "w.id", "wm.workspace_id")
+      .leftJoin("workspace_settings as ws", "ws.workspace_id", "w.id")
       .where({ "wm.user_id": Number(userId) })
       .whereNull("w.deleted_at")
       .orderBy("w.is_personal", "desc")
       .orderBy("w.id", "asc")
-      .select([
-        "w.id",
-        "w.slug",
-        "w.name",
-        "w.owner_user_id",
-        "w.is_personal",
-        "w.avatar_url",
-        "w.color",
-        "w.created_at",
-        "w.updated_at",
-        "w.deleted_at",
-        "wm.role_id",
-        "wm.status as membership_status"
-      ]);
+      .select(workspaceSelectColumns(client, { includeMembership: true }));
 
     return rows.map(mapMembershipWorkspaceRow).filter(Boolean);
   }

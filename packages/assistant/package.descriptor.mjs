@@ -177,6 +177,38 @@ export default Object.freeze({
         id: "assistant-settings-form-placements"
       },
       {
+        op: "append-text",
+        file: "packages/main/src/shared/resources/consoleSettingsFields.js",
+        position: "top",
+        skipIfContains: "import { Type } from \"typebox\";",
+        value: "import { Type } from \"typebox\";\n",
+        reason: "Ensure app-owned console settings field registry has TypeBox import for assistant fields.",
+        category: "assistant",
+        id: "assistant-console-settings-fields-import-typebox"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/shared/resources/consoleSettingsFields.js",
+        position: "bottom",
+        skipIfContains: "key: \"workspaceSurfacePrompt\"",
+        value:
+          "\ndefineField({\n  key: \"workspaceSurfacePrompt\",\n  dbColumn: \"assistant_workspace_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"Workspace surface system prompt must be at most 12000 characters.\",\n      default: \"Workspace surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
+        reason: "Append assistant console settings field into app-owned console settings field registry.",
+        category: "assistant",
+        id: "assistant-console-settings-field-definition"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/shared/resources/workspaceSettingsFields.js",
+        position: "bottom",
+        skipIfContains: "key: \"appSurfacePrompt\"",
+        value:
+          "\ndefineField({\n  key: \"appSurfacePrompt\",\n  dbColumn: \"assistant_app_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"App surface system prompt must be at most 12000 characters.\",\n      default: \"App surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
+        reason: "Append assistant workspace settings field into app-owned workspace settings field registry.",
+        category: "assistant",
+        id: "assistant-workspace-settings-field-definition"
+      },
+      {
         file: ".env",
         op: "upsert-env",
         key: "AI_PROVIDER",

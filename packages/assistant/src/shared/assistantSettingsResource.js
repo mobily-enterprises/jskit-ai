@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
+import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
 
@@ -15,53 +16,62 @@ function createPromptSchema(promptLabel) {
 
 function createPromptSettingsResource({
   resourceId = "",
-  promptKey = "",
-  promptLabel = "System prompt",
+  fields = [],
   validationMessage = "Fix invalid values and try again.",
   saveSuccessMessage = "Saved.",
   saveErrorMessage = "Unable to save settings."
 } = {}) {
-  const promptSchema = createPromptSchema(promptLabel);
-  const settingsSchema = Type.Object(
-    {
-      [promptKey]: promptSchema
-    },
-    { additionalProperties: false }
-  );
-  const recordSchema = Type.Object(
-    {
-      settings: settingsSchema
-    },
-    { additionalProperties: false }
-  );
-  const createSchema = Type.Object(
-    {
-      [promptKey]: promptSchema
-    },
-    { additionalProperties: false }
-  );
-  const patchSchema = Type.Partial(createSchema, {
+  const settingsOutputProperties = {};
+  const settingsCreateProperties = {};
+  for (const field of fields) {
+    settingsOutputProperties[field.key] = field.outputSchema;
+    settingsCreateProperties[field.key] =
+      field.required === false ? Type.Optional(field.inputSchema) : field.inputSchema;
+  }
+
+  const settingsOutputSchema = Type.Object(settingsOutputProperties, { additionalProperties: false });
+  const settingsCreateSchema = Type.Object(settingsCreateProperties, { additionalProperties: false });
+  const settingsPatchSchema = Type.Partial(settingsCreateSchema, {
     additionalProperties: false
   });
-
-  function normalizeOutput(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const settingsSource = normalizeObjectInput(source.settings);
-
-    return {
-      settings: {
-        [promptKey]: String(settingsSource[promptKey] || "")
-      }
-    };
-  }
+  const recordSchema = Type.Object(
+    {
+      settings: settingsOutputSchema
+    },
+    { additionalProperties: false }
+  );
 
   function normalizeInput(payload = {}) {
     const source = normalizeObjectInput(payload);
     const normalized = {};
-    if (Object.hasOwn(source, promptKey)) {
-      normalized[promptKey] = String(source[promptKey] || "");
+    for (const field of fields) {
+      if (!Object.hasOwn(source, field.key)) {
+        continue;
+      }
+      normalized[field.key] = field.normalizeInput(source[field.key], {
+        payload: source
+      });
     }
     return normalized;
+  }
+
+  function normalizeOutput(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    const settingsSource = normalizeObjectInput(source.settings);
+    const settings = {};
+    for (const field of fields) {
+      const rawValue = Object.hasOwn(settingsSource, field.key)
+        ? settingsSource[field.key]
+        : field.resolveDefault({
+            settings: settingsSource
+          });
+      settings[field.key] = field.normalizeOutput(rawValue, {
+        settings: settingsSource
+      });
+    }
+    return {
+      settings
+    };
   }
 
   const outputValidator = Object.freeze({
@@ -84,7 +94,7 @@ function createPromptSettingsResource({
       create: Object.freeze({
         method: "POST",
         bodyValidator: Object.freeze({
-          schema: createSchema,
+          schema: settingsCreateSchema,
           normalize: normalizeInput
         }),
         outputValidator
@@ -92,7 +102,7 @@ function createPromptSettingsResource({
       replace: Object.freeze({
         method: "PUT",
         bodyValidator: Object.freeze({
-          schema: createSchema,
+          schema: settingsCreateSchema,
           normalize: normalizeInput
         }),
         outputValidator
@@ -100,7 +110,7 @@ function createPromptSettingsResource({
       patch: Object.freeze({
         method: "PATCH",
         bodyValidator: Object.freeze({
-          schema: patchSchema,
+          schema: settingsPatchSchema,
           normalize: normalizeInput
         }),
         outputValidator
@@ -109,18 +119,90 @@ function createPromptSettingsResource({
   });
 }
 
+function createFieldRegistry(scopeLabel) {
+  const fields = [];
+
+  function defineField(field = {}) {
+    const key = normalizeText(field.key);
+    if (!key) {
+      throw new TypeError(`${scopeLabel}.defineField requires field.key.`);
+    }
+    if (fields.some((entry) => entry.key === key)) {
+      throw new Error(`${scopeLabel}.defineField duplicate key: ${key}`);
+    }
+    if (!field.inputSchema || typeof field.inputSchema !== "object") {
+      throw new TypeError(`${scopeLabel}.defineField("${key}") requires inputSchema.`);
+    }
+    if (!field.outputSchema || typeof field.outputSchema !== "object") {
+      throw new TypeError(`${scopeLabel}.defineField("${key}") requires outputSchema.`);
+    }
+    if (typeof field.normalizeInput !== "function") {
+      throw new TypeError(`${scopeLabel}.defineField("${key}") requires normalizeInput.`);
+    }
+    if (typeof field.normalizeOutput !== "function") {
+      throw new TypeError(`${scopeLabel}.defineField("${key}") requires normalizeOutput.`);
+    }
+    if (typeof field.resolveDefault !== "function") {
+      throw new TypeError(`${scopeLabel}.defineField("${key}") requires resolveDefault.`);
+    }
+
+    fields.push({
+      key,
+      required: field.required !== false,
+      inputSchema: field.inputSchema,
+      outputSchema: field.outputSchema,
+      normalizeInput: field.normalizeInput,
+      normalizeOutput: field.normalizeOutput,
+      resolveDefault: field.resolveDefault
+    });
+  }
+
+  return {
+    fields,
+    defineField
+  };
+}
+
+const assistantConsoleSettingsFields = (() => {
+  const registry = createFieldRegistry("assistantConsoleSettingsFields");
+  const { fields, defineField } = registry;
+  defineField({
+    key: "workspaceSurfacePrompt",
+    required: true,
+    inputSchema: createPromptSchema("Workspace surface system prompt"),
+    outputSchema: Type.String({ maxLength: MAX_SYSTEM_PROMPT_CHARS }),
+    normalizeInput: (value) => String(value || ""),
+    normalizeOutput: (value) => String(value || ""),
+    resolveDefault: () => ""
+  });
+  return fields;
+})();
+
+const assistantWorkspaceSettingsFields = (() => {
+  const registry = createFieldRegistry("assistantWorkspaceSettingsFields");
+  const { fields, defineField } = registry;
+  defineField({
+    key: "appSurfacePrompt",
+    required: true,
+    inputSchema: createPromptSchema("App surface system prompt"),
+    outputSchema: Type.String({ maxLength: MAX_SYSTEM_PROMPT_CHARS }),
+    normalizeInput: (value) => String(value || ""),
+    normalizeOutput: (value) => String(value || ""),
+    resolveDefault: () => ""
+  });
+  return fields;
+})();
+
 const assistantConsoleSettingsResource = createPromptSettingsResource({
   resourceId: "assistantConsoleSettings",
-  promptKey: "workspaceSurfacePrompt",
-  promptLabel: "Workspace surface system prompt",
+  fields: assistantConsoleSettingsFields,
   saveSuccessMessage: "Assistant console settings updated.",
   saveErrorMessage: "Unable to update assistant console settings."
 });
 
 const assistantWorkspaceSettingsResource = createPromptSettingsResource({
   resourceId: "assistantWorkspaceSettings",
-  promptKey: "appSurfacePrompt",
-  promptLabel: "App surface system prompt",
+  fields: assistantWorkspaceSettingsFields,
   saveSuccessMessage: "Assistant workspace settings updated.",
   saveErrorMessage: "Unable to update assistant workspace settings."
 });

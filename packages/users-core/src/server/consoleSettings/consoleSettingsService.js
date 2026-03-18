@@ -1,7 +1,8 @@
 function buildSettingsResponse(record = {}) {
-  void record;
   return {
-    settings: {}
+    settings: {
+      ...(record?.settings && typeof record.settings === "object" ? record.settings : {})
+    }
   };
 }
 
@@ -24,9 +25,8 @@ function createService({ consoleSettingsRepository, consoleService } = {}) {
   }
 
   async function updateSettings(input = {}, options = {}) {
-    void input;
     await consoleService.requireConsoleOwner(options?.context, options);
-    const settings = await consoleSettingsRepository.updateSingleton({});
+    const settings = await consoleSettingsRepository.updateSingleton(input);
 
     return buildSettingsResponse(settings);
   }

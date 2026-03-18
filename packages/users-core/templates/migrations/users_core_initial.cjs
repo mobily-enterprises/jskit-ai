@@ -44,6 +44,9 @@ exports.up = async function up(knex) {
 
   await knex.schema.createTable("workspace_settings", (table) => {
     table.integer("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
+    table.string("name", 160).notNullable().defaultTo("Workspace");
+    table.string("avatar_url", 512).notNullable().defaultTo("");
+    table.string("color", 7).notNullable().defaultTo("#0F6B54");
     table.boolean("invites_enabled").notNullable().defaultTo(true);
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());

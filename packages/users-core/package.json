@@ -17,10 +17,12 @@
     "./shared/support/usersApiPaths": "./src/shared/support/usersApiPaths.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
+    "./shared/resources/workspaceSettingsFields": "./src/shared/resources/workspaceSettingsFields.js",
     "./shared/resources/workspaceMemberResource": "./src/shared/resources/workspaceMemberResource.js",
     "./shared/resources/workspaceInviteResource": "./src/shared/resources/workspaceInviteResource.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
+    "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js",
     "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js",
     "./shared/resources/workspacePendingInvitationsResource": "./src/shared/resources/workspacePendingInvitationsResource.js"
   },

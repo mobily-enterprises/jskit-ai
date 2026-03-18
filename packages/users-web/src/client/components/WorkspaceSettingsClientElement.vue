@@ -172,12 +172,11 @@ const addEdit = useAddEdit({
       value: rawPayload
     }),
   mapLoadedToModel: (model, payload = {}) => {
-    const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : {};
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
 
-    model.name = String(workspace.name || "");
-    model.color = String(workspace.color || DEFAULT_WORKSPACE_COLOR);
-    model.avatarUrl = String(workspace.avatarUrl || "");
+    model.name = String(settings.name || "");
+    model.color = String(settings.color || DEFAULT_WORKSPACE_COLOR);
+    model.avatarUrl = String(settings.avatarUrl || "");
     model.invitesEnabled = settings.invitesEnabled !== false;
     model.invitesAvailable = settings.invitesAvailable !== false;
   },

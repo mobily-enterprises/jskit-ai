@@ -3,6 +3,23 @@ import {
   toIsoString
 } from "../common/repositories/repositoryUtils.js";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { consoleSettingsFields } from "../../shared/resources/consoleSettingsFields.js";
+
+function mapSettings(row = {}) {
+  const settings = {};
+  for (const field of consoleSettingsFields) {
+    const rawValue = Object.hasOwn(row, field.dbColumn)
+      ? row[field.dbColumn]
+      : field.resolveDefault({
+          settings: row
+        });
+    settings[field.key] = field.normalizeOutput(rawValue, {
+      settings: row
+    });
+  }
+  return settings;
+}
 
 function mapSingletonRow(row) {
   if (!row) {
@@ -13,6 +30,7 @@ function mapSingletonRow(row) {
   return {
     id: Number(row.id),
     ownerUserId: ownerUserId || null,
+    settings: mapSettings(row),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -61,14 +79,24 @@ function createRepository(knex) {
   }
 
   async function updateSingleton(patch, options = {}) {
-    void patch;
     const client = options?.trx || knex;
+    const source = normalizeObjectInput(patch);
+    const dbPatch = {
+      updated_at: nowDb()
+    };
+
+    for (const field of consoleSettingsFields) {
+      if (!Object.hasOwn(source, field.key)) {
+        continue;
+      }
+      dbPatch[field.dbColumn] = field.normalizeInput(source[field.key], {
+        payload: source
+      });
+    }
 
     await client("console_settings")
       .where({ id: 1 })
-      .update({
-        updated_at: nowDb()
-      });
+      .update(dbPatch);
 
     return getSingleton({ trx: client });
   }

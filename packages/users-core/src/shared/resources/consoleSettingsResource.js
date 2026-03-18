@@ -4,11 +4,25 @@ import {
   createCursorListValidator,
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/validators";
+import { consoleSettingsFields } from "./consoleSettingsFields.js";
 
-const consoleSettingsValueSchema = Type.Object(
-  {},
-  { additionalProperties: false }
-);
+function buildCreateSchema() {
+  const properties = {};
+  for (const field of consoleSettingsFields) {
+    properties[field.key] = field.required === false ? Type.Optional(field.inputSchema) : field.inputSchema;
+  }
+  return Type.Object(properties, { additionalProperties: false });
+}
+
+function buildOutputSchema() {
+  const properties = {};
+  for (const field of consoleSettingsFields) {
+    properties[field.key] = field.outputSchema;
+  }
+  return Type.Object(properties, { additionalProperties: false });
+}
+
+const consoleSettingsValueSchema = buildOutputSchema();
 
 const consoleSettingsRecordSchema = Type.Object(
   {
@@ -17,23 +31,47 @@ const consoleSettingsRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const consoleSettingsCreateSchema = Type.Object(
-  {},
-  { additionalProperties: false }
-);
+const consoleSettingsCreateSchema = buildCreateSchema();
 
 const consoleSettingsReplaceSchema = consoleSettingsCreateSchema;
 const consoleSettingsPatchSchema = Type.Partial(consoleSettingsCreateSchema, {
   additionalProperties: false
 });
 
+function normalizeConsoleSettingsInput(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  const normalized = {};
+  for (const field of consoleSettingsFields) {
+    if (!Object.hasOwn(source, field.key)) {
+      continue;
+    }
+    normalized[field.key] = field.normalizeInput(source[field.key], {
+      payload: source
+    });
+  }
+  return normalized;
+}
+
 const consoleSettingsOutputValidator = Object.freeze({
   schema: consoleSettingsRecordSchema,
   normalize(payload = {}) {
-    void payload;
+    const source = normalizeObjectInput(payload);
+    const settingsSource = normalizeObjectInput(source.settings);
+    const settings = {};
+
+    for (const field of consoleSettingsFields) {
+      const rawValue = Object.hasOwn(settingsSource, field.key)
+        ? settingsSource[field.key]
+        : field.resolveDefault({
+            settings: settingsSource
+          });
+      settings[field.key] = field.normalizeOutput(rawValue, {
+        settings: settingsSource
+      });
+    }
 
     return {
-      settings: {}
+      settings
     };
   }
 });
@@ -58,7 +96,7 @@ const consoleSettingsResource = Object.freeze({
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: consoleSettingsCreateSchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator
     }),
@@ -67,7 +105,7 @@ const consoleSettingsResource = Object.freeze({
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: consoleSettingsReplaceSchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator
     }),
@@ -76,7 +114,7 @@ const consoleSettingsResource = Object.freeze({
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: consoleSettingsPatchSchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator
     })
