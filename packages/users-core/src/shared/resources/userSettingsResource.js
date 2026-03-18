@@ -23,7 +23,7 @@ function pickPatchBody(schema, keys = []) {
 
   return Type.Object(properties, {
     additionalProperties: false,
-    minProperties: keys.length > 0 ? 1 : 0
+    minProperties: 1
   });
 }
 

@@ -24,7 +24,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
-  normalizeInput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.theme,
+  normalizeInput: (value) => normalizeText(value),
   normalizeOutput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.theme,
   resolveDefault: () => DEFAULT_USER_SETTINGS.theme
 });
@@ -36,7 +36,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 24 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 24 }),
-  normalizeInput: (value) => normalizeLowerText(value) || DEFAULT_USER_SETTINGS.locale,
+  normalizeInput: (value) => normalizeLowerText(value),
   normalizeOutput: (value) => normalizeLowerText(value) || DEFAULT_USER_SETTINGS.locale,
   resolveDefault: () => DEFAULT_USER_SETTINGS.locale
 });
@@ -48,7 +48,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 64 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 64 }),
-  normalizeInput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.timeZone,
+  normalizeInput: (value) => normalizeText(value),
   normalizeOutput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.timeZone,
   resolveDefault: () => DEFAULT_USER_SETTINGS.timeZone
 });
@@ -60,7 +60,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
-  normalizeInput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.dateFormat,
+  normalizeInput: (value) => normalizeText(value),
   normalizeOutput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.dateFormat,
   resolveDefault: () => DEFAULT_USER_SETTINGS.dateFormat
 });
@@ -72,7 +72,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
-  normalizeInput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.numberFormat,
+  normalizeInput: (value) => normalizeText(value),
   normalizeOutput: (value) => normalizeText(value) || DEFAULT_USER_SETTINGS.numberFormat,
   resolveDefault: () => DEFAULT_USER_SETTINGS.numberFormat
 });
@@ -84,7 +84,7 @@ defineField({
   required: true,
   inputSchema: Type.String({ minLength: 3, maxLength: 3, pattern: "^[A-Za-z]{3}$" }),
   outputSchema: Type.String({ minLength: 3, maxLength: 3, pattern: "^[A-Z]{3}$" }),
-  normalizeInput: (value) => normalizeText(value).toUpperCase() || DEFAULT_USER_SETTINGS.currencyCode,
+  normalizeInput: (value) => normalizeText(value).toUpperCase(),
   normalizeOutput: (value) => normalizeText(value).toUpperCase() || DEFAULT_USER_SETTINGS.currencyCode,
   resolveDefault: () => DEFAULT_USER_SETTINGS.currencyCode
 });
@@ -96,7 +96,7 @@ defineField({
   required: true,
   inputSchema: Type.Integer({ minimum: 1 }),
   outputSchema: Type.Integer({ minimum: 1 }),
-  normalizeInput: (value) => normalizePositiveInteger(value, DEFAULT_USER_SETTINGS.avatarSize),
+  normalizeInput: (value) => Number(value),
   normalizeOutput: (value) => normalizePositiveInteger(value, DEFAULT_USER_SETTINGS.avatarSize),
   resolveDefault: () => DEFAULT_USER_SETTINGS.avatarSize
 });
@@ -108,8 +108,8 @@ defineField({
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),
-  normalizeInput: (value) => value === true,
-  normalizeOutput: (value) => value === true,
+  normalizeInput: (value) => value,
+  normalizeOutput: (value) => Boolean(value),
   resolveDefault: () => DEFAULT_USER_SETTINGS.productUpdates
 });
 
@@ -120,8 +120,8 @@ defineField({
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),
-  normalizeInput: (value) => value === true,
-  normalizeOutput: (value) => value === true,
+  normalizeInput: (value) => value,
+  normalizeOutput: (value) => Boolean(value),
   resolveDefault: () => DEFAULT_USER_SETTINGS.accountActivity
 });
 
@@ -132,7 +132,7 @@ defineField({
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),
-  normalizeInput: (value) => value === true,
-  normalizeOutput: (value) => value === true,
+  normalizeInput: (value) => value,
+  normalizeOutput: (value) => Boolean(value),
   resolveDefault: () => DEFAULT_USER_SETTINGS.securityAlerts
 });

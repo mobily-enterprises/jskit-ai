@@ -23,14 +23,12 @@ function mapRow(row) {
   };
 
   for (const field of userSettingsFields) {
-    const rawValue = Object.hasOwn(row, field.dbColumn) ? row[field.dbColumn] : undefined;
-    const value =
-      rawValue == null
-        ? field.resolveDefault({
-            settings: mapped,
-            row
-          })
-        : rawValue;
+    const value = Object.hasOwn(row, field.dbColumn)
+      ? row[field.dbColumn]
+      : field.resolveDefault({
+          settings: mapped,
+          row
+        });
     mapped[field.key] = field.normalizeOutput(value, {
       settings: mapped,
       row
