@@ -72,10 +72,10 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X make  packages/assistant/src/client/composables/useAssistantWorkspaceRuntime.js  "load more" generic
   X add indicator for realtime connection up & working
 
-  - re-add workspace-wide setting for app-assistant, and in fact re-instate app assistant
-  - Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
-  - Theme seems to change when going to user settings screen
-  - Spurious chat settings in profile_settings
+  X re-add workspace-wide setting for app-assistant, and in fact re-instate app assistant
+  X Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
+  X Theme seems to change when going to user settings screen
+  X Spurious chat settings in profile_settings
 
   - A new workspace seems to be created after changing username (!!!)
   - Workflow to accept an invite

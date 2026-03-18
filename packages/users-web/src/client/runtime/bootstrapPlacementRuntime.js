@@ -1,4 +1,7 @@
-import { CLIENT_MODULE_ROUTER_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import {
+  CLIENT_MODULE_ROUTER_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN
+} from "@jskit-ai/kernel/client/moduleBootstrap";
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   extractWorkspaceSlugFromSurfacePathname,
@@ -15,6 +18,11 @@ import {
   resolvePlacementUserFromBootstrapPayload
 } from "../lib/bootstrap.js";
 import { normalizePermissionList } from "../lib/permissions.js";
+import {
+  resolveBootstrapThemeName,
+  resolveVuetifyThemeController,
+  setVuetifyThemeName
+} from "../lib/theme.js";
 
 const USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN = "users.web.bootstrap-placement.runtime";
 const BOOTSTRAP_PLACEMENT_SOURCE = "users-web.bootstrap-placement";
@@ -87,6 +95,9 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   const runtimeLogger = logger || createProviderLogger(app);
   const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
   const router = app.has(CLIENT_MODULE_ROUTER_TOKEN) ? app.make(CLIENT_MODULE_ROUTER_TOKEN) : null;
+  let vuetifyThemeController = resolveVuetifyThemeController(
+    app.has(CLIENT_MODULE_VUE_APP_TOKEN) ? app.make(CLIENT_MODULE_VUE_APP_TOKEN) : null
+  );
   const socket = app.has(REALTIME_SOCKET_CLIENT_TOKEN) ? app.make(REALTIME_SOCKET_CLIENT_TOKEN) : null;
   const cleanup = [];
   let refreshQueue = Promise.resolve();
@@ -127,6 +138,38 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     );
   }
 
+  function getVuetifyThemeController() {
+    if (vuetifyThemeController) {
+      return vuetifyThemeController;
+    }
+    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+      return null;
+    }
+
+    vuetifyThemeController = resolveVuetifyThemeController(app.make(CLIENT_MODULE_VUE_APP_TOKEN));
+    return vuetifyThemeController;
+  }
+
+  function applyThemeFromBootstrapPayload(payload = {}, reason = "manual") {
+    const themeController = getVuetifyThemeController();
+    if (!themeController) {
+      return;
+    }
+
+    try {
+      const nextThemeName = resolveBootstrapThemeName(payload);
+      setVuetifyThemeName(themeController, nextThemeName);
+    } catch (error) {
+      runtimeLogger.warn(
+        {
+          reason,
+          error: String(error?.message || error || "unknown error")
+        },
+        "users-web bootstrap theme apply failed."
+      );
+    }
+  }
+
   async function refresh(reason = "manual") {
     if (shutdownRequested) {
       return;
@@ -142,9 +185,18 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       }
 
       writePlacementContext(payload, stateAtStart, source);
+      applyThemeFromBootstrapPayload(payload, reason);
     } catch (error) {
       if (resolveErrorStatusCode(error) === 401) {
         clearPlacementContext(source);
+        applyThemeFromBootstrapPayload(
+          {
+            session: {
+              authenticated: false
+            }
+          },
+          reason
+        );
         return;
       }
 
@@ -174,18 +226,35 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   }
 
   async function initialize() {
+    const contextAtInit = placementRuntime.getContext();
+    if (contextAtInit?.auth?.authenticated !== true) {
+      applyThemeFromBootstrapPayload({
+        session: {
+          authenticated: false
+        }
+      }, "init");
+    }
+
     if (typeof placementRuntime.subscribe === "function") {
       const unsubscribePlacement = placementRuntime.subscribe((event = {}) => {
         if (event.type !== "context.updated") {
           return;
         }
 
-        const nextSignature = resolveAuthSignature(placementRuntime.getContext());
+        const nextContext = placementRuntime.getContext();
+        const nextSignature = resolveAuthSignature(nextContext);
         if (nextSignature === authSignature) {
           return;
         }
 
         authSignature = nextSignature;
+        if (nextContext?.auth?.authenticated !== true) {
+          applyThemeFromBootstrapPayload({
+            session: {
+              authenticated: false
+            }
+          }, "auth");
+        }
         void queueRefresh("auth");
       });
       cleanup.push(() => {

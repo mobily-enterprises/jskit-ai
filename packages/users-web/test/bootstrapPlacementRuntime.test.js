@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CLIENT_MODULE_ROUTER_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import {
+  CLIENT_MODULE_ROUTER_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN
+} from "@jskit-ai/kernel/client/moduleBootstrap";
 import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/placement";
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import { createBootstrapPlacementRuntime } from "../src/client/runtime/bootstrapPlacementRuntime.js";
 
 function flushTasks() {
@@ -128,6 +132,26 @@ function createAppStub(records = {}) {
       return registry.get(token);
     },
     warn() {}
+  };
+}
+
+function createVuetifyThemeController(initial = "light") {
+  return {
+    global: {
+      name: {
+        value: initial
+      }
+    }
+  };
+}
+
+function createVueAppWithThemeController(themeController) {
+  return {
+    _context: {
+      provides: {
+        [ThemeSymbol]: themeController
+      }
+    }
   };
 }
 
@@ -318,4 +342,73 @@ test("bootstrap placement runtime refetches when auth context changes", async ()
   await flushTasks();
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme", "acme"]);
+});
+
+test("bootstrap placement runtime forces light theme for unauthenticated bootstrap payloads", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/auth/login");
+  const themeController = createVuetifyThemeController("dark");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router,
+      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: false
+        },
+        workspaces: [],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(themeController.global.name.value, "light");
+});
+
+test("bootstrap placement runtime reapplies theme when bootstrap payload changes", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const socket = createSocketStub();
+  const themeController = createVuetifyThemeController("light");
+  let fetchCount = 0;
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router,
+      [REALTIME_SOCKET_CLIENT_TOKEN]: socket,
+      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+    }),
+    fetchBootstrap: async (workspaceSlug) => {
+      fetchCount += 1;
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        profile: {
+          displayName: "User",
+          email: "user@example.com",
+          avatar: {
+            effectiveUrl: ""
+          }
+        },
+        userSettings: {
+          theme: fetchCount === 1 ? "dark" : "light"
+        },
+        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(themeController.global.name.value, "dark");
+
+  socket.emit(USERS_BOOTSTRAP_CHANGED_EVENT, {});
+  await flushTasks();
+  assert.equal(themeController.global.name.value, "light");
 });

@@ -15,6 +15,10 @@ import ProfileClientElement from "./ProfileClientElement.vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { usersWebHttpClient } from "../lib/httpClient.js";
+import {
+  resolveThemeNameForPreference,
+  setVuetifyThemeName
+} from "../lib/theme.js";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
@@ -196,21 +200,8 @@ function normalizeAvatarSize(value) {
 }
 
 function applyThemePreference(themePreference) {
-  const preference = String(themePreference || "system").toLowerCase();
-  if (preference === "dark") {
-    vuetifyTheme.global.name.value = "dark";
-    return;
-  }
-  if (preference === "light") {
-    vuetifyTheme.global.name.value = "light";
-    return;
-  }
-
-  const prefersDark =
-    typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-      : false;
-  vuetifyTheme.global.name.value = prefersDark ? "dark" : "light";
+  const themeName = resolveThemeNameForPreference(themePreference);
+  setVuetifyThemeName(vuetifyTheme, themeName);
 }
 
 function applyAvatarData(avatar) {
