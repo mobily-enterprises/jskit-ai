@@ -129,6 +129,14 @@ function resolveOptionalRepositories(scope) {
   return repositories;
 }
 
+function resolveOptionalServices(scope) {
+  const services = {};
+  if (scope.has("users.workspace.service")) {
+    services.workspaceProvisioningService = scope.make("users.workspace.service");
+  }
+  return services;
+}
+
 class AuthSupabaseServiceProvider {
   static id = "auth.provider.supabase";
 
@@ -156,6 +164,7 @@ class AuthSupabaseServiceProvider {
         };
         const authProvider = resolveAuthProviderConfig(env);
         const repositories = resolveOptionalRepositories(scope);
+        const services = resolveOptionalServices(scope);
         const userProfilesRepository = repositories.userProfilesRepository || fallbackProfilesRepository;
         const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
         if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
@@ -167,7 +176,8 @@ class AuthSupabaseServiceProvider {
           appPublicUrl: String(env.APP_PUBLIC_URL || "").trim(),
           nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
           userProfilesRepository,
-          userSettingsRepository
+          userSettingsRepository,
+          workspaceProvisioningService: services.workspaceProvisioningService || null
         });
       });
     }

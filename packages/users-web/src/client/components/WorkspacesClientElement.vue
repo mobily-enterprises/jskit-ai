@@ -28,12 +28,17 @@ const errorRuntime = useShellWebErrorRuntime();
 const selectingWorkspaceSlug = ref("");
 const bootstrapModel = reactive({
   sessionAuthenticated: false,
+  tenancyMode: "none",
   workspaces: [],
   pendingInvites: []
 });
 const inviteAction = ref({
   token: "",
   decision: ""
+});
+const createWorkspaceModel = reactive({
+  name: "",
+  slug: ""
 });
 const redeemInviteModel = reactive({
   token: "",
@@ -52,6 +57,7 @@ const bootstrapView = useView({
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {
     model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
+    model.tenancyMode = String(payload?.app?.tenancyMode || "").trim().toLowerCase() || "none";
     model.workspaces = normalizeWorkspaceList(payload?.workspaces);
     model.pendingInvites = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
       .map(normalizePendingInvite)
@@ -75,6 +81,28 @@ const redeemInviteCommand = useCommand({
   }
 });
 
+const createWorkspaceCommand = useCommand({
+  visibility: "public",
+  apiSuffix: "/workspaces",
+  writeMethod: "POST",
+  fallbackRunError: "Unable to create workspace.",
+  suppressSuccessMessage: true,
+  model: createWorkspaceModel,
+  buildRawPayload: (model) => {
+    const payload = {
+      name: String(model.name || "").trim()
+    };
+    const slug = String(model.slug || "").trim().toLowerCase();
+    if (slug) {
+      payload.slug = slug;
+    }
+    return payload;
+  },
+  messages: {
+    error: "Unable to create workspace."
+  }
+});
+
 useRealtimeQueryInvalidation({
   event: WORKSPACES_CHANGED_EVENT,
   queryKey: bootstrapQueryKey
@@ -94,6 +122,8 @@ const pendingInvites = computed(() => {
 });
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
+const canCreateWorkspace = computed(() => bootstrapModel.tenancyMode === "workspace");
+const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
 
 function reportFeedback({
   message,
@@ -300,6 +330,42 @@ function refuseInvite(invite) {
   return respondToInvite(invite, "refuse");
 }
 
+async function createWorkspace() {
+  if (!canCreateWorkspace.value) {
+    return;
+  }
+
+  const name = String(createWorkspaceModel.name || "").trim();
+  if (!name) {
+    reportFeedback({
+      message: "Workspace name is required.",
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.workspaces-view:create-workspace-name-required"
+    });
+    return;
+  }
+
+  try {
+    const createdWorkspace = await createWorkspaceCommand.run();
+    await bootstrapView.refresh();
+    const createdSlug = String(createdWorkspace?.slug || "").trim();
+    const autoOpenHandledByWatcher = workspaceItems.value.length === 1 && pendingInvites.value.length < 1;
+    if (createdSlug && !autoOpenHandledByWatcher) {
+      await openWorkspace(createdSlug);
+    }
+    createWorkspaceModel.name = "";
+    createWorkspaceModel.slug = "";
+  } catch (error) {
+    reportFeedback({
+      message: String(error?.message || "Unable to create workspace."),
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "users-web.workspaces-view:create-workspace-error"
+    });
+  }
+}
+
 watch(
   () => bootstrapView.resource.data.value,
   async (payload) => {
@@ -343,7 +409,33 @@ watch(
                 <div class="text-subtitle-2 mb-2">Your workspaces</div>
                 <template v-if="workspaceItems.length === 0">
                   <p class="text-body-1 mb-2">You do not have a workspace yet.</p>
-                  <p class="text-body-2 text-medium-emphasis mb-0">
+                  <template v-if="canCreateWorkspace">
+                    <v-text-field
+                      v-model="createWorkspaceModel.name"
+                      density="comfortable"
+                      label="Workspace name"
+                      variant="outlined"
+                      hide-details
+                      class="mb-2"
+                    />
+                    <v-text-field
+                      v-model="createWorkspaceModel.slug"
+                      density="comfortable"
+                      label="Slug (optional)"
+                      variant="outlined"
+                      hide-details
+                      class="mb-3"
+                    />
+                    <v-btn
+                      color="primary"
+                      variant="tonal"
+                      :loading="isCreatingWorkspace"
+                      @click="createWorkspace"
+                    >
+                      Create Workspace
+                    </v-btn>
+                  </template>
+                  <p v-else class="text-body-2 text-medium-emphasis mb-0">
                     Ask an administrator for an invite, or create one after policy is enabled.
                   </p>
                 </template>

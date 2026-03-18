@@ -58,20 +58,12 @@ function hashInviteToken(token) {
   return createHash("sha256").update(normalizeText(token)).digest("hex");
 }
 
-function normalizeBoolean(value, fallback) {
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "string") {
-    const normalized = normalizeLowerText(value);
-    if (normalized === "true") {
-      return true;
-    }
-    if (normalized === "false") {
-      return false;
-    }
-  }
-  return fallback;
+function normalizeWorkspaceCreationInput(payload = {}) {
+  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  return {
+    name: normalizeText(source.name),
+    requestedSlug: normalizeLowerText(source.slug)
+  };
 }
 
 function createService({
@@ -88,26 +80,8 @@ function createService({
     throw new Error("workspaceService requires repositories.");
   }
 
-  const defaultAppFeatures = Object.freeze({
-    workspaceSwitching: true,
-    workspaceInvites: true,
-    workspaceCreateEnabled: false,
-    assistantEnabled: false,
-    assistantRequiredPermission: "",
-    socialEnabled: false,
-    socialFederationEnabled: false
-  });
   const resolvedTenancyMode = normalizeTenancyMode(appConfig.tenancyMode);
   const resolvedWorkspaceColor = coerceWorkspaceColor(appConfig.workspaceColor);
-  const resolvedAppFeatures = Object.freeze({
-    workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, defaultAppFeatures.workspaceSwitching),
-    workspaceInvites: normalizeBoolean(appConfig.workspaceInvites, defaultAppFeatures.workspaceInvites),
-    workspaceCreateEnabled: normalizeBoolean(appConfig.workspaceCreateEnabled, defaultAppFeatures.workspaceCreateEnabled),
-    assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, defaultAppFeatures.assistantEnabled),
-    assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
-    socialEnabled: normalizeBoolean(appConfig.socialEnabled, defaultAppFeatures.socialEnabled),
-    socialFederationEnabled: normalizeBoolean(appConfig.socialFederationEnabled, defaultAppFeatures.socialFederationEnabled)
-  });
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
     while (suffix < 1000) {
@@ -169,7 +143,6 @@ function createService({
       return [];
     }
 
-    await ensurePersonalWorkspaceForUser(normalizedUser, options);
     const list = await workspacesRepository.listForUserId(normalizedUser.id, options);
     const accessible = list
       .map((entry) => mapWorkspaceSummary(entry, { roleId: entry.roleId, status: entry.membershipStatus }))
@@ -191,6 +164,53 @@ function createService({
     return listWorkspacesForUser(user, options);
   }
 
+  async function provisionWorkspaceForNewUser(user, options = {}) {
+    const normalizedUser = authenticatedUserValidator.normalize(user);
+    if (!normalizedUser) {
+      throw new AppError(400, "Invalid authenticated user payload.");
+    }
+
+    if (resolvedTenancyMode !== TENANCY_MODE_PERSONAL) {
+      return null;
+    }
+
+    return ensurePersonalWorkspaceForUser(normalizedUser, options);
+  }
+
+  async function createWorkspaceForAuthenticatedUser(user, payload = {}, options = {}) {
+    const normalizedUser = authenticatedUserValidator.normalize(user);
+    if (!normalizedUser) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
+      throw new AppError(403, "Workspace creation is disabled for this tenancy mode.");
+    }
+
+    const createInput = normalizeWorkspaceCreationInput(payload);
+    if (!createInput.name) {
+      throw new AppError(400, "Workspace name is required.");
+    }
+
+    const slugBase = createInput.requestedSlug || toSlugPart(createInput.name);
+    const slug = await ensureUniqueWorkspaceSlug(slugBase, options);
+    const inserted = await workspacesRepository.insert(
+      {
+        slug,
+        name: createInput.name,
+        ownerUserId: normalizedUser.id,
+        isPersonal: false,
+        avatarUrl: "",
+        color: resolvedWorkspaceColor
+      },
+      options
+    );
+
+    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUser.id, options);
+    await ensureWorkspaceSettingsForWorkspace(inserted, options);
+    return inserted;
+  }
+
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
@@ -208,7 +228,10 @@ function createService({
 
     let workspace = null;
     if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
-      workspace = await ensurePersonalWorkspaceForUser(normalizedUser, options);
+      workspace = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
+      if (!workspace) {
+        throw new AppError(404, "Personal workspace not found.");
+      }
       const personalWorkspaceSlug = normalizeLowerText(workspace.slug);
       if (normalizedWorkspaceSlug !== personalWorkspaceSlug) {
         throw new AppError(403, "Only the personal workspace can be used.");
@@ -247,6 +270,8 @@ function createService({
     buildWorkspaceBaseSlug,
     hashInviteToken,
     ensurePersonalWorkspaceForUser,
+    provisionWorkspaceForNewUser,
+    createWorkspaceForAuthenticatedUser,
     listWorkspacesForUser,
     listWorkspacesForAuthenticatedUser,
     resolveWorkspaceContextForUserBySlug

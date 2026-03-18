@@ -26,7 +26,7 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
     contributorId,
     async contribute({ actionId, input, context, request } = {}) {
       const payload = normalizeObject(input);
-      if (!Object.prototype.hasOwnProperty.call(payload, "workspaceSlug")) {
+      if (!Object.hasOwn(payload, "workspaceSlug")) {
         return {};
       }
 

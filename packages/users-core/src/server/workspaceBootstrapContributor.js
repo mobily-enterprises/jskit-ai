@@ -66,7 +66,6 @@ function resolveAppState(appConfig = {}) {
   const features = {
     workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, true),
     workspaceInvites: normalizeBoolean(appConfig.workspaceInvites, true),
-    workspaceCreateEnabled: normalizeBoolean(appConfig.workspaceCreateEnabled, false),
     assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, false),
     assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
     socialEnabled: normalizeBoolean(appConfig.socialEnabled, false),

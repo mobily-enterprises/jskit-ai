@@ -163,6 +163,10 @@ test("workspace settings routes mount one canonical workspace endpoint", async (
 
 test("workspace invite and member handlers build action input from request.input", async () => {
   const routes = await registerUsersRoutes();
+  const workspaceCreate = findRoute(routes, {
+    method: "POST",
+    path: "/api/workspaces"
+  });
   const workspaceInviteRedeem = findRoute(routes, {
     method: "POST",
     path: "/api/workspace/invitations/redeem"
@@ -185,6 +189,15 @@ test("workspace invite and member handlers build action input from request.input
     return {};
   };
 
+  await workspaceCreate.handler(
+    createActionRequest({
+      input: {
+        body: { name: "Operations", slug: "operations" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
   await workspaceInviteRedeem.handler(
     createActionRequest({
       input: {
@@ -224,10 +237,14 @@ test("workspace invite and member handlers build action input from request.input
     createReplyDouble()
   );
 
-  assert.deepEqual(calls[0].input, { payload: { token: "token-1", decision: "accept" } });
-  assert.deepEqual(calls[1].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
-  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
-  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", inviteId: "55" });
+  assert.deepEqual(calls[0], {
+    actionId: "workspace.workspaces.create",
+    input: { name: "Operations", slug: "operations" }
+  });
+  assert.deepEqual(calls[1].input, { payload: { token: "token-1", decision: "accept" } });
+  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
+  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
+  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", inviteId: "55" });
 });
 
 test("workspace settings route handlers build action input from request.input", async () => {

@@ -67,6 +67,11 @@ export default Object.freeze({
     server: {
       routes: [
         {
+          method: "POST",
+          path: "/api/workspaces",
+          summary: "Create a workspace for the authenticated user."
+        },
+        {
           method: "GET",
           path: "/api/workspaces",
           summary: "List workspaces visible to authenticated user."
@@ -313,7 +318,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"

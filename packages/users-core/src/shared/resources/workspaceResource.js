@@ -86,12 +86,8 @@ const listItemSchema = Type.Object(
 
 const createRequestBodySchema = Type.Object(
   {
-    slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    ownerUserId: Type.Integer({ minimum: 1 }),
-    avatarUrl: Type.String(),
-    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
-    isPersonal: Type.Boolean()
+    slug: Type.Optional(Type.String({ minLength: 1, maxLength: 120 }))
   },
   { additionalProperties: false }
 );

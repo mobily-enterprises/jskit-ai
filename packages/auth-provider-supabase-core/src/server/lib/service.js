@@ -102,6 +102,11 @@ function createService(options) {
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const userProfilesRepository = options.userProfilesRepository;
   const userSettingsRepository = options.userSettingsRepository || null;
+  const workspaceProvisioningService =
+    options.workspaceProvisioningService &&
+    typeof options.workspaceProvisioningService.provisionWorkspaceForNewUser === "function"
+      ? options.workspaceProvisioningService
+      : null;
   const isProduction = options.nodeEnv === "production";
   const jwtAudience = String(authProvider.jwtAudience || DEFAULT_AUDIENCE).trim();
   const settingsProfileAuthInfo = Object.freeze({
@@ -466,7 +471,12 @@ function createService(options) {
       }
 
       const upserted = await upsertProfileByIdentity(normalized);
-      return requireSynchronizedProfile(upserted);
+      const synchronizedProfile = requireSynchronizedProfile(upserted);
+      if (!existing && workspaceProvisioningService) {
+        await workspaceProvisioningService.provisionWorkspaceForNewUser(synchronizedProfile);
+      }
+
+      return synchronizedProfile;
     } catch (error) {
       if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
         throw new AppError(

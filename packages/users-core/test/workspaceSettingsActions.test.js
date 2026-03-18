@@ -36,5 +36,7 @@ test("workspace actions array no longer owns workspace settings actions", () => 
 });
 
 test("workspace directory actions use the canonical workspace list resource output", () => {
-  assert.equal(workspaceDirectoryActions[0].outputValidator, workspaceResource.operations.list.outputValidator);
+  const listAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.list");
+  assert.ok(listAction);
+  assert.equal(listAction.outputValidator, workspaceResource.operations.list.outputValidator);
 });
