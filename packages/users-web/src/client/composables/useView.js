@@ -57,8 +57,10 @@ function useView({
     source: `${placementSource}.load`,
     loadError,
     notFoundError: view.notFoundError,
+    dedupeWindowMs: 0,
     loadActionFactory: () => ({
       label: "Retry",
+      dismissOnRun: true,
       handler() {
         void view.refresh();
       }

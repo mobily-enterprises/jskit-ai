@@ -20,7 +20,7 @@ function normalizeRecordInput(payload = {}) {
   return normalized;
 }
 
-function normalizeRecordRecord(payload = {}) {
+function normalizeRecordOutput(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
@@ -32,7 +32,7 @@ function normalizeRecordRecord(payload = {}) {
   };
 }
 
-const recordRecordSchema = Type.Object(
+const recordOutputSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
@@ -75,9 +75,9 @@ const recordBodySchema = Type.Object(
   }
 );
 
-const recordRecordValidator = Object.freeze({
-  schema: recordRecordSchema,
-  normalize: normalizeRecordRecord
+const recordOutputValidator = Object.freeze({
+  schema: recordOutputSchema,
+  normalize: normalizeRecordOutput
 });
 
 const crudResource = {
@@ -92,11 +92,11 @@ const crudResource = {
   operations: {
     list: {
       method: "GET",
-      outputValidator: createCursorListValidator(recordRecordValidator)
+      outputValidator: createCursorListValidator(recordOutputValidator)
     },
     view: {
       method: "GET",
-      outputValidator: recordRecordValidator
+      outputValidator: recordOutputValidator
     },
     create: {
       method: "POST",
@@ -104,7 +104,7 @@ const crudResource = {
         schema: recordBodySchema,
         normalize: normalizeRecordInput
       },
-      outputValidator: recordRecordValidator
+      outputValidator: recordOutputValidator
     },
     patch: {
       method: "PATCH",
@@ -112,7 +112,7 @@ const crudResource = {
         schema: Type.Partial(recordBodySchema, { additionalProperties: false }),
         normalize: normalizeRecordInput
       },
-      outputValidator: recordRecordValidator
+      outputValidator: recordOutputValidator
     },
     delete: {
       method: "DELETE",

@@ -85,13 +85,16 @@ function onDialogModelValue(nextValue) {
 <template>
   <div class="shell-error-host" aria-live="polite">
     <div v-if="bannerEntries.length > 0" class="shell-error-host__banners">
-      <v-container fluid class="pa-2">
+      <div class="shell-error-host__banner-stack">
         <v-alert
           v-for="entry in bannerEntries"
           :key="entry.id"
           :type="resolveSeverityColor(entry.severity)"
-          variant="tonal"
-          class="mb-2"
+          variant="elevated"
+          density="comfortable"
+          rounded="lg"
+          border="start"
+          class="shell-error-host__banner"
           closable
           @click:close="dismiss(entry)"
         >
@@ -102,13 +105,14 @@ function onDialogModelValue(nextValue) {
               v-if="entry.action"
               variant="text"
               size="small"
+              class="text-none"
               @click="runAction(entry)"
             >
               {{ entry.action.label }}
             </v-btn>
           </div>
         </v-alert>
-      </v-container>
+      </div>
     </div>
 
     <v-snackbar
@@ -174,14 +178,31 @@ function onDialogModelValue(nextValue) {
 <style scoped>
 .shell-error-host__banners {
   position: fixed;
-  top: 0;
+  top: calc(env(safe-area-inset-top, 0px) + var(--shell-error-banner-offset, 64px));
   left: 0;
   right: 0;
   z-index: 2600;
   pointer-events: none;
+  padding: 10px 12px;
 }
 
-.shell-error-host__banners :deep(.v-alert) {
+.shell-error-host__banner-stack {
+  margin: 0 auto;
+  width: min(1120px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shell-error-host__banner {
   pointer-events: auto;
+  box-shadow: var(--v-shadow-4);
+}
+
+@media (max-width: 600px) {
+  .shell-error-host__banners {
+    top: calc(env(safe-area-inset-top, 0px) + var(--shell-error-banner-offset-mobile, 56px));
+    padding: 8px;
+  }
 }
 </style>

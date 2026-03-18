@@ -90,6 +90,31 @@ test("raw TypeBox action schemas validate normalized action input", async () => 
   assert.deepEqual(result, { workspaceSlug: "acme" });
 });
 
+test("typebox input validation normalizes pointer field errors to plain keys", async () => {
+  const definition = {
+    id: "tests.typebox.errors",
+    version: 1,
+    inputValidator: {
+      schema: Type.Object(
+        {
+          name: Type.String({ maxLength: 1 })
+        },
+        { additionalProperties: false }
+      )
+    }
+  };
+
+  await assert.rejects(
+    () => normalizeActionInput(definition, { name: "too long" }, {}),
+    (error) => {
+      const fieldErrors = error.details?.fieldErrors || {};
+      assert.equal(typeof fieldErrors.name, "string");
+      assert.equal(Object.hasOwn(fieldErrors, "/name"), false);
+      return true;
+    }
+  );
+});
+
 test("action output normalization runs before output validation", async () => {
   const definition = {
     id: "tests.output",

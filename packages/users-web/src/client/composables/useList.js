@@ -48,7 +48,15 @@ function useList({
   const isLoading = operationScope.isLoading(list.isLoading);
   setupOperationErrorReporting({
     source: `${placementSource}.load`,
-    loadError
+    loadError,
+    dedupeWindowMs: 0,
+    loadActionFactory: () => ({
+      label: "Retry",
+      dismissOnRun: true,
+      handler() {
+        void list.reload();
+      }
+    })
   });
 
   return Object.freeze({

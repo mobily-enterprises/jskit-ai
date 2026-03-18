@@ -66,12 +66,14 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   
   X Avatar not appearing in chat
 
-  - Fix displaying of errors, maybe se toasts
+  X Fix the routing so that /admin is at the END, after the workspace, not at the beginnig
+  X Fix displaying of errors, maybe set toasts
  
+  - make  packages/assistant/src/client/composables/useAssistantWorkspaceRuntime.js  "load more" generic
+  
   - If logged out, redirect to login immediately, check page permissions if not logged out
   - Place roles and permissions in app-owned config. Check config for assistant?
   
-  - make  packages/assistant/src/client/composables/useAssistantWorkspaceRuntime.js  "load more" generic
   
   - Delete setting table for workspace completely <--- MAYBE NOT!!! Check assistant's settings
   

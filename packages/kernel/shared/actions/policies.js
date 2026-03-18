@@ -161,7 +161,10 @@ function normalizeSchemaValidationErrors(schema) {
 
   const fieldErrors = {};
   for (const entry of errors) {
-    const fieldPath = normalizeText(entry?.path || entry?.instancePath || entry?.field || "") || "input";
+    const rawFieldPath = normalizeText(entry?.path || entry?.instancePath || entry?.field || "");
+    const fieldPath = rawFieldPath
+      ? rawFieldPath.replace(/^\//, "").replace(/\//g, ".")
+      : "input";
     const message = normalizeText(entry?.message || "Invalid value.") || "Invalid value.";
     fieldErrors[fieldPath] = message;
   }

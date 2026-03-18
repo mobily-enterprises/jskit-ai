@@ -13,6 +13,31 @@ function useUiFeedback({
   const messageType = ref(String(initialType || "success"));
   const errorRuntime = useShellWebErrorRuntime();
   const normalizedSource = String(source || "").trim() || "users-web.ui-feedback";
+  let lastErrorPresentation = null;
+
+  function rememberErrorPresentation(reportResult = null) {
+    const presentationId = String(reportResult?.presentationId || "").trim();
+    const presenterId = String(reportResult?.decision?.presenterId || "").trim();
+    if (!presentationId || !presenterId) {
+      return;
+    }
+
+    lastErrorPresentation = Object.freeze({
+      presentationId,
+      presenterId
+    });
+  }
+
+  function dismissLastErrorPresentation() {
+    if (!lastErrorPresentation) {
+      return;
+    }
+
+    errorRuntime.dismiss(lastErrorPresentation.presentationId, {
+      presenterId: lastErrorPresentation.presenterId
+    });
+    lastErrorPresentation = null;
+  }
 
   function clear() {
     message.value = "";
@@ -22,6 +47,7 @@ function useUiFeedback({
     messageType.value = "success";
     const normalizedMessage = String(nextMessage || "").trim();
     message.value = normalizedMessage;
+    dismissLastErrorPresentation();
     if (!normalizedMessage) {
       return;
     }
@@ -43,7 +69,7 @@ function useUiFeedback({
       return;
     }
 
-    errorRuntime.report({
+    const reportResult = errorRuntime.report({
       source: normalizedSource,
       message: message.value,
       cause: errorValue || null,
@@ -52,6 +78,10 @@ function useUiFeedback({
       dedupeKey: `${normalizedSource}:error:${message.value}`,
       dedupeWindowMs
     });
+
+    if (!reportResult?.skipped) {
+      rememberErrorPresentation(reportResult);
+    }
   }
 
   return Object.freeze({

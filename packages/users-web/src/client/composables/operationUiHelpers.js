@@ -32,12 +32,17 @@ function setupOperationErrorReporting({
     actionFactory = null
   } = {}) {
     let lastMessage = "";
+    let lastPresentationId = "";
 
     watch(
       () => normalizeMessage(value?.value),
       (nextMessage) => {
         if (!nextMessage) {
           lastMessage = "";
+          if (lastPresentationId) {
+            runtime.dismiss(lastPresentationId);
+            lastPresentationId = "";
+          }
           return;
         }
 
@@ -52,7 +57,7 @@ function setupOperationErrorReporting({
               kind
             })
           : null;
-        runtime.report({
+        const reportResult = runtime.report({
           source: normalizedSource,
           message: nextMessage,
           severity,
@@ -61,6 +66,14 @@ function setupOperationErrorReporting({
           dedupeKey: `${normalizedSource}:${kind}:${nextMessage}`,
           dedupeWindowMs
         });
+
+        const nextPresentationId = String(reportResult?.presentationId || "").trim();
+        if (nextPresentationId) {
+          if (lastPresentationId && lastPresentationId !== nextPresentationId) {
+            runtime.dismiss(lastPresentationId);
+          }
+          lastPresentationId = nextPresentationId;
+        }
       },
       { immediate: true }
     );

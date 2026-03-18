@@ -5,6 +5,7 @@ import {
 } from "./normalize.js";
 
 const PRESENTATION_CHANNELS = Object.freeze(["snackbar", "banner", "dialog"]);
+const SINGLETON_CHANNELS = new Set(["banner"]);
 
 function createEmptyChannelState() {
   return {
@@ -92,6 +93,10 @@ function createErrorPresentationStore({
       dedupeKey: normalizeText(payload.dedupeKey),
       timestamp: Number(now())
     });
+
+    if (SINGLETON_CHANNELS.has(normalizedChannel) && entries.length > 0) {
+      entries.splice(0, entries.length);
+    }
 
     entries.push(entry);
     revision += 1;
