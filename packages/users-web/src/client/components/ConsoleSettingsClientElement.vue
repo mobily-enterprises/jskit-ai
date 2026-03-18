@@ -56,10 +56,11 @@ const form = reactive({
 
 const addEdit = useAddEdit({
   visibility: "public",
+  access: "never",
   apiSuffix: "/console/settings",
   queryKeyFactory: () => ["users-web", "settings", "console"],
-  viewPermissions: ["console.settings.read", "console.settings.update"],
-  savePermissions: ["console.settings.update"],
+  viewPermissions: [],
+  savePermissions: [],
   writeMethod: "PATCH",
   placementSource: "users-web.console-settings-view",
   fallbackLoadError: "Unable to load console settings.",
