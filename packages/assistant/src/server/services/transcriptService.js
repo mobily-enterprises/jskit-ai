@@ -88,6 +88,16 @@ function normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_S
   };
 }
 
+function normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZE, maxLimit = MAX_PAGE_SIZE } = {}) {
+  const cursor = parsePositiveInteger(query.cursor) || 0;
+  const limit = Math.max(1, Math.min(maxLimit, parsePositiveInteger(query.limit) || defaultLimit));
+
+  return {
+    cursor,
+    limit
+  };
+}
+
 function normalizeConversationStatus(value, fallback = "active") {
   const normalized = normalizeText(value).toLowerCase();
   if (normalized === "active" || normalized === "completed" || normalized === "failed" || normalized === "aborted") {
@@ -237,9 +247,9 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     const actorUserId = resolveActorUserId(user, {
       required: true
     });
-    const pagination = normalizePagination(query, {
-      defaultPageSize: DEFAULT_PAGE_SIZE,
-      maxPageSize: MAX_PAGE_SIZE
+    const pagination = normalizeCursorPagination(query, {
+      defaultLimit: DEFAULT_PAGE_SIZE,
+      maxLimit: MAX_PAGE_SIZE
     });
 
     const status = normalizeConversationStatus(query.status, "");
@@ -247,26 +257,15 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       ...(status ? { status } : {})
     };
 
-    const total = await conversationsRepository.countForWorkspaceAndUser(workspaceId, actorUserId, filters);
-    const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
-    const page = Math.min(pagination.page, totalPages);
-    const entries = await conversationsRepository.listForWorkspaceAndUser(
+    return conversationsRepository.listForWorkspaceAndUser(
       workspaceId,
       actorUserId,
       {
-        page,
-        pageSize: pagination.pageSize
+        cursor: pagination.cursor,
+        limit: pagination.limit
       },
       filters
     );
-
-    return {
-      entries,
-      page,
-      pageSize: pagination.pageSize,
-      total,
-      totalPages
-    };
   }
 
   async function getConversationMessagesForUser(workspace, user, conversationId, query = {}) {

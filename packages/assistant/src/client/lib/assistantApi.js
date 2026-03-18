@@ -83,8 +83,8 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
     listConversations(workspaceSlug, query = {}) {
       const basePath = resolveWorkspaceBasePath(workspaceSlug);
       const params = new URLSearchParams();
-      appendQueryParam(params, "page", query.page);
-      appendQueryParam(params, "pageSize", query.pageSize);
+      appendQueryParam(params, "cursor", query.cursor);
+      appendQueryParam(params, "limit", query.limit);
       appendQueryParam(params, "status", query.status);
 
       return request(appendQueryString(`${basePath}/conversations`, params.toString()));

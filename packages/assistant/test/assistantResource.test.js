@@ -8,11 +8,8 @@ test("assistant output schemas accept normalized paginated payloads", () => {
   const conversationMessagesSchema = assistantResource.operations.conversationMessagesList.outputValidator.schema;
 
   const conversationsPayload = {
-    entries: [],
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    totalPages: 1
+    items: [],
+    nextCursor: null
   };
 
   const messagesPayload = {

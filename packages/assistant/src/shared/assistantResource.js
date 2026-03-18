@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import {
+  normalizeObjectInput,
+  createCursorListValidator
+} from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toPositiveInteger } from "./support/positiveInteger.js";
 
@@ -70,12 +73,19 @@ function normalizeChatStreamBody(payload = {}) {
 function normalizeConversationsListQuery(payload = {}) {
   const source = normalizeObjectInput(payload);
   const status = normalizeConversationStatus(source.status);
+  const normalized = {};
 
-  return {
-    page: normalizePaginationValue(source.page, 1, MAX_PAGE_SIZE),
-    pageSize: normalizePaginationValue(source.pageSize, 20, MAX_PAGE_SIZE),
-    ...(status ? { status } : {})
-  };
+  if (Object.hasOwn(source, "cursor")) {
+    normalized.cursor = toPositiveInteger(source.cursor, 0);
+  }
+  if (Object.hasOwn(source, "limit")) {
+    normalized.limit = toPositiveInteger(source.limit, 0);
+  }
+  if (status) {
+    normalized.status = status;
+  }
+
+  return normalized;
 }
 
 function normalizeConversationMessagesQuery(payload = {}) {
@@ -203,6 +213,11 @@ const conversationRecordSchema = Type.Object(
   { additionalProperties: false }
 );
 
+const conversationRecordValidator = Object.freeze({
+  schema: conversationRecordSchema,
+  normalize: normalizeConversationRecord
+});
+
 const messageRecordSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
@@ -242,33 +257,15 @@ const assistantResource = Object.freeze({
       queryValidator: Object.freeze({
         schema: Type.Object(
           {
-            page: createOptionalPositiveIntegerQuerySchema(),
-            pageSize: createOptionalPositiveIntegerQuerySchema(MAX_PAGE_SIZE),
+            cursor: createOptionalPositiveIntegerQuerySchema(),
+            limit: createOptionalPositiveIntegerQuerySchema(MAX_PAGE_SIZE),
             status: Type.Optional(Type.String({ minLength: 1, maxLength: 32 }))
           },
           { additionalProperties: false }
         ),
         normalize: normalizeConversationsListQuery
       }),
-      outputValidator: Object.freeze({
-        schema: Type.Object(
-          {
-            ...paginationProperties,
-            entries: Type.Array(conversationRecordSchema)
-          },
-          { additionalProperties: false }
-        ),
-        normalize(payload = {}) {
-          const source = normalizeObjectInput(payload);
-          return {
-            entries: (Array.isArray(source.entries) ? source.entries : []).map(normalizeConversationRecord),
-            page: normalizePaginationValue(source.page, 1, MAX_PAGE_SIZE),
-            pageSize: normalizePaginationValue(source.pageSize, 20, MAX_PAGE_SIZE),
-            total: Math.max(0, Number(source.total || 0)),
-            totalPages: Math.max(1, Number(source.totalPages || 1))
-          };
-        }
-      })
+      outputValidator: createCursorListValidator(conversationRecordValidator)
     },
     conversationMessagesList: {
       method: "GET",

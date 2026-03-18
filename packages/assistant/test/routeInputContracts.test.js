@@ -64,7 +64,7 @@ test("assistant routes build list inputs with explicit query object", async () =
     {
       input: {
         params: { workspaceSlug: "acme" },
-        query: { page: 2, pageSize: 50, status: "active" }
+        query: { cursor: 30, limit: 50, status: "active" }
       },
       executeAction
     },
@@ -83,7 +83,7 @@ test("assistant routes build list inputs with explicit query object", async () =
 
   assert.deepEqual(calls[0].input, {
     workspaceSlug: "acme",
-    query: { page: 2, pageSize: 50, status: "active" }
+    query: { cursor: 30, limit: 50, status: "active" }
   });
   assert.deepEqual(calls[1].input, {
     workspaceSlug: "acme",

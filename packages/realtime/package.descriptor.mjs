@@ -68,7 +68,23 @@ export default Object.freeze({
         ],
         client: [
           "runtime.realtime.client",
-          "runtime.realtime.client.socket"
+          "runtime.realtime.client.socket",
+          "realtime.web.connection.indicator"
+        ]
+      }
+    },
+    ui: {
+      placements: {
+        outlets: [],
+        contributions: [
+          {
+            id: "realtime.connection.indicator",
+            slot: "app.top-right",
+            surface: "*",
+            order: 950,
+            componentToken: "realtime.web.connection.indicator",
+            source: "mutations.text#realtime-placement-indicator"
+          }
         ]
       }
     }
@@ -108,6 +124,17 @@ export default Object.freeze({
         reason: "Configure optional Redis backplane URL for realtime socket adapter.",
         category: "runtime-config",
         id: "realtime-redis-url"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"realtime.connection.indicator\"",
+        value:
+          "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+        reason: "Append realtime connection indicator placement into app-owned placement registry.",
+        category: "realtime-web",
+        id: "realtime-placement-indicator"
       }
     ]
   }

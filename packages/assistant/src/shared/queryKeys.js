@@ -39,13 +39,12 @@ function assistantWorkspaceScopeQueryKey(workspaceScope = {}) {
   return [...assistantRootQueryKey(), normalizeWorkspaceScope(workspaceScope)];
 }
 
-function assistantConversationsListQueryKey(workspaceScope = {}, { page = 1, pageSize = 20, status = "" } = {}) {
+function assistantConversationsListQueryKey(workspaceScope = {}, { limit = 20, status = "" } = {}) {
   return [
     ...assistantWorkspaceScopeQueryKey(workspaceScope),
     "conversations",
     "list",
-    normalizePositiveInteger(page, 1),
-    normalizePositiveInteger(pageSize, 20),
+    normalizePositiveInteger(limit, 20),
     normalizeStatus(status)
   ];
 }

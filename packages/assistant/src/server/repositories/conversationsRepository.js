@@ -62,13 +62,13 @@ function mapConversationRow(row = {}) {
   };
 }
 
-function normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 20, maxPageSize = 200 } = {}) {
-  const page = Math.max(1, parsePositiveInteger(pagination.page) || defaultPage);
-  const pageSize = Math.max(1, Math.min(maxPageSize, parsePositiveInteger(pagination.pageSize) || defaultPageSize));
+function normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {}) {
+  const cursor = parsePositiveInteger(pagination.cursor) || 0;
+  const limit = Math.max(1, Math.min(maxLimit, parsePositiveInteger(pagination.limit) || defaultLimit));
 
   return {
-    page,
-    pageSize
+    cursor,
+    limit
   };
 }
 
@@ -243,39 +243,18 @@ function createConversationsRepository(knex) {
     });
   }
 
-  async function countForWorkspaceAndUser(workspaceId, actorUserId, filters = {}, options = {}) {
-    const numericWorkspaceId = parsePositiveInteger(workspaceId);
-    const numericActorUserId = parsePositiveInteger(actorUserId);
-    if (!numericWorkspaceId || !numericActorUserId) {
-      return 0;
-    }
-
-    const client = options?.trx || knex;
-    let query = client("ai_conversations as c")
-      .where("c.workspace_id", numericWorkspaceId)
-      .where("c.created_by_user_id", numericActorUserId)
-      .count({ total: "*" });
-
-    const normalizedStatus = normalizeText(filters.status).toLowerCase();
-    if (normalizedStatus) {
-      query = query.where("c.status", normalizedStatus);
-    }
-
-    const row = await query.first();
-    const total = Number(row?.total || 0);
-    return Number.isFinite(total) && total > 0 ? total : 0;
-  }
-
   async function listForWorkspaceAndUser(workspaceId, actorUserId, pagination = {}, filters = {}, options = {}) {
     const numericWorkspaceId = parsePositiveInteger(workspaceId);
     const numericActorUserId = parsePositiveInteger(actorUserId);
     if (!numericWorkspaceId || !numericActorUserId) {
-      return [];
+      return {
+        items: [],
+        nextCursor: null
+      };
     }
 
     const client = options?.trx || knex;
-    const { page, pageSize } = normalizePagination(pagination);
-    const offset = (page - 1) * pageSize;
+    const { cursor, limit } = normalizeCursorPagination(pagination);
 
     let query = client("ai_conversations as c")
       .leftJoin("workspaces as w", "w.id", "c.workspace_id")
@@ -294,14 +273,23 @@ function createConversationsRepository(knex) {
     if (normalizedStatus) {
       query = query.where("c.status", normalizedStatus);
     }
+    if (cursor > 0) {
+      query = query.where("c.id", "<", cursor);
+    }
 
     const rows = await query
-      .orderBy("c.started_at", "desc")
       .orderBy("c.id", "desc")
-      .limit(pageSize)
-      .offset(offset);
+      .limit(limit + 1);
 
-    return rows.map(mapConversationRow);
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const items = pageRows.map(mapConversationRow);
+    const nextCursor = hasMore && pageRows.length > 0 ? String(pageRows[pageRows.length - 1].id) : null;
+
+    return {
+      items,
+      nextCursor
+    };
   }
 
   async function transaction(callback) {
@@ -318,7 +306,6 @@ function createConversationsRepository(knex) {
     create,
     updateById,
     incrementMessageCount,
-    countForWorkspaceAndUser,
     listForWorkspaceAndUser,
     transaction
   });

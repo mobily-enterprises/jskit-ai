@@ -105,6 +105,7 @@ test("RealtimeClientProvider registers runtime realtime client api", () => {
 
   assert.equal(app.singletons.has(REALTIME_RUNTIME_CLIENT_TOKEN), true);
   assert.equal(app.singletons.has(REALTIME_SOCKET_CLIENT_TOKEN), true);
+  assert.equal(app.singletons.has("realtime.web.connection.indicator"), true);
   const api = app.make(REALTIME_RUNTIME_CLIENT_TOKEN);
   assert.equal(typeof api.createSocketIoClient, "function");
   assert.equal(typeof api.disconnectSocketIoClient, "function");

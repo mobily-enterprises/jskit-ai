@@ -5,12 +5,15 @@ import {
   CLIENT_MODULE_VUE_APP_TOKEN
 } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { resolveClientBootstrapDebugEnabled } from "@jskit-ai/kernel/client";
+import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
 import {
   REALTIME_RUNTIME_CLIENT_TOKEN,
   REALTIME_SOCKET_CLIENT_TOKEN,
   REALTIME_SOCKET_CLIENT_INJECTION_KEY
 } from "./tokens.js";
 import { resolveRealtimeClientListeners } from "./listeners.js";
+
+const REALTIME_CONNECTION_INDICATOR_COMPONENT_TOKEN = "realtime.web.connection.indicator";
 
 const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   createSocketIoClient,
@@ -95,6 +98,7 @@ class RealtimeClientProvider {
     }
 
     app.singleton(REALTIME_RUNTIME_CLIENT_TOKEN, () => REALTIME_RUNTIME_CLIENT_API);
+    app.singleton(REALTIME_CONNECTION_INDICATOR_COMPONENT_TOKEN, () => RealtimeConnectionIndicator);
     app.singleton(REALTIME_SOCKET_CLIENT_TOKEN, (scope) => {
       const realtimeRuntime = scope.make(REALTIME_RUNTIME_CLIENT_TOKEN);
       const realtimeClientConfig = resolveRealtimeClientConfig(scope);

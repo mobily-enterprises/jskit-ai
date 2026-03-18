@@ -20,14 +20,13 @@ test("assistant query keys normalize workspace scope and paging", () => {
     "slug:acme",
     "conversations",
     "list",
-    1,
     20,
     "all"
   ]);
 
   assert.deepEqual(
-    assistantConversationsListQueryKey({ workspaceId: 9 }, { page: "3", pageSize: 10, status: "ACTIVE" }),
-    ["assistant", "id:9", "conversations", "list", 3, 10, "active"]
+    assistantConversationsListQueryKey({ workspaceId: 9 }, { limit: 10, status: "ACTIVE" }),
+    ["assistant", "id:9", "conversations", "list", 10, "active"]
   );
 
   assert.deepEqual(assistantConversationMessagesQueryKey({ workspaceSlug: "acme" }, "22"), [

@@ -24,7 +24,6 @@ const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
-const HISTORY_PAGE = 1;
 const RESTORE_MESSAGES_PAGE = 1;
 const ACTIVE_CONVERSATION_STORAGE_PREFIX = "assistant.activeConversationId";
 
@@ -306,26 +305,15 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const conversationHistoryCollection = usePagedCollection({
     queryKey: computed(() =>
       assistantConversationsListQueryKey(workspaceScope.value, {
-        pageSize: runtimePolicy.historyPageSize
+        limit: runtimePolicy.historyPageSize
       })
     ),
-    queryFn: ({ pageParam = HISTORY_PAGE }) =>
+    queryFn: ({ pageParam = null }) =>
       runtimeApi.listConversations(workspaceScope.value.workspaceSlug, {
-        page: pageParam,
-        pageSize: runtimePolicy.historyPageSize
+        cursor: pageParam,
+        limit: runtimePolicy.historyPageSize
       }),
-    initialPageParam: HISTORY_PAGE,
-    getNextPageParam(lastPage) {
-      const page = toPositiveInteger(lastPage?.page, HISTORY_PAGE);
-      const totalPages = toPositiveInteger(lastPage?.totalPages, HISTORY_PAGE);
-      if (page >= totalPages) {
-        return undefined;
-      }
-      return page + 1;
-    },
-    selectItems(page) {
-      return Array.isArray(page?.entries) ? page.entries : [];
-    },
+    initialPageParam: null,
     dedupeBy(entry) {
       const conversationNumericId = toPositiveInteger(entry?.id, 0);
       return conversationNumericId > 0 ? String(conversationNumericId) : normalizeText(entry?.id);
