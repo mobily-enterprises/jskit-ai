@@ -3,7 +3,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { crudResource } from "../shared/crudResource.js";
+import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
 
 function createActions() {

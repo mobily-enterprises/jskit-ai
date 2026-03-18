@@ -200,7 +200,7 @@ export default Object.freeze({
       },
       {
         from: "src/shared/crud/crudResource.js",
-        to: "packages/${option:namespace|kebab}/src/shared/crudResource.js",
+        to: "packages/${option:namespace|kebab}/src/shared/${option:namespace|singular|camel}Resource.js",
         reason: "Install app-local CRUD resource.",
         category: "crud",
         id: "crud-local-package-shared-resource-${option:namespace|snake}"
