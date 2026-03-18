@@ -1,4 +1,8 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import {
+  USER_SETTINGS_SECTIONS,
+  userSettingsFields
+} from "../../../shared/resources/userSettingsFields.js";
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 
@@ -17,6 +21,27 @@ function resolveAuthProfileSettings(authService) {
   };
 }
 
+function formatUserSettingsSection(section, settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const formatted = {};
+
+  for (const field of userSettingsFields) {
+    if (field.section !== section) {
+      continue;
+    }
+    const rawValue = Object.hasOwn(source, field.key)
+      ? source[field.key]
+      : field.resolveDefault({
+          settings: source
+        });
+    formatted[field.key] = field.normalizeOutput(rawValue, {
+      settings: source
+    });
+  }
+
+  return formatted;
+}
+
 function accountSettingsResponseFormatter({ profile, settings, securityStatus, authService }) {
   const authProfileSettings = resolveAuthProfileSettings(authService);
 
@@ -29,20 +54,8 @@ function accountSettingsResponseFormatter({ profile, settings, securityStatus, a
       avatar: accountAvatarFormatter(profile, settings)
     },
     security: accountSecurityStatusFormatter(securityStatus),
-    preferences: {
-      theme: settings.theme,
-      locale: settings.locale,
-      timeZone: settings.timeZone,
-      dateFormat: settings.dateFormat,
-      numberFormat: settings.numberFormat,
-      currencyCode: settings.currencyCode,
-      avatarSize: settings.avatarSize
-    },
-    notifications: {
-      productUpdates: settings.productUpdates,
-      accountActivity: settings.accountActivity,
-      securityAlerts: settings.securityAlerts
-    }
+    preferences: formatUserSettingsSection(USER_SETTINGS_SECTIONS.PREFERENCES, settings),
+    notifications: formatUserSettingsSection(USER_SETTINGS_SECTIONS.NOTIFICATIONS, settings)
   };
 }
 

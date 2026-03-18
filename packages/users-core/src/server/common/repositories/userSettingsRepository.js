@@ -1,35 +1,43 @@
 import {
-  normalizeLowerText,
-  normalizeText,
   toIsoString,
   nowDb,
   isDuplicateEntryError
 } from "./repositoryUtils.js";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
+import {
+  userSettingsFields
+} from "../../../shared/resources/userSettingsFields.js";
 
 function mapRow(row) {
   if (!row) {
     return null;
   }
 
-  return {
+  const mapped = {
     userId: Number(row.user_id),
     lastActiveWorkspaceId: row.last_active_workspace_id == null ? null : Number(row.last_active_workspace_id),
-    theme: normalizeText(row.theme),
-    locale: normalizeText(row.locale),
-    timeZone: normalizeText(row.time_zone),
-    dateFormat: normalizeText(row.date_format),
-    numberFormat: normalizeText(row.number_format),
-    currencyCode: normalizeText(row.currency_code),
-    avatarSize: Number(row.avatar_size || DEFAULT_USER_SETTINGS.avatarSize),
     passwordSignInEnabled: row.password_sign_in_enabled == null ? true : Boolean(row.password_sign_in_enabled),
     passwordSetupRequired: row.password_setup_required == null ? false : Boolean(row.password_setup_required),
-    productUpdates: Boolean(row.notify_product_updates),
-    accountActivity: Boolean(row.notify_account_activity),
-    securityAlerts: Boolean(row.notify_security_alerts),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
+
+  for (const field of userSettingsFields) {
+    const rawValue = Object.hasOwn(row, field.dbColumn) ? row[field.dbColumn] : undefined;
+    const value =
+      rawValue == null
+        ? field.resolveDefault({
+            settings: mapped,
+            row
+          })
+        : rawValue;
+    mapped[field.key] = field.normalizeOutput(value, {
+      settings: mapped,
+      row
+    });
+  }
+
+  return mapped;
 }
 
 function normalizeBoolean(value, fallback = false) {
@@ -40,24 +48,30 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 function createInsertPayload(userId) {
-  return {
+  const payload = {
     user_id: Number(userId),
     last_active_workspace_id: null,
-    theme: DEFAULT_USER_SETTINGS.theme,
-    locale: DEFAULT_USER_SETTINGS.locale,
-    time_zone: DEFAULT_USER_SETTINGS.timeZone,
-    date_format: DEFAULT_USER_SETTINGS.dateFormat,
-    number_format: DEFAULT_USER_SETTINGS.numberFormat,
-    currency_code: DEFAULT_USER_SETTINGS.currencyCode,
-    avatar_size: DEFAULT_USER_SETTINGS.avatarSize,
     password_sign_in_enabled: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
     password_setup_required: DEFAULT_USER_SETTINGS.passwordSetupRequired,
-    notify_product_updates: DEFAULT_USER_SETTINGS.productUpdates,
-    notify_account_activity: DEFAULT_USER_SETTINGS.accountActivity,
-    notify_security_alerts: DEFAULT_USER_SETTINGS.securityAlerts,
     created_at: nowDb(),
     updated_at: nowDb()
   };
+
+  const resolvedDefaults = {};
+  for (const field of userSettingsFields) {
+    const defaultValue = field.resolveDefault({
+      settings: resolvedDefaults
+    });
+    payload[field.dbColumn] = field.normalizeInput(defaultValue, {
+      payload: resolvedDefaults,
+      settings: resolvedDefaults
+    });
+    resolvedDefaults[field.key] = field.normalizeOutput(defaultValue, {
+      settings: resolvedDefaults
+    });
+  }
+
+  return payload;
 }
 
 function createRepository(knex) {
@@ -99,36 +113,16 @@ function createRepository(knex) {
       updated_at: nowDb()
     };
 
-    if (Object.hasOwn(source, "theme")) {
-      dbPatch.theme = normalizeText(source.theme) || ensured.theme;
+    for (const field of userSettingsFields) {
+      if (!Object.hasOwn(source, field.key)) {
+        continue;
+      }
+      dbPatch[field.dbColumn] = field.normalizeInput(source[field.key], {
+        payload: source,
+        settings: ensured
+      });
     }
-    if (Object.hasOwn(source, "locale")) {
-      dbPatch.locale = normalizeLowerText(source.locale) || ensured.locale;
-    }
-    if (Object.hasOwn(source, "timeZone")) {
-      dbPatch.time_zone = normalizeText(source.timeZone) || ensured.timeZone;
-    }
-    if (Object.hasOwn(source, "dateFormat")) {
-      dbPatch.date_format = normalizeText(source.dateFormat) || ensured.dateFormat;
-    }
-    if (Object.hasOwn(source, "numberFormat")) {
-      dbPatch.number_format = normalizeText(source.numberFormat) || ensured.numberFormat;
-    }
-    if (Object.hasOwn(source, "currencyCode")) {
-      dbPatch.currency_code = normalizeText(source.currencyCode).toUpperCase() || ensured.currencyCode;
-    }
-    if (Object.hasOwn(source, "avatarSize")) {
-      dbPatch.avatar_size = Number(source.avatarSize || ensured.avatarSize || DEFAULT_USER_SETTINGS.avatarSize);
-    }
-    if (Object.hasOwn(source, "productUpdates")) {
-      dbPatch.notify_product_updates = normalizeBoolean(source.productUpdates, ensured.productUpdates);
-    }
-    if (Object.hasOwn(source, "accountActivity")) {
-      dbPatch.notify_account_activity = normalizeBoolean(source.accountActivity, ensured.accountActivity);
-    }
-    if (Object.hasOwn(source, "securityAlerts")) {
-      dbPatch.notify_security_alerts = normalizeBoolean(source.securityAlerts, ensured.securityAlerts);
-    }
+
     if (Object.hasOwn(source, "passwordSignInEnabled")) {
       dbPatch.password_sign_in_enabled = normalizeBoolean(source.passwordSignInEnabled, ensured.passwordSignInEnabled);
     }

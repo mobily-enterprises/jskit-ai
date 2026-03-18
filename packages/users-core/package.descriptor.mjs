@@ -246,6 +246,14 @@ export default Object.freeze({
         reason: "Install app-owned console settings field definitions.",
         category: "users-core",
         id: "users-core-app-owned-console-settings-fields"
+      },
+      {
+        from: "templates/packages/main/src/shared/resources/userSettingsFields.js",
+        to: "packages/main/src/shared/resources/userSettingsFields.js",
+        preserveOnRemove: true,
+        reason: "Install app-owned user settings field definitions.",
+        category: "users-core",
+        id: "users-core-app-owned-user-settings-fields"
       }
     ],
     text: [
@@ -268,6 +276,16 @@ export default Object.freeze({
         reason: "Load app-owned console settings field definitions inside the main shared module.",
         category: "users-core",
         id: "users-core-main-shared-console-settings-field-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/shared/index.js",
+        position: "top",
+        skipIfContains: "import \"./resources/userSettingsFields.js\";",
+        value: "import \"./resources/userSettingsFields.js\";\n",
+        reason: "Load app-owned user settings field definitions inside the main shared module.",
+        category: "users-core",
+        id: "users-core-main-shared-user-settings-field-import"
       },
       {
         op: "append-text",

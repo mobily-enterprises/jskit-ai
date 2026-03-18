@@ -13,6 +13,7 @@ import {
 } from "./common/formatters/workspaceFormatter.js";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
+import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
 
 function normalizePendingInvites(invites) {
   return workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
@@ -93,6 +94,27 @@ function createAnonymousBootstrapPayload(appState) {
     workspaceSettings: null,
     userSettings: null
   };
+}
+
+function mapUserSettingsBootstrap(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const mapped = {};
+
+  for (const field of userSettingsFields) {
+    if (field.includeInBootstrap === false) {
+      continue;
+    }
+    const rawValue = Object.hasOwn(source, field.key)
+      ? source[field.key]
+      : field.resolveDefault({
+          settings: source
+        });
+    mapped[field.key] = field.normalizeOutput(rawValue, {
+      settings: source
+    });
+  }
+
+  return mapped;
 }
 
 function createWorkspaceBootstrapContributor({
@@ -206,18 +228,7 @@ function createWorkspaceBootstrapContributor({
           membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
           permissions: workspaceContext ? [...workspaceContext.permissions] : [],
           workspaceSettings: workspaceContext ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings) : null,
-          userSettings: {
-            theme: userSettings.theme,
-            locale: userSettings.locale,
-            timeZone: userSettings.timeZone,
-            dateFormat: userSettings.dateFormat,
-            numberFormat: userSettings.numberFormat,
-            currencyCode: userSettings.currencyCode,
-            avatarSize: userSettings.avatarSize,
-            productUpdates: userSettings.productUpdates,
-            accountActivity: userSettings.accountActivity,
-            securityAlerts: userSettings.securityAlerts
-          },
+          userSettings: mapUserSettingsBootstrap(userSettings),
           requestMeta: {
             hasRequest: Boolean(request)
           }

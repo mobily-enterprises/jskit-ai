@@ -6,6 +6,10 @@ import {
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
 import { userProfileResource } from "./userProfileResource.js";
+import {
+  USER_SETTINGS_SECTIONS,
+  userSettingsFields
+} from "./userSettingsFields.js";
 
 function pickPatchBody(schema, keys = []) {
   const properties = {};
@@ -19,58 +23,98 @@ function pickPatchBody(schema, keys = []) {
 
   return Type.Object(properties, {
     additionalProperties: false,
-    minProperties: 1
+    minProperties: keys.length > 0 ? 1 : 0
   });
+}
+
+function listFieldsBySection(section) {
+  return userSettingsFields.filter((field) => field.section === section);
+}
+
+function buildCreateBodySchema() {
+  const properties = {};
+  for (const field of userSettingsFields) {
+    properties[field.key] = field.required === false ? Type.Optional(field.inputSchema) : field.inputSchema;
+  }
+
+  return Type.Object(properties, { additionalProperties: false });
+}
+
+function buildSectionOutputSchema(section) {
+  const properties = {};
+  for (const field of listFieldsBySection(section)) {
+    properties[field.key] = field.outputSchema;
+  }
+
+  return Type.Object(properties, { additionalProperties: false });
+}
+
+function normalizeUserSettingsInput(payload = {}) {
+  const source = normalizeObjectInput(payload);
+  const normalized = {};
+
+  for (const field of userSettingsFields) {
+    if (!Object.hasOwn(source, field.key)) {
+      continue;
+    }
+    normalized[field.key] = field.normalizeInput(source[field.key], {
+      payload: source
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeSectionOutput(section, sectionSource = {}, settings = {}) {
+  const normalized = {};
+  for (const field of listFieldsBySection(section)) {
+    const rawValue = Object.hasOwn(sectionSource, field.key)
+      ? sectionSource[field.key]
+      : field.resolveDefault({
+          settings
+        });
+    normalized[field.key] = field.normalizeOutput(rawValue, {
+      settings
+    });
+  }
+  return normalized;
 }
 
 const userSettingsOutputSchema = Type.Object(
   {
     profile: userProfileResource.operations.view.outputValidator.schema,
     security: Type.Object({}, { additionalProperties: true }),
-    preferences: Type.Object(
-      {
-        theme: Type.String(),
-        locale: Type.String(),
-        timeZone: Type.String(),
-        dateFormat: Type.String(),
-        numberFormat: Type.String(),
-        currencyCode: Type.String(),
-        avatarSize: Type.Integer({ minimum: 1 })
-      },
-      { additionalProperties: true }
-    ),
-    notifications: Type.Object(
-      {
-        productUpdates: Type.Boolean(),
-        accountActivity: Type.Boolean(),
-        securityAlerts: Type.Boolean()
-      },
-      { additionalProperties: true }
-    )
+    preferences: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.PREFERENCES),
+    notifications: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.NOTIFICATIONS)
   },
   { additionalProperties: true }
 );
 
 const userSettingsOutputValidator = Object.freeze({
   schema: userSettingsOutputSchema,
-  normalize: normalizeObjectInput
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    const preferencesSource = normalizeObjectInput(source.preferences);
+    const notificationsSource = normalizeObjectInput(source.notifications);
+
+    return {
+      profile: normalizeObjectInput(source.profile),
+      security: normalizeObjectInput(source.security),
+      preferences: normalizeSectionOutput(
+        USER_SETTINGS_SECTIONS.PREFERENCES,
+        preferencesSource,
+        preferencesSource
+      ),
+      notifications: normalizeSectionOutput(
+        USER_SETTINGS_SECTIONS.NOTIFICATIONS,
+        notificationsSource,
+        notificationsSource
+      )
+    };
+  }
 });
 
-const userSettingsCreateBodySchema = Type.Object(
-  {
-    theme: Type.String({ minLength: 1 }),
-    locale: Type.String({ minLength: 1 }),
-    timeZone: Type.String({ minLength: 1 }),
-    dateFormat: Type.String({ minLength: 1 }),
-    numberFormat: Type.String({ minLength: 1 }),
-    currencyCode: Type.String({ minLength: 1 }),
-    avatarSize: Type.Integer({ minimum: 1 }),
-    productUpdates: Type.Boolean(),
-    accountActivity: Type.Boolean(),
-    securityAlerts: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
+const userSettingsCreateBodySchema = buildCreateBodySchema();
 
 const userSettingsPatchBodySchema = Type.Partial(userSettingsCreateBodySchema, {
   additionalProperties: false,
@@ -78,25 +122,19 @@ const userSettingsPatchBodySchema = Type.Partial(userSettingsCreateBodySchema, {
 });
 
 const preferencesUpdateBodyValidator = Object.freeze({
-  schema: pickPatchBody(userSettingsPatchBodySchema, [
-    "theme",
-    "locale",
-    "timeZone",
-    "dateFormat",
-    "numberFormat",
-    "currencyCode",
-    "avatarSize"
-  ]),
-  normalize: normalizeObjectInput
+  schema: pickPatchBody(
+    userSettingsPatchBodySchema,
+    listFieldsBySection(USER_SETTINGS_SECTIONS.PREFERENCES).map((field) => field.key)
+  ),
+  normalize: normalizeUserSettingsInput
 });
 
 const notificationsUpdateBodyValidator = Object.freeze({
-  schema: pickPatchBody(userSettingsPatchBodySchema, [
-    "productUpdates",
-    "accountActivity",
-    "securityAlerts"
-  ]),
-  normalize: normalizeObjectInput
+  schema: pickPatchBody(
+    userSettingsPatchBodySchema,
+    listFieldsBySection(USER_SETTINGS_SECTIONS.NOTIFICATIONS).map((field) => field.key)
+  ),
+  normalize: normalizeUserSettingsInput
 });
 
 function normalizeOAuthProviderParams(payload = {}) {
@@ -281,7 +319,7 @@ const userSettingsResource = Object.freeze({
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: userSettingsCreateBodySchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
@@ -290,7 +328,7 @@ const userSettingsResource = Object.freeze({
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: userSettingsCreateBodySchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
@@ -299,7 +337,7 @@ const userSettingsResource = Object.freeze({
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
         schema: userSettingsPatchBodySchema,
-        normalize: normalizeObjectInput
+        normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
