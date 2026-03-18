@@ -5,11 +5,12 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
-test("auth supabase provider registers authService and contributes auth actions", async () => {
+test("auth supabase provider registers authService and contributes auth actions in users mode", async () => {
   const app = createApplication();
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -52,11 +53,12 @@ test("auth supabase provider registers authService and contributes auth actions"
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
 });
 
-test("auth supabase provider requires users.profile.sync.service when configured", async () => {
+test("auth supabase provider registers authService in standalone mode without users.profile.sync.service", async () => {
   const app = createApplication();
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -74,5 +76,58 @@ test("auth supabase provider requires users.profile.sync.service when configured
     providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
   });
 
-  assert.throws(() => app.make("authService"), /users\.profile\.sync\.service/);
+  const authService = app.make("authService");
+  assert.equal(typeof authService?.login, "function");
+});
+
+test("auth supabase provider requires users.profile.sync.service when AUTH_PROFILE_MODE=users", async () => {
+  const app = createApplication();
+  app.instance(KERNEL_TOKENS.Env, {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance(KERNEL_TOKENS.Logger, {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  assert.throws(() => app.make("authService"), /AUTH_PROFILE_MODE=users/);
+});
+
+test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", async () => {
+  const app = createApplication();
+  app.instance(KERNEL_TOKENS.Env, {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "invalid",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance(KERNEL_TOKENS.Logger, {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  assert.throws(() => app.make("authService"), /Unsupported AUTH_PROFILE_MODE/);
 });

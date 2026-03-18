@@ -25,7 +25,6 @@ export default Object.freeze({
   },
   "dependsOn": [
     "@jskit-ai/auth-core",
-    "@jskit-ai/users-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -34,8 +33,7 @@ export default Object.freeze({
       "auth.provider"
     ],
     "requires": [
-      "auth.access",
-      "users.core"
+      "auth.access"
     ]
   },
   "runtime": {

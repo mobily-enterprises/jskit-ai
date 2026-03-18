@@ -89,6 +89,17 @@ export default Object.freeze({
       "scripts": {}
     },
     "procfile": {},
-    "files": []
+    "files": [],
+    "text": [
+      {
+        "file": ".env",
+        "op": "upsert-env",
+        "key": "AUTH_PROFILE_MODE",
+        "value": "standalone",
+        "reason": "Default auth profile mode to standalone when users-core is not installed.",
+        "category": "runtime-config",
+        "id": "auth-profile-mode"
+      }
+    ]
   }
 });

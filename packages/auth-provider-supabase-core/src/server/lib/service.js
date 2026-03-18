@@ -52,6 +52,7 @@ import { buildDisabledPasswordSecret } from "./authSecrets.js";
 import { createAccountFlows } from "./accountFlows.js";
 import { createOauthFlows } from "./oauthFlows.js";
 import { createPasswordSecurityFlows } from "./passwordSecurityFlows.js";
+import { USER_PROFILE_EMAIL_CONFLICT_CODE } from "./standaloneProfileSyncService.js";
 import {
   buildOAuthProviderCatalogResponse,
   resolveOAuthProviderQueryParams,
@@ -442,7 +443,7 @@ function createService(options) {
       const synchronizedProfile = await userProfileSyncService.syncIdentityProfile(normalized);
       return requireSynchronizedProfile(synchronizedProfile);
     } catch (error) {
-      if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
+      if (String(error?.code || "") === USER_PROFILE_EMAIL_CONFLICT_CODE) {
         throw new AppError(
           409,
           "This email is already registered with another sign-in method. Sign in with that method, then link this provider in Settings > Security."

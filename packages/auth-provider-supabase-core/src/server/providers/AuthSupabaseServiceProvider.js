@@ -1,12 +1,16 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "../lib/service.js";
+import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
 import { authActions } from "../lib/actions/auth.contributor.js";
 
 const AUTH_SESSION_EVENTS_SERVICE_TOKEN = "auth.session.events.service";
 const AUTH_SESSION_CHANGED_EVENT = "auth.session.changed";
 const USERS_BOOTSTRAP_CHANGED_EVENT = "users.bootstrap.changed";
+const AUTH_PROFILE_MODE_STANDALONE = "standalone";
+const AUTH_PROFILE_MODE_USERS = "users";
+const SUPPORTED_AUTH_PROFILE_MODES = Object.freeze([AUTH_PROFILE_MODE_STANDALONE, AUTH_PROFILE_MODE_USERS]);
 
 function splitCsv(value) {
   return String(value || "")
@@ -27,6 +31,19 @@ function resolveAuthProviderConfig(env) {
     oauthProviders: splitCsv(source.AUTH_OAUTH_PROVIDERS),
     oauthDefaultProvider: String(source.AUTH_OAUTH_DEFAULT_PROVIDER || "").trim()
   };
+}
+
+function resolveAuthProfileMode(env) {
+  const source = env && typeof env === "object" ? env : {};
+  const mode = String(source.AUTH_PROFILE_MODE || AUTH_PROFILE_MODE_STANDALONE)
+    .trim()
+    .toLowerCase();
+  if (SUPPORTED_AUTH_PROFILE_MODES.includes(mode)) {
+    return mode;
+  }
+  throw new Error(
+    `Unsupported AUTH_PROFILE_MODE "${mode}". Supported values: ${SUPPORTED_AUTH_PROFILE_MODES.join(", ")}.`
+  );
 }
 
 function createInMemoryUserSettingsRepository() {
@@ -62,6 +79,7 @@ function createInMemoryUserSettingsRepository() {
 }
 
 const fallbackUserSettingsRepository = createInMemoryUserSettingsRepository();
+const fallbackStandaloneProfileSyncService = createStandaloneProfileSyncService();
 
 function resolveCommonDependencies(scope) {
   const dependencies = {};
@@ -113,11 +131,16 @@ class AuthSupabaseServiceProvider {
         if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
           return null;
         }
-        if (!scope.has("users.profile.sync.service")) {
-          throw new Error("AuthSupabaseServiceProvider requires users.profile.sync.service.");
+        const authProfileMode = resolveAuthProfileMode(env);
+        let userProfileSyncService = fallbackStandaloneProfileSyncService;
+        if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
+          if (!scope.has("users.profile.sync.service")) {
+            throw new Error(
+              "AuthSupabaseServiceProvider requires users.profile.sync.service when AUTH_PROFILE_MODE=users."
+            );
+          }
+          userProfileSyncService = scope.make("users.profile.sync.service");
         }
-
-        const userProfileSyncService = scope.make("users.profile.sync.service");
 
         return createService({
           authProvider,

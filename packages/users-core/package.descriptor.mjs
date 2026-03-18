@@ -274,6 +274,15 @@ export default Object.freeze({
     ],
     text: [
       {
+        op: "upsert-env",
+        file: ".env",
+        key: "AUTH_PROFILE_MODE",
+        value: "users",
+        reason: "Enable users-backed auth profile sync when users-core is installed.",
+        category: "runtime-config",
+        id: "users-core-auth-profile-mode"
+      },
+      {
         op: "append-text",
         file: "packages/main/src/shared/index.js",
         position: "top",
