@@ -6,9 +6,11 @@ import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { TENANCY_MODE_WORKSPACE, normalizeTenancyMode } from "@jskit-ai/kernel/shared/surface";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
+import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
 import { createWorkspaceActionContextContributor } from "./common/contributors/workspaceActionContextContributor.js";
 import { createWorkspaceRouteVisibilityResolver } from "./common/contributors/workspaceRouteVisibilityResolver.js";
 import {
+  USERS_PROFILE_SYNC_SERVICE_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
 } from "./common/diTokens.js";
 
@@ -31,6 +33,13 @@ function registerWorkspaceCore(app) {
       workspacesRepository: scope.make("workspacesRepository"),
       workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
       workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
+    });
+  });
+
+  app.singleton(USERS_PROFILE_SYNC_SERVICE_TOKEN, (scope) => {
+    return createAuthProfileSyncService({
+      userProfilesRepository: scope.make("userProfilesRepository"),
+      workspaceProvisioningService: scope.make("users.workspace.service")
     });
   });
 

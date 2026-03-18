@@ -9,6 +9,7 @@ exports.up = async function up(knex) {
     table.string("auth_provider", 64).notNullable();
     table.string("auth_provider_user_id", 191).notNullable();
     table.string("email", 255).notNullable();
+    table.string("username", 120).notNullable();
     table.string("display_name", 160).notNullable();
     table.string("avatar_storage_key", 512).nullable();
     table.string("avatar_version", 64).nullable();
@@ -16,6 +17,7 @@ exports.up = async function up(knex) {
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.unique(["auth_provider", "auth_provider_user_id"], "uq_user_profiles_identity");
     table.unique(["email"], "uq_user_profiles_email");
+    table.unique(["username"], "uq_user_profiles_username");
   });
 
   await knex.schema.createTable("workspaces", (table) => {

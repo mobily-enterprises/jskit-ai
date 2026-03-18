@@ -29,49 +29,6 @@ function resolveAuthProviderConfig(env) {
   };
 }
 
-function createInMemoryUserProfilesRepository() {
-  const profileByKey = new Map();
-  const providerKeyByEmail = new Map();
-  let nextId = 1;
-
-  function profileKey(provider, providerUserId) {
-    return `${String(provider || "").trim().toLowerCase()}:${String(providerUserId || "").trim()}`;
-  }
-
-  function cloneProfile(profile) {
-    return profile ? { ...profile } : null;
-  }
-
-  return Object.freeze({
-    async findByIdentity({ provider, providerUserId } = {}) {
-      return cloneProfile(profileByKey.get(profileKey(provider, providerUserId)) || null);
-    },
-    async upsert({ authProvider, authProviderUserId, email, displayName } = {}) {
-      const key = profileKey(authProvider, authProviderUserId);
-      const normalizedEmail = String(email || "").trim().toLowerCase();
-      const current = profileByKey.get(key) || null;
-
-      const ownedBy = providerKeyByEmail.get(normalizedEmail);
-      if (ownedBy && ownedBy !== key) {
-        const conflictError = new Error("Profile email conflicts with existing identity.");
-        conflictError.code = "USER_PROFILE_EMAIL_CONFLICT";
-        throw conflictError;
-      }
-
-      const next = {
-        id: Number(current?.id || nextId++),
-        authProvider: String(authProvider || "").trim().toLowerCase(),
-        authProviderUserId: String(authProviderUserId || "").trim(),
-        email: String(email || "").trim().toLowerCase(),
-        displayName: String(displayName || "").trim() || String(email || "").trim().toLowerCase()
-      };
-      profileByKey.set(key, next);
-      providerKeyByEmail.set(next.email, key);
-      return cloneProfile(next);
-    }
-  });
-}
-
 function createInMemoryUserSettingsRepository() {
   const settingsByUserId = new Map();
 
@@ -104,7 +61,6 @@ function createInMemoryUserSettingsRepository() {
   });
 }
 
-const fallbackProfilesRepository = createInMemoryUserProfilesRepository();
 const fallbackUserSettingsRepository = createInMemoryUserSettingsRepository();
 
 function resolveCommonDependencies(scope) {
@@ -120,21 +76,10 @@ function resolveCommonDependencies(scope) {
 
 function resolveOptionalRepositories(scope) {
   const repositories = {};
-  if (scope.has("userProfilesRepository")) {
-    repositories.userProfilesRepository = scope.make("userProfilesRepository");
-  }
   if (scope.has("userSettingsRepository")) {
     repositories.userSettingsRepository = scope.make("userSettingsRepository");
   }
   return repositories;
-}
-
-function resolveOptionalServices(scope) {
-  const services = {};
-  if (scope.has("users.workspace.service")) {
-    services.workspaceProvisioningService = scope.make("users.workspace.service");
-  }
-  return services;
 }
 
 class AuthSupabaseServiceProvider {
@@ -164,20 +109,22 @@ class AuthSupabaseServiceProvider {
         };
         const authProvider = resolveAuthProviderConfig(env);
         const repositories = resolveOptionalRepositories(scope);
-        const services = resolveOptionalServices(scope);
-        const userProfilesRepository = repositories.userProfilesRepository || fallbackProfilesRepository;
         const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
         if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
           return null;
         }
+        if (!scope.has("users.profile.sync.service")) {
+          throw new Error("AuthSupabaseServiceProvider requires users.profile.sync.service.");
+        }
+
+        const userProfileSyncService = scope.make("users.profile.sync.service");
 
         return createService({
           authProvider,
           appPublicUrl: String(env.APP_PUBLIC_URL || "").trim(),
           nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
-          userProfilesRepository,
           userSettingsRepository,
-          workspaceProvisioningService: services.workspaceProvisioningService || null
+          userProfileSyncService
         });
       });
     }

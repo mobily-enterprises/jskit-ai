@@ -13,6 +13,7 @@ function normalizeAuthenticatedUser(input = {}) {
   return {
     id,
     email,
+    username: normalizeLowerText(source.username),
     displayName: normalizeText(source.displayName) || email || `User ${id}`,
     authProvider: normalizeLowerText(source.authProvider),
     authProviderUserId: normalizeText(source.authProviderUserId),
@@ -26,6 +27,7 @@ const authenticatedUserValidator = Object.freeze({
     {
       id: Type.Integer({ minimum: 1 }),
       email: Type.String({ minLength: 1 }),
+      username: Type.Optional(Type.String()),
       displayName: Type.Optional(Type.String()),
       authProvider: Type.Optional(Type.String()),
       authProviderUserId: Type.Optional(Type.String()),

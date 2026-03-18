@@ -97,9 +97,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     await assert.rejects(access(path.join(appRoot, "config/surfaces.js")), /ENOENT/);
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
+    assert.match(publicConfig, /config\.tenancyMode = "none";/);
     assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
+    assert.match(publicConfig, /requiresWorkspace:\s*false/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
     assert.match(serverConfig, /export const config = \{\};/);
 
@@ -217,7 +219,8 @@ test("create-app interactive flow captures initial bundle selection in guidance"
       "",
       "",
       "",
-      "auth"
+      "auth",
+      ""
     ];
     const askedPrompts = [];
     const readlineFactory = () => ({
@@ -243,9 +246,38 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     const stderr = stderrCapture.read();
     assert.equal(exitCode, 0, stderr);
     assert.deepEqual(answers, []);
-    assert.ok(askedPrompts.length >= 6);
+    assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework bundle commands \(auth\):/);
     assert.match(stdout, /npx jskit add auth-base --no-install/);
+  });
+});
+
+test("create-app applies tenancy mode flag to public config", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["tenancy-app", "--tenancy-mode", "personal"]
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const appRoot = path.join(cwd, "tenancy-app");
+    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
+    assert.match(publicConfig, /config\.tenancyMode = "personal";/);
+    assert.match(publicConfig, /requiresWorkspace:\s*true/);
+    assert.match(result.stdout, /Tenancy mode: personal/);
+  });
+});
+
+test("create-app rejects invalid tenancy mode values", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["bad-tenancy-app", "--tenancy-mode", "invalid"]
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Invalid --tenancy-mode value/);
   });
 });
 

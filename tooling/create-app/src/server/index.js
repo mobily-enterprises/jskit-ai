@@ -8,6 +8,8 @@ import { shellQuote } from "./cliEntrypoint.js";
 const DEFAULT_TEMPLATE = "base-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
+const DEFAULT_TENANCY_MODE = "none";
+const TENANCY_MODES = new Set(["none", "personal", "workspace"]);
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
@@ -37,6 +39,18 @@ function normalizeInitialBundlesPreset(value, { showUsage = true } = {}) {
 
   throw createCliError(
     `Invalid --initial-bundles value "${value}". Expected one of: none, auth.`,
+    { showUsage }
+  );
+}
+
+function normalizeTenancyMode(value, { showUsage = true } = {}) {
+  const normalized = String(value || DEFAULT_TENANCY_MODE).trim().toLowerCase();
+  if (TENANCY_MODES.has(normalized)) {
+    return normalized;
+  }
+
+  throw createCliError(
+    `Invalid --tenancy-mode value "${value}". Expected one of: none, personal, workspace.`,
     { showUsage }
   );
 }
@@ -86,6 +100,7 @@ function parseCliArgs(argv) {
     template: DEFAULT_TEMPLATE,
     target: null,
     initialBundles: DEFAULT_INITIAL_BUNDLES,
+    tenancyMode: DEFAULT_TENANCY_MODE,
     force: false,
     dryRun: false,
     help: false,
@@ -165,6 +180,18 @@ function parseCliArgs(argv) {
       continue;
     }
 
+    if (arg === "--tenancy-mode") {
+      const { value, nextIndex } = parseOptionWithValue(args, index, "--tenancy-mode");
+      options.tenancyMode = value;
+      index = nextIndex;
+      continue;
+    }
+
+    if (arg.startsWith("--tenancy-mode=")) {
+      options.tenancyMode = arg.slice("--tenancy-mode=".length);
+      continue;
+    }
+
     if (arg.startsWith("-")) {
       throw createCliError(`Unknown option: ${arg}`, {
         showUsage: true
@@ -201,6 +228,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
+  stream.write("  --tenancy-mode <mode>  App tenancy mode: none | personal | workspace (default: none)\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
   stream.write("  --interactive      Prompt for app values instead of passing all flags\n");
@@ -447,13 +475,29 @@ async function collectInteractiveOptions({
       }
     }
 
+    let tenancyMode = normalizeTenancyMode(parsed.tenancyMode, { showUsage: false });
+    while (true) {
+      const candidate = await askQuestion(
+        readline,
+        "Tenancy mode (none|personal|workspace)",
+        tenancyMode
+      );
+      try {
+        tenancyMode = normalizeTenancyMode(candidate, { showUsage: false });
+        break;
+      } catch (error) {
+        stderr.write(`Error: ${error?.message || String(error)}\n`);
+      }
+    }
+
     return {
       appName,
       appTitle,
       target,
       template,
       force,
-      initialBundles
+      initialBundles,
+      tenancyMode
     };
   } finally {
     readline.close();
@@ -466,6 +510,7 @@ export async function createApp({
   template = DEFAULT_TEMPLATE,
   target = null,
   initialBundles = DEFAULT_INITIAL_BUNDLES,
+  tenancyMode = DEFAULT_TENANCY_MODE,
   force = false,
   dryRun = false,
   cwd = process.cwd()
@@ -475,6 +520,8 @@ export async function createApp({
 
   const resolvedAppTitle = String(appTitle || "").trim() || toAppTitle(resolvedAppName);
   const resolvedInitialBundles = normalizeInitialBundlesPreset(initialBundles);
+  const resolvedTenancyMode = normalizeTenancyMode(tenancyMode);
+  const appRequiresWorkspace = resolvedTenancyMode !== "none";
 
   const resolvedCwd = path.resolve(cwd);
   const targetDirectory = path.resolve(resolvedCwd, target ? String(target) : resolvedAppName);
@@ -487,7 +534,9 @@ export async function createApp({
 
   const replacements = {
     __APP_NAME__: resolvedAppName,
-    __APP_TITLE__: resolvedAppTitle
+    __APP_TITLE__: resolvedAppTitle,
+    __TENANCY_MODE__: resolvedTenancyMode,
+    __APP_REQUIRES_WORKSPACE__: appRequiresWorkspace
   };
 
   const touchedFiles = await copyTemplateDirectory({
@@ -502,6 +551,7 @@ export async function createApp({
     appTitle: resolvedAppTitle,
     template: String(template),
     initialBundles: resolvedInitialBundles,
+    tenancyMode: resolvedTenancyMode,
     selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles),
     targetDirectory,
     dryRun,
@@ -546,6 +596,7 @@ export async function runCli(
       template: resolvedOptions.template,
       target: resolvedOptions.target,
       initialBundles: resolvedOptions.initialBundles,
+      tenancyMode: resolvedOptions.tenancyMode,
       force: resolvedOptions.force,
       dryRun: resolvedOptions.dryRun,
       cwd
@@ -559,6 +610,8 @@ export async function runCli(
     } else {
       stdout.write(`Created app "${result.appName}" from template "${result.template}" at ${targetLabel}.\n`);
     }
+
+    stdout.write(`Tenancy mode: ${result.tenancyMode}\n`);
 
     stdout.write(`${result.dryRun ? "Planned" : "Written"} files (${result.touchedFiles.length}):\n`);
     for (const filePath of result.touchedFiles) {

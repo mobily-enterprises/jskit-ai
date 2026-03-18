@@ -55,6 +55,7 @@ export default Object.freeze({
       containerTokens: {
         server: [
           "users.core",
+          "users.profile.sync.service",
           "users.workspace.service",
           "users.workspace.members.service",
           "users.workspace.settings.service",
@@ -228,6 +229,16 @@ export default Object.freeze({
       },
       {
         op: "install-migration",
+        from: "templates/migrations/users_core_profile_username.cjs",
+        toDir: "migrations",
+        slug: "users_core_profile_username",
+        extension: ".cjs",
+        reason: "Install users profile username migration.",
+        category: "migration",
+        id: "users-core-profile-username-schema"
+      },
+      {
+        op: "install-migration",
         from: "templates/migrations/users_core_console_owner.cjs",
         toDir: "migrations",
         slug: "users_core_console_owner",
@@ -318,7 +329,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+          "\nconfig.tenancyMode = String(config.tenancyMode || \"\").trim().toLowerCase() || \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"

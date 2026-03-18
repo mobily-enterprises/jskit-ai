@@ -100,13 +100,15 @@ function createService(options) {
 
   const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
-  const userProfilesRepository = options.userProfilesRepository;
   const userSettingsRepository = options.userSettingsRepository || null;
-  const workspaceProvisioningService =
-    options.workspaceProvisioningService &&
-    typeof options.workspaceProvisioningService.provisionWorkspaceForNewUser === "function"
-      ? options.workspaceProvisioningService
-      : null;
+  const userProfileSyncService = options.userProfileSyncService;
+  if (
+    !userProfileSyncService ||
+    typeof userProfileSyncService.syncIdentityProfile !== "function" ||
+    typeof userProfileSyncService.findByIdentity !== "function"
+  ) {
+    throw new Error("userProfileSyncService with syncIdentityProfile() and findByIdentity() is required.");
+  }
   const isProduction = options.nodeEnv === "production";
   const jwtAudience = String(authProvider.jwtAudience || DEFAULT_AUDIENCE).trim();
   const settingsProfileAuthInfo = Object.freeze({
@@ -373,19 +375,6 @@ function createService(options) {
     reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
   }
 
-  function profileNeedsUpdate(existing, nextProfile) {
-    if (!existing) {
-      return true;
-    }
-
-    return (
-      existing.email !== nextProfile.email ||
-      existing.displayName !== nextProfile.displayName ||
-      existing.authProvider !== nextProfile.authProvider ||
-      existing.authProviderUserId !== nextProfile.authProviderUserId
-    );
-  }
-
   function requireSynchronizedProfile(profile) {
     if (profile && Number.isFinite(Number(profile.id)) && String(profile.displayName || "").trim()) {
       return profile;
@@ -429,30 +418,15 @@ function createService(options) {
     };
   }
 
-  async function findProfileByIdentity(identityProfile) {
+  async function findProfileByIdentity(identityProfile, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityProfile);
-    if (typeof userProfilesRepository.findByIdentity !== "function") {
-      throw new Error("userProfilesRepository.findByIdentity is required.");
-    }
-
-    return userProfilesRepository.findByIdentity({
-      provider: normalized.authProvider,
-      providerUserId: normalized.authProviderUserId
-    });
-  }
-
-  async function upsertProfileByIdentity(identityProfile) {
-    const normalized = buildNormalizedIdentityProfile(identityProfile);
-    if (typeof userProfilesRepository.upsert !== "function") {
-      throw new Error("userProfilesRepository.upsert is required.");
-    }
-
-    return userProfilesRepository.upsert({
-      authProvider: normalized.authProvider,
-      authProviderUserId: normalized.authProviderUserId,
-      email: normalized.email,
-      displayName: normalized.displayName
-    });
+    return userProfileSyncService.findByIdentity(
+      {
+        authProvider: normalized.authProvider,
+        authProviderUserId: normalized.authProviderUserId
+      },
+      options
+    );
   }
 
   function getSettingsProfileAuthInfo() {
@@ -465,18 +439,8 @@ function createService(options) {
   async function syncProfileMirror(nextProfile) {
     try {
       const normalized = buildNormalizedIdentityProfile(nextProfile);
-      const existing = await findProfileByIdentity(normalized);
-      if (!profileNeedsUpdate(existing, normalized)) {
-        return requireSynchronizedProfile(existing);
-      }
-
-      const upserted = await upsertProfileByIdentity(normalized);
-      const synchronizedProfile = requireSynchronizedProfile(upserted);
-      if (!existing && workspaceProvisioningService) {
-        await workspaceProvisioningService.provisionWorkspaceForNewUser(synchronizedProfile);
-      }
-
-      return synchronizedProfile;
+      const synchronizedProfile = await userProfileSyncService.syncIdentityProfile(normalized);
+      return requireSynchronizedProfile(synchronizedProfile);
     } catch (error) {
       if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
         throw new AppError(

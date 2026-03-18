@@ -26,6 +26,10 @@ function toSlugPart(value) {
 }
 
 function buildWorkspaceBaseSlug(user = {}) {
+  const username = normalizeLowerText(user.username);
+  if (username) {
+    return toSlugPart(username);
+  }
   const displayName = normalizeText(user.displayName);
   if (displayName) {
     return toSlugPart(displayName);
