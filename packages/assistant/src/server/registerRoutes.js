@@ -1,8 +1,14 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import {
+  workspaceSlugParamsValidator
+} from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { resolveAssistantApiBasePath } from "../shared/assistantPaths.js";
 import { assistantResource } from "../shared/assistantResource.js";
+import {
+  assistantConsoleSettingsResource,
+  assistantWorkspaceSettingsResource
+} from "../shared/assistantSettingsResource.js";
 import { actionIds } from "./actionIds.js";
 import { endNdjson, mapStreamError, setNdjsonHeaders, writeNdjson } from "./lib/ndjson.js";
 
@@ -18,6 +24,128 @@ function registerRoutes(app) {
   });
 
   router.register(
+    "GET",
+    "/api/console/settings/assistant",
+    {
+      auth: "required",
+      workspaceSurface: "console",
+      meta: {
+        tags: ["assistant", "settings"],
+        summary: "Get assistant console settings."
+      },
+      responseValidators: withStandardErrorResponses({
+        200: assistantConsoleSettingsResource.operations.view.outputValidator
+      })
+    },
+    async function assistantConsoleSettingsReadRoute(request, reply) {
+      const response = await request.executeAction({
+        actionId: actionIds.consoleSettingsRead
+      });
+
+      reply.code(200).send(response);
+    }
+  );
+
+  router.register(
+    "PATCH",
+    "/api/console/settings/assistant",
+    {
+      auth: "required",
+      workspaceSurface: "console",
+      meta: {
+        tags: ["assistant", "settings"],
+        summary: "Update assistant console settings."
+      },
+      bodyValidator: assistantConsoleSettingsResource.operations.patch.bodyValidator,
+      responseValidators: withStandardErrorResponses(
+        {
+          200: assistantConsoleSettingsResource.operations.patch.outputValidator
+        },
+        {
+          includeValidation400: true
+        }
+      )
+    },
+    async function assistantConsoleSettingsPatchRoute(request, reply) {
+      const response = await request.executeAction({
+        actionId: actionIds.consoleSettingsUpdate,
+        input: {
+          payload: request.input.body
+        }
+      });
+
+      reply.code(200).send(response);
+    }
+  );
+
+  router.register(
+    "GET",
+    "/api/w/:workspaceSlug/workspace/settings/assistant",
+    {
+      auth: "required",
+      visibility,
+      meta: {
+        tags: ["assistant", "settings"],
+        summary: "Get assistant workspace settings."
+      },
+      paramsValidator: workspaceSlugParamsValidator,
+      responseValidators: withStandardErrorResponses({
+        200: assistantWorkspaceSettingsResource.operations.view.outputValidator
+      })
+    },
+    async function assistantWorkspaceSettingsReadRoute(request, reply) {
+      const response = await request.executeAction({
+        actionId: actionIds.workspaceSettingsRead,
+        context: {
+          surface: "admin"
+        },
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug
+        }
+      });
+
+      reply.code(200).send(response);
+    }
+  );
+
+  router.register(
+    "PATCH",
+    "/api/w/:workspaceSlug/workspace/settings/assistant",
+    {
+      auth: "required",
+      visibility,
+      meta: {
+        tags: ["assistant", "settings"],
+        summary: "Update assistant workspace settings."
+      },
+      paramsValidator: workspaceSlugParamsValidator,
+      bodyValidator: assistantWorkspaceSettingsResource.operations.patch.bodyValidator,
+      responseValidators: withStandardErrorResponses(
+        {
+          200: assistantWorkspaceSettingsResource.operations.patch.outputValidator
+        },
+        {
+          includeValidation400: true
+        }
+      )
+    },
+    async function assistantWorkspaceSettingsPatchRoute(request, reply) {
+      const response = await request.executeAction({
+        actionId: actionIds.workspaceSettingsUpdate,
+        context: {
+          surface: "admin"
+        },
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          patch: request.input.body
+        }
+      });
+
+      reply.code(200).send(response);
+    }
+  );
+
+  router.register(
     "POST",
     `${routeBase}/chat/stream`,
     {
@@ -27,7 +155,7 @@ function registerRoutes(app) {
         tags: ["assistant"],
         summary: "Stream assistant response for workspace user."
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       bodyValidator: assistantResource.operations.chatStream.bodyValidator
     },
     async function assistantChatStreamRoute(request, reply) {
@@ -157,7 +285,7 @@ function registerRoutes(app) {
         tags: ["assistant"],
         summary: "List assistant conversations for current workspace user."
       },
-      paramsValidator: routeParamsValidator,
+      paramsValidator: workspaceSlugParamsValidator,
       queryValidator: assistantResource.operations.conversationsList.queryValidator,
       responseValidators: withStandardErrorResponses({
         200: assistantResource.operations.conversationsList.outputValidator
@@ -189,7 +317,7 @@ function registerRoutes(app) {
         tags: ["assistant"],
         summary: "List messages for one assistant conversation."
       },
-      paramsValidator: [routeParamsValidator, assistantResource.operations.conversationMessagesList.paramsValidator],
+      paramsValidator: [workspaceSlugParamsValidator, assistantResource.operations.conversationMessagesList.paramsValidator],
       queryValidator: assistantResource.operations.conversationMessagesList.queryValidator,
       responseValidators: withStandardErrorResponses({
         200: assistantResource.operations.conversationMessagesList.outputValidator

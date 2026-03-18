@@ -3,7 +3,12 @@ import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRepository as createConversationsRepository } from "./repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "./repositories/messagesRepository.js";
+import { createRepository as createAssistantSettingsRepository } from "./repositories/assistantSettingsRepository.js";
 import { createChatService } from "./services/chatService.js";
+import {
+  createService as createAssistantSettingsService,
+  serviceEvents as assistantSettingsServiceEvents
+} from "./services/assistantSettingsService.js";
 import {
   createTranscriptService,
   serviceEvents as transcriptServiceEvents
@@ -16,8 +21,10 @@ import { registerRoutes } from "./registerRoutes.js";
 import {
   ASSISTANT_CONVERSATIONS_REPOSITORY_TOKEN,
   ASSISTANT_MESSAGES_REPOSITORY_TOKEN,
+  ASSISTANT_SETTINGS_REPOSITORY_TOKEN,
   ASSISTANT_TRANSCRIPT_SERVICE_TOKEN,
   ASSISTANT_CHAT_SERVICE_TOKEN,
+  ASSISTANT_SETTINGS_SERVICE_TOKEN,
   ASSISTANT_AI_CLIENT_TOKEN,
   ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN
 } from "./diTokens.js";
@@ -97,6 +104,11 @@ class AssistantServiceProvider {
       return createMessagesRepository(knex);
     });
 
+    app.singleton(ASSISTANT_SETTINGS_REPOSITORY_TOKEN, (scope) => {
+      const knex = scope.make(KERNEL_TOKENS.Knex);
+      return createAssistantSettingsRepository(knex);
+    });
+
     app.singleton(ASSISTANT_AI_CLIENT_TOKEN, () => {
       return createAiClient(config.ai);
     });
@@ -123,12 +135,25 @@ class AssistantServiceProvider {
     );
 
     app.service(
+      ASSISTANT_SETTINGS_SERVICE_TOKEN,
+      (scope) =>
+        createAssistantSettingsService({
+          assistantSettingsRepository: scope.make(ASSISTANT_SETTINGS_REPOSITORY_TOKEN),
+          consoleService: scope.make("consoleService")
+        }),
+      {
+        events: assistantSettingsServiceEvents
+      }
+    );
+
+    app.service(
       ASSISTANT_CHAT_SERVICE_TOKEN,
       (scope) =>
         createChatService({
           aiClient: scope.make(ASSISTANT_AI_CLIENT_TOKEN),
           transcriptService: scope.make(ASSISTANT_TRANSCRIPT_SERVICE_TOKEN),
-          serviceToolCatalog: scope.make(ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN)
+          serviceToolCatalog: scope.make(ASSISTANT_SERVICE_TOOL_CATALOG_TOKEN),
+          assistantSettingsService: scope.make(ASSISTANT_SETTINGS_SERVICE_TOKEN)
         }),
       {
         events: {}
@@ -139,7 +164,8 @@ class AssistantServiceProvider {
       withActionDefaults(assistantActions, {
         domain: "assistant",
         dependencies: {
-          chatService: ASSISTANT_CHAT_SERVICE_TOKEN
+          chatService: ASSISTANT_CHAT_SERVICE_TOKEN,
+          assistantSettingsService: ASSISTANT_SETTINGS_SERVICE_TOKEN
         }
       })
     );

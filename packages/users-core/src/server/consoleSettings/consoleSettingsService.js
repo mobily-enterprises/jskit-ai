@@ -1,8 +1,7 @@
 function buildSettingsResponse(record = {}) {
+  void record;
   return {
-    settings: {
-      assistantSystemPromptWorkspace: String(record.assistantSystemPromptWorkspace || "")
-    }
+    settings: {}
   };
 }
 
@@ -25,10 +24,9 @@ function createService({ consoleSettingsRepository, consoleService } = {}) {
   }
 
   async function updateSettings(input = {}, options = {}) {
+    void input;
     await consoleService.requireConsoleOwner(options?.context, options);
-    const settings = await consoleSettingsRepository.updateSingleton({
-      assistantSystemPromptWorkspace: input.assistantSystemPromptWorkspace
-    });
+    const settings = await consoleSettingsRepository.updateSingleton({});
 
     return buildSettingsResponse(settings);
   }

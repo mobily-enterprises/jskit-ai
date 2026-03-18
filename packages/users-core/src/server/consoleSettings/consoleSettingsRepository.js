@@ -13,7 +13,6 @@ function mapSingletonRow(row) {
   return {
     id: Number(row.id),
     ownerUserId: ownerUserId || null,
-    assistantSystemPromptWorkspace: String(row.assistant_system_prompt_workspace || ""),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -62,13 +61,12 @@ function createRepository(knex) {
   }
 
   async function updateSingleton(patch, options = {}) {
+    void patch;
     const client = options?.trx || knex;
-    const nextAssistantSystemPromptWorkspace = String(patch.assistantSystemPromptWorkspace || "");
 
     await client("console_settings")
       .where({ id: 1 })
       .update({
-        assistant_system_prompt_workspace: nextAssistantSystemPromptWorkspace,
         updated_at: nowDb()
       });
 

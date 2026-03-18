@@ -60,7 +60,12 @@ export default Object.freeze({
       ]
     },
     client: {
-      providers: []
+      providers: [
+        {
+          entrypoint: "src/client/providers/AssistantWebClientProvider.js",
+          export: "AssistantWebClientProvider"
+        }
+      ]
     }
   },
   metadata: {
@@ -82,11 +87,16 @@ export default Object.freeze({
       containerTokens: {
         server: [
           "assistant.chat.service",
+          "assistant.settings.service",
           "assistant.transcript.service",
           "assistant.conversation.repository",
-          "assistant.message.repository"
+          "assistant.message.repository",
+          "assistant.settings.repository"
         ],
-        client: []
+        client: [
+          "assistant.web.console-settings.element",
+          "assistant.web.workspace-settings.element"
+        ]
       }
     }
   },
@@ -126,6 +136,16 @@ export default Object.freeze({
         id: "assistant-transcripts-initial-schema"
       },
       {
+        op: "install-migration",
+        from: "templates/migrations/assistant_settings_initial.cjs",
+        toDir: "migrations",
+        slug: "assistant_settings_initial",
+        extension: ".cjs",
+        reason: "Install assistant settings schema migration.",
+        category: "assistant",
+        id: "assistant-settings-initial-schema"
+      },
+      {
         from: "templates/src/pages/admin/workspace/assistant/index.vue",
         to: "src/pages/admin/workspace/assistant/index.vue",
         reason: "Install assistant workspace page scaffold.",
@@ -144,6 +164,17 @@ export default Object.freeze({
         reason: "Append admin Assistant menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"assistant.workspace.settings.form\"",
+        value:
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  surface: \"admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  surface: \"console\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append assistant settings forms into app-owned settings placements.",
+        category: "assistant",
+        id: "assistant-settings-form-placements"
       },
       {
         file: ".env",

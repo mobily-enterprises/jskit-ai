@@ -4,6 +4,7 @@ import UsersShellMenuLinkItem from "../components/UsersShellMenuLinkItem.vue";
 import UsersSurfaceAwareMenuLinkItem from "../components/UsersSurfaceAwareMenuLinkItem.vue";
 import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
 import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
+import AccountSettingsClientElement from "../components/AccountSettingsClientElement.vue";
 import ProfileClientElement from "../components/ProfileClientElement.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
 import WorkspaceSettingsClientElement from "../components/WorkspaceSettingsClientElement.vue";
@@ -18,6 +19,7 @@ const USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN = "users.web.shell.menu-link-item";
 const USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN = "users.web.shell.surface-aware-menu-link-item";
 const USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN = "users.web.workspace-settings.menu-item";
 const USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN = "users.web.workspace-members.menu-item";
+const USERS_WEB_ACCOUNT_SETTINGS_ELEMENT_TOKEN = "users.web.account-settings.element";
 const USERS_WEB_PROFILE_ELEMENT_TOKEN = "users.web.profile.element";
 const USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN = "users.web.members-admin.element";
 const USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN = "users.web.workspace-settings.element";
@@ -37,6 +39,7 @@ class UsersWebClientProvider {
     app.singleton(USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN, () => UsersSurfaceAwareMenuLinkItem);
     app.singleton(USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN, () => UsersWorkspaceSettingsMenuItem);
     app.singleton(USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN, () => UsersWorkspaceMembersMenuItem);
+    app.singleton(USERS_WEB_ACCOUNT_SETTINGS_ELEMENT_TOKEN, () => AccountSettingsClientElement);
     app.singleton(USERS_WEB_PROFILE_ELEMENT_TOKEN, () => ProfileClientElement);
     app.singleton(USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN, () => MembersAdminClientElement);
     app.singleton(USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN, () => WorkspaceSettingsClientElement);
@@ -74,6 +77,7 @@ export {
   USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN,
   USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN,
+  USERS_WEB_ACCOUNT_SETTINGS_ELEMENT_TOKEN,
   USERS_WEB_PROFILE_ELEMENT_TOKEN,
   USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN,
   USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN,

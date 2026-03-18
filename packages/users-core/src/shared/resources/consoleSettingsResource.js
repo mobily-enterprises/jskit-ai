@@ -6,9 +6,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 
 const consoleSettingsValueSchema = Type.Object(
-  {
-    assistantSystemPromptWorkspace: Type.String()
-  },
+  {},
   { additionalProperties: false }
 );
 
@@ -20,9 +18,7 @@ const consoleSettingsRecordSchema = Type.Object(
 );
 
 const consoleSettingsCreateSchema = Type.Object(
-  {
-    assistantSystemPromptWorkspace: Type.String()
-  },
+  {},
   { additionalProperties: false }
 );
 
@@ -34,13 +30,10 @@ const consoleSettingsPatchSchema = Type.Partial(consoleSettingsCreateSchema, {
 const consoleSettingsOutputValidator = Object.freeze({
   schema: consoleSettingsRecordSchema,
   normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const settingsSource = normalizeObjectInput(source.settings);
+    void payload;
 
     return {
-      settings: {
-        assistantSystemPromptWorkspace: String(settingsSource.assistantSystemPromptWorkspace || "")
-      }
+      settings: {}
     };
   }
 });

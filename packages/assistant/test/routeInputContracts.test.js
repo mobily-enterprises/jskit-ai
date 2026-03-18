@@ -51,8 +51,24 @@ test("assistant routes build list inputs with explicit query object", async () =
     "GET",
     "/api/w/:workspaceSlug/assistant/conversations/:conversationId/messages"
   );
+  const consoleSettingsReadRoute = findRoute(registeredRoutes, "GET", "/api/console/settings/assistant");
+  const consoleSettingsPatchRoute = findRoute(registeredRoutes, "PATCH", "/api/console/settings/assistant");
+  const workspaceSettingsReadRoute = findRoute(
+    registeredRoutes,
+    "GET",
+    "/api/w/:workspaceSlug/workspace/settings/assistant"
+  );
+  const workspaceSettingsPatchRoute = findRoute(
+    registeredRoutes,
+    "PATCH",
+    "/api/w/:workspaceSlug/workspace/settings/assistant"
+  );
   assert.ok(conversationsRoute);
   assert.ok(messagesRoute);
+  assert.ok(consoleSettingsReadRoute);
+  assert.ok(consoleSettingsPatchRoute);
+  assert.ok(workspaceSettingsReadRoute);
+  assert.ok(workspaceSettingsPatchRoute);
 
   const calls = [];
   const executeAction = async (payload) => {
@@ -80,6 +96,41 @@ test("assistant routes build list inputs with explicit query object", async () =
     },
     createReplyDouble()
   );
+  await consoleSettingsReadRoute.handler(
+    {
+      input: {},
+      executeAction
+    },
+    createReplyDouble()
+  );
+  await consoleSettingsPatchRoute.handler(
+    {
+      input: {
+        body: { workspaceSurfacePrompt: "Console prompt" }
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+  await workspaceSettingsReadRoute.handler(
+    {
+      input: {
+        params: { workspaceSlug: "acme" }
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+  await workspaceSettingsPatchRoute.handler(
+    {
+      input: {
+        params: { workspaceSlug: "acme" },
+        body: { appSurfacePrompt: "Workspace prompt" }
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
 
   assert.deepEqual(calls[0].input, {
     workspaceSlug: "acme",
@@ -89,5 +140,37 @@ test("assistant routes build list inputs with explicit query object", async () =
     workspaceSlug: "acme",
     conversationId: 10,
     query: { page: 3, pageSize: 100 }
+  });
+  assert.deepEqual(calls[2], {
+    actionId: "assistant.console.settings.read"
+  });
+  assert.deepEqual(calls[3], {
+    actionId: "assistant.console.settings.update",
+    input: {
+      payload: {
+        workspaceSurfacePrompt: "Console prompt"
+      }
+    }
+  });
+  assert.deepEqual(calls[4], {
+    actionId: "assistant.workspace.settings.read",
+    context: {
+      surface: "admin"
+    },
+    input: {
+      workspaceSlug: "acme"
+    }
+  });
+  assert.deepEqual(calls[5], {
+    actionId: "assistant.workspace.settings.update",
+    context: {
+      surface: "admin"
+    },
+    input: {
+      workspaceSlug: "acme",
+      patch: {
+        appSurfacePrompt: "Workspace prompt"
+      }
+    }
   });
 });

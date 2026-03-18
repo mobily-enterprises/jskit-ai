@@ -138,7 +138,7 @@ function buildToolContractLine(toolDescriptor = {}) {
   return `${name}: input=${toCompactJson(inputSchema)} output=${toCompactJson(outputSchema, "null")}`;
 }
 
-function buildSystemPrompt({ toolDescriptors = [], workspaceSlug = "" } = {}) {
+function buildSystemPrompt({ toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {}) {
   const toolSummary = toolDescriptors.length > 0
     ? `Available tools: ${toolDescriptors.map((entry) => entry.name).join(", ")}.`
     : "No tools are currently available for this user/session.";
@@ -149,8 +149,9 @@ function buildSystemPrompt({ toolDescriptors = [], workspaceSlug = "" } = {}) {
   const workspaceLine = normalizedWorkspaceSlug
     ? `Current workspace slug: ${normalizedWorkspaceSlug}.`
     : "Current workspace slug is unavailable.";
+  const normalizedCustomSystemPrompt = String(customSystemPrompt || "").trim();
 
-  return [
+  const promptSegments = [
     "You are the workspace assistant.",
     "Use tools when they are necessary and only when available.",
     "Do not mention tools that are not available.",
@@ -158,7 +159,12 @@ function buildSystemPrompt({ toolDescriptors = [], workspaceSlug = "" } = {}) {
     workspaceLine,
     toolSummary,
     toolContracts
-  ].join(" ");
+  ];
+  if (normalizedCustomSystemPrompt) {
+    promptSegments.push(`Additional instructions for this surface: ${normalizedCustomSystemPrompt}`);
+  }
+
+  return promptSegments.join(" ");
 }
 
 function buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
@@ -528,9 +534,9 @@ function mergeAssistantMessageText(streamedText = "", completionText = "") {
   return `${streamed}\n${completion}`;
 }
 
-function createChatService({ aiClient, transcriptService, serviceToolCatalog } = {}) {
-  if (!aiClient || !transcriptService || !serviceToolCatalog) {
-    throw new Error("createChatService requires aiClient, transcriptService, and serviceToolCatalog.");
+function createChatService({ aiClient, transcriptService, serviceToolCatalog, assistantSettingsService } = {}) {
+  if (!aiClient || !transcriptService || !serviceToolCatalog || !assistantSettingsService) {
+    throw new Error("createChatService requires aiClient, transcriptService, serviceToolCatalog, and assistantSettingsService.");
   }
 
   async function streamChat(payload = {}, options = {}) {
@@ -586,9 +592,19 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog } =
     );
 
     const toolSet = serviceToolCatalog.resolveToolSet(context);
+    const customSystemPrompt = await assistantSettingsService.resolveSystemPrompt(
+      workspace,
+      {
+        surface: context.surface
+      },
+      {
+        context
+      }
+    );
     const systemPrompt = buildSystemPrompt({
       toolDescriptors: toolSet.tools,
-      workspaceSlug: resolveWorkspaceSlug(context, source)
+      workspaceSlug: resolveWorkspaceSlug(context, source),
+      customSystemPrompt
     });
 
     const messages = [

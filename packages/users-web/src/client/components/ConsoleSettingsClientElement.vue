@@ -3,85 +3,16 @@
     <v-row class="ma-0" justify="center">
       <v-col cols="12" sm="10" md="9" lg="7">
         <v-sheet class="pa-6 pa-sm-8" rounded="lg" border>
-          <h1 class="text-h5 text-sm-h4 mb-3">Console home</h1>
-          <p class="text-body-2 text-sm-body-1 mb-3">
-            Use this space for console-owned assistant behavior and global operations context.
+          <h1 class="text-h5 text-sm-h4 mb-3">Console settings</h1>
+          <p class="text-body-2 text-sm-body-1 mb-0">
+            No console settings are provided by <code>@jskit-ai/users-web</code>. Install a module that contributes
+            forms to <code>console.settings.forms</code>.
           </p>
-
-          <p v-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
-            {{ addEdit.loadError }}
-          </p>
-          <p v-else-if="!addEdit.canView" class="text-body-2 text-medium-emphasis mb-4">
-            You do not have permission to view console settings.
-          </p>
-
-          <v-form @submit.prevent="addEdit.submit" novalidate>
-            <v-textarea
-              v-model="form.assistantSystemPromptWorkspace"
-              label="Assistant system prompt (Workspace/Admin surface)"
-              variant="outlined"
-              density="comfortable"
-              rows="5"
-              auto-grow
-              :readonly="!addEdit.canSave"
-              :loading="addEdit.isLoading"
-              hint="Applied to admin/workspace assistant conversations across workspaces."
-              persistent-hint
-            />
-            <div class="d-flex justify-end mt-4">
-              <v-btn
-                type="submit"
-                color="primary"
-                :loading="addEdit.isSaving"
-                :disabled="!addEdit.canSave || addEdit.isLoading"
-              >
-                Save console assistant settings
-              </v-btn>
-            </div>
-          </v-form>
         </v-sheet>
       </v-col>
     </v-row>
   </v-container>
 </template>
-
-<script setup>
-import { reactive } from "vue";
-import { useAddEdit } from "../composables/useAddEdit.js";
-import { CONSOLE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
-
-const form = reactive({
-  assistantSystemPromptWorkspace: ""
-});
-
-const addEdit = useAddEdit({
-  visibility: "public",
-  access: "never",
-  apiSuffix: "/console/settings",
-  queryKeyFactory: () => ["users-web", "settings", "console"],
-  viewPermissions: [],
-  savePermissions: [],
-  writeMethod: "PATCH",
-  placementSource: "users-web.console-settings-view",
-  fallbackLoadError: "Unable to load console settings.",
-  fallbackSaveError: "Unable to update console settings.",
-  realtime: {
-    event: CONSOLE_SETTINGS_CHANGED_EVENT
-  },
-  model: form,
-  mapLoadedToModel: (model, payload = {}) => {
-    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    model.assistantSystemPromptWorkspace = String(settings.assistantSystemPromptWorkspace || "");
-  },
-  buildRawPayload: (model) => ({
-    assistantSystemPromptWorkspace: model.assistantSystemPromptWorkspace
-  }),
-  messages: {
-    saveSuccess: "Console settings updated.",
-    saveError: "Unable to update console settings."
-  }
-});
-</script>
 
 <style scoped>
 .console-home {

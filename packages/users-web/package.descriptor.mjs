@@ -70,6 +70,7 @@ export default Object.freeze({
           "users.web.shell.surface-aware-menu-link-item",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
+          "users.web.account-settings.element",
           "users.web.profile.element",
           "users.web.members-admin.element",
           "users.web.workspace-settings.element",
@@ -84,6 +85,21 @@ export default Object.freeze({
             slot: "workspace.primary-menu",
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+          },
+          {
+            slot: "account.settings.forms",
+            surfaces: ["*"],
+            source: "templates/src/pages/account/settings/index.vue"
+          },
+          {
+            slot: "workspace.settings.forms",
+            surfaces: ["admin"],
+            source: "templates/src/pages/admin/workspace/settings/index.vue"
+          },
+          {
+            slot: "console.settings.forms",
+            surfaces: ["console"],
+            source: "templates/src/pages/console/settings/index.vue"
           }
         ],
         contributions: [
@@ -137,6 +153,23 @@ export default Object.freeze({
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-console-settings-placement"
+          },
+          {
+            id: "users.account.settings.form",
+            slot: "account.settings.forms",
+            surface: "*",
+            order: 100,
+            componentToken: "users.web.account-settings.element",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-settings-form-placements"
+          },
+          {
+            id: "users.workspace.settings.form",
+            slot: "workspace.settings.forms",
+            surface: "admin",
+            order: 100,
+            componentToken: "users.web.workspace-settings.element",
+            source: "mutations.text#users-web-settings-form-placements"
           }
         ]
       }
@@ -223,6 +256,17 @@ export default Object.freeze({
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.account.settings.form\"",
+        value:
+          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
+        reason: "Append users-web default settings form placements into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-settings-form-placements"
       }
     ]
   }

@@ -10,6 +10,7 @@
     "./client/components/*": "./src/client/components/*.vue",
     "./client/composables/internal/*": null,
     "./client/composables/*": "./src/client/composables/*.js",
+    "./client/support/*": "./src/client/support/*.js",
     "./client/lib/*": "./src/client/lib/*.js",
     "./client/providers/*": "./src/client/providers/*.js"
   },

@@ -369,9 +369,7 @@ test("console settings route handlers use request.input payloads", async () => {
   const executeAction = async (payload) => {
     calls.push(payload);
     return {
-      settings: {
-        assistantSystemPromptWorkspace: String(payload?.input?.assistantSystemPromptWorkspace || "")
-      }
+      settings: {}
     };
   };
 
@@ -383,9 +381,7 @@ test("console settings route handlers use request.input payloads", async () => {
   await findRoute(routes, { method: "PATCH", path: "/api/console/settings" }).handler(
     createActionRequest({
       input: {
-        body: {
-          assistantSystemPromptWorkspace: "Prompt"
-        }
+        body: {}
       },
       executeAction
     }),
@@ -396,9 +392,7 @@ test("console settings route handlers use request.input payloads", async () => {
   assert.deepEqual(calls[1], {
     actionId: "console.settings.update",
     input: {
-      payload: {
-        assistantSystemPromptWorkspace: "Prompt"
-      }
+      payload: {}
     }
   });
 });

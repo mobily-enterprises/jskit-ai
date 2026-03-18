@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createChatService } from "../src/server/services/chatService.js";
 
+function createAssistantSettingsServiceStub({ prompt = "" } = {}) {
+  return {
+    async resolveSystemPrompt() {
+      return String(prompt || "");
+    }
+  };
+}
+
 test("chat service system prompt includes current workspace slug from resolved workspace context", async () => {
   let capturedMessages = null;
 
@@ -78,7 +86,10 @@ test("chat service system prompt includes current workspace slug from resolved w
   const chatService = createChatService({
     aiClient,
     transcriptService,
-    serviceToolCatalog
+    serviceToolCatalog,
+    assistantSettingsService: createAssistantSettingsServiceStub({
+      prompt: "Always answer in short bullet points."
+    })
   });
 
   await chatService.streamChat(
@@ -90,6 +101,10 @@ test("chat service system prompt includes current workspace slug from resolved w
       context: {
         actor: {
           id: 7
+        },
+        workspace: {
+          id: 1,
+          slug: "tonymobily3"
         },
         requestMeta: {
           resolvedWorkspaceContext: {
@@ -106,6 +121,7 @@ test("chat service system prompt includes current workspace slug from resolved w
   assert.ok(Array.isArray(capturedMessages));
   assert.equal(capturedMessages[0]?.role, "system");
   assert.match(String(capturedMessages[0]?.content || ""), /Current workspace slug: tonymobily3\./);
+  assert.match(String(capturedMessages[0]?.content || ""), /Always answer in short bullet points\./);
 });
 
 test("chat service recovers with a final assistant answer when a tool call fails", async () => {
@@ -242,7 +258,8 @@ test("chat service recovers with a final assistant answer when a tool call fails
   const chatService = createChatService({
     aiClient,
     transcriptService,
-    serviceToolCatalog
+    serviceToolCatalog,
+    assistantSettingsService: createAssistantSettingsServiceStub()
   });
 
   const result = await chatService.streamChat(
@@ -403,7 +420,8 @@ test("chat service strips raw tool-call markup from recovery assistant output", 
   const chatService = createChatService({
     aiClient,
     transcriptService,
-    serviceToolCatalog
+    serviceToolCatalog,
+    assistantSettingsService: createAssistantSettingsServiceStub()
   });
 
   await chatService.streamChat(
@@ -574,7 +592,8 @@ test("chat service retries plain-language recovery before fallback when post-fai
   const chatService = createChatService({
     aiClient,
     transcriptService,
-    serviceToolCatalog
+    serviceToolCatalog,
+    assistantSettingsService: createAssistantSettingsServiceStub()
   });
 
   await chatService.streamChat(
@@ -788,7 +807,8 @@ test("chat service recovery streams sanitized text without DSML tag leakage", as
   const chatService = createChatService({
     aiClient,
     transcriptService,
-    serviceToolCatalog
+    serviceToolCatalog,
+    assistantSettingsService: createAssistantSettingsServiceStub()
   });
 
   await chatService.streamChat(

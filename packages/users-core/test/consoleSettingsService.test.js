@@ -21,15 +21,11 @@ function createFixture({ deny = false } = {}) {
     },
     consoleSettingsRepository: {
       async getSingleton() {
-        return {
-          assistantSystemPromptWorkspace: "Seed prompt"
-        };
+        return {};
       },
       async updateSingleton(patch = {}) {
         calls.updateSingleton.push({ ...patch });
-        return {
-          assistantSystemPromptWorkspace: String(patch.assistantSystemPromptWorkspace || "")
-        };
+        return {};
       }
     }
   });
@@ -49,9 +45,7 @@ test("consoleSettingsService.getSettings requires owner access and returns norma
 
   assert.deepEqual(calls.requireConsoleOwner, [context]);
   assert.deepEqual(response, {
-    settings: {
-      assistantSystemPromptWorkspace: "Seed prompt"
-    }
+    settings: {}
   });
 });
 
@@ -64,22 +58,14 @@ test("consoleSettingsService.updateSettings requires owner access before writing
   };
 
   const response = await service.updateSettings(
-    {
-      assistantSystemPromptWorkspace: "Updated prompt"
-    },
+    {},
     { context }
   );
 
   assert.deepEqual(calls.requireConsoleOwner, [context]);
-  assert.deepEqual(calls.updateSingleton, [
-    {
-      assistantSystemPromptWorkspace: "Updated prompt"
-    }
-  ]);
+  assert.deepEqual(calls.updateSingleton, [{}]);
   assert.deepEqual(response, {
-    settings: {
-      assistantSystemPromptWorkspace: "Updated prompt"
-    }
+    settings: {}
   });
 });
 

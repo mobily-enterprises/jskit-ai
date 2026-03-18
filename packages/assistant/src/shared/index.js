@@ -25,4 +25,15 @@ export {
   assistantResource
 } from "./assistantResource.js";
 
+export {
+  MAX_SYSTEM_PROMPT_CHARS,
+  assistantConsoleSettingsResource,
+  assistantWorkspaceSettingsResource
+} from "./assistantSettingsResource.js";
+
+export {
+  ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT,
+  ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT
+} from "./settingsEvents.js";
+
 export { toPositiveInteger } from "./support/positiveInteger.js";
