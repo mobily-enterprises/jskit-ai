@@ -1,4 +1,5 @@
 import * as actionRuntime from "../../shared/actions/index.js";
+import { createSurfaceRuntime } from "../../shared/surface/runtime.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { installServiceRegistrationApi } from "../runtime/serviceRegistration.js";
 
@@ -147,7 +148,18 @@ function resolveSurfaceRuntime(scope) {
     throw new Error("Action definition materialization requires scope.has()/make().");
   }
   if (!scope.has(KERNEL_TOKENS.SurfaceRuntime)) {
-    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime.");
+    if (scope.has("appConfig")) {
+      const appConfig = normalizePlainObject(scope.make("appConfig"));
+      const surfaceDefinitions = normalizePlainObject(appConfig.surfaceDefinitions);
+      if (Object.keys(surfaceDefinitions).length > 0) {
+        return createSurfaceRuntime({
+          allMode: appConfig.surfaceModeAll,
+          surfaces: surfaceDefinitions,
+          defaultSurfaceId: appConfig.surfaceDefaultId
+        });
+      }
+    }
+    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime or appConfig.surfaceDefinitions.");
   }
   return scope.make(KERNEL_TOKENS.SurfaceRuntime);
 }

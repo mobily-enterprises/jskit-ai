@@ -132,6 +132,44 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   assert.deepEqual(result, { echoed: { value: "ok" }, ok: true });
 });
 
+test("ActionRuntimeServiceProvider resolves surfacesFrom from appConfig when SurfaceRuntime token is absent", async () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton("appConfig", () => ({
+    surfaceModeAll: "all",
+    surfaceDefaultId: "home",
+    surfaceDefinitions: {
+      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false },
+      console: { id: "console", pagesRoot: "console", enabled: true, requiresAuth: true, requiresWorkspace: false }
+    }
+  }));
+
+  app.actions([
+    {
+      id: "test.surfaces.from.appconfig",
+      domain: "workspace",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfacesFrom: "enabled",
+      consoleUsersOnly: false,
+      inputValidator: EMPTY_INPUT_VALIDATOR,
+      idempotency: "none",
+      audit: { actionName: "test.surfaces.from.appconfig" },
+      observability: {},
+      async execute() {
+        return { ok: true };
+      }
+    }
+  ]);
+
+  const actionExecutor = app.make("actionExecutor");
+  const definition = actionExecutor.getDefinition("test.surfaces.from.appconfig");
+  assert.deepEqual(definition.surfaces, ["home", "console"]);
+});
+
 test("ActionRuntimeServiceProvider does not infer service method bindings from action source", () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();

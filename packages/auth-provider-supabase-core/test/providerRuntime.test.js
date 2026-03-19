@@ -5,8 +5,26 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
+function createAppConfigFixture() {
+  return {
+    surfaceModeAll: "all",
+    surfaceDefaultId: "home",
+    surfaceDefinitions: {
+      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false },
+      console: {
+        id: "console",
+        pagesRoot: "console",
+        enabled: true,
+        requiresAuth: true,
+        requiresWorkspace: false
+      }
+    }
+  };
+}
+
 test("auth supabase provider registers authService and contributes auth actions in users mode", async () => {
   const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
@@ -51,10 +69,13 @@ test("auth supabase provider registers authService and contributes auth actions 
   const definitions = actionExecutor.listDefinitions();
   assert.equal(Array.isArray(definitions), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
+  const sessionRead = definitions.find((definition) => definition.id === "auth.session.read");
+  assert.deepEqual(sessionRead?.surfaces, ["home", "console"]);
 });
 
 test("auth supabase provider registers authService in standalone mode without users.profile.sync.service", async () => {
   const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
@@ -82,6 +103,7 @@ test("auth supabase provider registers authService in standalone mode without us
 
 test("auth supabase provider requires users.profile.sync.service when AUTH_PROFILE_MODE=users", async () => {
   const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
@@ -108,6 +130,7 @@ test("auth supabase provider requires users.profile.sync.service when AUTH_PROFI
 
 test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", async () => {
   const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
   app.instance(KERNEL_TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",

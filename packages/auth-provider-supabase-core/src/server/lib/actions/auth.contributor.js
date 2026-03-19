@@ -11,8 +11,6 @@ import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/comm
 import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
 import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
 
-const AUTH_SURFACES = Object.freeze(["app", "admin", "console"]);
-
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;
   if (request) {
@@ -28,7 +26,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authRegisterCommand.operation.bodyValidator,
     idempotency: "none",
@@ -45,7 +43,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authLoginPasswordCommand.operation.bodyValidator,
     idempotency: "none",
@@ -62,7 +60,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authLoginOtpRequestCommand.operation.bodyValidator,
     idempotency: "none",
@@ -79,7 +77,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
     idempotency: "none",
@@ -96,7 +94,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: [authLoginOAuthStartCommand.operation.paramsValidator, authLoginOAuthStartCommand.operation.queryValidator],
     idempotency: "none",
@@ -113,7 +111,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
     idempotency: "none",
@@ -130,7 +128,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authPasswordResetRequestCommand.operation.bodyValidator,
     idempotency: "none",
@@ -147,7 +145,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
     idempotency: "none",
@@ -164,7 +162,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: authPasswordResetCommand.operation.bodyValidator,
     idempotency: "none",
@@ -181,7 +179,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: {
@@ -221,7 +219,7 @@ const authActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "internal"],
-    surfaces: AUTH_SURFACES,
+    surfacesFrom: "enabled",
     consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     idempotency: "none",
