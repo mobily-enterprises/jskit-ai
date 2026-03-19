@@ -10,10 +10,45 @@ function normalizeSurfaceId(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
-function resolveSurfaceBasePath(context = null, surface = "") {
+function normalizeParamsMap(params = null) {
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return {};
+  }
+  return params;
+}
+
+function materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {}) {
+  const normalizedParams = normalizeParamsMap(params);
+  const missingParams = new Set();
+  const outputPath = String(routeBaseTemplate || "/").replace(/:([A-Za-z0-9_]+)/g, (_full, rawName) => {
+    const paramName = String(rawName || "").trim();
+    const paramValue = normalizedParams[paramName];
+    const normalizedValue = String(paramValue ?? "").trim();
+    if (!normalizedValue) {
+      missingParams.add(paramName);
+      return `:${paramName}`;
+    }
+    return encodeURIComponent(normalizedValue);
+  });
+
+  if (strictParams && missingParams.size > 0) {
+    const surfaceLabel = String(surface || "").trim() || "(default)";
+    const missing = [...missingParams].sort().join(", ");
+    throw new Error(`Missing required surface route params for "${surfaceLabel}": ${missing}.`);
+  }
+
+  return outputPath;
+}
+
+function resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {}) {
   const normalizedSurface = normalizeSurfaceId(surface);
   if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
-    return resolveSurfaceRootPathFromPlacementContext(context, normalizedSurface);
+    const routeBaseTemplate = resolveSurfaceRootPathFromPlacementContext(context, normalizedSurface);
+    return materializeSurfaceRouteBase(routeBaseTemplate, {
+      params,
+      strictParams,
+      surface: normalizedSurface
+    });
   }
 
   if (!normalizedSurface) {
@@ -28,7 +63,9 @@ function resolveShellLinkPath({
   surface = "",
   explicitTo = "",
   relativePath = "/",
-  surfaceRelativePath = ""
+  surfaceRelativePath = "",
+  params = {},
+  strictParams = true
 } = {}) {
   const explicitTarget = String(explicitTo || "").trim();
   if (explicitTarget) {
@@ -37,7 +74,10 @@ function resolveShellLinkPath({
 
   const normalizedSurface = normalizeSurfaceId(surface);
   const nextRelativePath = String(surfaceRelativePath || "").trim() || String(relativePath || "").trim() || "/";
-  const nextSurfaceBasePath = resolveSurfaceBasePath(context, normalizedSurface);
+  const nextSurfaceBasePath = resolveSurfaceBasePath(context, normalizedSurface, {
+    params,
+    strictParams
+  });
 
   return resolveLinkPath(nextSurfaceBasePath, nextRelativePath);
 }
@@ -51,7 +91,9 @@ function useShellLinkResolver({ surface = "" } = {}) {
       surface: String(unref(options.surface ?? surface) || ""),
       explicitTo: options.explicitTo,
       relativePath,
-      surfaceRelativePath: options.surfaceRelativePath
+      surfaceRelativePath: options.surfaceRelativePath,
+      params: options.params,
+      strictParams: options.strictParams !== false
     });
   }
 

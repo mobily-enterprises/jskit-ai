@@ -1,19 +1,54 @@
-function normalizeSurfacePrefix(prefixLike) {
-  const rawPrefix = String(prefixLike || "").trim();
-  if (!rawPrefix || rawPrefix === "/") {
-    return "";
-  }
-
-  const withLeadingSlash = rawPrefix.startsWith("/") ? rawPrefix : `/${rawPrefix}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  const withoutTrailingSlash = squashed.replace(/\/+$/, "");
-  return withoutTrailingSlash === "/" ? "" : withoutTrailingSlash;
-}
-
 function normalizeSurfaceId(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function normalizeSurfacePagesRoot(pagesRootLike) {
+  const rawPagesRoot = String(pagesRootLike || "").trim();
+  if (!rawPagesRoot || rawPagesRoot === "/") {
+    return "";
+  }
+
+  return rawPagesRoot
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+}
+
+function normalizeRouteSegment(segmentLike) {
+  const segment = String(segmentLike || "").trim();
+  if (!segment) {
+    return "";
+  }
+
+  const dynamicMatch = segment.match(/^\[([^\]]+)\]$/);
+  if (dynamicMatch) {
+    const paramName = String(dynamicMatch[1] || "").trim();
+    if (!paramName) {
+      return "";
+    }
+    return `:${paramName}`;
+  }
+
+  return segment;
+}
+
+function deriveSurfaceRouteBaseFromPagesRoot(pagesRootLike) {
+  const normalizedPagesRoot = normalizeSurfacePagesRoot(pagesRootLike);
+  if (!normalizedPagesRoot) {
+    return "/";
+  }
+
+  const segments = normalizedPagesRoot
+    .split("/")
+    .map((segment) => normalizeRouteSegment(segment))
+    .filter(Boolean);
+
+  if (segments.length < 1) {
+    return "/";
+  }
+  return `/${segments.join("/")}`;
 }
 
 function createSurfaceRegistry(options = {}) {
@@ -30,12 +65,21 @@ function createSurfaceRegistry(options = {}) {
         return null;
       }
 
+      const pagesRoot = normalizeSurfacePagesRoot(sourceDefinition.pagesRoot);
+      if (
+        !Object.prototype.hasOwnProperty.call(sourceDefinition, "pagesRoot") &&
+        pagesRoot === ""
+      ) {
+        throw new Error(`Surface "${normalizedId}" requires pagesRoot (use "" for root).`);
+      }
+
       return [
         normalizedId,
         Object.freeze({
           ...sourceDefinition,
           id: normalizedId,
-          prefix: normalizeSurfacePrefix(sourceDefinition.prefix)
+          pagesRoot,
+          routeBase: deriveSurfaceRouteBaseFromPagesRoot(pagesRoot)
         })
       ];
     })
@@ -61,8 +105,12 @@ function createSurfaceRegistry(options = {}) {
     return DEFAULT_SURFACE_ID;
   }
 
-  function resolveSurfacePrefix(surfaceId) {
-    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.prefix || "";
+  function resolveSurfacePagesRoot(surfaceId) {
+    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.pagesRoot || "";
+  }
+
+  function resolveSurfaceRouteBase(surfaceId) {
+    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.routeBase || "/";
   }
 
   function listSurfaceDefinitions() {
@@ -73,9 +121,15 @@ function createSurfaceRegistry(options = {}) {
     SURFACE_REGISTRY,
     DEFAULT_SURFACE_ID,
     normalizeSurfaceId: normalizeRegisteredSurfaceId,
-    resolveSurfacePrefix,
+    resolveSurfacePagesRoot,
+    resolveSurfaceRouteBase,
     listSurfaceDefinitions
   });
 }
 
-export { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix };
+export {
+  createSurfaceRegistry,
+  normalizeSurfaceId,
+  normalizeSurfacePagesRoot,
+  deriveSurfaceRouteBaseFromPagesRoot
+};

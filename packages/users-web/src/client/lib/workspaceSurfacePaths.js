@@ -1,10 +1,9 @@
 import {
-  normalizeSurfaceId,
-  normalizeSurfacePrefix
+  normalizeSurfaceId
 } from "@jskit-ai/kernel/shared/surface";
 import {
   normalizePathname,
-  normalizeSurfaceSegmentFromPrefix,
+  normalizeSurfaceSegmentFromRouteBase,
   parseWorkspacePathname,
   resolveDefaultWorkspaceSurfaceId,
   resolveWorkspaceSurfaceIdFromSuffixSegments
@@ -56,7 +55,7 @@ function resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, pathname = ""
       const definition = surfaceConfig.surfacesById?.[surfaceId];
       return {
         id: surfaceId,
-        prefix: definition?.prefix
+        routeBase: definition?.routeBase
       };
     })
     .filter(Boolean);
@@ -107,7 +106,7 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
     surfaceRequiresWorkspace: (candidateSurfaceId) => Boolean(surfaceConfig?.surfacesById?.[candidateSurfaceId]?.requiresWorkspace)
   });
   if (normalizedSurfaceId && normalizedSurfaceId !== defaultWorkspaceSurfaceId) {
-    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfaceDefinition?.prefix) || normalizedSurfaceId;
+    const surfaceSegment = normalizeSurfaceSegmentFromRouteBase(surfaceDefinition?.routeBase) || normalizedSurfaceId;
     if (surfaceSegment) {
       workspaceRootPath = `${workspaceRootPath}/${surfaceSegment}`;
     }
@@ -147,8 +146,8 @@ function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId 
 function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "", apiBasePath = "/api") {
   const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
   const normalizedApiBasePath = normalizePathname(apiBasePath);
-  const normalizedSurfacePrefix = normalizeSurfacePrefix(surfaceDefinition?.prefix);
-  const prefixedApiBasePath = joinSurfacePath(normalizedApiBasePath, normalizedSurfacePrefix);
+  const normalizedSurfaceRouteBase = normalizePathname(surfaceDefinition?.routeBase || "/");
+  const prefixedApiBasePath = joinSurfacePath(normalizedApiBasePath, normalizedSurfaceRouteBase);
   const normalizedPathname = String(pathname || "").trim();
   if (!normalizedPathname) {
     return prefixedApiBasePath;

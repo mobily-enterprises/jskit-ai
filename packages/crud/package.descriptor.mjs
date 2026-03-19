@@ -242,7 +242,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/index.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
         reason: "Install admin CRUD list page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-index",
@@ -253,7 +254,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/new.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
+        toSurface: "admin",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
         reason: "Install admin CRUD create page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-new",
@@ -264,7 +266,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/index.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
         reason: "Install admin CRUD detail page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-view",
@@ -275,7 +278,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/edit.vue",
-        to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
+        toSurface: "admin",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
         reason: "Install admin CRUD edit page scaffold.",
         category: "crud",
         id: "crud-page-admin-crud-edit",

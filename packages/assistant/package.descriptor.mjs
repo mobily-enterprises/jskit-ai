@@ -147,7 +147,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/workspace/assistant/index.vue",
-        to: "src/pages/admin/workspace/assistant/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "workspace/assistant/index.vue",
         reason: "Install assistant workspace page scaffold.",
         category: "assistant",
         id: "assistant-page-admin-workspace-assistant-index",

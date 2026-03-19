@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   normalizePathname,
-  normalizeSurfaceSegmentFromPrefix,
+  normalizeSurfaceSegmentFromRouteBase,
   parseWorkspacePathname,
   resolveDefaultWorkspaceSurfaceId,
   resolveWorkspaceSurfaceIdFromSuffixSegments
@@ -14,10 +14,11 @@ test("normalizePathname trims query/hash and trailing slashes", () => {
   assert.equal(normalizePathname("///w//acme///"), "/w/acme");
 });
 
-test("normalizeSurfaceSegmentFromPrefix strips leading slash and handles root", () => {
-  assert.equal(normalizeSurfaceSegmentFromPrefix("/admin/"), "admin");
-  assert.equal(normalizeSurfaceSegmentFromPrefix("/"), "");
-  assert.equal(normalizeSurfaceSegmentFromPrefix(""), "");
+test("normalizeSurfaceSegmentFromRouteBase resolves workspace-aware segment", () => {
+  assert.equal(normalizeSurfaceSegmentFromRouteBase("/w/:workspaceSlug/admin"), "admin");
+  assert.equal(normalizeSurfaceSegmentFromRouteBase("/w/:workspaceSlug"), "");
+  assert.equal(normalizeSurfaceSegmentFromRouteBase("/"), "");
+  assert.equal(normalizeSurfaceSegmentFromRouteBase(""), "");
 });
 
 test("parseWorkspacePathname reads workspace slug and suffix segments", () => {
@@ -53,7 +54,10 @@ test("resolveWorkspaceSurfaceIdFromSuffixSegments resolves prefixed workspace su
     resolveWorkspaceSurfaceIdFromSuffixSegments({
       suffixSegments: [],
       defaultWorkspaceSurfaceId: "app",
-      workspaceSurfaces: [{ id: "app", prefix: "/app" }, { id: "admin", prefix: "/admin" }]
+      workspaceSurfaces: [
+        { id: "app", routeBase: "/w/:workspaceSlug" },
+        { id: "admin", routeBase: "/w/:workspaceSlug/admin" }
+      ]
     }),
     "app"
   );
@@ -62,7 +66,10 @@ test("resolveWorkspaceSurfaceIdFromSuffixSegments resolves prefixed workspace su
     resolveWorkspaceSurfaceIdFromSuffixSegments({
       suffixSegments: ["admin", "contacts"],
       defaultWorkspaceSurfaceId: "app",
-      workspaceSurfaces: [{ id: "app", prefix: "/app" }, { id: "admin", prefix: "/admin" }]
+      workspaceSurfaces: [
+        { id: "app", routeBase: "/w/:workspaceSlug" },
+        { id: "admin", routeBase: "/w/:workspaceSlug/admin" }
+      ]
     }),
     "admin"
   );
@@ -71,7 +78,10 @@ test("resolveWorkspaceSurfaceIdFromSuffixSegments resolves prefixed workspace su
     resolveWorkspaceSurfaceIdFromSuffixSegments({
       suffixSegments: ["projects", "123"],
       defaultWorkspaceSurfaceId: "app",
-      workspaceSurfaces: [{ id: "app", prefix: "/app" }, { id: "admin", prefix: "/admin" }]
+      workspaceSurfaces: [
+        { id: "app", routeBase: "/w/:workspaceSlug" },
+        { id: "admin", routeBase: "/w/:workspaceSlug/admin" }
+      ]
     }),
     "app"
   );

@@ -1,4 +1,4 @@
-import { filterRoutesBySurface, normalizeSurfacePrefix as normalizeSurfacePrefixValue } from "../shared/surface/index.js";
+import { deriveSurfaceRouteBaseFromPagesRoot, filterRoutesBySurface } from "../shared/surface/index.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -126,7 +126,9 @@ function normalizeWebRootAllowed(value) {
 
 function resolveDefaultSurfaceRootPath({ surfaceDefinitions, defaultSurfaceId }) {
   const defaultSurface = resolveSurfaceDefinition(surfaceDefinitions, defaultSurfaceId);
-  return normalizeSurfacePrefixValue(defaultSurface?.prefix) || "/";
+  return String(
+    defaultSurface?.routeBase || deriveSurfaceRouteBaseFromPagesRoot(defaultSurface?.pagesRoot || "")
+  ).trim() || "/";
 }
 
 function resolveSurfaceRequiresAuth({ pathname, surfaceRuntime, surfaceDefinitions }) {

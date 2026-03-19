@@ -89,42 +89,12 @@ export default Object.freeze({
     packageJson: {
       scripts: {
         "dev:all": "vite",
-        "dev:app": "VITE_SURFACE=app vite",
-        "dev:admin": "VITE_SURFACE=admin vite",
+        "dev:home": "VITE_SURFACE=home vite",
         "dev:console": "VITE_SURFACE=console vite"
       }
     },
     procfile: {},
-    text: [
-      {
-        op: "append-text",
-        file: "config/public.js",
-        position: "bottom",
-        value:
-          "\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
-        reason: "Own shell surface topology in app config, shaped by tenancy mode.",
-        category: "shell-web",
-        id: "shell-web-surface-config-workspace-enabled",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      },
-      {
-        op: "append-text",
-        file: "config/public.js",
-        position: "bottom",
-        value:
-          "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
-        reason: "Own shell surface topology in app config, shaped by tenancy mode.",
-        category: "shell-web",
-        id: "shell-web-surface-config-no-workspace",
-        when: {
-          config: "tenancyMode",
-          notIn: ["personal", "workspace"]
-        }
-      }
-    ],
+    text: [],
     files: [
       {
         from: "templates/src/App.vue",
@@ -149,43 +119,24 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/index.vue",
-        to: "src/pages/index.vue",
-        reason: "Install shell-driven root page starter.",
+        toSurface: "home",
+        toSurfacePath: "index.vue",
+        reason: "Install shell-driven home surface starter page.",
         category: "shell-web",
-        id: "shell-web-page-root"
-      },
-      {
-        from: "templates/src/pages/admin.vue",
-        to: "src/pages/admin.vue",
-        reason: "Install shell-driven admin wrapper page.",
-        category: "shell-web",
-        id: "shell-web-page-admin-wrapper",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
+        id: "shell-web-page-home"
       },
       {
         from: "templates/src/pages/console.vue",
-        to: "src/pages/console.vue",
+        toSurface: "console",
+        toSurfaceRoot: true,
         reason: "Install shell-driven console wrapper page.",
         category: "shell-web",
         id: "shell-web-page-console-wrapper"
       },
       {
-        from: "templates/src/pages/admin/index.vue",
-        to: "src/pages/admin/index.vue",
-        reason: "Install shell-driven admin page starter.",
-        category: "shell-web",
-        id: "shell-web-page-admin",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      },
-      {
         from: "templates/src/pages/console/index.vue",
-        to: "src/pages/console/index.vue",
+        toSurface: "console",
+        toSurfacePath: "index.vue",
         reason: "Install shell-driven console page starter.",
         category: "shell-web",
         id: "shell-web-page-console"

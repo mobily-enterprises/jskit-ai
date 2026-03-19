@@ -17,8 +17,8 @@ function createSurfaceRuntimeFixture() {
   return createSurfaceRuntime({
     allMode: "all",
     surfaces: {
-      app: { id: "app", prefix: "/app", enabled: true },
-      admin: { id: "admin", prefix: "/admin", enabled: true }
+      app: { id: "app", pagesRoot: "app", enabled: true },
+      admin: { id: "admin", pagesRoot: "admin", enabled: true }
     },
     defaultSurfaceId: "app"
   });

@@ -11,19 +11,22 @@ function createPlacementContext() {
       surfacesById: {
         app: {
           id: "app",
-          prefix: "/app",
+          pagesRoot: "app",
+          routeBase: "/app",
           enabled: true,
           requiresWorkspace: true
         },
         admin: {
           id: "admin",
-          prefix: "/admin",
+          pagesRoot: "admin",
+          routeBase: "/admin",
           enabled: true,
           requiresWorkspace: true
         },
         console: {
           id: "console",
-          prefix: "/console",
+          pagesRoot: "console",
+          routeBase: "/console",
           enabled: true,
           requiresWorkspace: false
         }

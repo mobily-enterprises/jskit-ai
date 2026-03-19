@@ -12,8 +12,8 @@ function createSurfaceRuntimeFixture() {
   return createSurfaceRuntime({
     allMode: "all",
     surfaces: {
-      app: { id: "app", prefix: "/app", enabled: true },
-      admin: { id: "admin", prefix: "/admin", enabled: true }
+      app: { id: "app", pagesRoot: "app", enabled: true },
+      admin: { id: "admin", pagesRoot: "admin", enabled: true }
     },
     defaultSurfaceId: "app"
   });
@@ -53,8 +53,8 @@ test("createSurfaceShellRouter builds active routes and installs a guard", () =>
     notFoundComponent: {},
     guard: {
       surfaceDefinitions: {
-        app: { id: "app", prefix: "/app", requiresAuth: false },
-        admin: { id: "admin", prefix: "/admin", requiresAuth: false }
+        app: { id: "app", pagesRoot: "app", requiresAuth: false },
+        admin: { id: "admin", pagesRoot: "admin", requiresAuth: false }
       },
       defaultSurfaceId: "app",
       webRootAllowed: "yes"

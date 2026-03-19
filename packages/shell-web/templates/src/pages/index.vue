@@ -1,3 +1,13 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "surface": "home"
+    }
+  }
+}
+</route>
+
 <script setup>
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
@@ -30,18 +40,18 @@ const health = computed(() => {
 
 <template>
   <ShellLayout
-    surface="app"
-    surface-label="App"
+    surface="home"
+    surface-label="Home"
     title=""
     subtitle=""
   >
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
         <template #prepend>
-          <v-chip color="primary" size="small" label>App</v-chip>
+          <v-chip color="primary" size="small" label>Home</v-chip>
         </template>
         <v-card-title class="text-h5">welcome</v-card-title>
-        <v-card-subtitle>Main workspace surface</v-card-subtitle>
+        <v-card-subtitle>Main public surface</v-card-subtitle>
       </v-card-item>
       <v-divider />
       <v-card-text class="d-flex flex-column ga-4">
@@ -50,10 +60,10 @@ const health = computed(() => {
           <v-chip color="info" variant="tonal" label>Health: {{ health }}</v-chip>
         </div>
         <p class="text-medium-emphasis mb-0">
-          This is your primary app landing page. Replace this content with your actual dashboard.
+          This is your primary landing page. Replace this content with your actual product home.
         </p>
         <div class="d-flex flex-wrap ga-3">
-          <v-btn color="primary" variant="flat" to="/admin">Go to admin surface</v-btn>
+          <v-btn color="primary" variant="flat" to="/console">Open console surface</v-btn>
           <v-btn color="secondary" variant="outlined" to="/auth/signout">Sign out</v-btn>
         </div>
       </v-card-text>

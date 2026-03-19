@@ -11,6 +11,7 @@ const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot) {
   await mkdir(appRoot, { recursive: true });
+  await mkdir(path.join(appRoot, "config"), { recursive: true });
   await writeFile(
     path.join(appRoot, "package.json"),
     `${JSON.stringify(
@@ -25,6 +26,20 @@ async function createMinimalApp(appRoot) {
     )}\n`,
     "utf8"
   );
+  await writeFile(
+    path.join(appRoot, "config/public.js"),
+    [
+      "export const config = {};",
+      'config.surfaceModeAll = "all";',
+      'config.surfaceDefaultId = "home";',
+      "config.surfaceDefinitions = {};",
+      'config.surfaceDefinitions.home = { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false };',
+      'config.surfaceDefinitions.console = { id: "console", pagesRoot: "console", enabled: true, requiresAuth: true, requiresWorkspace: false };',
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+  await writeFile(path.join(appRoot, "config/server.js"), "export const config = {};\n", "utf8");
 }
 
 test("add bundle auth-base fails when required capabilities have no provider", async () => {

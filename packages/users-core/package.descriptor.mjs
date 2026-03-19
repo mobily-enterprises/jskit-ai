@@ -336,6 +336,21 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
+        skipIfContains: "config.surfaceDefinitions.app = {",
+        value:
+          "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n",
+        reason: "Append workspace surface topology when tenancy enables workspace routing.",
+        category: "users-core",
+        id: "users-core-surface-config-workspace",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
           "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",

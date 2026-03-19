@@ -7,9 +7,9 @@ test("buildSurfaceAwareRoutes keeps declared route paths and filters by surface 
   const surfaceRuntime = createSurfaceRuntime({
     defaultSurfaceId: "app",
     surfaces: {
-      app: { id: "app", prefix: "/app", enabled: true, requiresWorkspace: false },
-      coffie: { id: "coffie", prefix: "/coffie", enabled: true, requiresWorkspace: true },
-      console: { id: "console", prefix: "/console", enabled: true, requiresWorkspace: false }
+      app: { id: "app", pagesRoot: "app", enabled: true, requiresWorkspace: false },
+      coffie: { id: "coffie", pagesRoot: "coffie", enabled: true, requiresWorkspace: true },
+      console: { id: "console", pagesRoot: "console", enabled: true, requiresWorkspace: false }
     }
   });
 
@@ -76,8 +76,8 @@ test("buildSurfaceAwareRoutes preserves parent path when nested descendants are 
   const surfaceRuntime = createSurfaceRuntime({
     defaultSurfaceId: "app",
     surfaces: {
-      app: { id: "app", prefix: "/", enabled: true, requiresWorkspace: true },
-      admin: { id: "admin", prefix: "/admin", enabled: true, requiresWorkspace: true }
+      app: { id: "app", pagesRoot: "w/[workspaceSlug]", enabled: true, requiresWorkspace: true },
+      admin: { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", enabled: true, requiresWorkspace: true }
     }
   });
 

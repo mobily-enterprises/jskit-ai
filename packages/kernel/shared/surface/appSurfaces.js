@@ -5,15 +5,15 @@ import { createSurfaceRegistry } from "./registry.js";
 const DEFAULT_SURFACES = Object.freeze({
   app: Object.freeze({
     id: "app",
-    prefix: ""
+    pagesRoot: ""
   }),
   admin: Object.freeze({
     id: "admin",
-    prefix: "/admin"
+    pagesRoot: "admin"
   }),
   console: Object.freeze({
     id: "console",
-    prefix: "/console"
+    pagesRoot: "console"
   })
 });
 
@@ -45,7 +45,7 @@ function createDefaultAppSurfacePaths({
     apiBasePath: API_BASE_PATH,
     defaultSurfaceId: registry.DEFAULT_SURFACE_ID,
     normalizeSurfaceId: registry.normalizeSurfaceId,
-    resolveSurfacePrefix: registry.resolveSurfacePrefix,
+    resolveSurfaceRouteBase: registry.resolveSurfaceRouteBase,
     listSurfaceDefinitions: registry.listSurfaceDefinitions,
     routes
   });
@@ -56,8 +56,8 @@ function createDefaultAppSurfacePaths({
     SURFACE_APP: "app",
     SURFACE_ADMIN: "admin",
     SURFACE_CONSOLE: "console",
-    ADMIN_SURFACE_PREFIX: registry.resolveSurfacePrefix("admin"),
-    CONSOLE_SURFACE_PREFIX: registry.resolveSurfacePrefix("console")
+    ADMIN_SURFACE_ROUTE_BASE: registry.resolveSurfaceRouteBase("admin"),
+    CONSOLE_SURFACE_ROUTE_BASE: registry.resolveSurfaceRouteBase("console")
   });
 }
 

@@ -28,7 +28,8 @@ function createPlacementRuntimeStub() {
         app: {
           id: "app",
           enabled: true,
-          prefix: "/app",
+          pagesRoot: "w/[workspaceSlug]",
+          routeBase: "/w/:workspaceSlug",
           requiresWorkspace: true
         }
       }

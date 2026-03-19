@@ -1,5 +1,10 @@
 import { createSurfacePathHelpers } from "./paths.js";
-import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
+import {
+  createSurfaceRegistry,
+  deriveSurfaceRouteBaseFromPagesRoot,
+  normalizeSurfaceId,
+  normalizeSurfacePagesRoot
+} from "./registry.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -45,10 +50,15 @@ function createSurfaceRuntime(options = {}) {
   const normalizedSurfaces = {};
   for (const surfaceId of surfaceIds) {
     const source = isRecord(sourceSurfaces[surfaceId]) ? sourceSurfaces[surfaceId] : {};
+    if (!Object.prototype.hasOwnProperty.call(source, "pagesRoot")) {
+      throw new Error(`Surface "${surfaceId}" requires pagesRoot (use "" for root).`);
+    }
+    const pagesRoot = normalizeSurfacePagesRoot(source.pagesRoot);
     normalizedSurfaces[surfaceId] = {
       ...source,
       id: surfaceId,
-      prefix: source.prefix,
+      pagesRoot,
+      routeBase: deriveSurfaceRouteBaseFromPagesRoot(pagesRoot),
       enabled: source.enabled !== false
     };
   }
@@ -63,7 +73,7 @@ function createSurfaceRuntime(options = {}) {
     apiBasePath: String(options?.apiBasePath || "/api"),
     defaultSurfaceId: registry.DEFAULT_SURFACE_ID,
     normalizeSurfaceId: registry.normalizeSurfaceId,
-    resolveSurfacePrefix: registry.resolveSurfacePrefix,
+    resolveSurfaceRouteBase: registry.resolveSurfaceRouteBase,
     listSurfaceDefinitions: registry.listSurfaceDefinitions,
     routes: options?.routes
   });
@@ -176,54 +186,58 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
     return normalizedScope === "global" ? "global" : "surface";
   }
 
-  function routeTreeHasGlobalScope(route) {
-    if (resolveOwnRouteScope(route) === "global") {
-      return true;
-    }
-
-    const children = Array.isArray(route?.children) ? route.children : [];
-    for (const child of children) {
-      if (routeTreeHasGlobalScope(child)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function resolveRouteScope(route) {
-    const ownScope = resolveOwnRouteScope(route);
-    if (ownScope) {
-      return ownScope;
-    }
-    return routeTreeHasGlobalScope(route) ? "global" : "surface";
-  }
-
-  function resolveRouteSurface(route) {
+  function resolveRouteSurface(route, inheritedSurfaceId = "") {
     const metaSurface = readRouteJskitMeta(route).surface;
     const normalizedSurface = normalizeSurfaceId(route?.surface || metaSurface);
     if (normalizedSurface) {
       return normalizedSurface;
     }
-    return surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
+
+    const normalizedInheritedSurface = normalizeSurfaceId(inheritedSurfaceId);
+    if (normalizedInheritedSurface) {
+      return normalizedInheritedSurface;
+    }
+
+    const routePath = String(route?.path || "").trim();
+    if (routePath && routePath.startsWith("/")) {
+      return surfaceRuntime.resolveSurfaceFromPathname(routePath);
+    }
+
+    return surfaceRuntime.DEFAULT_SURFACE_ID;
   }
 
-  return normalizedRoutes.filter((route) => {
-    if (resolveRouteScope(route) === "global") {
-      return true;
+  function filterRouteNode(route, inheritedSurfaceId = "") {
+    if (!isRecord(route)) {
+      return null;
     }
 
-    const routeSurface = resolveRouteSurface(route);
-    if (!enabledSurfaces.has(routeSurface)) {
-      return false;
+    const resolvedSurface = resolveRouteSurface(route, inheritedSurfaceId);
+    const isGlobalScope = resolveOwnRouteScope(route) === "global";
+    const isEnabledSurfaceRoute = enabledSurfaces.has(resolvedSurface);
+    const ownIncluded =
+      isGlobalScope ||
+      (isEnabledSurfaceRoute && (normalizedMode === allMode || resolvedSurface === normalizedMode));
+
+    const children = Array.isArray(route.children) ? route.children : [];
+    const filteredChildren = children
+      .map((child) => filterRouteNode(child, resolvedSurface))
+      .filter(Boolean);
+
+    if (!ownIncluded && filteredChildren.length < 1) {
+      return null;
     }
 
-    if (normalizedMode === allMode) {
-      return true;
+    if (children.length < 1) {
+      return route;
     }
 
-    return routeSurface === normalizedMode;
-  });
+    return {
+      ...route,
+      children: filteredChildren
+    };
+  }
+
+  return normalizedRoutes.map((route) => filterRouteNode(route)).filter(Boolean);
 }
 
 export {

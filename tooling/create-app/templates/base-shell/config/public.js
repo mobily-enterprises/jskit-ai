@@ -2,13 +2,20 @@ export const config = {};
 __TENANCY_MODE_LINE__
 
 config.surfaceModeAll = "all";
-config.surfaceDefaultId = "app";
+config.surfaceDefaultId = "home";
 config.webRootAllowed = "yes";
 config.surfaceDefinitions = {};
-config.surfaceDefinitions.app = {
-  id: "app",
-  prefix: "/",
+config.surfaceDefinitions.home = {
+  id: "home",
+  pagesRoot: "",
   enabled: true,
-  requiresAuth: __APP_SURFACE_REQUIRES_AUTH__,
-  requiresWorkspace: __APP_SURFACE_REQUIRES_WORKSPACE__
+  requiresAuth: false,
+  requiresWorkspace: false
+};
+config.surfaceDefinitions.console = {
+  id: "console",
+  pagesRoot: "console",
+  enabled: true,
+  requiresAuth: true,
+  requiresWorkspace: false
 };

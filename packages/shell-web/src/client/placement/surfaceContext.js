@@ -1,6 +1,8 @@
 import {
+  createSurfacePathHelpers,
+  deriveSurfaceRouteBaseFromPagesRoot,
   normalizeSurfaceId,
-  normalizeSurfacePrefix
+  normalizeSurfacePagesRoot
 } from "@jskit-ai/kernel/shared/surface";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 
@@ -47,11 +49,16 @@ function normalizeSurfaceConfig(surfaceConfig = {}) {
       continue;
     }
 
+    const pagesRoot = normalizeSurfacePagesRoot(definition.pagesRoot);
+    const routeBase = String(
+      definition.routeBase || deriveSurfaceRouteBaseFromPagesRoot(pagesRoot)
+    ).trim() || "/";
     const enabled = enabledSet.size > 0 ? enabledSet.has(surfaceId) : definition.enabled !== false;
     normalizedSurfacesById[surfaceId] = Object.freeze({
       ...definition,
       id: surfaceId,
-      prefix: normalizeSurfacePrefix(definition.prefix),
+      pagesRoot,
+      routeBase,
       enabled
     });
   }
@@ -124,15 +131,15 @@ function resolveSurfaceDefinitionFromPlacementContext(contextValue = null, surfa
 }
 
 function joinSurfacePath(surfacePrefix = "", pathname = "") {
-  const normalizedPrefix = normalizeSurfacePrefix(surfacePrefix);
+  const normalizedPrefix = normalizePathname(surfacePrefix || "/");
   const rawPathname = String(pathname || "").trim();
   if (!rawPathname) {
-    return normalizedPrefix || "/";
+    return normalizedPrefix;
   }
 
   const withLeadingSlash = rawPathname.startsWith("/") ? rawPathname : `/${rawPathname}`;
   const normalizedPathname = withLeadingSlash.replace(/\/{2,}/g, "/");
-  const joined = `${normalizedPrefix}${normalizedPathname}`;
+  const joined = normalizedPrefix === "/" ? normalizedPathname : `${normalizedPrefix}${normalizedPathname}`;
   const compacted = joined.replace(/\/{2,}/g, "/");
   if (!compacted) {
     return "/";
@@ -142,12 +149,34 @@ function joinSurfacePath(surfacePrefix = "", pathname = "") {
 
 function resolveSurfaceRootPathFromPlacementContext(contextValue = null, surfaceId = "") {
   const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
-  return joinSurfacePath(surfaceDefinition?.prefix, "");
+  return joinSurfacePath(surfaceDefinition?.routeBase, "");
 }
 
 function resolveSurfacePathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "") {
   const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
-  return joinSurfacePath(surfaceDefinition?.prefix, pathname);
+  return joinSurfacePath(surfaceDefinition?.routeBase, pathname);
+}
+
+function createPlacementSurfacePathHelpers(surfaceConfig = EMPTY_SURFACE_CONFIG) {
+  const surfacesById = isRecord(surfaceConfig.surfacesById) ? surfaceConfig.surfacesById : {};
+  const defaultSurfaceId = normalizeSurfaceId(surfaceConfig.defaultSurfaceId);
+  const fallbackSurfaceId = Object.keys(surfacesById)[0] || "";
+  const resolvedDefaultSurfaceId = defaultSurfaceId && surfacesById[defaultSurfaceId] ? defaultSurfaceId : fallbackSurfaceId;
+  if (!resolvedDefaultSurfaceId) {
+    return null;
+  }
+
+  return createSurfacePathHelpers({
+    defaultSurfaceId: resolvedDefaultSurfaceId,
+    normalizeSurfaceId,
+    resolveSurfaceRouteBase(surfaceId) {
+      const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
+      return String(surfacesById[normalizedSurfaceId]?.routeBase || "/").trim() || "/";
+    },
+    listSurfaceDefinitions() {
+      return Object.values(surfacesById);
+    }
+  });
 }
 
 function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "") {
@@ -155,24 +184,11 @@ function resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "
   const normalizedPathname =
     normalizePathname(pathname) ||
     (typeof window === "object" && window?.location?.pathname ? normalizePathname(window.location.pathname) : "/");
-
-  const enabledSurfaces = surfaceConfig.enabledSurfaceIds
-    .map((surfaceId) => surfaceConfig.surfacesById[surfaceId])
-    .filter(Boolean)
-    .sort((left, right) => String(right.prefix || "").length - String(left.prefix || "").length);
-
-  for (const surfaceDefinition of enabledSurfaces) {
-    const normalizedPrefix = normalizeSurfacePrefix(surfaceDefinition.prefix);
-    if (!normalizedPrefix) {
-      continue;
-    }
-
-    if (normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`)) {
-      return surfaceDefinition.id;
-    }
+  const pathHelpers = createPlacementSurfacePathHelpers(surfaceConfig);
+  if (!pathHelpers) {
+    return "";
   }
-
-  return surfaceConfig.defaultSurfaceId || enabledSurfaces[0]?.id || "";
+  return pathHelpers.resolveSurfaceFromPathname(normalizedPathname);
 }
 
 export {

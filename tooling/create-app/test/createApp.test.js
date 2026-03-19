@@ -105,8 +105,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
     assert.doesNotMatch(publicConfig, /config\.tenancyMode/);
     assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
+    assert.match(publicConfig, /config\.surfaceDefaultId = "home";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
+    assert.match(publicConfig, /pagesRoot:\s*""/);
+    assert.match(publicConfig, /pagesRoot:\s*"console"/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
@@ -193,9 +197,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
     assert.match(indexView, /welcome/);
     assert.doesNotMatch(indexView, /const appTitle =/);
+    const consoleView = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+    assert.match(consoleView, /RouterView/);
+    const consoleIndexView = await readFile(path.join(appRoot, "src/pages/console/index.vue"), "utf8");
+    assert.match(consoleIndexView, /operations surface/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
 
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
@@ -282,9 +289,10 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
     const publicConfig = await readFile(path.join(cwd, "tenancy-app/config/public.js"), "utf8");
     assert.match(publicConfig, /config\.tenancyMode = "personal";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
-    assert.match(publicConfig, /requiresAuth:\s*true/);
-    assert.match(publicConfig, /requiresWorkspace:\s*true/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
+    assert.match(publicConfig, /pagesRoot:\s*""/);
+    assert.match(publicConfig, /pagesRoot:\s*"console"/);
   });
 });
 
@@ -405,7 +413,8 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
+    const scaffoldConsoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+    assert.doesNotMatch(scaffoldConsoleWrapper, /@jskit-ai\/shell-web/);
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
@@ -415,44 +424,89 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
+    assert.match(homeWrapper, /"surface":\s*"home"/);
     assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(consoleWrapper, /"surface":\s*"console"/);
     assert.equal(packageJson.scripts["dev:all"], "vite");
-    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
-    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+    assert.equal(packageJson.scripts["dev:app"], undefined);
+    assert.equal(packageJson.scripts["dev:admin"], undefined);
   });
 });
 
-test("shell-web workspace tenancy mode installs root/admin/console wrappers", async () => {
+test("users-web workspace tenancy mode installs workspace surfaces and wrappers", async () => {
   await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["shell-workspace-app", "--tenancy-mode", "workspace"] });
+    const createResult = runCli({ cwd, args: ["users-workspace-app", "--tenancy-mode", "workspace"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
-    const appRoot = path.join(cwd, "shell-workspace-app");
+    const appRoot = path.join(cwd, "users-workspace-app");
 
-    const addShellWebResult = runJskit({
+    const addProviderResult = runJskit({
       cwd: appRoot,
-      args: ["add", "package", "shell-web", "--no-install"]
+      args: [
+        "add",
+        "package",
+        "auth-provider-supabase-core",
+        "--auth-supabase-url",
+        "https://example.supabase.co",
+        "--auth-supabase-publishable-key",
+        "sb_publishable_example",
+        "--app-public-url",
+        "http://localhost:5173",
+        "--no-install"
+      ]
     });
-    assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
+    assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
 
-    const appWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    const adminWrapper = await readFile(path.join(appRoot, "src/pages/admin.vue"), "utf8");
+    const addDatabaseDriverResult = runJskit({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "database-runtime-postgres",
+        "--db-name",
+        "app_db",
+        "--db-user",
+        "app_user",
+        "--db-password",
+        "app_password",
+        "--no-install"
+      ]
+    });
+    assert.equal(addDatabaseDriverResult.status, 0, addDatabaseDriverResult.stderr);
+
+    const addUsersWebResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "users-web", "--no-install"]
+    });
+    assert.equal(addUsersWebResult.status, 0, addUsersWebResult.stderr);
+
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+    const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
+    const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
 
-    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
+    assert.match(homeWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(homeWrapper, /"surface":\s*"home"/);
     assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(adminWrapper, /"surface":\s*"admin"/);
+    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(appWrapper, /"surface":\s*"app"/);
     assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(consoleWrapper, /"surface":\s*"console"/);
 
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    const appAssignments = publicConfig.match(/config\.surfaceDefinitions\.app = \{/g) || [];
-    assert.equal(appAssignments.length, 1);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.admin = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.admin = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
+    assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
+    assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
   });
 });
 
@@ -496,10 +550,9 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
 
-    const appWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    const adminWrapper = await readFile(path.join(appRoot, "src/pages/admin.vue"), "utf8");
-    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    assert.match(homeWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
-    assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
   });
 });

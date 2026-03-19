@@ -98,6 +98,9 @@ function normalizeFileMutationRecord(value) {
     op,
     from: String(record.from || "").trim(),
     to: String(record.to || "").trim(),
+    toSurface: String(record.toSurface || "").trim(),
+    toSurfacePath: String(record.toSurfacePath || "").trim(),
+    toSurfaceRoot: record.toSurfaceRoot === true,
     toDir: String(record.toDir || "").trim(),
     slug: String(record.slug || "").trim(),
     extension: normalizeMutationExtension(record.extension),
@@ -270,15 +273,21 @@ function buildFileWriteGroups(fileMutations) {
       if (!normalized.from || !normalized.slug) {
         continue;
       }
-    } else if (!normalized.from || !normalized.to) {
+    } else if (!normalized.from || (!normalized.to && !normalized.toSurface)) {
       continue;
     }
+
+    const destinationLabel = normalized.to
+      ? normalized.to
+      : normalized.toSurfaceRoot
+        ? `surface:${normalized.toSurface}.root`
+        : `surface:${normalized.toSurface}/${normalized.toSurfacePath}`;
 
     const key = normalized.id
       ? `id:${normalized.id}`
       : normalized.category || normalized.reason
         ? `meta:${normalized.category}::${normalized.reason}`
-        : `path:${normalized.to}`;
+        : `path:${destinationLabel}`;
 
     let group = groupsByKey.get(key);
     if (!group) {
@@ -311,7 +320,7 @@ function buildFileWriteGroups(fileMutations) {
 
     group.files.push({
       from: normalized.from,
-      to: normalized.to
+      to: destinationLabel
     });
   }
 
@@ -3389,7 +3398,9 @@ async function cleanupMaterializedPackageRoots() {
 }
 
 function interpolateFileMutationRecord(mutation, options, packageId) {
-  const mutationKey = String(mutation?.id || mutation?.slug || mutation?.to || mutation?.from || "files").trim();
+  const mutationKey = String(
+    mutation?.id || mutation?.slug || mutation?.to || mutation?.toSurface || mutation?.from || "files"
+  ).trim();
   const interpolate = (value, field) =>
     interpolateOptionValue(String(value || ""), options, packageId, `${mutationKey}.${field}`);
 
@@ -3397,6 +3408,8 @@ function interpolateFileMutationRecord(mutation, options, packageId) {
     ...mutation,
     from: interpolate(mutation.from, "from"),
     to: interpolate(mutation.to, "to"),
+    toSurface: interpolate(mutation.toSurface, "toSurface"),
+    toSurfacePath: interpolate(mutation.toSurfacePath, "toSurfacePath"),
     toDir: interpolate(mutation.toDir, "toDir"),
     slug: interpolate(mutation.slug, "slug"),
     extension: interpolate(mutation.extension, "extension"),
@@ -3416,6 +3429,139 @@ async function copyTemplateFile(sourcePath, targetPath, options, packageId, inte
   await writeFile(targetPath, renderedContent, "utf8");
 }
 
+function normalizeSurfaceIdForMutation(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeSurfacePagesRootForMutation(value = "") {
+  const rawValue = String(value || "").trim();
+  if (!rawValue || rawValue === "/") {
+    return "";
+  }
+
+  return rawValue
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+}
+
+function normalizeSurfacePathForMutation(value = "", { context = "toSurfacePath" } = {}) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  const normalized = rawValue
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/^\/+/, "");
+  const segments = normalized.split("/");
+  const materializedSegments = [];
+  for (const segmentValue of segments) {
+    const segment = String(segmentValue || "").trim();
+    if (!segment || segment === ".") {
+      continue;
+    }
+    if (segment === "..") {
+      throw createCliError(`Invalid ${context}: path traversal is not allowed.`);
+    }
+    materializedSegments.push(segment);
+  }
+
+  return materializedSegments.join("/");
+}
+
+function resolveSurfaceDefinitionFromConfigForMutation({
+  configContext = {},
+  surfaceId = "",
+  packageId = ""
+} = {}) {
+  const normalizedSurfaceId = normalizeSurfaceIdForMutation(surfaceId);
+  if (!normalizedSurfaceId) {
+    throw createCliError(`Invalid files mutation in ${packageId}: "toSurface" is required when using surface targeting.`);
+  }
+
+  const publicConfig = ensureObject(configContext.public);
+  const mergedConfig = ensureObject(configContext.merged);
+  const sourceDefinitions = ensureObject(publicConfig.surfaceDefinitions);
+  const fallbackDefinitions = ensureObject(mergedConfig.surfaceDefinitions);
+  const surfaceDefinitions =
+    Object.keys(sourceDefinitions).length > 0 ? sourceDefinitions : fallbackDefinitions;
+
+  for (const [key, value] of Object.entries(surfaceDefinitions)) {
+    const definition = ensureObject(value);
+    const definitionId = normalizeSurfaceIdForMutation(definition.id || key);
+    if (definitionId !== normalizedSurfaceId) {
+      continue;
+    }
+    if (definition.enabled === false) {
+      throw createCliError(
+        `Invalid files mutation in ${packageId}: surface "${normalizedSurfaceId}" is disabled.`
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(definition, "pagesRoot")) {
+      throw createCliError(
+        `Invalid files mutation in ${packageId}: surface "${normalizedSurfaceId}" is missing pagesRoot in config/public.js.`
+      );
+    }
+
+    return Object.freeze({
+      ...definition,
+      id: definitionId,
+      pagesRoot: normalizeSurfacePagesRootForMutation(definition.pagesRoot)
+    });
+  }
+
+  throw createCliError(
+    `Invalid files mutation in ${packageId}: unknown surface "${normalizedSurfaceId}" in config/public.js.`
+  );
+}
+
+function resolveSurfaceTargetPathForMutation({
+  appRoot,
+  packageId,
+  mutation,
+  configContext
+} = {}) {
+  const normalizedSurfaceId = normalizeSurfaceIdForMutation(mutation.toSurface);
+  const definition = resolveSurfaceDefinitionFromConfigForMutation({
+    configContext,
+    surfaceId: normalizedSurfaceId,
+    packageId
+  });
+
+  if (mutation.toSurfaceRoot === true) {
+    if (String(mutation.toSurfacePath || "").trim()) {
+      throw createCliError(
+        `Invalid files mutation in ${packageId}: "toSurfacePath" cannot be combined with "toSurfaceRoot".`
+      );
+    }
+    if (!definition.pagesRoot) {
+      throw createCliError(
+        `Invalid files mutation in ${packageId}: root surface "${normalizedSurfaceId}" cannot use "toSurfaceRoot".`
+      );
+    }
+    return path.join(appRoot, "src/pages", `${definition.pagesRoot}.vue`);
+  }
+
+  const normalizedSurfacePath = normalizeSurfacePathForMutation(mutation.toSurfacePath, {
+    context: "toSurfacePath"
+  });
+  if (!normalizedSurfacePath) {
+    throw createCliError(
+      `Invalid files mutation in ${packageId}: "toSurfacePath" is required when using "toSurface".`
+    );
+  }
+
+  const basePagesDirectory = definition.pagesRoot
+    ? path.join(appRoot, "src/pages", definition.pagesRoot)
+    : path.join(appRoot, "src/pages");
+  return path.join(basePagesDirectory, normalizedSurfacePath);
+}
+
 async function applyFileMutations(
   packageEntry,
   options,
@@ -3428,7 +3574,8 @@ async function applyFileMutations(
 ) {
   for (const mutationValue of fileMutations) {
     const normalizedMutation = normalizeFileMutationRecord(mutationValue);
-    const configContext = normalizedMutation.when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
+    const requiresConfigContext = Boolean(normalizedMutation.when?.config || normalizedMutation.toSurface);
+    const configContext = requiresConfigContext ? await loadMutationWhenConfigContext(appRoot) : {};
     if (
       !shouldApplyMutationWhen(normalizedMutation.when, {
         options,
@@ -3533,8 +3680,16 @@ async function applyFileMutations(
 
     const from = mutation.from;
     const to = mutation.to;
-    if (!from || !to) {
-      throw createCliError(`Invalid files mutation in ${packageEntry.packageId}: \"from\" and \"to\" are required.`);
+    const toSurface = mutation.toSurface;
+    if (to && toSurface) {
+      throw createCliError(
+        `Invalid files mutation in ${packageEntry.packageId}: "to" and "toSurface" cannot both be set.`
+      );
+    }
+    if (!from || (!to && !toSurface)) {
+      throw createCliError(
+        `Invalid files mutation in ${packageEntry.packageId}: "from" plus one destination ("to" or "toSurface") are required.`
+      );
     }
 
     const sourcePath = path.join(packageEntry.rootDir, from);
@@ -3542,7 +3697,14 @@ async function applyFileMutations(
       throw createCliError(`Missing template source ${sourcePath} for ${packageEntry.packageId}.`);
     }
 
-    const targetPath = path.join(appRoot, to);
+    const targetPath = toSurface
+      ? resolveSurfaceTargetPathForMutation({
+          appRoot,
+          packageId: packageEntry.packageId,
+          mutation,
+          configContext
+        })
+      : path.join(appRoot, to);
     const previous = await readFileBufferIfExists(targetPath);
     await copyTemplateFile(
       sourcePath,

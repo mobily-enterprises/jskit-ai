@@ -1,3 +1,5 @@
+import { escapeRegExp } from "./escapeRegExp.js";
+
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
   if (!rawValue) {
@@ -20,16 +22,67 @@ function matchesPathPrefix(pathname, prefix) {
   return normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`);
 }
 
+function compileSurfaceRouteMatcher(routeBase) {
+  const normalizedRouteBase = normalizePathname(routeBase);
+  const segments = normalizedRouteBase.split("/").filter(Boolean);
+  if (segments.length < 1) {
+    return Object.freeze({
+      routeBase: "/",
+      segmentCount: 0,
+      staticSegmentCount: 0,
+      test(pathname) {
+        return normalizePathname(pathname).startsWith("/");
+      }
+    });
+  }
+
+  const patternSegments = segments.map((segment) =>
+    segment.startsWith(":") && segment.length > 1 ? "[^/]+" : escapeRegExp(segment)
+  );
+  const pattern = new RegExp(`^/${patternSegments.join("/")}(?:$|/)`);
+  const staticSegmentCount = segments.filter(
+    (segment) => !(segment.startsWith(":") && segment.length > 1)
+  ).length;
+
+  return Object.freeze({
+    routeBase: normalizedRouteBase,
+    segmentCount: segments.length,
+    staticSegmentCount,
+    test(pathname) {
+      return pattern.test(normalizePathname(pathname));
+    }
+  });
+}
+
+function compareSurfaceRouteSpecificity(left, right) {
+  const staticDiff = right.staticSegmentCount - left.staticSegmentCount;
+  if (staticDiff !== 0) {
+    return staticDiff;
+  }
+
+  const segmentDiff = right.segmentCount - left.segmentCount;
+  if (segmentDiff !== 0) {
+    return segmentDiff;
+  }
+
+  const lengthDiff = String(right.routeBase || "").length - String(left.routeBase || "").length;
+  if (lengthDiff !== 0) {
+    return lengthDiff;
+  }
+
+  return String(left.id || "").localeCompare(String(right.id || ""));
+}
+
 function createSurfacePathHelpers(options = {}) {
   const normalizeSurfaceId = options?.normalizeSurfaceId;
-  const resolveSurfacePrefixFromRegistry = options?.resolveSurfacePrefix;
+  const resolveSurfaceRouteBaseFromRegistry = options?.resolveSurfaceRouteBase;
   const listSurfaceDefinitions = options?.listSurfaceDefinitions;
 
   if (typeof normalizeSurfaceId !== "function") {
     throw new Error("createSurfacePathHelpers requires normalizeSurfaceId.");
   }
-  if (typeof resolveSurfacePrefixFromRegistry !== "function") {
-    throw new Error("createSurfacePathHelpers requires resolveSurfacePrefix.");
+  if (typeof resolveSurfaceRouteBaseFromRegistry !== "function") {
+    throw new Error("createSurfacePathHelpers requires resolveSurfaceRouteBase.");
   }
   if (typeof listSurfaceDefinitions !== "function") {
     throw new Error("createSurfacePathHelpers requires listSurfaceDefinitions.");
@@ -53,15 +106,17 @@ function createSurfacePathHelpers(options = {}) {
     return normalizeSurfaceId(surface);
   }
 
-  function resolveSurfacePrefix(surface) {
-    return resolveSurfacePrefixFromRegistry(surface);
+  function resolveSurfaceRouteBase(surface) {
+    return normalizePathname(resolveSurfaceRouteBaseFromRegistry(surface));
   }
 
   function surfaceDefinitions() {
-    return listSurfaceDefinitions().filter((surface) => surface && typeof surface === "object" && !Array.isArray(surface));
+    return listSurfaceDefinitions().filter(
+      (surface) => surface && typeof surface === "object" && !Array.isArray(surface)
+    );
   }
 
-  function prefixedSurfaceDefinitions() {
+  function routedSurfaceDefinitions() {
     return surfaceDefinitions()
       .map((definition) => {
         const surfaceId = normalizeSurface(definition?.id);
@@ -69,18 +124,18 @@ function createSurfacePathHelpers(options = {}) {
           return null;
         }
 
-        const prefix = resolveSurfacePrefix(surfaceId);
-        if (!prefix) {
-          return null;
-        }
-
+        const routeBase = resolveSurfaceRouteBase(surfaceId);
+        const matcher = compileSurfaceRouteMatcher(routeBase);
         return {
           id: surfaceId,
-          prefix
+          routeBase,
+          segmentCount: matcher.segmentCount,
+          staticSegmentCount: matcher.staticSegmentCount,
+          matcher
         };
       })
       .filter(Boolean)
-      .sort((left, right) => right.prefix.length - left.prefix.length);
+      .sort(compareSurfaceRouteSpecificity);
   }
 
   function resolveApiNamespace(pathname) {
@@ -113,9 +168,12 @@ function createSurfacePathHelpers(options = {}) {
       return "";
     }
 
-    for (const surface of prefixedSurfaceDefinitions()) {
-      const apiPrefix = normalizePathname(`${apiNamespace}${surface.prefix}`);
-      if (matchesPathPrefix(pathname, apiPrefix)) {
+    const normalizedPathname = normalizePathname(pathname);
+    const remainder = normalizedPathname.slice(apiNamespace.length) || "/";
+    const apiRelativePath = normalizePathname(remainder.startsWith("/") ? remainder : `/${remainder}`);
+
+    for (const surface of routedSurfaceDefinitions()) {
+      if (surface.matcher.test(apiRelativePath)) {
         return surface.id;
       }
     }
@@ -130,8 +188,8 @@ function createSurfacePathHelpers(options = {}) {
       return apiSurface;
     }
 
-    for (const surface of prefixedSurfaceDefinitions()) {
-      if (matchesPathPrefix(normalizedPathname, surface.prefix)) {
+    for (const surface of routedSurfaceDefinitions()) {
+      if (surface.matcher.test(normalizedPathname)) {
         return surface.id;
       }
     }
@@ -139,25 +197,28 @@ function createSurfacePathHelpers(options = {}) {
     return defaultSurfaceId;
   }
 
-  function withSurfacePrefix(surface, path) {
+  function withSurfaceRouteBase(surface, path) {
     const normalizedPath = normalizePathname(path);
-    const prefix = resolveSurfacePrefix(surface);
+    const routeBase = resolveSurfaceRouteBase(surface);
     if (normalizedPath === "/") {
-      return prefix || "/";
+      return routeBase || "/";
     }
 
-    return prefix ? `${prefix}${normalizedPath}` : normalizedPath;
+    if (routeBase === "/") {
+      return normalizedPath;
+    }
+    return normalizePathname(`${routeBase}${normalizedPath}`);
   }
 
   function createSurfacePaths(surface) {
     const normalizedSurface = normalizeSurface(surface);
-    const prefix = resolveSurfacePrefix(normalizedSurface);
+    const routeBase = resolveSurfaceRouteBase(normalizedSurface);
 
-    const rootPath = prefix || "/";
-    const loginPath = withSurfacePrefix(normalizedSurface, routeConfig.loginPath);
-    const resetPasswordPath = withSurfacePrefix(normalizedSurface, routeConfig.resetPasswordPath);
-    const accountSettingsPath = withSurfacePrefix(normalizedSurface, routeConfig.accountSettingsPath);
-    const invitationsPath = withSurfacePrefix(normalizedSurface, routeConfig.invitationsPath);
+    const rootPath = routeBase || "/";
+    const loginPath = withSurfaceRouteBase(normalizedSurface, routeConfig.loginPath);
+    const resetPasswordPath = withSurfaceRouteBase(normalizedSurface, routeConfig.resetPasswordPath);
+    const accountSettingsPath = withSurfaceRouteBase(normalizedSurface, routeConfig.accountSettingsPath);
+    const invitationsPath = withSurfaceRouteBase(normalizedSurface, routeConfig.invitationsPath);
     const publicAuthPaths = new Set([loginPath, resetPasswordPath]);
 
     function isPublicAuthPath(pathname) {
@@ -182,7 +243,7 @@ function createSurfacePathHelpers(options = {}) {
 
     return {
       surface: normalizedSurface,
-      prefix,
+      routeBase,
       rootPath,
       loginPath,
       resetPasswordPath,
@@ -206,10 +267,11 @@ function createSurfacePathHelpers(options = {}) {
   return Object.freeze({
     normalizePathname,
     matchesPathPrefix,
+    compileSurfaceRouteMatcher,
     resolveSurfaceFromApiPathname,
     resolveSurfaceFromPathname,
-    resolveSurfacePrefix,
-    withSurfacePrefix,
+    resolveSurfaceRouteBase,
+    withSurfaceRouteBase,
     createSurfacePaths,
     resolveSurfacePaths
   });

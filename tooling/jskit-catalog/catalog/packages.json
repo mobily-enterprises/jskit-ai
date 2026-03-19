@@ -158,7 +158,8 @@
             },
             {
               "from": "templates/src/pages/admin/workspace/assistant/index.vue",
-              "to": "src/pages/admin/workspace/assistant/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "workspace/assistant/index.vue",
               "reason": "Install assistant workspace page scaffold.",
               "category": "assistant",
               "id": "assistant-page-admin-workspace-assistant-index",
@@ -1071,7 +1072,8 @@
             },
             {
               "from": "templates/src/pages/admin/crud/index.vue",
-              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
               "reason": "Install admin CRUD list page scaffold.",
               "category": "crud",
               "id": "crud-page-admin-crud-index",
@@ -1085,7 +1087,8 @@
             },
             {
               "from": "templates/src/pages/admin/crud/new.vue",
-              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
               "reason": "Install admin CRUD create page scaffold.",
               "category": "crud",
               "id": "crud-page-admin-crud-new",
@@ -1099,7 +1102,8 @@
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/index.vue",
-              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
               "reason": "Install admin CRUD detail page scaffold.",
               "category": "crud",
               "id": "crud-page-admin-crud-view",
@@ -1113,7 +1117,8 @@
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/edit.vue",
-              "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
               "reason": "Install admin CRUD edit page scaffold.",
               "category": "crud",
               "id": "crud-page-admin-crud-edit",
@@ -1944,46 +1949,12 @@
           "packageJson": {
             "scripts": {
               "dev:all": "vite",
-              "dev:app": "VITE_SURFACE=app vite",
-              "dev:admin": "VITE_SURFACE=admin vite",
+              "dev:home": "VITE_SURFACE=home vite",
               "dev:console": "VITE_SURFACE=console vite"
             }
           },
           "procfile": {},
-          "text": [
-            {
-              "op": "append-text",
-              "file": "config/public.js",
-              "position": "bottom",
-              "value": "\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
-              "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
-              "category": "shell-web",
-              "id": "shell-web-surface-config-workspace-enabled",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            },
-            {
-              "op": "append-text",
-              "file": "config/public.js",
-              "position": "bottom",
-              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
-              "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
-              "category": "shell-web",
-              "id": "shell-web-surface-config-no-workspace",
-              "when": {
-                "config": "tenancyMode",
-                "notIn": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            }
-          ],
+          "text": [],
           "files": [
             {
               "from": "templates/src/App.vue",
@@ -2008,49 +1979,24 @@
             },
             {
               "from": "templates/src/pages/index.vue",
-              "to": "src/pages/index.vue",
-              "reason": "Install shell-driven root page starter.",
+              "toSurface": "home",
+              "toSurfacePath": "index.vue",
+              "reason": "Install shell-driven home surface starter page.",
               "category": "shell-web",
-              "id": "shell-web-page-root"
-            },
-            {
-              "from": "templates/src/pages/admin.vue",
-              "to": "src/pages/admin.vue",
-              "reason": "Install shell-driven admin wrapper page.",
-              "category": "shell-web",
-              "id": "shell-web-page-admin-wrapper",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
+              "id": "shell-web-page-home"
             },
             {
               "from": "templates/src/pages/console.vue",
-              "to": "src/pages/console.vue",
+              "toSurface": "console",
+              "toSurfaceRoot": true,
               "reason": "Install shell-driven console wrapper page.",
               "category": "shell-web",
               "id": "shell-web-page-console-wrapper"
             },
             {
-              "from": "templates/src/pages/admin/index.vue",
-              "to": "src/pages/admin/index.vue",
-              "reason": "Install shell-driven admin page starter.",
-              "category": "shell-web",
-              "id": "shell-web-page-admin",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            },
-            {
               "from": "templates/src/pages/console/index.vue",
-              "to": "src/pages/console/index.vue",
+              "toSurface": "console",
+              "toSurfacePath": "index.vue",
               "reason": "Install shell-driven console page starter.",
               "category": "shell-web",
               "id": "shell-web-page-console"
@@ -2467,6 +2413,23 @@
               "op": "append-text",
               "file": "config/public.js",
               "position": "bottom",
+              "skipIfContains": "config.surfaceDefinitions.app = {",
+              "value": "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n",
+              "reason": "Append workspace surface topology when tenancy enables workspace routing.",
+              "category": "users-core",
+              "id": "users-core-surface-config-workspace",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
               "skipIfContains": "config.workspaceSwitching =",
               "value": "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
@@ -2773,8 +2736,69 @@
               "id": "users-web-page-account-settings"
             },
             {
+              "from": "templates/src/surfaces/app/root.vue",
+              "toSurface": "app",
+              "toSurfaceRoot": true,
+              "reason": "Install workspace app surface wrapper shell for users-web.",
+              "category": "users-web",
+              "id": "users-web-page-app-wrapper",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/surfaces/app/index.vue",
+              "toSurface": "app",
+              "toSurfacePath": "index.vue",
+              "reason": "Install workspace app surface starter page scaffold for users-web.",
+              "category": "users-web",
+              "id": "users-web-page-app-index",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/surfaces/admin/root.vue",
+              "toSurface": "admin",
+              "toSurfaceRoot": true,
+              "reason": "Install workspace admin surface wrapper shell for users-web.",
+              "category": "users-web",
+              "id": "users-web-page-admin-wrapper",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/surfaces/admin/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "index.vue",
+              "reason": "Install workspace admin surface starter page scaffold for users-web.",
+              "category": "users-web",
+              "id": "users-web-page-admin-index",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
               "from": "templates/src/pages/admin/members/index.vue",
-              "to": "src/pages/admin/members/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "members/index.vue",
               "reason": "Install admin members starter page scaffold for users-web members UI.",
               "category": "users-web",
               "id": "users-web-page-admin-members",
@@ -2788,7 +2812,8 @@
             },
             {
               "from": "templates/src/pages/admin/workspace/settings/index.vue",
-              "to": "src/pages/admin/workspace/settings/index.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "workspace/settings/index.vue",
               "reason": "Install workspace settings page scaffold for users-web workspace admin UI.",
               "category": "users-web",
               "id": "users-web-page-admin-workspace-settings",
@@ -2802,14 +2827,16 @@
             },
             {
               "from": "templates/src/pages/console/settings/index.vue",
-              "to": "src/pages/console/settings/index.vue",
+              "toSurface": "console",
+              "toSurfacePath": "settings/index.vue",
               "reason": "Install console settings page scaffold for users-web console UI.",
               "category": "users-web",
               "id": "users-web-page-console-settings"
             },
             {
               "from": "templates/src/pages/workspaces/index.vue",
-              "to": "src/pages/workspaces/index.vue",
+              "toSurface": "home",
+              "toSurfacePath": "workspaces/index.vue",
               "reason": "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
               "category": "users-web",
               "id": "users-web-page-workspaces",

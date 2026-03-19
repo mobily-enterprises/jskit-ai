@@ -54,15 +54,6 @@ function normalizeTenancyMode(value, { showUsage = true } = {}) {
   );
 }
 
-function resolveScaffoldAppSurfaceFlags(tenancyMode = null) {
-  const normalizedTenancyMode = tenancyMode == null ? "" : String(tenancyMode).trim().toLowerCase();
-  const workspaceScoped = normalizedTenancyMode === "personal" || normalizedTenancyMode === "workspace";
-  return Object.freeze({
-    requiresAuth: workspaceScoped,
-    requiresWorkspace: workspaceScoped
-  });
-}
-
 function buildInitialBundleCommands(initialBundles) {
   const normalizedPreset = normalizeInitialBundlesPreset(initialBundles, { showUsage: false });
 
@@ -516,7 +507,6 @@ export async function createApp({
     tenancyMode == null || String(tenancyMode).trim() === ""
       ? null
       : normalizeTenancyMode(tenancyMode);
-  const appSurfaceFlags = resolveScaffoldAppSurfaceFlags(resolvedTenancyMode);
 
   const resolvedCwd = path.resolve(cwd);
   const targetDirectory = path.resolve(resolvedCwd, target ? String(target) : resolvedAppName);
@@ -532,9 +522,7 @@ export async function createApp({
     __APP_TITLE__: resolvedAppTitle,
     __TENANCY_MODE_LINE__: resolvedTenancyMode
       ? `config.tenancyMode = "${resolvedTenancyMode}";\n`
-      : "",
-    __APP_SURFACE_REQUIRES_AUTH__: String(appSurfaceFlags.requiresAuth),
-    __APP_SURFACE_REQUIRES_WORKSPACE__: String(appSurfaceFlags.requiresWorkspace)
+      : ""
   };
 
   const touchedFiles = await copyTemplateDirectory({

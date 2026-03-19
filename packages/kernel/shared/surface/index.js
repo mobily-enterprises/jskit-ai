@@ -1,4 +1,9 @@
-export { createSurfaceRegistry, normalizeSurfaceId, normalizeSurfacePrefix } from "./registry.js";
+export {
+  createSurfaceRegistry,
+  normalizeSurfaceId,
+  normalizeSurfacePagesRoot,
+  deriveSurfaceRouteBaseFromPagesRoot
+} from "./registry.js";
 export { createSurfacePathHelpers } from "./paths.js";
 export {
   createSurfaceRuntime,

@@ -18,9 +18,9 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
       },
       listSurfaceDefinitions() {
         return [
-          { id: "app", prefix: "/app", requiresWorkspace: false },
-          { id: "admin", prefix: "admin/", requiresWorkspace: true },
-          { id: "console", prefix: "/console", requiresWorkspace: false }
+          { id: "app", pagesRoot: "", requiresWorkspace: false },
+          { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", requiresWorkspace: true },
+          { id: "console", pagesRoot: "console", requiresWorkspace: false }
         ];
       }
     },
@@ -34,13 +34,15 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
   assert.deepEqual(surfaceConfig.enabledSurfaceIds, ["app", "admin"]);
   assert.deepEqual(surfaceConfig.surfacesById.admin, {
     id: "admin",
-    prefix: "/admin",
+    pagesRoot: "w/[workspaceSlug]/admin",
+    routeBase: "/w/:workspaceSlug/admin",
     enabled: true,
     requiresWorkspace: true
   });
   assert.deepEqual(surfaceConfig.surfacesById.console, {
     id: "console",
-    prefix: "/console",
+    pagesRoot: "console",
+    routeBase: "/console",
     enabled: false,
     requiresWorkspace: false
   });
@@ -55,12 +57,12 @@ test("readPlacementSurfaceConfig normalizes malformed context data", () => {
       surfacesById: {
         admin: {
           id: "ADMIN",
-          prefix: "/admin/",
+          pagesRoot: "w/[workspaceSlug]/admin/",
           requiresWorkspace: true
         },
         app: {
           id: "app",
-          prefix: "/",
+          pagesRoot: "",
           requiresWorkspace: false
         }
       }
@@ -76,21 +78,24 @@ test("surface path helpers compose root and prefixed surface routes", () => {
   const context = {
     surfaceConfig: {
       tenancyMode: "workspace",
-      enabledSurfaceIds: ["app", "root", "console"],
+      enabledSurfaceIds: ["app", "home", "console"],
       surfacesById: {
         app: {
           id: "app",
-          prefix: "/app",
+          pagesRoot: "app",
+          routeBase: "/app",
           requiresWorkspace: true
         },
-        root: {
-          id: "root",
-          prefix: "/",
+        home: {
+          id: "home",
+          pagesRoot: "",
+          routeBase: "/",
           requiresWorkspace: false
         },
         console: {
           id: "console",
-          prefix: "/console",
+          pagesRoot: "console",
+          routeBase: "/console",
           requiresWorkspace: false
         }
       }
@@ -99,9 +104,30 @@ test("surface path helpers compose root and prefixed surface routes", () => {
 
   assert.equal(joinSurfacePath("/admin/", "/members/"), "/admin/members");
   assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/console/settings"), "console");
-  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/unknown"), "app");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/unknown"), "home");
   assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "app"), "/app");
-  assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "root"), "/");
+  assert.equal(resolveSurfaceRootPathFromPlacementContext(context, "home"), "/");
   assert.equal(resolveSurfacePathFromPlacementContext(context, "app", "/workspace/settings"), "/app/workspace/settings");
-  assert.equal(resolveSurfacePathFromPlacementContext(context, "root", "members"), "/members");
+  assert.equal(resolveSurfacePathFromPlacementContext(context, "home", "members"), "/members");
+});
+
+test("resolveSurfaceIdFromPlacementPathname prefers most specific dynamic surface route base", () => {
+  const context = {
+    surfaceConfig: {
+      defaultSurfaceId: "home",
+      enabledSurfaceIds: ["home", "app", "admin", "console"],
+      surfacesById: {
+        home: { id: "home", pagesRoot: "", routeBase: "/" },
+        app: { id: "app", pagesRoot: "w/[workspaceSlug]", routeBase: "/w/:workspaceSlug" },
+        admin: { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", routeBase: "/w/:workspaceSlug/admin" },
+        console: { id: "console", pagesRoot: "console", routeBase: "/console" }
+      }
+    }
+  };
+
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/"), "home");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme"), "app");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/projects"), "app");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/admin"), "admin");
+  assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/admin/users"), "admin");
 });

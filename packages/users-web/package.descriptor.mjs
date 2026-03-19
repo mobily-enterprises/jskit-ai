@@ -253,8 +253,57 @@ export default Object.freeze({
         id: "users-web-page-account-settings"
       },
       {
+        from: "templates/src/surfaces/app/root.vue",
+        toSurface: "app",
+        toSurfaceRoot: true,
+        reason: "Install workspace app surface wrapper shell for users-web.",
+        category: "users-web",
+        id: "users-web-page-app-wrapper",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        from: "templates/src/surfaces/app/index.vue",
+        toSurface: "app",
+        toSurfacePath: "index.vue",
+        reason: "Install workspace app surface starter page scaffold for users-web.",
+        category: "users-web",
+        id: "users-web-page-app-index",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        from: "templates/src/surfaces/admin/root.vue",
+        toSurface: "admin",
+        toSurfaceRoot: true,
+        reason: "Install workspace admin surface wrapper shell for users-web.",
+        category: "users-web",
+        id: "users-web-page-admin-wrapper",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        from: "templates/src/surfaces/admin/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "index.vue",
+        reason: "Install workspace admin surface starter page scaffold for users-web.",
+        category: "users-web",
+        id: "users-web-page-admin-index",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
         from: "templates/src/pages/admin/members/index.vue",
-        to: "src/pages/admin/members/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "members/index.vue",
         reason: "Install admin members starter page scaffold for users-web members UI.",
         category: "users-web",
         id: "users-web-page-admin-members",
@@ -265,7 +314,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/workspace/settings/index.vue",
-        to: "src/pages/admin/workspace/settings/index.vue",
+        toSurface: "admin",
+        toSurfacePath: "workspace/settings/index.vue",
         reason: "Install workspace settings page scaffold for users-web workspace admin UI.",
         category: "users-web",
         id: "users-web-page-admin-workspace-settings",
@@ -276,14 +326,16 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/console/settings/index.vue",
-        to: "src/pages/console/settings/index.vue",
+        toSurface: "console",
+        toSurfacePath: "settings/index.vue",
         reason: "Install console settings page scaffold for users-web console UI.",
         category: "users-web",
         id: "users-web-page-console-settings"
       },
       {
         from: "templates/src/pages/workspaces/index.vue",
-        to: "src/pages/workspaces/index.vue",
+        toSurface: "home",
+        toSurfacePath: "workspaces/index.vue",
         reason: "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
         category: "users-web",
         id: "users-web-page-workspaces",

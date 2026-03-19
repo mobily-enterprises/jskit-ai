@@ -1,4 +1,7 @@
-import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface/registry";
+import {
+  deriveSurfaceRouteBaseFromPagesRoot,
+  normalizeSurfaceId
+} from "@jskit-ai/kernel/shared/surface/registry";
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
@@ -28,12 +31,37 @@ function normalizeSurfaceSegment(segmentLike = "") {
   return normalizedPath.replace(/^\/+/, "");
 }
 
-function normalizeSurfaceSegmentFromPrefix(prefix) {
-  const normalizedPrefix = normalizeSurfacePrefix(prefix);
-  if (!normalizedPrefix) {
+function normalizeSurfaceRouteBase(routeBaseLike = "") {
+  const rawRouteBase = String(routeBaseLike || "").trim();
+  if (!rawRouteBase || rawRouteBase === "/") {
+    return "/";
+  }
+  const withoutLeadingSlash = rawRouteBase.startsWith("/") ? rawRouteBase.slice(1) : rawRouteBase;
+  return deriveSurfaceRouteBaseFromPagesRoot(withoutLeadingSlash || "");
+}
+
+function normalizeSurfaceSegmentFromRouteBase(routeBase, { workspaceBasePath = "/w" } = {}) {
+  const normalizedRouteBase = normalizeSurfaceRouteBase(routeBase);
+  if (normalizedRouteBase === "/") {
     return "";
   }
-  return normalizedPrefix.replace(/^\/+/, "");
+
+  const normalizedWorkspaceBasePath = normalizeWorkspaceBasePath(workspaceBasePath);
+  const workspacePlaceholderRoot = `${normalizedWorkspaceBasePath}/:workspaceSlug`;
+  if (normalizedRouteBase === workspacePlaceholderRoot) {
+    return "";
+  }
+  if (normalizedRouteBase.startsWith(`${workspacePlaceholderRoot}/`)) {
+    const remainder = normalizedRouteBase.slice(`${workspacePlaceholderRoot}/`.length);
+    const firstSegment = remainder.split("/").filter(Boolean)[0] || "";
+    return firstSegment.startsWith(":") ? "" : firstSegment;
+  }
+
+  const firstSegment = normalizedRouteBase.replace(/^\/+/, "").split("/").filter(Boolean)[0] || "";
+  if (!firstSegment || firstSegment.startsWith(":")) {
+    return "";
+  }
+  return firstSegment;
 }
 
 function parseWorkspacePathname(pathname = "", { workspaceBasePath = "/w" } = {}) {
@@ -100,7 +128,7 @@ function resolveWorkspaceSurfaceIdFromSuffixSegments({
 
       const segment =
         normalizeSurfaceSegment(entry?.segment) ||
-        normalizeSurfaceSegmentFromPrefix(entry?.prefix) ||
+        normalizeSurfaceSegmentFromRouteBase(entry?.routeBase || entry?.pagesRoot) ||
         surfaceId;
       if (!segment) {
         return null;
@@ -125,7 +153,7 @@ function resolveWorkspaceSurfaceIdFromSuffixSegments({
 
 export {
   normalizePathname,
-  normalizeSurfaceSegmentFromPrefix,
+  normalizeSurfaceSegmentFromRouteBase,
   parseWorkspacePathname,
   resolveDefaultWorkspaceSurfaceId,
   resolveWorkspaceSurfaceIdFromSuffixSegments

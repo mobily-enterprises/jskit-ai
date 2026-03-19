@@ -124,9 +124,9 @@ test("shell web client provider resolves surface config from client app config",
         },
         listSurfaceDefinitions() {
           return [
-            { id: "app", prefix: "/app", requiresWorkspace: true, enabled: true },
-            { id: "admin", prefix: "/admin", requiresWorkspace: true, enabled: true },
-            { id: "console", prefix: "/console", requiresWorkspace: false, enabled: true }
+            { id: "app", pagesRoot: "w/[workspaceSlug]", requiresWorkspace: true, enabled: true },
+            { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", requiresWorkspace: true, enabled: true },
+            { id: "console", pagesRoot: "console", requiresWorkspace: false, enabled: true }
           ];
         }
       }

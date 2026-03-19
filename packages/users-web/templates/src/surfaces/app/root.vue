@@ -2,7 +2,7 @@
 {
   "meta": {
     "jskit": {
-      "surface": "console"
+      "surface": "app"
     }
   }
 }
@@ -15,8 +15,8 @@ import { RouterView } from "vue-router";
 
 <template>
   <ShellLayout
-    surface="console"
-    surface-label="Console"
+    surface="app"
+    surface-label="Workspace"
     title=""
     subtitle=""
   >

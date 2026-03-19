@@ -11,19 +11,22 @@ function createPlacementContext() {
       surfacesById: {
         app: {
           id: "app",
-          prefix: "/",
+          pagesRoot: "w/[workspaceSlug]",
+          routeBase: "/w/:workspaceSlug",
           enabled: true,
           requiresWorkspace: true
         },
         admin: {
           id: "admin",
-          prefix: "/admin",
+          pagesRoot: "admin",
+          routeBase: "/admin",
           enabled: true,
           requiresWorkspace: true
         },
         console: {
           id: "console",
-          prefix: "/console",
+          pagesRoot: "console",
+          routeBase: "/console",
           enabled: true,
           requiresWorkspace: false
         }
@@ -40,6 +43,31 @@ test("resolveShellLinkPath composes surface path for workspace-labeled surfaces"
   });
 
   assert.equal(to, "/admin/contacts/2");
+});
+
+test("resolveShellLinkPath materializes dynamic route params from params map", () => {
+  const to = resolveShellLinkPath({
+    context: createPlacementContext(),
+    surface: "app",
+    params: {
+      workspaceSlug: "acme"
+    },
+    relativePath: "/projects/2"
+  });
+
+  assert.equal(to, "/w/acme/projects/2");
+});
+
+test("resolveShellLinkPath fails when required route params are missing", () => {
+  assert.throws(
+    () =>
+      resolveShellLinkPath({
+        context: createPlacementContext(),
+        surface: "app",
+        relativePath: "/projects/2"
+      }),
+    /Missing required surface route params/
+  );
 });
 
 test("resolveShellLinkPath composes non-workspace path for non-workspace surface", () => {
