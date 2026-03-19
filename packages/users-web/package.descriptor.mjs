@@ -3,6 +3,14 @@ export default Object.freeze({
   packageId: "@jskit-ai/users-web",
   version: "0.1.0",
   description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
+  options: {
+    "tenancy-mode": {
+      required: false,
+      defaultValue: "none",
+      promptLabel: "Tenancy mode",
+      promptHint: "none | personal | workspace"
+    }
+  },
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
@@ -119,7 +127,7 @@ export default Object.freeze({
             order: 500,
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
-            source: "mutations.text#users-web-placement-block"
+            source: "mutations.text#users-web-profile-settings-placement"
           },
           {
             id: "users.workspace.tools.widget",
@@ -161,7 +169,7 @@ export default Object.freeze({
             order: 100,
             componentToken: "users.web.account-settings.element",
             when: "auth.authenticated === true",
-            source: "mutations.text#users-web-settings-form-placements"
+            source: "mutations.text#users-web-account-settings-form-placement"
           },
           {
             id: "users.workspace.settings.form",
@@ -169,7 +177,7 @@ export default Object.freeze({
             targetSurfaceRole: "workspace.admin",
             order: 100,
             componentToken: "users.web.workspace-settings.element",
-            source: "mutations.text#users-web-settings-form-placements"
+            source: "mutations.text#users-web-workspace-settings-form-placement"
           }
         ]
       }
@@ -211,14 +219,22 @@ export default Object.freeze({
         to: "src/pages/admin/members/index.vue",
         reason: "Install admin members starter page scaffold for users-web members UI.",
         category: "users-web",
-        id: "users-web-page-admin-members"
+        id: "users-web-page-admin-members",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/admin/workspace/settings/index.vue",
         to: "src/pages/admin/workspace/settings/index.vue",
         reason: "Install workspace settings page scaffold for users-web workspace admin UI.",
         category: "users-web",
-        id: "users-web-page-admin-workspace-settings"
+        id: "users-web-page-admin-workspace-settings",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/console/settings/index.vue",
@@ -232,7 +248,11 @@ export default Object.freeze({
         to: "src/pages/workspaces/index.vue",
         reason: "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
         category: "users-web",
-        id: "users-web-page-workspaces"
+        id: "users-web-page-workspaces",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       }
     ],
     text: [
@@ -241,10 +261,25 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceRole: \"workspace.main\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceRole: \"workspace.main\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
         reason: "Append users-web placement entries into app-owned placement registry.",
         category: "users-web",
-        id: "users-web-placement-block"
+        id: "users-web-placement-block",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.profile.menu.settings\"",
+        value:
+          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web profile settings menu placement into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-profile-settings-placement"
       },
       {
         op: "append-text",
@@ -263,10 +298,25 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.account.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
-        reason: "Append users-web default settings form placements into app-owned placement registry.",
+          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web account settings form placement into app-owned placement registry.",
         category: "users-web",
-        id: "users-web-settings-form-placements"
+        id: "users-web-account-settings-form-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.workspace.settings.form\"",
+        value:
+          "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
+        reason: "Append users-web workspace settings form placement into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-workspace-settings-form-placement",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       }
     ]
   }

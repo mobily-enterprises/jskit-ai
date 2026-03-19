@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
+import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 
 function createReplyDouble() {
   return {
@@ -86,6 +87,21 @@ async function registerUsersRoutes({
   await provider.boot(app);
 
   return registeredRoutes;
+}
+
+async function registerUsersRoutesForMode({
+  tenancyMode = "none",
+  tenancyPolicy = {}
+} = {}) {
+  const tenancyProfile = resolveTenancyProfile({
+    tenancyMode,
+    tenancyPolicy
+  });
+  return registerUsersRoutes({
+    workspaceEnabled: tenancyProfile.workspace.enabled === true,
+    workspaceTenancyEnabled: tenancyProfile.mode === "workspace",
+    workspaceSelfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true
+  });
 }
 
 function createActionRequest({ input = {}, executeAction, file = null }) {
@@ -191,6 +207,55 @@ test("users-core boot skips workspace create route when self-create policy is di
 
   assert.equal(findRoute(routes, { method: "POST", path: "/api/workspaces" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
+});
+
+test("users-core route registration follows tenancy mode matrix", async () => {
+  const noneRoutes = await registerUsersRoutesForMode({
+    tenancyMode: "none"
+  });
+  const personalRoutes = await registerUsersRoutesForMode({
+    tenancyMode: "personal"
+  });
+  const workspaceRoutes = await registerUsersRoutesForMode({
+    tenancyMode: "workspace"
+  });
+  const workspaceSelfCreateRoutes = await registerUsersRoutesForMode({
+    tenancyMode: "workspace",
+    tenancyPolicy: {
+      workspace: {
+        allowSelfCreate: true
+      }
+    }
+  });
+
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
+
+  assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
+  assert.equal(findRoute(personalRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(
+    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
+    "/api/w/:workspaceSlug/workspace/settings"
+  );
+  assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
+
+  assert.equal(findRoute(workspaceRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
+  assert.equal(findRoute(workspaceRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
+    "/api/w/:workspaceSlug/workspace/settings"
+  );
+  assert.equal(
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
+    "/api/workspace/invitations/pending"
+  );
+
+  assert.equal(
+    findRoute(workspaceSelfCreateRoutes, { method: "POST", path: "/api/workspaces" })?.path,
+    "/api/workspaces"
+  );
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {

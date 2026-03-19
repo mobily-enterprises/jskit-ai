@@ -37,6 +37,36 @@ function createPlacementContext() {
   };
 }
 
+function createPlacementContextForTenancyMode(tenancyMode = "workspace") {
+  const normalizedMode = String(tenancyMode || "").trim().toLowerCase();
+  if (normalizedMode === "none") {
+    return {
+      surfaceConfig: {
+        tenancyMode: "none",
+        defaultSurfaceId: "app",
+        enabledSurfaceIds: ["app", "console"]
+      },
+      surfaceRoles: {
+        "app.global": "app",
+        "console.global": "console"
+      }
+    };
+  }
+
+  return {
+    surfaceConfig: {
+      tenancyMode: normalizedMode === "personal" ? "personal" : "workspace",
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app", "admin", "console"]
+    },
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    }
+  };
+}
+
 test("web placement runtime filters by surface/slot, resolves component tokens, and sorts by order", () => {
   const app = createAppStub({
     tokens: {
@@ -359,4 +389,67 @@ test("web placement runtime fails closed when target surface role is unresolved"
   const entries = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
   assert.equal(entries.length, 0);
   assert.equal(warns.length, 1);
+});
+
+test("web placement runtime follows tenancy mode matrix for role-targeted placement visibility", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.global": () => null,
+      "component.workspace-main": () => null,
+      "component.workspace-admin": () => null
+    }
+  });
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacements([
+    definePlacement({
+      id: "global.banner",
+      slot: "app.top-right",
+      surface: "*",
+      order: 10,
+      componentToken: "component.global"
+    }),
+    definePlacement({
+      id: "workspace.main.link",
+      slot: "app.top-right",
+      targetSurfaceRole: "workspace.main",
+      order: 20,
+      componentToken: "component.workspace-main"
+    }),
+    definePlacement({
+      id: "workspace.admin.link",
+      slot: "app.top-right",
+      targetSurfaceRole: "workspace.admin",
+      order: 30,
+      componentToken: "component.workspace-admin"
+    })
+  ]);
+
+  const cases = [
+    {
+      tenancyMode: "none",
+      appPlacementIds: ["global.banner"],
+      adminPlacementIds: null
+    },
+    {
+      tenancyMode: "personal",
+      appPlacementIds: ["global.banner", "workspace.main.link"],
+      adminPlacementIds: ["global.banner", "workspace.admin.link"]
+    },
+    {
+      tenancyMode: "workspace",
+      appPlacementIds: ["global.banner", "workspace.main.link"],
+      adminPlacementIds: ["global.banner", "workspace.admin.link"]
+    }
+  ];
+
+  for (const entry of cases) {
+    runtime.setContext(createPlacementContextForTenancyMode(entry.tenancyMode));
+    const appEntries = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+    assert.deepEqual(appEntries.map((placement) => placement.id), entry.appPlacementIds);
+
+    if (Array.isArray(entry.adminPlacementIds)) {
+      const adminEntries = runtime.getPlacements({ surface: "admin", slot: "app.top-right" });
+      assert.deepEqual(adminEntries.map((placement) => placement.id), entry.adminPlacementIds);
+    }
+  }
 });

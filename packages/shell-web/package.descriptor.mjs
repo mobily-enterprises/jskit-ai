@@ -11,6 +11,14 @@ export default Object.freeze({
     ],
     requires: []
   },
+  options: {
+    "tenancy-mode": {
+      required: false,
+      defaultValue: "none",
+      promptLabel: "Tenancy mode",
+      promptHint: "none | personal | workspace"
+    }
+  },
   runtime: {
     server: {
       providers: []
@@ -87,7 +95,12 @@ export default Object.freeze({
       dev: {}
     },
     packageJson: {
-      scripts: {}
+      scripts: {
+        "dev:all": "vite",
+        "dev:app": "VITE_SURFACE=app vite",
+        "dev:admin": "VITE_SURFACE=admin vite",
+        "dev:console": "VITE_SURFACE=console vite"
+      }
     },
     procfile: {},
     files: [
@@ -124,14 +137,22 @@ export default Object.freeze({
         to: "src/pages/app.vue",
         reason: "Install shell-driven app wrapper page.",
         category: "shell-web",
-        id: "shell-web-page-app-wrapper"
+        id: "shell-web-page-app-wrapper",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/admin.vue",
         to: "src/pages/admin.vue",
         reason: "Install shell-driven admin wrapper page.",
         category: "shell-web",
-        id: "shell-web-page-admin-wrapper"
+        id: "shell-web-page-admin-wrapper",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/console.vue",
@@ -145,14 +166,22 @@ export default Object.freeze({
         to: "src/pages/admin/index.vue",
         reason: "Install shell-driven admin page starter.",
         category: "shell-web",
-        id: "shell-web-page-admin"
+        id: "shell-web-page-admin",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/app/index.vue",
         to: "src/pages/app/index.vue",
         reason: "Install shell-driven app page starter.",
         category: "shell-web",
-        id: "shell-web-page-app"
+        id: "shell-web-page-app",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/console/index.vue",

@@ -39,6 +39,10 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.name, "sample-app");
     assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
     assert.equal(packageJson.scripts.postinstall, undefined);
+    assert.equal(packageJson.scripts["dev:all"], undefined);
+    assert.equal(packageJson.scripts["dev:app"], undefined);
+    assert.equal(packageJson.scripts["dev:admin"], undefined);
+    assert.equal(packageJson.scripts["dev:console"], undefined);
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.equal(packageJson.dependencies["@jskit-ai/http-runtime"], "0.1.0");
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
@@ -97,7 +101,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     await assert.rejects(access(path.join(appRoot, "config/surfaces.js")), /ENOENT/);
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    assert.match(publicConfig, /config\.tenancyMode = "none";/);
+    assert.doesNotMatch(publicConfig, /config\.tenancyMode/);
     assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
@@ -177,6 +181,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
     assert.match(indexView, /welcome/);
     assert.doesNotMatch(indexView, /const appTitle =/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
 
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
@@ -219,8 +226,7 @@ test("create-app interactive flow captures initial bundle selection in guidance"
       "",
       "",
       "",
-      "auth",
-      ""
+      "auth"
     ];
     const askedPrompts = [];
     const readlineFactory = () => ({
@@ -246,38 +252,21 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     const stderr = stderrCapture.read();
     assert.equal(exitCode, 0, stderr);
     assert.deepEqual(answers, []);
-    assert.ok(askedPrompts.length >= 7);
+    assert.ok(askedPrompts.length >= 6);
     assert.match(stdout, /Initial framework bundle commands \(auth\):/);
     assert.match(stdout, /npx jskit add auth-base --no-install/);
   });
 });
 
-test("create-app applies tenancy mode flag to public config", async () => {
+test("create-app rejects tenancy-mode flag (tenancy is outside create-app scope)", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const result = runCli({
       cwd,
-      args: ["tenancy-app", "--tenancy-mode", "personal"]
-    });
-
-    assert.equal(result.status, 0, result.stderr);
-
-    const appRoot = path.join(cwd, "tenancy-app");
-    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    assert.match(publicConfig, /config\.tenancyMode = "personal";/);
-    assert.match(publicConfig, /requiresWorkspace:\s*true/);
-    assert.match(result.stdout, /Tenancy mode: personal/);
-  });
-});
-
-test("create-app rejects invalid tenancy mode values", async () => {
-  await withCreateAppTempDir(async (cwd) => {
-    const result = runCli({
-      cwd,
-      args: ["bad-tenancy-app", "--tenancy-mode", "invalid"]
+      args: ["bad-tenancy-app", "--tenancy-mode", "personal"]
     });
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Invalid --tenancy-mode value/);
+    assert.match(result.stderr, /Unknown option: --tenancy-mode/);
   });
 });
 
@@ -384,10 +373,38 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
     assert.equal(procfile, "web: npm run start\n");
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
       args: ["add", "package", "shell-web", "--no-install"]
+    });
+    assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
+
+    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
+    const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+
+    assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.equal(packageJson.scripts["dev:all"], "vite");
+    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
+    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+  });
+});
+
+test("shell-web workspace tenancy mode installs app/admin/console wrappers", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["shell-workspace-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "shell-workspace-app");
+    const addShellWebResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "shell-web", "--tenancy-mode", "workspace", "--no-install"]
     });
     assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
 
@@ -426,7 +443,7 @@ test("generated app supports shell + auth progressive installation", async () =>
 
     const addAuthResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base", "--tenancy-mode", "workspace", "--no-install"]
     });
     assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
 
@@ -436,5 +453,10 @@ test("generated app supports shell + auth progressive installation", async () =>
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
+
+    const appWrapper = await readFile(path.join(appRoot, "src/pages/app.vue"), "utf8");
+    const adminWrapper = await readFile(path.join(appRoot, "src/pages/admin.vue"), "utf8");
+    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
   });
 });

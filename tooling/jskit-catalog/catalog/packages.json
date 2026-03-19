@@ -5,6 +5,301 @@
   },
   "packages": [
     {
+      "packageId": "@jskit-ai/assistant",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/assistant",
+        "version": "0.1.0",
+        "description": "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
+        "options": {
+          "ai-provider": {
+            "required": true,
+            "defaultValue": "openai",
+            "promptLabel": "AI provider",
+            "promptHint": "Supported values: openai | deepseek | anthropic."
+          },
+          "ai-api-key": {
+            "required": true,
+            "allowEmpty": true,
+            "defaultValue": "",
+            "promptLabel": "AI API key",
+            "promptHint": "Leave empty to keep assistant disabled until you add a key."
+          },
+          "ai-base-url": {
+            "required": true,
+            "allowEmpty": true,
+            "defaultValue": "",
+            "promptLabel": "AI base URL",
+            "promptHint": "Optional provider-compatible base URL override."
+          },
+          "ai-timeout-ms": {
+            "required": true,
+            "defaultValue": "120000",
+            "promptLabel": "AI timeout (ms)",
+            "promptHint": "Abort AI requests after this many milliseconds."
+          },
+          "tenancy-mode": {
+            "required": false,
+            "defaultValue": "none",
+            "promptLabel": "Tenancy mode",
+            "promptHint": "none | personal | workspace"
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/auth-core",
+          "@jskit-ai/database-runtime",
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/realtime",
+          "@jskit-ai/users-core",
+          "@jskit-ai/users-web"
+        ],
+        "capabilities": {
+          "provides": [
+            "assistant"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database",
+            "auth.policy",
+            "users.core",
+            "users.web",
+            "runtime.realtime.client"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/AssistantServiceProvider.js",
+                "export": "AssistantServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/AssistantWebClientProvider.js",
+                "export": "AssistantWebClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server/AssistantServiceProvider",
+                "summary": "Exports assistant runtime provider."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports assistant workspace element and composables."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports assistant API paths, query keys, stream events, and resource validators."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "assistant.chat.service",
+                "assistant.settings.service",
+                "assistant.transcript.service",
+                "assistant.conversation.repository",
+                "assistant.message.repository",
+                "assistant.settings.repository"
+              ],
+              "client": [
+                "assistant.web.console-settings.element",
+                "assistant.web.workspace-settings.element"
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/assistant": "0.1.0",
+              "@jskit-ai/auth-core": "0.1.0",
+              "@jskit-ai/database-runtime": "0.1.0",
+              "@jskit-ai/http-runtime": "0.1.0",
+              "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/realtime": "0.1.0",
+              "@jskit-ai/users-core": "0.1.0",
+              "@jskit-ai/users-web": "0.1.0",
+              "@tanstack/vue-query": "^5.90.5",
+              "dompurify": "^3.3.3",
+              "marked": "^17.0.4",
+              "openai": "^6.22.0",
+              "typebox": "^1.0.81",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/assistant_transcripts_initial.cjs",
+              "toDir": "migrations",
+              "slug": "assistant_transcripts_initial",
+              "extension": ".cjs",
+              "reason": "Install assistant conversation/message schema migration.",
+              "category": "assistant",
+              "id": "assistant-transcripts-initial-schema"
+            },
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/assistant_settings_initial.cjs",
+              "toDir": "migrations",
+              "slug": "assistant_settings_initial",
+              "extension": ".cjs",
+              "reason": "Install assistant settings schema migration.",
+              "category": "assistant",
+              "id": "assistant-settings-initial-schema"
+            },
+            {
+              "from": "templates/src/pages/admin/workspace/assistant/index.vue",
+              "to": "src/pages/admin/workspace/assistant/index.vue",
+              "reason": "Install assistant workspace page scaffold.",
+              "category": "assistant",
+              "id": "assistant-page-admin-workspace-assistant-index",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"assistant.workspace.menu\"",
+              "value": "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  slot: \"app.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surfaceRole: \"workspace.admin\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append admin Assistant menu placement into app-owned placement registry.",
+              "category": "assistant",
+              "id": "assistant-placement-menu",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"assistant.workspace.settings.form\"",
+              "value": "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+              "reason": "Append assistant workspace settings form into app-owned settings placements.",
+              "category": "assistant",
+              "id": "assistant-workspace-settings-form-placement",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"assistant.console.settings.form\"",
+              "value": "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  targetSurfaceRole: \"console.global\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append assistant console settings form into app-owned settings placements.",
+              "category": "assistant",
+              "id": "assistant-console-settings-form-placement"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/resources/consoleSettingsFields.js",
+              "position": "top",
+              "skipIfContains": "import { Type } from \"typebox\";",
+              "value": "import { Type } from \"typebox\";\n",
+              "reason": "Ensure app-owned console settings field registry has TypeBox import for assistant fields.",
+              "category": "assistant",
+              "id": "assistant-console-settings-fields-import-typebox"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/resources/consoleSettingsFields.js",
+              "position": "bottom",
+              "skipIfContains": "key: \"workspaceSurfacePrompt\"",
+              "value": "\ndefineField({\n  key: \"workspaceSurfacePrompt\",\n  dbColumn: \"assistant_workspace_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"Workspace surface system prompt must be at most 12000 characters.\",\n      default: \"Workspace surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
+              "reason": "Append assistant console settings field into app-owned console settings field registry.",
+              "category": "assistant",
+              "id": "assistant-console-settings-field-definition"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/resources/workspaceSettingsFields.js",
+              "position": "bottom",
+              "skipIfContains": "key: \"appSurfacePrompt\"",
+              "value": "\ndefineField({\n  key: \"appSurfacePrompt\",\n  dbColumn: \"assistant_app_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"App surface system prompt must be at most 12000 characters.\",\n      default: \"App surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
+              "reason": "Append assistant workspace settings field into app-owned workspace settings field registry.",
+              "category": "assistant",
+              "id": "assistant-workspace-settings-field-definition",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AI_PROVIDER",
+              "value": "${option:ai-provider}",
+              "reason": "Configure assistant AI provider id.",
+              "category": "runtime-config",
+              "id": "assistant-ai-provider"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AI_API_KEY",
+              "value": "${option:ai-api-key}",
+              "reason": "Configure assistant provider API key.",
+              "category": "runtime-config",
+              "id": "assistant-ai-api-key"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AI_BASE_URL",
+              "value": "${option:ai-base-url}",
+              "reason": "Configure optional assistant provider base URL.",
+              "category": "runtime-config",
+              "id": "assistant-ai-base-url"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AI_TIMEOUT_MS",
+              "value": "${option:ai-timeout-ms}",
+              "reason": "Configure assistant provider timeout.",
+              "category": "runtime-config",
+              "id": "assistant-ai-timeout-ms"
+            }
+          ]
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/auth-core",
       "version": "0.1.0",
       "descriptor": {
@@ -24,7 +319,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/AccessCoreServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
@@ -98,7 +393,18 @@
             "scripts": {}
           },
           "procfile": {},
-          "files": []
+          "files": [],
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AUTH_PROFILE_MODE",
+              "value": "standalone",
+              "reason": "Default auth profile mode to standalone when users-core is not installed.",
+              "category": "runtime-config",
+              "id": "auth-profile-mode"
+            }
+          ]
         }
       }
     },
@@ -145,7 +451,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
@@ -269,7 +575,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/AuthWebServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/AuthWebServiceProvider.js",
@@ -300,10 +606,6 @@
               {
                 "subpath": "./server",
                 "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
-              },
-              {
-                "subpath": "./client/routes",
-                "summary": "Exports client route registration helper for auth surfaces."
               }
             ],
             "containerTokens": {
@@ -411,23 +713,11 @@
                 "scope": "global",
                 "name": "auth-default-login",
                 "componentKey": "auth-default-login",
-                "autoRegister": false,
-                "guard": {
-                  "policy": "public"
-                },
-                "purpose": "Default module-supplied login screen."
-              },
-              {
-                "id": "auth.default-login-2",
-                "path": "/auth/default-login-2",
-                "scope": "global",
-                "name": "auth-default-login-2",
-                "componentKey": "auth-login",
                 "autoRegister": true,
                 "guard": {
                   "policy": "public"
                 },
-                "purpose": "Auto-registered default login route from descriptor metadata."
+                "purpose": "Default module-supplied login screen."
               }
             ],
             "elements": [],
@@ -546,163 +836,6 @@
       }
     },
     {
-      "packageId": "@jskit-ai/calendar",
-      "version": "0.1.0",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/calendar",
-        "version": "0.1.0",
-        "description": "Workspace appointment calendar module with FullCalendar week view and contact-linked events.",
-        "dependsOn": [
-          "@jskit-ai/auth-core",
-          "@jskit-ai/crud",
-          "@jskit-ai/database-runtime",
-          "@jskit-ai/http-runtime",
-          "@jskit-ai/users-web"
-        ],
-        "capabilities": {
-          "provides": [
-            "calendar.completeCalendar"
-          ],
-          "requires": [
-            "runtime.actions",
-            "runtime.database",
-            "auth.policy",
-            "users.web"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providers": [
-              {
-                "entrypoint": "src/server/CalendarServiceProvider.js",
-                "export": "CalendarServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Exports CalendarServiceProvider and complete calendar server feature."
-              },
-              {
-                "subpath": "./shared",
-                "summary": "Exports shared complete calendar resource validators."
-              },
-              {
-                "subpath": "./client/completeCalendar/*",
-                "summary": "Exports complete calendar Vue client elements."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "calendar.completeCalendar.repository",
-                "calendar.completeCalendar.service"
-              ],
-              "client": []
-            }
-          },
-          "server": {
-            "routes": [
-              {
-                "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/calendar/events",
-                "summary": "List calendar events for the selected week."
-              },
-              {
-                "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
-                "summary": "View a calendar event."
-              },
-              {
-                "method": "POST",
-                "path": "/api/w/:workspaceSlug/workspace/calendar/events",
-                "summary": "Create a calendar event."
-              },
-              {
-                "method": "PATCH",
-                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
-                "summary": "Update a calendar event."
-              },
-              {
-                "method": "DELETE",
-                "path": "/api/w/:workspaceSlug/workspace/calendar/events/:eventId",
-                "summary": "Delete a calendar event."
-              }
-            ]
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@fullcalendar/core": "^6.1.17",
-              "@fullcalendar/interaction": "^6.1.17",
-              "@fullcalendar/timegrid": "^6.1.17",
-              "@fullcalendar/vue3": "^6.1.17",
-              "@jskit-ai/auth-core": "0.1.0",
-              "@jskit-ai/crud": "0.1.0",
-              "@jskit-ai/database-runtime": "0.1.0",
-              "@jskit-ai/http-runtime": "0.1.0",
-              "@jskit-ai/kernel": "0.1.0",
-              "@jskit-ai/users-web": "0.1.0",
-              "@tanstack/vue-query": "^5.90.5",
-              "typebox": "^1.0.81",
-              "vuetify": "^4.0.0"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": [
-            {
-              "op": "install-migration",
-              "from": "templates/migrations/calendar_events_initial.cjs",
-              "toDir": "migrations",
-              "slug": "calendar_events_initial",
-              "extension": ".cjs",
-              "reason": "Install calendar events schema migration.",
-              "category": "calendar",
-              "id": "calendar-events-initial-schema"
-            },
-            {
-              "from": "templates/src/pages/admin/calendar/index.vue",
-              "to": "src/pages/admin/calendar/index.vue",
-              "reason": "Install admin calendar week page scaffold.",
-              "category": "calendar",
-              "id": "calendar-page-admin-calendar-index"
-            },
-            {
-              "from": "templates/src/pages/admin/calendar/events/[eventId]/index.vue",
-              "to": "src/pages/admin/calendar/events/[eventId]/index.vue",
-              "reason": "Install admin calendar event view page scaffold.",
-              "category": "calendar",
-              "id": "calendar-page-admin-calendar-event-view"
-            }
-          ],
-          "text": [
-            {
-              "op": "append-text",
-              "file": "src/placement.js",
-              "position": "bottom",
-              "skipIfContains": "id: \"calendar.complete.menu\"",
-              "value": "\naddPlacement({\n  id: \"calendar.complete.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 160,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Calendar\",\n    surface: \"admin\",\n    workspaceSuffix: \"/calendar\",\n    nonWorkspaceSuffix: \"/calendar\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append admin Calendar menu placement into app-owned placement registry.",
-              "category": "calendar",
-              "id": "calendar-placement-menu"
-            }
-          ]
-        }
-      }
-    },
-    {
       "packageId": "@jskit-ai/crud",
       "version": "0.1.0",
       "descriptor": {
@@ -732,6 +865,13 @@
             "defaultValue": "",
             "promptLabel": "Page directory prefix",
             "promptHint": "Optional path under src/pages/admin (example: crm or ops/team-a)."
+          },
+          "tenancy-mode": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "none",
+            "promptLabel": "Tenancy mode",
+            "promptHint": "none | personal | workspace"
           }
         },
         "dependsOn": [
@@ -739,6 +879,7 @@
           "@jskit-ai/crud-core",
           "@jskit-ai/database-runtime",
           "@jskit-ai/http-runtime",
+          "@jskit-ai/realtime",
           "@jskit-ai/shell-web",
           "@jskit-ai/users-core",
           "@jskit-ai/users-web"
@@ -753,7 +894,8 @@
             "auth.policy",
             "users.core",
             "users.web",
-            "runtime.web-placement"
+            "runtime.web-placement",
+            "runtime.realtime.client"
           ]
         },
         "runtime": {
@@ -779,10 +921,6 @@
               {
                 "subpath": "./shared",
                 "summary": "Exports shared CRUD resource and module config helpers."
-              },
-              {
-                "subpath": "./client/*",
-                "summary": "Exports CRUD Vue client elements."
               }
             ],
             "containerTokens": {
@@ -802,6 +940,7 @@
               "@jskit-ai/database-runtime": "0.1.0",
               "@jskit-ai/http-runtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/realtime": "0.1.0",
               "@jskit-ai/shell-web": "0.1.0",
               "@jskit-ai/users-core": "0.1.0",
               "@jskit-ai/users-web": "0.1.0",
@@ -849,11 +988,11 @@
               "id": "crud-local-package-client-index-${option:namespace|snake}"
             },
             {
-              "from": "templates/src/local-package/server/index.js",
-              "to": "packages/${option:namespace|kebab}/src/server/index.js",
-              "reason": "Install app-local CRUD server exports.",
+              "from": "templates/src/local-package/server/diTokens.js",
+              "to": "packages/${option:namespace|kebab}/src/server/diTokens.js",
+              "reason": "Install app-local CRUD server DI token constants.",
               "category": "crud",
-              "id": "crud-local-package-server-index-${option:namespace|snake}"
+              "id": "crud-local-package-server-di-tokens-${option:namespace|snake}"
             },
             {
               "from": "templates/src/local-package/server/CrudServiceProvider.js",
@@ -905,6 +1044,13 @@
               "id": "crud-local-package-shared-index-${option:namespace|snake}"
             },
             {
+              "from": "templates/src/local-package/shared/moduleConfig.js",
+              "to": "packages/${option:namespace|kebab}/src/shared/moduleConfig.js",
+              "reason": "Install app-local CRUD shared module config.",
+              "category": "crud",
+              "id": "crud-local-package-shared-module-config-${option:namespace|snake}"
+            },
+            {
               "from": "src/shared/crud/crudResource.js",
               "to": "packages/${option:namespace|kebab}/src/shared/${option:namespace|singular|camel}Resource.js",
               "reason": "Install app-local CRUD resource.",
@@ -951,28 +1097,56 @@
               "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
               "reason": "Install admin CRUD list page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-index"
+              "id": "crud-page-admin-crud-index",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/admin/crud/new.vue",
               "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
               "reason": "Install admin CRUD create page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-new"
+              "id": "crud-page-admin-crud-new",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/index.vue",
               "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
               "reason": "Install admin CRUD detail page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-view"
+              "id": "crud-page-admin-crud-view",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/edit.vue",
               "to": "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
               "reason": "Install admin CRUD edit page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-edit"
+              "id": "crud-page-admin-crud-edit",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             }
           ],
           "text": [
@@ -981,10 +1155,17 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}",
-              "value": "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n  const crudDirectoryPrefix = \"${option:directory-prefix|path}\";\n  const crudRoutePath = crudDirectoryPrefix\n    ? \"/\" + crudDirectoryPrefix + \"/\" + crudNamespace\n    : \"/\" + crudNamespace;\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    slot: \"app.primary-menu\",\n    surface: \"admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"admin\",\n      workspaceSuffix: crudRoutePath,\n      nonWorkspaceSuffix: crudRoutePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+              "value": "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    slot: \"app.primary-menu\",\n    targetSurfaceRole: \"workspace.admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surfaceRole: \"workspace.admin\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
               "reason": "Append admin Crud menu placement into app-owned placement registry.",
               "category": "crud",
-              "id": "crud-placement-menu"
+              "id": "crud-placement-menu",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             }
           ]
         }
@@ -1000,6 +1181,7 @@
         "description": "Shared CRUD client helpers used by CRUD modules.",
         "dependsOn": [
           "@jskit-ai/kernel",
+          "@jskit-ai/realtime",
           "@jskit-ai/shell-web",
           "@jskit-ai/users-web"
         ],
@@ -1052,7 +1234,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
@@ -1181,7 +1363,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
@@ -1345,7 +1527,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
@@ -1470,7 +1652,7 @@
         },
         "runtime": {
           "server": {
-            "providerEntrypoint": "src/server/index.js",
+            "providerEntrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
             "providers": [
               {
                 "entrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
@@ -1540,6 +1722,150 @@
       }
     },
     {
+      "packageId": "@jskit-ai/realtime",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/realtime",
+        "version": "0.1.0",
+        "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
+        "options": {
+          "realtime-redis-url": {
+            "required": true,
+            "allowEmpty": true,
+            "values": [],
+            "defaultValue": "",
+            "promptLabel": "Realtime Redis URL",
+            "promptHint": "Leave empty to use in-memory socket adapter."
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/kernel"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.realtime",
+            "runtime.realtime.client"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/RealtimeServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/RealtimeServiceProvider.js",
+                "export": "RealtimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/RealtimeClientProvider.js",
+                "export": "RealtimeClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports RealtimeServiceProvider only."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports RealtimeClientProvider only."
+              },
+              {
+                "subpath": "./client/listeners",
+                "summary": "Exports client listener registration helpers for provider-level realtime subscriptions."
+              },
+              {
+                "subpath": "./client/composables/*",
+                "summary": "Exports component-level realtime socket composables."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.realtime"
+              ],
+              "client": [
+                "runtime.realtime.client",
+                "runtime.realtime.client.socket",
+                "realtime.web.connection.indicator"
+              ]
+            }
+          },
+          "ui": {
+            "placements": {
+              "outlets": [],
+              "contributions": [
+                {
+                  "id": "realtime.connection.indicator",
+                  "slot": "app.top-right",
+                  "surface": "*",
+                  "order": 950,
+                  "componentToken": "realtime.web.connection.indicator",
+                  "source": "mutations.text#realtime-placement-indicator"
+                }
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.0",
+              "@socket.io/redis-adapter": "^8.3.0",
+              "redis": "^5.8.2",
+              "socket.io": "^4.8.3",
+              "socket.io-client": "^4.8.3"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "vite": {
+            "proxy": [
+              {
+                "id": "realtime-socket-io",
+                "path": "/socket.io",
+                "changeOrigin": true,
+                "ws": true
+              }
+            ]
+          },
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "REALTIME_REDIS_URL",
+              "value": "${option:realtime-redis-url}",
+              "reason": "Configure optional Redis backplane URL for realtime socket adapter.",
+              "category": "runtime-config",
+              "id": "realtime-redis-url"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"realtime.connection.indicator\"",
+              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+              "reason": "Append realtime connection indicator placement into app-owned placement registry.",
+              "category": "realtime-web",
+              "id": "realtime-placement-indicator"
+            }
+          ]
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/shell-web",
       "version": "0.1.0",
       "descriptor": {
@@ -1550,9 +1876,18 @@
         "dependsOn": [],
         "capabilities": {
           "provides": [
-            "runtime.web-placement"
+            "runtime.web-placement",
+            "runtime.web-error"
           ],
           "requires": []
+        },
+        "options": {
+          "tenancy-mode": {
+            "required": false,
+            "defaultValue": "none",
+            "promptLabel": "Tenancy mode",
+            "promptHint": "none | personal | workspace"
+          }
         },
         "runtime": {
           "server": {
@@ -1577,12 +1912,18 @@
               {
                 "subpath": "./client/placement",
                 "summary": "Exports app-owned placement registry helpers, slot validators, and placement runtime tokens."
+              },
+              {
+                "subpath": "./client/error",
+                "summary": "Exports app-level error runtime, policy contract, and material presenter factories."
               }
             ],
             "containerTokens": {
               "server": [],
               "client": [
-                "runtime.web-placement.client"
+                "runtime.web-placement.client",
+                "runtime.web-error.client",
+                "runtime.web-error.presentation-store.client"
               ]
             }
           },
@@ -1632,16 +1973,28 @@
             "dev": {}
           },
           "packageJson": {
-            "scripts": {}
+            "scripts": {
+              "dev:all": "vite",
+              "dev:app": "VITE_SURFACE=app vite",
+              "dev:admin": "VITE_SURFACE=admin vite",
+              "dev:console": "VITE_SURFACE=console vite"
+            }
           },
           "procfile": {},
           "files": [
             {
               "from": "templates/src/App.vue",
               "to": "src/App.vue",
-              "reason": "Install full-width shell app root so shell layouts render edge-to-edge.",
+              "reason": "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
               "category": "shell-web",
               "id": "shell-web-app-root"
+            },
+            {
+              "from": "templates/src/error.js",
+              "to": "src/error.js",
+              "reason": "Install app-owned error runtime policy and presenter config scaffold.",
+              "category": "shell-web",
+              "id": "shell-web-error-config"
             },
             {
               "from": "templates/src/placement.js",
@@ -1658,18 +2011,67 @@
               "id": "shell-web-page-root"
             },
             {
+              "from": "templates/src/pages/app.vue",
+              "to": "src/pages/app.vue",
+              "reason": "Install shell-driven app wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-app-wrapper",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/pages/admin.vue",
+              "to": "src/pages/admin.vue",
+              "reason": "Install shell-driven admin wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-admin-wrapper",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/pages/console.vue",
+              "to": "src/pages/console.vue",
+              "reason": "Install shell-driven console wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-console-wrapper"
+            },
+            {
               "from": "templates/src/pages/admin/index.vue",
               "to": "src/pages/admin/index.vue",
               "reason": "Install shell-driven admin page starter.",
               "category": "shell-web",
-              "id": "shell-web-page-admin"
+              "id": "shell-web-page-admin",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/app/index.vue",
               "to": "src/pages/app/index.vue",
               "reason": "Install shell-driven app page starter.",
               "category": "shell-web",
-              "id": "shell-web-page-app"
+              "id": "shell-web-page-app",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/console/index.vue",
@@ -1679,6 +2081,74 @@
               "id": "shell-web-page-console"
             }
           ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/storage-runtime",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/storage-runtime",
+        "version": "0.1.0",
+        "dependsOn": [
+          "@jskit-ai/kernel"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.storage"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
+                "export": "StorageRuntimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server/providers/StorageRuntimeServiceProvider",
+                "summary": "Exports storage runtime server provider."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no client runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.storage",
+                "KERNEL_TOKENS.Storage"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.0",
+              "unstorage": "^1.17.3"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": []
         }
       }
     },
@@ -1693,7 +2163,8 @@
         "dependsOn": [
           "@jskit-ai/auth-core",
           "@jskit-ai/database-runtime",
-          "@jskit-ai/http-runtime"
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/storage-runtime"
         ],
         "capabilities": {
           "provides": [
@@ -1703,6 +2174,7 @@
           "requires": [
             "runtime.actions",
             "runtime.database",
+            "runtime.storage",
             "auth.provider",
             "auth.policy"
           ]
@@ -1739,6 +2211,7 @@
             "containerTokens": {
               "server": [
                 "users.core",
+                "users.profile.sync.service",
                 "users.workspace.service",
                 "users.workspace.members.service",
                 "users.workspace.settings.service",
@@ -1750,6 +2223,11 @@
           },
           "server": {
             "routes": [
+              {
+                "method": "POST",
+                "path": "/api/workspaces",
+                "summary": "Create a workspace for the authenticated user."
+              },
               {
                 "method": "GET",
                 "path": "/api/workspaces",
@@ -1816,6 +2294,11 @@
                 "summary": "Update profile settings."
               },
               {
+                "method": "GET",
+                "path": "/api/settings/profile/avatar",
+                "summary": "Read authenticated user's uploaded avatar."
+              },
+              {
                 "method": "POST",
                 "path": "/api/settings/profile/avatar",
                 "summary": "Upload profile avatar."
@@ -1834,11 +2317,6 @@
                 "method": "PATCH",
                 "path": "/api/settings/notifications",
                 "summary": "Update notification settings."
-              },
-              {
-                "method": "PATCH",
-                "path": "/api/settings/chat",
-                "summary": "Update chat settings."
               },
               {
                 "method": "POST",
@@ -1885,6 +2363,7 @@
               "@jskit-ai/database-runtime": "0.1.0",
               "@jskit-ai/http-runtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
+              "@fastify/multipart": "^9.4.0",
               "typebox": "^1.0.81"
             },
             "dev": {}
@@ -1903,18 +2382,131 @@
               "reason": "Install users/workspace core schema migration.",
               "category": "migration",
               "id": "users-core-initial-schema"
+            },
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/users_core_profile_username.cjs",
+              "toDir": "migrations",
+              "slug": "users_core_profile_username",
+              "extension": ".cjs",
+              "reason": "Install users profile username migration.",
+              "category": "migration",
+              "id": "users-core-profile-username-schema"
+            },
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/users_core_console_owner.cjs",
+              "toDir": "migrations",
+              "slug": "users_core_console_owner",
+              "extension": ".cjs",
+              "reason": "Install users/workspace console owner migration.",
+              "category": "migration",
+              "id": "users-core-console-owner-schema"
+            },
+            {
+              "from": "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",
+              "to": "packages/main/src/shared/resources/workspaceSettingsFields.js",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned workspace settings field definitions.",
+              "category": "users-core",
+              "id": "users-core-app-owned-workspace-settings-fields"
+            },
+            {
+              "from": "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
+              "to": "packages/main/src/shared/resources/consoleSettingsFields.js",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned console settings field definitions.",
+              "category": "users-core",
+              "id": "users-core-app-owned-console-settings-fields"
+            },
+            {
+              "from": "templates/packages/main/src/shared/resources/userSettingsFields.js",
+              "to": "packages/main/src/shared/resources/userSettingsFields.js",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned user settings field definitions.",
+              "category": "users-core",
+              "id": "users-core-app-owned-user-settings-fields"
             }
           ],
           "text": [
+            {
+              "op": "upsert-env",
+              "file": ".env",
+              "key": "AUTH_PROFILE_MODE",
+              "value": "users",
+              "reason": "Enable users-backed auth profile sync when users-core is installed.",
+              "category": "runtime-config",
+              "id": "users-core-auth-profile-mode"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/index.js",
+              "position": "top",
+              "skipIfContains": "import \"./resources/workspaceSettingsFields.js\";",
+              "value": "import \"./resources/workspaceSettingsFields.js\";\n",
+              "reason": "Load app-owned workspace settings field definitions inside the main shared module.",
+              "category": "users-core",
+              "id": "users-core-main-shared-workspace-settings-field-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/index.js",
+              "position": "top",
+              "skipIfContains": "import \"./resources/consoleSettingsFields.js\";",
+              "value": "import \"./resources/consoleSettingsFields.js\";\n",
+              "reason": "Load app-owned console settings field definitions inside the main shared module.",
+              "category": "users-core",
+              "id": "users-core-main-shared-console-settings-field-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/index.js",
+              "position": "top",
+              "skipIfContains": "import \"./resources/userSettingsFields.js\";",
+              "value": "import \"./resources/userSettingsFields.js\";\n",
+              "reason": "Load app-owned user settings field definitions inside the main shared module.",
+              "category": "users-core",
+              "id": "users-core-main-shared-user-settings-field-import"
+            },
+            {
+              "op": "append-text",
+              "file": "src/main.js",
+              "position": "top",
+              "skipIfContains": "import \"@local/main/shared\";",
+              "value": "import \"@local/main/shared\";\n",
+              "reason": "Ensure client runtime loads app-owned shared settings field registration.",
+              "category": "users-core",
+              "id": "users-core-client-import-main-shared"
+            },
+            {
+              "op": "append-text",
+              "file": "server.js",
+              "position": "top",
+              "skipIfContains": "import \"@local/main/shared\";",
+              "value": "import \"@local/main/shared\";\n",
+              "reason": "Ensure server runtime loads app-owned shared settings field registration.",
+              "category": "users-core",
+              "id": "users-core-server-import-main-shared"
+            },
             {
               "op": "append-text",
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.workspaceSwitching =",
-              "value": "\nconfig.tenancyMode = \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.workspaceCreateEnabled = false;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\nconfig.surfaceDefinitions.app.requiresWorkspace = true;\nconfig.surfaceDefinitions.admin.requiresWorkspace = true;\nconfig.surfaceDefinitions.console.requiresWorkspace = false;\n",
+              "value": "\nconfig.tenancyMode = String(config.tenancyMode || \"\").trim().toLowerCase() || \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
               "category": "users-core",
               "id": "users-core-public-config"
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.surfaceDefinitions.console = {",
+              "value": "\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.app || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.admin || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.console || {}),\n  requiresWorkspace: false\n};\n",
+              "reason": "Append workspace surface defaults into app-owned config.",
+              "category": "users-core",
+              "id": "users-core-surface-config"
             },
             {
               "op": "append-text",
@@ -1958,6 +2550,14 @@
         "packageId": "@jskit-ai/users-web",
         "version": "0.1.0",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
+        "options": {
+          "tenancy-mode": {
+            "required": false,
+            "defaultValue": "none",
+            "promptLabel": "Tenancy mode",
+            "promptHint": "none | personal | workspace"
+          }
+        },
         "dependsOn": [
           "@jskit-ai/http-runtime",
           "@jskit-ai/shell-web",
@@ -1986,6 +2586,17 @@
           }
         },
         "metadata": {
+          "client": {
+            "optimizeDeps": {
+              "include": [
+                "@uppy/core",
+                "@uppy/dashboard",
+                "@uppy/image-editor",
+                "@uppy/compressor",
+                "@uppy/xhr-upload"
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -2014,9 +2625,11 @@
                 "users.web.shell.surface-aware-menu-link-item",
                 "users.web.workspace-settings.menu-item",
                 "users.web.workspace-members.menu-item",
+                "users.web.account-settings.element",
                 "users.web.profile.element",
                 "users.web.members-admin.element",
-                "users.web.workspace-settings.element"
+                "users.web.workspace-settings.element",
+                "users.web.bootstrap-placement.runtime"
               ]
             }
           },
@@ -2029,6 +2642,27 @@
                     "admin"
                   ],
                   "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
+                },
+                {
+                  "slot": "account.settings.forms",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "templates/src/pages/account/settings/index.vue"
+                },
+                {
+                  "slot": "workspace.settings.forms",
+                  "surfaces": [
+                    "admin"
+                  ],
+                  "source": "templates/src/pages/admin/workspace/settings/index.vue"
+                },
+                {
+                  "slot": "console.settings.forms",
+                  "surfaces": [
+                    "console"
+                  ],
+                  "source": "templates/src/pages/console/settings/index.vue"
                 }
               ],
               "contributions": [
@@ -2048,12 +2682,12 @@
                   "order": 500,
                   "componentToken": "users.web.shell.menu-link-item",
                   "when": "auth.authenticated === true",
-                  "source": "mutations.text#users-web-placement-block"
+                  "source": "mutations.text#users-web-profile-settings-placement"
                 },
                 {
                   "id": "users.workspace.tools.widget",
                   "slot": "app.top-right",
-                  "surface": "admin",
+                  "targetSurfaceRole": "workspace.admin",
                   "order": 900,
                   "componentToken": "users.web.workspace.tools.widget",
                   "source": "mutations.text#users-web-placement-block"
@@ -2061,7 +2695,7 @@
                 {
                   "id": "users.workspace.menu.workspace-settings",
                   "slot": "workspace.primary-menu",
-                  "surface": "admin",
+                  "targetSurfaceRole": "workspace.admin",
                   "order": 100,
                   "componentToken": "users.web.workspace-settings.menu-item",
                   "source": "mutations.text#users-web-placement-block"
@@ -2069,7 +2703,7 @@
                 {
                   "id": "users.workspace.menu.members",
                   "slot": "workspace.primary-menu",
-                  "surface": "admin",
+                  "targetSurfaceRole": "workspace.admin",
                   "order": 200,
                   "componentToken": "users.web.workspace-members.menu-item",
                   "source": "mutations.text#users-web-placement-block"
@@ -2077,11 +2711,28 @@
                 {
                   "id": "users.console.menu.settings",
                   "slot": "app.primary-menu",
-                  "surface": "console",
+                  "targetSurfaceRole": "console.global",
                   "order": 100,
                   "componentToken": "users.web.shell.menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-console-settings-placement"
+                },
+                {
+                  "id": "users.account.settings.form",
+                  "slot": "account.settings.forms",
+                  "surface": "*",
+                  "order": 100,
+                  "componentToken": "users.web.account-settings.element",
+                  "when": "auth.authenticated === true",
+                  "source": "mutations.text#users-web-account-settings-form-placement"
+                },
+                {
+                  "id": "users.workspace.settings.form",
+                  "slot": "workspace.settings.forms",
+                  "targetSurfaceRole": "workspace.admin",
+                  "order": 100,
+                  "componentToken": "users.web.workspace-settings.element",
+                  "source": "mutations.text#users-web-workspace-settings-form-placement"
                 }
               ]
             }
@@ -2098,6 +2749,7 @@
               "@uppy/image-editor": "^4.2.0",
               "@uppy/xhr-upload": "^5.1.1",
               "@jskit-ai/http-runtime": "0.1.0",
+              "@jskit-ai/realtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
               "@jskit-ai/shell-web": "0.1.0",
               "@jskit-ai/users-core": "0.1.0",
@@ -2122,14 +2774,28 @@
               "to": "src/pages/admin/members/index.vue",
               "reason": "Install admin members starter page scaffold for users-web members UI.",
               "category": "users-web",
-              "id": "users-web-page-admin-members"
+              "id": "users-web-page-admin-members",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/admin/workspace/settings/index.vue",
               "to": "src/pages/admin/workspace/settings/index.vue",
               "reason": "Install workspace settings page scaffold for users-web workspace admin UI.",
               "category": "users-web",
-              "id": "users-web-page-admin-workspace-settings"
+              "id": "users-web-page-admin-workspace-settings",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/pages/console/settings/index.vue",
@@ -2143,7 +2809,14 @@
               "to": "src/pages/workspaces/index.vue",
               "reason": "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
               "category": "users-web",
-              "id": "users-web-page-workspaces"
+              "id": "users-web-page-workspaces",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             }
           ],
           "text": [
@@ -2152,20 +2825,64 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.workspace.selector\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  surface: \"admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceRole: \"workspace.main\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
               "reason": "Append users-web placement entries into app-owned placement registry.",
               "category": "users-web",
-              "id": "users-web-placement-block"
+              "id": "users-web-placement-block",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"users.profile.menu.settings\"",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
+              "category": "users-web",
+              "id": "users-web-profile-settings-placement"
             },
             {
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.console.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  slot: \"app.primary-menu\",\n  surface: \"console\",\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  slot: \"app.primary-menu\",\n  targetSurfaceRole: \"console.global\",\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web console settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-console-settings-placement"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"users.account.settings.form\"",
+              "value": "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append users-web account settings form placement into app-owned placement registry.",
+              "category": "users-web",
+              "id": "users-web-account-settings-form-placement"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"users.workspace.settings.form\"",
+              "value": "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
+              "reason": "Append users-web workspace settings form placement into app-owned placement registry.",
+              "category": "users-web",
+              "id": "users-web-workspace-settings-form-placement",
+              "when": {
+                "option": "tenancy-mode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             }
           ]
         }

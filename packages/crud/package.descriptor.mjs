@@ -25,6 +25,13 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Page directory prefix",
       promptHint: "Optional path under src/pages/admin (example: crm or ops/team-a)."
+    },
+    "tenancy-mode": {
+      required: false,
+      inputType: "text",
+      defaultValue: "none",
+      promptLabel: "Tenancy mode",
+      promptHint: "none | personal | workspace"
     }
   },
   dependsOn: [
@@ -245,28 +252,44 @@ export default Object.freeze({
         to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
         reason: "Install admin CRUD list page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-index"
+        id: "crud-page-admin-crud-index",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/admin/crud/new.vue",
         to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
         reason: "Install admin CRUD create page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-new"
+        id: "crud-page-admin-crud-new",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/index.vue",
         to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
         reason: "Install admin CRUD detail page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-view"
+        id: "crud-page-admin-crud-view",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/edit.vue",
         to: "src/pages/admin/${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
         reason: "Install admin CRUD edit page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-edit"
+        id: "crud-page-admin-crud-edit",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       }
     ],
     text: [
@@ -279,7 +302,11 @@ export default Object.freeze({
           "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    slot: \"app.primary-menu\",\n    targetSurfaceRole: \"workspace.admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surfaceRole: \"workspace.admin\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append admin Crud menu placement into app-owned placement registry.",
         category: "crud",
-        id: "crud-placement-menu"
+        id: "crud-placement-menu",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       }
     ]
   }

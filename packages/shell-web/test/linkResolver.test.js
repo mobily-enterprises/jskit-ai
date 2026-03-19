@@ -40,6 +40,74 @@ function createPlacementContext() {
   };
 }
 
+function createPlacementContextForTenancyMode(tenancyMode = "workspace") {
+  const normalizedMode = String(tenancyMode || "").trim().toLowerCase();
+  if (normalizedMode === "none") {
+    return {
+      workspace: null,
+      surfaceRoles: {
+        "app.global": "app",
+        "console.global": "console"
+      },
+      surfaceConfig: {
+        tenancyMode: "none",
+        defaultSurfaceId: "app",
+        enabledSurfaceIds: ["app", "console"],
+        surfacesById: {
+          app: {
+            id: "app",
+            prefix: "/",
+            enabled: true,
+            requiresWorkspace: false
+          },
+          console: {
+            id: "console",
+            prefix: "/console",
+            enabled: true,
+            requiresWorkspace: false
+          }
+        }
+      }
+    };
+  }
+
+  return {
+    workspace: {
+      slug: "acme"
+    },
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    },
+    surfaceConfig: {
+      tenancyMode: normalizedMode === "personal" ? "personal" : "workspace",
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app", "admin", "console"],
+      surfacesById: {
+        app: {
+          id: "app",
+          prefix: "/",
+          enabled: true,
+          requiresWorkspace: true
+        },
+        admin: {
+          id: "admin",
+          prefix: "/admin",
+          enabled: true,
+          requiresWorkspace: true
+        },
+        console: {
+          id: "console",
+          prefix: "/console",
+          enabled: true,
+          requiresWorkspace: false
+        }
+      }
+    }
+  };
+}
+
 test("resolveShellLinkPath composes workspace path in auto mode when workspace is available", () => {
   const to = resolveShellLinkPath({
     context: createPlacementContext(),
@@ -140,4 +208,67 @@ test("resolveShellLinkPath resolves surface id from target surface role", () => 
   });
 
   assert.equal(to, "/w/acme/admin/contacts/2");
+});
+
+test("resolveShellLinkPath follows tenancy mode matrix for shell surfaces", () => {
+  const cases = [
+    {
+      tenancyMode: "none",
+      surface: "app",
+      relativePath: "/projects",
+      expectedPath: "/projects"
+    },
+    {
+      tenancyMode: "none",
+      surface: "console",
+      relativePath: "/settings",
+      expectedPath: "/console/settings"
+    },
+    {
+      tenancyMode: "personal",
+      surface: "app",
+      relativePath: "/projects",
+      expectedPath: "/w/acme/projects"
+    },
+    {
+      tenancyMode: "personal",
+      surface: "admin",
+      relativePath: "/settings",
+      expectedPath: "/w/acme/admin/settings"
+    },
+    {
+      tenancyMode: "personal",
+      surface: "console",
+      relativePath: "/settings",
+      expectedPath: "/console/settings"
+    },
+    {
+      tenancyMode: "workspace",
+      surface: "app",
+      relativePath: "/projects",
+      expectedPath: "/w/acme/projects"
+    },
+    {
+      tenancyMode: "workspace",
+      surface: "admin",
+      relativePath: "/settings",
+      expectedPath: "/w/acme/admin/settings"
+    },
+    {
+      tenancyMode: "workspace",
+      surface: "console",
+      relativePath: "/settings",
+      expectedPath: "/console/settings"
+    }
+  ];
+
+  for (const entry of cases) {
+    const resolvedPath = resolveShellLinkPath({
+      context: createPlacementContextForTenancyMode(entry.tenancyMode),
+      surface: entry.surface,
+      relativePath: entry.relativePath,
+      mode: "auto"
+    });
+    assert.equal(resolvedPath, entry.expectedPath);
+  }
 });

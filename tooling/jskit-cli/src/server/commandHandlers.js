@@ -121,6 +121,60 @@ function createCommandHandlers(deps) {
   
     return sortStrings(dependents);
   }
+
+  function resolvePackageOptionNames(packageEntry) {
+    const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+    return Object.keys(optionSchemas);
+  }
+
+  function resolveBundleInlineOptionsForPackage(packageEntry, inlineOptions) {
+    const allowedOptionNames = new Set(resolvePackageOptionNames(packageEntry));
+    const resolved = {};
+
+    for (const [optionName, optionValue] of Object.entries(ensureObject(inlineOptions))) {
+      if (!allowedOptionNames.has(optionName)) {
+        continue;
+      }
+      resolved[optionName] = String(optionValue || "").trim();
+    }
+
+    return resolved;
+  }
+
+  function validateInlineOptionsForBundle({
+    bundleId,
+    inlineOptions,
+    packageIds,
+    packageRegistry
+  }) {
+    const providedOptionNames = Object.keys(ensureObject(inlineOptions));
+    if (providedOptionNames.length < 1) {
+      return;
+    }
+
+    const allowedOptionNames = new Set();
+    for (const packageId of ensureArray(packageIds).map((value) => String(value || "").trim()).filter(Boolean)) {
+      const packageEntry = packageRegistry.get(packageId);
+      if (!packageEntry) {
+        continue;
+      }
+      for (const optionName of resolvePackageOptionNames(packageEntry)) {
+        allowedOptionNames.add(optionName);
+      }
+    }
+
+    const unknownOptionNames = providedOptionNames.filter((optionName) => !allowedOptionNames.has(optionName));
+    if (unknownOptionNames.length < 1) {
+      return;
+    }
+
+    const sortedUnknown = sortStrings(unknownOptionNames);
+    const sortedAllowed = sortStrings([...allowedOptionNames]);
+    const suffix = sortedAllowed.length > 0
+      ? ` Allowed options: ${sortedAllowed.join(", ")}.`
+      : " This bundle does not accept inline options.";
+    throw createCliError(`Unknown option(s) for bundle ${bundleId}: ${sortedUnknown.join(", ")}.${suffix}`);
+  }
   
   async function commandList({ positional, options, cwd, stdout }) {
     const packageRegistry = await loadPackageRegistry();
@@ -1115,6 +1169,15 @@ function createCommandHandlers(deps) {
       combinedPackageRegistry,
       `add ${targetType} ${targetId}`
     );
+
+    if (targetType === "bundle") {
+      validateInlineOptionsForBundle({
+        bundleId: targetId,
+        inlineOptions: options.inlineOptions,
+        packageIds: resolvedPackageIds,
+        packageRegistry: combinedPackageRegistry
+      });
+    }
   
     const packagesToInstall = [];
     const resolvedOptionsByPackage = {};
@@ -1125,7 +1188,15 @@ function createCommandHandlers(deps) {
       const existingInstall = ensureObject(lock.installedPackages[packageId]);
       const existingVersion = String(existingInstall.version || "").trim();
       const isDirectTargetPackage = targetType === "package" && packageId === resolvedTargetPackageId;
-      const shouldReapplyInstalledPackage = isDirectTargetPackage && (forceReapplyTarget || hasInlineOptions);
+      const packageInlineOptions = targetType === "bundle"
+        ? resolveBundleInlineOptionsForPackage(packageEntry, options.inlineOptions)
+        : isDirectTargetPackage
+          ? ensureObject(options.inlineOptions)
+          : {};
+      const hasPackageInlineOptions = Object.keys(packageInlineOptions).length > 0;
+      const shouldReapplyInstalledPackage =
+        (isDirectTargetPackage && (forceReapplyTarget || hasInlineOptions)) ||
+        (targetType === "bundle" && hasPackageInlineOptions);
       if (existingVersion && existingVersion === packageEntry.version && !shouldReapplyInstalledPackage) {
         continue;
       }
@@ -1135,7 +1206,7 @@ function createCommandHandlers(deps) {
         packageEntry,
         {
           ...lockEntryOptions,
-          ...(isDirectTargetPackage ? options.inlineOptions : {})
+          ...packageInlineOptions
         },
         io
       );

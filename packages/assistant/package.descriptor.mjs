@@ -29,6 +29,12 @@ export default Object.freeze({
       defaultValue: "120000",
       promptLabel: "AI timeout (ms)",
       promptHint: "Abort AI requests after this many milliseconds."
+    },
+    "tenancy-mode": {
+      required: false,
+      defaultValue: "none",
+      promptLabel: "Tenancy mode",
+      promptHint: "none | personal | workspace"
     }
   },
   dependsOn: [
@@ -150,7 +156,11 @@ export default Object.freeze({
         to: "src/pages/admin/workspace/assistant/index.vue",
         reason: "Install assistant workspace page scaffold.",
         category: "assistant",
-        id: "assistant-page-admin-workspace-assistant-index"
+        id: "assistant-page-admin-workspace-assistant-index",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       }
     ],
     text: [
@@ -163,7 +173,11 @@ export default Object.freeze({
           "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  slot: \"app.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surfaceRole: \"workspace.admin\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append admin Assistant menu placement into app-owned placement registry.",
         category: "assistant",
-        id: "assistant-placement-menu"
+        id: "assistant-placement-menu",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         op: "append-text",
@@ -171,10 +185,25 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  targetSurfaceRole: \"console.global\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append assistant settings forms into app-owned settings placements.",
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+        reason: "Append assistant workspace settings form into app-owned settings placements.",
         category: "assistant",
-        id: "assistant-settings-form-placements"
+        id: "assistant-workspace-settings-form-placement",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"assistant.console.settings.form\"",
+        value:
+          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  targetSurfaceRole: \"console.global\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append assistant console settings form into app-owned settings placements.",
+        category: "assistant",
+        id: "assistant-console-settings-form-placement"
       },
       {
         op: "append-text",
@@ -206,7 +235,11 @@ export default Object.freeze({
           "\ndefineField({\n  key: \"appSurfacePrompt\",\n  dbColumn: \"assistant_app_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"App surface system prompt must be at most 12000 characters.\",\n      default: \"App surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
         reason: "Append assistant workspace settings field into app-owned workspace settings field registry.",
         category: "assistant",
-        id: "assistant-workspace-settings-field-definition"
+        id: "assistant-workspace-settings-field-definition",
+        when: {
+          option: "tenancy-mode",
+          in: ["personal", "workspace"]
+        }
       },
       {
         file: ".env",
