@@ -101,7 +101,7 @@ export default Object.freeze({
         file: "config/public.js",
         position: "bottom",
         value:
-          "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+          "\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
         reason: "Own shell surface topology in app config, shaped by tenancy mode.",
         category: "shell-web",
         id: "shell-web-surface-config-workspace-enabled",
@@ -115,7 +115,7 @@ export default Object.freeze({
         file: "config/public.js",
         position: "bottom",
         value:
-          "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+          "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
         reason: "Own shell surface topology in app config, shaped by tenancy mode.",
         category: "shell-web",
         id: "shell-web-surface-config-no-workspace",

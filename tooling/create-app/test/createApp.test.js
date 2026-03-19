@@ -105,7 +105,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
     assert.doesNotMatch(publicConfig, /config\.tenancyMode/);
     assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
-    assert.match(publicConfig, /config\.surfaceDefinitions = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
@@ -280,6 +281,10 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
 
     const publicConfig = await readFile(path.join(cwd, "tenancy-app/config/public.js"), "utf8");
     assert.match(publicConfig, /config\.tenancyMode = "personal";/);
+    assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
+    assert.match(publicConfig, /requiresAuth:\s*true/);
+    assert.match(publicConfig, /requiresWorkspace:\s*true/);
   });
 });
 
@@ -423,13 +428,10 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
 test("shell-web workspace tenancy mode installs root/admin/console wrappers", async () => {
   await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["shell-workspace-app"] });
+    const createResult = runCli({ cwd, args: ["shell-workspace-app", "--tenancy-mode", "workspace"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "shell-workspace-app");
-    const publicConfigPath = path.join(appRoot, "config/public.js");
-    const publicConfig = await readFile(publicConfigPath, "utf8");
-    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspace";\n`, "utf8");
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
@@ -445,6 +447,12 @@ test("shell-web workspace tenancy mode installs root/admin/console wrappers", as
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
     assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+
+    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
+    const appAssignments = publicConfig.match(/config\.surfaceDefinitions\.app = \{/g) || [];
+    assert.equal(appAssignments.length, 1);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.admin = \{/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
   });
 });
 

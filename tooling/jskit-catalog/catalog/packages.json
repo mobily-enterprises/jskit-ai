@@ -595,7 +595,7 @@
             "surfaces": [
               {
                 "subpath": "./client",
-                "summary": "Exports auth web client runtime/views/composables and AuthWebClientProvider."
+                "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
               },
               {
                 "subpath": "./server",
@@ -1876,15 +1876,15 @@
             "surfaces": [
               {
                 "subpath": "./client",
-                "summary": "Exports shell layout/outlet components, placement helpers, and ShellWebClientProvider."
+                "summary": "Exports shell layout/outlet/error-host components and ShellWebClientProvider."
               },
               {
                 "subpath": "./client/placement",
-                "summary": "Exports app-owned placement registry helpers, slot validators, and placement runtime tokens."
+                "summary": "Exports placement registry, placement context access, runtime token, and surface path helpers."
               },
               {
                 "subpath": "./client/error",
-                "summary": "Exports app-level error runtime, policy contract, and material presenter factories."
+                "summary": "Exports default error policy and runtime error reporter hook."
               }
             ],
             "containerTokens": {
@@ -1955,7 +1955,7 @@
               "op": "append-text",
               "file": "config/public.js",
               "position": "bottom",
-              "value": "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+              "value": "\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
               "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
               "category": "shell-web",
               "id": "shell-web-surface-config-workspace-enabled",
@@ -1971,7 +1971,7 @@
               "op": "append-text",
               "file": "config/public.js",
               "position": "bottom",
-              "value": "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
               "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
               "category": "shell-web",
               "id": "shell-web-surface-config-no-workspace",
@@ -2557,20 +2557,56 @@
           "apiSummary": {
             "surfaces": [
               {
-                "subpath": "./client/providers/*",
-                "summary": "Exports users-web client provider and tokens."
+                "subpath": "./client",
+                "summary": "Exports users-web client provider registration surface."
               },
               {
-                "subpath": "./client/components/*",
-                "summary": "Exports users-web Vue client components."
+                "subpath": "./client/providers/UsersWebClientProvider",
+                "summary": "Exports users-web client provider class."
               },
               {
-                "subpath": "./client/composables/*",
-                "summary": "Exports users-web client composables."
+                "subpath": "./client/components/ProfileClientElement",
+                "summary": "Exports profile settings client element scaffold component."
               },
               {
-                "subpath": "./client/lib/*",
-                "summary": "Exports users-web client utility and query helpers."
+                "subpath": "./client/components/WorkspacesClientElement",
+                "summary": "Exports workspace chooser client element component."
+              },
+              {
+                "subpath": "./client/components/WorkspaceMembersClientElement",
+                "summary": "Exports workspace members admin client element component."
+              },
+              {
+                "subpath": "./client/composables/useAddEdit",
+                "summary": "Exports add/edit operation composable."
+              },
+              {
+                "subpath": "./client/composables/useList",
+                "summary": "Exports list operation composable."
+              },
+              {
+                "subpath": "./client/composables/useCommand",
+                "summary": "Exports command operation composable."
+              },
+              {
+                "subpath": "./client/composables/useView",
+                "summary": "Exports read/view operation composable."
+              },
+              {
+                "subpath": "./client/composables/usePagedCollection",
+                "summary": "Exports paged collection query composable."
+              },
+              {
+                "subpath": "./client/composables/usePaths",
+                "summary": "Exports surface/workspace path resolver composable."
+              },
+              {
+                "subpath": "./client/composables/useWorkspaceRouteContext",
+                "summary": "Exports workspace route context composable."
+              },
+              {
+                "subpath": "./client/support/realtimeWorkspace",
+                "summary": "Exports workspace realtime event helpers."
               }
             ],
             "containerTokens": {
