@@ -186,3 +186,98 @@ test("add package applies option interpolation and conditional file mutations", 
     assert.equal(appPackageJson.dependencies["@demo/generated-client-profiles"], "1.2.3");
   });
 });
+
+test("add package evaluates when.config conditions from app config", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "config-mutations-app");
+    await createMinimalApp(appRoot, { name: "config-mutations-app" });
+
+    await mkdir(path.join(appRoot, "config"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      "export const config = { tenancyMode: \"workspace\" };\n",
+      "utf8"
+    );
+
+    const packageRoot = path.join(appRoot, "packages", "config-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/config-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.config\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+
+    await writeFile(path.join(packageRoot, "templates", "workspace.txt"), "workspace\n", "utf8");
+    await writeFile(path.join(packageRoot, "templates", "none.txt"), "none\n", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/config-feature",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        from: "templates/workspace.txt",
+        to: "src/generated/workspace.txt",
+        when: {
+          config: "tenancyMode",
+          in: ["workspace"]
+        }
+      },
+      {
+        from: "templates/none.txt",
+        to: "src/generated/none.txt",
+        when: {
+          config: "tenancyMode",
+          in: ["none"]
+        }
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/config-feature", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const workspaceFile = path.join(appRoot, "src", "generated", "workspace.txt");
+    const workspaceContent = await readFile(workspaceFile, "utf8");
+    assert.equal(workspaceContent, "workspace\n");
+
+    const noneFile = path.join(appRoot, "src", "generated", "none.txt");
+    await assert.rejects(() => readFile(noneFile, "utf8"));
+  });
+});

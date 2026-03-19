@@ -25,13 +25,6 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Page directory prefix",
       promptHint: "Optional path under src/pages/admin (example: crm or ops/team-a)."
-    },
-    "tenancy-mode": {
-      required: false,
-      inputType: "text",
-      defaultValue: "none",
-      promptLabel: "Tenancy mode",
-      promptHint: "none | personal | workspace"
     }
   },
   dependsOn: [
@@ -254,7 +247,7 @@ export default Object.freeze({
         category: "crud",
         id: "crud-page-admin-crud-index",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -265,7 +258,7 @@ export default Object.freeze({
         category: "crud",
         id: "crud-page-admin-crud-new",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -276,7 +269,7 @@ export default Object.freeze({
         category: "crud",
         id: "crud-page-admin-crud-view",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -287,7 +280,7 @@ export default Object.freeze({
         category: "crud",
         id: "crud-page-admin-crud-edit",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       }
@@ -304,7 +297,7 @@ export default Object.freeze({
         category: "crud",
         id: "crud-placement-menu",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       }

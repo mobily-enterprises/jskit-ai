@@ -1,16 +1,13 @@
-import { config as publicConfig } from "../../../../../../config/public.js";
-import { config as serverConfig } from "../../../../../../config/server.js";
-
-const appConfig = Object.freeze({
-  ...(publicConfig && typeof publicConfig === "object" ? publicConfig : {}),
-  ...(serverConfig && typeof serverConfig === "object" ? serverConfig : {})
-});
+import { loadAppConfig } from "../support/loadAppConfig.js";
 
 class MainServiceProvider {
   static id = "local.main";
 
   // Optional: register container bindings here (services/singletons).
-  register(app) {
+  async register(app) {
+    const appConfig = await loadAppConfig({
+      moduleUrl: import.meta.url
+    });
     app.instance("appConfig", appConfig);
   }
 

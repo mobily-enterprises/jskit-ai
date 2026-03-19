@@ -8,8 +8,8 @@
     "node": "20.x"
   },
   "scripts": {
-    "server": "node --preserve-symlinks ./bin/server.js",
-    "start": "node --preserve-symlinks ./bin/server.js",
+    "server": "node ./bin/server.js",
+    "start": "node ./bin/server.js",
     "link:local:jskit": "bash ./scripts/link-local-jskit-packages.sh",
     "verdaccio:reset:publish": "bash ./scripts/verdaccio-reset-and-publish-packages.sh",
     "dev": "vite",

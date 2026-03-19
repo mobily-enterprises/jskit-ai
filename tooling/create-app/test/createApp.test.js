@@ -43,6 +43,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts["dev:app"], undefined);
     assert.equal(packageJson.scripts["dev:admin"], undefined);
     assert.equal(packageJson.scripts["dev:console"], undefined);
+    assert.equal(packageJson.scripts.server, "node ./bin/server.js");
+    assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.equal(packageJson.dependencies["@jskit-ai/http-runtime"], "0.1.0");
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
@@ -78,7 +80,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(favicon, /<svg/);
 
     const serverSmoke = await readFile(path.join(appRoot, "tests/server/smoke.test.js"), "utf8");
-    assert.match(serverSmoke, /GET \/api\/health returns not found/);
+    assert.match(serverSmoke, /GET \/api\/health returns built-in health response/);
 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
@@ -137,11 +139,20 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
-    assert.match(localMainServiceProvider, /import \{ config as publicConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/public\.js";/);
-    assert.match(localMainServiceProvider, /import \{ config as serverConfig \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/config\/server\.js";/);
+    assert.match(localMainServiceProvider, /import \{ loadAppConfig \} from "\.\.\/support\/loadAppConfig\.js";/);
+    assert.match(localMainServiceProvider, /async register\(app\)/);
+    assert.match(localMainServiceProvider, /await loadAppConfig\(\{\s*moduleUrl: import\.meta\.url\s*\}\);/);
     assert.match(localMainServiceProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainServiceProvider, /boot\(\)\s*\{\}/);
     assert.match(localMainServiceProvider, /src\/shared\/schemas/);
+
+    const localMainAppConfigLoader = await readFile(
+      path.join(appRoot, "packages/main/src/server/support/loadAppConfig.js"),
+      "utf8"
+    );
+    assert.match(localMainAppConfigLoader, /resolveAppRootFrom/);
+    assert.match(localMainAppConfigLoader, /config\/public\.js/);
+    assert.match(localMainAppConfigLoader, /"config", "server\.js"/);
 
     const localMainControllersIndex = await readFile(
       path.join(appRoot, "packages/main/src/server/controllers/index.js"),
@@ -402,9 +413,13 @@ test("shell-web workspace tenancy mode installs app/admin/console wrappers", asy
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "shell-workspace-app");
+    const publicConfigPath = path.join(appRoot, "config/public.js");
+    const publicConfig = await readFile(publicConfigPath, "utf8");
+    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspace";\n`, "utf8");
+
     const addShellWebResult = runJskit({
       cwd: appRoot,
-      args: ["add", "package", "shell-web", "--tenancy-mode", "workspace", "--no-install"]
+      args: ["add", "package", "shell-web", "--no-install"]
     });
     assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
 
@@ -424,6 +439,10 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "shell-auth-app");
+    const publicConfigPath = path.join(appRoot, "config/public.js");
+    const publicConfig = await readFile(publicConfigPath, "utf8");
+    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspace";\n`, "utf8");
+
     const addProviderResult = runJskit({
       cwd: appRoot,
       args: [
@@ -443,7 +462,7 @@ test("generated app supports shell + auth progressive installation", async () =>
 
     const addAuthResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base", "--tenancy-mode", "workspace", "--no-install"]
+      args: ["add", "bundle", "auth-base", "--no-install"]
     });
     assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
 

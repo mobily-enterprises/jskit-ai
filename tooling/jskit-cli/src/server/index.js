@@ -45,6 +45,8 @@ const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 1;
 const VITE_DEV_PROXY_CONFIG_RELATIVE_PATH = ".jskit/vite.dev.proxy.json";
 const VITE_DEV_PROXY_CONFIG_VERSION = 1;
+const PUBLIC_APP_CONFIG_RELATIVE_PATH = "config/public.js";
+const SERVER_APP_CONFIG_RELATIVE_PATH = "config/server.js";
 const PACKAGE_INSTALL_MODE_INSTALLABLE = "installable";
 const PACKAGE_INSTALL_MODE_CLONE_ONLY = "clone-only";
 const PACKAGE_INSTALL_MODES = Object.freeze([PACKAGE_INSTALL_MODE_INSTALLABLE, PACKAGE_INSTALL_MODE_CLONE_ONLY]);
@@ -110,17 +112,19 @@ function normalizeFileMutationRecord(value) {
 function normalizeMutationWhen(value) {
   const source = ensureObject(value);
   const option = String(source.option || "").trim();
+  const config = String(source.config || "").trim();
   const equals = String(source.equals || "").trim();
   const notEquals = String(source.notEquals || "").trim();
   const includes = ensureArray(source.in).map((entry) => String(entry || "").trim()).filter(Boolean);
   const excludes = ensureArray(source.notIn).map((entry) => String(entry || "").trim()).filter(Boolean);
 
-  if (!option) {
+  if (!option && !config) {
     return null;
   }
 
   return {
     option,
+    config,
     equals,
     notEquals,
     includes,
@@ -128,17 +132,113 @@ function normalizeMutationWhen(value) {
   };
 }
 
-function shouldApplyMutationWhen(when, options = {}) {
+function readObjectPath(source, rawPath) {
+  const valueSource = ensureObject(source);
+  const fullPath = String(rawPath || "").trim();
+  if (!fullPath) {
+    return undefined;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(valueSource, fullPath)) {
+    return valueSource[fullPath];
+  }
+
+  const segments = fullPath
+    .split(".")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+  if (segments.length < 1) {
+    return undefined;
+  }
+
+  let cursor = valueSource;
+  for (const segment of segments) {
+    if (!cursor || typeof cursor !== "object" || Array.isArray(cursor)) {
+      return undefined;
+    }
+    if (!Object.prototype.hasOwnProperty.call(cursor, segment)) {
+      return undefined;
+    }
+    cursor = cursor[segment];
+  }
+
+  return cursor;
+}
+
+function normalizeWhenSourceValue(value) {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value).trim();
+  }
+  return "";
+}
+
+function resolveWhenConfigValue(configContext = {}, configPath = "") {
+  const normalizedPath = String(configPath || "").trim();
+  if (!normalizedPath) {
+    return "";
+  }
+
+  const publicConfig = ensureObject(configContext.public);
+  const serverConfig = ensureObject(configContext.server);
+  const mergedConfig = ensureObject(configContext.merged);
+  if (normalizedPath === "public") {
+    return publicConfig;
+  }
+  if (normalizedPath === "server") {
+    return serverConfig;
+  }
+  if (normalizedPath === "merged") {
+    return mergedConfig;
+  }
+
+  if (normalizedPath.startsWith("public.")) {
+    return readObjectPath(publicConfig, normalizedPath.slice("public.".length));
+  }
+  if (normalizedPath.startsWith("server.")) {
+    return readObjectPath(serverConfig, normalizedPath.slice("server.".length));
+  }
+  if (normalizedPath.startsWith("merged.")) {
+    return readObjectPath(mergedConfig, normalizedPath.slice("merged.".length));
+  }
+
+  return readObjectPath(mergedConfig, normalizedPath);
+}
+
+function shouldApplyMutationWhen(
+  when,
+  {
+    options = {},
+    configContext = {},
+    packageId = "",
+    mutationContext = "mutation"
+  } = {}
+) {
   if (!when || typeof when !== "object") {
     return true;
   }
 
   const optionName = String(when.option || "").trim();
-  if (!optionName) {
+  const configPath = String(when.config || "").trim();
+  if (!optionName && !configPath) {
     return true;
   }
+  if (optionName && configPath) {
+    const packagePrefix = packageId ? `${packageId} ` : "";
+    throw createCliError(
+      `Invalid ${packagePrefix}${mutationContext}: when cannot declare both "option" and "config".`
+    );
+  }
 
-  const optionValue = String(options[optionName] || "").trim();
+  const sourceValue = optionName
+    ? readObjectPath(options, optionName)
+    : resolveWhenConfigValue(configContext, configPath);
+  const optionValue = normalizeWhenSourceValue(sourceValue);
   const equals = String(when.equals || "").trim();
   const notEquals = String(when.notEquals || "").trim();
   const includes = ensureArray(when.includes).map((entry) => String(entry || "").trim()).filter(Boolean);
@@ -375,6 +475,47 @@ async function readFileBufferIfExists(absolutePath) {
   };
 }
 
+async function loadAppConfigModuleConfig(appRoot, relativePath) {
+  const absolutePath = path.join(appRoot, relativePath);
+  if (!(await fileExists(absolutePath))) {
+    return {};
+  }
+
+  let moduleNamespace = null;
+  try {
+    moduleNamespace = await import(`${pathToFileURL(absolutePath).href}?t=${Date.now()}_${Math.random()}`);
+  } catch (error) {
+    throw createCliError(
+      `Unable to load ${relativePath}: ${String(error?.message || error || "unknown error")}`
+    );
+  }
+
+  const defaultExport = ensureObject(moduleNamespace?.default);
+  const fromNamedExport = ensureObject(moduleNamespace?.config);
+  const fromDefaultConfig = ensureObject(defaultExport?.config);
+
+  if (Object.keys(fromNamedExport).length > 0) {
+    return fromNamedExport;
+  }
+  if (Object.keys(fromDefaultConfig).length > 0) {
+    return fromDefaultConfig;
+  }
+  return defaultExport;
+}
+
+async function loadMutationWhenConfigContext(appRoot) {
+  const publicConfig = await loadAppConfigModuleConfig(appRoot, PUBLIC_APP_CONFIG_RELATIVE_PATH);
+  const serverConfig = await loadAppConfigModuleConfig(appRoot, SERVER_APP_CONFIG_RELATIVE_PATH);
+  return {
+    public: publicConfig,
+    server: serverConfig,
+    merged: {
+      ...publicConfig,
+      ...serverConfig
+    }
+  };
+}
+
 function createEmptyViteDevProxyConfig() {
   return Object.freeze({
     version: VITE_DEV_PROXY_CONFIG_VERSION,
@@ -546,7 +687,15 @@ async function applyViteMutations(packageEntry, appRoot, viteMutations, options,
   let changed = false;
 
   for (const mutation of mutations) {
-    if (!shouldApplyMutationWhen(mutation.when, options)) {
+    const configContext = mutation.when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
+    if (
+      !shouldApplyMutationWhen(mutation.when, {
+        options,
+        configContext,
+        packageId: packageEntry.packageId,
+        mutationContext: "vite proxy mutation"
+      })
+    ) {
       continue;
     }
 
@@ -3279,7 +3428,15 @@ async function applyFileMutations(
 ) {
   for (const mutationValue of fileMutations) {
     const normalizedMutation = normalizeFileMutationRecord(mutationValue);
-    if (!shouldApplyMutationWhen(normalizedMutation.when, options)) {
+    const configContext = normalizedMutation.when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
+    if (
+      !shouldApplyMutationWhen(normalizedMutation.when, {
+        options,
+        configContext,
+        packageId: packageEntry.packageId,
+        mutationContext: "files mutation"
+      })
+    ) {
       continue;
     }
 
@@ -3413,7 +3570,15 @@ async function applyFileMutations(
 async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
   for (const mutation of textMutations) {
     const when = normalizeMutationWhen(mutation?.when);
-    if (!shouldApplyMutationWhen(when, options)) {
+    const configContext = when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
+    if (
+      !shouldApplyMutationWhen(when, {
+        options,
+        configContext,
+        packageId: packageEntry.packageId,
+        mutationContext: "text mutation"
+      })
+    ) {
       continue;
     }
 

@@ -38,12 +38,6 @@
             "defaultValue": "120000",
             "promptLabel": "AI timeout (ms)",
             "promptHint": "Abort AI requests after this many milliseconds."
-          },
-          "tenancy-mode": {
-            "required": false,
-            "defaultValue": "none",
-            "promptLabel": "Tenancy mode",
-            "promptHint": "none | personal | workspace"
           }
         },
         "dependsOn": [
@@ -169,7 +163,7 @@
               "category": "assistant",
               "id": "assistant-page-admin-workspace-assistant-index",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -188,7 +182,7 @@
               "category": "assistant",
               "id": "assistant-placement-menu",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -205,7 +199,7 @@
               "category": "assistant",
               "id": "assistant-workspace-settings-form-placement",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -252,7 +246,7 @@
               "category": "assistant",
               "id": "assistant-workspace-settings-field-definition",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -865,13 +859,6 @@
             "defaultValue": "",
             "promptLabel": "Page directory prefix",
             "promptHint": "Optional path under src/pages/admin (example: crm or ops/team-a)."
-          },
-          "tenancy-mode": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "none",
-            "promptLabel": "Tenancy mode",
-            "promptHint": "none | personal | workspace"
           }
         },
         "dependsOn": [
@@ -1099,7 +1086,7 @@
               "category": "crud",
               "id": "crud-page-admin-crud-index",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -1113,7 +1100,7 @@
               "category": "crud",
               "id": "crud-page-admin-crud-new",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -1127,7 +1114,7 @@
               "category": "crud",
               "id": "crud-page-admin-crud-view",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -1141,7 +1128,7 @@
               "category": "crud",
               "id": "crud-page-admin-crud-edit",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -1160,7 +1147,7 @@
               "category": "crud",
               "id": "crud-placement-menu",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -1881,14 +1868,6 @@
           ],
           "requires": []
         },
-        "options": {
-          "tenancy-mode": {
-            "required": false,
-            "defaultValue": "none",
-            "promptLabel": "Tenancy mode",
-            "promptHint": "none | personal | workspace"
-          }
-        },
         "runtime": {
           "server": {
             "providers": []
@@ -1968,6 +1947,7 @@
             "runtime": {
               "@tanstack/vue-query": "^5.90.5",
               "@jskit-ai/kernel": "0.1.0",
+              "@jskit-ai/users-core": "0.1.0",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -2017,7 +1997,7 @@
               "category": "shell-web",
               "id": "shell-web-page-app-wrapper",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2031,7 +2011,7 @@
               "category": "shell-web",
               "id": "shell-web-page-admin-wrapper",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2052,7 +2032,7 @@
               "category": "shell-web",
               "id": "shell-web-page-admin",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2066,7 +2046,7 @@
               "category": "shell-web",
               "id": "shell-web-page-app",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2550,14 +2530,6 @@
         "packageId": "@jskit-ai/users-web",
         "version": "0.1.0",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
-        "options": {
-          "tenancy-mode": {
-            "required": false,
-            "defaultValue": "none",
-            "promptLabel": "Tenancy mode",
-            "promptHint": "none | personal | workspace"
-          }
-        },
         "dependsOn": [
           "@jskit-ai/http-runtime",
           "@jskit-ai/shell-web",
@@ -2776,7 +2748,7 @@
               "category": "users-web",
               "id": "users-web-page-admin-members",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2790,7 +2762,7 @@
               "category": "users-web",
               "id": "users-web-page-admin-workspace-settings",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2811,7 +2783,7 @@
               "category": "users-web",
               "id": "users-web-page-workspaces",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2830,7 +2802,7 @@
               "category": "users-web",
               "id": "users-web-placement-block",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"
@@ -2877,7 +2849,7 @@
               "category": "users-web",
               "id": "users-web-workspace-settings-form-placement",
               "when": {
-                "option": "tenancy-mode",
+                "config": "tenancyMode",
                 "in": [
                   "personal",
                   "workspace"

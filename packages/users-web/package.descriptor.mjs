@@ -3,14 +3,6 @@ export default Object.freeze({
   packageId: "@jskit-ai/users-web",
   version: "0.1.0",
   description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
-  options: {
-    "tenancy-mode": {
-      required: false,
-      defaultValue: "none",
-      promptLabel: "Tenancy mode",
-      promptHint: "none | personal | workspace"
-    }
-  },
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
@@ -221,7 +213,7 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-page-admin-members",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -232,7 +224,7 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-page-admin-workspace-settings",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -250,7 +242,7 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-page-workspaces",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       }
@@ -266,7 +258,7 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-placement-block",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -314,7 +306,7 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-workspace-settings-form-placement",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       }

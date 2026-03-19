@@ -29,12 +29,6 @@ export default Object.freeze({
       defaultValue: "120000",
       promptLabel: "AI timeout (ms)",
       promptHint: "Abort AI requests after this many milliseconds."
-    },
-    "tenancy-mode": {
-      required: false,
-      defaultValue: "none",
-      promptLabel: "Tenancy mode",
-      promptHint: "none | personal | workspace"
     }
   },
   dependsOn: [
@@ -158,7 +152,7 @@ export default Object.freeze({
         category: "assistant",
         id: "assistant-page-admin-workspace-assistant-index",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       }
@@ -175,7 +169,7 @@ export default Object.freeze({
         category: "assistant",
         id: "assistant-placement-menu",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -190,7 +184,7 @@ export default Object.freeze({
         category: "assistant",
         id: "assistant-workspace-settings-form-placement",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -237,7 +231,7 @@ export default Object.freeze({
         category: "assistant",
         id: "assistant-workspace-settings-field-definition",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },

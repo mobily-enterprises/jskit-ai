@@ -11,14 +11,6 @@ export default Object.freeze({
     ],
     requires: []
   },
-  options: {
-    "tenancy-mode": {
-      required: false,
-      defaultValue: "none",
-      promptLabel: "Tenancy mode",
-      promptHint: "none | personal | workspace"
-    }
-  },
   runtime: {
     server: {
       providers: []
@@ -140,7 +132,7 @@ export default Object.freeze({
         category: "shell-web",
         id: "shell-web-page-app-wrapper",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -151,7 +143,7 @@ export default Object.freeze({
         category: "shell-web",
         id: "shell-web-page-admin-wrapper",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -169,7 +161,7 @@ export default Object.freeze({
         category: "shell-web",
         id: "shell-web-page-admin",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },
@@ -180,7 +172,7 @@ export default Object.freeze({
         category: "shell-web",
         id: "shell-web-page-app",
         when: {
-          option: "tenancy-mode",
+          config: "tenancyMode",
           in: ["personal", "workspace"]
         }
       },

@@ -12,9 +12,11 @@ const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
   "@fastify/type-provider-typebox",
   "@jskit-ai/http-runtime",
   "@jskit-ai/kernel",
+  "@local/main",
   "fastify",
   "vue",
-  "vue-router"
+  "vue-router",
+  "vuetify"
 ]);
 
 const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
@@ -36,9 +38,11 @@ const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "eslint.config.mjs",
   "favicon.svg",
   "index.html",
+  "jsconfig.json",
   "package.json",
-  "package.json.ACTUAL_CORRECT",
+  "packages",
   "server.js",
+  "scripts",
   "server",
   "src",
   "tests",
@@ -77,6 +81,20 @@ async function readTopLevelEntries() {
     .filter((name) => !ignored.has(name));
 }
 
+async function listFilesRecursive(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolutePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(absolutePath)));
+      continue;
+    }
+    files.push(absolutePath);
+  }
+  return files;
+}
+
 test("minimal shell keeps strict dependency allowlist", async () => {
   const packageJson = await readPackageJson();
   assert.deepEqual(
@@ -96,4 +114,21 @@ test("starter shell keeps a strict top-level footprint", async () => {
 
 test("legacy app.manifest scaffold is removed from starter shell", async () => {
   await assert.rejects(access(path.join(APP_ROOT, "framework/app.manifest.mjs")), /ENOENT/);
+});
+
+test("local package source avoids brittle deep relative imports", async () => {
+  const packageSourceFiles = await listFilesRecursive(path.join(APP_ROOT, "packages"));
+  const brittleImportPattern = /\bfrom\s+["'](?:\.\.\/){5,}[^"']+["']/;
+
+  for (const filePath of packageSourceFiles) {
+    if (!filePath.endsWith(".js") && !filePath.endsWith(".mjs")) {
+      continue;
+    }
+    const source = await readFile(filePath, "utf8");
+    assert.equal(
+      brittleImportPattern.test(source),
+      false,
+      `Found brittle deep relative import in ${path.relative(APP_ROOT, filePath)}`
+    );
+  }
 });
