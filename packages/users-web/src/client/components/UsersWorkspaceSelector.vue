@@ -5,14 +5,17 @@ import {
   useWebPlacementContext,
   readPlacementSurfaceRoles,
   resolveSurfaceIdForRole,
-  surfaceRequiresWorkspaceFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  extractWorkspaceSlugFromSurfacePathname
+  resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
 import { TENANCY_MODE_NONE } from "@jskit-ai/users-core/shared/tenancyProfile";
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
+import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
+import {
+  resolveWorkspaceSurfaceIdFromPlacementPathname,
+  extractWorkspaceSlugFromSurfacePathname
+} from "../lib/workspaceSurfacePaths.js";
 
 const props = defineProps({
   surface: {
@@ -57,7 +60,11 @@ const currentPath = computed(() => {
 });
 
 const currentSurfaceId = computed(() => {
-  return resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) || props.surface;
+  return (
+    resolveWorkspaceSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) ||
+    resolveSurfaceIdFromPlacementPathname(placementContext.value, currentPath.value) ||
+    props.surface
+  );
 });
 
 const targetSurfaceId = computed(() => String(props.targetSurfaceId || "").trim().toLowerCase());

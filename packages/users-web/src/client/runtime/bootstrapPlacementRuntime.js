@@ -4,12 +4,12 @@ import {
 } from "@jskit-ai/kernel/client/moduleBootstrap";
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
-  extractWorkspaceSlugFromSurfacePathname,
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import {
   buildBootstrapApiPath,

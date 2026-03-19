@@ -3,10 +3,10 @@ import { computed } from "vue";
 import {
   useWebPlacementContext,
   readPlacementSurfaceRoles,
-  resolveSurfaceIdForRole,
-  surfaceRequiresWorkspaceFromPlacementContext
+  resolveSurfaceIdForRole
 } from "@jskit-ai/shell-web/client/placement";
 import { usePaths } from "../composables/usePaths.js";
+import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 
 const props = defineProps({
   label: {

@@ -17,7 +17,7 @@
         Keep this area focused on privileged administration and auditing workflows.
       </p>
       <div>
-        <v-btn color="primary" variant="flat" to="/app">Back to app</v-btn>
+        <v-btn color="primary" variant="flat" to="/">Back to app</v-btn>
       </div>
     </v-card-text>
   </v-card>

@@ -82,7 +82,6 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "^5.90.5",
         "@jskit-ai/kernel": "0.1.0",
-        "@jskit-ai/users-core": "0.1.0",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -96,6 +95,36 @@ export default Object.freeze({
       }
     },
     procfile: {},
+    text: [
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        value:
+          "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+        reason: "Own shell surface topology in app config, shaped by tenancy mode.",
+        category: "shell-web",
+        id: "shell-web-surface-config-workspace-enabled",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        value:
+          "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+        reason: "Own shell surface topology in app config, shaped by tenancy mode.",
+        category: "shell-web",
+        id: "shell-web-surface-config-no-workspace",
+        when: {
+          config: "tenancyMode",
+          notIn: ["personal", "workspace"]
+        }
+      }
+    ],
     files: [
       {
         from: "templates/src/App.vue",
@@ -126,17 +155,6 @@ export default Object.freeze({
         id: "shell-web-page-root"
       },
       {
-        from: "templates/src/pages/app.vue",
-        to: "src/pages/app.vue",
-        reason: "Install shell-driven app wrapper page.",
-        category: "shell-web",
-        id: "shell-web-page-app-wrapper",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      },
-      {
         from: "templates/src/pages/admin.vue",
         to: "src/pages/admin.vue",
         reason: "Install shell-driven admin wrapper page.",
@@ -160,17 +178,6 @@ export default Object.freeze({
         reason: "Install shell-driven admin page starter.",
         category: "shell-web",
         id: "shell-web-page-admin",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      },
-      {
-        from: "templates/src/pages/app/index.vue",
-        to: "src/pages/app/index.vue",
-        reason: "Install shell-driven app page starter.",
-        category: "shell-web",
-        id: "shell-web-page-app",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspace"]

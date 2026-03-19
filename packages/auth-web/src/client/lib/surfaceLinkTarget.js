@@ -5,19 +5,16 @@ function resolveSurfaceLinkTarget({
   surface = "",
   surfaceRole = "",
   explicitTo = "",
-  workspaceSuffix = "/",
-  nonWorkspaceSuffix = "/",
-  pathname = ""
+  workspaceSuffix = "",
+  nonWorkspaceSuffix = ""
 } = {}) {
+  const fallbackPath = String(nonWorkspaceSuffix || "").trim() || String(workspaceSuffix || "").trim() || "/";
   return resolveShellLinkPath({
     context,
     surface,
     surfaceRole,
     explicitTo,
-    pathname,
-    mode: "auto",
-    workspaceRelativePath: workspaceSuffix,
-    surfaceRelativePath: nonWorkspaceSuffix
+    relativePath: fallbackPath
   });
 }
 

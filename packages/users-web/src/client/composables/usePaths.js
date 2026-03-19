@@ -1,9 +1,9 @@
 import { computed, unref } from "vue";
-import { useShellLinkResolver } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
 import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
+import { useWorkspaceLinkResolver } from "../lib/workspaceLinkResolver.js";
 
 function normalizePathSuffix(value = "") {
   const raw = normalizeText(unref(value));
@@ -39,7 +39,7 @@ function resolveWorkspaceSlug(value, fallback = "") {
 
 function usePaths({ routeContext: sourceRouteContext = null } = {}) {
   const routeContext = sourceRouteContext || useWorkspaceRouteContext();
-  const shellLinkResolver = useShellLinkResolver();
+  const workspaceLinkResolver = useWorkspaceLinkResolver();
   const workspaceSlug = computed(() => String(routeContext.workspaceSlugFromRoute.value || "").trim());
 
   function page(relativePath = "/", options = {}) {
@@ -48,7 +48,7 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
     const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
     const mode = normalizeText(source.mode).toLowerCase() || "auto";
 
-    return shellLinkResolver.resolve(relativePath, {
+    return workspaceLinkResolver.resolve(relativePath, {
       surface,
       workspaceSlug: nextWorkspaceSlug,
       mode

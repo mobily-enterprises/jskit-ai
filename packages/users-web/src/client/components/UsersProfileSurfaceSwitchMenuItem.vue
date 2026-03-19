@@ -1,27 +1,19 @@
 <script setup>
 import { computed } from "vue";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { resolveProfileMenuLinks } from "../lib/profileMenuLinks.js";
+import { resolveProfileSurfaceMenuLinks } from "../lib/profileSurfaceMenuLinks.js";
 
 const props = defineProps({
   surface: {
     type: String,
     default: "*"
-  },
-  placement: {
-    type: String,
-    default: ""
-  },
-  placementId: {
-    type: String,
-    default: ""
   }
 });
 
 const { context: placementContext } = useWebPlacementContext();
 
 const resolvedLinks = computed(() => {
-  return resolveProfileMenuLinks({
+  return resolveProfileSurfaceMenuLinks({
     context: placementContext.value,
     surface: props.surface
   });

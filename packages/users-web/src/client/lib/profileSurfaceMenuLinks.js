@@ -1,10 +1,13 @@
 import {
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  extractWorkspaceSlugFromSurfacePathname
+  resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
-import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/linkResolver";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveWorkspaceShellLinkPath } from "./workspaceLinkResolver.js";
+import { resolveSurfaceSwitchTargetsFromPlacementContext } from "./workspaceSurfaceContext.js";
+import {
+  resolveWorkspaceSurfaceIdFromPlacementPathname,
+  extractWorkspaceSlugFromSurfacePathname
+} from "./workspaceSurfacePaths.js";
 
 function isWorkspaceSurface(surfaceDefinition) {
   return Boolean(surfaceDefinition && surfaceDefinition.requiresWorkspace === true);
@@ -34,7 +37,10 @@ function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
   }
 
   const pathname = String(window.location.pathname || "").trim();
-  const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(context, pathname) || surfaceId;
+  const currentSurfaceId =
+    resolveWorkspaceSurfaceIdFromPlacementPathname(context, pathname) ||
+    resolveSurfaceIdFromPlacementPathname(context, pathname) ||
+    surfaceId;
   return String(extractWorkspaceSlugFromSurfacePathname(context, currentSurfaceId, pathname) || "").trim();
 }
 
@@ -57,7 +63,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
       return {
         id: "surface-switch.primary",
         label: "Go to admin",
-        to: resolveShellLinkPath({
+        to: resolveWorkspaceShellLinkPath({
           context: source,
           surface: adminSurfaceId,
           workspaceSlug,
@@ -71,7 +77,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
       return {
         id: "surface-switch.primary",
         label: "Go to app",
-        to: resolveShellLinkPath({
+        to: resolveWorkspaceShellLinkPath({
           context: source,
           surface: appSurfaceId,
           workspaceSlug,
@@ -89,7 +95,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return {
       id: "surface-switch.primary",
       label: "Go to workspace",
-      to: resolveShellLinkPath({
+      to: resolveWorkspaceShellLinkPath({
         context: source,
         surface: appSurfaceId,
         workspaceSlug,
@@ -106,7 +112,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return {
       id: "surface-switch.primary",
       label: "Go to app",
-      to: resolveShellLinkPath({
+      to: resolveWorkspaceShellLinkPath({
         context: source,
         surface: appSurfaceId,
         mode: "surface",
@@ -123,7 +129,7 @@ function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
     return null;
   }
 
-  const workspaceTarget = resolveShellLinkPath({
+  const workspaceTarget = resolveWorkspaceShellLinkPath({
     context: source,
     surface: targets.workspaceSurfaceId,
     workspaceSlug,
@@ -160,7 +166,7 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
   return {
     id: "surface-switch.console",
     label: "Go to console",
-    to: resolveShellLinkPath({
+    to: resolveWorkspaceShellLinkPath({
       context: source,
       surface: consoleSurfaceId,
       mode: "surface",
@@ -169,7 +175,7 @@ function resolveGoToConsoleLink({ context, surface } = {}) {
   };
 }
 
-function resolveProfileMenuLinks({ context, surface } = {}) {
+function resolveProfileSurfaceMenuLinks({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
   const authenticated = Boolean(source?.auth?.authenticated);
   if (!authenticated) {
@@ -189,7 +195,7 @@ function resolveProfileMenuLinks({ context, surface } = {}) {
 }
 
 export {
-  resolveProfileMenuLinks,
+  resolveProfileSurfaceMenuLinks,
   resolvePrimarySurfaceSwitchLink,
   resolveGoToConsoleLink,
   hasConsoleAccess

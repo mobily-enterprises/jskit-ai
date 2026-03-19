@@ -3,9 +3,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  surfaceRequiresWorkspaceFromPlacementContext
+  resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
@@ -18,6 +16,10 @@ import {
   WORKSPACES_CHANGED_EVENT,
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
+import {
+  resolveSurfaceSwitchTargetsFromPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext
+} from "../lib/workspaceSurfaceContext.js";
 
 const route = useRoute();
 const router = useRouter();

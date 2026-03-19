@@ -1,14 +1,9 @@
 import { unref } from "vue";
 import { resolveLinkPath, normalizePathname } from "@jskit-ai/kernel/shared";
 import { useWebPlacementContext } from "../placement/inject.js";
-import { resolveRuntimePathname } from "../placement/pathname.js";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
-  extractWorkspaceSlugFromSurfacePathname,
-  surfaceRequiresWorkspaceFromPlacementContext
+  resolveSurfaceRootPathFromPlacementContext
 } from "../placement/surfaceContext.js";
 import { readPlacementSurfaceRoles, resolveSurfaceIdForRole } from "../placement/surfaceRoles.js";
 
@@ -42,77 +37,13 @@ function resolveSurfaceBasePath(context = null, surface = "") {
   return normalizePathname(`/${normalizedSurface}`);
 }
 
-function resolveWorkspaceSlugFromContextOrPath({
-  context = null,
-  surface = "",
-  workspaceSlug = "",
-  pathname = ""
-} = {}) {
-  const explicitWorkspaceSlug = String(workspaceSlug || "").trim();
-  if (explicitWorkspaceSlug) {
-    return explicitWorkspaceSlug;
-  }
-
-  const workspaceSlugFromContext = String(context?.workspace?.slug || "").trim();
-  if (workspaceSlugFromContext) {
-    return workspaceSlugFromContext;
-  }
-
-  const currentPathname = resolveRuntimePathname(pathname);
-  const workspaceSlugMatch = currentPathname.match(/\/w\/([^/]+)/);
-  const workspaceSlugFromPath = String(workspaceSlugMatch?.[1] || "").trim();
-  if (workspaceSlugFromPath) {
-    return workspaceSlugFromPath;
-  }
-
-  const normalizedSurface = normalizeSurfaceId(surface);
-  const surfaceIdFromPath = resolveSurfaceIdFromPlacementPathname(context, currentPathname);
-  const activeSurfaceId = normalizeSurfaceId(surfaceIdFromPath || normalizedSurface);
-  if (!activeSurfaceId) {
-    return "";
-  }
-
-  return String(extractWorkspaceSlugFromSurfacePathname(context, activeSurfaceId, currentPathname) || "").trim();
-}
-
-function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = "") {
-  const normalizedSurface = normalizeSurfaceId(surface);
-  const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
-  if (!normalizedWorkspaceSlug) {
-    return "";
-  }
-
-  if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
-    if (!surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
-      return resolveSurfaceBasePath(context, normalizedSurface);
-    }
-    return resolveSurfaceWorkspacePathFromPlacementContext(context, normalizedSurface, normalizedWorkspaceSlug, "/");
-  }
-
-  if (normalizedSurface) {
-    if (normalizedSurface === "console") {
-      return "/console";
-    }
-    if (normalizedSurface === "app") {
-      return `/w/${normalizedWorkspaceSlug}`;
-    }
-    return `/w/${normalizedWorkspaceSlug}/${normalizedSurface}`;
-  }
-
-  return resolveLinkPath(resolveSurfaceBasePath(context, normalizedSurface), `/w/${normalizedWorkspaceSlug}`);
-}
-
 function resolveShellLinkPath({
   context = null,
   surface = "",
   surfaceRole = "",
-  mode = "auto",
   explicitTo = "",
   relativePath = "/",
-  workspaceRelativePath = "",
-  surfaceRelativePath = "",
-  workspaceSlug = "",
-  pathname = ""
+  surfaceRelativePath = ""
 } = {}) {
   const explicitTarget = String(explicitTo || "").trim();
   if (explicitTarget) {
@@ -121,63 +52,13 @@ function resolveShellLinkPath({
 
   const normalizedSurfaceFromInput = normalizeSurfaceId(surface);
   const normalizedSurface = normalizedSurfaceFromInput || resolveSurfaceIdFromRole(context, surfaceRole);
-  const normalizedMode = String(mode || "auto").trim().toLowerCase();
-  const hasSurfaceDefinition = Boolean(
-    normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)
-  );
-  const resolvedWorkspaceSlug = resolveWorkspaceSlugFromContextOrPath({
-    context,
-    surface: normalizedSurface,
-    workspaceSlug,
-    pathname
-  });
-
-  const nextWorkspaceRelativePath = String(workspaceRelativePath || "").trim() || String(relativePath || "").trim() || "/";
-  const nextSurfaceRelativePath = String(surfaceRelativePath || "").trim() || String(relativePath || "").trim() || "/";
+  const nextRelativePath = String(surfaceRelativePath || "").trim() || String(relativePath || "").trim() || "/";
   const nextSurfaceBasePath = resolveSurfaceBasePath(context, normalizedSurface);
 
-  if (normalizedMode === "surface") {
-    return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
-  }
-
-  if (normalizedMode === "workspace") {
-    if (hasSurfaceDefinition && !surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
-      return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
-    }
-    if (!resolvedWorkspaceSlug) {
-      return "";
-    }
-    return resolveLinkPath(
-      resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
-      nextWorkspaceRelativePath
-    );
-  }
-
-  if (hasSurfaceDefinition) {
-    if (surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
-      if (!resolvedWorkspaceSlug) {
-        return "";
-      }
-      return resolveLinkPath(
-        resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
-        nextWorkspaceRelativePath
-      );
-    }
-
-    return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
-  }
-
-  if (resolvedWorkspaceSlug) {
-    return resolveLinkPath(
-      resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
-      nextWorkspaceRelativePath
-    );
-  }
-
-  return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
+  return resolveLinkPath(nextSurfaceBasePath, nextRelativePath);
 }
 
-function useShellLinkResolver({ surface = "", workspaceSlug = "", pathname = "" } = {}) {
+function useShellLinkResolver({ surface = "" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
 
   function resolve(relativePath = "/", options = {}) {
@@ -185,35 +66,22 @@ function useShellLinkResolver({ surface = "", workspaceSlug = "", pathname = "" 
       context: placementContext.value,
       surface: String(unref(options.surface ?? surface) || ""),
       surfaceRole: String(unref(options.surfaceRole ?? "") || ""),
-      workspaceSlug: String(unref(options.workspaceSlug ?? workspaceSlug) || ""),
-      pathname: String(unref(options.pathname ?? pathname) || ""),
-      mode: String(options.mode || "auto"),
       explicitTo: options.explicitTo,
       relativePath,
-      workspaceRelativePath: options.workspaceRelativePath,
       surfaceRelativePath: options.surfaceRelativePath
     });
   }
 
   function toSurface(relativePath = "/", options = {}) {
-    return resolve(relativePath, {
-      ...options,
-      mode: "surface"
-    });
+    return resolve(relativePath, options);
   }
 
   function toWorkspace(relativePath = "/", options = {}) {
-    return resolve(relativePath, {
-      ...options,
-      mode: "workspace"
-    });
+    return resolve(relativePath, options);
   }
 
   function toAuto(relativePath = "/", options = {}) {
-    return resolve(relativePath, {
-      ...options,
-      mode: "auto"
-    });
+    return resolve(relativePath, options);
   }
 
   return Object.freeze({
@@ -224,4 +92,4 @@ function useShellLinkResolver({ surface = "", workspaceSlug = "", pathname = "" 
   });
 }
 
-export { resolveWorkspaceSlugFromContextOrPath, resolveShellLinkPath, useShellLinkResolver };
+export { resolveShellLinkPath, useShellLinkResolver };

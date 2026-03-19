@@ -4,9 +4,6 @@ import { resolveSurfaceLinkTarget } from "../src/client/lib/surfaceLinkTarget.js
 
 function createPlacementContext() {
   return {
-    workspace: {
-      slug: "acme"
-    },
     surfaceRoles: {
       "workspace.main": "app",
       "workspace.admin": "admin",
@@ -40,7 +37,7 @@ function createPlacementContext() {
   };
 }
 
-test("resolveSurfaceLinkTarget builds workspace-scoped path for workspace surfaces", () => {
+test("resolveSurfaceLinkTarget builds surface-scoped path for target surfaces", () => {
   const to = resolveSurfaceLinkTarget({
     context: createPlacementContext(),
     surface: "admin",
@@ -48,7 +45,7 @@ test("resolveSurfaceLinkTarget builds workspace-scoped path for workspace surfac
     nonWorkspaceSuffix: "/projects"
   });
 
-  assert.equal(to, "/w/acme/admin/projects");
+  assert.equal(to, "/admin/projects");
 });
 
 test("resolveSurfaceLinkTarget builds non-workspace path for non-workspace surfaces", () => {
@@ -72,7 +69,7 @@ test("resolveSurfaceLinkTarget returns explicit target unchanged", () => {
   assert.equal(to, "/custom/target");
 });
 
-test("resolveSurfaceLinkTarget returns empty when workspace slug is required but unavailable", () => {
+test("resolveSurfaceLinkTarget no longer requires workspace slug for surface links", () => {
   const to = resolveSurfaceLinkTarget({
     context: {
       surfaceConfig: createPlacementContext().surfaceConfig
@@ -81,7 +78,7 @@ test("resolveSurfaceLinkTarget returns empty when workspace slug is required but
     workspaceSuffix: "/projects"
   });
 
-  assert.equal(to, "");
+  assert.equal(to, "/admin/projects");
 });
 
 test("resolveSurfaceLinkTarget resolves role-based targets through shell link resolver", () => {
@@ -91,5 +88,5 @@ test("resolveSurfaceLinkTarget resolves role-based targets through shell link re
     workspaceSuffix: "/projects"
   });
 
-  assert.equal(to, "/w/acme/admin/projects");
+  assert.equal(to, "/admin/projects");
 });

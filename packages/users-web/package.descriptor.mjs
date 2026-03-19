@@ -68,6 +68,7 @@ export default Object.freeze({
           "users.web.workspace.tools.widget",
           "users.web.shell.menu-link-item",
           "users.web.shell.surface-aware-menu-link-item",
+          "users.web.profile.menu.surface-switch-item",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
           "users.web.account-settings.element",
@@ -111,6 +112,15 @@ export default Object.freeze({
             componentToken: "users.web.workspace.selector",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-placement-block"
+          },
+          {
+            id: "users.profile.menu.surface-switch",
+            slot: "avatar.primary-menu",
+            surface: "*",
+            order: 100,
+            componentToken: "users.web.profile.menu.surface-switch-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-profile-surface-switch-placement"
           },
           {
             id: "users.profile.menu.settings",
@@ -261,6 +271,17 @@ export default Object.freeze({
           config: "tenancyMode",
           in: ["personal", "workspace"]
         }
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.profile.menu.surface-switch\"",
+        value:
+          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web profile surface switch placement into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-profile-surface-switch-placement"
       },
       {
         op: "append-text",

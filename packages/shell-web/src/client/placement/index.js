@@ -35,21 +35,12 @@ export {
 } from "./pathname.js";
 
 export {
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
   EMPTY_SURFACE_CONFIG,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceWorkspacesPathFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
-  extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 } from "./surfaceContext.js";

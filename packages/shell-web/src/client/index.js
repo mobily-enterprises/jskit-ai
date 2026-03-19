@@ -8,7 +8,6 @@ export { default as ShellOutlet } from "./components/ShellOutlet.vue";
 export { default as ShellErrorHost } from "./components/ShellErrorHost.vue";
 
 export {
-  resolveWorkspaceSlugFromContextOrPath,
   resolveShellLinkPath,
   useShellLinkResolver
 } from "./navigation/linkResolver.js";
@@ -32,21 +31,12 @@ export {
   useWebPlacementRuntime,
   useWebPlacementContext,
   resolveRuntimePathname,
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
   EMPTY_SURFACE_CONFIG,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  surfaceRequiresWorkspaceFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceWorkspacesPathFromPlacementContext,
-  resolveSurfaceWorkspacePathFromPlacementContext,
-  extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext,
   EMPTY_SURFACE_ROLES,

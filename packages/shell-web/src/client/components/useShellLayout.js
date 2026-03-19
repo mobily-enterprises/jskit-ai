@@ -10,7 +10,7 @@ const DEFAULT_ACTION_FALLBACK = Object.freeze({
 
 const DEFAULT_MENU_FALLBACK = Object.freeze({
   label: "",
-  to: "/app",
+  to: "/",
   icon: "$menu"
 });
 
@@ -40,7 +40,7 @@ function normalizeMenuItem(item, fallback) {
 
   return {
     label,
-    to: String(source.to || fallbackSource.to || "").trim() || "/app",
+    to: String(source.to || fallbackSource.to || "").trim() || "/",
     icon: String(source.icon || fallbackSource.icon || "$menu").trim() || "$menu"
   };
 }

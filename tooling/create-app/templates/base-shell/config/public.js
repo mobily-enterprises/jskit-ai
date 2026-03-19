@@ -1,4 +1,5 @@
 export const config = {};
+__TENANCY_MODE_LINE__
 
 config.surfaceModeAll = "all";
 config.surfaceDefaultId = "app";

@@ -611,8 +611,7 @@
                 "auth.login.component",
                 "auth.login.useLoginView",
                 "auth.web.profile.widget",
-                "auth.web.profile.menu.link-item",
-                "auth.web.profile.menu.surface-switch-item"
+                "auth.web.profile.menu.link-item"
               ]
             }
           },
@@ -736,15 +735,6 @@
                   "source": "mutations.text#auth-web-placement-block"
                 },
                 {
-                  "id": "auth.profile.menu.surface-switch",
-                  "slot": "avatar.primary-menu",
-                  "surface": "*",
-                  "order": 100,
-                  "componentToken": "auth.web.profile.menu.surface-switch-item",
-                  "when": "auth.authenticated === true",
-                  "source": "mutations.text#auth-web-placement-block"
-                },
-                {
                   "id": "auth.profile.menu.sign-in",
                   "slot": "avatar.primary-menu",
                   "surface": "*",
@@ -820,7 +810,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"auth.profile.widget\"",
-              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.surface-switch\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"auth.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append auth profile placement entries into app-owned placement registry.",
               "category": "auth-web",
               "id": "auth-web-placement-block"
@@ -1947,7 +1937,6 @@
             "runtime": {
               "@tanstack/vue-query": "^5.90.5",
               "@jskit-ai/kernel": "0.1.0",
-              "@jskit-ai/users-core": "0.1.0",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -1961,6 +1950,40 @@
             }
           },
           "procfile": {},
+          "text": [
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "value": "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+              "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
+              "category": "shell-web",
+              "id": "shell-web-surface-config-workspace-enabled",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "value": "\nconfig.surfaceDefinitions = {};\n\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false\n};\n",
+              "reason": "Own shell surface topology in app config, shaped by tenancy mode.",
+              "category": "shell-web",
+              "id": "shell-web-surface-config-no-workspace",
+              "when": {
+                "config": "tenancyMode",
+                "notIn": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            }
+          ],
           "files": [
             {
               "from": "templates/src/App.vue",
@@ -1991,20 +2014,6 @@
               "id": "shell-web-page-root"
             },
             {
-              "from": "templates/src/pages/app.vue",
-              "to": "src/pages/app.vue",
-              "reason": "Install shell-driven app wrapper page.",
-              "category": "shell-web",
-              "id": "shell-web-page-app-wrapper",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            },
-            {
               "from": "templates/src/pages/admin.vue",
               "to": "src/pages/admin.vue",
               "reason": "Install shell-driven admin wrapper page.",
@@ -2031,20 +2040,6 @@
               "reason": "Install shell-driven admin page starter.",
               "category": "shell-web",
               "id": "shell-web-page-admin",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            },
-            {
-              "from": "templates/src/pages/app/index.vue",
-              "to": "src/pages/app/index.vue",
-              "reason": "Install shell-driven app page starter.",
-              "category": "shell-web",
-              "id": "shell-web-page-app",
               "when": {
                 "config": "tenancyMode",
                 "in": [
@@ -2473,20 +2468,10 @@
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.workspaceSwitching =",
-              "value": "\nconfig.tenancyMode = String(config.tenancyMode || \"\").trim().toLowerCase() || \"workspace\";\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+              "value": "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
               "category": "users-core",
               "id": "users-core-public-config"
-            },
-            {
-              "op": "append-text",
-              "file": "config/public.js",
-              "position": "bottom",
-              "skipIfContains": "config.surfaceDefinitions.console = {",
-              "value": "\nconfig.surfaceDefinitions = config.surfaceDefinitions || {};\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  prefix: \"/\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.app || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  prefix: \"/admin\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.admin || {}),\n  requiresWorkspace: true\n};\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  prefix: \"/console\",\n  enabled: true,\n  requiresAuth: true,\n  ...(config.surfaceDefinitions.console || {}),\n  requiresWorkspace: false\n};\n",
-              "reason": "Append workspace surface defaults into app-owned config.",
-              "category": "users-core",
-              "id": "users-core-surface-config"
             },
             {
               "op": "append-text",
@@ -2595,6 +2580,7 @@
                 "users.web.workspace.tools.widget",
                 "users.web.shell.menu-link-item",
                 "users.web.shell.surface-aware-menu-link-item",
+                "users.web.profile.menu.surface-switch-item",
                 "users.web.workspace-settings.menu-item",
                 "users.web.workspace-members.menu-item",
                 "users.web.account-settings.element",
@@ -2646,6 +2632,15 @@
                   "componentToken": "users.web.workspace.selector",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-placement-block"
+                },
+                {
+                  "id": "users.profile.menu.surface-switch",
+                  "slot": "avatar.primary-menu",
+                  "surface": "*",
+                  "order": 100,
+                  "componentToken": "users.web.profile.menu.surface-switch-item",
+                  "when": "auth.authenticated === true",
+                  "source": "mutations.text#users-web-profile-surface-switch-placement"
                 },
                 {
                   "id": "users.profile.menu.settings",
@@ -2808,6 +2803,16 @@
                   "workspace"
                 ]
               }
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"users.profile.menu.surface-switch\"",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append users-web profile surface switch placement into app-owned placement registry.",
+              "category": "users-web",
+              "id": "users-web-profile-surface-switch-placement"
             },
             {
               "op": "append-text",
