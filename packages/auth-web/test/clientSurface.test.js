@@ -21,7 +21,18 @@ test("auth-web descriptor declares global ui routes", () => {
   assert.equal(authRoutes.length >= 2, true);
   for (const route of authRoutes) {
     assert.equal(String(route?.scope || "").trim().toLowerCase(), "global");
+    assert.equal(String(route?.guard?.policy || "").trim().toLowerCase(), "public");
   }
+});
+
+test("auth-web auth page templates declare public route guard", () => {
+  const loginTemplatePath = fileURLToPath(new URL("../templates/src/pages/auth/login.vue", import.meta.url));
+  const signOutTemplatePath = fileURLToPath(new URL("../templates/src/pages/auth/signout.vue", import.meta.url));
+  const loginTemplateSource = readFileSync(loginTemplatePath, "utf8");
+  const signOutTemplateSource = readFileSync(signOutTemplatePath, "utf8");
+
+  assert.match(loginTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
+  assert.match(signOutTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
 });
 
 test("auth-web composables/useSignOut re-exports runtime signout helpers", () => {
