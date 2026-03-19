@@ -45,20 +45,56 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./client/providers/*",
-          summary: "Exports users-web client provider and tokens."
+          subpath: "./client",
+          summary: "Exports users-web client provider registration surface."
         },
         {
-          subpath: "./client/components/*",
-          summary: "Exports users-web Vue client components."
+          subpath: "./client/providers/UsersWebClientProvider",
+          summary: "Exports users-web client provider class."
         },
         {
-          subpath: "./client/composables/*",
-          summary: "Exports users-web client composables."
+          subpath: "./client/components/ProfileClientElement",
+          summary: "Exports profile settings client element scaffold component."
         },
         {
-          subpath: "./client/lib/*",
-          summary: "Exports users-web client utility and query helpers."
+          subpath: "./client/components/WorkspacesClientElement",
+          summary: "Exports workspace chooser client element component."
+        },
+        {
+          subpath: "./client/components/WorkspaceMembersClientElement",
+          summary: "Exports workspace members admin client element component."
+        },
+        {
+          subpath: "./client/composables/useAddEdit",
+          summary: "Exports add/edit operation composable."
+        },
+        {
+          subpath: "./client/composables/useList",
+          summary: "Exports list operation composable."
+        },
+        {
+          subpath: "./client/composables/useCommand",
+          summary: "Exports command operation composable."
+        },
+        {
+          subpath: "./client/composables/useView",
+          summary: "Exports read/view operation composable."
+        },
+        {
+          subpath: "./client/composables/usePagedCollection",
+          summary: "Exports paged collection query composable."
+        },
+        {
+          subpath: "./client/composables/usePaths",
+          summary: "Exports surface/workspace path resolver composable."
+        },
+        {
+          subpath: "./client/composables/useWorkspaceRouteContext",
+          summary: "Exports workspace route context composable."
+        },
+        {
+          subpath: "./client/support/realtimeWorkspace",
+          summary: "Exports workspace realtime event helpers."
         }
       ],
       containerTokens: {

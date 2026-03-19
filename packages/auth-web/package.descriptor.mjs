@@ -50,7 +50,7 @@ export default Object.freeze({
       "surfaces": [
         {
           "subpath": "./client",
-          "summary": "Exports auth web client runtime/views/composables and AuthWebClientProvider."
+          "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
         },
         {
           "subpath": "./server",

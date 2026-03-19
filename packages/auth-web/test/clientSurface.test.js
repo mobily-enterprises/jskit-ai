@@ -39,23 +39,30 @@ test("auth-web runtime/useLoginView delegates to useDefaultLoginView", () => {
   assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView,\s*useDefaultLoginView\s*\};/);
 });
 
-test("auth-web package exports composables for default auth views", () => {
+test("auth-web package exports only minimal client runtime/view subpaths", () => {
   const packageJson = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
+
   assert.equal(
-    exportsMap["./client/composables/useDefaultLoginView"],
-    "./src/client/composables/useDefaultLoginView.js"
+    exportsMap["./client/views/DefaultLoginView"],
+    "./src/client/views/DefaultLoginView.vue"
   );
   assert.equal(
-    exportsMap["./client/composables/useDefaultSignOutView"],
-    "./src/client/composables/useDefaultSignOutView.js"
+    exportsMap["./client/views/DefaultSignOutView"],
+    "./src/client/views/DefaultSignOutView.vue"
   );
   assert.equal(
-    exportsMap["./client/views/AuthProfileWidget"],
-    "./src/client/views/AuthProfileWidget.vue"
+    exportsMap["./client/runtime/authGuardRuntime"],
+    "./src/client/runtime/authGuardRuntime.js"
   );
   assert.equal(
-    exportsMap["./client/views/AuthProfileMenuLinkItem"],
-    "./src/client/views/AuthProfileMenuLinkItem.vue"
+    exportsMap["./client/runtime/authHttpClient"],
+    "./src/client/runtime/authHttpClient.js"
   );
+  assert.equal(exportsMap["./client/runtime/useSignOut"], "./src/client/runtime/useSignOut.js");
+  assert.equal(exportsMap["./client/composables/useDefaultLoginView"], undefined);
+  assert.equal(exportsMap["./client/composables/useDefaultSignOutView"], undefined);
+  assert.equal(exportsMap["./client/runtime/useLoginView"], undefined);
+  assert.equal(exportsMap["./client/views/AuthProfileWidget"], undefined);
+  assert.equal(exportsMap["./client/views/AuthProfileMenuLinkItem"], undefined);
 });

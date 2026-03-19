@@ -29,15 +29,15 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./client",
-          summary: "Exports shell layout/outlet components, placement helpers, and ShellWebClientProvider."
+          summary: "Exports shell layout/outlet/error-host components and ShellWebClientProvider."
         },
         {
           subpath: "./client/placement",
-          summary: "Exports app-owned placement registry helpers, slot validators, and placement runtime tokens."
+          summary: "Exports placement registry, placement context access, runtime token, and surface path helpers."
         },
         {
           subpath: "./client/error",
-          summary: "Exports app-level error runtime, policy contract, and material presenter factories."
+          summary: "Exports default error policy and runtime error reporter hook."
         }
       ],
       containerTokens: {

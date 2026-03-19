@@ -7,12 +7,18 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/components/*": "./src/client/components/*.vue",
-    "./client/composables/internal/*": null,
-    "./client/composables/*": "./src/client/composables/*.js",
-    "./client/support/*": "./src/client/support/*.js",
-    "./client/lib/*": "./src/client/lib/*.js",
-    "./client/providers/*": "./src/client/providers/*.js"
+    "./client/providers/UsersWebClientProvider": "./src/client/providers/UsersWebClientProvider.js",
+    "./client/components/ProfileClientElement": "./src/client/components/ProfileClientElement.vue",
+    "./client/components/WorkspacesClientElement": "./src/client/components/WorkspacesClientElement.vue",
+    "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
+    "./client/composables/useAddEdit": "./src/client/composables/useAddEdit.js",
+    "./client/composables/useList": "./src/client/composables/useList.js",
+    "./client/composables/useCommand": "./src/client/composables/useCommand.js",
+    "./client/composables/useView": "./src/client/composables/useView.js",
+    "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
+    "./client/composables/usePaths": "./src/client/composables/usePaths.js",
+    "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js",
+    "./client/support/realtimeWorkspace": "./src/client/support/realtimeWorkspace.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
