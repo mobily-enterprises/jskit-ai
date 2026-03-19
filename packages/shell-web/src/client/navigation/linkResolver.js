@@ -10,9 +10,23 @@ import {
   extractWorkspaceSlugFromSurfacePathname,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "../placement/surfaceContext.js";
+import { readPlacementSurfaceRoles, resolveSurfaceIdForRole } from "../placement/surfaceRoles.js";
 
 function normalizeSurfaceId(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizeSurfaceRole(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function resolveSurfaceIdFromRole(context = null, surfaceRole = "") {
+  const normalizedSurfaceRole = normalizeSurfaceRole(surfaceRole);
+  if (!normalizedSurfaceRole) {
+    return "";
+  }
+  const surfaceRoles = readPlacementSurfaceRoles(context);
+  return resolveSurfaceIdForRole(surfaceRoles, normalizedSurfaceRole);
 }
 
 function resolveSurfaceBasePath(context = null, surface = "") {
@@ -91,6 +105,7 @@ function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = 
 function resolveShellLinkPath({
   context = null,
   surface = "",
+  surfaceRole = "",
   mode = "auto",
   explicitTo = "",
   relativePath = "/",
@@ -104,7 +119,8 @@ function resolveShellLinkPath({
     return explicitTarget;
   }
 
-  const normalizedSurface = normalizeSurfaceId(surface);
+  const normalizedSurfaceFromInput = normalizeSurfaceId(surface);
+  const normalizedSurface = normalizedSurfaceFromInput || resolveSurfaceIdFromRole(context, surfaceRole);
   const normalizedMode = String(mode || "auto").trim().toLowerCase();
   const hasSurfaceDefinition = Boolean(
     normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)
@@ -168,6 +184,7 @@ function useShellLinkResolver({ surface = "", workspaceSlug = "", pathname = "" 
     return resolveShellLinkPath({
       context: placementContext.value,
       surface: String(unref(options.surface ?? surface) || ""),
+      surfaceRole: String(unref(options.surfaceRole ?? "") || ""),
       workspaceSlug: String(unref(options.workspaceSlug ?? workspaceSlug) || ""),
       pathname: String(unref(options.pathname ?? pathname) || ""),
       mode: String(options.mode || "auto"),

@@ -3,6 +3,7 @@ import {
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeSurfaceRole } from "./surfaceRoles.js";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {
@@ -20,6 +21,24 @@ function normalizeSurface(value) {
     return WEB_PLACEMENT_SURFACE_ANY;
   }
   return normalized;
+}
+
+function normalizePlacementSurface(value, { strict = false, source = "placement" } = {}) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized === WEB_PLACEMENT_SURFACE_ANY) {
+    return WEB_PLACEMENT_SURFACE_ANY;
+  }
+
+  if (strict) {
+    throw new TypeError(
+      `${source} surface "${normalized}" is invalid. Use targetSurfaceRole for non-global placements.`
+    );
+  }
+  return "";
 }
 
 function toInteger(value, fallback = DEFAULT_WEB_PLACEMENT_ORDER) {
@@ -97,11 +116,32 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
 
   const props = isRecord(value.props) ? { ...value.props } : {};
   const when = typeof value.when === "function" ? value.when : null;
+  const targetSurfaceRole = normalizeSurfaceRole(value.targetSurfaceRole);
+  const surface = normalizePlacementSurface(value.surface, { strict, source: `${source} "${id}"` });
+
+  if (surface === WEB_PLACEMENT_SURFACE_ANY && targetSurfaceRole) {
+    if (strict) {
+      throw new TypeError(
+        `${source} "${id}" cannot define both surface "*" and targetSurfaceRole.`
+      );
+    }
+    return null;
+  }
+
+  if (surface !== WEB_PLACEMENT_SURFACE_ANY && !targetSurfaceRole) {
+    if (strict) {
+      throw new TypeError(
+        `${source} "${id}" requires targetSurfaceRole for non-global placement (or surface "*").`
+      );
+    }
+    return null;
+  }
 
   return Object.freeze({
     id,
     slot,
-    surface: normalizeSurface(value.surface),
+    surface,
+    targetSurfaceRole,
     order: toInteger(value.order, DEFAULT_WEB_PLACEMENT_ORDER),
     componentToken,
     props,
@@ -121,6 +161,7 @@ export {
   isRecord,
   isRenderableComponent,
   normalizeSurface,
+  normalizePlacementSurface,
   normalizePlacementSlot,
   normalizePlacementDefinition,
   definePlacement

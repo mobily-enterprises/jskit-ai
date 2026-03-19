@@ -7,6 +7,11 @@ function createPlacementContext() {
     workspace: {
       slug: "acme"
     },
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    },
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
@@ -124,4 +129,15 @@ test("resolveShellLinkPath in workspace mode falls back to surface path for non-
   });
 
   assert.equal(to, "/console/settings");
+});
+
+test("resolveShellLinkPath resolves surface id from target surface role", () => {
+  const to = resolveShellLinkPath({
+    context: createPlacementContext(),
+    surfaceRole: "workspace.admin",
+    relativePath: "/contacts/2",
+    mode: "auto"
+  });
+
+  assert.equal(to, "/w/acme/admin/contacts/2");
 });

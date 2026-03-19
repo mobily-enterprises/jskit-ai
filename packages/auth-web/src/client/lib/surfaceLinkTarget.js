@@ -3,6 +3,7 @@ import { resolveShellLinkPath } from "@jskit-ai/shell-web/client/navigation/link
 function resolveSurfaceLinkTarget({
   context = null,
   surface = "",
+  surfaceRole = "",
   explicitTo = "",
   workspaceSuffix = "/",
   nonWorkspaceSuffix = "/",
@@ -11,6 +12,7 @@ function resolveSurfaceLinkTarget({
   return resolveShellLinkPath({
     context,
     surface,
+    surfaceRole,
     explicitTo,
     pathname,
     mode: "auto",

@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import {
   useWebPlacementContext,
+  readPlacementSurfaceRoles,
+  resolveSurfaceIdForRole,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { usePaths } from "../composables/usePaths.js";
@@ -20,6 +22,10 @@ const props = defineProps({
     default: ""
   },
   surface: {
+    type: String,
+    default: ""
+  },
+  surfaceRole: {
     type: String,
     default: ""
   },
@@ -44,6 +50,15 @@ const targetSurfaceId = computed(() => {
   const explicitSurface = String(props.surface || "").trim().toLowerCase();
   if (explicitSurface && explicitSurface !== "*") {
     return explicitSurface;
+  }
+
+  const explicitSurfaceRole = String(props.surfaceRole || "").trim().toLowerCase();
+  if (explicitSurfaceRole) {
+    const surfaceRoles = readPlacementSurfaceRoles(placementContext.value);
+    const surfaceIdFromRole = resolveSurfaceIdForRole(surfaceRoles, explicitSurfaceRole);
+    if (surfaceIdFromRole) {
+      return surfaceIdFromRole;
+    }
   }
 
   return String(paths.currentSurfaceId.value || "").trim().toLowerCase();

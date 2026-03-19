@@ -10,6 +10,7 @@ import {
   normalizePlacementSlot,
   normalizeSurface
 } from "./validators.js";
+import { readPlacementSurfaceRoles, resolveSurfaceIdForRole } from "./surfaceRoles.js";
 
 function ensureArray(value) {
   if (Array.isArray(value)) {
@@ -101,6 +102,14 @@ function matchesSurface(placementSurface, requestedSurface) {
     return true;
   }
   return placementSurface === requestedSurface;
+}
+
+function resolvePlacementSurfaceId(placement, surfaceRoles) {
+  if (placement.surface === WEB_PLACEMENT_SURFACE_ANY) {
+    return WEB_PLACEMENT_SURFACE_ANY;
+  }
+
+  return resolveSurfaceIdForRole(surfaceRoles, placement.targetSurfaceRole);
 }
 
 function resolveContextContributors(app, baseContext = {}, logger) {
@@ -225,6 +234,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
   const invalidComponentTokens = new Set();
   const failedTokens = new Set();
   const listeners = new Set();
+  const missingTargetRolePlacements = new Set();
   let placementDefinitions = Object.freeze([]);
   let sharedContext = Object.freeze({});
   let revision = 0;
@@ -258,6 +268,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     missingTokens.clear();
     invalidComponentTokens.clear();
     failedTokens.clear();
+    missingTargetRolePlacements.clear();
     placementDefinitions = Object.freeze(normalizePlacementList(entries, { source }));
     debugLog("replacePlacements", {
       source,
@@ -342,6 +353,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       surface: normalizedSurface,
       slot: normalizedSlot
     };
+    const surfaceRoles = readPlacementSurfaceRoles(placementContext);
 
     debugLog("getPlacements:start", {
       surface: normalizedSurface,
@@ -356,10 +368,27 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       if (placement.slot !== normalizedSlot) {
         continue;
       }
-      if (!matchesSurface(placement.surface, normalizedSurface)) {
+      const resolvedPlacementSurfaceId = resolvePlacementSurfaceId(placement, surfaceRoles);
+      if (!resolvedPlacementSurfaceId && placement.surface !== WEB_PLACEMENT_SURFACE_ANY) {
+        const missingRoleWarningKey = `${placement.id}:${placement.targetSurfaceRole}`;
+        if (!missingTargetRolePlacements.has(missingRoleWarningKey)) {
+          missingTargetRolePlacements.add(missingRoleWarningKey);
+          runtimeLogger.warn(
+            {
+              placementId: placement.id,
+              targetSurfaceRole: placement.targetSurfaceRole
+            },
+            "Skipping placement because targetSurfaceRole does not resolve to an enabled surface."
+          );
+        }
+        continue;
+      }
+
+      if (!matchesSurface(resolvedPlacementSurfaceId, normalizedSurface)) {
         debugLog("getPlacements:skip-surface", {
           placementId: placement.id,
-          placementSurface: placement.surface,
+          placementSurface: resolvedPlacementSurfaceId,
+          targetSurfaceRole: placement.targetSurfaceRole,
           requestedSurface: normalizedSurface
         });
         continue;
@@ -390,12 +419,15 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       debugLog("getPlacements:include", {
         placementId: placement.id,
         componentToken: placement.componentToken,
+        placementSurface: resolvedPlacementSurfaceId,
+        targetSurfaceRole: placement.targetSurfaceRole,
         order: placement.order
       });
 
       matches.push(
         Object.freeze({
           ...placement,
+          surface: resolvedPlacementSurfaceId,
           component
         })
       );

@@ -23,6 +23,20 @@ function createAppStub({ tokens = {}, contextContributors = [] } = {}) {
   };
 }
 
+function createPlacementContext() {
+  return {
+    surfaceConfig: {
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app", "admin", "console"]
+    },
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    }
+  };
+}
+
 test("web placement runtime filters by surface/slot, resolves component tokens, and sorts by order", () => {
   const app = createAppStub({
     tokens: {
@@ -36,7 +50,7 @@ test("web placement runtime filters by surface/slot, resolves component tokens, 
   runtime.replacePlacements([
     definePlacement({
       id: "test.menu",
-      surface: "app",
+      targetSurfaceRole: "workspace.main",
       slot: "app.primary-menu",
       order: 30,
       componentToken: "component.menu"
@@ -50,12 +64,13 @@ test("web placement runtime filters by surface/slot, resolves component tokens, 
     }),
     definePlacement({
       id: "test.alerts",
-      surface: "app",
+      targetSurfaceRole: "workspace.main",
       slot: "app.top-right",
       order: 10,
       componentToken: "component.alerts"
     })
   ]);
+  runtime.setContext(createPlacementContext());
 
   const topRight = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
   assert.deepEqual(topRight.map((entry) => entry.id), ["test.alerts", "test.profile"]);
@@ -182,11 +197,13 @@ test("web placement runtime rejects duplicate placement ids", () => {
       definePlacement({
         id: "dup.entry",
         slot: "app.top-right",
+        surface: "*",
         componentToken: "component.a"
       }),
       definePlacement({
         id: "dup.entry",
         slot: "app.primary-menu",
+        surface: "*",
         componentToken: "component.b"
       })
     ]);
@@ -227,11 +244,13 @@ test("web placement runtime skips throwing component tokens and logs resolution 
     definePlacement({
       id: "bad",
       slot: "app.top-right",
+      surface: "*",
       componentToken: "component.bad"
     }),
     definePlacement({
       id: "good",
       slot: "app.top-right",
+      surface: "*",
       componentToken: "component.good"
     })
   ]);
@@ -277,6 +296,7 @@ test("web placement runtime clears failed token cache when placements are replac
     definePlacement({
       id: "toggle",
       slot: "app.top-right",
+      surface: "*",
       componentToken: "component.toggle"
     })
   ]);
@@ -292,10 +312,51 @@ test("web placement runtime clears failed token cache when placements are replac
     definePlacement({
       id: "toggle",
       slot: "app.top-right",
+      surface: "*",
       componentToken: "component.toggle"
     })
   ]);
 
   const recovered = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
   assert.equal(recovered.length, 1);
+});
+
+test("web placement runtime fails closed when target surface role is unresolved", () => {
+  const warns = [];
+  const app = createAppStub({
+    tokens: {
+      "component.admin-only": () => null
+    }
+  });
+  const runtime = createWebPlacementRuntime({
+    app,
+    logger: {
+      warn(payload) {
+        warns.push(payload);
+      },
+      error() {}
+    }
+  });
+
+  runtime.replacePlacements([
+    definePlacement({
+      id: "admin.only",
+      slot: "app.top-right",
+      targetSurfaceRole: "workspace.admin",
+      componentToken: "component.admin-only"
+    })
+  ]);
+  runtime.setContext({
+    surfaceConfig: {
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app"]
+    },
+    surfaceRoles: {
+      "workspace.main": "app"
+    }
+  });
+
+  const entries = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  assert.equal(entries.length, 0);
+  assert.equal(warns.length, 1);
 });

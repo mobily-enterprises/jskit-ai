@@ -11,7 +11,8 @@ export {
   normalizePlacementDefinition,
   definePlacement,
   normalizePlacementSlot,
-  normalizeSurface
+  normalizeSurface,
+  normalizePlacementSurface
 } from "./validators.js";
 
 export {

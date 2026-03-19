@@ -24,6 +24,7 @@ export {
   normalizePlacementDefinition,
   normalizePlacementSlot,
   normalizeSurface,
+  normalizePlacementSurface,
   createPlacementRegistry,
   createWebPlacementRuntime,
   EMPTY_WEB_PLACEMENT_CONTEXT,

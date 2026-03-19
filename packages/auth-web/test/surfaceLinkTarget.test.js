@@ -7,6 +7,11 @@ function createPlacementContext() {
     workspace: {
       slug: "acme"
     },
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    },
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
@@ -77,4 +82,14 @@ test("resolveSurfaceLinkTarget returns empty when workspace slug is required but
   });
 
   assert.equal(to, "");
+});
+
+test("resolveSurfaceLinkTarget resolves role-based targets through shell link resolver", () => {
+  const to = resolveSurfaceLinkTarget({
+    context: createPlacementContext(),
+    surfaceRole: "workspace.admin",
+    workspaceSuffix: "/projects"
+  });
+
+  assert.equal(to, "/w/acme/admin/projects");
 });

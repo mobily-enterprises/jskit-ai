@@ -4,6 +4,8 @@ import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
   TENANCY_MODE_NONE,
+  readPlacementSurfaceRoles,
+  resolveSurfaceIdForRole,
   surfaceRequiresWorkspaceFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
@@ -22,6 +24,10 @@ const props = defineProps({
     default: false
   },
   targetSurfaceId: {
+    type: String,
+    default: ""
+  },
+  targetSurfaceRole: {
     type: String,
     default: ""
   }
@@ -55,6 +61,14 @@ const currentSurfaceId = computed(() => {
 });
 
 const targetSurfaceId = computed(() => String(props.targetSurfaceId || "").trim().toLowerCase());
+const targetSurfaceRole = computed(() => String(props.targetSurfaceRole || "").trim().toLowerCase());
+const targetSurfaceIdFromRole = computed(() => {
+  if (!targetSurfaceRole.value) {
+    return "";
+  }
+  const surfaceRoles = readPlacementSurfaceRoles(placementContext.value);
+  return resolveSurfaceIdForRole(surfaceRoles, targetSurfaceRole.value);
+});
 const workspaceSwitchSurfaceId = computed(() => {
   const normalizedCurrentSurfaceId = String(currentSurfaceId.value || "").trim().toLowerCase();
   if (
@@ -62,6 +76,9 @@ const workspaceSwitchSurfaceId = computed(() => {
     surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, normalizedCurrentSurfaceId)
   ) {
     return normalizedCurrentSurfaceId;
+  }
+  if (targetSurfaceIdFromRole.value) {
+    return targetSurfaceIdFromRole.value;
   }
   return targetSurfaceId.value;
 });
