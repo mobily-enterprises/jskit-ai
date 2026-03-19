@@ -27,7 +27,13 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-async function registerUsersRoutes({ authService = {}, consoleService = null } = {}) {
+async function registerUsersRoutes({
+  authService = {},
+  consoleService = null,
+  workspaceEnabled = true,
+  workspaceTenancyEnabled = true,
+  workspaceSelfCreateEnabled = true
+} = {}) {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -55,7 +61,9 @@ async function registerUsersRoutes({ authService = {}, consoleService = null } =
       }
     ],
     ["actionExecutor", {}],
-    ["users.workspace.tenancy.enabled", true]
+    ["users.workspace.enabled", workspaceEnabled],
+    ["users.workspace.tenancy.enabled", workspaceTenancyEnabled],
+    ["users.workspace.self-create.enabled", workspaceSelfCreateEnabled]
   ]);
 
   if (consoleService) {
@@ -159,6 +167,30 @@ test("workspace settings routes mount one canonical workspace endpoint", async (
   assert.equal(workspaceSettings?.workspaceSurface, undefined);
   assert.equal(adminWorkspaceSettings, null);
   assert.equal(consoleWorkspaceSettings, null);
+});
+
+test("users-core boot skips workspace routes when workspace policy is disabled", async () => {
+  const routes = await registerUsersRoutes({
+    workspaceEnabled: false,
+    workspaceTenancyEnabled: false,
+    workspaceSelfCreateEnabled: false
+  });
+
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(routes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
+});
+
+test("users-core boot skips workspace create route when self-create policy is disabled", async () => {
+  const routes = await registerUsersRoutes({
+    workspaceEnabled: true,
+    workspaceTenancyEnabled: true,
+    workspaceSelfCreateEnabled: false
+  });
+
+  assert.equal(findRoute(routes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWorkspaceBootstrapContributor } from "../src/server/workspaceBootstrapContributor.js";
+import {
+  TENANCY_MODE_PERSONAL,
+  WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
+} from "../src/shared/tenancyProfile.js";
 
 function createAuthenticatedProfile(overrides = {}) {
   return {
@@ -136,4 +140,67 @@ test("workspace bootstrap contributor seeds the initial console owner on authent
   });
 
   assert.deepEqual(consoleOwnerSeeds, [12]);
+});
+
+test("workspace bootstrap contributor emits canonical tenancy profile from users-core", async () => {
+  const contributor = createWorkspaceBootstrapContributor({
+    workspaceService: {
+      async listWorkspacesForUser() {
+        return [];
+      },
+      async resolveWorkspaceContextForUserBySlug() {
+        return null;
+      }
+    },
+    workspacePendingInvitationsService: {
+      async listPendingInvitesForUser() {
+        return [];
+      }
+    },
+    userProfilesRepository: {
+      async findByIdentity() {
+        return null;
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {};
+      }
+    },
+    workspaceTenancyEnabled: false,
+    tenancyProfile: {
+      mode: TENANCY_MODE_PERSONAL,
+      workspace: {
+        enabled: true,
+        autoProvision: true,
+        allowSelfCreate: false,
+        slugPolicy: WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
+      }
+    },
+    appConfig: {
+      tenancyMode: "none"
+    }
+  });
+
+  const payload = await contributor.contribute({
+    request: {
+      async executeAction() {
+        return {
+          authenticated: false
+        };
+      }
+    },
+    reply: {}
+  });
+
+  assert.deepEqual(payload.tenancy, {
+    mode: TENANCY_MODE_PERSONAL,
+    workspace: {
+      enabled: true,
+      autoProvision: true,
+      allowSelfCreate: false,
+      slugPolicy: WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
+    }
+  });
+  assert.equal(payload.app.tenancyMode, undefined);
 });

@@ -4,6 +4,7 @@ import { createService } from "../src/server/common/services/workspaceContextSer
 
 function createWorkspaceServiceFixture({
   tenancyMode = "workspace",
+  tenancyPolicy = {},
   personalWorkspace = {
     id: 1,
     slug: "tonymobily3",
@@ -31,7 +32,8 @@ function createWorkspaceServiceFixture({
 
   const service = createService({
     appConfig: {
-      tenancyMode
+      tenancyMode,
+      tenancyPolicy
     },
     workspacesRepository: {
       async findBySlug(slug) {
@@ -188,7 +190,12 @@ test("workspaceService.provisionWorkspaceForNewUser is a no-op outside personal 
 
 test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal workspace in workspace tenancy", async () => {
   const { service, calls, insertedPayloads } = createWorkspaceServiceFixture({
-    tenancyMode: "workspace"
+    tenancyMode: "workspace",
+    tenancyPolicy: {
+      workspace: {
+        allowSelfCreate: true
+      }
+    }
   });
 
   const workspace = await service.createWorkspaceForAuthenticatedUser(
@@ -210,9 +217,9 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
   assert.equal(insertedPayloads[0].ownerUserId, 7);
 });
 
-test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation outside workspace tenancy", async () => {
+test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation when self-create policy is disabled", async () => {
   const { service } = createWorkspaceServiceFixture({
-    tenancyMode: "personal"
+    tenancyMode: "workspace"
   });
 
   await assert.rejects(

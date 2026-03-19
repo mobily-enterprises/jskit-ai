@@ -52,3 +52,12 @@ export {
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 } from "./surfaceContext.js";
+
+export {
+  EMPTY_SURFACE_ROLES,
+  normalizeSurfaceRole,
+  normalizeSurfaceRolesConfig,
+  buildSurfaceRolesContext,
+  resolveSurfaceIdForRole,
+  readPlacementSurfaceRoles
+} from "./surfaceRoles.js";

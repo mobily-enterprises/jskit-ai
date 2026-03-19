@@ -3,9 +3,8 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
-  normalizeTenancyMode
-} from "@jskit-ai/kernel/shared/surface";
+  resolveTenancyProfile
+} from "../../../shared/tenancyProfile.js";
 import { coerceWorkspaceColor } from "../../../shared/settings.js";
 import {
   OWNER_ROLE_ID,
@@ -84,7 +83,9 @@ function createService({
     throw new Error("workspaceService requires repositories.");
   }
 
-  const resolvedTenancyMode = normalizeTenancyMode(appConfig.tenancyMode);
+  const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
+  const resolvedTenancyMode = resolvedTenancyProfile.mode;
+  const workspacePolicy = resolvedTenancyProfile.workspace;
   const resolvedWorkspaceColor = coerceWorkspaceColor(appConfig.workspaceColor);
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
@@ -174,7 +175,7 @@ function createService({
       throw new AppError(400, "Invalid authenticated user payload.");
     }
 
-    if (resolvedTenancyMode !== TENANCY_MODE_PERSONAL) {
+    if (workspacePolicy.autoProvision !== true) {
       return null;
     }
 
@@ -187,7 +188,7 @@ function createService({
       throw new AppError(401, "Authentication required.");
     }
 
-    if (resolvedTenancyMode !== TENANCY_MODE_WORKSPACE) {
+    if (workspacePolicy.allowSelfCreate !== true) {
       throw new AppError(403, "Workspace creation is disabled for this tenancy mode.");
     }
 

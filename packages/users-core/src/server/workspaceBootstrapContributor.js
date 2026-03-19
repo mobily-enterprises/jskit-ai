@@ -3,8 +3,13 @@ import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionCont
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   TENANCY_MODE_NONE,
-  normalizeTenancyMode
-} from "@jskit-ai/kernel/shared/surface";
+  TENANCY_MODE_PERSONAL,
+  TENANCY_MODE_WORKSPACE,
+  WORKSPACE_SLUG_POLICY_NONE,
+  WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
+  WORKSPACE_SLUG_POLICY_USER_SELECTED,
+  resolveTenancyProfile
+} from "../shared/tenancyProfile.js";
 import { workspacePendingInvitationsResource } from "../shared/resources/workspacePendingInvitationsResource.js";
 import {
   mapMembershipSummary,
@@ -73,17 +78,49 @@ function resolveAppState(appConfig = {}) {
   };
 
   return {
-    tenancyMode: normalizeTenancyMode(appConfig.tenancyMode),
     features
   };
 }
 
-function createAnonymousBootstrapPayload(appState) {
+function normalizeSlugPolicy(value = "") {
+  const normalizedValue = normalizeLowerText(value);
+  if (
+    normalizedValue === WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME ||
+    normalizedValue === WORKSPACE_SLUG_POLICY_USER_SELECTED
+  ) {
+    return normalizedValue;
+  }
+  return WORKSPACE_SLUG_POLICY_NONE;
+}
+
+function isSupportedTenancyMode(value = "") {
+  return value === TENANCY_MODE_NONE || value === TENANCY_MODE_PERSONAL || value === TENANCY_MODE_WORKSPACE;
+}
+
+function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
+  const fallback = resolveTenancyProfile(appConfig);
+  const source = tenancyProfile && typeof tenancyProfile === "object" ? tenancyProfile : fallback;
+  const mode = isSupportedTenancyMode(source?.mode) ? source.mode : fallback.mode;
+  const workspace = source?.workspace && typeof source.workspace === "object" ? source.workspace : fallback.workspace;
+
+  return Object.freeze({
+    mode,
+    workspace: Object.freeze({
+      enabled: workspace.enabled === true,
+      autoProvision: workspace.autoProvision === true,
+      allowSelfCreate: workspace.allowSelfCreate === true,
+      slugPolicy: normalizeSlugPolicy(workspace.slugPolicy)
+    })
+  });
+}
+
+function createAnonymousBootstrapPayload({ appState, tenancyProfile }) {
   return {
     session: {
       authenticated: false
     },
     profile: null,
+    tenancy: tenancyProfile,
     app: appState,
     workspaces: [],
     pendingInvites: [],
@@ -123,11 +160,13 @@ function createWorkspaceBootstrapContributor({
   userSettingsRepository,
   workspaceTenancyEnabled = false,
   appConfig = {},
+  tenancyProfile = null,
   authService,
   consoleService = null
 } = {}) {
   const contributorId = "users.bootstrap";
   const appState = resolveAppState(appConfig);
+  const resolvedTenancyProfile = resolveBootstrapTenancyProfile(tenancyProfile, appConfig);
 
   requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId, {
     serviceLabel: "workspaceService"
@@ -184,7 +223,10 @@ function createWorkspaceBootstrapContributor({
               })
             )
           : [];
-      let payload = createAnonymousBootstrapPayload(appState);
+      let payload = createAnonymousBootstrapPayload({
+        appState,
+        tenancyProfile: resolvedTenancyProfile
+      });
 
       if (normalizedUser) {
         const latestProfile =
@@ -196,7 +238,7 @@ function createWorkspaceBootstrapContributor({
         const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
         const normalizedWorkspaceSlug = normalizeText(workspaceSlug);
         let workspaceContext = null;
-        if (normalizedWorkspaceSlug && appState.tenancyMode !== TENANCY_MODE_NONE) {
+        if (normalizedWorkspaceSlug && resolvedTenancyProfile.mode !== TENANCY_MODE_NONE) {
           workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
             latestProfile,
             normalizedWorkspaceSlug,
@@ -215,6 +257,7 @@ function createWorkspaceBootstrapContributor({
             email: latestProfile.email,
             avatar: accountAvatarFormatter(latestProfile, userSettings)
           },
+          tenancy: resolvedTenancyProfile,
           app: appState,
           workspaces: [...workspaces],
           pendingInvites,

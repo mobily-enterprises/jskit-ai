@@ -29,6 +29,7 @@ const selectingWorkspaceSlug = ref("");
 const bootstrapModel = reactive({
   sessionAuthenticated: false,
   tenancyMode: "none",
+  workspaceAllowSelfCreate: false,
   workspaces: [],
   pendingInvites: []
 });
@@ -57,7 +58,8 @@ const bootstrapView = useView({
   model: bootstrapModel,
   mapLoadedToModel: (model, payload = {}) => {
     model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
-    model.tenancyMode = String(payload?.app?.tenancyMode || "").trim().toLowerCase() || "none";
+    model.tenancyMode = String(payload?.tenancy?.mode || "").trim().toLowerCase() || "none";
+    model.workspaceAllowSelfCreate = payload?.tenancy?.workspace?.allowSelfCreate === true;
     model.workspaces = normalizeWorkspaceList(payload?.workspaces);
     model.pendingInvites = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
       .map(normalizePendingInvite)
@@ -122,7 +124,7 @@ const pendingInvites = computed(() => {
 });
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
-const canCreateWorkspace = computed(() => bootstrapModel.tenancyMode === "workspace");
+const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
 const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
 
 function reportFeedback({

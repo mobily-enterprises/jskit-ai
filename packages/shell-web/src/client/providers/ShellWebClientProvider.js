@@ -3,6 +3,7 @@ import {
   CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
   CLIENT_MODULE_VUE_APP_TOKEN
 } from "@jskit-ai/kernel/client/moduleBootstrap";
+import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
   isRecord,
   shouldRetryTransientQueryFailure,
@@ -37,6 +38,7 @@ import {
 } from "../placement/tokens.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
+import { buildSurfaceRolesContext } from "../placement/surfaceRoles.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
@@ -299,9 +301,15 @@ class ShellWebClientProvider {
         ? app.make(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
         : null;
       const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime);
+      const appConfig = getClientAppConfig();
+      const surfaceRoles = buildSurfaceRolesContext({
+        appConfig,
+        surfaceConfig
+      });
       placementRuntime.setContext(
         {
-          surfaceConfig
+          surfaceConfig,
+          surfaceRoles
         },
         {
           source: SURFACE_CONTEXT_SOURCE

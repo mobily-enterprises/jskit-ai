@@ -47,7 +47,13 @@ export {
   extractWorkspaceSlugFromSurfacePathname,
   resolveSurfaceApiPathFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfacePathFromPlacementContext
+  resolveSurfacePathFromPlacementContext,
+  EMPTY_SURFACE_ROLES,
+  normalizeSurfaceRole,
+  normalizeSurfaceRolesConfig,
+  buildSurfaceRolesContext,
+  resolveSurfaceIdForRole,
+  readPlacementSurfaceRoles
 } from "./placement/index.js";
 
 export {

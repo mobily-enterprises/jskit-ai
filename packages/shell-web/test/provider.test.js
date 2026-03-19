@@ -11,9 +11,13 @@ import {
   SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN,
   SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY
 } from "../src/client/error/tokens.js";
-import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
+import {
+  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
+  CLIENT_MODULE_VUE_APP_TOKEN
+} from "@jskit-ai/kernel/client/moduleBootstrap";
+import { setClientAppConfig } from "@jskit-ai/kernel/client";
 
-function createAppDouble() {
+function createAppDouble({ surfaceRuntime = null } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -39,11 +43,20 @@ function createAppDouble() {
       singletons.set(token, factory);
     },
     has(token) {
-      return token === CLIENT_MODULE_VUE_APP_TOKEN;
+      if (token === CLIENT_MODULE_VUE_APP_TOKEN) {
+        return true;
+      }
+      if (token === CLIENT_MODULE_SURFACE_RUNTIME_TOKEN) {
+        return Boolean(surfaceRuntime);
+      }
+      return singletons.has(token) || singletonInstances.has(token);
     },
     make(token) {
       if (token === CLIENT_MODULE_VUE_APP_TOKEN) {
         return vueApp;
+      }
+      if (token === CLIENT_MODULE_SURFACE_RUNTIME_TOKEN && surfaceRuntime) {
+        return surfaceRuntime;
       }
       if (singletonInstances.has(token)) {
         return singletonInstances.get(token);
@@ -86,6 +99,8 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   assert.equal(typeof placementRuntime.getPlacements, "function");
   assert.equal(typeof placementRuntime.getContext, "function");
   assert.equal(typeof placementRuntime.setContext, "function");
+  assert.equal(typeof placementRuntime.getContext().surfaceConfig, "object");
+  assert.equal(typeof placementRuntime.getContext().surfaceRoles, "object");
 
   const errorRuntime = providedByKey.get(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY);
   assert.equal(typeof errorRuntime.report, "function");
@@ -94,4 +109,49 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   const errorStore = providedByKey.get(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY);
   assert.equal(typeof errorStore.getState, "function");
   assert.equal(typeof errorStore.present, "function");
+});
+
+test("shell web client provider resolves surface roles from client app config", async () => {
+  setClientAppConfig({
+    surfaceRoles: {
+      "workspace.main": "app",
+      "workspace.admin": "admin",
+      "console.global": "console"
+    },
+    surfaceDefaultRole: "workspace.main"
+  });
+
+  try {
+    const app = createAppDouble({
+      surfaceRuntime: {
+        TENANCY_MODE: "workspace",
+        DEFAULT_SURFACE_ID: "app",
+        listEnabledSurfaceIds() {
+          return ["app", "admin", "console"];
+        },
+        listSurfaceDefinitions() {
+          return [
+            { id: "app", prefix: "/app", requiresWorkspace: true, enabled: true },
+            { id: "admin", prefix: "/admin", requiresWorkspace: true, enabled: true },
+            { id: "console", prefix: "/console", requiresWorkspace: false, enabled: true }
+          ];
+        }
+      }
+    });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+
+    await provider.boot(app);
+
+    const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
+    const context = placementRuntime.getContext();
+    assert.deepEqual(context.surfaceRoles.surfaceIdByRole, {
+      "console.global": "console",
+      "workspace.admin": "admin",
+      "workspace.main": "app"
+    });
+    assert.equal(context.surfaceRoles.defaultRole, "workspace.main");
+  } finally {
+    setClientAppConfig({});
+  }
 });

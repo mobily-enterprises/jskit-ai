@@ -1,5 +1,6 @@
 import { registerBootstrapPayloadContributor } from "@jskit-ai/kernel/server/runtime";
 import {
+  USERS_TENANCY_PROFILE_TOKEN,
   USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
 } from "./common/diTokens.js";
@@ -13,13 +14,18 @@ function registerWorkspaceBootstrap(app) {
   }
 
   registerBootstrapPayloadContributor(app, USERS_WORKSPACE_BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TOKEN, (scope) => {
+    const workspaceTenancyEnabled = scope.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN);
+
     return createWorkspaceBootstrapContributor({
       workspaceService: scope.make("users.workspace.service"),
-      workspacePendingInvitationsService: scope.make(USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN),
-      workspaceTenancyEnabled: scope.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN),
+      workspacePendingInvitationsService: workspaceTenancyEnabled
+        ? scope.make(USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN)
+        : null,
+      workspaceTenancyEnabled,
       userProfilesRepository: scope.make("userProfilesRepository"),
       userSettingsRepository: scope.make("userSettingsRepository"),
       appConfig: scope.has("appConfig") ? scope.make("appConfig") : {},
+      tenancyProfile: scope.make(USERS_TENANCY_PROFILE_TOKEN),
       authService: scope.make("authService"),
       consoleService: scope.has("consoleService") ? scope.make("consoleService") : null
     });

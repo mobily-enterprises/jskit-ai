@@ -15,6 +15,7 @@ import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccou
 import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 import { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import {
+  USERS_WORKSPACE_ENABLED_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
 } from "./common/diTokens.js";
 import { registerUsersCoreApi } from "./common/registerUsersCoreApi.js";
@@ -37,11 +38,18 @@ class UsersCoreServiceProvider {
     registerUsersCoreApi(app, USERS_SHARED_API);
     registerCommonRepositories(app);
     registerWorkspaceCore(app);
-    registerWorkspaceDirectory(app);
-    registerWorkspacePendingInvitations(app);
     registerWorkspaceBootstrap(app);
-    registerWorkspaceMembers(app);
-    registerWorkspaceSettings(app);
+
+    if (app.make(USERS_WORKSPACE_ENABLED_TOKEN) === true) {
+      registerWorkspaceDirectory(app);
+      registerWorkspaceMembers(app);
+      registerWorkspaceSettings(app);
+
+      if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
+        registerWorkspacePendingInvitations(app);
+      }
+    }
+
     registerAccountProfile(app);
     registerAccountPreferences(app);
     registerAccountNotifications(app);
@@ -50,12 +58,14 @@ class UsersCoreServiceProvider {
   }
 
   async boot(app) {
-    bootWorkspaceDirectoryRoutes(app);
-    if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
-      bootWorkspacePendingInvitations(app);
+    if (app.make(USERS_WORKSPACE_ENABLED_TOKEN) === true) {
+      bootWorkspaceDirectoryRoutes(app);
+      if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
+        bootWorkspacePendingInvitations(app);
+      }
+      bootWorkspaceSettings(app);
+      bootWorkspaceMembers(app);
     }
-    bootWorkspaceSettings(app);
-    bootWorkspaceMembers(app);
     await registerAvatarMultipartSupport(app);
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);

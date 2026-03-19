@@ -14,6 +14,7 @@
     "./shared/settings": "./src/shared/settings.js",
     "./shared/operationMessages": "./src/shared/operationMessages.js",
     "./shared/events/usersEvents": "./src/shared/events/usersEvents.js",
+    "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/usersApiPaths": "./src/shared/support/usersApiPaths.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
