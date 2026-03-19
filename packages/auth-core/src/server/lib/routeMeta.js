@@ -4,7 +4,7 @@ const AUTH_POLICIES = Object.freeze({
   OWN: "own"
 });
 
-const WORKSPACE_POLICIES = Object.freeze({
+const CONTEXT_POLICIES = Object.freeze({
   NONE: "none",
   OPTIONAL: "optional",
   REQUIRED: "required"
@@ -12,8 +12,8 @@ const WORKSPACE_POLICIES = Object.freeze({
 
 const DEFAULT_AUTH_POLICY_META = Object.freeze({
   authPolicy: AUTH_POLICIES.PUBLIC,
-  workspacePolicy: WORKSPACE_POLICIES.NONE,
-  workspaceSurface: "",
+  contextPolicy: CONTEXT_POLICIES.NONE,
+  surface: "",
   permission: "",
   ownerParam: null,
   userField: "id",
@@ -29,8 +29,8 @@ function resolveAuthPolicyMeta(input = {}) {
   const source = asObject(input);
   return {
     authPolicy: source.authPolicy || AUTH_POLICIES.PUBLIC,
-    workspacePolicy: source.workspacePolicy || WORKSPACE_POLICIES.NONE,
-    workspaceSurface: String(source.workspaceSurface || "").trim(),
+    contextPolicy: source.contextPolicy || CONTEXT_POLICIES.NONE,
+    surface: String(source.surface || "").trim(),
     permission: String(source.permission || "").trim(),
     ownerParam: typeof source.ownerParam === "string" && source.ownerParam ? source.ownerParam : null,
     userField: source.userField || "id",
@@ -63,4 +63,4 @@ function mergeAuthPolicy(routeOptions = {}, meta = {}) {
   };
 }
 
-export { AUTH_POLICIES, WORKSPACE_POLICIES, DEFAULT_AUTH_POLICY_META, resolveAuthPolicyMeta, withAuthPolicy, mergeAuthPolicy };
+export { AUTH_POLICIES, CONTEXT_POLICIES, DEFAULT_AUTH_POLICY_META, resolveAuthPolicyMeta, withAuthPolicy, mergeAuthPolicy };

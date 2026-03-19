@@ -1,4 +1,4 @@
-import { normalizeSurfaceId, normalizeSurfacePrefix } from "./registry.js";
+import { normalizeSurfaceId, normalizeSurfacePrefix } from "@jskit-ai/kernel/shared/surface/registry";
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();

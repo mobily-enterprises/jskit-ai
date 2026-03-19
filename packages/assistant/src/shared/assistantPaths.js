@@ -1,13 +1,13 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { normalizeUsersRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
 const ASSISTANT_API_RELATIVE_PATH = "/assistant";
 const ASSISTANT_WORKSPACE_API_BASE_PATH_TEMPLATE = "/api/w/:workspaceSlug/assistant";
 const ASSISTANT_PUBLIC_API_BASE_PATH = `/api${ASSISTANT_API_RELATIVE_PATH}`;
 
 function resolveAssistantApiBasePath({ visibility = "workspace" } = {}) {
-  const normalizedVisibility = normalizeRouteVisibility(visibility, {
+  const normalizedVisibility = normalizeUsersRouteVisibility(visibility, {
     fallback: "workspace"
   });
   if (normalizedVisibility === "workspace" || normalizedVisibility === "workspace_user") {

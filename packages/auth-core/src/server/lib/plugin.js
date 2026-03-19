@@ -5,7 +5,7 @@ import { safeRequestUrl } from "@jskit-ai/kernel/server/runtime/requestUrl";
 
 import { assertAuthPolicyDeps, normalizeActorResolution } from "./authPolicySupport.js";
 import { AUTH_POLICY_DENY_REASONS, createAuthPolicyError } from "./errors.js";
-import { AUTH_POLICIES, resolveAuthPolicyMeta, WORKSPACE_POLICIES } from "./routeMeta.js";
+import { AUTH_POLICIES, CONTEXT_POLICIES, resolveAuthPolicyMeta } from "./routeMeta.js";
 
 const DEFAULT_API_PREFIX = "/api/";
 const DEFAULT_RATE_LIMIT_PLUGIN_OPTIONS = Object.freeze({
@@ -205,7 +205,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       let context = null;
-      if (resolveContext && (meta.workspacePolicy !== WORKSPACE_POLICIES.NONE || meta.permission)) {
+      if (resolveContext && (meta.contextPolicy !== CONTEXT_POLICIES.NONE || meta.permission)) {
         context = await resolveContext({
           request,
           actor: actorResolution.actor,

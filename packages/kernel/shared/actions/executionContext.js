@@ -19,19 +19,6 @@ function normalizeActor(actor) {
   };
 }
 
-function normalizeWorkspace(workspace) {
-  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
-    return null;
-  }
-
-  return {
-    ...workspace,
-    id: workspace.id == null ? null : workspace.id,
-    slug: normalizeText(workspace.slug),
-    name: normalizeText(workspace.name)
-  };
-}
-
 function normalizeMembership(membership) {
   if (!membership || typeof membership !== "object") {
     return null;
@@ -65,12 +52,35 @@ function normalizeTimeMeta(timeMeta) {
   };
 }
 
+const RESERVED_CONTEXT_KEYS = new Set([
+  "actor",
+  "membership",
+  "permissions",
+  "surface",
+  "channel",
+  "requestMeta",
+  "assistantMeta",
+  "timeMeta"
+]);
+
+function copyPassthroughContextEntries(source = {}) {
+  const passthrough = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (RESERVED_CONTEXT_KEYS.has(key)) {
+      continue;
+    }
+    passthrough[key] = value;
+  }
+  return passthrough;
+}
+
 function normalizeExecutionContext(context = {}) {
   const source = context && typeof context === "object" ? context : {};
+  const passthrough = copyPassthroughContextEntries(source);
 
   return Object.freeze({
+    ...passthrough,
     actor: normalizeActor(source.actor),
-    workspace: normalizeWorkspace(source.workspace),
     membership: normalizeMembership(source.membership),
     permissions: normalizePermissions(source.permissions),
     surface: normalizeLowerText(source.surface) || "app",
@@ -86,7 +96,6 @@ const __testables = {
   normalizeLowerText,
   normalizePermissions,
   normalizeActor,
-  normalizeWorkspace,
   normalizeMembership,
   normalizeRequestMeta,
   normalizeAssistantMeta,

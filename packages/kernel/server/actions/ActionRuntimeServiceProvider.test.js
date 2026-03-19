@@ -88,9 +88,6 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin", "console"];
-    },
-    listWorkspaceSurfaceIds() {
-      return ["app", "admin"];
     }
   }));
 
@@ -107,7 +104,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
       version: 1,
       kind: "query",
       channels: ["internal"],
-      surfacesFrom: "workspace",
+      surfacesFrom: "enabled",
       consoleUsersOnly: false,
       dependencies: {
         echoService: "test.echo.service"
@@ -125,7 +122,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   const actionExecutor = app.make("actionExecutor");
   const definitions = actionExecutor.listDefinitions();
   assert.equal(definitions.some((definition) => definition.id === "test.echo"), true);
-  assert.deepEqual(definitions.find((definition) => definition.id === "test.echo")?.surfaces, ["app", "admin"]);
+  assert.deepEqual(definitions.find((definition) => definition.id === "test.echo")?.surfaces, ["app", "admin", "console"]);
 
   const result = await actionExecutor.execute({
     actionId: "test.echo",
@@ -180,9 +177,6 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
   app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin", "console"];
-    },
-    listWorkspaceSurfaceIds() {
-      return ["app", "admin"];
     }
   }));
 
@@ -237,9 +231,6 @@ test("action runtime execute merges static and per-execution dependencies", asyn
 
   app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
     listEnabledSurfaceIds() {
-      return ["app"];
-    },
-    listWorkspaceSurfaceIds() {
       return ["app"];
     }
   }));
@@ -365,9 +356,6 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
   app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
     listEnabledSurfaceIds() {
       return ["app"];
-    },
-    listWorkspaceSurfaceIds() {
-      return ["app"];
     }
   }));
 
@@ -459,4 +447,37 @@ test("app.actions rejects invalid domain identifiers", () => {
       ]),
     /must match/
   );
+});
+
+test("app.actions rejects unsupported surfacesFrom aliases", () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["app", "admin"];
+    }
+  }));
+
+  app.actions([
+    {
+      id: "workspace.alias.invalid",
+      domain: "workspace",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfacesFrom: "workspace",
+      consoleUsersOnly: false,
+      inputValidator: EMPTY_INPUT_VALIDATOR,
+      idempotency: "none",
+      audit: { actionName: "workspace.alias.invalid" },
+      observability: {},
+      async execute() {
+        return {};
+      }
+    }
+  ]);
+
+  assert.throws(() => app.make("actionExecutor"), /must be one of: enabled, console/);
 });

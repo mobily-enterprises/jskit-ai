@@ -48,13 +48,13 @@ test("installServiceRegistrationApi exposes app.service and publishes declared e
     context: {
       actor: { id: 7 },
       visibilityContext: {
-        workspaceOwnerId: 13
+        scopeOwnerId: 13
       }
     }
   });
 
   assert.equal(result.id, 41);
-  assert.equal(service.serviceEvents.createRecord[0].realtime.audience, "all_workspace_users");
+  assert.equal(service.serviceEvents.createRecord[0].realtime.audience, "event_scope");
   assert.equal(published.length, 1);
   assert.equal(published[0].source, "crud");
   assert.equal(published[0].operation, "created");

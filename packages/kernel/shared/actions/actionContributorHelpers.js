@@ -27,20 +27,6 @@ function resolveUser(context, input) {
   return payload.user || resolveRequest(context)?.user || context?.actor || null;
 }
 
-function resolveWorkspace(context, input) {
-  const payload = normalizeObject(input);
-  const requestMeta = normalizeObject(context?.requestMeta);
-  const resolvedWorkspaceContext = normalizeObject(requestMeta.resolvedWorkspaceContext);
-
-  return (
-    payload.workspace ||
-    resolvedWorkspaceContext.workspace ||
-    context?.workspace ||
-    resolveRequest(context)?.workspace ||
-    null
-  );
-}
-
 function hasPermission(permissionSet, permission) {
   const requiredPermission = normalizeText(permission);
   if (!requiredPermission) {
@@ -67,7 +53,6 @@ export {
   requireServiceMethod,
   resolveRequest,
   resolveUser,
-  resolveWorkspace,
   hasPermission,
   EMPTY_INPUT_VALIDATOR,
   OBJECT_INPUT_VALIDATOR

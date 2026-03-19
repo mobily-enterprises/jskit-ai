@@ -12,32 +12,115 @@ function toPositiveInteger(value) {
   return parsed;
 }
 
-function resolveContextWorkspaceOwnerId(context = {}) {
-  const workspace =
-    context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || context?.request?.workspace;
-  return toPositiveInteger(workspace?.id);
-}
-
 function resolveContextUserOwnerId(context = {}) {
   const actor = context?.actor || context?.user || context?.request?.user;
   return toPositiveInteger(actor?.id);
 }
 
-function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
-  const runtimeContext = normalizeObject(runtime?.context);
-  const workspaceOwnerId = toPositiveInteger(visibilityContext.workspaceOwnerId);
-  if (workspaceOwnerId > 0 || resolveContextWorkspaceOwnerId(runtimeContext) > 0) {
+function resolveContextScope(context = {}) {
+  const sourceScope = normalizeObject(context?.scope || context?.requestMeta?.scope || context?.request?.scope);
+  const kind = normalizeText(sourceScope.kind).toLowerCase();
+  if (!kind) {
+    return null;
+  }
+  if (kind === "global") {
     return {
-      kind: "workspace",
-      id: workspaceOwnerId > 0 ? workspaceOwnerId : resolveContextWorkspaceOwnerId(runtimeContext)
+      kind: "global",
+      id: null
     };
   }
 
-  const userOwnerId = toPositiveInteger(visibilityContext.userOwnerId);
-  if (userOwnerId > 0 || resolveContextUserOwnerId(runtimeContext) > 0) {
+  const scopeId = toPositiveInteger(sourceScope.id);
+  if (scopeId < 1) {
+    return null;
+  }
+
+  const resolvedScope = {
+    kind,
+    id: scopeId
+  };
+
+  const scopeUserId = toPositiveInteger(sourceScope.userId);
+  if (scopeUserId > 0) {
+    resolvedScope.userId = scopeUserId;
+  }
+
+  const scopedScopeId = toPositiveInteger(sourceScope.scopeId);
+  if (scopedScopeId > 0) {
+    resolvedScope.scopeId = scopedScopeId;
+  }
+
+  return resolvedScope;
+}
+
+function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
+  const visibility = normalizeText(visibilityContext.visibility).toLowerCase();
+  const scopeKind = normalizeText(visibilityContext.scopeKind || visibility).toLowerCase();
+  const scopeOwnerId = toPositiveInteger(visibilityContext.scopeOwnerId);
+  const userOwnerId = toPositiveInteger(visibilityContext.userOwnerId) || resolveContextUserOwnerId(runtimeContext);
+
+  const requiresScopedUser = scopeKind.endsWith("_user");
+  if (requiresScopedUser && userOwnerId < 1) {
+    return null;
+  }
+
+  if (scopeKind && scopeOwnerId > 0) {
+    const scope = {
+      kind: scopeKind,
+      id: scopeOwnerId
+    };
+    if (requiresScopedUser) {
+      scope.scopeId = scopeOwnerId;
+      scope.userId = userOwnerId;
+    }
+    return scope;
+  }
+  if (scopeKind && scopeKind !== "user") {
+    return null;
+  }
+
+  if (!scopeKind && scopeOwnerId > 0) {
+    return {
+      kind: "scope",
+      id: scopeOwnerId
+    };
+  }
+
+  if (userOwnerId > 0) {
     return {
       kind: "user",
-      id: userOwnerId > 0 ? userOwnerId : resolveContextUserOwnerId(runtimeContext)
+      id: userOwnerId
+    };
+  }
+
+  if (userOwnerId > 0) {
+    return {
+      kind: "user",
+      id: userOwnerId
+    };
+  }
+
+  return null;
+}
+
+function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
+  const runtimeContext = normalizeObject(runtime?.context);
+
+  const visibilityScope = resolveVisibilityScope(visibilityContext, runtimeContext);
+  if (visibilityScope) {
+    return visibilityScope;
+  }
+
+  const contextScope = resolveContextScope(runtimeContext);
+  if (contextScope) {
+    return contextScope;
+  }
+
+  const userOwnerId = resolveContextUserOwnerId(runtimeContext);
+  if (userOwnerId > 0) {
+    return {
+      kind: "user",
+      id: userOwnerId
     };
   }
 

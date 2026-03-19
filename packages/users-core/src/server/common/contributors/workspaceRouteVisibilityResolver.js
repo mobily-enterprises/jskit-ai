@@ -15,8 +15,8 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
 
       const workspace =
         context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
-      const workspaceOwnerId = parsePositiveInteger(workspace?.id);
-      if (!workspaceOwnerId) {
+      const scopeOwnerId = parsePositiveInteger(workspace?.id);
+      if (!scopeOwnerId) {
         const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
         const actor = context?.actor || request?.user || null;
 
@@ -33,12 +33,12 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         }
 
         return {
-          workspaceOwnerId: resolvedWorkspaceOwnerId
+          scopeOwnerId: resolvedWorkspaceOwnerId
         };
       }
 
       return {
-        workspaceOwnerId
+        scopeOwnerId
       };
     }
   });

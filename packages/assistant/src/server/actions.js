@@ -1,7 +1,7 @@
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { resolveWorkspace } from "@jskit-ai/users-core/server/support/resolveWorkspace";
 import {
-  EMPTY_INPUT_VALIDATOR,
-  resolveWorkspace
+  EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { assistantResource } from "../shared/assistantResource.js";
 import {

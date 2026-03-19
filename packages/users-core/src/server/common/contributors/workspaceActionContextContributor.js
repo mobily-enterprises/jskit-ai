@@ -3,7 +3,7 @@ import {
   requireServiceMethod,
   resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { normalizeUsersRouteVisibility } from "../../../shared/support/usersVisibility.js";
 
 const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
   "workspace.roles.list",
@@ -32,7 +32,9 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
 
       const actionName = String(actionId || "").trim();
       const hasLegacyWorkspaceActionId = WORKSPACE_CONTEXT_ACTION_IDS.includes(actionName);
-      const routeVisibility = normalizeRouteVisibility(request?.routeOptions?.config?.visibility);
+      const routeVisibility = normalizeUsersRouteVisibility(request?.routeOptions?.config?.visibility, {
+        fallback: "public"
+      });
       const hasWorkspaceRouteVisibility = WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET.has(routeVisibility);
       if (!hasLegacyWorkspaceActionId && !hasWorkspaceRouteVisibility) {
         return {};

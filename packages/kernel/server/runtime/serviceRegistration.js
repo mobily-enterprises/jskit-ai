@@ -3,12 +3,11 @@ import { createEntityChangePublisher } from "./entityChangeEvents.js";
 
 const SERVICE_REGISTRATION_TAG = Symbol.for("jskit.runtime.services.registrations");
 const ENTITY_CHANGED_EVENT_TYPE = "entity.changed";
-const DEFAULT_REALTIME_AUDIENCE = "all_workspace_users";
+const DEFAULT_REALTIME_AUDIENCE = "event_scope";
 const REALTIME_AUDIENCE_PRESETS = new Set([
   "none",
   "all_clients",
   "all_users",
-  "all_workspace_users",
   "actor_user",
   "event_scope"
 ]);

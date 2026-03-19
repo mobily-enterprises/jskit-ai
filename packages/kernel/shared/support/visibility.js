@@ -1,13 +1,20 @@
 import { normalizeText } from "./normalize.js";
 
-const ROUTE_VISIBILITY_LEVELS = Object.freeze(["public", "workspace", "user", "workspace_user"]);
+const ROUTE_VISIBILITY_LEVELS = Object.freeze(["public", "user"]);
 const ROUTE_VISIBILITY_LEVEL_SET = new Set(ROUTE_VISIBILITY_LEVELS);
 
 function normalizeRouteVisibility(value, { fallback = "public" } = {}) {
-  const normalizedFallback = normalizeText(fallback).toLowerCase();
-  const fallbackValue = ROUTE_VISIBILITY_LEVEL_SET.has(normalizedFallback) ? normalizedFallback : "public";
   const normalized = normalizeText(value).toLowerCase();
-  return ROUTE_VISIBILITY_LEVEL_SET.has(normalized) ? normalized : fallbackValue;
+  if (normalized) {
+    return normalized;
+  }
+
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  if (ROUTE_VISIBILITY_LEVEL_SET.has(normalizedFallback)) {
+    return normalizedFallback;
+  }
+
+  return "public";
 }
 
 function normalizeOwnerId(value) {
@@ -24,7 +31,7 @@ function normalizeVisibilityContext(value = {}) {
 
   return Object.freeze({
     visibility: normalizeRouteVisibility(source.visibility),
-    workspaceOwnerId: normalizeOwnerId(source.workspaceOwnerId),
+    scopeOwnerId: normalizeOwnerId(source.scopeOwnerId),
     userOwnerId: normalizeOwnerId(source.userOwnerId)
   });
 }

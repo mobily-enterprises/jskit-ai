@@ -60,7 +60,10 @@ test("workspace bootstrap contributor passes actor context to pending invites se
         };
       }
     },
-    workspaceTenancyEnabled: true
+    workspaceTenancyEnabled: true,
+    appConfig: {
+      tenancyMode: "workspace"
+    }
   });
 
   await contributor.contribute({
@@ -203,4 +206,67 @@ test("workspace bootstrap contributor emits canonical tenancy profile from users
     }
   });
   assert.equal(payload.app.tenancyMode, undefined);
+});
+
+test("workspace bootstrap contributor resolves workspace slug from bootstrap query", async () => {
+  const profile = createAuthenticatedProfile();
+  const calls = [];
+  const contributor = createWorkspaceBootstrapContributor({
+    workspaceService: {
+      async listWorkspacesForUser() {
+        return [];
+      },
+      async resolveWorkspaceContextForUserBySlug(_user, workspaceSlug) {
+        calls.push(workspaceSlug);
+        return null;
+      }
+    },
+    workspacePendingInvitationsService: {
+      async listPendingInvitesForUser() {
+        return [];
+      }
+    },
+    userProfilesRepository: {
+      async findByIdentity() {
+        return profile;
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          theme: "system",
+          locale: "en",
+          timeZone: "UTC",
+          dateFormat: "YYYY-MM-DD",
+          numberFormat: "1,234.56",
+          currencyCode: "USD",
+          avatarSize: 64,
+          productUpdates: true,
+          accountActivity: true,
+          securityAlerts: true
+        };
+      }
+    },
+    workspaceTenancyEnabled: true,
+    appConfig: {
+      tenancyMode: "workspace"
+    }
+  });
+
+  await contributor.contribute({
+    query: {
+      workspaceSlug: "  AcMe  "
+    },
+    request: {
+      async executeAction() {
+        return {
+          authenticated: true,
+          profile
+        };
+      }
+    },
+    reply: {}
+  });
+
+  assert.deepEqual(calls, ["acme"]);
 });

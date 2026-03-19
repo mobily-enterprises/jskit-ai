@@ -20,10 +20,11 @@ function createReplyDouble() {
   };
 }
 
-test("bootstrapQueryValidator normalizes workspaceSlug", () => {
+test("bootstrapQueryValidator normalizes generic query payloads", () => {
   assert.deepEqual(bootstrapQueryValidator.normalize({}), {});
-  assert.deepEqual(bootstrapQueryValidator.normalize({ workspaceSlug: "  AcMe  " }), {
-    workspaceSlug: "acme"
+  assert.deepEqual(bootstrapQueryValidator.normalize({ workspaceSlug: "  AcMe  ", page: "1" }), {
+    workspaceSlug: "  AcMe  ",
+    page: "1"
   });
 });
 
@@ -44,10 +45,10 @@ test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors
   app.instance(KERNEL_TOKENS.HttpRouter, router);
   registerBootstrapPayloadContributor(app, "test.bootstrap.payload", () => ({
     contributorId: "test.bootstrap.payload",
-    contribute({ workspaceSlug }) {
+    contribute({ query }) {
       return {
         source: "test",
-        workspaceSlug
+        workspaceSlug: query.workspaceSlug
       };
     }
   }));

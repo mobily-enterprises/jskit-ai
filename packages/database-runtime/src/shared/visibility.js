@@ -2,13 +2,13 @@ import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visi
 
 const ALWAYS_FALSE_SQL = "1 = 0";
 const DEFAULT_VISIBILITY_COLUMNS = Object.freeze({
-  workspaceOwnerId: "workspace_owner_id",
+  scopeOwnerId: "workspace_owner_id",
   userOwnerId: "user_owner_id"
 });
 
 function applyVisibility(queryBuilder, visibilityContext = {}) {
   const context = normalizeVisibilityContext(visibilityContext);
-  const workspaceColumn = DEFAULT_VISIBILITY_COLUMNS.workspaceOwnerId;
+  const workspaceColumn = DEFAULT_VISIBILITY_COLUMNS.scopeOwnerId;
   const userColumn = DEFAULT_VISIBILITY_COLUMNS.userOwnerId;
 
   if (context.visibility === "public") {
@@ -16,10 +16,10 @@ function applyVisibility(queryBuilder, visibilityContext = {}) {
   }
 
   if (context.visibility === "workspace") {
-    if (!context.workspaceOwnerId) {
+    if (!context.scopeOwnerId) {
       return queryBuilder.whereRaw(ALWAYS_FALSE_SQL);
     }
-    return queryBuilder.where(workspaceColumn, context.workspaceOwnerId);
+    return queryBuilder.where(workspaceColumn, context.scopeOwnerId);
   }
 
   if (context.visibility === "user") {
@@ -29,11 +29,11 @@ function applyVisibility(queryBuilder, visibilityContext = {}) {
     return queryBuilder.where(userColumn, context.userOwnerId);
   }
 
-  if (!context.workspaceOwnerId || !context.userOwnerId) {
+  if (!context.scopeOwnerId || !context.userOwnerId) {
     return queryBuilder.whereRaw(ALWAYS_FALSE_SQL);
   }
 
-  return queryBuilder.where(workspaceColumn, context.workspaceOwnerId).where(userColumn, context.userOwnerId);
+  return queryBuilder.where(workspaceColumn, context.scopeOwnerId).where(userColumn, context.userOwnerId);
 }
 
 function applyVisibilityOwners(payload = {}, visibilityContext = {}) {
@@ -46,22 +46,22 @@ function applyVisibilityOwners(payload = {}, visibilityContext = {}) {
     };
   }
 
-  if (context.visibility === "workspace" && !context.workspaceOwnerId) {
-    throw new Error("Visibility context requires workspaceOwnerId.");
+  if (context.visibility === "workspace" && !context.scopeOwnerId) {
+    throw new Error("Visibility context requires scopeOwnerId.");
   }
   if (context.visibility === "user" && !context.userOwnerId) {
     throw new Error("Visibility context requires userOwnerId.");
   }
-  if (context.visibility === "workspace_user" && (!context.workspaceOwnerId || !context.userOwnerId)) {
-    throw new Error("Visibility context requires workspaceOwnerId and userOwnerId.");
+  if (context.visibility === "workspace_user" && (!context.scopeOwnerId || !context.userOwnerId)) {
+    throw new Error("Visibility context requires scopeOwnerId and userOwnerId.");
   }
 
   const ownedPayload = {
     ...source
   };
 
-  if (context.workspaceOwnerId) {
-    ownedPayload.workspace_owner_id = context.workspaceOwnerId;
+  if (context.scopeOwnerId) {
+    ownedPayload.workspace_owner_id = context.scopeOwnerId;
   }
   if (context.userOwnerId) {
     ownedPayload.user_owner_id = context.userOwnerId;

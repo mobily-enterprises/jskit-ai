@@ -20,7 +20,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "Get workspace role catalog by workspace slug"
@@ -47,7 +47,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "List members by workspace slug"
@@ -74,7 +74,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "Update workspace member role by workspace slug"
@@ -107,7 +107,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "List workspace invites by workspace slug"
@@ -134,7 +134,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "Create workspace invite by workspace slug"
@@ -167,7 +167,7 @@ function bootWorkspaceMembers(app) {
     {
       auth: "required",
       visibility: "workspace",
-      workspacePolicy: "required",
+      contextPolicy: "required",
       meta: {
         tags: ["workspace"],
         summary: "Revoke workspace invite by workspace slug"

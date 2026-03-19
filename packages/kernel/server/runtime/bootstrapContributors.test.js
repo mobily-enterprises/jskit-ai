@@ -31,11 +31,11 @@ test("resolveBootstrapPayload applies contributors in deterministic token order"
 
   registerBootstrapPayloadContributor(app, "test.bootstrap.zeta", () => ({
     contributorId: "zeta",
-    contribute({ payload, workspaceSlug }) {
+    contribute({ payload, query }) {
       calls.push({
         contributorId: "zeta",
         payload,
-        workspaceSlug
+        query
       });
       return {
         last: true
@@ -45,11 +45,11 @@ test("resolveBootstrapPayload applies contributors in deterministic token order"
 
   registerBootstrapPayloadContributor(app, "test.bootstrap.alpha", () => ({
     contributorId: "alpha",
-    contribute({ payload, workspaceSlug }) {
+    contribute({ payload, query }) {
       calls.push({
         contributorId: "alpha",
         payload,
-        workspaceSlug
+        query
       });
       return {
         first: true
@@ -58,21 +58,27 @@ test("resolveBootstrapPayload applies contributors in deterministic token order"
   }));
 
   const payload = await resolveBootstrapPayload(app, {
-    workspaceSlug: "acme"
+    query: {
+      workspaceSlug: "acme"
+    }
   });
 
   assert.deepEqual(calls, [
     {
       contributorId: "alpha",
       payload: {},
-      workspaceSlug: "acme"
+      query: {
+        workspaceSlug: "acme"
+      }
     },
     {
       contributorId: "zeta",
       payload: {
         first: true
       },
-      workspaceSlug: "acme"
+      query: {
+        workspaceSlug: "acme"
+      }
     }
   ]);
   assert.deepEqual(payload, {

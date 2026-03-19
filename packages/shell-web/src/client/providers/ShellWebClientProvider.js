@@ -297,11 +297,13 @@ class ShellWebClientProvider {
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
       const placements = await loadAppPlacementDefinitions(logger);
       placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
+      const appConfig = getClientAppConfig();
       const surfaceRuntime = app.has(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
         ? app.make(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
         : null;
-      const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime);
-      const appConfig = getClientAppConfig();
+      const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
+        tenancyMode: appConfig?.tenancyMode
+      });
       const surfaceRoles = buildSurfaceRolesContext({
         appConfig,
         surfaceConfig

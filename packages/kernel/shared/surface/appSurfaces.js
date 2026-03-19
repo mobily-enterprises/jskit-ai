@@ -5,28 +5,23 @@ import { createSurfaceRegistry } from "./registry.js";
 const DEFAULT_SURFACES = Object.freeze({
   app: Object.freeze({
     id: "app",
-    prefix: "",
-    requiresWorkspace: true
+    prefix: ""
   }),
   admin: Object.freeze({
     id: "admin",
-    prefix: "/admin",
-    requiresWorkspace: true
+    prefix: "/admin"
   }),
   console: Object.freeze({
     id: "console",
-    prefix: "/console",
-    requiresWorkspace: false
+    prefix: "/console"
   })
 });
 
 const DEFAULT_ROUTES = Object.freeze({
   loginPath: "/login",
   resetPasswordPath: "/reset-password",
-  workspacesPath: "/workspaces",
   accountSettingsPath: "/account/settings",
-  invitationsPath: "/invitations",
-  workspaceBasePath: "/w"
+  invitationsPath: "/invitations"
 });
 
 function createDefaultAppSurfaceRegistry({ surfaces = DEFAULT_SURFACES, defaultSurfaceId = "app" } = {}) {

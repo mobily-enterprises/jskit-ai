@@ -17,6 +17,7 @@
     "./server/lib/index": "./src/server/lib/index.js",
     "./server/lib/plugin": "./src/server/lib/plugin.js",
     "./server/lib/routeMeta": "./src/server/lib/routeMeta.js",
+    "./server/lib/tokens": "./src/server/lib/tokens.js",
     "./client": "./src/client/index.js",
     "./client/authApi": "./src/client/authApi.js",
     "./client/signOutFlow": "./src/client/signOutFlow.js",

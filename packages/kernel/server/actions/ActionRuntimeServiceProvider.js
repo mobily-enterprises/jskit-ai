@@ -8,7 +8,7 @@ const ACTION_RUNTIME_API = Object.freeze({
 const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
-const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "workspace", "console"]);
+const ACTION_SURFACE_SOURCE_SET = new Set(["enabled", "console"]);
 let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
 
 function normalizePlainObject(value) {
@@ -155,15 +155,12 @@ function resolveSurfaceRuntime(scope) {
 function resolveSurfaceIdsFromSource(scope, sourceName, { context = "action.surfacesFrom" } = {}) {
   const normalizedSource = String(sourceName || "").trim().toLowerCase();
   if (!ACTION_SURFACE_SOURCE_SET.has(normalizedSource)) {
-    throw new Error(`${context} must be one of: enabled, workspace, console.`);
+    throw new Error(`${context} must be one of: enabled, console.`);
   }
 
   const surfaceRuntime = resolveSurfaceRuntime(scope);
   if (normalizedSource === "enabled") {
     return Object.freeze([...(surfaceRuntime.listEnabledSurfaceIds?.() || [])]);
-  }
-  if (normalizedSource === "workspace") {
-    return Object.freeze([...(surfaceRuntime.listWorkspaceSurfaceIds?.() || [])]);
   }
 
   return Object.freeze(

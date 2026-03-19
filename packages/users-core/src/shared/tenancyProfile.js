@@ -3,7 +3,7 @@ import {
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,
   normalizeTenancyMode
-} from "@jskit-ai/kernel/shared/surface";
+} from "./tenancyMode.js";
 
 const WORKSPACE_SLUG_POLICY_NONE = "none";
 const WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME = "immutable_username";
@@ -67,6 +67,7 @@ export {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
   TENANCY_MODE_WORKSPACE,
+  normalizeTenancyMode,
   WORKSPACE_SLUG_POLICY_NONE,
   WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
   WORKSPACE_SLUG_POLICY_USER_SELECTED,

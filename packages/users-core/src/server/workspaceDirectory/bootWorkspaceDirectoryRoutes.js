@@ -34,9 +34,13 @@ function bootWorkspaceDirectoryRoutes(app) {
         )
       },
       async function (request, reply) {
+        const body = request.input.body || {};
         const response = await request.executeAction({
           actionId: "workspace.workspaces.create",
-          input: request.input.body
+          input: {
+            name: body.name,
+            slug: body.slug
+          }
         });
         reply.code(200).send(response);
       }

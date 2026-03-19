@@ -1,11 +1,6 @@
 import { createSurfacePathHelpers } from "./paths.js";
 import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 
-const TENANCY_MODE_NONE = "none";
-const TENANCY_MODE_PERSONAL = "personal";
-const TENANCY_MODE_WORKSPACE = "workspace";
-const TENANCY_MODES = Object.freeze([TENANCY_MODE_NONE, TENANCY_MODE_PERSONAL, TENANCY_MODE_WORKSPACE]);
-
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -39,122 +34,21 @@ function resolveSurfaceIds({ surfaces = {} } = {}) {
   throw new Error("createSurfaceRuntime requires at least one surface id.");
 }
 
-function normalizeTenancyMode(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (!TENANCY_MODES.includes(normalized)) {
-    return TENANCY_MODE_NONE;
-  }
-  return normalized;
-}
-
-function validateTenancyModeAgainstSurfaces({ tenancyMode, enabledSurfaceIds = [], normalizedSurfaces = {} } = {}) {
-  const workspaceEnabledSurfaceIds = enabledSurfaceIds.filter(
-    (surfaceId) => Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace)
-  );
-
-  if (tenancyMode === TENANCY_MODE_NONE && workspaceEnabledSurfaceIds.length > 0) {
-    throw new Error(
-      `createSurfaceRuntime invalid config: tenancyMode "${TENANCY_MODE_NONE}" cannot enable workspace surfaces (${workspaceEnabledSurfaceIds.join(", ")}).`
-    );
-  }
-
-  if (tenancyMode !== TENANCY_MODE_NONE && workspaceEnabledSurfaceIds.length < 1) {
-    throw new Error(
-      `createSurfaceRuntime invalid config: tenancyMode "${tenancyMode}" requires at least one enabled workspace surface.`
-    );
-  }
-}
-
-function normalizeWorkspaceSurfacePolicy(policy = {}) {
-  const source = isRecord(policy) ? policy : {};
-  const preferredSurfaceIds = uniqueSurfaceIds(
-    Array.isArray(source.preferredSurfaceIds) ? source.preferredSurfaceIds : []
-  );
-
-  return {
-    preferredSurfaceIds,
-    ensureAtLeastOneWorkspaceSurface: source.ensureAtLeastOneWorkspaceSurface !== false
-  };
-}
-
-function applyWorkspaceSurfacePolicyToSurfaces({ surfaces = {}, policy = {} } = {}) {
-  const sourceSurfaces = isRecord(surfaces) ? surfaces : {};
-  const normalizedPolicy = normalizeWorkspaceSurfacePolicy(policy);
-  const entries = [];
-  const nextSurfaces = new Map();
-  const enabledEntries = [];
-  const enabledEntriesBySurfaceId = new Map();
-
-  for (const [key, value] of Object.entries(sourceSurfaces)) {
-    const record = isRecord(value) ? value : {};
-    const surfaceId = normalizeSurfaceId(record.id || key);
-    const entry = { key, surfaceId };
-    entries.push(entry);
-    nextSurfaces.set(key, { ...record });
-
-    const nextSurface = nextSurfaces.get(key);
-    if (!surfaceId || nextSurface?.enabled === false) {
-      continue;
-    }
-
-    enabledEntries.push(entry);
-    if (!enabledEntriesBySurfaceId.has(surfaceId)) {
-      enabledEntriesBySurfaceId.set(surfaceId, entry);
-    }
-  }
-
-  for (const surfaceId of normalizedPolicy.preferredSurfaceIds) {
-    const matchedEntry = enabledEntriesBySurfaceId.get(surfaceId);
-    if (!matchedEntry) {
-      continue;
-    }
-    const matchedSurface = nextSurfaces.get(matchedEntry.key);
-    if (matchedSurface) {
-      matchedSurface.requiresWorkspace = true;
-    }
-  }
-
-  const hasWorkspaceSurface = enabledEntries.some(({ key }) => nextSurfaces.get(key)?.requiresWorkspace === true);
-  if (!hasWorkspaceSurface && normalizedPolicy.ensureAtLeastOneWorkspaceSurface && enabledEntries.length > 0) {
-    const [firstEnabledEntry] = enabledEntries;
-    const firstEnabledSurface = nextSurfaces.get(firstEnabledEntry.key);
-    if (firstEnabledSurface) {
-      firstEnabledSurface.requiresWorkspace = true;
-    }
-  }
-
-  const normalizedSurfaces = {};
-  for (const entry of entries) {
-    normalizedSurfaces[entry.key] = nextSurfaces.get(entry.key) || {};
-  }
-  return normalizedSurfaces;
-}
 
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
-  const tenancyMode = normalizeTenancyMode(options?.tenancyMode);
   const sourceSurfaces = isRecord(options?.surfaces) ? options.surfaces : {};
-  const hasWorkspaceSurfacePolicy = Object.hasOwn(options, "workspaceSurfacePolicy");
-  let policySurfaces = sourceSurfaces;
-  if (hasWorkspaceSurfacePolicy) {
-    policySurfaces = applyWorkspaceSurfacePolicyToSurfaces({
-      surfaces: sourceSurfaces,
-      policy: options.workspaceSurfacePolicy
-    });
-  }
   const surfaceIds = resolveSurfaceIds({
-    surfaces: policySurfaces
+    surfaces: sourceSurfaces
   });
 
   const normalizedSurfaces = {};
   for (const surfaceId of surfaceIds) {
-    const source = isRecord(policySurfaces[surfaceId]) ? policySurfaces[surfaceId] : {};
+    const source = isRecord(sourceSurfaces[surfaceId]) ? sourceSurfaces[surfaceId] : {};
     normalizedSurfaces[surfaceId] = {
+      ...source,
       id: surfaceId,
       prefix: source.prefix,
-      requiresWorkspace: Boolean(source.requiresWorkspace),
       enabled: source.enabled !== false
     };
   }
@@ -175,11 +69,6 @@ function createSurfaceRuntime(options = {}) {
   });
 
   const enabledSurfaceIds = surfaceIds.filter((surfaceId) => normalizedSurfaces[surfaceId]?.enabled !== false);
-  validateTenancyModeAgainstSurfaces({
-    tenancyMode,
-    enabledSurfaceIds,
-    normalizedSurfaces
-  });
   const defaultSurfaceSource = isRecord(normalizedSurfaces[registry.DEFAULT_SURFACE_ID])
     ? normalizedSurfaces[registry.DEFAULT_SURFACE_ID]
     : {};
@@ -226,18 +115,6 @@ function createSurfaceRuntime(options = {}) {
     return definitions;
   }
 
-  function surfaceRequiresWorkspace(surfaceId) {
-    return Boolean(getSurfaceDefinition(surfaceId)?.requiresWorkspace);
-  }
-
-  function listWorkspaceSurfaceIds() {
-    return enabledSurfaceIds.filter((surfaceId) => Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace));
-  }
-
-  function listNonWorkspaceSurfaceIds() {
-    return enabledSurfaceIds.filter((surfaceId) => !Boolean(normalizedSurfaces[surfaceId]?.requiresWorkspace));
-  }
-
   function isSurfaceEnabled(surfaceId) {
     const normalizedSurface = normalizeSurfaceMode(surfaceId);
     if (normalizedSurface === allMode) {
@@ -248,10 +125,6 @@ function createSurfaceRuntime(options = {}) {
   }
 
   return {
-    TENANCY_MODE_NONE,
-    TENANCY_MODE_PERSONAL,
-    TENANCY_MODE_WORKSPACE,
-    TENANCY_MODE: tenancyMode,
     SURFACE_MODE_ALL: allMode,
     SURFACE_IDS: [...surfaceIds],
     DEFAULT_SURFACE_ID: registry.DEFAULT_SURFACE_ID,
@@ -260,9 +133,6 @@ function createSurfaceRuntime(options = {}) {
     resolveSurfaceFromPathname: pathHelpers.resolveSurfaceFromPathname,
     getSurfaceDefinition,
     listSurfaceDefinitions,
-    surfaceRequiresWorkspace,
-    listWorkspaceSurfaceIds,
-    listNonWorkspaceSurfaceIds,
     listEnabledSurfaceIds,
     isSurfaceEnabled
   };
@@ -357,10 +227,6 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
 }
 
 export {
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
-  normalizeTenancyMode,
   createSurfaceRuntime,
   filterRoutesBySurface
 };

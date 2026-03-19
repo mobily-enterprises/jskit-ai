@@ -180,7 +180,7 @@ test("workspace settings routes mount one canonical workspace endpoint", async (
   assert.ok(workspaceSettings);
   assert.equal(workspaceSettings?.visibility, "workspace");
   assert.equal(workspaceSettingsPatch?.visibility, "workspace");
-  assert.equal(workspaceSettings?.workspaceSurface, undefined);
+  assert.equal(workspaceSettings?.surface, undefined);
   assert.equal(adminWorkspaceSettings, null);
   assert.equal(consoleWorkspaceSettings, null);
 });

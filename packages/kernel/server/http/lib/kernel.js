@@ -26,11 +26,11 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "auth")) {
     nextConfig.authPolicy = sourceRoute.auth;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspacePolicy")) {
-    nextConfig.workspacePolicy = sourceRoute.workspacePolicy;
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "contextPolicy")) {
+    nextConfig.contextPolicy = sourceRoute.contextPolicy;
   }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspaceSurface")) {
-    nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "surface")) {
+    nextConfig.surface = sourceRoute.surface;
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
     nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
@@ -311,7 +311,7 @@ function resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurface
     return normalizedExplicitSurface;
   }
 
-  const normalizedRouteSurface = normalizeText(request?.routeOptions?.config?.workspaceSurface).toLowerCase();
+  const normalizedRouteSurface = normalizeText(request?.routeOptions?.config?.surface).toLowerCase();
   if (normalizedRouteSurface) {
     return normalizedRouteSurface;
   }
@@ -633,8 +633,7 @@ function registerRoutes(
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeInputTransforms = normalizeRouteInputTransforms(route);
     const routeActionDefaultSurface =
-      normalizeText(route?.workspaceSurface || routeOptions?.config?.workspaceSurface || requestActionDefaultSurface).toLowerCase() ||
-      "app";
+      normalizeText(route?.surface || routeOptions?.config?.surface || requestActionDefaultSurface).toLowerCase() || "app";
 
     fastify.route({
       ...routeOptions,

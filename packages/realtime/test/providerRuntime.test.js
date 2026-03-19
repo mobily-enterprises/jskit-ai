@@ -250,7 +250,8 @@ test("RealtimeServiceProvider bridges service event metadata to socket emissions
   await service.createRecord({
     context: {
       visibilityContext: {
-        workspaceOwnerId: 24
+        visibility: "workspace",
+        scopeOwnerId: 24
       }
     }
   });
@@ -388,7 +389,7 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
               payload: ({ result }) => ({
                 workspaceSlug: result?.slug || ""
               }),
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ]
@@ -424,7 +425,8 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
     {
       context: {
         visibilityContext: {
-          workspaceOwnerId: 11
+          visibility: "workspace",
+          scopeOwnerId: 11
         },
         actor: {
           id: 4
@@ -481,7 +483,7 @@ test("RealtimeServiceProvider emits only the matching dispatcher event for each 
             operation: "updated",
             realtime: {
               event: "workspace.settings.changed",
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           },
           {
@@ -491,7 +493,7 @@ test("RealtimeServiceProvider emits only the matching dispatcher event for each 
             operation: "updated",
             realtime: {
               event: "users.bootstrap.changed",
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ]
@@ -527,7 +529,8 @@ test("RealtimeServiceProvider emits only the matching dispatcher event for each 
           id: 4
         },
         visibilityContext: {
-          workspaceOwnerId: 11
+          visibility: "workspace",
+          scopeOwnerId: 11
         }
       }
     }

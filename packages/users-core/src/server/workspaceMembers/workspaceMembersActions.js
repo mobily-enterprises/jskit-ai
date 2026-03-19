@@ -1,7 +1,7 @@
 import {
-  resolveUser,
-  resolveWorkspace
+  resolveUser
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 

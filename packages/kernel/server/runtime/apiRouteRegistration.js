@@ -42,11 +42,11 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   if (Object.hasOwn(sourceRoute, "auth")) {
     nextConfig.authPolicy = sourceRoute.auth;
   }
-  if (Object.hasOwn(sourceRoute, "workspacePolicy")) {
-    nextConfig.workspacePolicy = sourceRoute.workspacePolicy;
+  if (Object.hasOwn(sourceRoute, "contextPolicy")) {
+    nextConfig.contextPolicy = sourceRoute.contextPolicy;
   }
-  if (Object.hasOwn(sourceRoute, "workspaceSurface")) {
-    nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
+  if (Object.hasOwn(sourceRoute, "surface")) {
+    nextConfig.surface = sourceRoute.surface;
   }
   if (Object.hasOwn(sourceRoute, "visibility")) {
     nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);

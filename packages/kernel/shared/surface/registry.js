@@ -24,7 +24,8 @@ function createSurfaceRegistry(options = {}) {
 
   const normalizedEntries = Object.entries(rawSurfaces)
     .map(([key, value]) => {
-      const normalizedId = normalizeSurfaceId(value?.id || key);
+      const sourceDefinition = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      const normalizedId = normalizeSurfaceId(sourceDefinition.id || key);
       if (!normalizedId) {
         return null;
       }
@@ -32,9 +33,9 @@ function createSurfaceRegistry(options = {}) {
       return [
         normalizedId,
         Object.freeze({
+          ...sourceDefinition,
           id: normalizedId,
-          prefix: normalizeSurfacePrefix(value?.prefix),
-          requiresWorkspace: Boolean(value?.requiresWorkspace)
+          prefix: normalizeSurfacePrefix(sourceDefinition.prefix)
         })
       ];
     })
@@ -64,10 +65,6 @@ function createSurfaceRegistry(options = {}) {
     return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.prefix || "";
   }
 
-  function surfaceRequiresWorkspace(surfaceId) {
-    return Boolean(SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.requiresWorkspace);
-  }
-
   function listSurfaceDefinitions() {
     return Object.values(SURFACE_REGISTRY);
   }
@@ -77,7 +74,6 @@ function createSurfaceRegistry(options = {}) {
     DEFAULT_SURFACE_ID,
     normalizeSurfaceId: normalizeRegisteredSurfaceId,
     resolveSurfacePrefix,
-    surfaceRequiresWorkspace,
     listSurfaceDefinitions
   });
 }

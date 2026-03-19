@@ -3,17 +3,16 @@ import test from "node:test";
 
 import { normalizeExecutionContext } from "./executionContext.js";
 
-test("normalizeExecutionContext preserves extra workspace fields", () => {
+test("normalizeExecutionContext preserves non-core context fields", () => {
   const context = normalizeExecutionContext({
-    workspace: {
+    tenant: {
       id: 7,
       slug: "team-alpha",
-      name: "Team Alpha",
       ownerUserId: 42
     }
   });
 
-  assert.equal(context.workspace.ownerUserId, 42);
+  assert.equal(context.tenant.ownerUserId, 42);
 });
 
 test("normalizeExecutionContext keeps custom requestMeta fields", () => {

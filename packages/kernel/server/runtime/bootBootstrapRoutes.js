@@ -1,26 +1,11 @@
 import { Type } from "typebox";
-import { normalizeLowerText } from "../../shared/actions/textNormalization.js";
 import { normalizeObjectInput } from "../../shared/validators/inputNormalization.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { resolveBootstrapPayload } from "./bootstrapContributors.js";
 
 const bootstrapQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    if (!Object.hasOwn(source, "workspaceSlug")) {
-      return {};
-    }
-
-    return {
-      workspaceSlug: normalizeLowerText(source.workspaceSlug)
-    };
-  }
+  schema: Type.Object({}, { additionalProperties: true }),
+  normalize: normalizeObjectInput
 });
 
 const bootstrapOutputValidator = Object.freeze({
@@ -49,8 +34,7 @@ function bootBootstrapRoutes(app) {
       const payload = await resolveBootstrapPayload(app, {
         request,
         reply,
-        query: request.input?.query || {},
-        workspaceSlug: request.input?.query?.workspaceSlug
+        query: request.input?.query || {}
       });
 
       reply.code(200).send(payload);

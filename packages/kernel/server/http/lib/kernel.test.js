@@ -123,7 +123,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
       {
         method: "GET",
         path: "/action-helper",
-        workspaceSurface: "coffie",
+        surface: "coffie",
         middleware: [
           (request) => {
             request.user = {
@@ -269,7 +269,7 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
   assert.equal(observed.length, 1);
   assert.deepEqual(observed[0].context.visibilityContext, {
     visibility: "user",
-    workspaceOwnerId: null,
+    scopeOwnerId: null,
     userOwnerId: 23
   });
   assert.deepEqual(observed[0].context.requestMeta.visibilityContext, observed[0].context.visibilityContext);

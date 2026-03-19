@@ -1,0 +1,59 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  materializeWorkspaceActionSurfacesFromAppConfig
+} from "../src/server/support/workspaceActionSurfaces.js";
+
+test("materializeWorkspaceActionSurfacesFromAppConfig resolves workspace surfaces from appConfig", () => {
+  const actionDefinitions = [
+    {
+      id: "workspace.settings.read",
+      surfacesFrom: "workspace"
+    },
+    {
+      id: "auth.session.read",
+      surfacesFrom: "enabled"
+    }
+  ];
+
+  const materialized = materializeWorkspaceActionSurfacesFromAppConfig(actionDefinitions, {
+    appConfig: {
+      surfaceDefinitions: {
+        app: { id: "app", enabled: true, requiresWorkspace: true },
+        admin: { id: "admin", enabled: true, requiresWorkspace: true },
+        console: { id: "console", enabled: true, requiresWorkspace: false }
+      }
+    }
+  });
+
+  assert.deepEqual(materialized, [
+    {
+      id: "workspace.settings.read",
+      surfaces: ["app", "admin"]
+    },
+    {
+      id: "auth.session.read",
+      surfacesFrom: "enabled"
+    }
+  ]);
+});
+
+test("materializeWorkspaceActionSurfacesFromAppConfig drops workspace actions when no workspace surfaces are enabled", () => {
+  const actionDefinitions = [
+    {
+      id: "workspace.settings.read",
+      surfacesFrom: "workspace"
+    }
+  ];
+
+  const materialized = materializeWorkspaceActionSurfacesFromAppConfig(actionDefinitions, {
+    appConfig: {
+      surfaceDefinitions: {
+        app: { id: "app", enabled: true, requiresWorkspace: false },
+        console: { id: "console", enabled: true, requiresWorkspace: false }
+      }
+    }
+  });
+
+  assert.deepEqual(materialized, []);
+});

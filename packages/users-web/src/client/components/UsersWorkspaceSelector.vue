@@ -3,13 +3,13 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  TENANCY_MODE_NONE,
   readPlacementSurfaceRoles,
   resolveSurfaceIdForRole,
   surfaceRequiresWorkspaceFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
 } from "@jskit-ai/shell-web/client/placement";
+import { TENANCY_MODE_NONE } from "@jskit-ai/users-core/shared/tenancyProfile";
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";

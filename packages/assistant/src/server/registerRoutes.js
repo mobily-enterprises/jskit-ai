@@ -28,7 +28,7 @@ function registerRoutes(app) {
     "/api/console/settings/assistant",
     {
       auth: "required",
-      workspaceSurface: "console",
+      surface: "console",
       meta: {
         tags: ["assistant", "settings"],
         summary: "Get assistant console settings."
@@ -51,7 +51,7 @@ function registerRoutes(app) {
     "/api/console/settings/assistant",
     {
       auth: "required",
-      workspaceSurface: "console",
+      surface: "console",
       meta: {
         tags: ["assistant", "settings"],
         summary: "Update assistant console settings."

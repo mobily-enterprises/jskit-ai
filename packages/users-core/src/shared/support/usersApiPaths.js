@@ -1,15 +1,8 @@
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { isWorkspaceVisibility } from "./usersVisibility.js";
 
 const USERS_PUBLIC_API_BASE_PATH = "/api";
 const USERS_WORKSPACE_API_BASE_PATH = "/api/w/:workspaceSlug/workspace";
-
-function isWorkspaceVisibility(visibility = "") {
-  const normalizedVisibility = normalizeRouteVisibility(visibility, {
-    fallback: "public"
-  });
-  return normalizedVisibility === "workspace" || normalizedVisibility === "workspace_user";
-}
 
 function normalizeUsersApiRelativePath(relativePath = "/") {
   const normalizedPath = normalizePathname(relativePath);

@@ -14,7 +14,7 @@ function bootConsoleSettingsRoutes(app) {
     "/api/console/settings",
     {
       auth: "required",
-      workspaceSurface: "console",
+      surface: "console",
       meta: {
         tags: ["console", "settings"],
         summary: "Get console settings"
@@ -36,7 +36,7 @@ function bootConsoleSettingsRoutes(app) {
     "/api/console/settings",
     {
       auth: "required",
-      workspaceSurface: "console",
+      surface: "console",
       meta: {
         tags: ["console", "settings"],
         summary: "Update console settings"

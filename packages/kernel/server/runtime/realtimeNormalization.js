@@ -11,7 +11,11 @@ function normalizeScopeKind(value) {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
-  return normalized === "workspace" ? "workspace" : "global";
+  if (!normalized || normalized === "global") {
+    return "global";
+  }
+
+  return normalized;
 }
 
 export { normalizePositiveIntegerOrNull, normalizeScopeKind };

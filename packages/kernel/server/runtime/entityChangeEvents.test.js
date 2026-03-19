@@ -22,7 +22,7 @@ test("entity change publisher emits normalized event payload", async () => {
         sourceClientId: "client-a"
       },
       visibilityContext: {
-        workspaceOwnerId: 23
+        scopeOwnerId: 23
       }
     }
   }, {
@@ -34,7 +34,7 @@ test("entity change publisher emits normalized event payload", async () => {
 
   assert.equal(payload?.operation, "created");
   assert.equal(payload?.entityId, 5);
-  assert.deepEqual(payload?.scope, { kind: "workspace", id: 23 });
+  assert.deepEqual(payload?.scope, { kind: "scope", id: 23 });
   assert.equal(payload?.actorId, 17);
   assert.equal(payload?.commandId, "cmd-1");
   assert.equal(payload?.sourceClientId, "client-a");
@@ -43,7 +43,7 @@ test("entity change publisher emits normalized event payload", async () => {
   assert.equal(published.length, 1);
 });
 
-test("entity change publisher infers workspace scope from service context when visibility owner ids are missing", async () => {
+test("entity change publisher infers scoped owner from service context when visibility owner ids are missing", async () => {
   const published = [];
   const publishEntityChange = createEntityChangePublisher({
     domainEvents: {
@@ -61,7 +61,7 @@ test("entity change publisher infers workspace scope from service context when v
     {
       context: {
         actor: { id: 17 },
-        workspace: { id: 23 },
+        scope: { kind: "workspace", id: 23 },
         visibilityContext: {
           visibility: "workspace"
         }

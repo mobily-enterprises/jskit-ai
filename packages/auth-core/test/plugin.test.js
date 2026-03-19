@@ -236,7 +236,7 @@ test("enforces permission checks and resolves workspace context when requested",
           routeOptions: {
             config: {
               authPolicy: "required",
-              workspacePolicy: "required",
+              contextPolicy: "required",
               permission: "projects.read"
             }
           }

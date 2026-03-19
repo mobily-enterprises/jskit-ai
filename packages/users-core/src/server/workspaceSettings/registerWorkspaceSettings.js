@@ -8,6 +8,7 @@ import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
+import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
@@ -23,6 +24,7 @@ function registerWorkspaceSettings(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function" || typeof app.service !== "function") {
     throw new Error("registerWorkspaceSettings requires application singleton()/service()/actions().");
   }
+  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
 
   app.singleton("workspaceSettingsRepository", (scope) => {
     const knex = scope.make(KERNEL_TOKENS.Knex);
@@ -52,7 +54,7 @@ function registerWorkspaceSettings(app) {
               payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           },
           {
@@ -63,7 +65,7 @@ function registerWorkspaceSettings(app) {
             entityId: ({ args }) => args?.[0]?.id,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ]
@@ -72,12 +74,15 @@ function registerWorkspaceSettings(app) {
   );
 
   app.actions(
-    withActionDefaults(workspaceSettingsActions, {
-      domain: "workspace",
-      dependencies: {
-        workspaceSettingsService: "users.workspace.settings.service"
-      }
-    })
+    materializeWorkspaceActionSurfacesFromAppConfig(
+      withActionDefaults(workspaceSettingsActions, {
+        domain: "workspace",
+        dependencies: {
+          workspaceSettingsService: "users.workspace.settings.service"
+        }
+      }),
+      { appConfig }
+    )
   );
 }
 

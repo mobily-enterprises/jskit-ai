@@ -33,7 +33,7 @@ test("createRepositoryScope builds explicit scoped query helpers", () => {
   scope.scoped({
     visibilityContext: {
       visibility: "workspace",
-      workspaceOwnerId: 12
+      scopeOwnerId: 12
     }
   });
 
@@ -64,7 +64,7 @@ test("createRepositoryScope exposes applyToQuery and owner stamping", () => {
   scope.applyToQuery(queryBuilder, {
     visibilityContext: {
       visibility: "workspace_user",
-      workspaceOwnerId: 4,
+      scopeOwnerId: 4,
       userOwnerId: 9
     }
   });
@@ -79,7 +79,7 @@ test("createRepositoryScope exposes applyToQuery and owner stamping", () => {
       {
         visibilityContext: {
           visibility: "workspace_user",
-          workspaceOwnerId: 4,
+          scopeOwnerId: 4,
           userOwnerId: 9
         }
       }

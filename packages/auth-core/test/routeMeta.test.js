@@ -8,8 +8,8 @@ test("withAuthPolicy applies stable defaults", () => {
   assert.deepEqual(wrapped, {
     config: {
       authPolicy: "public",
-      workspacePolicy: "none",
-      workspaceSurface: "",
+      contextPolicy: "none",
+      surface: "",
       permission: "",
       ownerParam: null,
       userField: "id",
@@ -40,8 +40,8 @@ test("mergeAuthPolicy preserves existing config fields and adds auth policy defa
       timeWindow: "1 minute"
     },
     authPolicy: "public",
-    workspacePolicy: "none",
-    workspaceSurface: "",
+    contextPolicy: "none",
+    surface: "",
     permission: "",
     ownerParam: null,
     userField: "id",
@@ -56,13 +56,13 @@ test("mergeAuthPolicy normalizes policy metadata and keeps explicit settings", (
     {
       config: {
         authPolicy: "public",
-        workspacePolicy: "none"
+        contextPolicy: "none"
       }
     },
     {
       authPolicy: "own",
-      workspacePolicy: "required",
-      workspaceSurface: "admin",
+      contextPolicy: "required",
+      surface: "admin",
       permission: "workspace.members.manage",
       ownerParam: "userId",
       userField: "id",
@@ -72,8 +72,8 @@ test("mergeAuthPolicy normalizes policy metadata and keeps explicit settings", (
   );
 
   assert.equal(merged.config.authPolicy, "own");
-  assert.equal(merged.config.workspacePolicy, "required");
-  assert.equal(merged.config.workspaceSurface, "admin");
+  assert.equal(merged.config.contextPolicy, "required");
+  assert.equal(merged.config.surface, "admin");
   assert.equal(merged.config.permission, "workspace.members.manage");
   assert.equal(merged.config.ownerParam, "userId");
   assert.equal(merged.config.userField, "id");

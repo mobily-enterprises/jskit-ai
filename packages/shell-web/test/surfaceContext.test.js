@@ -18,7 +18,6 @@ import {
 
 test("buildSurfaceConfigContext normalizes runtime definitions for placement context", () => {
   const surfaceConfig = buildSurfaceConfigContext({
-    TENANCY_MODE: TENANCY_MODE_WORKSPACE,
     DEFAULT_SURFACE_ID: "APP",
     listEnabledSurfaceIds() {
       return [" APP ", "admin"];
@@ -30,6 +29,8 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
         { id: "console", prefix: "/console", requiresWorkspace: false }
       ];
     }
+  }, {
+    tenancyMode: TENANCY_MODE_WORKSPACE
   });
 
   assert.equal(surfaceConfig.defaultSurfaceId, "app");

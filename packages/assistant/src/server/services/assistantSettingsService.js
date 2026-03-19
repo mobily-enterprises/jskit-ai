@@ -30,7 +30,7 @@ const serviceEvents = Object.freeze({
       entityId: ({ args }) => args?.[0]?.id || null,
       realtime: Object.freeze({
         event: ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT,
-        audience: "all_workspace_users",
+        audience: "event_scope",
         payload: ({ args }) => ({
           workspaceSlug: String(args?.[0]?.slug || "").trim()
         })

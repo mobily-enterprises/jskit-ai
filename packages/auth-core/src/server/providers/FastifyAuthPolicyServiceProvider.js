@@ -2,6 +2,7 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { authPolicyPlugin } from "../lib/plugin.js";
+import { AUTH_POLICY_CONTEXT_RESOLVER_TOKEN } from "../lib/tokens.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
 import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
 
@@ -78,21 +79,34 @@ class FastifyAuthPolicyServiceProvider {
     const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};
     const fastify = app.make(KERNEL_TOKENS.Fastify);
     const authService = app.make("authService");
+    const resolveContext =
+      typeof app.has === "function" && app.has(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN)
+        ? app.make(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN)
+        : null;
+
+    if (resolveContext != null && typeof resolveContext !== "function") {
+      throw new Error(
+        `FastifyAuthPolicyServiceProvider requires ${AUTH_POLICY_CONTEXT_RESOLVER_TOKEN} to be a function when provided.`
+      );
+    }
+
+    const pluginDeps = {
+      resolveActor: async (request) => {
+        if (authService && typeof authService.authenticateRequest === "function") {
+          return authService.authenticateRequest(request);
+        }
+        return {
+          authenticated: false,
+          actor: null,
+          transientFailure: false
+        };
+      },
+      hasPermission: defaultHasPermission,
+      ...(typeof resolveContext === "function" ? { resolveContext } : {})
+    };
 
     const plugin = authPolicyPlugin(
-      {
-        resolveActor: async (request) => {
-          if (authService && typeof authService.authenticateRequest === "function") {
-            return authService.authenticateRequest(request);
-          }
-          return {
-            authenticated: false,
-            actor: null,
-            transientFailure: false
-          };
-        },
-        hasPermission: defaultHasPermission
-      },
+      pluginDeps,
       {
         nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
         apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",

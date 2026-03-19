@@ -1,16 +1,29 @@
 import {
-  normalizePathname,
   normalizeSurfaceId,
-  normalizeSurfacePrefix,
+  normalizeSurfacePrefix
+} from "@jskit-ai/kernel/shared/surface";
+import {
+  normalizePathname,
   normalizeSurfaceSegmentFromPrefix,
   parseWorkspacePathname,
   resolveDefaultWorkspaceSurfaceId,
-  resolveWorkspaceSurfaceIdFromSuffixSegments,
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
-  normalizeTenancyMode
-} from "@jskit-ai/kernel/shared/surface";
+  resolveWorkspaceSurfaceIdFromSuffixSegments
+} from "@jskit-ai/users-core/shared/support/workspacePathModel";
+
+const TENANCY_MODE_NONE = "none";
+const TENANCY_MODE_PERSONAL = "personal";
+const TENANCY_MODE_WORKSPACE = "workspace";
+const TENANCY_MODES = Object.freeze([TENANCY_MODE_NONE, TENANCY_MODE_PERSONAL, TENANCY_MODE_WORKSPACE]);
+
+function normalizeTenancyMode(value = "") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!TENANCY_MODES.includes(normalized)) {
+    return TENANCY_MODE_NONE;
+  }
+  return normalized;
+}
 
 const EMPTY_SURFACE_CONFIG = Object.freeze({
   tenancyMode: TENANCY_MODE_NONE,
@@ -147,9 +160,12 @@ function normalizeSurfaceConfig(surfaceConfig = {}) {
   });
 }
 
-function buildSurfaceConfigContext(surfaceRuntime = null) {
+function buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = TENANCY_MODE_NONE } = {}) {
+  const normalizedTenancyMode = normalizeTenancyMode(tenancyMode);
   if (!isRecord(surfaceRuntime)) {
-    return EMPTY_SURFACE_CONFIG;
+    return normalizeSurfaceConfig({
+      tenancyMode: normalizedTenancyMode
+    });
   }
 
   const surfaceDefinitions =
@@ -167,7 +183,7 @@ function buildSurfaceConfigContext(surfaceRuntime = null) {
   }
 
   return normalizeSurfaceConfig({
-    tenancyMode: surfaceRuntime.TENANCY_MODE,
+    tenancyMode: normalizedTenancyMode,
     defaultSurfaceId: surfaceRuntime.DEFAULT_SURFACE_ID,
     enabledSurfaceIds:
       typeof surfaceRuntime.listEnabledSurfaceIds === "function" ? surfaceRuntime.listEnabledSurfaceIds() : [],

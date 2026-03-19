@@ -67,6 +67,32 @@ function normalizeBoolean(value, fallback) {
   return fallback;
 }
 
+function normalizeQueryPayload(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value;
+}
+
+function resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {}) {
+  const normalizedQuery = normalizeQueryPayload(query);
+  if (Object.hasOwn(normalizedQuery, "workspaceSlug")) {
+    return normalizeLowerText(normalizedQuery.workspaceSlug);
+  }
+
+  const normalizedInputQuery = normalizeQueryPayload(request?.input?.query);
+  if (Object.hasOwn(normalizedInputQuery, "workspaceSlug")) {
+    return normalizeLowerText(normalizedInputQuery.workspaceSlug);
+  }
+
+  const normalizedRequestQuery = normalizeQueryPayload(request?.query);
+  if (Object.hasOwn(normalizedRequestQuery, "workspaceSlug")) {
+    return normalizeLowerText(normalizedRequestQuery.workspaceSlug);
+  }
+
+  return "";
+}
+
 function resolveAppState(appConfig = {}) {
   const features = {
     workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, true),
@@ -188,7 +214,7 @@ function createWorkspaceBootstrapContributor({
 
   return Object.freeze({
     contributorId,
-    async contribute({ request = null, reply = null, workspaceSlug = "" } = {}) {
+    async contribute({ request = null, reply = null, query = {} } = {}) {
       const authResult = await request.executeAction({
         actionId: "auth.session.read"
       });
@@ -236,7 +262,7 @@ function createWorkspaceBootstrapContributor({
           })) || normalizedUser;
 
         const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
-        const normalizedWorkspaceSlug = normalizeText(workspaceSlug);
+        const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
         let workspaceContext = null;
         if (normalizedWorkspaceSlug && resolvedTenancyProfile.mode !== TENANCY_MODE_NONE) {
           workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(

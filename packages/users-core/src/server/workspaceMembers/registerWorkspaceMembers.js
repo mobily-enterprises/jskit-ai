@@ -7,6 +7,7 @@ import {
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
+import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
 const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
@@ -23,6 +24,7 @@ function registerWorkspaceMembers(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerWorkspaceMembers requires application singleton()/service()/actions().");
   }
+  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
 
   app.service(
     USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN,
@@ -48,7 +50,7 @@ function registerWorkspaceMembers(app) {
               payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           },
           {
@@ -59,7 +61,7 @@ function registerWorkspaceMembers(app) {
             entityId: ({ args }) => args?.[0]?.id,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ],
@@ -75,7 +77,7 @@ function registerWorkspaceMembers(app) {
               payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           },
           {
@@ -86,7 +88,7 @@ function registerWorkspaceMembers(app) {
             entityId: ({ args }) => args?.[0]?.id,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ],
@@ -102,7 +104,7 @@ function registerWorkspaceMembers(app) {
               payload: ({ args }) => ({
                 workspaceSlug: String(args?.[0]?.slug || "").trim()
               }),
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           },
           {
@@ -113,7 +115,7 @@ function registerWorkspaceMembers(app) {
             entityId: ({ args }) => args?.[0]?.id,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "all_workspace_users"
+              audience: "event_scope"
             }
           }
         ]
@@ -122,12 +124,15 @@ function registerWorkspaceMembers(app) {
   );
 
   app.actions(
-    withActionDefaults(workspaceMembersActions, {
-      domain: "workspace",
-      dependencies: {
-        workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
-      }
-    })
+    materializeWorkspaceActionSurfacesFromAppConfig(
+      withActionDefaults(workspaceMembersActions, {
+        domain: "workspace",
+        dependencies: {
+          workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
+        }
+      }),
+      { appConfig }
+    )
   );
 }
 

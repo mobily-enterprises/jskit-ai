@@ -113,6 +113,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
 
 test("shell web client provider resolves surface roles from client app config", async () => {
   setClientAppConfig({
+    tenancyMode: "workspace",
     surfaceRoles: {
       "workspace.main": "app",
       "workspace.admin": "admin",
@@ -124,7 +125,6 @@ test("shell web client provider resolves surface roles from client app config", 
   try {
     const app = createAppDouble({
       surfaceRuntime: {
-        TENANCY_MODE: "workspace",
         DEFAULT_SURFACE_ID: "app",
         listEnabledSurfaceIds() {
           return ["app", "admin", "console"];

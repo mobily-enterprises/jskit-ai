@@ -1,173 +1,10 @@
 import { filterRoutesBySurface, normalizeSurfacePrefix as normalizeSurfacePrefixValue } from "../shared/surface/index.js";
-import {
-  normalizePathname,
-  normalizeSurfaceSegmentFromPrefix,
-  resolveDefaultWorkspaceSurfaceId as resolveDefaultWorkspaceSurfaceIdFromModel
-} from "../shared/surface/workspacePathModel.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const AUTH_POLICY_PUBLIC = "public";
 const WEB_ROOT_ALLOW_YES = "yes";
 const WEB_ROOT_ALLOW_NO = "no";
-
-function resolveOwnRouteScope(route) {
-  const source = route && typeof route === "object" ? route : {};
-  const metaJskit =
-    source.meta && typeof source.meta === "object" && source.meta.jskit && typeof source.meta.jskit === "object"
-      ? source.meta.jskit
-      : {};
-  const normalizedScope = String(source.scope || metaJskit.scope || "")
-    .trim()
-    .toLowerCase();
-  if (!normalizedScope) {
-    return "";
-  }
-  return normalizedScope === "global" ? "global" : "surface";
-}
-
-function routeTreeHasGlobalScope(route) {
-  const source = route && typeof route === "object" ? route : {};
-  if (resolveOwnRouteScope(source) === "global") {
-    return true;
-  }
-
-  const children = Array.isArray(source.children) ? source.children : [];
-  for (const child of children) {
-    if (routeTreeHasGlobalScope(child)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function resolveRouteScope(route) {
-  const ownScope = resolveOwnRouteScope(route);
-  if (ownScope) {
-    return ownScope;
-  }
-  return routeTreeHasGlobalScope(route) ? "global" : "surface";
-}
-
-function resolveRouteSurface(route, surfaceRuntime) {
-  const source = route && typeof route === "object" ? route : {};
-  const metaJskit =
-    source.meta && typeof source.meta === "object" && source.meta.jskit && typeof source.meta.jskit === "object"
-      ? source.meta.jskit
-      : {};
-  const explicitSurface = String(source.surface || metaJskit.surface || "")
-    .trim()
-    .toLowerCase();
-  if (explicitSurface) {
-    return explicitSurface;
-  }
-
-  return surfaceRuntime.resolveSurfaceFromPathname(source.path || "/");
-}
-
-function resolveWorkspaceCanonicalPath(routePath, {
-  surfacePrefix,
-  surfaceId,
-  defaultWorkspaceSurfaceId
-} = {}) {
-  const normalizedRoutePath = normalizePathname(routePath);
-  const workspacePrefix = "/w/:workspaceSlug";
-  if (normalizedRoutePath === workspacePrefix || normalizedRoutePath.startsWith(`${workspacePrefix}/`)) {
-    return normalizedRoutePath;
-  }
-
-  const normalizedSurfaceId = String(surfaceId || "")
-    .trim()
-    .toLowerCase();
-  const normalizedSurfacePrefix = normalizeSurfacePrefixValue(surfacePrefix);
-  const isDefaultWorkspaceSurface =
-    normalizedSurfaceId && normalizedSurfaceId === String(defaultWorkspaceSurfaceId || "").trim().toLowerCase();
-
-  let relativePath = normalizedRoutePath;
-  if (normalizedSurfacePrefix) {
-    if (relativePath === normalizedSurfacePrefix) {
-      relativePath = "/";
-    } else if (relativePath.startsWith(`${normalizedSurfacePrefix}/`)) {
-      relativePath = relativePath.slice(normalizedSurfacePrefix.length) || "/";
-    }
-  }
-
-  if (isDefaultWorkspaceSurface) {
-    const defaultSurfaceSegment = normalizedSurfaceId ? `/${normalizedSurfaceId}` : "";
-    if (defaultSurfaceSegment) {
-      if (relativePath === defaultSurfaceSegment) {
-        relativePath = "/";
-      } else if (relativePath.startsWith(`${defaultSurfaceSegment}/`)) {
-        relativePath = relativePath.slice(defaultSurfaceSegment.length) || "/";
-      }
-    }
-  }
-
-  let workspaceRoot = workspacePrefix;
-  if (!isDefaultWorkspaceSurface) {
-    const surfaceSegment = normalizeSurfaceSegmentFromPrefix(surfacePrefix) || normalizedSurfaceId;
-    if (surfaceSegment) {
-      workspaceRoot = `${workspaceRoot}/${surfaceSegment}`;
-    }
-  }
-
-  if (relativePath === "/") {
-    return workspaceRoot;
-  }
-
-  return `${workspaceRoot}${relativePath}`;
-}
-
-function rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime) {
-  const source = route && typeof route === "object" ? route : {};
-  if (resolveRouteScope(source) === "global") {
-    return source;
-  }
-
-  const routeSurface = resolveRouteSurface(source, surfaceRuntime);
-  if (!surfaceRuntime.surfaceRequiresWorkspace(routeSurface)) {
-    return source;
-  }
-
-  const surfaceDefinition = surfaceRuntime.getSurfaceDefinition(routeSurface);
-  if (!surfaceDefinition) {
-    return source;
-  }
-
-  const canonicalPath = resolveWorkspaceCanonicalPath(source.path || "/", {
-    surfacePrefix: surfaceDefinition.prefix,
-    surfaceId: routeSurface,
-    defaultWorkspaceSurfaceId: resolveDefaultWorkspaceSurfaceIdFromModel({
-      defaultSurfaceId: surfaceRuntime?.DEFAULT_SURFACE_ID,
-      workspaceSurfaceIds:
-        typeof surfaceRuntime?.listWorkspaceSurfaceIds === "function" ? surfaceRuntime.listWorkspaceSurfaceIds() : [],
-      surfaceRequiresWorkspace: (surfaceId) =>
-        typeof surfaceRuntime?.surfaceRequiresWorkspace === "function" && surfaceRuntime.surfaceRequiresWorkspace(surfaceId)
-    })
-  });
-  if (canonicalPath === normalizePathname(source.path || "/")) {
-    return source;
-  }
-
-  return Object.freeze({
-    ...source,
-    path: canonicalPath
-  });
-}
-
-function mapRoutesToCanonicalWorkspacePaths(routes, surfaceRuntime) {
-  if (
-    !surfaceRuntime ||
-    typeof surfaceRuntime.getSurfaceDefinition !== "function" ||
-    typeof surfaceRuntime.surfaceRequiresWorkspace !== "function"
-  ) {
-    return routes;
-  }
-
-  const sourceRoutes = Array.isArray(routes) ? routes : [];
-  return sourceRoutes.map((route) => rewriteRouteToCanonicalWorkspacePath(route, surfaceRuntime));
-}
 
 function createFallbackNotFoundRoute(component) {
   if (!component) {
@@ -200,8 +37,7 @@ function buildSurfaceAwareRoutes({
   if (!effectiveFallback) {
     throw new TypeError("buildSurfaceAwareRoutes requires fallbackRoute or notFoundComponent.");
   }
-  const canonicalRoutes = mapRoutesToCanonicalWorkspacePaths([...routes, effectiveFallback], surfaceRuntime);
-  return filterRoutesBySurface(canonicalRoutes, {
+  return filterRoutesBySurface([...routes, effectiveFallback], {
     surfaceRuntime,
     surfaceMode
   });

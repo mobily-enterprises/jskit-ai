@@ -7,7 +7,7 @@ import {
   parseWorkspacePathname,
   resolveDefaultWorkspaceSurfaceId,
   resolveWorkspaceSurfaceIdFromSuffixSegments
-} from "./workspacePathModel.js";
+} from "../src/shared/support/workspacePathModel.js";
 
 test("normalizePathname trims query/hash and trailing slashes", () => {
   assert.equal(normalizePathname("w/acme/admin/?a=1#x"), "/w/acme/admin");

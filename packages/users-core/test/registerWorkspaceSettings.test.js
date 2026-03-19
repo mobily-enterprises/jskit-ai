@@ -37,8 +37,8 @@ test("registerWorkspaceSettings registers workspace settings service realtime ev
   assert.equal(serviceCalls[0].token, "users.workspace.settings.service");
   assert.equal(typeof serviceCalls[0].factory, "function");
   assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.event, WORKSPACE_SETTINGS_CHANGED_EVENT);
-  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.audience, "all_workspace_users");
+  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.audience, "event_scope");
   assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
-  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.audience, "all_workspace_users");
+  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.audience, "event_scope");
   assert.equal(actionCalls.length, 1);
 });
