@@ -8,3 +8,4 @@ export {
 } from "../../shared/support/normalize.js";
 export { sortStrings, sortById } from "../../shared/support/sorting.js";
 export { SupportCoreServiceProvider } from "./SupportCoreServiceProvider.js";
+export { symlinkSafeRequire } from "./symlinkSafeRequire.js";

@@ -4,11 +4,6 @@ import { resolveShellLinkPath } from "../src/client/navigation/linkResolver.js";
 
 function createPlacementContext() {
   return {
-    surfaceRoles: {
-      "workspace.main": "app",
-      "workspace.admin": "admin",
-      "console.global": "console"
-    },
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
@@ -86,14 +81,4 @@ test("resolveShellLinkPath uses deterministic surface fallback when context is m
   });
 
   assert.equal(to, "/admin/contacts/5");
-});
-
-test("resolveShellLinkPath resolves surface id from target surface role", () => {
-  const to = resolveShellLinkPath({
-    context: createPlacementContext(),
-    surfaceRole: "workspace.admin",
-    relativePath: "/contacts/2"
-  });
-
-  assert.equal(to, "/admin/contacts/2");
 });

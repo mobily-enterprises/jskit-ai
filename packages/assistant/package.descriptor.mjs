@@ -164,7 +164,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.menu\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  slot: \"app.primary-menu\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surfaceRole: \"workspace.admin\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  slot: \"app.primary-menu\",\n  surface: \"admin\",\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append admin Assistant menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu",
@@ -179,7 +179,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  targetSurfaceRole: \"workspace.admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  surface: \"admin\",\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
         reason: "Append assistant workspace settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-workspace-settings-form-placement",
@@ -194,7 +194,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.console.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  targetSurfaceRole: \"console.global\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  slot: \"console.settings.forms\",\n  surface: \"console\",\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append assistant console settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-console-settings-form-placement"

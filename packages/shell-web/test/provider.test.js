@@ -100,7 +100,6 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   assert.equal(typeof placementRuntime.getContext, "function");
   assert.equal(typeof placementRuntime.setContext, "function");
   assert.equal(typeof placementRuntime.getContext().surfaceConfig, "object");
-  assert.equal(typeof placementRuntime.getContext().surfaceRoles, "object");
 
   const errorRuntime = providedByKey.get(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY);
   assert.equal(typeof errorRuntime.report, "function");
@@ -111,15 +110,9 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   assert.equal(typeof errorStore.present, "function");
 });
 
-test("shell web client provider resolves surface roles from client app config", async () => {
+test("shell web client provider resolves surface config from client app config", async () => {
   setClientAppConfig({
-    tenancyMode: "workspace",
-    surfaceRoles: {
-      "workspace.main": "app",
-      "workspace.admin": "admin",
-      "console.global": "console"
-    },
-    surfaceDefaultRole: "workspace.main"
+    tenancyMode: "workspace"
   });
 
   try {
@@ -145,12 +138,9 @@ test("shell web client provider resolves surface roles from client app config", 
 
     const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
     const context = placementRuntime.getContext();
-    assert.deepEqual(context.surfaceRoles.surfaceIdByRole, {
-      "console.global": "console",
-      "workspace.admin": "admin",
-      "workspace.main": "app"
-    });
-    assert.equal(context.surfaceRoles.defaultRole, "workspace.main");
+    assert.equal(context.surfaceConfig.tenancyMode, "workspace");
+    assert.equal(context.surfaceConfig.defaultSurfaceId, "app");
+    assert.deepEqual(context.surfaceConfig.enabledSurfaceIds, ["app", "admin", "console"]);
   } finally {
     setClientAppConfig({});
   }

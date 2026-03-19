@@ -4,11 +4,6 @@ import { resolveSurfaceLinkTarget } from "../src/client/lib/surfaceLinkTarget.js
 
 function createPlacementContext() {
   return {
-    surfaceRoles: {
-      "workspace.main": "app",
-      "workspace.admin": "admin",
-      "console.global": "console"
-    },
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
@@ -75,16 +70,6 @@ test("resolveSurfaceLinkTarget no longer requires workspace slug for surface lin
       surfaceConfig: createPlacementContext().surfaceConfig
     },
     surface: "admin",
-    workspaceSuffix: "/projects"
-  });
-
-  assert.equal(to, "/admin/projects");
-});
-
-test("resolveSurfaceLinkTarget resolves role-based targets through shell link resolver", () => {
-  const to = resolveSurfaceLinkTarget({
-    context: createPlacementContext(),
-    surfaceRole: "workspace.admin",
     workspaceSuffix: "/projects"
   });
 

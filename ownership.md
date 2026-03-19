@@ -45,8 +45,8 @@ Must not:
 Owns:
 
 1. Placement engine and matching semantics.
-2. Surface-role based placement resolution.
-3. Shell navigation helpers that consume canonical policy/config.
+2. Surface-based placement resolution (explicit `surface` or `*`).
+3. Shell navigation helpers that consume canonical surface config.
 4. Tenancy-aware scaffolding decisions in create-app templates.
 
 Must not:
@@ -74,8 +74,7 @@ The following responsibilities must be removed from `kernel` ownership and treat
 1. Tenancy policy decisions (`none/personal/workspace` behavior semantics) -> move to `users-core`.
 2. Workspace provisioning policy (`autoProvisionWorkspace`, self-create allowance) -> move to `users-core`.
 3. Workspace domain constraints (who can access what workspace, slug policy semantics) -> move to `users-core`.
-4. Product-level surface role meaning (`workspace.main`, `workspace.admin`, `console.global`) -> move to `shell-web` + app config contract.
-5. Module placement policy semantics (which features appear on which semantic surfaces) -> move to `shell-web` placement role resolution and module declarations.
+4. Module placement policy semantics (which features appear on which surfaces) -> move to `shell-web` placement declarations and module descriptors.
 
 Kernel remains responsible only for generic mechanics:
 
@@ -120,29 +119,15 @@ Username is immutable.
 
 ## Surface Naming And Placement Stability
 
-Surface IDs are app-defined and may be renamed.
-Module code must not rely on hardcoded IDs like `app` or `admin`.
-
-### Required abstraction: Surface Roles
-
-Define stable semantic roles (example):
-
-1. `workspace.main`
-2. `workspace.admin`
-3. `console.global`
-4. `app.global`
-
-Roles map to concrete surface IDs in app config.
+Surface IDs are explicit placement targets declared in app/module placement definitions.
 
 ### Placement contract
 
 For non-global module placements:
 
-1. Require semantic target (`targetSurfaceRole`).
-2. Resolve role -> surface ID at runtime.
-3. Fail closed on missing/invalid role mapping.
-
-`surface: "*"` is allowed only for truly global widgets.
+1. Require explicit `surface` (for example `app`, `admin`, `console`).
+2. Resolve visibility by direct surface match only.
+3. Use `surface: "*"` only for truly global widgets.
 
 ## URL And Routing Rules
 
@@ -162,9 +147,7 @@ Minimum contract:
 3. `tenancy.workspace.autoProvision`
 4. `tenancy.workspace.allowSelfCreate`
 5. `tenancy.workspace.slugPolicy`
-6. `surfaceRoles` (resolved semantic role map)
-
-UI and modules consume this contract for visibility, placement behavior, and route affordances.
+UI and modules consume this contract for visibility and route affordances.
 
 ## Behavioral Matrix Enforcement
 
@@ -175,9 +158,9 @@ Enforce behavior in both route registration and service execution.
 
 ## Module Authoring Rules
 
-1. Modules must declare placement targets semantically (role-based).
+1. Modules must declare placement targets explicitly (`surface` or `*`).
 2. Modules must use shared link resolver utilities.
-3. Modules must not assume specific surface IDs or prefixes.
+3. Modules must use surface IDs defined by shell/app config.
 4. Modules must gate workspace-scoped UI via tenancy/profile context.
 
 ## Refactor Phases
@@ -185,8 +168,8 @@ Enforce behavior in both route registration and service execution.
 ### Phase 1: Contracts
 
 1. Introduce canonical tenancy profile contract in `users-core`.
-2. Introduce surface role map contract consumed by shell-web.
-3. Document role resolution and fail-closed behavior.
+2. Document explicit surface targeting contract consumed by shell-web.
+3. Document `surface: "*"` semantics for global placements only.
 
 ### Phase 2: Policy Centralization
 
@@ -196,19 +179,19 @@ Enforce behavior in both route registration and service execution.
 
 ### Phase 3: Shell And Placement
 
-1. Add role-based placement targeting in `shell-web`.
+1. Keep placement targeting surface-based only in `shell-web`.
 2. Keep `surface: "*"` semantics for global only.
-3. Wire resolver into placement runtime and link helpers.
+3. Keep link helpers surface-based with no role indirection.
 
 ### Phase 4: Scaffolding
 
 1. Make create-app templates mode-aware.
-2. Generate pages/placements by tenancy profile + surface roles.
+2. Generate pages/placements by tenancy profile + explicit surfaces.
 3. Remove hardcoded assumptions in template mutations.
 
 ### Phase 5: Module Migration
 
-1. Update `users-web`, `assistant`, `auth-web` placements to role-based targeting.
+1. Update `users-web`, `assistant`, `auth-web` placements to explicit `surface` targeting.
 2. Replace hardcoded surface IDs where required.
 3. Verify route availability and UI visibility across all modes.
 
@@ -220,7 +203,7 @@ Enforce behavior in both route registration and service execution.
    3. provisioning behavior,
    4. placement visibility,
    5. navigation link generation.
-2. Add fail-closed tests for missing role mapping.
+2. Add tests that placements render only on matching explicit surfaces (or `*`).
 
 ## Non-Negotiable Constraints
 
@@ -233,6 +216,6 @@ Enforce behavior in both route registration and service execution.
 
 1. Tenancy policy has one authoritative owner (`users-*`).
 2. Shell and placement behavior consume policy, do not redefine it.
-3. Modules target semantic surface roles, not raw surface IDs.
+3. Modules target explicit surface IDs (or `*`) in placement declarations.
 4. Mode matrix behavior is deterministic and test-covered.
 5. No duplicated multihome URL logic drifting across packages.

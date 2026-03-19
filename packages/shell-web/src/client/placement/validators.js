@@ -3,7 +3,6 @@ import {
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeSurfaceRole } from "./surfaceRoles.js";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {
@@ -23,20 +22,26 @@ function normalizeSurface(value) {
   return normalized;
 }
 
+function isValidSurfaceIdToken(value = "") {
+  return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
+}
+
 function normalizePlacementSurface(value, { strict = false, source = "placement" } = {}) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) {
-    return "";
+    return WEB_PLACEMENT_SURFACE_ANY;
   }
 
   if (normalized === WEB_PLACEMENT_SURFACE_ANY) {
     return WEB_PLACEMENT_SURFACE_ANY;
   }
 
+  if (isValidSurfaceIdToken(normalized)) {
+    return normalized;
+  }
+
   if (strict) {
-    throw new TypeError(
-      `${source} surface "${normalized}" is invalid. Use targetSurfaceRole for non-global placements.`
-    );
+    throw new TypeError(`${source} surface "${normalized}" is invalid.`);
   }
   return "";
 }
@@ -116,23 +121,10 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
 
   const props = isRecord(value.props) ? { ...value.props } : {};
   const when = typeof value.when === "function" ? value.when : null;
-  const targetSurfaceRole = normalizeSurfaceRole(value.targetSurfaceRole);
   const surface = normalizePlacementSurface(value.surface, { strict, source: `${source} "${id}"` });
-
-  if (surface === WEB_PLACEMENT_SURFACE_ANY && targetSurfaceRole) {
+  if (!surface) {
     if (strict) {
-      throw new TypeError(
-        `${source} "${id}" cannot define both surface "*" and targetSurfaceRole.`
-      );
-    }
-    return null;
-  }
-
-  if (surface !== WEB_PLACEMENT_SURFACE_ANY && !targetSurfaceRole) {
-    if (strict) {
-      throw new TypeError(
-        `${source} "${id}" requires targetSurfaceRole for non-global placement (or surface "*").`
-      );
+      throw new TypeError(`${source} "${id}" requires a valid surface.`);
     }
     return null;
   }
@@ -141,7 +133,6 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     id,
     slot,
     surface,
-    targetSurfaceRole,
     order: toInteger(value.order, DEFAULT_WEB_PLACEMENT_ORDER),
     componentToken,
     props,

@@ -22,8 +22,3 @@ export {
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext
 } from "./surfaceContext.js";
-
-export {
-  readPlacementSurfaceRoles,
-  resolveSurfaceIdForRole
-} from "./surfaceRoles.js";

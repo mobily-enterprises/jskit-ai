@@ -28,17 +28,15 @@ test("placement registry stores unique entries and builds immutable array", () =
   assert.equal(placements[0].componentToken, "example.profile.component");
 });
 
-test("placement registry rejects raw non-global surface ids", () => {
+test("placement registry accepts explicit non-global surface ids", () => {
   const registry = createPlacementRegistry();
 
-  assert.throws(
-    () =>
-      registry.addPlacement({
-        id: "example.invalid",
-        slot: "app.top-right",
-        surface: "admin",
-        componentToken: "example.invalid.component"
-      }),
-    /targetSurfaceRole/
-  );
+  const added = registry.addPlacement({
+    id: "example.admin",
+    slot: "app.top-right",
+    surface: "admin",
+    componentToken: "example.admin.component"
+  });
+
+  assert.equal(added, true);
 });

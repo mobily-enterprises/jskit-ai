@@ -1,5 +1,5 @@
-import { createRequire } from "node:module";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { symlinkSafeRequire } from "@jskit-ai/kernel/server/support";
 import * as databaseRuntime from "../../shared/index.js";
 import { createTransactionManager } from "../../shared/transactionManager.js";
 import {
@@ -7,8 +7,6 @@ import {
   normalizeDatabaseClient,
   toKnexClientId
 } from "../../shared/databaseClient.js";
-
-const require = createRequire(import.meta.url);
 
 const DATABASE_RUNTIME_TOKEN = "runtime.database";
 const DATABASE_DRIVER_TOKEN = "runtime.database.driver";
@@ -63,7 +61,7 @@ function resolvePort(value, fallbackPort) {
 function loadKnexFactory() {
   let moduleValue;
   try {
-    moduleValue = require("knex");
+    moduleValue = symlinkSafeRequire("knex");
   } catch {
     throw new Error(
       "Knex package is not installed. Re-run `npx jskit update package database-runtime` to apply runtime dependencies."

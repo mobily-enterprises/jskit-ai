@@ -5,23 +5,9 @@ import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext
 } from "../placement/surfaceContext.js";
-import { readPlacementSurfaceRoles, resolveSurfaceIdForRole } from "../placement/surfaceRoles.js";
 
 function normalizeSurfaceId(value = "") {
   return String(value || "").trim().toLowerCase();
-}
-
-function normalizeSurfaceRole(value = "") {
-  return String(value || "").trim().toLowerCase();
-}
-
-function resolveSurfaceIdFromRole(context = null, surfaceRole = "") {
-  const normalizedSurfaceRole = normalizeSurfaceRole(surfaceRole);
-  if (!normalizedSurfaceRole) {
-    return "";
-  }
-  const surfaceRoles = readPlacementSurfaceRoles(context);
-  return resolveSurfaceIdForRole(surfaceRoles, normalizedSurfaceRole);
 }
 
 function resolveSurfaceBasePath(context = null, surface = "") {
@@ -40,7 +26,6 @@ function resolveSurfaceBasePath(context = null, surface = "") {
 function resolveShellLinkPath({
   context = null,
   surface = "",
-  surfaceRole = "",
   explicitTo = "",
   relativePath = "/",
   surfaceRelativePath = ""
@@ -50,8 +35,7 @@ function resolveShellLinkPath({
     return explicitTarget;
   }
 
-  const normalizedSurfaceFromInput = normalizeSurfaceId(surface);
-  const normalizedSurface = normalizedSurfaceFromInput || resolveSurfaceIdFromRole(context, surfaceRole);
+  const normalizedSurface = normalizeSurfaceId(surface);
   const nextRelativePath = String(surfaceRelativePath || "").trim() || String(relativePath || "").trim() || "/";
   const nextSurfaceBasePath = resolveSurfaceBasePath(context, normalizedSurface);
 
@@ -65,7 +49,6 @@ function useShellLinkResolver({ surface = "" } = {}) {
     return resolveShellLinkPath({
       context: placementContext.value,
       surface: String(unref(options.surface ?? surface) || ""),
-      surfaceRole: String(unref(options.surfaceRole ?? "") || ""),
       explicitTo: options.explicitTo,
       relativePath,
       surfaceRelativePath: options.surfaceRelativePath
