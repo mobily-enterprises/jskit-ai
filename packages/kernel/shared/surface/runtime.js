@@ -39,6 +39,153 @@ function resolveSurfaceIds({ surfaces = {} } = {}) {
   throw new Error("createSurfaceRuntime requires at least one surface id.");
 }
 
+function normalizeRoutePath(pathLike = "") {
+  const rawPath = String(pathLike || "").trim();
+  if (!rawPath || rawPath === "/") {
+    return "/";
+  }
+
+  const withLeadingSlash = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+  const compacted = withLeadingSlash.replace(/\/{2,}/g, "/");
+  if (compacted === "/") {
+    return "/";
+  }
+  return compacted.replace(/\/+$/, "") || "/";
+}
+
+function resolveAbsoluteRoutePath(parentAbsolutePath = "/", routePath = "") {
+  const normalizedParentPath = normalizeRoutePath(parentAbsolutePath);
+  const rawRoutePath = String(routePath || "").trim();
+  if (!rawRoutePath) {
+    return normalizedParentPath;
+  }
+  if (rawRoutePath.startsWith("/")) {
+    return normalizeRoutePath(rawRoutePath);
+  }
+  if (normalizedParentPath === "/") {
+    return normalizeRoutePath(`/${rawRoutePath}`);
+  }
+  return normalizeRoutePath(`${normalizedParentPath}/${rawRoutePath}`);
+}
+
+function readRouteJskitMeta(route) {
+  if (!isRecord(route) || !isRecord(route.meta) || !isRecord(route.meta.jskit)) {
+    return {};
+  }
+  return route.meta.jskit;
+}
+
+function resolveRouteExplicitSurface(route) {
+  const metaSurface = readRouteJskitMeta(route).surface;
+  return normalizeSurfaceId(route?.surface || metaSurface);
+}
+
+function resolveOwnRouteScope(route) {
+  const metaScope = readRouteJskitMeta(route).scope;
+  const normalizedScope = String(route?.scope || metaScope || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedScope) {
+    return "";
+  }
+  return normalizedScope === "global" ? "global" : "surface";
+}
+
+function resolveRouteSurface(route, inheritedSurfaceId = "", { surfaceRuntime, absolutePath = "/" } = {}) {
+  const explicitSurface = resolveRouteExplicitSurface(route);
+  if (explicitSurface) {
+    return explicitSurface;
+  }
+
+  const normalizedInheritedSurface = normalizeSurfaceId(inheritedSurfaceId);
+  if (normalizedInheritedSurface) {
+    return normalizedInheritedSurface;
+  }
+
+  const routePath = String(route?.path || "").trim();
+  if (routePath && routePath.startsWith("/")) {
+    return surfaceRuntime.resolveSurfaceFromPathname(routePath);
+  }
+
+  if (absolutePath) {
+    return surfaceRuntime.resolveSurfaceFromPathname(absolutePath);
+  }
+
+  return surfaceRuntime.DEFAULT_SURFACE_ID;
+}
+
+function normalizeRoutesBySurfaceBoundaries(routeList = [], { surfaceRuntime } = {}) {
+  const normalizedRoutes = Array.isArray(routeList) ? routeList : [];
+  const hoistedRoutes = [];
+
+  function cloneRouteWithChildren(route, children) {
+    const nextRoute = {
+      ...route
+    };
+    if (children.length > 0) {
+      nextRoute.children = children;
+    } else if (Object.prototype.hasOwnProperty.call(nextRoute, "children")) {
+      delete nextRoute.children;
+    }
+    return nextRoute;
+  }
+
+  function cloneRouteAsHoisted(route, absolutePath, children) {
+    const nextRoute = cloneRouteWithChildren(route, children);
+    nextRoute.path = absolutePath;
+    return nextRoute;
+  }
+
+  function visitRoute(route, parentSurfaceId = "", parentAbsolutePath = "/") {
+    if (!isRecord(route)) {
+      return null;
+    }
+
+    const absolutePath = resolveAbsoluteRoutePath(parentAbsolutePath, route.path);
+    const explicitSurface = resolveRouteExplicitSurface(route);
+    const normalizedParentSurfaceId = normalizeSurfaceId(parentSurfaceId);
+    const resolvedSurface = resolveRouteSurface(route, normalizedParentSurfaceId, {
+      surfaceRuntime,
+      absolutePath
+    });
+    const surfaceBoundary =
+      Boolean(explicitSurface) &&
+      Boolean(normalizedParentSurfaceId) &&
+      explicitSurface !== normalizedParentSurfaceId;
+
+    const children = Array.isArray(route.children) ? route.children : [];
+    const filteredChildren = [];
+    for (const child of children) {
+      const normalizedChild = visitRoute(child, resolvedSurface, absolutePath);
+      if (normalizedChild) {
+        filteredChildren.push(normalizedChild);
+      }
+    }
+
+    const shouldCloneForChildren =
+      children.length !== filteredChildren.length ||
+      filteredChildren.some((child, index) => child !== children[index]);
+    const routeWithChildren = shouldCloneForChildren ? cloneRouteWithChildren(route, filteredChildren) : route;
+
+    if (!surfaceBoundary) {
+      return routeWithChildren;
+    }
+
+    hoistedRoutes.push(cloneRouteAsHoisted(routeWithChildren, absolutePath, filteredChildren));
+    return null;
+  }
+
+  const keptRoutes = [];
+  for (const route of normalizedRoutes) {
+    const normalizedRoute = visitRoute(route, "", "/");
+    if (normalizedRoute) {
+      keptRoutes.push(normalizedRoute);
+    }
+  }
+
+  return [...keptRoutes, ...hoistedRoutes];
+}
+
 
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
@@ -163,55 +310,22 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
     throw new Error("filterRoutesBySurface requires surfaceRuntime.listEnabledSurfaceIds().");
   }
 
-  const normalizedRoutes = Array.isArray(routeList) ? routeList : [];
+  const normalizedRoutes = normalizeRoutesBySurfaceBoundaries(routeList, {
+    surfaceRuntime
+  });
   const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
   const normalizedMode = surfaceRuntime.normalizeSurfaceMode(surfaceMode);
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
-
-  function readRouteJskitMeta(route) {
-    if (!isRecord(route) || !isRecord(route.meta) || !isRecord(route.meta.jskit)) {
-      return {};
-    }
-    return route.meta.jskit;
-  }
-
-  function resolveOwnRouteScope(route) {
-    const metaScope = readRouteJskitMeta(route).scope;
-    const normalizedScope = String(route?.scope || metaScope || "")
-      .trim()
-      .toLowerCase();
-    if (!normalizedScope) {
-      return "";
-    }
-    return normalizedScope === "global" ? "global" : "surface";
-  }
-
-  function resolveRouteSurface(route, inheritedSurfaceId = "") {
-    const metaSurface = readRouteJskitMeta(route).surface;
-    const normalizedSurface = normalizeSurfaceId(route?.surface || metaSurface);
-    if (normalizedSurface) {
-      return normalizedSurface;
-    }
-
-    const normalizedInheritedSurface = normalizeSurfaceId(inheritedSurfaceId);
-    if (normalizedInheritedSurface) {
-      return normalizedInheritedSurface;
-    }
-
-    const routePath = String(route?.path || "").trim();
-    if (routePath && routePath.startsWith("/")) {
-      return surfaceRuntime.resolveSurfaceFromPathname(routePath);
-    }
-
-    return surfaceRuntime.DEFAULT_SURFACE_ID;
-  }
 
   function filterRouteNode(route, inheritedSurfaceId = "") {
     if (!isRecord(route)) {
       return null;
     }
 
-    const resolvedSurface = resolveRouteSurface(route, inheritedSurfaceId);
+    const resolvedSurface = resolveRouteSurface(route, inheritedSurfaceId, {
+      surfaceRuntime,
+      absolutePath: String(route.path || "/")
+    });
     const isGlobalScope = resolveOwnRouteScope(route) === "global";
     const isEnabledSurfaceRoute = enabledSurfaces.has(resolvedSurface);
     const ownIncluded =

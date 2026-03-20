@@ -258,3 +258,62 @@ test("filterRoutesBySurface lets children inherit nearest ancestor surface metad
   assert.equal(filteredApp[0].children?.length, 1);
   assert.equal(filteredApp[0].children?.[0]?.path, "projects");
 });
+
+test("filterRoutesBySurface hoists cross-surface nested route wrappers to top-level records", () => {
+  const runtime = createSurfaceRuntime({
+    defaultSurfaceId: "home",
+    surfaces: {
+      home: { id: "home", pagesRoot: "", enabled: true },
+      app: { id: "app", pagesRoot: "w/[workspaceSlug]", enabled: true },
+      admin: { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", enabled: true }
+    }
+  });
+
+  const filteredAll = filterRoutesBySurface(
+    [
+      {
+        path: "/w/:workspaceSlug",
+        component: {},
+        meta: {
+          jskit: {
+            surface: "app"
+          }
+        },
+        children: [
+          { path: "", component: {} },
+          { path: "projects", component: {} },
+          {
+            path: "admin",
+            component: {},
+            meta: {
+              jskit: {
+                surface: "admin"
+              }
+            },
+            children: [
+              { path: "", component: {} },
+              { path: "members", component: {} }
+            ]
+          }
+        ]
+      }
+    ],
+    {
+      surfaceRuntime: runtime,
+      surfaceMode: "all"
+    }
+  );
+
+  assert.deepEqual(
+    filteredAll.map((route) => route.path),
+    ["/w/:workspaceSlug", "/w/:workspaceSlug/admin"]
+  );
+  assert.deepEqual(
+    (filteredAll[0].children || []).map((route) => route.path),
+    ["", "projects"]
+  );
+  assert.deepEqual(
+    (filteredAll[1].children || []).map((route) => route.path),
+    ["", "members"]
+  );
+});
