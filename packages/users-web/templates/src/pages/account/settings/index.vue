@@ -9,18 +9,9 @@
 </route>
 
 <template>
-  <section class="settings-page">
-    <ShellOutlet host="account-settings" position="forms" />
-  </section>
+  <AccountSettingsClientElement />
 </template>
 
 <script setup>
-import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
+import AccountSettingsClientElement from "../../../components/account/settings/AccountSettingsClientElement.vue";
 </script>
-
-<style scoped>
-.settings-page {
-  display: grid;
-  gap: 1rem;
-}
-</style>

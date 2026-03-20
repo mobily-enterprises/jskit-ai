@@ -1,6 +1,8 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { resolveGlobalArrayRegistry } from "./resolveGlobalArrayRegistry.js";
 
-const consoleSettingsFields = [];
+const CONSOLE_SETTINGS_FIELDS_REGISTRY_KEY = Symbol.for("jskit.users-core.consoleSettingsFields");
+const consoleSettingsFields = resolveGlobalArrayRegistry(CONSOLE_SETTINGS_FIELDS_REGISTRY_KEY);
 
 function defineField(field = {}) {
   const key = normalizeText(field.key);

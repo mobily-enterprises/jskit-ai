@@ -89,6 +89,10 @@ export default Object.freeze({
           summary: "Exports surface/workspace path resolver composable."
         },
         {
+          subpath: "./client/composables/useAccountSettingsRuntime",
+          summary: "Exports account settings runtime composable for app-owned settings UI."
+        },
+        {
           subpath: "./client/composables/useWorkspaceRouteContext",
           summary: "Exports workspace route context composable."
         },
@@ -107,7 +111,6 @@ export default Object.freeze({
           "users.web.profile.menu.surface-switch-item",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
-          "users.web.account-settings.element",
           "users.web.profile.element",
           "users.web.members-admin.element",
           "users.web.workspace-settings.element",
@@ -123,12 +126,6 @@ export default Object.freeze({
             position: "primary-menu",
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
-          },
-          {
-            host: "account-settings",
-            position: "forms",
-            surfaces: ["*"],
-            source: "templates/src/pages/account/settings/index.vue"
           },
           {
             host: "workspace-settings",
@@ -212,16 +209,6 @@ export default Object.freeze({
             source: "mutations.text#users-web-console-settings-placement"
           },
           {
-            id: "users.account.settings.form",
-            host: "account-settings",
-            position: "forms",
-            surfaces: ["*"],
-            order: 100,
-            componentToken: "users.web.account-settings.element",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-account-settings-form-placement"
-          },
-          {
             id: "users.workspace.settings.form",
             host: "workspace-settings",
             position: "forms",
@@ -264,6 +251,41 @@ export default Object.freeze({
         reason: "Install app-owned account settings page scaffold for users-web profile/settings UI.",
         category: "users-web",
         id: "users-web-page-account-settings"
+      },
+      {
+        from: "templates/src/components/account/settings/AccountSettingsClientElement.vue",
+        to: "src/components/account/settings/AccountSettingsClientElement.vue",
+        reason: "Install app-owned account settings container component scaffold.",
+        category: "users-web",
+        id: "users-web-component-account-settings-root"
+      },
+      {
+        from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
+        to: "src/components/account/settings/AccountSettingsProfileSection.vue",
+        reason: "Install app-owned account settings profile section scaffold.",
+        category: "users-web",
+        id: "users-web-component-account-settings-profile"
+      },
+      {
+        from: "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
+        to: "src/components/account/settings/AccountSettingsPreferencesSection.vue",
+        reason: "Install app-owned account settings preferences section scaffold.",
+        category: "users-web",
+        id: "users-web-component-account-settings-preferences"
+      },
+      {
+        from: "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
+        to: "src/components/account/settings/AccountSettingsNotificationsSection.vue",
+        reason: "Install app-owned account settings notifications section scaffold.",
+        category: "users-web",
+        id: "users-web-component-account-settings-notifications"
+      },
+      {
+        from: "templates/src/components/account/settings/AccountSettingsInvitesSection.vue",
+        to: "src/components/account/settings/AccountSettingsInvitesSection.vue",
+        reason: "Install app-owned account settings invites section scaffold.",
+        category: "users-web",
+        id: "users-web-component-account-settings-invites"
       },
       {
         from: "templates/src/components/WorkspaceNotFoundCard.vue",
@@ -367,18 +389,6 @@ export default Object.freeze({
         category: "users-web",
         id: "users-web-page-console-settings"
       },
-      {
-        from: "templates/src/pages/workspaces/index.vue",
-        toSurface: "home",
-        toSurfacePath: "workspaces/index.vue",
-        reason: "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
-        category: "users-web",
-        id: "users-web-page-workspaces",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      }
     ],
     text: [
       {
@@ -427,17 +437,6 @@ export default Object.freeze({
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.account.settings.form\"",
-        value:
-          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  host: \"account-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append users-web account settings form placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-account-settings-form-placement"
       },
       {
         op: "append-text",

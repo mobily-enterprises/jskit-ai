@@ -7,7 +7,9 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNo
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
 
-const WORKSPACE_SETTINGS_FIELD_KEYS = workspaceSettingsFields.map((field) => field.key);
+function resolveWorkspaceSettingsFieldKeys() {
+  return workspaceSettingsFields.map((field) => field.key);
+}
 
 function resolveWorkspaceSettingsSeed(workspace = {}, { defaultInvitesEnabled = true } = {}) {
   const source = normalizeObjectInput(workspace);
@@ -99,7 +101,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
       workspace: options?.workspace
     });
     const source = normalizeObjectInput(patch);
-    const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
+    const settingsPatch = pickOwnProperties(source, resolveWorkspaceSettingsFieldKeys());
 
     if (Object.keys(settingsPatch).length === 0) {
       return ensured;

@@ -1,4 +1,5 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { resolveGlobalArrayRegistry } from "./resolveGlobalArrayRegistry.js";
 
 const USER_SETTINGS_SECTIONS = Object.freeze({
   PREFERENCES: "preferences",
@@ -7,7 +8,8 @@ const USER_SETTINGS_SECTIONS = Object.freeze({
 
 const USER_SETTINGS_SECTION_VALUES = Object.freeze(Object.values(USER_SETTINGS_SECTIONS));
 
-const userSettingsFields = [];
+const USER_SETTINGS_FIELDS_REGISTRY_KEY = Symbol.for("jskit.users-core.userSettingsFields");
+const userSettingsFields = resolveGlobalArrayRegistry(USER_SETTINGS_FIELDS_REGISTRY_KEY);
 
 function defineField(field = {}) {
   const key = normalizeText(field.key);

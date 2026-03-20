@@ -285,6 +285,7 @@ export { installedClientModules, bootInstalledClientModules };
 `;
 }
 
+// Vite-only: this Set-based source-type filter exists solely to drive optimizeDeps include/exclude decisions.
 function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);

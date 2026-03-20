@@ -3,7 +3,9 @@ import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
-const WORKSPACE_SETTINGS_FIELD_KEYS = workspaceSettingsFields.map((field) => field.key);
+function resolveWorkspaceSettingsFieldKeys() {
+  return workspaceSettingsFields.map((field) => field.key);
+}
 
 function createService({ workspaceSettingsRepository, roleCatalog = null } = {}) {
   if (!workspaceSettingsRepository) {
@@ -55,7 +57,7 @@ function createService({ workspaceSettingsRepository, roleCatalog = null } = {})
 
   async function updateWorkspaceSettings(workspace, payload = {}, options = {}) {
     const source = normalizeObjectInput(payload);
-    const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
+    const settingsPatch = pickOwnProperties(source, resolveWorkspaceSettingsFieldKeys());
 
     if (Object.keys(settingsPatch).length > 0) {
       await workspaceSettingsRepository.updateSettingsByWorkspaceId(workspace.id, settingsPatch, {

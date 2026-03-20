@@ -33,6 +33,32 @@ function buildSettingsOutputSchema() {
   return Type.Object(properties, { additionalProperties: false });
 }
 
+function buildResponseRecordSchema() {
+  return Type.Object(
+    {
+      workspace: Type.Object(
+        {
+          id: Type.Integer({ minimum: 1 }),
+          slug: Type.String({ minLength: 1 }),
+          ownerUserId: Type.Integer({ minimum: 1 })
+        },
+        { additionalProperties: false }
+      ),
+      settings: buildSettingsOutputSchema(),
+      roleCatalog: Type.Object(
+        {
+          collaborationEnabled: Type.Boolean(),
+          defaultInviteRole: Type.String(),
+          roles: Type.Array(Type.Object({}, { additionalProperties: true })),
+          assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
+        },
+        { additionalProperties: true }
+      )
+    },
+    { additionalProperties: false }
+  );
+}
+
 function normalizeInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};
@@ -92,36 +118,12 @@ function normalizeOutput(payload = {}) {
   };
 }
 
-const responseRecordSchema = Type.Object(
-  {
-    workspace: Type.Object(
-      {
-        id: Type.Integer({ minimum: 1 }),
-        slug: Type.String({ minLength: 1 }),
-        ownerUserId: Type.Integer({ minimum: 1 })
-      },
-      { additionalProperties: false }
-    ),
-    settings: buildSettingsOutputSchema(),
-    roleCatalog: Type.Object(
-      {
-        collaborationEnabled: Type.Boolean(),
-        defaultInviteRole: Type.String(),
-        roles: Type.Array(Type.Object({}, { additionalProperties: true })),
-        assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: true }
-    )
-  },
-  { additionalProperties: false }
-);
-
 const responseRecordValidator = Object.freeze({
-  schema: responseRecordSchema,
+  get schema() {
+    return buildResponseRecordSchema();
+  },
   normalize: normalizeOutput
 });
-
-const createRequestBodySchema = buildCreateBodySchema();
 
 const resource = {
   resource: "workspaceSettings",
@@ -143,7 +145,9 @@ const resource = {
     create: {
       method: "POST",
       bodyValidator: {
-        schema: createRequestBodySchema,
+        get schema() {
+          return buildCreateBodySchema();
+        },
         normalize: normalizeInput
       },
       outputValidator: responseRecordValidator
@@ -151,7 +155,9 @@ const resource = {
     replace: {
       method: "PUT",
       bodyValidator: {
-        schema: createRequestBodySchema,
+        get schema() {
+          return buildCreateBodySchema();
+        },
         normalize: normalizeInput
       },
       outputValidator: responseRecordValidator
@@ -159,7 +165,9 @@ const resource = {
     patch: {
       method: "PATCH",
       bodyValidator: {
-        schema: Type.Partial(createRequestBodySchema, { additionalProperties: false }),
+        get schema() {
+          return Type.Partial(buildCreateBodySchema(), { additionalProperties: false });
+        },
         normalize: normalizeInput
       },
       outputValidator: responseRecordValidator

@@ -80,18 +80,22 @@ function normalizeSectionOutput(section, sectionSource = {}, settings = {}) {
   return normalized;
 }
 
-const userSettingsOutputSchema = Type.Object(
-  {
-    profile: userProfileResource.operations.view.outputValidator.schema,
-    security: Type.Object({}, { additionalProperties: true }),
-    preferences: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.PREFERENCES),
-    notifications: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.NOTIFICATIONS)
-  },
-  { additionalProperties: true }
-);
+function buildUserSettingsOutputSchema() {
+  return Type.Object(
+    {
+      profile: userProfileResource.operations.view.outputValidator.schema,
+      security: Type.Object({}, { additionalProperties: true }),
+      preferences: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.PREFERENCES),
+      notifications: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.NOTIFICATIONS)
+    },
+    { additionalProperties: true }
+  );
+}
 
 const userSettingsOutputValidator = Object.freeze({
-  schema: userSettingsOutputSchema,
+  get schema() {
+    return buildUserSettingsOutputSchema();
+  },
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
     const preferencesSource = normalizeObjectInput(source.preferences);
@@ -114,26 +118,42 @@ const userSettingsOutputValidator = Object.freeze({
   }
 });
 
-const userSettingsCreateBodySchema = buildCreateBodySchema();
+function buildUserSettingsCreateBodySchema() {
+  return buildCreateBodySchema();
+}
 
-const userSettingsPatchBodySchema = Type.Partial(userSettingsCreateBodySchema, {
-  additionalProperties: false,
-  minProperties: 1
-});
+function buildUserSettingsPatchBodySchema() {
+  return Type.Partial(buildUserSettingsCreateBodySchema(), {
+    additionalProperties: false,
+    minProperties: 1
+  });
+}
+
+function buildPreferencesUpdateBodySchema() {
+  return pickPatchBody(
+    buildUserSettingsPatchBodySchema(),
+    listFieldsBySection(USER_SETTINGS_SECTIONS.PREFERENCES).map((field) => field.key)
+  );
+}
+
+function buildNotificationsUpdateBodySchema() {
+  return pickPatchBody(
+    buildUserSettingsPatchBodySchema(),
+    listFieldsBySection(USER_SETTINGS_SECTIONS.NOTIFICATIONS).map((field) => field.key)
+  );
+}
 
 const preferencesUpdateBodyValidator = Object.freeze({
-  schema: pickPatchBody(
-    userSettingsPatchBodySchema,
-    listFieldsBySection(USER_SETTINGS_SECTIONS.PREFERENCES).map((field) => field.key)
-  ),
+  get schema() {
+    return buildPreferencesUpdateBodySchema();
+  },
   normalize: normalizeUserSettingsInput
 });
 
 const notificationsUpdateBodyValidator = Object.freeze({
-  schema: pickPatchBody(
-    userSettingsPatchBodySchema,
-    listFieldsBySection(USER_SETTINGS_SECTIONS.NOTIFICATIONS).map((field) => field.key)
-  ),
+  get schema() {
+    return buildNotificationsUpdateBodySchema();
+  },
   normalize: normalizeUserSettingsInput
 });
 
@@ -318,7 +338,9 @@ const userSettingsResource = Object.freeze({
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: userSettingsCreateBodySchema,
+        get schema() {
+          return buildUserSettingsCreateBodySchema();
+        },
         normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator
@@ -327,7 +349,9 @@ const userSettingsResource = Object.freeze({
       method: "PUT",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: userSettingsCreateBodySchema,
+        get schema() {
+          return buildUserSettingsCreateBodySchema();
+        },
         normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator
@@ -336,7 +360,9 @@ const userSettingsResource = Object.freeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: userSettingsPatchBodySchema,
+        get schema() {
+          return buildUserSettingsPatchBodySchema();
+        },
         normalize: normalizeUserSettingsInput
       }),
       outputValidator: userSettingsOutputValidator

@@ -22,21 +22,28 @@ function buildOutputSchema() {
   return Type.Object(properties, { additionalProperties: false });
 }
 
-const consoleSettingsValueSchema = buildOutputSchema();
+function buildConsoleSettingsRecordSchema() {
+  return Type.Object(
+    {
+      settings: buildOutputSchema()
+    },
+    { additionalProperties: false }
+  );
+}
 
-const consoleSettingsRecordSchema = Type.Object(
-  {
-    settings: consoleSettingsValueSchema
-  },
-  { additionalProperties: false }
-);
+function buildConsoleSettingsCreateSchema() {
+  return buildCreateSchema();
+}
 
-const consoleSettingsCreateSchema = buildCreateSchema();
+function buildConsoleSettingsReplaceSchema() {
+  return buildConsoleSettingsCreateSchema();
+}
 
-const consoleSettingsReplaceSchema = consoleSettingsCreateSchema;
-const consoleSettingsPatchSchema = Type.Partial(consoleSettingsCreateSchema, {
-  additionalProperties: false
-});
+function buildConsoleSettingsPatchSchema() {
+  return Type.Partial(buildConsoleSettingsCreateSchema(), {
+    additionalProperties: false
+  });
+}
 
 function normalizeConsoleSettingsInput(payload = {}) {
   const source = normalizeObjectInput(payload);
@@ -53,7 +60,9 @@ function normalizeConsoleSettingsInput(payload = {}) {
 }
 
 const consoleSettingsOutputValidator = Object.freeze({
-  schema: consoleSettingsRecordSchema,
+  get schema() {
+    return buildConsoleSettingsRecordSchema();
+  },
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
     const settingsSource = normalizeObjectInput(source.settings);
@@ -95,7 +104,9 @@ const consoleSettingsResource = Object.freeze({
       method: "POST",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: consoleSettingsCreateSchema,
+        get schema() {
+          return buildConsoleSettingsCreateSchema();
+        },
         normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator
@@ -104,7 +115,9 @@ const consoleSettingsResource = Object.freeze({
       method: "PUT",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: consoleSettingsReplaceSchema,
+        get schema() {
+          return buildConsoleSettingsReplaceSchema();
+        },
         normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator
@@ -113,7 +126,9 @@ const consoleSettingsResource = Object.freeze({
       method: "PATCH",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
       bodyValidator: Object.freeze({
-        schema: consoleSettingsPatchSchema,
+        get schema() {
+          return buildConsoleSettingsPatchSchema();
+        },
         normalize: normalizeConsoleSettingsInput
       }),
       outputValidator: consoleSettingsOutputValidator

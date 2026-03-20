@@ -270,6 +270,14 @@ export default Object.freeze({
         reason: "Install app-owned user settings field definitions.",
         category: "users-core",
         id: "users-core-app-owned-user-settings-fields"
+      },
+      {
+        from: "templates/config/workspaceRoles.js",
+        to: "config/workspaceRoles.js",
+        preserveOnRemove: true,
+        reason: "Install app-owned workspace role catalog in a dedicated config file.",
+        category: "users-core",
+        id: "users-core-app-owned-workspace-roles-config"
       }
     ],
     text: [
@@ -335,6 +343,16 @@ export default Object.freeze({
       {
         op: "append-text",
         file: "config/public.js",
+        position: "top",
+        skipIfContains: "import { workspaceRoles } from \"./workspaceRoles.js\";",
+        value: "import { workspaceRoles } from \"./workspaceRoles.js\";\n",
+        reason: "Load app-owned workspace role catalog from dedicated config file.",
+        category: "users-core",
+        id: "users-core-workspace-roles-public-import"
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
         position: "bottom",
         skipIfContains: "config.surfaceDefinitions.app = {",
         value:
@@ -362,10 +380,9 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
-        skipIfContains: "config.workspaceRoles.roles.owner.permissions.push(\"*\");",
-        value:
-          "\nconfig.workspaceRoles = config.workspaceRoles && typeof config.workspaceRoles === \"object\" ? config.workspaceRoles : {};\nconfig.workspaceRoles.roles =\n  config.workspaceRoles.roles && typeof config.workspaceRoles.roles === \"object\"\n    ? config.workspaceRoles.roles\n    : {};\nconfig.workspaceRoles.defaultInviteRole = config.workspaceRoles.defaultInviteRole || \"member\";\n\nconfig.workspaceRoles.roles.owner = config.workspaceRoles.roles.owner || {};\nconfig.workspaceRoles.roles.owner.assignable = false;\nconfig.workspaceRoles.roles.owner.permissions = Array.isArray(config.workspaceRoles.roles.owner.permissions)\n  ? config.workspaceRoles.roles.owner.permissions\n  : [];\nconfig.workspaceRoles.roles.owner.permissions.push(\"*\");\n\nconfig.workspaceRoles.roles.admin = config.workspaceRoles.roles.admin || {};\nconfig.workspaceRoles.roles.admin.assignable = true;\nconfig.workspaceRoles.roles.admin.permissions = Array.isArray(config.workspaceRoles.roles.admin.permissions)\n  ? config.workspaceRoles.roles.admin.permissions\n  : [];\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.roles.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.settings.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.settings.update\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.invite\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.manage\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.invites.revoke\");\n\nconfig.workspaceRoles.roles.member = config.workspaceRoles.roles.member || {};\nconfig.workspaceRoles.roles.member.assignable = true;\nconfig.workspaceRoles.roles.member.permissions = Array.isArray(config.workspaceRoles.roles.member.permissions)\n  ? config.workspaceRoles.roles.member.permissions\n  : [];\nconfig.workspaceRoles.roles.member.permissions.push(\"workspace.settings.view\");\n",
-        reason: "Append app-owned workspace role and permission catalog into public config.",
+        skipIfContains: "config.workspaceRoles = workspaceRoles;",
+        value: "\nconfig.workspaceRoles = workspaceRoles;\n",
+        reason: "Bind app-owned workspace role catalog onto public config.",
         category: "users-core",
         id: "users-core-workspace-roles-public-config"
       },

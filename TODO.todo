@@ -83,13 +83,10 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
 
   - Fix placements properly
-
   - Workflow to accept an invite
   - Alert system (queue + element), use it for invites
 
   - If logged out, redirect to login immediately, check page permissions if not logged out
-
-
 
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   

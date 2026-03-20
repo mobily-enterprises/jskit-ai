@@ -19,13 +19,15 @@ function createCursorListValidator(itemValidator) {
         };
 
   return Object.freeze({
-    schema: Type.Object(
-      {
-        items: Type.Array(itemValidator.schema),
-        nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-      },
-      { additionalProperties: false }
-    ),
+    get schema() {
+      return Type.Object(
+        {
+          items: Type.Array(itemValidator.schema),
+          nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+        },
+        { additionalProperties: false }
+      );
+    },
     normalize(payload = {}) {
       const source = normalizeObjectInput(payload);
 
