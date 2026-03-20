@@ -11,7 +11,7 @@
 <script setup>
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
+import ShellLayout from "@/components/ShellLayout.vue";
 
 const healthQuery = useQuery({
   queryKey: ["shell-web", "health"],

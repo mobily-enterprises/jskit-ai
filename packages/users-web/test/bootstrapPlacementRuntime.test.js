@@ -8,7 +8,11 @@ import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/p
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
-import { createBootstrapPlacementRuntime } from "../src/client/runtime/bootstrapPlacementRuntime.js";
+import {
+  WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
+  WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
+  createBootstrapPlacementRuntime
+} from "../src/client/runtime/bootstrapPlacementRuntime.js";
 
 function flushTasks() {
   return new Promise((resolve) => {
@@ -193,6 +197,8 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
   assert.equal(Array.isArray(context.workspaces), true);
   assert.equal(context.workspaces.length, 1);
   assert.deepEqual(context.permissions, ["workspace.settings.view"]);
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
+  assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.deepEqual(context.user, {
     id: 7,
     displayName: "Ada Lovelace",
@@ -412,4 +418,84 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
   socket.emit(USERS_BOOTSTRAP_CHANGED_EVENT, {});
   await flushTasks();
   assert.equal(themeController.global.name.value, "light");
+});
+
+test("bootstrap placement runtime marks workspace slug as not_found and clears workspace context on 404", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  placementRuntime.setContext(
+    {
+      workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
+      workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+      permissions: ["workspace.settings.view"]
+    },
+    { source: "test.seed" }
+  );
+
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: createRouterStub("/w/acme/dashboard")
+    }),
+    fetchBootstrap: async () => {
+      const error = new Error("Workspace not found.");
+      error.status = 404;
+      throw error;
+    }
+  });
+
+  await runtime.initialize();
+
+  const context = placementRuntime.getContext();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspace, null);
+  assert.deepEqual(context.workspaces, []);
+  assert.deepEqual(context.permissions, []);
+  assert.equal(context.user, null);
+});
+
+test("bootstrap placement runtime updates status per workspace slug across route changes", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async (workspaceSlug) => {
+      if (workspaceSlug === "zen") {
+        const error = new Error("Workspace not found.");
+        error.status = 404;
+        throw error;
+      }
+
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        profile: {
+          displayName: "User",
+          email: "user@example.com",
+          avatar: {
+            effectiveUrl: ""
+          }
+        },
+        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
+
+  router.currentRoute.value.path = "/w/zen/dashboard";
+  router.emitAfterEach();
+  await flushTasks();
+
+  const context = placementRuntime.getContext();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("zen"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspaceBootstrapStatuses?.zen, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspace, null);
 });

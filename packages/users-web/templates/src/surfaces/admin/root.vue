@@ -9,7 +9,7 @@
 </route>
 
 <script setup>
-import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
+import ShellLayout from "@/components/ShellLayout.vue";
 import { RouterView } from "vue-router";
 </script>
 

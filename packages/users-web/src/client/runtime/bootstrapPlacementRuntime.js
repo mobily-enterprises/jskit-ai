@@ -26,6 +26,19 @@ import {
 
 const USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN = "users.web.bootstrap-placement.runtime";
 const BOOTSTRAP_PLACEMENT_SOURCE = "users-web.bootstrap-placement";
+const WORKSPACE_BOOTSTRAP_STATUS_RESOLVED = "resolved";
+const WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND = "not_found";
+const WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN = "forbidden";
+const WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED = "unauthenticated";
+const WORKSPACE_BOOTSTRAP_STATUS_ERROR = "error";
+
+const WORKSPACE_BOOTSTRAP_STATUSES = new Set([
+  WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
+  WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
+  WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
+  WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED,
+  WORKSPACE_BOOTSTRAP_STATUS_ERROR
+]);
 
 function createProviderLogger(app) {
   return Object.freeze({
@@ -57,6 +70,22 @@ function resolveRouteState(placementRuntime, router) {
 function resolveErrorStatusCode(error) {
   const statusCode = Number(error?.statusCode || error?.status || 0);
   return Number.isInteger(statusCode) && statusCode > 0 ? statusCode : 0;
+}
+
+function normalizeWorkspaceSlugKey(workspaceSlug = "") {
+  return String(workspaceSlug || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeWorkspaceBootstrapStatus(status = "") {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+  if (WORKSPACE_BOOTSTRAP_STATUSES.has(normalizedStatus)) {
+    return normalizedStatus;
+  }
+  return "";
 }
 
 function resolveAuthSignature(context = {}) {
@@ -104,6 +133,60 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   let shutdownRequested = false;
   let authSignature = resolveAuthSignature(placementRuntime.getContext());
   let lastRouteWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
+  const workspaceBootstrapStatusBySlug = new Map();
+  const workspaceBootstrapStatusListeners = new Set();
+
+  function setWorkspaceBootstrapStatus(workspaceSlug = "", status = "", source = BOOTSTRAP_PLACEMENT_SOURCE) {
+    const workspaceSlugKey = normalizeWorkspaceSlugKey(workspaceSlug);
+    const normalizedStatus = normalizeWorkspaceBootstrapStatus(status);
+    if (!workspaceSlugKey || !normalizedStatus) {
+      return;
+    }
+
+    const previousStatus = workspaceBootstrapStatusBySlug.get(workspaceSlugKey) || "";
+    workspaceBootstrapStatusBySlug.set(workspaceSlugKey, normalizedStatus);
+    if (previousStatus === normalizedStatus) {
+      return;
+    }
+
+    placementRuntime.setContext(
+      {
+        workspaceBootstrapStatuses: Object.freeze(Object.fromEntries(workspaceBootstrapStatusBySlug))
+      },
+      {
+        source
+      }
+    );
+
+    const payload = Object.freeze({
+      workspaceSlug: workspaceSlugKey,
+      status: normalizedStatus,
+      source: String(source || BOOTSTRAP_PLACEMENT_SOURCE).trim() || BOOTSTRAP_PLACEMENT_SOURCE
+    });
+    for (const listener of workspaceBootstrapStatusListeners) {
+      try {
+        listener(payload);
+      } catch {}
+    }
+  }
+
+  function getWorkspaceBootstrapStatus(workspaceSlug = "") {
+    const workspaceSlugKey = normalizeWorkspaceSlugKey(workspaceSlug);
+    if (!workspaceSlugKey) {
+      return "";
+    }
+    return String(workspaceBootstrapStatusBySlug.get(workspaceSlugKey) || "");
+  }
+
+  function subscribeWorkspaceBootstrapStatus(listener) {
+    if (typeof listener !== "function") {
+      return () => {};
+    }
+    workspaceBootstrapStatusListeners.add(listener);
+    return () => {
+      workspaceBootstrapStatusListeners.delete(listener);
+    };
+  }
 
   function writePlacementContext(payload = {}, state = {}, source = BOOTSTRAP_PLACEMENT_SOURCE) {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
@@ -186,8 +269,31 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
 
       writePlacementContext(payload, stateAtStart, source);
       applyThemeFromBootstrapPayload(payload, reason);
+      if (stateAtStart.workspaceSlug) {
+        const sessionAuthenticated = payload?.session?.authenticated === true;
+        if (!sessionAuthenticated) {
+          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, source);
+          return;
+        }
+
+        const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
+        const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, stateAtStart.workspaceSlug);
+        setWorkspaceBootstrapStatus(
+          stateAtStart.workspaceSlug,
+          currentWorkspace ? WORKSPACE_BOOTSTRAP_STATUS_RESOLVED : WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
+          source
+        );
+      }
     } catch (error) {
-      if (resolveErrorStatusCode(error) === 401) {
+      const statusCode = resolveErrorStatusCode(error);
+      const stateAtApply = resolveRouteState(placementRuntime, router);
+      const sameWorkspaceRoute =
+        stateAtStart.path === stateAtApply.path && stateAtStart.workspaceSlug === stateAtApply.workspaceSlug;
+
+      if (statusCode === 401) {
+        if (stateAtStart.workspaceSlug) {
+          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, source);
+        }
         clearPlacementContext(source);
         applyThemeFromBootstrapPayload(
           {
@@ -198,6 +304,28 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
           reason
         );
         return;
+      }
+      if (statusCode === 403) {
+        if (stateAtStart.workspaceSlug) {
+          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN, source);
+        }
+        if (sameWorkspaceRoute) {
+          clearPlacementContext(source);
+        }
+        return;
+      }
+      if (statusCode === 404) {
+        if (stateAtStart.workspaceSlug) {
+          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, source);
+        }
+        if (sameWorkspaceRoute) {
+          clearPlacementContext(source);
+        }
+        return;
+      }
+
+      if (stateAtStart.workspaceSlug) {
+        setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, source);
       }
 
       runtimeLogger.warn(
@@ -309,11 +437,18 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   return Object.freeze({
     initialize,
     shutdown,
-    refresh: queueRefresh
+    refresh: queueRefresh,
+    getWorkspaceBootstrapStatus,
+    subscribeWorkspaceBootstrapStatus
   });
 }
 
 export {
   USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN,
+  WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
+  WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
+  WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
+  WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED,
+  WORKSPACE_BOOTSTRAP_STATUS_ERROR,
   createBootstrapPlacementRuntime
 };

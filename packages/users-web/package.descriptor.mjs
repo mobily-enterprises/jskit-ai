@@ -266,6 +266,28 @@ export default Object.freeze({
         id: "users-web-page-account-settings"
       },
       {
+        from: "templates/src/components/WorkspaceNotFoundCard.vue",
+        to: "src/components/WorkspaceNotFoundCard.vue",
+        reason: "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
+        category: "users-web",
+        id: "users-web-component-workspace-not-found-card",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
+        from: "templates/src/composables/useWorkspaceNotFoundState.js",
+        to: "src/composables/useWorkspaceNotFoundState.js",
+        reason: "Install app-owned workspace bootstrap status composable for workspace-dependent surfaces.",
+        category: "users-web",
+        id: "users-web-composable-workspace-not-found-state",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspace"]
+        }
+      },
+      {
         from: "templates/src/surfaces/app/root.vue",
         toSurface: "app",
         toSurfaceRoot: true,

@@ -108,6 +108,13 @@ export default Object.freeze({
         id: "shell-web-app-root"
       },
       {
+        from: "templates/src/components/ShellLayout.vue",
+        to: "src/components/ShellLayout.vue",
+        reason: "Install app-owned shell layout component so apps can customize structure and slots.",
+        category: "shell-web",
+        id: "shell-web-component-shell-layout"
+      },
+      {
         from: "templates/src/error.js",
         to: "src/error.js",
         reason: "Install app-owned error runtime policy and presenter config scaffold.",

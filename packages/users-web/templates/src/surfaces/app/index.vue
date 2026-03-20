@@ -1,5 +1,17 @@
+<script setup>
+import WorkspaceNotFoundCard from "@/components/WorkspaceNotFoundCard.vue";
+import { useWorkspaceNotFoundState } from "@/composables/useWorkspaceNotFoundState";
+
+const { workspaceNotFound } = useWorkspaceNotFoundState();
+</script>
+
 <template>
-  <v-card rounded="lg" elevation="1" border>
+  <WorkspaceNotFoundCard
+    v-if="workspaceNotFound"
+    surface-label="App"
+    message="The requested workspace was not found."
+  />
+  <v-card v-else rounded="lg" elevation="1" border>
     <v-card-item>
       <template #prepend>
         <v-chip color="primary" size="small" label>App</v-chip>
@@ -9,9 +21,7 @@
     </v-card-item>
     <v-divider />
     <v-card-text class="d-flex flex-column ga-4">
-      <p class="text-medium-emphasis mb-0">
-        Replace this page with your workspace dashboard modules.
-      </p>
+      <p class="text-medium-emphasis mb-0">Replace this page with your workspace dashboard modules.</p>
     </v-card-text>
   </v-card>
 </template>
