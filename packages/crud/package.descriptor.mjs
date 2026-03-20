@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@jskit-ai/crud",
   version: "0.1.0",
   installationMode: "clone-only",
-  description: "Admin CRUD module with server routes, actions, persistence, and client pages.",
+  description: "CRUD module with server routes, actions, persistence, and client pages.",
   options: {
     namespace: {
       required: true,
@@ -12,19 +12,26 @@ export default Object.freeze({
       promptLabel: "CRUD namespace",
       promptHint: "Required slug (example: customers, appointments, vendors)."
     },
+    surface: {
+      required: true,
+      inputType: "text",
+      defaultFromConfig: "surfaceDefaultId",
+      promptLabel: "Target surface",
+      promptHint: "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+    },
     visibility: {
       required: true,
       inputType: "text",
-      defaultValue: "workspace",
+      defaultValue: "auto",
       promptLabel: "Route visibility",
-      promptHint: "public | workspace | user | workspace_user"
+      promptHint: "auto | public | user | workspace | workspace_user"
     },
     "directory-prefix": {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Page directory prefix",
-      promptHint: "Optional path under src/pages/admin (example: crm or ops/team-a)."
+      promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
     }
   },
   dependsOn: [
@@ -242,11 +249,11 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/index.vue",
-        toSurface: "admin",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
-        reason: "Install admin CRUD list page scaffold.",
+        reason: "Install CRUD list page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-index",
+        id: "crud-page-surface-crud-index",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspace"]
@@ -254,11 +261,11 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/new.vue",
-        toSurface: "admin",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
-        reason: "Install admin CRUD create page scaffold.",
+        reason: "Install CRUD create page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-new",
+        id: "crud-page-surface-crud-new",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspace"]
@@ -266,11 +273,11 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/index.vue",
-        toSurface: "admin",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
-        reason: "Install admin CRUD detail page scaffold.",
+        reason: "Install CRUD detail page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-view",
+        id: "crud-page-surface-crud-view",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspace"]
@@ -278,11 +285,11 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/crud/[recordId]/edit.vue",
-        toSurface: "admin",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
-        reason: "Install admin CRUD edit page scaffold.",
+        reason: "Install CRUD edit page scaffold.",
         category: "crud",
-        id: "crud-page-admin-crud-edit",
+        id: "crud-page-surface-crud-edit",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspace"]
@@ -296,8 +303,8 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}",
         value:
-          "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: [\"admin\"],\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"admin\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
-        reason: "Append admin Crud menu placement into app-owned placement registry.",
+          "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+        reason: "Append CRUD menu placement into app-owned placement registry.",
         category: "crud",
         id: "crud-placement-menu",
         when: {

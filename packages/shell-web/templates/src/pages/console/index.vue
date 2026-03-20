@@ -17,7 +17,7 @@
         Ideal for operator actions, scripts, and technical insights not meant for end users.
       </p>
       <div>
-        <v-btn color="primary" variant="flat" to="/">Back to home</v-btn>
+        <v-btn color="primary" variant="flat" to="/home">Back to home</v-btn>
       </div>
     </v-card-text>
   </v-card>

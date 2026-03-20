@@ -6,8 +6,18 @@ import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/valida
 import { crudResource } from "../shared/crud/crudResource.js";
 import { createActionIds } from "./actionIds.js";
 
-function createActions({ actionIdPrefix } = {}) {
+function requireActionSurface(surface = "") {
+  const normalizedSurface = String(surface || "").trim().toLowerCase();
+  if (!normalizedSurface) {
+    throw new TypeError("createActions requires a non-empty surface.");
+  }
+
+  return normalizedSurface;
+}
+
+function createActions({ actionIdPrefix, surface = "" } = {}) {
   const actionIds = createActionIds(actionIdPrefix);
+  const actionSurface = requireActionSurface(surface);
 
   return Object.freeze([
     {
@@ -15,7 +25,7 @@ function createActions({ actionIdPrefix } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: ["admin"],
+      surfaces: [actionSurface],
       consoleUsersOnly: false,
       permission: {
         require: "authenticated"
@@ -39,7 +49,7 @@ function createActions({ actionIdPrefix } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: ["admin"],
+      surfaces: [actionSurface],
       consoleUsersOnly: false,
       permission: {
         require: "authenticated"
@@ -63,7 +73,7 @@ function createActions({ actionIdPrefix } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: ["admin"],
+      surfaces: [actionSurface],
       consoleUsersOnly: false,
       permission: {
         require: "authenticated"
@@ -92,7 +102,7 @@ function createActions({ actionIdPrefix } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: ["admin"],
+      surfaces: [actionSurface],
       consoleUsersOnly: false,
       permission: {
         require: "authenticated"
@@ -122,7 +132,7 @@ function createActions({ actionIdPrefix } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: ["admin"],
+      surfaces: [actionSurface],
       consoleUsersOnly: false,
       permission: {
         require: "authenticated"

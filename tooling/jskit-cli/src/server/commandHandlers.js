@@ -1209,7 +1209,8 @@ function createCommandHandlers(deps) {
           ...lockEntryOptions,
           ...packageInlineOptions
         },
-        io
+        io,
+        { appRoot }
       );
     }
   

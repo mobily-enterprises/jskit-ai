@@ -1,12 +1,30 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
-  isWorkspaceVisibility,
   resolveUsersApiBasePath
 } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import {
+  USERS_ROUTE_VISIBILITY_LEVELS,
+  normalizeUsersRouteVisibility,
+  isWorkspaceVisibility
+} from "@jskit-ai/users-core/shared/support/usersVisibility";
 
 const DEFAULT_VISIBILITY = "workspace";
+const CRUD_REQUESTED_VISIBILITY_AUTO = "auto";
+const CRUD_REQUESTED_VISIBILITY_SET = new Set([
+  ...USERS_ROUTE_VISIBILITY_LEVELS,
+  CRUD_REQUESTED_VISIBILITY_AUTO
+]);
 const CRUD_MODULE_ID = "crud";
+
+function asRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
 
 function normalizeCrudNamespace(value) {
   return normalizeText(value)
@@ -18,6 +36,20 @@ function normalizeCrudNamespace(value) {
 
 function normalizeCrudVisibility(value, { fallback = DEFAULT_VISIBILITY } = {}) {
   return normalizeRouteVisibility(value, { fallback });
+}
+
+function normalizeCrudRequestedVisibility(value, { fallback = CRUD_REQUESTED_VISIBILITY_AUTO } = {}) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (CRUD_REQUESTED_VISIBILITY_SET.has(normalized)) {
+    return normalized;
+  }
+
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  if (CRUD_REQUESTED_VISIBILITY_SET.has(normalizedFallback)) {
+    return normalizedFallback;
+  }
+
+  return CRUD_REQUESTED_VISIBILITY_AUTO;
 }
 
 function requireCrudNamespace(namespace, { context = "CRUD config" } = {}) {
@@ -38,6 +70,17 @@ function resolveCrudNamespacePath(namespace = "") {
 
 function resolveCrudRelativePath(namespace = "") {
   return resolveCrudNamespacePath(namespace);
+}
+
+function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSurfacePolicy" } = {}) {
+  const normalizedPath = normalizeText(relativePath);
+  if (!normalizedPath) {
+    throw new TypeError(`${context} requires a non-empty relativePath.`);
+  }
+
+  const withLeadingSlash = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
+  const compacted = withLeadingSlash.replace(/\/{2,}/g, "/");
+  return compacted === "/" ? "/" : compacted.replace(/\/+$/, "") || "/";
 }
 
 function resolveCrudApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
@@ -105,6 +148,101 @@ function resolveCrudConfig(source = {}) {
   });
 }
 
+function normalizeSurfaceDefinitions(sourceDefinitions = {}) {
+  const definitions = asRecord(sourceDefinitions);
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(definitions)) {
+    const definition = asRecord(value);
+    const surfaceId = normalizeSurfaceId(definition.id || key);
+    if (!surfaceId) {
+      continue;
+    }
+
+    normalized[surfaceId] = Object.freeze({
+      ...definition,
+      id: surfaceId,
+      enabled: definition.enabled !== false,
+      requiresAuth: definition.requiresAuth === true,
+      requiresWorkspace: definition.requiresWorkspace === true
+    });
+  }
+
+  return Object.freeze(normalized);
+}
+
+function resolveVisibilityFromSurfaceDefinition(definition = {}) {
+  if (definition.requiresWorkspace === true) {
+    return "workspace";
+  }
+  if (definition.requiresAuth === true) {
+    return "user";
+  }
+  return "public";
+}
+
+function resolveCrudSurfacePolicy(
+  sourceConfig = {},
+  {
+    surfaceDefinitions = {},
+    defaultSurfaceId = "",
+    context = "resolveCrudSurfacePolicy"
+  } = {}
+) {
+  const config = asRecord(sourceConfig);
+  const normalizedDefinitions = normalizeSurfaceDefinitions(surfaceDefinitions);
+  const requestedSurfaceId = normalizeSurfaceId(config.surface);
+  const fallbackSurfaceId = normalizeSurfaceId(defaultSurfaceId);
+  const surfaceId = requestedSurfaceId || fallbackSurfaceId;
+  if (!surfaceId) {
+    throw new Error(`${context} requires surface or defaultSurfaceId.`);
+  }
+
+  const surfaceDefinition = normalizedDefinitions[surfaceId];
+  if (!surfaceDefinition) {
+    throw new Error(`${context} cannot resolve surface "${surfaceId}".`);
+  }
+  if (surfaceDefinition.enabled === false) {
+    throw new Error(`${context} surface "${surfaceId}" is disabled.`);
+  }
+
+  const requestedVisibility = normalizeCrudRequestedVisibility(config.visibility);
+  const visibility =
+    requestedVisibility === CRUD_REQUESTED_VISIBILITY_AUTO
+      ? resolveVisibilityFromSurfaceDefinition(surfaceDefinition)
+      : normalizeUsersRouteVisibility(requestedVisibility, {
+          fallback: "public"
+        });
+
+  if (isWorkspaceVisibility(visibility) && surfaceDefinition.requiresWorkspace !== true) {
+    throw new Error(
+      `${context} visibility "${visibility}" requires a workspace-enabled surface.`
+    );
+  }
+
+  const relativePath = normalizeCrudRelativePath(config.relativePath || resolveCrudRelativePath(config.namespace), {
+    context
+  });
+
+  return Object.freeze({
+    surfaceId,
+    visibility,
+    requestedVisibility,
+    workspaceScoped: isWorkspaceVisibility(visibility),
+    relativePath,
+    surfaceDefinition
+  });
+}
+
+function resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {}) {
+  const config = asRecord(appConfig);
+  return resolveCrudSurfacePolicy(sourceConfig, {
+    ...asRecord(options),
+    surfaceDefinitions: config.surfaceDefinitions,
+    defaultSurfaceId: config.surfaceDefaultId
+  });
+}
+
 function resolveCrudConfigsFromModules(modulesSource = {}) {
   const modules = modulesSource && typeof modulesSource === "object" && !Array.isArray(modulesSource)
     ? modulesSource
@@ -152,18 +290,23 @@ function resolveCrudConfigFromModules(modulesSource = {}, options = {}) {
 export {
   CRUD_MODULE_ID,
   DEFAULT_VISIBILITY,
+  CRUD_REQUESTED_VISIBILITY_AUTO,
   normalizeCrudNamespace,
   normalizeCrudVisibility,
+  normalizeCrudRequestedVisibility,
   isWorkspaceVisibility,
   requireCrudNamespace,
   resolveCrudNamespacePath,
   resolveCrudRelativePath,
+  normalizeCrudRelativePath,
   resolveCrudApiBasePath,
   resolveCrudTableName,
   resolveCrudActionIdPrefix,
   resolveCrudContributorId,
   resolveCrudDomain,
   resolveCrudConfig,
+  resolveCrudSurfacePolicy,
+  resolveCrudSurfacePolicyFromAppConfig,
   resolveCrudConfigsFromModules,
   resolveCrudConfigFromModules
 };

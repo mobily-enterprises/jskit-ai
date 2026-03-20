@@ -129,7 +129,15 @@ export default Object.freeze({
         id: "shell-web-placement-registry"
       },
       {
-        from: "templates/src/pages/index.vue",
+        from: "templates/src/pages/home.vue",
+        toSurface: "home",
+        toSurfaceRoot: true,
+        reason: "Install shell-driven home wrapper page.",
+        category: "shell-web",
+        id: "shell-web-page-home-wrapper"
+      },
+      {
+        from: "templates/src/pages/home/index.vue",
         toSurface: "home",
         toSurfacePath: "index.vue",
         reason: "Install shell-driven home surface starter page.",

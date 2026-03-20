@@ -10,23 +10,52 @@ import { actionIds } from "./actionIds.js";
 import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
 
-function registerRoutes(app) {
+function normalizeRouteSurface(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function readWorkspaceSlugFromParams(params = {}) {
+  const workspaceSlug = String(params?.workspaceSlug || "").trim().toLowerCase();
+  return workspaceSlug || "";
+}
+
+function buildWorkspaceInput(params = {}) {
+  const workspaceSlug = readWorkspaceSlugFromParams(params);
+  if (!workspaceSlug) {
+    return {};
+  }
+
+  return {
+    workspaceSlug
+  };
+}
+
+function registerRoutes(
+  app,
+  {
+    routeVisibility = "",
+    routeSurface = "",
+    routeRelativePath = crudModuleConfig.relativePath
+  } = {}
+) {
   if (!app || typeof app.make !== "function") {
     throw new Error("registerRoutes requires application make().");
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const visibility = String(routeVisibility || "").trim() || "public";
+  const normalizedRouteSurface = normalizeRouteSurface(routeSurface);
   const routeBase = resolveUsersApiBasePath({
-    visibility: crudModuleConfig.visibility,
-    relativePath: crudModuleConfig.relativePath
+    visibility,
+    relativePath: routeRelativePath
   });
-  const visibility = crudModuleConfig.visibility;
 
   router.register(
     "GET",
     routeBase,
     {
       auth: "required",
+      surface: normalizedRouteSurface,
       visibility,
       meta: {
         tags: ["crud"],
@@ -40,7 +69,7 @@ function registerRoutes(app) {
     },
     async function (request, reply) {
       const listInput = {
-        workspaceSlug: request.input.params.workspaceSlug
+        ...buildWorkspaceInput(request.input.params)
       };
       if (request.input.query.cursor != null) {
         listInput.cursor = request.input.query.cursor;
@@ -50,7 +79,6 @@ function registerRoutes(app) {
       }
       const response = await request.executeAction({
         actionId: actionIds.list,
-        context: { surface: "admin" },
         input: listInput
       });
       reply.code(200).send(response);
@@ -62,6 +90,7 @@ function registerRoutes(app) {
     `${routeBase}/:recordId`,
     {
       auth: "required",
+      surface: normalizedRouteSurface,
       visibility,
       meta: {
         tags: ["crud"],
@@ -75,9 +104,8 @@ function registerRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.view,
-        context: { surface: "admin" },
         input: {
-          workspaceSlug: request.input.params.workspaceSlug,
+          ...buildWorkspaceInput(request.input.params),
           recordId: request.input.params.recordId
         }
       });
@@ -90,6 +118,7 @@ function registerRoutes(app) {
     routeBase,
     {
       auth: "required",
+      surface: normalizedRouteSurface,
       visibility,
       meta: {
         tags: ["crud"],
@@ -107,9 +136,8 @@ function registerRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.create,
-        context: { surface: "admin" },
         input: {
-          workspaceSlug: request.input.params.workspaceSlug,
+          ...buildWorkspaceInput(request.input.params),
           payload: request.input.body
         }
       });
@@ -122,6 +150,7 @@ function registerRoutes(app) {
     `${routeBase}/:recordId`,
     {
       auth: "required",
+      surface: normalizedRouteSurface,
       visibility,
       meta: {
         tags: ["crud"],
@@ -139,9 +168,8 @@ function registerRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.update,
-        context: { surface: "admin" },
         input: {
-          workspaceSlug: request.input.params.workspaceSlug,
+          ...buildWorkspaceInput(request.input.params),
           recordId: request.input.params.recordId,
           patch: request.input.body
         }
@@ -155,6 +183,7 @@ function registerRoutes(app) {
     `${routeBase}/:recordId`,
     {
       auth: "required",
+      surface: normalizedRouteSurface,
       visibility,
       meta: {
         tags: ["crud"],
@@ -168,9 +197,8 @@ function registerRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.delete,
-        context: { surface: "admin" },
         input: {
-          workspaceSlug: request.input.params.workspaceSlug,
+          ...buildWorkspaceInput(request.input.params),
           recordId: request.input.params.recordId
         }
       });

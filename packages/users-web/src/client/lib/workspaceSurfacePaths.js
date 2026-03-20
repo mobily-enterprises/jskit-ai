@@ -84,7 +84,7 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedWorkspaceSlug) {
-    return resolveSurfacePathFromPlacementContext(contextValue, "home", "/account/settings");
+    return "/account/settings";
   }
 
   const surfaceConfig = readPlacementSurfaceConfig(contextValue);

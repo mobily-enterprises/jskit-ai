@@ -3,12 +3,12 @@ __TENANCY_MODE_LINE__
 
 config.surfaceModeAll = "all";
 config.surfaceDefaultId = "home";
-config.webRootAllowed = "yes";
+config.webRootAllowed = "no";
 config.surfaceDefinitions = {};
 config.surfaceDefinitions.home = {
   id: "home",
   label: "Home",
-  pagesRoot: "",
+  pagesRoot: "home",
   enabled: true,
   requiresAuth: false,
   requiresWorkspace: false

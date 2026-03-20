@@ -3224,12 +3224,25 @@ function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, ac
   throw createCliError(lines.join("\n"));
 }
 
-async function resolvePackageOptions(packageEntry, inlineOptions, io) {
+async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {}) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
   const optionNames = Object.keys(optionSchemas);
   const resolved = {};
   const inlineOptionValues = ensureObject(inlineOptions);
   const hasInlineOption = (name) => Object.prototype.hasOwnProperty.call(inlineOptionValues, name);
+  let configContext = null;
+
+  async function resolveOptionDefaultFromConfig(configPath = "") {
+    const normalizedConfigPath = String(configPath || "").trim();
+    if (!normalizedConfigPath || !appRoot) {
+      return "";
+    }
+
+    if (!configContext) {
+      configContext = await loadMutationWhenConfigContext(appRoot);
+    }
+    return normalizeWhenSourceValue(resolveWhenConfigValue(configContext, normalizedConfigPath));
+  }
 
   for (const optionName of optionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
@@ -3242,6 +3255,15 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
       }
       if (schema.required) {
         throw createCliError(`Package ${packageEntry.packageId} option ${optionName} requires a non-empty value.`);
+      }
+    }
+
+    const defaultFromConfigPath = String(schema.defaultFromConfig || "").trim();
+    if (defaultFromConfigPath) {
+      const defaultFromConfigValue = await resolveOptionDefaultFromConfig(defaultFromConfigPath);
+      if (defaultFromConfigValue || allowEmpty) {
+        resolved[optionName] = defaultFromConfigValue;
+        continue;
       }
     }
 

@@ -5,7 +5,7 @@
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
             <v-card-title class="px-0">${option:namespace|plural|pascal}</v-card-title>
-            <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)} in the admin surface.</v-card-subtitle>
+            <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)}.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn variant="outlined" :loading="isLoading" @click="records.reload">Refresh</v-btn>
@@ -50,8 +50,7 @@
 
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
-import { useCrudListRuntime } from "./clientSupport.js";
+import { useCrudListRuntime, useCrudModulePolicyRuntime } from "./clientSupport.js";
 
 const {
   crudContext,
@@ -59,9 +58,10 @@ const {
   apiSuffix,
   listQueryKey
 } = useCrudListRuntime();
+const { visibility } = useCrudModulePolicyRuntime();
 
 const records = useList({
-  visibility: crudModuleConfig.visibility,
+  visibility,
   apiSuffix,
   queryKeyFactory: listQueryKey,
   fallbackLoadError: "Unable to load records."

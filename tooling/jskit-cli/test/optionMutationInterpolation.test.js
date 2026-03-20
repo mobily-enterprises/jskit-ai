@@ -281,3 +281,94 @@ test("add package evaluates when.config conditions from app config", async () =>
     await assert.rejects(() => readFile(noneFile, "utf8"));
   });
 });
+
+test("add package resolves option defaultFromConfig from app config", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "default-from-config-app");
+    await createMinimalApp(appRoot, { name: "default-from-config-app" });
+
+    await mkdir(path.join(appRoot, "config"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      [
+        "export const config = {};",
+        'config.surfaceDefaultId = "console";',
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const packageRoot = path.join(appRoot, "packages", "default-from-config-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/default-from-config-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.defaultFromConfig\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(packageRoot, "templates", "resolved-surface.txt"),
+      "surface=${option:surface|lower}\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/default-from-config-feature",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  options: {
+    surface: {
+      required: true,
+      defaultFromConfig: "surfaceDefaultId"
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        from: "templates/resolved-surface.txt",
+        to: "src/generated/surface.txt"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/default-from-config-feature", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const generatedSurfaceFile = await readFile(path.join(appRoot, "src", "generated", "surface.txt"), "utf8");
+    assert.equal(generatedSurfaceFile, "surface=console\n");
+  });
+});

@@ -96,3 +96,62 @@ test("crud routes build create/update action input with explicit payload and pat
     patch: { name: "Renamed" }
   });
 });
+
+test("crud routes omit workspaceSlug for non-workspace calls and apply configured route surface", async () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== KERNEL_TOKENS.HttpRouter) {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerRoutes(app, {
+    routeBasePath: "/api/customers",
+    routeSurface: "console",
+    actionIds: {
+      list: "crud.customers.list",
+      view: "crud.customers.view",
+      create: "crud.customers.create",
+      update: "crud.customers.update",
+      delete: "crud.customers.delete"
+    }
+  });
+
+  const createRoute = findRoute(registeredRoutes, "POST", "/api/customers");
+  assert.ok(createRoute);
+  assert.equal(createRoute.route.surface, "console");
+
+  const calls = [];
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
+
+  await createRoute.handler(
+    {
+      input: {
+        params: {},
+        body: { name: "A", surname: "B" }
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0].input, {
+    payload: { name: "A", surname: "B" }
+  });
+});

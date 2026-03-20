@@ -54,8 +54,7 @@
 import { computed, reactive } from "vue";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
-import { useCrudRecordRuntime } from "./clientSupport.js";
+import { useCrudRecordRuntime, useCrudModulePolicyRuntime } from "./clientSupport.js";
 
 const {
   crudContext,
@@ -66,6 +65,7 @@ const {
   viewQueryKey,
   invalidateAndGoList
 } = useCrudRecordRuntime();
+const { visibility } = useCrudModulePolicyRuntime();
 const record = reactive({
   id: 0,
   name: "",
@@ -81,7 +81,7 @@ const title = computed(() => {
 });
 
 const view = useView({
-  visibility: crudModuleConfig.visibility,
+  visibility,
   apiSuffix,
   queryKeyFactory: viewQueryKey,
   fallbackLoadError: "Unable to load record.",
@@ -96,7 +96,7 @@ const view = useView({
   }
 });
 const deleteCommand = useCommand({
-  visibility: crudModuleConfig.visibility,
+  visibility,
   apiSuffix,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete record.",

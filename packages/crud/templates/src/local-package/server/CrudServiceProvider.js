@@ -8,12 +8,29 @@ import {
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
 import {
+  crudModuleConfig,
+  resolveCrudModulePolicyFromAppConfig
+} from "../shared/moduleConfig.js";
+import {
   NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN,
   NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN
 } from "./diTokens.js";
 
 const NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID = NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN;
 const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = "crud_${option:namespace|snake}";
+
+function resolveCrudPolicyFromApp(app) {
+  const appConfig =
+    typeof app?.has === "function" &&
+    typeof app?.make === "function" &&
+    app.has("appConfig")
+    ? app.make("appConfig")
+    : {};
+  return resolveCrudModulePolicyFromAppConfig(appConfig, {
+    moduleConfig: crudModuleConfig,
+    context: "${option:namespace|pascal}ServiceProvider"
+  });
+}
 
 class ${option:namespace|pascal}ServiceProvider {
   static id = NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID;
@@ -24,6 +41,8 @@ class ${option:namespace|pascal}ServiceProvider {
     if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
       throw new Error("${option:namespace|pascal}ServiceProvider requires application singleton()/service()/actions().");
     }
+
+    const crudPolicy = resolveCrudPolicyFromApp(app);
 
     app.singleton(NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN, (scope) => {
       const knex = scope.make(KERNEL_TOKENS.Knex);
@@ -46,7 +65,9 @@ class ${option:namespace|pascal}ServiceProvider {
 
     app.actions(
       withActionDefaults(
-        createActions(),
+        createActions({
+          surface: crudPolicy.surfaceId
+        }),
         {
           domain: "crud",
           dependencies: {
@@ -58,7 +79,12 @@ class ${option:namespace|pascal}ServiceProvider {
   }
 
   boot(app) {
-    registerRoutes(app);
+    const crudPolicy = resolveCrudPolicyFromApp(app);
+    registerRoutes(app, {
+      routeVisibility: crudPolicy.visibility,
+      routeSurface: crudPolicy.surfaceId,
+      routeRelativePath: crudPolicy.relativePath
+    });
   }
 }
 

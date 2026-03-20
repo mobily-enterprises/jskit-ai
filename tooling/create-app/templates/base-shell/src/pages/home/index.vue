@@ -1,13 +1,3 @@
-<route lang="json">
-{
-  "meta": {
-    "jskit": {
-      "surface": "home"
-    }
-  }
-}
-</route>
-
 <template>
   <v-card class="mx-auto" max-width="960" rounded="xl" border elevation="1">
     <v-card-item class="px-6 py-5 px-md-8 py-md-7">

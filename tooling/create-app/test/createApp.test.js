@@ -106,10 +106,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(publicConfig, /config\.tenancyMode/);
     assert.match(publicConfig, /config\.surfaceModeAll = "all";/);
     assert.match(publicConfig, /config\.surfaceDefaultId = "home";/);
+    assert.match(publicConfig, /config\.webRootAllowed = "no";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
-    assert.match(publicConfig, /pagesRoot:\s*""/);
+    assert.match(publicConfig, /pagesRoot:\s*"home"/);
     assert.match(publicConfig, /pagesRoot:\s*"console"/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
@@ -207,10 +208,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
     assert.match(notFoundView, /The page you requested does not exist\./);
 
-    const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
-    assert.match(indexView, /welcome/);
-    assert.doesNotMatch(indexView, /const appTitle =/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
+    const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
+    assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
+    assert.match(homeView, /welcome/);
+    assert.doesNotMatch(homeView, /const appTitle =/);
     const consoleView = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     assert.match(consoleView, /RouterView/);
     const consoleIndexView = await readFile(path.join(appRoot, "src/pages/console/index.vue"), "utf8");
@@ -305,7 +307,7 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
-    assert.match(publicConfig, /pagesRoot:\s*""/);
+    assert.match(publicConfig, /pagesRoot:\s*"home"/);
     assert.match(publicConfig, /pagesRoot:\s*"console"/);
   });
 });
@@ -407,9 +409,10 @@ test("create-app applies explicit app title when --title is provided", async () 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);
 
-    const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.doesNotMatch(indexView, /@jskit-ai\/shell-web/);
-    assert.match(indexView, /welcome/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
+    const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
+    assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
+    assert.match(homeView, /welcome/);
   });
 });
 
@@ -438,7 +441,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
-    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
@@ -500,7 +503,7 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     });
     assert.equal(addUsersWebResult.status, 0, addUsersWebResult.stderr);
 
-    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
     const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
@@ -587,7 +590,7 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
 
-    const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);

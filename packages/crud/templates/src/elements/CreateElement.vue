@@ -51,8 +51,11 @@
 import { reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
-import { crudResource, useCrudCreateRuntime } from "./clientSupport.js";
+import {
+  crudResource,
+  useCrudCreateRuntime,
+  useCrudModulePolicyRuntime
+} from "./clientSupport.js";
 
 const {
   listPath,
@@ -60,13 +63,14 @@ const {
   createQueryKey,
   invalidateAndGoView
 } = useCrudCreateRuntime();
+const { visibility } = useCrudModulePolicyRuntime();
 const recordForm = reactive({
   name: "",
   surname: ""
 });
 
 const addEdit = useAddEdit({
-  visibility: crudModuleConfig.visibility,
+  visibility,
   resource: crudResource,
   apiSuffix,
   queryKeyFactory: createQueryKey,

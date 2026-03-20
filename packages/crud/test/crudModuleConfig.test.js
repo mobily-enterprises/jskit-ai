@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveCrudConfig,
+  resolveCrudSurfacePolicy,
   resolveCrudConfigFromModules,
   resolveCrudConfigsFromModules
 } from "../src/shared/crud/crudModuleConfig.js";
@@ -124,5 +125,101 @@ test("resolveCrudConfigsFromModules rejects module entries without namespace", (
         }
       }),
     /requires a non-empty namespace/
+  );
+});
+
+test("resolveCrudSurfacePolicy resolves auto visibility from workspace surface metadata", () => {
+  const policy = resolveCrudSurfacePolicy(
+    {
+      surface: "admin",
+      visibility: "auto",
+      relativePath: "/crm/customers"
+    },
+    {
+      surfaceDefinitions: {
+        admin: { requiresWorkspace: true, requiresAuth: true, enabled: true }
+      },
+      defaultSurfaceId: "admin"
+    }
+  );
+
+  assert.equal(policy.surfaceId, "admin");
+  assert.equal(policy.visibility, "workspace");
+  assert.equal(policy.workspaceScoped, true);
+  assert.equal(policy.relativePath, "/crm/customers");
+});
+
+test("resolveCrudSurfacePolicy resolves auto visibility from auth-only surface metadata", () => {
+  const policy = resolveCrudSurfacePolicy(
+    {
+      surface: "console",
+      visibility: "auto",
+      relativePath: "/crm/customers"
+    },
+    {
+      surfaceDefinitions: {
+        console: { requiresWorkspace: false, requiresAuth: true, enabled: true }
+      },
+      defaultSurfaceId: "console"
+    }
+  );
+
+  assert.equal(policy.surfaceId, "console");
+  assert.equal(policy.visibility, "user");
+  assert.equal(policy.workspaceScoped, false);
+});
+
+test("resolveCrudSurfacePolicy rejects explicit workspace visibility on non-workspace surfaces", () => {
+  assert.throws(
+    () =>
+      resolveCrudSurfacePolicy(
+        {
+          surface: "console",
+          visibility: "workspace",
+          relativePath: "/crm/customers"
+        },
+        {
+          surfaceDefinitions: {
+            console: { requiresWorkspace: false, requiresAuth: true, enabled: true }
+          }
+        }
+      ),
+    /requires a workspace-enabled surface/
+  );
+});
+
+test("resolveCrudSurfacePolicy rejects unknown or disabled surfaces", () => {
+  assert.throws(
+    () =>
+      resolveCrudSurfacePolicy(
+        {
+          surface: "missing",
+          visibility: "auto",
+          relativePath: "/crm/customers"
+        },
+        {
+          surfaceDefinitions: {
+            console: { requiresWorkspace: false, requiresAuth: true, enabled: true }
+          }
+        }
+      ),
+    /cannot resolve surface "missing"/
+  );
+
+  assert.throws(
+    () =>
+      resolveCrudSurfacePolicy(
+        {
+          surface: "console",
+          visibility: "auto",
+          relativePath: "/crm/customers"
+        },
+        {
+          surfaceDefinitions: {
+            console: { requiresWorkspace: false, requiresAuth: true, enabled: false }
+          }
+        }
+      ),
+    /surface "console" is disabled/
   );
 });
