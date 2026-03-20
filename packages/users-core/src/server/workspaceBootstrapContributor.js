@@ -20,6 +20,11 @@ import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatt
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
 
+const REQUESTED_WORKSPACE_STATUS_RESOLVED = "resolved";
+const REQUESTED_WORKSPACE_STATUS_NOT_FOUND = "not_found";
+const REQUESTED_WORKSPACE_STATUS_FORBIDDEN = "forbidden";
+const REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED = "unauthenticated";
+
 function normalizePendingInvites(invites) {
   return workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
     pendingInvites: invites
@@ -93,6 +98,45 @@ function resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {}) {
   return "";
 }
 
+function normalizeRequestedWorkspaceStatus(value = "") {
+  const normalizedValue = normalizeLowerText(value);
+  if (
+    normalizedValue === REQUESTED_WORKSPACE_STATUS_RESOLVED ||
+    normalizedValue === REQUESTED_WORKSPACE_STATUS_NOT_FOUND ||
+    normalizedValue === REQUESTED_WORKSPACE_STATUS_FORBIDDEN ||
+    normalizedValue === REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED
+  ) {
+    return normalizedValue;
+  }
+  return "";
+}
+
+function createRequestedWorkspacePayload(workspaceSlug = "", status = "") {
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
+  const normalizedStatus = normalizeRequestedWorkspaceStatus(status);
+  if (!normalizedWorkspaceSlug || !normalizedStatus) {
+    return null;
+  }
+  return {
+    slug: normalizedWorkspaceSlug,
+    status: normalizedStatus
+  };
+}
+
+function resolveRequestedWorkspaceStatusFromError(error) {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  if (statusCode === 404) {
+    return REQUESTED_WORKSPACE_STATUS_NOT_FOUND;
+  }
+  if (statusCode === 403) {
+    return REQUESTED_WORKSPACE_STATUS_FORBIDDEN;
+  }
+  if (statusCode === 401) {
+    return REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED;
+  }
+  return "";
+}
+
 function resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = true } = {}) {
   const features = {
     workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, true),
@@ -152,6 +196,7 @@ function createAnonymousBootstrapPayload({ appState, tenancyProfile }) {
     pendingInvites: [],
     activeWorkspace: null,
     membership: null,
+    requestedWorkspace: null,
     permissions: [],
     workspaceSettings: null,
     userSettings: null
@@ -251,10 +296,20 @@ function createWorkspaceBootstrapContributor({
               })
             )
           : [];
+      const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
       let payload = createAnonymousBootstrapPayload({
         appState,
         tenancyProfile: resolvedTenancyProfile
       });
+      if (normalizedWorkspaceSlug && !normalizedUser) {
+        payload = {
+          ...payload,
+          requestedWorkspace: createRequestedWorkspacePayload(
+            normalizedWorkspaceSlug,
+            REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED
+          )
+        };
+      }
 
       if (normalizedUser) {
         const latestProfile =
@@ -264,14 +319,26 @@ function createWorkspaceBootstrapContributor({
           })) || normalizedUser;
 
         const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
-        const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
         let workspaceContext = null;
+        let requestedWorkspace = null;
         if (normalizedWorkspaceSlug && resolvedTenancyProfile.mode !== TENANCY_MODE_NONE) {
-          workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-            latestProfile,
-            normalizedWorkspaceSlug,
-            { request }
-          );
+          try {
+            workspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+              latestProfile,
+              normalizedWorkspaceSlug,
+              { request }
+            );
+            requestedWorkspace = createRequestedWorkspacePayload(
+              normalizedWorkspaceSlug,
+              REQUESTED_WORKSPACE_STATUS_RESOLVED
+            );
+          } catch (error) {
+            const requestedWorkspaceStatus = resolveRequestedWorkspaceStatusFromError(error);
+            if (!requestedWorkspaceStatus) {
+              throw error;
+            }
+            requestedWorkspace = createRequestedWorkspacePayload(normalizedWorkspaceSlug, requestedWorkspaceStatus);
+          }
         }
 
         const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
@@ -296,6 +363,7 @@ function createWorkspaceBootstrapContributor({
               })
             : null,
           membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
+          requestedWorkspace,
           permissions: workspaceContext ? [...workspaceContext.permissions] : [],
           workspaceSettings: workspaceContext
             ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings, {

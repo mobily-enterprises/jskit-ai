@@ -569,6 +569,89 @@ test("bootstrap placement runtime updates status per workspace slug across route
   assert.equal(context.workspace, null);
 });
 
+test("bootstrap placement runtime uses requestedWorkspace status and keeps global workspace list on inaccessible slug", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/tonymobily");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 4
+        },
+        profile: {
+          displayName: "Chiara",
+          email: "chiara@example.com",
+          avatar: {
+            effectiveUrl: ""
+          }
+        },
+        workspaces: [{ id: 3, slug: "chiaramobily", name: "Chiara Workspace" }],
+        requestedWorkspace: {
+          slug: "tonymobily",
+          status: "forbidden"
+        },
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+
+  const context = placementRuntime.getContext();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("tonymobily"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.equal(context.workspaceBootstrapStatuses?.tonymobily, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.equal(context.workspace, null);
+  assert.equal(Array.isArray(context.workspaces), true);
+  assert.equal(context.workspaces.length, 1);
+  assert.equal(context.workspaces[0]?.slug, "chiaramobily");
+});
+
+test("bootstrap placement runtime uses requestedWorkspace=not_found without forcing forbidden fallback", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/missing");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        profile: {
+          displayName: "User",
+          email: "user@example.com",
+          avatar: {
+            effectiveUrl: ""
+          }
+        },
+        workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+        requestedWorkspace: {
+          slug: "missing",
+          status: "not_found"
+        },
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+
+  const context = placementRuntime.getContext();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("missing"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspaceBootstrapStatuses?.missing, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(Array.isArray(context.workspaces), true);
+  assert.equal(context.workspaces.length, 1);
+  assert.equal(context.workspaces[0]?.slug, "acme");
+});
+
 test("bootstrap placement runtime guard wrapper preserves delegated deny outcomes", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");

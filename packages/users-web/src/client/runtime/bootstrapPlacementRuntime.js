@@ -128,6 +128,26 @@ function normalizeWorkspaceBootstrapStatus(status = "") {
   return "";
 }
 
+function resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = "") {
+  const normalizedWorkspaceSlug = normalizeWorkspaceSlugKey(workspaceSlug);
+  if (!normalizedWorkspaceSlug) {
+    return "";
+  }
+
+  const requestedWorkspace =
+    payload?.requestedWorkspace && typeof payload.requestedWorkspace === "object" ? payload.requestedWorkspace : null;
+  if (!requestedWorkspace) {
+    return "";
+  }
+
+  const requestedWorkspaceSlug = normalizeWorkspaceSlugKey(requestedWorkspace.slug);
+  if (!requestedWorkspaceSlug || requestedWorkspaceSlug !== normalizedWorkspaceSlug) {
+    return "";
+  }
+
+  return normalizeWorkspaceBootstrapStatus(requestedWorkspace.status);
+}
+
 function resolveAuthSignature(context = {}) {
   const auth = context?.auth && typeof context.auth === "object" ? context.auth : {};
   const authenticated = auth.authenticated === true ? "1" : "0";
@@ -526,6 +546,12 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         const sessionAuthenticated = payload?.session?.authenticated === true;
         if (!sessionAuthenticated) {
           setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, source);
+          return;
+        }
+
+        const requestedWorkspaceStatus = resolveRequestedWorkspaceBootstrapStatus(payload, stateAtStart.workspaceSlug);
+        if (requestedWorkspaceStatus) {
+          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, requestedWorkspaceStatus, source);
           return;
         }
 
