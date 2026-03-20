@@ -353,10 +353,40 @@ export default Object.freeze({
       {
         op: "append-text",
         file: "config/public.js",
+        position: "top",
+        skipIfContains: "import { surfaceAccessPolicies } from \"./surfaceAccessPolicies.js\";",
+        value: "import { surfaceAccessPolicies } from \"./surfaceAccessPolicies.js\";\n",
+        reason: "Load app-owned surface access policy catalog from dedicated config file.",
+        category: "users-core",
+        id: "users-core-surface-access-policies-public-import"
+      },
+      {
+        op: "append-text",
+        file: "config/surfaceAccessPolicies.js",
+        position: "top",
+        skipIfContains: "export const surfaceAccessPolicies = {};",
+        value: "export const surfaceAccessPolicies = {};\n\n",
+        reason: "Initialize app-owned surface access policy config if missing.",
+        category: "users-core",
+        id: "users-core-surface-access-policies-config-init"
+      },
+      {
+        op: "append-text",
+        file: "config/surfaceAccessPolicies.js",
+        position: "bottom",
+        skipIfContains: "surfaceAccessPolicies.workspace_member = {",
+        value: "\nsurfaceAccessPolicies.workspace_member = {\n  requireAuth: true,\n  requireWorkspaceMembership: true\n};\n",
+        reason: "Register workspace-member surface access policy for workspace surfaces.",
+        category: "users-core",
+        id: "users-core-surface-access-policies-workspace-member"
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
         position: "bottom",
         skipIfContains: "config.surfaceDefinitions.app = {",
         value:
-          "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  label: \"App\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  label: \"Admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n",
+          "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  label: \"App\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true,\n  accessPolicyId: \"workspace_member\"\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  label: \"Admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true,\n  accessPolicyId: \"workspace_member\"\n};\n",
         reason: "Append workspace surface topology when tenancy enables workspace routing.",
         category: "users-core",
         id: "users-core-surface-config-workspace",
@@ -385,6 +415,16 @@ export default Object.freeze({
         reason: "Bind app-owned workspace role catalog onto public config.",
         category: "users-core",
         id: "users-core-workspace-roles-public-config"
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.surfaceAccessPolicies = surfaceAccessPolicies;",
+        value: "\nconfig.surfaceAccessPolicies = surfaceAccessPolicies;\n",
+        reason: "Bind app-owned surface access policies onto public config.",
+        category: "users-core",
+        id: "users-core-surface-access-policies-public-config"
       },
       {
         op: "append-text",

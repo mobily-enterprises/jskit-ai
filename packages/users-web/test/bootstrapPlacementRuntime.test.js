@@ -845,6 +845,68 @@ test("bootstrap placement runtime redirects forbidden workspace route to workspa
   assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
 });
 
+test("bootstrap placement runtime enforces surface access policies after bootstrap refresh", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  placementRuntime.setContext({
+    auth: {
+      authenticated: true
+    },
+    surfaceAccessPolicies: {
+      public: {},
+      console_owner: {
+        requireAuth: true,
+        requireFlagsAll: ["console_owner"]
+      }
+    },
+    surfaceConfig: {
+      tenancyMode: "workspace",
+      defaultSurfaceId: "home",
+      enabledSurfaceIds: ["home", "console"],
+      surfacesById: {
+        home: {
+          id: "home",
+          enabled: true,
+          pagesRoot: "home",
+          routeBase: "/home",
+          requiresWorkspace: false,
+          accessPolicyId: "public"
+        },
+        console: {
+          id: "console",
+          enabled: true,
+          pagesRoot: "console",
+          routeBase: "/console",
+          requiresWorkspace: false,
+          accessPolicyId: "console_owner"
+        }
+      }
+    }
+  });
+  const router = createRouterStub("/console");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        workspaces: [],
+        permissions: [],
+        surfaceAccess: {
+          consoleowner: false
+        }
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.deepEqual(router.replaceCalls, ["/home"]);
+});
+
 test("bootstrap placement runtime captures guard evaluator assignments after initialization", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");

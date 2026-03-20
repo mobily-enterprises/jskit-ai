@@ -198,6 +198,9 @@ function createAnonymousBootstrapPayload({ appState, tenancyProfile }) {
     membership: null,
     requestedWorkspace: null,
     permissions: [],
+    surfaceAccess: {
+      consoleowner: false
+    },
     workspaceSettings: null,
     userSettings: null
   };
@@ -275,13 +278,14 @@ function createWorkspaceBootstrapContributor({
       if (authResult?.transientFailure === true) {
         throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
       }
+      let seededConsoleOwnerUserId = 0;
       if (
         authResult?.authenticated &&
         authResult?.profile?.id != null &&
         consoleService &&
         typeof consoleService.ensureInitialConsoleMember === "function"
       ) {
-        await consoleService.ensureInitialConsoleMember(authResult.profile.id);
+        seededConsoleOwnerUserId = Number(await consoleService.ensureInitialConsoleMember(authResult.profile.id));
       }
 
       const user = authResult?.authenticated ? authResult.profile : null;
@@ -365,6 +369,9 @@ function createWorkspaceBootstrapContributor({
           membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
           requestedWorkspace,
           permissions: workspaceContext ? [...workspaceContext.permissions] : [],
+          surfaceAccess: {
+            consoleowner: seededConsoleOwnerUserId > 0 && seededConsoleOwnerUserId === Number(latestProfile.id)
+          },
           workspaceSettings: workspaceContext
             ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings, {
                 workspaceInvitationsEnabled

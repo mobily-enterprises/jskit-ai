@@ -126,11 +126,12 @@ test("workspace bootstrap contributor seeds the initial console owner on authent
     consoleService: {
       async ensureInitialConsoleMember(userId) {
         consoleOwnerSeeds.push(Number(userId));
+        return Number(userId);
       }
     }
   });
 
-  await contributor.contribute({
+  const payload = await contributor.contribute({
     request: {
       async executeAction() {
         return {
@@ -143,6 +144,7 @@ test("workspace bootstrap contributor seeds the initial console owner on authent
   });
 
   assert.deepEqual(consoleOwnerSeeds, [12]);
+  assert.equal(payload.surfaceAccess?.consoleowner, true);
 });
 
 test("workspace bootstrap contributor emits canonical tenancy profile from users-core", async () => {

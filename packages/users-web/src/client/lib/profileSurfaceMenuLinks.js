@@ -1,29 +1,13 @@
 import {
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceShellLinkPath } from "./workspaceLinkResolver.js";
 import { resolveSurfaceSwitchTargetsFromPlacementContext } from "./workspaceSurfaceContext.js";
+import { evaluateSurfaceAccess, hasWorkspaceMembership } from "./surfaceAccessPolicy.js";
 import {
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
 } from "./workspaceSurfacePaths.js";
-
-function isWorkspaceSurface(surfaceDefinition) {
-  return Boolean(surfaceDefinition && surfaceDefinition.requiresWorkspace === true);
-}
-
-function hasConsoleAccess(permissions) {
-  if (!Array.isArray(permissions)) {
-    return false;
-  }
-
-  const normalized = permissions.map((entry) => normalizeLowerText(entry)).filter(Boolean);
-  if (normalized.length < 1) {
-    return false;
-  }
-  return normalized.includes("*") || normalized.includes("console.operator");
-}
 
 function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
   const context = contextValue && typeof contextValue === "object" ? contextValue : {};
@@ -44,158 +28,96 @@ function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
   return String(extractWorkspaceSlugFromSurfacePathname(context, currentSurfaceId, pathname) || "").trim();
 }
 
-function hasWorkspaceMembership(contextValue, workspaceSlug) {
-  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
-  if (!normalizedWorkspaceSlug) {
+function shouldIncludeSurfaceSwitchTarget(surfaceDefinition = null) {
+  if (!surfaceDefinition || typeof surfaceDefinition !== "object") {
     return false;
   }
 
-  const context = contextValue && typeof contextValue === "object" ? contextValue : {};
-  const currentWorkspaceSlug = normalizeLowerText(context?.workspace?.slug);
-  if (currentWorkspaceSlug && currentWorkspaceSlug === normalizedWorkspaceSlug) {
+  if (surfaceDefinition.enabled === false) {
+    return false;
+  }
+
+  if (surfaceDefinition.showInSurfaceSwitchMenu === true) {
     return true;
   }
-
-  const workspaces = Array.isArray(context?.workspaces) ? context.workspaces : [];
-  for (const workspace of workspaces) {
-    if (normalizeLowerText(workspace?.slug) === normalizedWorkspaceSlug) {
-      return true;
-    }
+  if (surfaceDefinition.showInSurfaceSwitchMenu === false) {
+    return false;
   }
 
-  return false;
+  return surfaceDefinition.requiresWorkspace === true || surfaceDefinition.requiresAuth === true;
 }
 
-function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
+function resolveSurfaceSwitchLinkLabel(surfaceDefinition = null, surfaceId = "") {
+  const normalizedSurfaceId = String(surfaceId || "").trim();
+  const configuredLabel = String(surfaceDefinition?.label || "").trim();
+  const label = configuredLabel || normalizedSurfaceId;
+  if (!label) {
+    return "Go to surface";
+  }
+  return `Go to ${label.toLowerCase()}`;
+}
+
+function resolveSurfaceSwitchLinks({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
-  const resolvedWorkspaceSlug = resolveCurrentWorkspaceSlug(source, targets.currentSurfaceId || surface);
+  const currentSurfaceId = String(targets.currentSurfaceId || "").trim().toLowerCase();
+  const resolvedWorkspaceSlug = resolveCurrentWorkspaceSlug(source, currentSurfaceId || surface);
   const workspaceSlug = hasWorkspaceMembership(source, resolvedWorkspaceSlug) ? resolvedWorkspaceSlug : "";
   const enabledSurfaceIds = Array.isArray(targets?.surfaceConfig?.enabledSurfaceIds)
     ? targets.surfaceConfig.enabledSurfaceIds
     : [];
-  const appSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeLowerText(surfaceId) === "app") || "";
-  const adminSurfaceId = enabledSurfaceIds.find((surfaceId) => normalizeLowerText(surfaceId) === "admin") || "";
-  const appSurface = appSurfaceId ? targets.surfaceConfig.surfacesById[appSurfaceId] : null;
-  const adminSurface = adminSurfaceId ? targets.surfaceConfig.surfacesById[adminSurfaceId] : null;
-  const appSurfaceIsWorkspace = isWorkspaceSurface(appSurface);
-  const adminSurfaceIsWorkspace = isWorkspaceSurface(adminSurface);
+  const links = [];
 
-  if (workspaceSlug) {
-    if (targets.currentSurfaceId === appSurfaceId && adminSurfaceId && adminSurfaceIsWorkspace) {
-      return {
-        id: "surface-switch.primary",
-        label: "Go to admin",
-        to: resolveWorkspaceShellLinkPath({
-          context: source,
-          surface: adminSurfaceId,
-          workspaceSlug,
-          mode: "workspace",
-          relativePath: "/"
-        })
-      };
+  for (const targetSurfaceIdCandidate of enabledSurfaceIds) {
+    const targetSurfaceId = String(targetSurfaceIdCandidate || "").trim().toLowerCase();
+    if (!targetSurfaceId) {
+      continue;
+    }
+    if (targetSurfaceId === currentSurfaceId) {
+      continue;
     }
 
-    if (targets.currentSurfaceId === adminSurfaceId && appSurfaceId && appSurfaceIsWorkspace) {
-      return {
-        id: "surface-switch.primary",
-        label: "Go to app",
-        to: resolveWorkspaceShellLinkPath({
-          context: source,
-          surface: appSurfaceId,
-          workspaceSlug,
-          mode: "workspace",
-          relativePath: "/"
-        })
-      };
+    const targetSurface = targets.surfaceConfig.surfacesById[targetSurfaceId] || null;
+    if (!shouldIncludeSurfaceSwitchTarget(targetSurface)) {
+      continue;
     }
-  }
 
-  if (appSurfaceId && appSurfaceIsWorkspace && workspaceSlug) {
-    if (targets.currentSurfaceId === appSurfaceId) {
-      return null;
+    const targetWorkspaceSlug = targetSurface?.requiresWorkspace === true ? workspaceSlug : "";
+    if (targetSurface?.requiresWorkspace === true && !targetWorkspaceSlug) {
+      continue;
     }
-    return {
-      id: "surface-switch.primary",
-      label: "Go to workspace",
+
+    const accessDecision = evaluateSurfaceAccess({
+      context: source,
+      surfaceId: targetSurfaceId,
+      workspaceSlug: targetWorkspaceSlug
+    });
+    if (!accessDecision.allowed) {
+      continue;
+    }
+
+    links.push({
+      id: `surface-switch.${targetSurfaceId}`,
+      label: resolveSurfaceSwitchLinkLabel(targetSurface, targetSurfaceId),
       to: resolveWorkspaceShellLinkPath({
         context: source,
-        surface: appSurfaceId,
-        workspaceSlug,
-        mode: "workspace",
+        surface: targetSurfaceId,
+        workspaceSlug: targetWorkspaceSlug,
+        mode: targetSurface?.requiresWorkspace === true ? "workspace" : "surface",
         relativePath: "/"
       })
-    };
+    });
   }
 
-  if (appSurfaceId && !appSurfaceIsWorkspace) {
-    if (targets.currentSurfaceId === appSurfaceId) {
-      return null;
-    }
-    return {
-      id: "surface-switch.primary",
-      label: "Go to app",
-      to: resolveWorkspaceShellLinkPath({
-        context: source,
-        surface: appSurfaceId,
-        mode: "surface",
-        relativePath: "/"
-      })
-    };
-  }
-
-  if (!targets.workspaceSurfaceId || !workspaceSlug) {
-    return null;
-  }
-
-  if (targets.currentSurfaceId === targets.workspaceSurfaceId) {
-    return null;
-  }
-
-  const workspaceTarget = resolveWorkspaceShellLinkPath({
-    context: source,
-    surface: targets.workspaceSurfaceId,
-    workspaceSlug,
-    mode: "workspace",
-    relativePath: "/"
-  });
-
-  return {
-    id: "surface-switch.primary",
-    label: "Go to workspace",
-    to: workspaceTarget
-  };
+  return links;
 }
 
-function resolveGoToConsoleLink({ context, surface } = {}) {
-  const source = context && typeof context === "object" ? context : {};
-  const authenticated = Boolean(source?.auth?.authenticated);
-  if (!authenticated) {
-    return null;
-  }
-
-  const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
-  const consoleSurfaceId = targets.surfaceConfig.enabledSurfaceIds.find(
-    (surfaceId) => normalizeLowerText(surfaceId) === "console"
-  );
-  if (!consoleSurfaceId || targets.currentSurfaceId === consoleSurfaceId) {
-    return null;
-  }
-
-  if (!hasConsoleAccess(source?.permissions)) {
-    return null;
-  }
-
-  return {
-    id: "surface-switch.console",
-    label: "Go to console",
-    to: resolveWorkspaceShellLinkPath({
-      context: source,
-      surface: consoleSurfaceId,
-      mode: "surface",
-      relativePath: "/"
-    })
-  };
+function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
+  const links = resolveSurfaceSwitchLinks({
+    context,
+    surface
+  });
+  return links[0] || null;
 }
 
 function resolveProfileSurfaceMenuLinks({ context, surface } = {}) {
@@ -204,23 +126,15 @@ function resolveProfileSurfaceMenuLinks({ context, surface } = {}) {
   if (!authenticated) {
     return [];
   }
-
-  const primary = resolvePrimarySurfaceSwitchLink({
+  return resolveSurfaceSwitchLinks({
     context: source,
     surface
   });
-  const consoleLink = resolveGoToConsoleLink({
-    context: source,
-    surface
-  });
-
-  return [primary, consoleLink].filter(Boolean);
 }
 
 export {
   resolveProfileSurfaceMenuLinks,
   resolvePrimarySurfaceSwitchLink,
-  resolveGoToConsoleLink,
-  hasConsoleAccess,
+  resolveSurfaceSwitchLinks,
   hasWorkspaceMembership
 };

@@ -6,7 +6,8 @@ import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   resolveRuntimePathname,
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceIdFromPlacementPathname
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceRootPathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
@@ -27,6 +28,7 @@ import {
   resolveVuetifyThemeController,
   setVuetifyThemeName
 } from "../lib/theme.js";
+import { evaluateSurfaceAccess } from "../lib/surfaceAccessPolicy.js";
 
 const USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN = "users.web.bootstrap-placement.runtime";
 const BOOTSTRAP_PLACEMENT_SOURCE = "users-web.bootstrap-placement";
@@ -249,6 +251,64 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     });
   }
 
+  function resolveSurfaceRouteState(pathname = "/", search = "") {
+    const context = placementRuntime.getContext();
+    const normalizedPathname = normalizeGuardPathname(pathname);
+    const normalizedSearch = normalizeSearch(search);
+    const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, normalizedPathname) || "")
+      .trim()
+      .toLowerCase();
+    if (!surfaceId) {
+      return null;
+    }
+
+    const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, surfaceId);
+    if (!surfaceDefinition || surfaceDefinition.enabled === false) {
+      return null;
+    }
+
+    const workspaceSlug =
+      surfaceDefinition.requiresWorkspace === true
+        ? normalizeWorkspaceSlugKey(extractWorkspaceSlugFromSurfacePathname(context, surfaceId, normalizedPathname))
+        : "";
+    return Object.freeze({
+      pathname: normalizedPathname,
+      search: normalizedSearch,
+      surfaceId,
+      workspaceSlug,
+      workspaceBootstrapStatus: workspaceSlug ? getWorkspaceBootstrapStatus(workspaceSlug) : ""
+    });
+  }
+
+  function resolveDefaultSurfaceFallbackPath(surfaceState = null) {
+    const context = placementRuntime.getContext();
+    const defaultSurfaceId = String(context?.surfaceConfig?.defaultSurfaceId || "")
+      .trim()
+      .toLowerCase();
+    const fallbackSurfaceId = defaultSurfaceId || surfaceState?.surfaceId || "";
+    if (!fallbackSurfaceId) {
+      return "/";
+    }
+
+    const fallbackSurfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, fallbackSurfaceId);
+    if (fallbackSurfaceDefinition?.requiresWorkspace === true) {
+      const fallbackWorkspaceSlug =
+        normalizeWorkspaceSlugKey(surfaceState?.workspaceSlug) || normalizeWorkspaceSlugKey(context?.workspace?.slug);
+      if (!fallbackWorkspaceSlug) {
+        return "/";
+      }
+      return normalizeGuardPathname(
+        resolveSurfaceWorkspacePathFromPlacementContext(context, fallbackSurfaceId, fallbackWorkspaceSlug, "/")
+      );
+    }
+
+    const fallbackPath = normalizeGuardPathname(resolveSurfaceRootPathFromPlacementContext(context, fallbackSurfaceId));
+    if (fallbackPath.includes(":")) {
+      return "/";
+    }
+    return fallbackPath || "/";
+  }
+
   function resolveWorkspaceGuardDecision(pathname = "/", search = "") {
     const workspaceState = resolveWorkspaceRouteState(pathname, search);
     if (!workspaceState) {
@@ -278,6 +338,39 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     }
 
     return null;
+  }
+
+  function resolveSurfaceAccessGuardDecision(pathname = "/", search = "", { allowOnUnknown = true } = {}) {
+    const surfaceState = resolveSurfaceRouteState(pathname, search);
+    if (!surfaceState) {
+      return null;
+    }
+
+    if (
+      surfaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND ||
+      surfaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN
+    ) {
+      return null;
+    }
+
+    const accessDecision = evaluateSurfaceAccess({
+      context: placementRuntime.getContext(),
+      surfaceId: surfaceState.surfaceId,
+      workspaceSlug: surfaceState.workspaceSlug,
+      allowOnUnknown
+    });
+    if (accessDecision.allowed || accessDecision.pending) {
+      return null;
+    }
+
+    const redirectTarget = resolveDefaultSurfaceFallbackPath(surfaceState);
+    const redirectTo = redirectTarget && redirectTarget !== surfaceState.pathname ? redirectTarget : "";
+
+    return {
+      allow: false,
+      redirectTo,
+      reason: accessDecision.reason || "surface-access-denied"
+    };
   }
 
   async function replaceRouteIfNeeded(targetPath = "") {
@@ -332,6 +425,24 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     }
   }
 
+  function enforceSurfaceAccessForCurrentRoute() {
+    if (!router) {
+      return;
+    }
+
+    const currentRoute = router.currentRoute?.value || {};
+    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
+    const surfaceDecision = resolveSurfaceAccessGuardDecision(currentPath, currentSearch, {
+      allowOnUnknown: false
+    });
+    if (!surfaceDecision || !surfaceDecision.redirectTo) {
+      return;
+    }
+
+    void replaceRouteIfNeeded(surfaceDecision.redirectTo);
+  }
+
   function installWorkspaceGuardEvaluator() {
     if (!root || workspaceGuardEvaluatorInstalled) {
       return;
@@ -364,6 +475,13 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       const workspaceDecision = resolveWorkspaceGuardDecision(pathname, search);
       if (workspaceDecision) {
         return workspaceDecision;
+      }
+
+      const surfaceDecision = resolveSurfaceAccessGuardDecision(pathname, search, {
+        allowOnUnknown: true
+      });
+      if (surfaceDecision) {
+        return surfaceDecision;
       }
 
       return baseOutcome;
@@ -469,6 +587,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         workspaces: availableWorkspaces,
         permissions,
         user,
+        surfaceAccess: payload?.surfaceAccess && typeof payload.surfaceAccess === "object" ? payload.surfaceAccess : {},
         pendingInvitesCount,
         workspaceInvitesEnabled
       },
@@ -476,6 +595,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         source
       }
     );
+    enforceSurfaceAccessForCurrentRoute();
   }
 
   function clearPlacementContext(source = BOOTSTRAP_PLACEMENT_SOURCE) {
@@ -485,6 +605,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         workspaces: [],
         permissions: [],
         user: null,
+        surfaceAccess: {},
         pendingInvitesCount: 0,
         workspaceInvitesEnabled: false
       },
@@ -492,6 +613,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         source
       }
     );
+    enforceSurfaceAccessForCurrentRoute();
   }
 
   function getVuetifyThemeController() {

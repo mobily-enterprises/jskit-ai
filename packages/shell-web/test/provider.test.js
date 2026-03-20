@@ -112,7 +112,10 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
 
 test("shell web client provider resolves surface config from client app config", async () => {
   setClientAppConfig({
-    tenancyMode: "workspace"
+    tenancyMode: "workspace",
+    surfaceAccessPolicies: {
+      public: {}
+    }
   });
 
   try {
@@ -141,6 +144,9 @@ test("shell web client provider resolves surface config from client app config",
     assert.equal(context.surfaceConfig.tenancyMode, "workspace");
     assert.equal(context.surfaceConfig.defaultSurfaceId, "app");
     assert.deepEqual(context.surfaceConfig.enabledSurfaceIds, ["app", "admin", "console"]);
+    assert.deepEqual(context.surfaceAccessPolicies, {
+      public: {}
+    });
   } finally {
     setClientAppConfig({});
   }

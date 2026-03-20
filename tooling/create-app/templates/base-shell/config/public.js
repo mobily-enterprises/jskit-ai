@@ -1,9 +1,12 @@
+import { surfaceAccessPolicies } from "./surfaceAccessPolicies.js";
+
 export const config = {};
 __TENANCY_MODE_LINE__
 
 config.surfaceModeAll = "all";
 config.surfaceDefaultId = "home";
 config.webRootAllowed = "no";
+config.surfaceAccessPolicies = surfaceAccessPolicies;
 config.surfaceDefinitions = {};
 config.surfaceDefinitions.home = {
   id: "home",
@@ -11,7 +14,8 @@ config.surfaceDefinitions.home = {
   pagesRoot: "home",
   enabled: true,
   requiresAuth: false,
-  requiresWorkspace: false
+  requiresWorkspace: false,
+  accessPolicyId: "public"
 };
 config.surfaceDefinitions.console = {
   id: "console",
@@ -19,5 +23,6 @@ config.surfaceDefinitions.console = {
   pagesRoot: "console",
   enabled: true,
   requiresAuth: true,
-  requiresWorkspace: false
+  requiresWorkspace: false,
+  accessPolicyId: "console_owner"
 };

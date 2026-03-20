@@ -303,9 +303,14 @@ class ShellWebClientProvider {
       const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
         tenancyMode: appConfig?.tenancyMode
       });
+      const surfaceAccessPolicies =
+        appConfig?.surfaceAccessPolicies && typeof appConfig.surfaceAccessPolicies === "object"
+          ? appConfig.surfaceAccessPolicies
+          : {};
       placementRuntime.setContext(
         {
-          surfaceConfig
+          surfaceConfig,
+          surfaceAccessPolicies
         },
         {
           source: SURFACE_CONTEXT_SOURCE
