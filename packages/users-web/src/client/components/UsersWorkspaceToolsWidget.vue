@@ -1,13 +1,6 @@
 <script setup>
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { mdiCogOutline } from "@mdi/js";
-
-const props = defineProps({
-  surface: {
-    type: String,
-    default: "*"
-  }
-});
 </script>
 
 <template>
@@ -24,7 +17,7 @@ const props = defineProps({
     </template>
 
     <v-list min-width="220" density="comfortable" class="py-1">
-      <ShellOutlet :surface="props.surface" placement="workspace.primary-menu" />
+      <ShellOutlet host="workspace-tools" position="primary-menu" />
     </v-list>
   </v-menu>
 </template>

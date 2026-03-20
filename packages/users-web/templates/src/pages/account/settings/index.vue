@@ -10,7 +10,7 @@
 
 <template>
   <section class="settings-page">
-    <ShellOutlet surface="*" placement="account.settings.forms" />
+    <ShellOutlet host="account-settings" position="forms" />
   </section>
 </template>
 

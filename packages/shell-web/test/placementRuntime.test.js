@@ -32,7 +32,7 @@ function createPlacementContext() {
   };
 }
 
-test("web placement runtime filters by surface/slot, resolves component tokens, and sorts by order", () => {
+test("web placement runtime filters by surface/host/position, resolves component tokens, and sorts by order", () => {
   const app = createAppStub({
     tokens: {
       "component.alerts": () => null,
@@ -45,36 +45,39 @@ test("web placement runtime filters by surface/slot, resolves component tokens, 
   runtime.replacePlacements([
     definePlacement({
       id: "test.menu",
-      surface: "app",
-      slot: "app.primary-menu",
+      host: "shell-layout",
+      position: "primary-menu",
+      surfaces: ["app"],
       order: 30,
       componentToken: "component.menu"
     }),
     definePlacement({
       id: "test.profile",
-      surface: "*",
-      slot: "app.top-right",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       order: 20,
       componentToken: "component.profile"
     }),
     definePlacement({
       id: "test.alerts",
-      surface: "app",
-      slot: "app.top-right",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["app"],
       order: 10,
       componentToken: "component.alerts"
     })
   ]);
   runtime.setContext(createPlacementContext());
 
-  const topRight = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const topRight = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.deepEqual(topRight.map((entry) => entry.id), ["test.alerts", "test.profile"]);
   assert.equal(typeof topRight[0].component, "function");
 
-  const primaryMenu = runtime.getPlacements({ surface: "app", slot: "app.primary-menu" });
+  const primaryMenu = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "primary-menu" });
   assert.deepEqual(primaryMenu.map((entry) => entry.id), ["test.menu"]);
 
-  const adminTopRight = runtime.getPlacements({ surface: "admin", slot: "app.top-right" });
+  const adminTopRight = runtime.getPlacements({ surface: "admin", host: "shell-layout", position: "top-right" });
   assert.deepEqual(adminTopRight.map((entry) => entry.id), ["test.profile"]);
 });
 
@@ -95,21 +98,23 @@ test("web placement runtime applies context contributors and placement when() pr
   runtime.replacePlacements([
     definePlacement({
       id: "guest.item",
-      slot: "avatar.primary-menu",
-      surface: "*",
+      host: "auth-profile-menu",
+      position: "primary-menu",
+      surfaces: ["*"],
       componentToken: "component.guest",
       when: ({ auth }) => !Boolean(auth?.authenticated)
     }),
     definePlacement({
       id: "auth.item",
-      slot: "avatar.primary-menu",
-      surface: "*",
+      host: "auth-profile-menu",
+      position: "primary-menu",
+      surfaces: ["*"],
       componentToken: "component.authenticated",
       when: ({ auth }) => Boolean(auth?.authenticated)
     })
   ]);
 
-  const menu = runtime.getPlacements({ surface: "app", slot: "avatar.primary-menu" });
+  const menu = runtime.getPlacements({ surface: "app", host: "auth-profile-menu", position: "primary-menu" });
   assert.deepEqual(menu.map((entry) => entry.id), ["auth.item"]);
 });
 
@@ -131,8 +136,9 @@ test("web placement runtime uses runtime context and local context overrides con
   runtime.replacePlacements([
     definePlacement({
       id: "allowed",
-      slot: "avatar.primary-menu",
-      surface: "*",
+      host: "auth-profile-menu",
+      position: "primary-menu",
+      surfaces: ["*"],
       componentToken: "component.allowed",
       when: ({ auth }) => Boolean(auth?.authenticated)
     })
@@ -143,12 +149,13 @@ test("web placement runtime uses runtime context and local context overrides con
       authenticated: true
     }
   });
-  const fromRuntime = runtime.getPlacements({ surface: "app", slot: "avatar.primary-menu" });
+  const fromRuntime = runtime.getPlacements({ surface: "app", host: "auth-profile-menu", position: "primary-menu" });
   assert.deepEqual(fromRuntime.map((entry) => entry.id), ["allowed"]);
 
   const fromLocalOverride = runtime.getPlacements({
     surface: "app",
-    slot: "avatar.primary-menu",
+    host: "auth-profile-menu",
+    position: "primary-menu",
     context: {
       auth: {
         authenticated: false
@@ -191,14 +198,16 @@ test("web placement runtime rejects duplicate placement ids", () => {
     runtime.replacePlacements([
       definePlacement({
         id: "dup.entry",
-        slot: "app.top-right",
-        surface: "*",
+        host: "shell-layout",
+        position: "top-right",
+        surfaces: ["*"],
         componentToken: "component.a"
       }),
       definePlacement({
         id: "dup.entry",
-        slot: "app.primary-menu",
-        surface: "*",
+        host: "shell-layout",
+        position: "primary-menu",
+        surfaces: ["*"],
         componentToken: "component.b"
       })
     ]);
@@ -238,23 +247,25 @@ test("web placement runtime skips throwing component tokens and logs resolution 
   runtime.replacePlacements([
     definePlacement({
       id: "bad",
-      slot: "app.top-right",
-      surface: "*",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       componentToken: "component.bad"
     }),
     definePlacement({
       id: "good",
-      slot: "app.top-right",
-      surface: "*",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       componentToken: "component.good"
     })
   ]);
 
-  const first = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const first = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.deepEqual(first.map((entry) => entry.id), ["good"]);
   assert.equal(errors.length, 1);
 
-  const second = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const second = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.deepEqual(second.map((entry) => entry.id), ["good"]);
   assert.equal(errors.length, 1);
 });
@@ -290,29 +301,31 @@ test("web placement runtime clears failed token cache when placements are replac
   runtime.replacePlacements([
     definePlacement({
       id: "toggle",
-      slot: "app.top-right",
-      surface: "*",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       componentToken: "component.toggle"
     })
   ]);
 
-  const initial = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const initial = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.equal(initial.length, 0);
 
   shouldThrow = false;
-  const stillSkipped = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const stillSkipped = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.equal(stillSkipped.length, 0);
 
   runtime.replacePlacements([
     definePlacement({
       id: "toggle",
-      slot: "app.top-right",
-      surface: "*",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       componentToken: "component.toggle"
     })
   ]);
 
-  const recovered = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const recovered = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.equal(recovered.length, 1);
 });
 
@@ -328,31 +341,34 @@ test("web placement runtime follows explicit surface targeting without role indi
   runtime.replacePlacements([
     definePlacement({
       id: "global.banner",
-      slot: "app.top-right",
-      surface: "*",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["*"],
       order: 10,
       componentToken: "component.global"
     }),
     definePlacement({
       id: "app.link",
-      slot: "app.top-right",
-      surface: "app",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["app"],
       order: 20,
       componentToken: "component.app"
     }),
     definePlacement({
       id: "admin.link",
-      slot: "app.top-right",
-      surface: "admin",
+      host: "shell-layout",
+      position: "top-right",
+      surfaces: ["admin"],
       order: 30,
       componentToken: "component.admin"
     })
   ]);
   runtime.setContext(createPlacementContext());
 
-  const appEntries = runtime.getPlacements({ surface: "app", slot: "app.top-right" });
+  const appEntries = runtime.getPlacements({ surface: "app", host: "shell-layout", position: "top-right" });
   assert.deepEqual(appEntries.map((placement) => placement.id), ["global.banner", "app.link"]);
 
-  const adminEntries = runtime.getPlacements({ surface: "admin", slot: "app.top-right" });
+  const adminEntries = runtime.getPlacements({ surface: "admin", host: "shell-layout", position: "top-right" });
   assert.deepEqual(adminEntries.map((placement) => placement.id), ["global.banner", "admin.link"]);
 });

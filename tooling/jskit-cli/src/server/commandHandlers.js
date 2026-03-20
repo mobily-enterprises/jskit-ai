@@ -534,13 +534,13 @@ function createCommandHandlers(deps) {
           }
         }
         if (placementOutlets.length > 0) {
-          stdout.write(`${color.heading(`Placement outlets (accepted slots) (${placementOutlets.length}):`)}\n`);
+          stdout.write(`${color.heading(`Placement outlets (accepted host/position pairs) (${placementOutlets.length}):`)}\n`);
           for (const outlet of placementOutlets) {
             const surfaces = ensureArray(outlet.surfaces).map((value) => String(value || "").trim()).filter(Boolean);
             const surfacesLabel = surfaces.length > 0 ? ` ${color.installed(`[surfaces:${surfaces.join(", ")}]`)}` : "";
             const description = String(outlet.description || "").trim();
             const descriptionSuffix = description ? `: ${description}` : "";
-            stdout.write(`- ${color.item(outlet.slot)}${surfacesLabel}${descriptionSuffix}\n`);
+            stdout.write(`- ${color.item(`${outlet.host}.${outlet.position}`)}${surfacesLabel}${descriptionSuffix}\n`);
             if (options.details) {
               const sourceLabel = String(outlet.source || "").trim();
               if (sourceLabel) {
@@ -552,14 +552,15 @@ function createCommandHandlers(deps) {
         if (placementContributions.length > 0) {
           stdout.write(`${color.heading(`Placement contributions (default entries) (${placementContributions.length}):`)}\n`);
           for (const contribution of placementContributions) {
-            const surface = String(contribution.surface || "").trim() || "*";
+            const surfaces = ensureArray(contribution.surfaces).map((value) => String(value || "").trim()).filter(Boolean);
+            const surfacesLabel = surfaces.length > 0 ? surfaces.join(", ") : "*";
             const orderSuffix = Number.isFinite(contribution.order) ? ` ${color.installed(`[order:${contribution.order}]`)}` : "";
             const componentToken = String(contribution.componentToken || "").trim();
             const componentSuffix = componentToken ? ` ${color.dim(`component:${componentToken}`)}` : "";
             const description = String(contribution.description || "").trim();
             const descriptionSuffix = description ? `: ${description}` : "";
             stdout.write(
-              `- ${color.item(contribution.id)} ${color.dim("->")} ${color.item(contribution.slot)} ${color.installed(`[surface:${surface}]`)}${orderSuffix}${componentSuffix}${descriptionSuffix}\n`
+              `- ${color.item(contribution.id)} ${color.dim("->")} ${color.item(`${contribution.host}.${contribution.position}`)} ${color.installed(`[surfaces:${surfacesLabel}]`)}${orderSuffix}${componentSuffix}${descriptionSuffix}\n`
             );
             if (options.details) {
               const when = String(contribution.when || "").trim();

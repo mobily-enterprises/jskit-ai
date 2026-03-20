@@ -4,8 +4,8 @@ import {
   watch
 } from "vue";
 import {
-  useWebPlacementContext
-} from "@jskit-ai/shell-web/client/placement";
+  useSurfaceRouteContext
+} from "../composables/useSurfaceRouteContext.js";
 import { mdiCogOutline } from "@mdi/js";
 import {
   hasPermission,
@@ -38,7 +38,7 @@ const props = defineProps({
   }
 });
 
-const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+const { placementContext, mergePlacementContext, currentSurfaceId } = useSurfaceRouteContext();
 const paths = usePaths();
 const hasPlacementPermissions = computed(() => {
   const source = placementContext.value;
@@ -87,8 +87,14 @@ const resolvedTo = computed(() => {
     return explicitTo;
   }
 
+  const explicitSurface = String(props.surface || "").trim().toLowerCase();
+  const targetSurfaceId =
+    explicitSurface && explicitSurface !== "*"
+      ? explicitSurface
+      : String(currentSurfaceId.value || "").trim().toLowerCase();
+
   return paths.page("/workspace/settings", {
-    surface: props.surface,
+    surface: targetSurfaceId,
     mode: "auto"
   });
 });

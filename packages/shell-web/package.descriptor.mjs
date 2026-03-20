@@ -53,22 +53,26 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            slot: "app.top-left",
+            host: "shell-layout",
+            position: "top-left",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            slot: "app.top-right",
+            host: "shell-layout",
+            position: "top-right",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            slot: "app.primary-menu",
+            host: "shell-layout",
+            position: "primary-menu",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            slot: "app.secondary-menu",
+            host: "shell-layout",
+            position: "secondary-menu",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           }

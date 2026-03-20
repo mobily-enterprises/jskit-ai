@@ -5,14 +5,20 @@ import {
   onMounted,
   ref
 } from "vue";
-import { useWebPlacementRuntime } from "../placement/inject.js";
+import { useRoute } from "vue-router";
+import { useWebPlacementContext, useWebPlacementRuntime } from "../placement/inject.js";
+import { resolveRuntimePathname } from "../placement/pathname.js";
+import {
+  readPlacementSurfaceConfig,
+  resolveSurfaceIdFromPlacementPathname
+} from "../placement/surfaceContext.js";
 
 const props = defineProps({
-  surface: {
+  host: {
     type: String,
-    default: "*"
+    default: ""
   },
-  placement: {
+  position: {
     type: String,
     default: ""
   },
@@ -22,7 +28,15 @@ const props = defineProps({
   }
 });
 
+let route = null;
+try {
+  route = useRoute();
+} catch {
+  route = null;
+}
+
 const placementRuntime = useWebPlacementRuntime();
+const { context: placementContext } = useWebPlacementContext();
 const revision = ref(
   typeof placementRuntime.getRevision === "function" ? placementRuntime.getRevision() : 0
 );
@@ -45,11 +59,27 @@ onBeforeUnmount(() => {
   }
 });
 
+const resolvedSurface = computed(() => {
+  const contextValue = placementContext?.value || null;
+  const pathname = resolveRuntimePathname(route?.path);
+  const surfaceFromPathname = resolveSurfaceIdFromPlacementPathname(contextValue, pathname);
+  if (surfaceFromPathname) {
+    return surfaceFromPathname;
+  }
+
+  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
+  if (surfaceConfig.defaultSurfaceId) {
+    return surfaceConfig.defaultSurfaceId;
+  }
+  return "*";
+});
+
 const placements = computed(() => {
   void revision.value;
   return placementRuntime.getPlacements({
-    surface: props.surface,
-    slot: props.placement,
+    surface: resolvedSurface.value,
+    host: props.host,
+    position: props.position,
     context: props.context
   });
 });
@@ -61,8 +91,5 @@ const placements = computed(() => {
     v-for="entry in placements"
     :key="entry.id"
     v-bind="entry.props"
-    :surface="surface"
-    :placement="placement"
-    :placement-id="entry.id"
   />
 </template>

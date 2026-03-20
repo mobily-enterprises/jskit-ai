@@ -1,6 +1,6 @@
 <template>
   <section class="settings-page">
-    <ShellOutlet surface="admin" placement="workspace.settings.forms" />
+    <ShellOutlet host="workspace-settings" position="forms" />
   </section>
 </template>
 

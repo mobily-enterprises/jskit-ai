@@ -26,10 +26,17 @@ function isValidSurfaceIdToken(value = "") {
   return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
 }
 
+function isValidPlacementHostOrPositionToken(value = "") {
+  return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
+}
+
 function normalizePlacementSurface(value, { strict = false, source = "placement" } = {}) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) {
-    return WEB_PLACEMENT_SURFACE_ANY;
+    if (strict) {
+      throw new TypeError(`${source} requires surface id or "*".`);
+    }
+    return "";
   }
 
   if (normalized === WEB_PLACEMENT_SURFACE_ANY) {
@@ -54,37 +61,73 @@ function toInteger(value, fallback = DEFAULT_WEB_PLACEMENT_ORDER) {
   return Math.trunc(numeric);
 }
 
-function normalizePlacementSlot(value, { strict = false, source = "placement" } = {}) {
+function normalizePlacementHost(value, { strict = false, source = "placement" } = {}) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) {
     if (strict) {
-      throw new TypeError(`${source} requires slot.`);
+      throw new TypeError(`${source} requires host.`);
     }
     return "";
   }
 
-  const segments = normalized
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (segments.length < 2) {
+  if (!isValidPlacementHostOrPositionToken(normalized)) {
     if (strict) {
-      throw new TypeError(`${source} slot "${normalized}" must be "<target>.<region>".`);
+      throw new TypeError(`${source} host "${normalized}" is invalid.`);
     }
     return "";
   }
+  return normalized;
+}
 
-  const target = segments.slice(0, -1).join(".");
-  const region = segments[segments.length - 1];
-  if (!target || !region) {
+function normalizePlacementPosition(value, { strict = false, source = "placement" } = {}) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
     if (strict) {
-      throw new TypeError(`${source} slot "${normalized}" must include target and region.`);
+      throw new TypeError(`${source} requires position.`);
     }
     return "";
   }
 
-  return `${target}.${region}`;
+  if (!isValidPlacementHostOrPositionToken(normalized)) {
+    if (strict) {
+      throw new TypeError(`${source} position "${normalized}" is invalid.`);
+    }
+    return "";
+  }
+  return normalized;
+}
+
+function normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {}) {
+  const candidates = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+  if (candidates.length < 1) {
+    return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
+  }
+
+  const normalized = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const surface = normalizePlacementSurface(candidate, {
+      strict,
+      source
+    });
+    if (!surface || seen.has(surface)) {
+      continue;
+    }
+    if (surface === WEB_PLACEMENT_SURFACE_ANY) {
+      return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
+    }
+    seen.add(surface);
+    normalized.push(surface);
+  }
+
+  if (normalized.length < 1) {
+    if (strict) {
+      throw new TypeError(`${source} requires at least one valid surface id.`);
+    }
+    return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
+  }
+
+  return Object.freeze(normalized);
 }
 
 function normalizePlacementDefinition(value, { strict = false, source = "placement" } = {}) {
@@ -103,11 +146,19 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     return null;
   }
 
-  const slot = normalizePlacementSlot(value.slot, {
+  const host = normalizePlacementHost(value.host, {
     strict,
     source: `${source} "${id}"`
   });
-  if (!slot) {
+  if (!host) {
+    return null;
+  }
+
+  const position = normalizePlacementPosition(value.position, {
+    strict,
+    source: `${source} "${id}"`
+  });
+  if (!position) {
     return null;
   }
 
@@ -121,18 +172,16 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
 
   const props = isRecord(value.props) ? { ...value.props } : {};
   const when = typeof value.when === "function" ? value.when : null;
-  const surface = normalizePlacementSurface(value.surface, { strict, source: `${source} "${id}"` });
-  if (!surface) {
-    if (strict) {
-      throw new TypeError(`${source} "${id}" requires a valid surface.`);
-    }
-    return null;
-  }
+  const surfaces = normalizePlacementSurfaces(value.surfaces, {
+    strict,
+    source: `${source} "${id}"`
+  });
 
   return Object.freeze({
     id,
-    slot,
-    surface,
+    host,
+    position,
+    surfaces,
     order: toInteger(value.order, DEFAULT_WEB_PLACEMENT_ORDER),
     componentToken,
     props,
@@ -153,7 +202,9 @@ export {
   isRenderableComponent,
   normalizeSurface,
   normalizePlacementSurface,
-  normalizePlacementSlot,
+  normalizePlacementHost,
+  normalizePlacementPosition,
+  normalizePlacementSurfaces,
   normalizePlacementDefinition,
   definePlacement
 };

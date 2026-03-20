@@ -119,22 +119,26 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            slot: "workspace.primary-menu",
+            host: "workspace-tools",
+            position: "primary-menu",
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           },
           {
-            slot: "account.settings.forms",
+            host: "account-settings",
+            position: "forms",
             surfaces: ["*"],
             source: "templates/src/pages/account/settings/index.vue"
           },
           {
-            slot: "workspace.settings.forms",
+            host: "workspace-settings",
+            position: "forms",
             surfaces: ["admin"],
             source: "templates/src/pages/admin/workspace/settings/index.vue"
           },
           {
-            slot: "console.settings.forms",
+            host: "console-settings",
+            position: "forms",
             surfaces: ["console"],
             source: "templates/src/pages/console/settings/index.vue"
           }
@@ -142,8 +146,9 @@ export default Object.freeze({
         contributions: [
           {
             id: "users.workspace.selector",
-            slot: "app.top-left",
-            surface: "*",
+            host: "shell-layout",
+            position: "top-left",
+            surfaces: ["*"],
             order: 200,
             componentToken: "users.web.workspace.selector",
             when: "auth.authenticated === true",
@@ -151,8 +156,9 @@ export default Object.freeze({
           },
           {
             id: "users.profile.menu.surface-switch",
-            slot: "avatar.primary-menu",
-            surface: "*",
+            host: "auth-profile-menu",
+            position: "primary-menu",
+            surfaces: ["*"],
             order: 100,
             componentToken: "users.web.profile.menu.surface-switch-item",
             when: "auth.authenticated === true",
@@ -160,8 +166,9 @@ export default Object.freeze({
           },
           {
             id: "users.profile.menu.settings",
-            slot: "avatar.primary-menu",
-            surface: "*",
+            host: "auth-profile-menu",
+            position: "primary-menu",
+            surfaces: ["*"],
             order: 500,
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
@@ -169,32 +176,36 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.tools.widget",
-            slot: "app.top-right",
-            surface: "admin",
+            host: "shell-layout",
+            position: "top-right",
+            surfaces: ["admin"],
             order: 900,
             componentToken: "users.web.workspace.tools.widget",
             source: "mutations.text#users-web-placement-block"
           },
           {
             id: "users.workspace.menu.workspace-settings",
-            slot: "workspace.primary-menu",
-            surface: "admin",
+            host: "workspace-tools",
+            position: "primary-menu",
+            surfaces: ["admin"],
             order: 100,
             componentToken: "users.web.workspace-settings.menu-item",
             source: "mutations.text#users-web-placement-block"
           },
           {
             id: "users.workspace.menu.members",
-            slot: "workspace.primary-menu",
-            surface: "admin",
+            host: "workspace-tools",
+            position: "primary-menu",
+            surfaces: ["admin"],
             order: 200,
             componentToken: "users.web.workspace-members.menu-item",
             source: "mutations.text#users-web-placement-block"
           },
           {
             id: "users.console.menu.settings",
-            slot: "app.primary-menu",
-            surface: "console",
+            host: "shell-layout",
+            position: "primary-menu",
+            surfaces: ["console"],
             order: 100,
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
@@ -202,8 +213,9 @@ export default Object.freeze({
           },
           {
             id: "users.account.settings.form",
-            slot: "account.settings.forms",
-            surface: "*",
+            host: "account-settings",
+            position: "forms",
+            surfaces: ["*"],
             order: 100,
             componentToken: "users.web.account-settings.element",
             when: "auth.authenticated === true",
@@ -211,8 +223,9 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.settings.form",
-            slot: "workspace.settings.forms",
-            surface: "admin",
+            host: "workspace-settings",
+            position: "forms",
+            surfaces: ["admin"],
             order: 100,
             componentToken: "users.web.workspace-settings.element",
             source: "mutations.text#users-web-workspace-settings-form-placement"
@@ -351,7 +364,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  surface: \"admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
         reason: "Append users-web placement entries into app-owned placement registry.",
         category: "users-web",
         id: "users-web-placement-block",
@@ -366,7 +379,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.surface-switch\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web profile surface switch placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-surface-switch-placement"
@@ -377,7 +390,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"
@@ -388,7 +401,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.console.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  slot: \"app.primary-menu\",\n  surface: \"console\",\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
@@ -399,7 +412,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.account.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.account.settings.form\",\n  host: \"account-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web account settings form placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-account-settings-form-placement"
@@ -410,7 +423,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
+          "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
         reason: "Append users-web workspace settings form placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-workspace-settings-form-placement",

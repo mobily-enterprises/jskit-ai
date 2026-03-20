@@ -130,7 +130,7 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
             {{ action.label }}
           </v-btn>
           <v-chip color="primary" size="small" label>{{ resolvedSurfaceLabel }}</v-chip>
-          <ShellOutlet :surface="resolvedSurface" placement="app.top-left" />
+          <ShellOutlet host="shell-layout" position="top-left" />
         </div>
       </slot>
 
@@ -149,7 +149,7 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
           >
             {{ action.label }}
           </v-btn>
-          <ShellOutlet :surface="resolvedSurface" placement="app.top-right" />
+          <ShellOutlet host="shell-layout" position="top-right" />
         </div>
       </slot>
     </v-app-bar>
@@ -167,9 +167,9 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
             rounded="lg"
             class="mb-1"
           />
-          <ShellOutlet :surface="resolvedSurface" placement="app.primary-menu" />
+          <ShellOutlet host="shell-layout" position="primary-menu" />
           <v-divider class="my-2" />
-          <ShellOutlet :surface="resolvedSurface" placement="app.secondary-menu" />
+          <ShellOutlet host="shell-layout" position="secondary-menu" />
         </v-list>
       </slot>
     </v-navigation-drawer>

@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useSurfaceRouteContext } from "../composables/useSurfaceRouteContext.js";
 import { resolveProfileSurfaceMenuLinks } from "../lib/profileSurfaceMenuLinks.js";
 
 const props = defineProps({
@@ -10,12 +10,20 @@ const props = defineProps({
   }
 });
 
-const { context: placementContext } = useWebPlacementContext();
+const { placementContext, currentSurfaceId } = useSurfaceRouteContext();
+
+const resolvedSurfaceId = computed(() => {
+  const explicitSurface = String(props.surface || "").trim().toLowerCase();
+  if (explicitSurface && explicitSurface !== "*") {
+    return explicitSurface;
+  }
+  return String(currentSurfaceId.value || "").trim().toLowerCase() || "*";
+});
 
 const resolvedLinks = computed(() => {
   return resolveProfileSurfaceMenuLinks({
     context: placementContext.value,
-    surface: props.surface
+    surface: resolvedSurfaceId.value
   });
 });
 </script>

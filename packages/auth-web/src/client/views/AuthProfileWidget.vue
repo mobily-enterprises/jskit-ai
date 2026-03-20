@@ -4,13 +4,6 @@ import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAuthGuardRuntime } from "../runtime/inject.js";
 
-const props = defineProps({
-  surface: {
-    type: String,
-    default: "*"
-  }
-});
-
 const authGuardRuntime = useAuthGuardRuntime({
   required: true
 });
@@ -98,8 +91,8 @@ onBeforeUnmount(() => {
 
     <v-list min-width="220" density="comfortable" class="py-1">
       <ShellOutlet
-        :surface="props.surface"
-        placement="avatar.primary-menu"
+        host="auth-profile-menu"
+        position="primary-menu"
         :context="placementContext"
       />
     </v-list>

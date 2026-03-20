@@ -173,7 +173,8 @@ export default Object.freeze({
       "placements": {
         "outlets": [
           {
-            "slot": "avatar.primary-menu",
+            "host": "auth-profile-menu",
+            "position": "primary-menu",
             "surfaces": ["*"],
             "source": "src/client/views/AuthProfileWidget.vue"
           }
@@ -181,16 +182,18 @@ export default Object.freeze({
         "contributions": [
           {
             "id": "auth.profile.widget",
-            "slot": "app.top-right",
-            "surface": "*",
+            "host": "shell-layout",
+            "position": "top-right",
+            "surfaces": ["*"],
             "order": 1000,
             "componentToken": "auth.web.profile.widget",
             "source": "mutations.text#auth-web-placement-block"
           },
           {
             "id": "auth.profile.menu.sign-in",
-            "slot": "avatar.primary-menu",
-            "surface": "*",
+            "host": "auth-profile-menu",
+            "position": "primary-menu",
+            "surfaces": ["*"],
             "order": 200,
             "componentToken": "auth.web.profile.menu.link-item",
             "when": "auth.authenticated !== true",
@@ -198,8 +201,9 @@ export default Object.freeze({
           },
           {
             "id": "auth.profile.menu.sign-out",
-            "slot": "avatar.primary-menu",
-            "surface": "*",
+            "host": "auth-profile-menu",
+            "position": "primary-menu",
+            "surfaces": ["*"],
             "order": 1000,
             "componentToken": "auth.web.profile.menu.link-item",
             "when": "auth.authenticated === true",
@@ -263,7 +267,7 @@ export default Object.freeze({
         "file": "src/placement.js",
         "position": "bottom",
         "skipIfContains": "id: \"auth.profile.widget\"",
-        "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         "reason": "Append auth profile placement entries into app-owned placement registry.",
         "category": "auth-web",
         "id": "auth-web-placement-block"

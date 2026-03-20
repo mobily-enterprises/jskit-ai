@@ -3,8 +3,8 @@ import {
   computed
 } from "vue";
 import {
-  useWebPlacementContext
-} from "@jskit-ai/shell-web/client/placement";
+  useSurfaceRouteContext
+} from "../composables/useSurfaceRouteContext.js";
 import { mdiAccountGroupOutline } from "@mdi/js";
 import {
   hasPermission,
@@ -31,7 +31,7 @@ const props = defineProps({
   }
 });
 
-const { context: placementContext } = useWebPlacementContext();
+const { placementContext, currentSurfaceId } = useSurfaceRouteContext();
 const paths = usePaths();
 
 const canViewMembers = computed(() => {
@@ -45,8 +45,14 @@ const resolvedTo = computed(() => {
     return explicitTo;
   }
 
+  const explicitSurface = String(props.surface || "").trim().toLowerCase();
+  const targetSurfaceId =
+    explicitSurface && explicitSurface !== "*"
+      ? explicitSurface
+      : String(currentSurfaceId.value || "").trim().toLowerCase();
+
   return paths.page("/members", {
-    surface: props.surface,
+    surface: targetSurfaceId,
     mode: "auto"
   });
 });

@@ -7,7 +7,8 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
   normalizePlacementDefinition,
-  normalizePlacementSlot,
+  normalizePlacementHost,
+  normalizePlacementPosition,
   normalizeSurface
 } from "./validators.js";
 
@@ -96,15 +97,12 @@ function normalizePlacementList(placements, context = {}) {
   });
 }
 
-function matchesSurface(placementSurface, requestedSurface) {
-  if (placementSurface === WEB_PLACEMENT_SURFACE_ANY) {
+function matchesSurface(placementSurfaces, requestedSurface) {
+  if (requestedSurface === WEB_PLACEMENT_SURFACE_ANY) {
     return true;
   }
-  return placementSurface === requestedSurface;
-}
-
-function resolvePlacementSurfaceId(placement) {
-  return placement.surface;
+  const surfaces = Array.isArray(placementSurfaces) ? placementSurfaces : [WEB_PLACEMENT_SURFACE_ANY];
+  return surfaces.includes(WEB_PLACEMENT_SURFACE_ANY) || surfaces.includes(requestedSurface);
 }
 
 function resolveContextContributors(app, baseContext = {}, logger) {
@@ -316,9 +314,10 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     return revision;
   }
 
-  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, slot = "", context = {} } = {}) {
-    const normalizedSlot = normalizePlacementSlot(slot, { strict: false });
-    if (!normalizedSlot) {
+  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, host = "", position = "", context = {} } = {}) {
+    const normalizedHost = normalizePlacementHost(host, { strict: false });
+    const normalizedPosition = normalizePlacementPosition(position, { strict: false });
+    if (!normalizedHost || !normalizedPosition) {
       return Object.freeze([]);
     }
 
@@ -330,7 +329,8 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       {
         app,
         surface: normalizedSurface,
-        slot: normalizedSlot,
+        host: normalizedHost,
+        position: normalizedPosition,
         context: {
           ...contextFromRuntime,
           ...baseContext
@@ -344,12 +344,14 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       ...baseContext,
       app,
       surface: normalizedSurface,
-      slot: normalizedSlot
+      host: normalizedHost,
+      position: normalizedPosition
     };
 
     debugLog("getPlacements:start", {
       surface: normalizedSurface,
-      slot: normalizedSlot,
+      host: normalizedHost,
+      position: normalizedPosition,
       contextKeys: Object.keys(baseContext),
       sharedContextKeys: Object.keys(contextFromRuntime),
       placementCount: placementDefinitions.length
@@ -357,15 +359,17 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
     const matches = [];
     for (const placement of placementDefinitions) {
-      if (placement.slot !== normalizedSlot) {
+      if (placement.host !== normalizedHost || placement.position !== normalizedPosition) {
         continue;
       }
-      const resolvedPlacementSurfaceId = resolvePlacementSurfaceId(placement);
+      const placementSurfaces = Array.isArray(placement.surfaces)
+        ? placement.surfaces
+        : [WEB_PLACEMENT_SURFACE_ANY];
 
-      if (!matchesSurface(resolvedPlacementSurfaceId, normalizedSurface)) {
-        debugLog("getPlacements:skip-surface", {
+      if (!matchesSurface(placementSurfaces, normalizedSurface)) {
+        debugLog("getPlacements:skip-surfaces", {
           placementId: placement.id,
-          placementSurface: resolvedPlacementSurfaceId,
+          placementSurfaces,
           requestedSurface: normalizedSurface
         });
         continue;
@@ -396,14 +400,13 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       debugLog("getPlacements:include", {
         placementId: placement.id,
         componentToken: placement.componentToken,
-        placementSurface: resolvedPlacementSurfaceId,
+        placementSurfaces,
         order: placement.order
       });
 
       matches.push(
         Object.freeze({
           ...placement,
-          surface: resolvedPlacementSurfaceId,
           component
         })
       );
@@ -411,7 +414,8 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
     debugLog("getPlacements:done", {
       surface: normalizedSurface,
-      slot: normalizedSlot,
+      host: normalizedHost,
+      position: normalizedPosition,
       resultIds: matches.map((entry) => entry.id)
     });
 
