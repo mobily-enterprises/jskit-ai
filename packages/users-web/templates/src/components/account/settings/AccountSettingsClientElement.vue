@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useAccountSettingsRuntime } from "@jskit-ai/users-web/client/composables/useAccountSettingsRuntime";
 import AccountSettingsProfileSection from "./AccountSettingsProfileSection.vue";
 import AccountSettingsPreferencesSection from "./AccountSettingsPreferencesSection.vue";
@@ -7,31 +8,55 @@ import AccountSettingsNotificationsSection from "./AccountSettingsNotificationsS
 import AccountSettingsInvitesSection from "./AccountSettingsInvitesSection.vue";
 
 const runtime = useAccountSettingsRuntime();
-const activeTab = ref("profile");
+const route = useRoute();
+const router = useRouter();
 
-const sections = computed(() => {
-  const items = [
-    { title: "Profile", value: "profile" },
-    { title: "Preferences", value: "preferences" },
-    { title: "Notifications", value: "notifications" }
-  ];
+const sections = Object.freeze([
+  { title: "Profile", value: "profile" },
+  { title: "Preferences", value: "preferences" },
+  { title: "Notifications", value: "notifications" },
+  { title: "Invites", value: "invites" }
+]);
+const sectionValues = new Set(sections.map((section) => section.value));
 
-  if (runtime.invites.isAvailable.value) {
-    items.push({ title: "Invites", value: "invites" });
+function normalizeSection(value) {
+  const source = Array.isArray(value) ? value[0] : value;
+  const normalized = String(source || "").trim().toLowerCase();
+  if (!sectionValues.has(normalized)) {
+    return "profile";
   }
+  return normalized;
+}
 
-  return Object.freeze(items);
-});
+function readRouteSection() {
+  return normalizeSection(route?.query?.section);
+}
 
-watch(
-  () => runtime.invites.isAvailable.value,
-  (isAvailable) => {
-    if (!isAvailable && activeTab.value === "invites") {
-      activeTab.value = "profile";
-    }
+const activeTab = computed({
+  get() {
+    return readRouteSection();
   },
-  { immediate: true }
-);
+  set(nextValue) {
+    const normalizedSection = normalizeSection(nextValue);
+    const currentSection = readRouteSection();
+    if (normalizedSection === currentSection) {
+      return;
+    }
+
+    const nextQuery = {
+      ...route.query
+    };
+    if (normalizedSection === "profile") {
+      delete nextQuery.section;
+    } else {
+      nextQuery.section = normalizedSection;
+    }
+
+    void router.replace({
+      query: nextQuery
+    });
+  }
+});
 </script>
 
 <template>
@@ -77,7 +102,7 @@ watch(
                 <AccountSettingsNotificationsSection :runtime="runtime" />
               </v-window-item>
 
-              <v-window-item v-if="runtime.invites.isAvailable.value" value="invites">
+              <v-window-item value="invites">
                 <AccountSettingsInvitesSection :runtime="runtime" />
               </v-window-item>
             </v-window>

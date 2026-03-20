@@ -2,14 +2,14 @@
 import WorkspaceNotFoundCard from "@/components/WorkspaceNotFoundCard.vue";
 import { useWorkspaceNotFoundState } from "@/composables/useWorkspaceNotFoundState";
 
-const { workspaceNotFound } = useWorkspaceNotFoundState();
+const { workspaceUnavailable, workspaceUnavailableMessage } = useWorkspaceNotFoundState();
 </script>
 
 <template>
   <WorkspaceNotFoundCard
-    v-if="workspaceNotFound"
+    v-if="workspaceUnavailable"
+    :message="workspaceUnavailableMessage"
     surface-label="App"
-    message="The requested workspace was not found."
   />
   <v-card v-else rounded="lg" elevation="1" border>
     <v-card-item>

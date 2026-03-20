@@ -5,11 +5,15 @@ import {
 import {
   WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
   resolveRuntimePathname,
+  resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
 import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
-import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
+import {
+  extractWorkspaceSlugFromSurfacePathname,
+  resolveSurfaceWorkspacePathFromPlacementContext
+} from "../lib/workspaceSurfacePaths.js";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import {
   buildBootstrapApiPath,
@@ -31,6 +35,9 @@ const WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND = "not_found";
 const WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN = "forbidden";
 const WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED = "unauthenticated";
 const WORKSPACE_BOOTSTRAP_STATUS_ERROR = "error";
+const SHELL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
+const WORKSPACE_NOT_FOUND_GUARD_REASON = "workspace-not-found";
+const WORKSPACE_FORBIDDEN_GUARD_REASON = "workspace-forbidden";
 
 const WORKSPACE_BOOTSTRAP_STATUSES = new Set([
   WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
@@ -65,6 +72,39 @@ function resolveRouteState(placementRuntime, router) {
     path,
     workspaceSlug
   });
+}
+
+function normalizeSearch(search = "") {
+  const normalizedSearch = String(search || "").trim();
+  if (!normalizedSearch) {
+    return "";
+  }
+  return normalizedSearch.startsWith("?") ? normalizedSearch : `?${normalizedSearch}`;
+}
+
+function resolveSearchFromFullPath(fullPath = "") {
+  const normalizedFullPath = String(fullPath || "").trim();
+  const queryStart = normalizedFullPath.indexOf("?");
+  if (queryStart < 0) {
+    return "";
+  }
+  const hashStart = normalizedFullPath.indexOf("#", queryStart);
+  const search = hashStart < 0 ? normalizedFullPath.slice(queryStart) : normalizedFullPath.slice(queryStart, hashStart);
+  return normalizeSearch(search);
+}
+
+function normalizeGuardPathname(pathname = "/") {
+  return resolveRuntimePathname(pathname);
+}
+
+function isGuardDenied(outcome) {
+  if (outcome === false) {
+    return true;
+  }
+  if (outcome == null || outcome === true || typeof outcome !== "object" || Array.isArray(outcome)) {
+    return false;
+  }
+  return outcome.allow === false;
 }
 
 function resolveErrorStatusCode(error) {
@@ -150,6 +190,197 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   let lastRouteWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
   const workspaceBootstrapStatusBySlug = new Map();
   const workspaceBootstrapStatusListeners = new Set();
+  const root = typeof globalThis === "object" && globalThis ? globalThis : null;
+  let delegatedGuardEvaluator = null;
+  let workspaceGuardEvaluatorInstalled = false;
+
+  function resolveWorkspaceRouteState(pathname = "/", search = "") {
+    const context = placementRuntime.getContext();
+    const normalizedPathname = normalizeGuardPathname(pathname);
+    const normalizedSearch = normalizeSearch(search);
+    const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, normalizedPathname) || "")
+      .trim()
+      .toLowerCase();
+    if (!surfaceId) {
+      return null;
+    }
+
+    const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, surfaceId);
+    if (!surfaceDefinition || surfaceDefinition.requiresWorkspace !== true) {
+      return null;
+    }
+
+    const workspaceSlug = normalizeWorkspaceSlugKey(
+      extractWorkspaceSlugFromSurfacePathname(context, surfaceId, normalizedPathname)
+    );
+    if (!workspaceSlug) {
+      return null;
+    }
+
+    return Object.freeze({
+      pathname: normalizedPathname,
+      search: normalizedSearch,
+      surfaceId,
+      workspaceSlug,
+      workspaceRootPath: normalizeGuardPathname(
+        resolveSurfaceWorkspacePathFromPlacementContext(context, surfaceId, workspaceSlug, "/")
+      ),
+      workspaceBootstrapStatus: getWorkspaceBootstrapStatus(workspaceSlug)
+    });
+  }
+
+  function resolveWorkspaceGuardDecision(pathname = "/", search = "") {
+    const workspaceState = resolveWorkspaceRouteState(pathname, search);
+    if (!workspaceState) {
+      return null;
+    }
+
+    if (workspaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
+      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
+        return {
+          allow: false,
+          redirectTo: workspaceState.workspaceRootPath,
+          reason: WORKSPACE_NOT_FOUND_GUARD_REASON
+        };
+      }
+      return null;
+    }
+
+    if (workspaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN) {
+      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
+        return {
+          allow: false,
+          redirectTo: workspaceState.workspaceRootPath,
+          reason: WORKSPACE_FORBIDDEN_GUARD_REASON
+        };
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  async function replaceRouteIfNeeded(targetPath = "") {
+    if (!router || typeof router.replace !== "function") {
+      return;
+    }
+
+    const normalizedTargetPath = String(targetPath || "").trim();
+    if (!normalizedTargetPath) {
+      return;
+    }
+
+    const currentRoute = router.currentRoute?.value || {};
+    const currentFullPath = String(currentRoute.fullPath || "").trim();
+    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentComparablePath = currentFullPath || currentPath;
+    if (currentComparablePath === normalizedTargetPath) {
+      return;
+    }
+
+    try {
+      await router.replace(normalizedTargetPath);
+    } catch {}
+  }
+
+  function enforceWorkspaceRouteForStatusUpdate({ workspaceSlug = "", status = "" } = {}) {
+    const normalizedWorkspaceSlug = normalizeWorkspaceSlugKey(workspaceSlug);
+    const normalizedStatus = normalizeWorkspaceBootstrapStatus(status);
+    if (!normalizedWorkspaceSlug || !normalizedStatus || !router) {
+      return;
+    }
+
+    const currentRoute = router.currentRoute?.value || {};
+    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
+    const workspaceState = resolveWorkspaceRouteState(currentPath, currentSearch);
+    if (!workspaceState || workspaceState.workspaceSlug !== normalizedWorkspaceSlug) {
+      return;
+    }
+
+    if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
+      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
+        void replaceRouteIfNeeded(workspaceState.workspaceRootPath);
+      }
+      return;
+    }
+
+    if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN) {
+      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
+        void replaceRouteIfNeeded(workspaceState.workspaceRootPath);
+      }
+    }
+  }
+
+  function installWorkspaceGuardEvaluator() {
+    if (!root || workspaceGuardEvaluatorInstalled) {
+      return;
+    }
+
+    if (typeof delegatedGuardEvaluator !== "function") {
+      const currentEvaluator = root[SHELL_GUARD_EVALUATOR_KEY];
+      delegatedGuardEvaluator = typeof currentEvaluator === "function" ? currentEvaluator : null;
+    }
+
+    const previousDescriptor = Object.getOwnPropertyDescriptor(root, SHELL_GUARD_EVALUATOR_KEY);
+    const previousOwnProperty = previousDescriptor || null;
+    let released = false;
+
+    const workspaceGuardEvaluator = ({ guard, phase, context } = {}) => {
+      const baseOutcome =
+        typeof delegatedGuardEvaluator === "function"
+          ? delegatedGuardEvaluator({
+              guard,
+              phase,
+              context
+            })
+          : true;
+      if (isGuardDenied(baseOutcome)) {
+        return baseOutcome;
+      }
+
+      const pathname = normalizeGuardPathname(context?.location?.pathname || context?.to?.path || "/");
+      const search = normalizeSearch(context?.location?.search || resolveSearchFromFullPath(context?.to?.fullPath || ""));
+      const workspaceDecision = resolveWorkspaceGuardDecision(pathname, search);
+      if (workspaceDecision) {
+        return workspaceDecision;
+      }
+
+      return baseOutcome;
+    };
+
+    Object.defineProperty(root, SHELL_GUARD_EVALUATOR_KEY, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return workspaceGuardEvaluator;
+      },
+      set(nextEvaluator) {
+        if (nextEvaluator === workspaceGuardEvaluator) {
+          return;
+        }
+        delegatedGuardEvaluator = typeof nextEvaluator === "function" ? nextEvaluator : null;
+      }
+    });
+    workspaceGuardEvaluatorInstalled = true;
+
+    cleanup.push(() => {
+      if (released || !root) {
+        return;
+      }
+      released = true;
+
+      try {
+        if (previousOwnProperty) {
+          Object.defineProperty(root, SHELL_GUARD_EVALUATOR_KEY, previousOwnProperty);
+        } else {
+          delete root[SHELL_GUARD_EVALUATOR_KEY];
+        }
+      } catch {}
+      delegatedGuardEvaluator = null;
+      workspaceGuardEvaluatorInstalled = false;
+    });
+  }
 
   function setWorkspaceBootstrapStatus(workspaceSlug = "", status = "", source = BOOTSTRAP_PLACEMENT_SOURCE) {
     const workspaceSlugKey = normalizeWorkspaceSlugKey(workspaceSlug);
@@ -183,6 +414,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         listener(payload);
       } catch {}
     }
+    enforceWorkspaceRouteForStatusUpdate(payload);
   }
 
   function getWorkspaceBootstrapStatus(workspaceSlug = "") {
@@ -375,6 +607,8 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   }
 
   async function initialize() {
+    installWorkspaceGuardEvaluator();
+
     const contextAtInit = placementRuntime.getContext();
     if (contextAtInit?.auth?.authenticated !== true) {
       applyThemeFromBootstrapPayload({

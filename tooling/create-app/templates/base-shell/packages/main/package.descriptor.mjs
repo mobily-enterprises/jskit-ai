@@ -22,7 +22,12 @@ export default Object.freeze({
       ]
     },
     client: {
-      providers: []
+      providers: [
+        {
+          entrypoint: "src/client/providers/MainClientProvider.js",
+          export: "MainClientProvider"
+        }
+      ]
     }
   },
   metadata: {

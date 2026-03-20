@@ -9,16 +9,25 @@ import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
 import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import {
+  WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
   WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
   createBootstrapPlacementRuntime
 } from "../src/client/runtime/bootstrapPlacementRuntime.js";
+
+const SHELL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 
 function flushTasks() {
   return new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
 }
+
+test.afterEach(() => {
+  try {
+    delete globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  } catch {}
+});
 
 function createPlacementRuntimeStub() {
   const listeners = new Set();
@@ -27,13 +36,27 @@ function createPlacementRuntimeStub() {
     surfaceConfig: {
       tenancyMode: "workspace",
       defaultSurfaceId: "app",
-      enabledSurfaceIds: ["app"],
+      enabledSurfaceIds: ["app", "admin", "home"],
       surfacesById: {
+        home: {
+          id: "home",
+          enabled: true,
+          pagesRoot: "",
+          routeBase: "/",
+          requiresWorkspace: false
+        },
         app: {
           id: "app",
           enabled: true,
           pagesRoot: "w/[workspaceSlug]",
           routeBase: "/w/:workspaceSlug",
+          requiresWorkspace: true
+        },
+        admin: {
+          id: "admin",
+          enabled: true,
+          pagesRoot: "w/[workspaceSlug]/admin",
+          routeBase: "/w/:workspaceSlug/admin",
           requiresWorkspace: true
         }
       }
@@ -80,12 +103,28 @@ function createPlacementRuntimeStub() {
   };
 }
 
+function resolvePathFromFullPath(fullPath = "/") {
+  const normalizedFullPath = String(fullPath || "").trim() || "/";
+  const queryStart = normalizedFullPath.indexOf("?");
+  const hashStart = normalizedFullPath.indexOf("#");
+  const stopIndex = [queryStart, hashStart]
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0];
+  if (typeof stopIndex !== "number") {
+    return normalizedFullPath;
+  }
+  return normalizedFullPath.slice(0, stopIndex) || "/";
+}
+
 function createRouterStub(initialPath = "/w/acme/dashboard") {
   const afterEachListeners = [];
+  const replaceCalls = [];
+  const normalizedInitialPath = String(initialPath || "").trim() || "/";
   const router = {
     currentRoute: {
       value: {
-        path: initialPath
+        path: resolvePathFromFullPath(normalizedInitialPath),
+        fullPath: normalizedInitialPath
       }
     },
     afterEach(listener) {
@@ -97,11 +136,25 @@ function createRouterStub(initialPath = "/w/acme/dashboard") {
         }
       };
     },
+    replace(target) {
+      const fullPath = String(target || "").trim() || "/";
+      router.currentRoute.value.path = resolvePathFromFullPath(fullPath);
+      router.currentRoute.value.fullPath = fullPath;
+      replaceCalls.push(fullPath);
+      for (const listener of [...afterEachListeners]) {
+        listener();
+      }
+      return Promise.resolve();
+    },
+    push(target) {
+      return router.replace(target);
+    },
     emitAfterEach() {
       for (const listener of [...afterEachListeners]) {
         listener();
       }
-    }
+    },
+    replaceCalls
   };
 
   return router;
@@ -299,11 +352,13 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
   assert.deepEqual(fetchCalls, ["acme"]);
 
   router.currentRoute.value.path = "/w/acme/customers";
+  router.currentRoute.value.fullPath = "/w/acme/customers";
   router.emitAfterEach();
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme"]);
 
   router.currentRoute.value.path = "/w/zen/dashboard";
+  router.currentRoute.value.fullPath = "/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme", "zen"]);
@@ -504,6 +559,7 @@ test("bootstrap placement runtime updates status per workspace slug across route
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
 
   router.currentRoute.value.path = "/w/zen/dashboard";
+  router.currentRoute.value.fullPath = "/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
 
@@ -511,4 +567,244 @@ test("bootstrap placement runtime updates status per workspace slug across route
   assert.equal(runtime.getWorkspaceBootstrapStatus("zen"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
   assert.equal(context.workspaceBootstrapStatuses?.zen, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
   assert.equal(context.workspace, null);
+});
+
+test("bootstrap placement runtime guard wrapper preserves delegated deny outcomes", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const delegatedOutcome = Object.freeze({
+    allow: false,
+    redirectTo: "/auth/login?returnTo=%2Fw%2Facme%2Fdashboard",
+    reason: "auth-required"
+  });
+  globalThis[SHELL_GUARD_EVALUATOR_KEY] = () => delegatedOutcome;
+
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        workspaces: [{ id: 1, slug: "acme", name: "Acme" }],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  const outcome = evaluator({
+    guard: {
+      policy: "authenticated"
+    },
+    context: {
+      to: {
+        path: "/w/acme/dashboard",
+        fullPath: "/w/acme/dashboard"
+      },
+      location: {
+        pathname: "/w/acme/dashboard",
+        search: ""
+      }
+    }
+  });
+
+  assert.deepEqual(outcome, delegatedOutcome);
+});
+
+test("bootstrap placement runtime guard wrapper blocks forbidden workspace routes", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  globalThis[SHELL_GUARD_EVALUATOR_KEY] = () => ({ allow: true, redirectTo: "", reason: "" });
+
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        workspaces: [],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+
+  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  const outcome = evaluator({
+    guard: {
+      policy: "authenticated"
+    },
+    context: {
+      to: {
+        path: "/w/acme/dashboard",
+        fullPath: "/w/acme/dashboard?tab=general"
+      },
+      location: {
+        pathname: "/w/acme/dashboard",
+        search: "?tab=general"
+      }
+    }
+  });
+
+  assert.equal(outcome.allow, false);
+  assert.equal(outcome.reason, "workspace-forbidden");
+  assert.equal(outcome.redirectTo, "/w/acme");
+});
+
+test("bootstrap placement runtime guard wrapper redirects nested not_found routes to workspace surface root", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      const error = new Error("Not found");
+      error.status = 404;
+      throw error;
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+
+  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  const nestedOutcome = evaluator({
+    guard: {
+      policy: "authenticated"
+    },
+    context: {
+      to: {
+        path: "/w/acme/projects",
+        fullPath: "/w/acme/projects"
+      },
+      location: {
+        pathname: "/w/acme/projects",
+        search: ""
+      }
+    }
+  });
+  assert.deepEqual(nestedOutcome, {
+    allow: false,
+    redirectTo: "/w/acme",
+    reason: "workspace-not-found"
+  });
+
+  const rootOutcome = evaluator({
+    guard: {
+      policy: "authenticated"
+    },
+    context: {
+      to: {
+        path: "/w/acme",
+        fullPath: "/w/acme"
+      },
+      location: {
+        pathname: "/w/acme",
+        search: ""
+      }
+    }
+  });
+  assert.equal(rootOutcome, true);
+});
+
+test("bootstrap placement runtime redirects admin nested route to admin root when workspace is not_found", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/admin/workspace/settings");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      const error = new Error("Not found");
+      error.status = 404;
+      throw error;
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
+});
+
+test("bootstrap placement runtime redirects forbidden workspace route to workspace surface root", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/admin/workspace/settings?tab=general");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      const error = new Error("Forbidden");
+      error.status = 403;
+      throw error;
+    }
+  });
+
+  await runtime.initialize();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
+});
+
+test("bootstrap placement runtime captures guard evaluator assignments after initialization", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async () => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        workspaces: [{ id: 1, slug: "acme", name: "Acme" }],
+        permissions: []
+      };
+    }
+  });
+
+  await runtime.initialize();
+  const delegatedOutcome = {
+    allow: false,
+    redirectTo: "/auth/login",
+    reason: "auth-required"
+  };
+  globalThis[SHELL_GUARD_EVALUATOR_KEY] = () => delegatedOutcome;
+
+  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+  const outcome = evaluator({
+    guard: {
+      policy: "authenticated"
+    },
+    context: {
+      to: {
+        path: "/w/acme/dashboard",
+        fullPath: "/w/acme/dashboard"
+      },
+      location: {
+        pathname: "/w/acme/dashboard",
+        search: ""
+      }
+    }
+  });
+  assert.deepEqual(outcome, delegatedOutcome);
 });

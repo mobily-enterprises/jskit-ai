@@ -8,21 +8,21 @@ const props = defineProps({
   },
   message: {
     type: String,
-    default: "The requested workspace was not found."
+    default: "Workspace is currently unavailable."
   }
 });
 
 const normalizedSurfaceLabel = computed(() => String(props.surfaceLabel || "").trim() || "Workspace");
-const normalizedMessage = computed(() => String(props.message || "").trim() || "The requested workspace was not found.");
+const normalizedMessage = computed(() => String(props.message || "").trim() || "Workspace is currently unavailable.");
 </script>
 
 <template>
   <v-card rounded="lg" elevation="1" border>
     <v-card-item>
       <template #prepend>
-        <v-chip color="error" size="small" label>Not found</v-chip>
+        <v-icon icon="mdi-alert-circle-outline" color="error" />
       </template>
-      <v-card-title class="text-h5">Not found</v-card-title>
+      <v-card-title class="text-h5">Unavailable</v-card-title>
       <v-card-subtitle>{{ normalizedSurfaceLabel }} surface.</v-card-subtitle>
     </v-card-item>
     <v-divider />

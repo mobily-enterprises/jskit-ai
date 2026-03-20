@@ -152,6 +152,16 @@ export default Object.freeze({
             source: "mutations.text#users-web-placement-block"
           },
           {
+            id: "users.account.invites.cue",
+            host: "shell-layout",
+            position: "top-right",
+            surfaces: ["*"],
+            order: 850,
+            componentToken: "local.main.account.pending-invites.cue",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-placement-block"
+          },
+          {
             id: "users.profile.menu.surface-switch",
             host: "auth-profile-menu",
             position: "primary-menu",
@@ -288,6 +298,13 @@ export default Object.freeze({
         id: "users-web-component-account-settings-invites"
       },
       {
+        from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
+        to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
+        reason: "Install app-owned account pending invites cue component scaffold.",
+        category: "users-web",
+        id: "users-web-main-component-account-pending-invites-cue"
+      },
+      {
         from: "templates/src/components/WorkspaceNotFoundCard.vue",
         to: "src/components/WorkspaceNotFoundCard.vue",
         reason: "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
@@ -396,7 +413,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
         reason: "Append users-web placement entries into app-owned placement registry.",
         category: "users-web",
         id: "users-web-placement-block",
@@ -404,6 +421,27 @@ export default Object.freeze({
           config: "tenancyMode",
           in: ["personal", "workspace"]
         }
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";",
+        value: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";\n",
+        reason: "Bind app-owned account pending invites cue component into local main client provider imports.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-invites-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);",
+        value:
+          "\nregisterMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);\n",
+        reason: "Bind app-owned account pending invites cue component token into local main client provider registry.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-invites-register"
       },
       {
         op: "append-text",

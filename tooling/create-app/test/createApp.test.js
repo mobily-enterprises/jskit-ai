@@ -183,6 +183,20 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(localMainDescriptor, /discover:\s*\{/);
     assert.match(localMainDescriptor, /dir:\s*"src\/server\/providers"/);
     assert.match(localMainDescriptor, /pattern:\s*"\*Provider\.js"/);
+    assert.match(localMainDescriptor, /entrypoint:\s*"src\/client\/providers\/MainClientProvider\.js"/);
+    assert.match(localMainDescriptor, /export:\s*"MainClientProvider"/);
+
+    const localMainClientEntrypoint = await readFile(path.join(appRoot, "packages/main/src/client/index.js"), "utf8");
+    assert.match(localMainClientEntrypoint, /MainClientProvider/);
+    assert.match(localMainClientEntrypoint, /registerMainClientComponent/);
+
+    const localMainClientProvider = await readFile(
+      path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
+      "utf8"
+    );
+    assert.match(localMainClientProvider, /class MainClientProvider/);
+    assert.match(localMainClientProvider, /static id = "local\.main\.client";/);
+    assert.match(localMainClientProvider, /function registerMainClientComponent/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@local/main"]);
@@ -429,7 +443,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.match(homeWrapper, /"surface":\s*"home"/);
-    assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(consoleWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(consoleWrapper, /"surface":\s*"console"/);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
@@ -490,14 +504,27 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
     const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
+    const accountSettingsClientElement = await readFile(
+      path.join(appRoot, "src/components/account/settings/AccountSettingsClientElement.vue"),
+      "utf8"
+    );
+    const placement = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
+    const mainClientProvider = await readFile(
+      path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
+      "utf8"
+    );
+    const accountPendingInvitesCue = await readFile(
+      path.join(appRoot, "packages/main/src/client/components/AccountPendingInvitesCue.vue"),
+      "utf8"
+    );
 
-    assert.match(homeWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(homeWrapper, /"surface":\s*"home"/);
-    assert.match(adminWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(adminWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(adminWrapper, /"surface":\s*"admin"/);
-    assert.match(appWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(appWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(appWrapper, /"surface":\s*"app"/);
-    assert.match(consoleWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(consoleWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(consoleWrapper, /"surface":\s*"console"/);
 
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
@@ -507,6 +534,16 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
+    assert.match(accountSettingsClientElement, /useRoute, useRouter/);
+    assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
+    assert.match(placement, /id:\s*"users\.account\.invites\.cue"/);
+    assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
+    assert.match(mainClientProvider, /import AccountPendingInvitesCue from "\.\.\/components\/AccountPendingInvitesCue\.vue";/);
+    assert.match(
+      mainClientProvider,
+      /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
+    );
+    assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
   });
 });
 
@@ -551,7 +588,7 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
 
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
-    assert.match(homeWrapper, /@jskit-ai\/shell-web\/client\/components\/ShellLayout/);
+    assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
   });

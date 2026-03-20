@@ -4,7 +4,10 @@
  * Export browser-facing modules from here.
  *
  * Example:
- * export { bootClient } from "./runtime/bootClient.js";
- * export { registerClientRoutes } from "./routes/registerClientRoutes.js";
+ * export { MainClientProvider } from "./providers/MainClientProvider.js";
+ * export { registerMainClientComponent } from "./providers/MainClientProvider.js";
  */
-export {};
+export {
+  MainClientProvider,
+  registerMainClientComponent
+} from "./providers/MainClientProvider.js";

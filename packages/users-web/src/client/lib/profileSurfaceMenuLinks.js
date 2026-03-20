@@ -44,10 +44,33 @@ function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
   return String(extractWorkspaceSlugFromSurfacePathname(context, currentSurfaceId, pathname) || "").trim();
 }
 
+function hasWorkspaceMembership(contextValue, workspaceSlug) {
+  const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
+  if (!normalizedWorkspaceSlug) {
+    return false;
+  }
+
+  const context = contextValue && typeof contextValue === "object" ? contextValue : {};
+  const currentWorkspaceSlug = normalizeLowerText(context?.workspace?.slug);
+  if (currentWorkspaceSlug && currentWorkspaceSlug === normalizedWorkspaceSlug) {
+    return true;
+  }
+
+  const workspaces = Array.isArray(context?.workspaces) ? context.workspaces : [];
+  for (const workspace of workspaces) {
+    if (normalizeLowerText(workspace?.slug) === normalizedWorkspaceSlug) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function resolvePrimarySurfaceSwitchLink({ context, surface } = {}) {
   const source = context && typeof context === "object" ? context : {};
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(source, surface);
-  const workspaceSlug = resolveCurrentWorkspaceSlug(source, targets.currentSurfaceId || surface);
+  const resolvedWorkspaceSlug = resolveCurrentWorkspaceSlug(source, targets.currentSurfaceId || surface);
+  const workspaceSlug = hasWorkspaceMembership(source, resolvedWorkspaceSlug) ? resolvedWorkspaceSlug : "";
   const enabledSurfaceIds = Array.isArray(targets?.surfaceConfig?.enabledSurfaceIds)
     ? targets.surfaceConfig.enabledSurfaceIds
     : [];
@@ -198,5 +221,6 @@ export {
   resolveProfileSurfaceMenuLinks,
   resolvePrimarySurfaceSwitchLink,
   resolveGoToConsoleLink,
-  hasConsoleAccess
+  hasConsoleAccess,
+  hasWorkspaceMembership
 };
