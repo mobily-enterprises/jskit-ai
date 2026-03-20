@@ -11,6 +11,7 @@ const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
   "workspace.settings.update",
   "workspace.members.list",
   "workspace.member.role.update",
+  "workspace.member.remove",
   "workspace.invites.list",
   "workspace.invite.create",
   "workspace.invite.revoke"

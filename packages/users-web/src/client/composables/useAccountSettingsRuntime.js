@@ -224,7 +224,7 @@ function useAccountSettingsRuntime() {
   });
 
   const selectedAvatarFileName = ref("");
-  const avatarUppy = ref(null);
+  let avatarUppy = null;
   const inviteAction = ref({
     token: "",
     decision: ""
@@ -619,7 +619,7 @@ function useAccountSettingsRuntime() {
       return;
     }
 
-    if (avatarUppy.value) {
+    if (avatarUppy) {
       return;
     }
 
@@ -772,13 +772,13 @@ function useAccountSettingsRuntime() {
       }
     });
 
-    avatarUppy.value = uppy;
+    avatarUppy = uppy;
   }
 
   async function openAvatarEditor() {
     setupAvatarUploader();
 
-    const uppy = avatarUppy.value;
+    const uppy = avatarUppy;
     if (!uppy) {
       reportAccountFeedback({
         message: "Avatar editor is unavailable in this environment.",
@@ -824,9 +824,9 @@ function useAccountSettingsRuntime() {
   });
 
   onBeforeUnmount(() => {
-    if (avatarUppy.value) {
-      avatarUppy.value.destroy();
-      avatarUppy.value = null;
+    if (avatarUppy) {
+      avatarUppy.destroy();
+      avatarUppy = null;
     }
   });
 

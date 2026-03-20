@@ -11,6 +11,7 @@
       :collections="collections"
       :permissions="permissionState"
       :revokeInviteId="revokeInviteId"
+      :removeMemberUserId="removeMemberUserId"
       :status="status"
       :actions="actions"
     />
@@ -68,6 +69,7 @@ const inviteFeedback = useUiFeedback();
 const membersFeedback = useUiFeedback();
 const teamFeedback = useUiFeedback();
 const revokeInviteId = ref(0);
+const removeMemberUserId = ref(0);
 
 const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
   useWorkspaceRouteContext();
@@ -154,6 +156,7 @@ function resetViewState() {
   collections.invites = [];
   clearRoleOptions();
   revokeInviteId.value = 0;
+  removeMemberUserId.value = 0;
 }
 
 function toRoleTitle(roleId) {
@@ -373,10 +376,29 @@ const memberRoleCommand = useCommand({
   }
 });
 
+const memberRemoveCommand = useCommand({
+  visibility: "workspace",
+  apiSuffix: "/members",
+  runPermissions: ["workspace.members.manage"],
+  writeMethod: "DELETE",
+  fallbackRunError: "Unable to remove member.",
+  buildCommandOptions: (_parsed, { context }) => {
+    return {
+      method: "DELETE",
+      path: workspaceMembersPath(context?.memberUserId)
+    };
+  },
+  messages: {
+    success: "Member removed.",
+    error: "Unable to remove member."
+  }
+});
+
 const status = computed(() => {
   return {
     isCreatingInvite: Boolean(inviteCreateCommand.isRunning.value),
     isRevokingInvite: Boolean(revokeInviteCommand.isRunning.value),
+    isRemovingMember: Boolean(memberRemoveCommand.isRunning.value),
     hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading.value,
     hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isLoading.value,
     hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isLoading.value
@@ -412,7 +434,8 @@ watch(
 const actions = Object.freeze({
   submitInvite,
   submitRevokeInvite,
-  submitMemberRoleUpdate
+  submitMemberRoleUpdate,
+  submitRemoveMember
 });
 
 watch(
@@ -603,6 +626,35 @@ async function submitMemberRoleUpdate(member, roleId) {
     membersFeedback.success("Member role updated.");
   } catch (error) {
     membersFeedback.error(error, "Unable to update member role.");
+  }
+}
+
+async function submitRemoveMember(member) {
+  if (memberRemoveCommand.isRunning.value || !canManageMembers.value) {
+    return;
+  }
+
+  membersFeedback.clear();
+
+  try {
+    const memberUserId = Number(member?.userId || 0);
+    if (!Number.isInteger(memberUserId) || memberUserId < 1) {
+      throw new Error("Member user id is invalid.");
+    }
+
+    removeMemberUserId.value = memberUserId;
+    await memberRemoveCommand.run({
+      memberUserId
+    });
+    await Promise.all([
+      workspaceMembersList.reload(),
+      workspaceRolesView.refresh()
+    ]);
+    membersFeedback.success("Member removed.");
+  } catch (error) {
+    membersFeedback.error(error, "Unable to remove member.");
+  } finally {
+    removeMemberUserId.value = 0;
   }
 }
 </script>

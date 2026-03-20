@@ -94,6 +94,30 @@ function createService({
     return listMembersPayload(workspace, options);
   }
 
+  async function removeMember(workspace, payload = {}, options = {}) {
+    const memberUserId = payload.memberUserId;
+
+    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
+    if (!existingMembership || existingMembership.status !== "active") {
+      throw new AppError(404, "Member not found.");
+    }
+    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
+      throw new AppError(409, "Cannot remove workspace owner.");
+    }
+
+    await workspaceMembershipsRepository.upsertMembership(
+      workspace.id,
+      memberUserId,
+      {
+        roleId: existingMembership.roleId,
+        status: "revoked"
+      },
+      options
+    );
+
+    return listMembersPayload(workspace, options);
+  }
+
   async function listInvitesPayload(workspace, options = {}) {
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
@@ -123,7 +147,7 @@ function createService({
     const token = buildInviteToken();
     const tokenHash = hashInviteToken(token);
     await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
-    await workspaceInvitesRepository.insert(
+    const createdInvite = await workspaceInvitesRepository.insert(
       {
         workspaceId: workspace.id,
         email,
@@ -135,11 +159,16 @@ function createService({
       },
       options
     );
+    const createdInviteId = Number(createdInvite?.id);
+    if (!Number.isInteger(createdInviteId) || createdInviteId < 1) {
+      throw new Error("workspaceMembersService.createInvite expected repository to return created invite id.");
+    }
 
     const response = await listInvitesPayload(workspace, options);
     return {
       ...response,
-      inviteTokenPreview: token
+      inviteTokenPreview: token,
+      createdInviteId
     };
   }
 
@@ -161,6 +190,7 @@ function createService({
     listRoles,
     listMembers,
     updateMemberRole,
+    removeMember,
     listInvites,
     createInvite,
     revokeInvite

@@ -134,6 +134,10 @@ test("workspace and settings routes attach only the shared transport normalizers
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
   });
+  const workspaceMemberDelete = findRoute(routes, {
+    method: "DELETE",
+    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId"
+  });
   const workspaceInviteDelete = findRoute(routes, {
     method: "DELETE",
     path: "/api/w/:workspaceSlug/workspace/invites/:inviteId"
@@ -155,6 +159,7 @@ test("workspace and settings routes attach only the shared transport normalizers
   assert.equal(typeof workspaceSettingsPatch?.bodyValidator?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.paramsValidator?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.bodyValidator?.normalize, "function");
+  assert.equal(typeof workspaceMemberDelete?.paramsValidator?.normalize, "function");
   assert.equal(typeof workspaceInviteDelete?.paramsValidator?.normalize, "function");
   assert.equal(typeof settingsProfilePatch?.bodyValidator?.normalize, "function");
   assert.equal(typeof settingsOAuthStart?.paramsValidator?.normalize, "function");
@@ -297,6 +302,10 @@ test("workspace invite and member handlers build action input from request.input
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
   });
+  const workspaceMemberDelete = findRoute(routes, {
+    method: "DELETE",
+    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId"
+  });
   const workspaceInviteCreate = findRoute(routes, {
     method: "POST",
     path: "/api/w/:workspaceSlug/workspace/invites"
@@ -349,6 +358,15 @@ test("workspace invite and member handlers build action input from request.input
     }),
     createReplyDouble()
   );
+  await workspaceMemberDelete.handler(
+    createActionRequest({
+      input: {
+        params: { workspaceSlug: "acme", memberUserId: "44" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
   await workspaceInviteDelete.handler(
     createActionRequest({
       input: {
@@ -366,7 +384,8 @@ test("workspace invite and member handlers build action input from request.input
   assert.deepEqual(calls[1].input, { payload: { token: "token-1", decision: "accept" } });
   assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
   assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
-  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", inviteId: "55" });
+  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", memberUserId: "44" });
+  assert.deepEqual(calls[5].input, { workspaceSlug: "acme", inviteId: "55" });
 });
 
 test("workspace settings route handlers build action input from request.input", async () => {

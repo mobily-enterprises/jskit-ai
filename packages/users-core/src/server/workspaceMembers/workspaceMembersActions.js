@@ -80,6 +80,32 @@ const workspaceMembersActions = Object.freeze([
     }
   },
   {
+    id: "workspace.member.remove",
+    version: 1,
+    kind: "command",
+    channels: ["api", "automation", "internal"],
+    surfacesFrom: "workspace",
+    consoleUsersOnly: false,
+    permission: {
+      require: "all",
+      permissions: ["workspace.members.manage"]
+    },
+    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.removeMember.inputValidator],
+    outputValidator: workspaceMembersResource.operations.removeMember.outputValidator,
+    idempotency: "optional",
+    audit: {
+      actionName: "workspace.member.remove"
+    },
+    observability: {},
+    async execute(input, context, deps) {
+      return deps.workspaceMembersService.removeMember(resolveWorkspace(context, input), {
+        memberUserId: input.memberUserId
+      }, {
+        context
+      });
+    }
+  },
+  {
     id: "workspace.invites.list",
     version: 1,
     kind: "query",

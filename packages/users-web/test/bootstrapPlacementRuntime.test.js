@@ -183,6 +183,15 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
             effectiveUrl: "https://cdn.example.com/ada.png"
           }
         },
+        app: {
+          features: {
+            workspaceInvites: true
+          }
+        },
+        pendingInvites: [
+          { id: 1, workspaceId: 1, token: "a" },
+          { id: 2, workspaceId: 2, token: "b" }
+        ],
         workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
         permissions: ["workspace.settings.view"]
       };
@@ -206,6 +215,8 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
     email: "ada@example.com",
     avatarUrl: "https://cdn.example.com/ada.png"
   });
+  assert.equal(context.workspaceInvitesEnabled, true);
+  assert.equal(context.pendingInvitesCount, 2);
 });
 
 test("bootstrap placement runtime does not mutate placement auth context", async () => {
@@ -452,6 +463,8 @@ test("bootstrap placement runtime marks workspace slug as not_found and clears w
   assert.deepEqual(context.workspaces, []);
   assert.deepEqual(context.permissions, []);
   assert.equal(context.user, null);
+  assert.equal(context.pendingInvitesCount, 0);
+  assert.equal(context.workspaceInvitesEnabled, false);
 });
 
 test("bootstrap placement runtime updates status per workspace slug across route changes", async () => {

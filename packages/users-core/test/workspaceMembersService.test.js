@@ -110,6 +110,9 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert(payload) {
         expiresAtValues.push(payload.expiresAt);
+        return {
+          id: 31
+        };
       },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
@@ -124,7 +127,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   });
 
   const before = Date.now();
-  await service.createInvite(
+  const response = await service.createInvite(
     {
       id: 7,
       ownerUserId: 9
@@ -142,6 +145,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   const expiresAt = new Date(expiresAtValues[0]).getTime();
   assert.ok(expiresAt >= before + 30 * 60 * 1000);
   assert.ok(expiresAt <= after + 30 * 60 * 1000);
+  assert.equal(response.createdInviteId, 31);
 });
 
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
@@ -175,4 +179,132 @@ test("workspaceMembersService.updateMemberRole returns the refreshed member list
 
   assert.equal(response.members.length, 1);
   assert.equal(response.members[0].roleId, "member");
+});
+
+test("workspaceMembersService.removeMember marks membership revoked and returns refreshed members", async () => {
+  let removed = false;
+  const workspace = {
+    id: 7,
+    slug: "tonymobily3",
+    name: "TonyMobily3",
+    ownerUserId: 9,
+    avatarUrl: "",
+    color: "#0F6B54"
+  };
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId(workspaceId) {
+        assert.equal(Number(workspaceId), 7);
+        return removed
+          ? []
+          : [
+              {
+                userId: 11,
+                roleId: "member",
+                status: "active",
+                displayName: "Alice",
+                email: "alice@example.com"
+              }
+            ];
+      },
+      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+        assert.equal(Number(workspaceId), 7);
+        assert.equal(Number(userId), 11);
+        return {
+          workspaceId: 7,
+          userId: 11,
+          roleId: "member",
+          status: "active"
+        };
+      },
+      async upsertMembership(workspaceId, userId, patch) {
+        assert.equal(Number(workspaceId), 7);
+        assert.equal(Number(userId), 11);
+        assert.deepEqual(patch, {
+          roleId: "member",
+          status: "revoked"
+        });
+        removed = true;
+      }
+    },
+    workspaceInvitesRepository: {
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert() {},
+      async findPendingByIdForWorkspace() {
+        return null;
+      },
+      async revokeById() {}
+    },
+    inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
+    roleCatalog: createRoleCatalog()
+  });
+
+  const response = await service.removeMember(
+    workspace,
+    {
+      memberUserId: 11
+    },
+    authorizedOptions(["workspace.members.manage"])
+  );
+
+  assert.equal(response.members.length, 0);
+});
+
+test("workspaceMembersService.removeMember rejects removing the owner", async () => {
+  const workspace = {
+    id: 7,
+    slug: "tonymobily3",
+    name: "TonyMobily3",
+    ownerUserId: 9,
+    avatarUrl: "",
+    color: "#0F6B54"
+  };
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      },
+      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+        assert.equal(Number(workspaceId), 7);
+        assert.equal(Number(userId), 9);
+        return {
+          workspaceId: 7,
+          userId: 9,
+          roleId: "owner",
+          status: "active"
+        };
+      },
+      async upsertMembership() {
+        throw new Error("remove owner should not update membership");
+      }
+    },
+    workspaceInvitesRepository: {
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert() {},
+      async findPendingByIdForWorkspace() {
+        return null;
+      },
+      async revokeById() {}
+    },
+    inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
+    roleCatalog: createRoleCatalog()
+  });
+
+  await assert.rejects(
+    () =>
+      service.removeMember(
+        workspace,
+        {
+          memberUserId: 9
+        },
+        authorizedOptions(["workspace.members.manage"])
+      ),
+    /Cannot remove workspace owner/
+  );
 });

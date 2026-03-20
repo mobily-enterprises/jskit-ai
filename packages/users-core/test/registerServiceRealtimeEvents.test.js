@@ -75,16 +75,45 @@ test("console settings register publishes console.settings.changed", () => {
   assert.equal(consoleSettings?.metadata?.events?.updateSettings?.[0]?.realtime?.event, CONSOLE_SETTINGS_CHANGED_EVENT);
 });
 
-test("workspace register functions publish members/invites/workspace-list realtime events", () => {
+test("workspace register functions publish members/invites/workspace-list realtime events", async () => {
   const membersApp = createAppDouble();
   registerWorkspaceMembers(membersApp.app);
   const members = findServiceCall(membersApp.serviceCalls, "users.workspace.members.service");
   assert.equal(members?.metadata?.events?.updateMemberRole?.[0]?.realtime?.event, WORKSPACE_MEMBERS_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.updateMemberRole?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.removeMember?.[0]?.realtime?.event, WORKSPACE_MEMBERS_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.removeMember?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.createInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.preset, "event_scope");
+  assert.equal(typeof members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery, "function");
+  const createInviteAudienceQueryResult = await members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery({
+    knex() {
+      return {
+        join() {
+          return this;
+        },
+        where(field, value) {
+          assert.equal(field, "wi.id");
+          assert.equal(value, 91);
+          return this;
+        },
+        async first() {
+          return {
+            user_id: 55
+          };
+        }
+      };
+    },
+    event: {
+      entityId: 91
+    }
+  });
+  assert.deepEqual(createInviteAudienceQueryResult, [{ userId: 55 }]);
   assert.equal(members?.metadata?.events?.revokeInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.preset, "event_scope");
+  assert.equal(typeof members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.userQuery, "function");
 
   const pendingApp = createAppDouble();
   registerWorkspacePendingInvitations(pendingApp.app);

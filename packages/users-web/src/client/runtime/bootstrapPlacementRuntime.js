@@ -104,6 +104,21 @@ function resolveAuthSignature(context = {}) {
   return `${authenticated}|${oauthDefaultProvider}|${oauthProviders}`;
 }
 
+function countPendingInvites(entries = []) {
+  if (!Array.isArray(entries)) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    total += 1;
+  }
+  return total;
+}
+
 async function fetchBootstrapPayload(workspaceSlug = "") {
   return usersWebHttpClient.request(buildBootstrapApiPath(workspaceSlug), {
     method: "GET"
@@ -193,13 +208,17 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, state.workspaceSlug);
     const permissions = normalizePermissionList(payload?.permissions);
     const user = resolvePlacementUserFromBootstrapPayload(payload, state.context?.user);
+    const workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
+    const pendingInvitesCount = workspaceInvitesEnabled ? countPendingInvites(payload?.pendingInvites) : 0;
 
     placementRuntime.setContext(
       {
         workspace: currentWorkspace,
         workspaces: availableWorkspaces,
         permissions,
-        user
+        user,
+        pendingInvitesCount,
+        workspaceInvitesEnabled
       },
       {
         source
@@ -213,7 +232,9 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         workspace: null,
         workspaces: [],
         permissions: [],
-        user: null
+        user: null,
+        pendingInvitesCount: 0,
+        workspaceInvitesEnabled: false
       },
       {
         source

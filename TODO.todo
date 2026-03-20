@@ -82,33 +82,34 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Place roles and permissions in app-owned config. Check config for assistant?
   X Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
 
+  X Fix placements properly
+  X Workflow to accept an invite
 
-  - Fix placements properly
-  - Workflow to accept an invite
-  - Alert system (queue + element), use it for invites
+  - Re-add realtime
+  - Re-add realtime
 
   - If logged out, redirect to login immediately, check page permissions if not logged out
 
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   
   - Re-add icons
-  
+   
 
   - cli: offer help for package paramters
   
   - FINAL STEP: Do infrastructure deploy, easy way
 
-  PORT OVER:
-  X Realtime
-  X AI agent
   
   LATER, PORT OVER:
   
 TODO:
   - Selector at the top: should have "create workspace" + form IF mode is "workspaces"
+  - Alert system (queue + element), use it for invites and more, make it pluggable
   
 
 MODULES:
+  X Realtime
+  X AI agent
   - Chat
   - Billing
   - Communications (email, sms)

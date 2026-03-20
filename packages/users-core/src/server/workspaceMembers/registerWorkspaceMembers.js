@@ -22,6 +22,36 @@ function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
   return inviteExpiresInMs;
 }
 
+const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
+  preset: "event_scope",
+  async userQuery({ knex, event } = {}) {
+    if (typeof knex !== "function") {
+      return [];
+    }
+
+    const inviteId = Number(event?.entityId);
+    if (!Number.isInteger(inviteId) || inviteId < 1) {
+      return [];
+    }
+
+    const row = await knex("workspace_invites as wi")
+      .join("user_profiles as up", "up.email", "wi.email")
+      .where("wi.id", inviteId)
+      .first("up.id as user_id");
+
+    const userId = Number(row?.user_id || 0);
+    if (!Number.isInteger(userId) || userId < 1) {
+      return [];
+    }
+
+    return [
+      {
+        userId
+      }
+    ];
+  }
+});
+
 function registerWorkspaceMembers(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerWorkspaceMembers requires application singleton()/service()/actions().");
@@ -72,6 +102,33 @@ function registerWorkspaceMembers(app) {
             }
           }
         ],
+        removeMember: [
+          {
+            type: "entity.changed",
+            source: "workspace",
+            entity: "member",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+              payload: ({ args }) => ({
+                workspaceSlug: String(args?.[0]?.slug || "").trim()
+              }),
+              audience: "event_scope"
+            }
+          },
+          {
+            type: "entity.changed",
+            source: "users",
+            entity: "bootstrap",
+            operation: "updated",
+            entityId: ({ args }) => args?.[0]?.id,
+            realtime: {
+              event: USERS_BOOTSTRAP_CHANGED_EVENT,
+              audience: "event_scope"
+            }
+          }
+        ],
         createInvite: [
           {
             type: "entity.changed",
@@ -92,10 +149,10 @@ function registerWorkspaceMembers(app) {
             source: "users",
             entity: "bootstrap",
             operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
+            entityId: ({ result }) => result?.createdInviteId,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "event_scope"
+              audience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
             }
           }
         ],
@@ -119,10 +176,10 @@ function registerWorkspaceMembers(app) {
             source: "users",
             entity: "bootstrap",
             operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
+            entityId: ({ args }) => args?.[1],
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "event_scope"
+              audience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
             }
           }
         ]

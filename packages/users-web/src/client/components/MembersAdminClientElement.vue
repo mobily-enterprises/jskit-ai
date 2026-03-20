@@ -92,18 +92,29 @@
                     </template>
 
                     <template #append>
-                      <v-select
-                        v-model="member.roleId"
-                        :items="memberRoleOptions"
-                        item-title="title"
-                        item-value="value"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        class="member-role-select"
-                        :disabled="isMemberRoleLocked(member)"
-                        @update:model-value="(value) => onMemberRoleUpdate(member, value)"
-                      />
+                      <div class="d-flex align-center ga-2">
+                        <v-select
+                          v-model="member.roleId"
+                          :items="memberRoleOptions"
+                          item-title="title"
+                          item-value="value"
+                          density="compact"
+                          variant="outlined"
+                          hide-details
+                          class="member-role-select"
+                          :disabled="isMemberRoleLocked(member)"
+                          @update:model-value="(value) => onMemberRoleUpdate(member, value)"
+                        />
+                        <v-btn
+                          variant="text"
+                          color="error"
+                          :disabled="isMemberRemoveLocked(member)"
+                          :loading="isRemoveMemberLoading(member.userId)"
+                          @click="onRemoveMember(member)"
+                        >
+                          Remove
+                        </v-btn>
+                      </div>
                     </template>
                   </v-list-item>
                 </v-list>
@@ -167,6 +178,10 @@ const props = defineProps({
     type: Number,
     required: true
   },
+  removeMemberUserId: {
+    type: Number,
+    required: true
+  },
   status: {
     type: Object,
     required: true
@@ -190,6 +205,7 @@ const {
   collections,
   permissions,
   revokeInviteId,
+  removeMemberUserId,
   status,
   actions
 } = toRefs(props);
@@ -204,6 +220,11 @@ const actionHandlers = Object.freeze({
   submitMemberRoleUpdate: requireFunction(
     actions.value.submitMemberRoleUpdate,
     "actions.submitMemberRoleUpdate",
+    "MembersAdminClientElement"
+  ),
+  submitRemoveMember: requireFunction(
+    actions.value.submitRemoveMember,
+    "actions.submitRemoveMember",
     "MembersAdminClientElement"
   )
 });
@@ -239,6 +260,7 @@ const canManageMembers = computed(() => Boolean(unref(permissions.value.canManag
 const canRevokeInvites = computed(() => Boolean(unref(permissions.value.canRevokeInvites)));
 const isCreatingInvite = computed(() => Boolean(unref(status.value.isCreatingInvite)));
 const isRevokingInvite = computed(() => Boolean(unref(status.value.isRevokingInvite)));
+const isRemovingMember = computed(() => Boolean(unref(status.value.isRemovingMember)));
 const workspaceInvitePolicyLoaded = computed(() =>
   requireBoolean(status.value.hasLoadedWorkspaceSettings, "status.hasLoadedWorkspaceSettings", "MembersAdminClientElement")
 );
@@ -291,8 +313,20 @@ function isMemberRoleLocked(member) {
   return Boolean(member?.isOwner);
 }
 
+function isMemberRemoveLocked(member) {
+  if (!canManageMembers.value) {
+    return true;
+  }
+
+  return Boolean(member?.isOwner);
+}
+
 function isRevokeInviteLoading(inviteId) {
   return isRevokingInvite.value && revokeInviteId.value === Number(inviteId || 0);
+}
+
+function isRemoveMemberLoading(memberUserId) {
+  return isRemovingMember.value && removeMemberUserId.value === Number(memberUserId || 0);
 }
 
 async function onSubmitInvite() {
@@ -317,6 +351,14 @@ async function onMemberRoleUpdate(member, roleId) {
   }
 
   await actionHandlers.submitMemberRoleUpdate(member, roleId);
+}
+
+async function onRemoveMember(member) {
+  if (isMemberRemoveLocked(member)) {
+    return;
+  }
+
+  await actionHandlers.submitRemoveMember(member);
 }
 </script>
 

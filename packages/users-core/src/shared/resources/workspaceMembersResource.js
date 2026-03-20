@@ -197,6 +197,22 @@ const updateMemberRoleInputValidator = Object.freeze({
   }
 });
 
+const removeMemberInputValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      memberUserId: Type.Integer({ minimum: 1 })
+    },
+    { additionalProperties: false }
+  ),
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      memberUserId: toPositiveInteger(source.memberUserId)
+    };
+  }
+});
+
 const createInviteBodyValidator = Object.freeze({
   schema: Type.Object(
     {
@@ -252,6 +268,12 @@ const workspaceMembersResource = Object.freeze({
       messages: WORKSPACE_MEMBERS_MESSAGES,
       bodyValidator: updateMemberRoleBodyValidator,
       inputValidator: updateMemberRoleInputValidator,
+      outputValidator: workspaceMembersOutputValidator
+    }),
+    removeMember: Object.freeze({
+      method: "DELETE",
+      messages: WORKSPACE_MEMBERS_MESSAGES,
+      inputValidator: removeMemberInputValidator,
       outputValidator: workspaceMembersOutputValidator
     }),
     invitesList: Object.freeze({

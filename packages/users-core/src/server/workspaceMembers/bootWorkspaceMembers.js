@@ -112,6 +112,35 @@ function bootWorkspaceMembers(app) {
     }
   );
 
+  router.register(
+    "DELETE",
+    resolveWorkspaceRoutePath("/members/:memberUserId"),
+    {
+      auth: "required",
+      surface: workspaceRouteSurfaceId,
+      visibility: "workspace",
+      contextPolicy: "required",
+      meta: {
+        tags: ["workspace"],
+        summary: "Remove workspace member by workspace slug"
+      },
+      paramsValidator: routeParamsValidator,
+      responseValidators: withStandardErrorResponses({
+        200: workspaceMembersResource.operations.removeMember.outputValidator
+      })
+    },
+    async function (request, reply) {
+      const response = await request.executeAction({
+        actionId: "workspace.member.remove",
+        input: {
+          workspaceSlug: request.input.params.workspaceSlug,
+          memberUserId: request.input.params.memberUserId
+        }
+      });
+      reply.code(200).send(response);
+    }
+  );
+
   if (workspaceInvitationsEnabled) {
     router.register(
       "GET",
