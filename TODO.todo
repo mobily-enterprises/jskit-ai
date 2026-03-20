@@ -88,13 +88,23 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Re-add realtime
   X Re-add crud
 
+  - Destination surface for CRUD?
+  - Chiara has access to Console?!?
   - If logged out, redirect to login immediately, check page permissions if not logged out
+  
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   - Re-add icons
   - cli: offer help for package paramters
 
-  
+
+  - Final DESLOP
+  - Publish NPM packages
   - FINAL STEP: Do infrastructure deploy, easy way
+
+  22/03 AM Chiara
+  24/03 AM Daniela
+  26/03 AM Tony
+  27/03 15 Stefano
 
   
   LATER, PORT OVER:
