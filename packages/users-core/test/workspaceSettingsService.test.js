@@ -14,7 +14,7 @@ function authorizedOptions(permissions = []) {
   };
 }
 
-function createFixture() {
+function createFixture({ workspaceInvitationsEnabled = true } = {}) {
   const state = {
     settingsPatch: null,
     workspace: {
@@ -34,6 +34,7 @@ function createFixture() {
   };
 
   const service = createService({
+    workspaceInvitationsEnabled,
     workspaceSettingsRepository: {
       async ensureForWorkspaceId(workspaceId) {
         assert.equal(Number(workspaceId), 7);
@@ -94,6 +95,26 @@ test("workspaceSettingsService.updateWorkspaceSettings writes editable fields th
     color: "#0F6B54",
     invitesEnabled: false,
     invitesAvailable: true,
+    invitesEffective: false
+  });
+});
+
+test("workspaceSettingsService disables invite settings in output when app policy disables invitations", async () => {
+  const { service, state } = createFixture({
+    workspaceInvitationsEnabled: false
+  });
+
+  const response = await service.getWorkspaceSettings(
+    state.workspace,
+    authorizedOptions(["workspace.settings.view"])
+  );
+
+  assert.deepEqual(response.settings, {
+    name: "TonyMobily3",
+    avatarUrl: "",
+    color: "#0F6B54",
+    invitesEnabled: false,
+    invitesAvailable: false,
     invitesEffective: false
   });
 });

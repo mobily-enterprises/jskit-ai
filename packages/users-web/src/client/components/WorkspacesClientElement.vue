@@ -32,6 +32,7 @@ const bootstrapModel = reactive({
   sessionAuthenticated: false,
   tenancyMode: "none",
   workspaceAllowSelfCreate: false,
+  workspaceInvitesEnabled: false,
   workspaces: [],
   pendingInvites: []
 });
@@ -62,10 +63,13 @@ const bootstrapView = useView({
     model.sessionAuthenticated = Boolean(payload?.session?.authenticated);
     model.tenancyMode = String(payload?.tenancy?.mode || "").trim().toLowerCase() || "none";
     model.workspaceAllowSelfCreate = payload?.tenancy?.workspace?.allowSelfCreate === true;
+    model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
     model.workspaces = normalizeWorkspaceList(payload?.workspaces);
-    model.pendingInvites = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-      .map(normalizePendingInvite)
-      .filter(Boolean);
+    model.pendingInvites = model.workspaceInvitesEnabled
+      ? (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
+        .map(normalizePendingInvite)
+        .filter(Boolean)
+      : [];
   }
 });
 
@@ -124,6 +128,7 @@ const workspaceItems = computed(() => {
 const pendingInvites = computed(() => {
   return Array.isArray(bootstrapModel.pendingInvites) ? bootstrapModel.pendingInvites : [];
 });
+const workspaceInvitesEnabled = computed(() => bootstrapModel.workspaceInvitesEnabled === true);
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
 const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
@@ -274,6 +279,10 @@ async function openWorkspace(workspaceSlug) {
 }
 
 async function respondToInvite(invite, decision) {
+  if (!workspaceInvitesEnabled.value) {
+    return;
+  }
+
   const token = String(invite?.token || "").trim();
   const normalizedDecision = String(decision || "").trim().toLowerCase();
   if (!token || (normalizedDecision !== "accept" && normalizedDecision !== "refuse")) {
@@ -405,7 +414,7 @@ watch(
 
         <v-card-text class="pt-4">
           <v-row>
-            <v-col cols="12" md="6">
+            <v-col cols="12" :md="workspaceInvitesEnabled ? 6 : 12">
               <template v-if="isBootstrapping">
                 <v-skeleton-loader type="text, list-item-avatar-two-line@3" />
               </template>
@@ -481,7 +490,7 @@ watch(
               </template>
             </v-col>
 
-            <v-col cols="12" md="6">
+            <v-col v-if="workspaceInvitesEnabled" cols="12" md="6">
               <template v-if="isBootstrapping">
                 <v-skeleton-loader type="text, list-item-two-line@3" />
               </template>

@@ -371,7 +371,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.workspaceSwitching =",
         value:
-          "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+          "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvitations = {\n  enabled: true,\n  allowInPersonalMode: true\n};\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"

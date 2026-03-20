@@ -13,16 +13,17 @@ function mapWorkspaceSummary(workspace, membership) {
   };
 }
 
-function mapWorkspaceSettingsPublic(workspaceSettings) {
+function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {}) {
   const source = workspaceSettings && typeof workspaceSettings === "object" ? workspaceSettings : {};
-  const invitesEnabled = source.invitesEnabled !== false;
+  const invitesAvailable = workspaceInvitationsEnabled === true;
+  const invitesEnabled = invitesAvailable && source.invitesEnabled !== false;
   return {
     name: normalizeText(source.name),
     color: coerceWorkspaceColor(source.color),
     avatarUrl: normalizeText(source.avatarUrl),
     invitesEnabled,
-    invitesAvailable: true,
-    invitesEffective: invitesEnabled
+    invitesAvailable,
+    invitesEffective: invitesAvailable && invitesEnabled
   };
 }
 

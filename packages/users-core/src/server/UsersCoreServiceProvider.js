@@ -15,8 +15,8 @@ import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccou
 import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
 import { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import {
-  USERS_WORKSPACE_ENABLED_TOKEN,
-  USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
+  USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN,
+  USERS_WORKSPACE_ENABLED_TOKEN
 } from "./common/diTokens.js";
 import { registerUsersCoreApi } from "./common/registerUsersCoreApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
@@ -45,7 +45,7 @@ class UsersCoreServiceProvider {
       registerWorkspaceMembers(app);
       registerWorkspaceSettings(app);
 
-      if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
+      if (app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true) {
         registerWorkspacePendingInvitations(app);
       }
     }
@@ -60,7 +60,7 @@ class UsersCoreServiceProvider {
   async boot(app) {
     if (app.make(USERS_WORKSPACE_ENABLED_TOKEN) === true) {
       bootWorkspaceDirectoryRoutes(app);
-      if (app.make(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN) === true) {
+      if (app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true) {
         bootWorkspacePendingInvitations(app);
       }
       bootWorkspaceSettings(app);

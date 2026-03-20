@@ -10,6 +10,7 @@ import { createService as createWorkspaceSettingsService } from "./workspaceSett
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
@@ -40,6 +41,7 @@ function registerWorkspaceSettings(app) {
     (scope) =>
       createWorkspaceSettingsService({
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
+        workspaceInvitationsEnabled: scope.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN),
         roleCatalog: createWorkspaceRoleCatalog(scope.has("appConfig") ? scope.make("appConfig") : {})
       }),
     {

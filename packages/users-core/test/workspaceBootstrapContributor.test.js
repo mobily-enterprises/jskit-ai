@@ -60,7 +60,7 @@ test("workspace bootstrap contributor passes actor context to pending invites se
         };
       }
     },
-    workspaceTenancyEnabled: true,
+    workspaceInvitationsEnabled: true,
     appConfig: {
       tenancyMode: "workspace"
     }
@@ -122,7 +122,7 @@ test("workspace bootstrap contributor seeds the initial console owner on authent
         };
       }
     },
-    workspaceTenancyEnabled: false,
+    workspaceInvitationsEnabled: false,
     consoleService: {
       async ensureInitialConsoleMember(userId) {
         consoleOwnerSeeds.push(Number(userId));
@@ -170,7 +170,7 @@ test("workspace bootstrap contributor emits canonical tenancy profile from users
         return {};
       }
     },
-    workspaceTenancyEnabled: false,
+    workspaceInvitationsEnabled: false,
     tenancyProfile: {
       mode: TENANCY_MODE_PERSONAL,
       workspace: {
@@ -247,7 +247,7 @@ test("workspace bootstrap contributor resolves workspace slug from bootstrap que
         };
       }
     },
-    workspaceTenancyEnabled: true,
+    workspaceInvitationsEnabled: true,
     appConfig: {
       tenancyMode: "workspace"
     }

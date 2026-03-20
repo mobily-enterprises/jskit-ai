@@ -219,7 +219,8 @@ function useAccountSettingsRuntime() {
   });
 
   const pendingInvitesModel = reactive({
-    pendingInvites: []
+    pendingInvites: [],
+    workspaceInvitesEnabled: false
   });
 
   const selectedAvatarFileName = ref("");
@@ -322,9 +323,12 @@ function useAccountSettingsRuntime() {
     fallbackLoadError: "Unable to load invitations.",
     model: pendingInvitesModel,
     mapLoadedToModel: (model, payload = {}) => {
-      model.pendingInvites = (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-        .map(normalizePendingInvite)
-        .filter(Boolean);
+      model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
+      model.pendingInvites = model.workspaceInvitesEnabled
+        ? (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
+          .map(normalizePendingInvite)
+          .filter(Boolean)
+        : [];
     }
   });
 
@@ -446,7 +450,8 @@ function useAccountSettingsRuntime() {
   });
 
   const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
-  const loadingInvites = computed(() => Boolean(pendingInvitesView.isLoading.value));
+  const invitesAvailable = computed(() => pendingInvitesModel.workspaceInvitesEnabled === true);
+  const loadingInvites = computed(() => invitesAvailable.value && Boolean(pendingInvitesView.isLoading.value));
   const pendingInvites = computed(() => {
     return Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : [];
   });
@@ -521,6 +526,10 @@ function useAccountSettingsRuntime() {
   }
 
   async function respondToInvite(invite, decision) {
+    if (!invitesAvailable.value) {
+      return;
+    }
+
     const token = String(invite?.token || "").trim();
     const normalizedDecision = String(decision || "").trim().toLowerCase();
     if (!token || (normalizedDecision !== "accept" && normalizedDecision !== "refuse")) {
@@ -857,6 +866,7 @@ function useAccountSettingsRuntime() {
   });
 
   const invites = Object.freeze({
+    isAvailable: invitesAvailable,
     items: pendingInvites,
     isLoading: loadingInvites,
     isResolving: isResolvingInvite,

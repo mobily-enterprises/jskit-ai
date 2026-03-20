@@ -9,6 +9,7 @@ import { createService as createWorkspaceMembersService } from "./workspaceMembe
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 
 const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
@@ -26,6 +27,10 @@ function registerWorkspaceMembers(app) {
     throw new Error("registerWorkspaceMembers requires application singleton()/service()/actions().");
   }
   const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const workspaceInvitationsEnabled =
+    typeof app.has === "function" && app.has(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN)
+      ? app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true
+      : false;
 
   app.service(
     USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN,
@@ -125,9 +130,18 @@ function registerWorkspaceMembers(app) {
     }
   );
 
+  const actions = workspaceInvitationsEnabled
+    ? workspaceMembersActions
+    : workspaceMembersActions.filter((action) => {
+        const actionId = String(action?.id || "").trim().toLowerCase();
+        return actionId !== "workspace.invites.list" &&
+          actionId !== "workspace.invite.create" &&
+          actionId !== "workspace.invite.revoke";
+      });
+
   app.actions(
     materializeWorkspaceActionSurfacesFromAppConfig(
-      withActionDefaults(workspaceMembersActions, {
+      withActionDefaults(actions, {
         domain: "workspace",
         dependencies: {
           workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN

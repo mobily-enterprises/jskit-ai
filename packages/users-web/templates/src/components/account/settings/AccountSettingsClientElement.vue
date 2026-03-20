@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useAccountSettingsRuntime } from "@jskit-ai/users-web/client/composables/useAccountSettingsRuntime";
 import AccountSettingsProfileSection from "./AccountSettingsProfileSection.vue";
 import AccountSettingsPreferencesSection from "./AccountSettingsPreferencesSection.vue";
@@ -9,12 +9,29 @@ import AccountSettingsInvitesSection from "./AccountSettingsInvitesSection.vue";
 const runtime = useAccountSettingsRuntime();
 const activeTab = ref("profile");
 
-const sections = Object.freeze([
-  { title: "Profile", value: "profile" },
-  { title: "Preferences", value: "preferences" },
-  { title: "Notifications", value: "notifications" },
-  { title: "Invites", value: "invites" }
-]);
+const sections = computed(() => {
+  const items = [
+    { title: "Profile", value: "profile" },
+    { title: "Preferences", value: "preferences" },
+    { title: "Notifications", value: "notifications" }
+  ];
+
+  if (runtime.invites.isAvailable.value) {
+    items.push({ title: "Invites", value: "invites" });
+  }
+
+  return Object.freeze(items);
+});
+
+watch(
+  () => runtime.invites.isAvailable.value,
+  (isAvailable) => {
+    if (!isAvailable && activeTab.value === "invites") {
+      activeTab.value = "profile";
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -60,7 +77,7 @@ const sections = Object.freeze([
                 <AccountSettingsNotificationsSection :runtime="runtime" />
               </v-window-item>
 
-              <v-window-item value="invites">
+              <v-window-item v-if="runtime.invites.isAvailable.value" value="invites">
                 <AccountSettingsInvitesSection :runtime="runtime" />
               </v-window-item>
             </v-window>

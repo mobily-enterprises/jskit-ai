@@ -27,6 +27,10 @@ function toSortedUniqueStrings(value) {
   );
 }
 
+function isLocalScopePackageId(value) {
+  return String(value || "").trim().startsWith("@local/");
+}
+
 async function readJsonFile(filePath, fallback) {
   try {
     const source = await readFile(filePath, "utf8");
@@ -229,6 +233,23 @@ async function resolveInstalledClientPackageIds(options) {
   return Object.freeze(modules.map((entry) => entry.packageId));
 }
 
+async function resolveLocalScopePackageIds({ appRoot, lockPath }) {
+  const absoluteLockPath = path.resolve(appRoot, lockPath);
+  const lockPayload = await readJsonFile(absoluteLockPath, {});
+  const installedPackages = ensureObject(lockPayload.installedPackages);
+  const localScopeFromLock = Object.keys(installedPackages).filter((packageId) => isLocalScopePackageId(packageId));
+
+  const appPackageJson = await readJsonFile(path.resolve(appRoot, "package.json"), {});
+  const localScopeFromPackageJson = Object.keys({
+    ...ensureObject(appPackageJson.dependencies),
+    ...ensureObject(appPackageJson.devDependencies),
+    ...ensureObject(appPackageJson.optionalDependencies),
+    ...ensureObject(appPackageJson.peerDependencies)
+  }).filter((packageId) => isLocalScopePackageId(packageId));
+
+  return Object.freeze(toSortedUniqueStrings([...localScopeFromLock, ...localScopeFromPackageJson]));
+}
+
 function normalizeClientModuleDescriptors(value) {
   const items = Array.isArray(value) ? value : [];
   const descriptors = [];
@@ -292,7 +313,7 @@ function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
   return toSortedUniqueStrings(
     moduleDescriptors
       .filter((entry) => localSourceTypes.has(entry.sourceType))
-      .map((entry) => `${entry.packageId}/client`)
+      .flatMap((entry) => [entry.packageId, `${entry.packageId}/shared`, `${entry.packageId}/client`])
   );
 }
 
@@ -309,6 +330,12 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
   );
 }
 
+function resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = []) {
+  return toSortedUniqueStrings(
+    localScopePackageIds.flatMap((packageId) => [packageId, `${packageId}/shared`, `${packageId}/client`])
+  );
+}
+
 function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
   const resolveConfig = ensureObject(userResolveConfig);
   const userDedupe = toSortedUniqueStrings(resolveConfig.dedupe);
@@ -319,16 +346,22 @@ function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}
   return {
     name: "jskit-client-bootstrap",
     async config(userConfig = {}) {
+      const appRoot = process.cwd();
       const clientModules = await resolveInstalledClientModules({
-        appRoot: process.cwd(),
+        appRoot,
+        lockPath
+      });
+      const localScopePackageIds = await resolveLocalScopePackageIds({
+        appRoot,
         lockPath
       });
       const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
+      const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules);
       const userOptimizeDeps = ensureObject(userConfig.optimizeDeps);
       const userExclude = toSortedUniqueStrings(userOptimizeDeps.exclude);
       const userInclude = toSortedUniqueStrings(userOptimizeDeps.include);
-      const exclude = toSortedUniqueStrings([...userExclude, ...clientExcludeSpecifiers]);
+      const exclude = toSortedUniqueStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
       const include = toSortedUniqueStrings([...userInclude, ...clientIncludeSpecifiers]);
       const userResolve = ensureObject(userConfig.resolve);
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
@@ -372,7 +405,9 @@ export {
   createVirtualModuleSource,
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
+  resolveLocalScopeOptimizeExcludeSpecifiers,
   resolveInstalledClientPackageIds,
+  resolveLocalScopePackageIds,
   resolveInstalledClientModules,
   createJskitClientBootstrapPlugin
 };

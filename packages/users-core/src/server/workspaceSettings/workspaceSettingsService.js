@@ -7,11 +7,16 @@ function resolveWorkspaceSettingsFieldKeys() {
   return workspaceSettingsFields.map((field) => field.key);
 }
 
-function createService({ workspaceSettingsRepository, roleCatalog = null } = {}) {
+function createService({
+  workspaceSettingsRepository,
+  workspaceInvitationsEnabled = true,
+  roleCatalog = null
+} = {}) {
   if (!workspaceSettingsRepository) {
     throw new Error("workspaceSettingsService requires workspaceSettingsRepository.");
   }
   const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
+  const invitesAvailable = workspaceInvitationsEnabled === true;
 
   function cloneRoleCatalog() {
     return {
@@ -39,10 +44,10 @@ function createService({ workspaceSettingsRepository, roleCatalog = null } = {})
     for (const field of workspaceSettingsFields) {
       settings[field.key] = settingsRecord[field.key];
     }
-    const invitesEnabled = settings.invitesEnabled !== false;
+    const invitesEnabled = invitesAvailable && settings.invitesEnabled !== false;
     settings.invitesEnabled = invitesEnabled;
-    settings.invitesAvailable = true;
-    settings.invitesEffective = invitesEnabled;
+    settings.invitesAvailable = invitesAvailable;
+    settings.invitesEffective = invitesAvailable && invitesEnabled;
 
     return {
       workspace: {

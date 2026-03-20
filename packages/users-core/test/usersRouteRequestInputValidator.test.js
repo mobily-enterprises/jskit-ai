@@ -33,6 +33,7 @@ async function registerUsersRoutes({
   consoleService = null,
   workspaceEnabled = true,
   workspaceTenancyEnabled = true,
+  workspaceInvitationsEnabled = true,
   workspaceSelfCreateEnabled = true
 } = {}) {
   const registeredRoutes = [];
@@ -64,6 +65,7 @@ async function registerUsersRoutes({
     ["actionExecutor", {}],
     ["users.workspace.enabled", workspaceEnabled],
     ["users.workspace.tenancy.enabled", workspaceTenancyEnabled],
+    ["users.workspace.invitations.enabled", workspaceInvitationsEnabled],
     ["users.workspace.self-create.enabled", workspaceSelfCreateEnabled]
   ]);
 
@@ -100,6 +102,8 @@ async function registerUsersRoutesForMode({
   return registerUsersRoutes({
     workspaceEnabled: tenancyProfile.workspace.enabled === true,
     workspaceTenancyEnabled: tenancyProfile.mode === "workspace",
+    workspaceInvitationsEnabled:
+      tenancyProfile.workspace.enabled === true && tenancyProfile.mode !== "none",
     workspaceSelfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true
   });
 }
@@ -190,6 +194,7 @@ test("users-core boot skips workspace routes when workspace policy is disabled",
   const routes = await registerUsersRoutes({
     workspaceEnabled: false,
     workspaceTenancyEnabled: false,
+    workspaceInvitationsEnabled: false,
     workspaceSelfCreateEnabled: false
   });
 
@@ -203,6 +208,7 @@ test("users-core boot skips workspace create route when self-create policy is di
   const routes = await registerUsersRoutes({
     workspaceEnabled: true,
     workspaceTenancyEnabled: true,
+    workspaceInvitationsEnabled: true,
     workspaceSelfCreateEnabled: false
   });
 
@@ -240,7 +246,10 @@ test("users-core route registration follows tenancy mode matrix", async () => {
     findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
     "/api/w/:workspaceSlug/workspace/settings"
   );
-  assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
+  assert.equal(
+    findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
+    "/api/workspace/invitations/pending"
+  );
 
   assert.equal(findRoute(workspaceRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
   assert.equal(findRoute(workspaceRoutes, { method: "POST", path: "/api/workspaces" }), null);
@@ -257,6 +266,21 @@ test("users-core route registration follows tenancy mode matrix", async () => {
     findRoute(workspaceSelfCreateRoutes, { method: "POST", path: "/api/workspaces" })?.path,
     "/api/workspaces"
   );
+});
+
+test("users-core boot skips invitation redeem/list routes when workspace invitations are disabled", async () => {
+  const routes = await registerUsersRoutes({
+    workspaceEnabled: true,
+    workspaceTenancyEnabled: true,
+    workspaceInvitationsEnabled: false,
+    workspaceSelfCreateEnabled: false
+  });
+
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
+  assert.equal(findRoute(routes, { method: "POST", path: "/api/workspace/invitations/redeem" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/invites" }), null);
+  assert.equal(findRoute(routes, { method: "POST", path: "/api/w/:workspaceSlug/workspace/invites" }), null);
+  assert.equal(findRoute(routes, { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/invites/:inviteId" }), null);
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {

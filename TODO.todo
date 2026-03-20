@@ -82,6 +82,7 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Place roles and permissions in app-owned config. Check config for assistant?
   X Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
 
+
   - Fix placements properly
   - Workflow to accept an invite
   - Alert system (queue + element), use it for invites

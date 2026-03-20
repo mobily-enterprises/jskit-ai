@@ -93,10 +93,10 @@ function resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {}) {
   return "";
 }
 
-function resolveAppState(appConfig = {}) {
+function resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = true } = {}) {
   const features = {
     workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, true),
-    workspaceInvites: normalizeBoolean(appConfig.workspaceInvites, true),
+    workspaceInvites: workspaceInvitationsEnabled === true,
     assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, false),
     assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
     socialEnabled: normalizeBoolean(appConfig.socialEnabled, false),
@@ -184,14 +184,16 @@ function createWorkspaceBootstrapContributor({
   workspacePendingInvitationsService,
   userProfilesRepository,
   userSettingsRepository,
-  workspaceTenancyEnabled = false,
+  workspaceInvitationsEnabled = false,
   appConfig = {},
   tenancyProfile = null,
   authService,
   consoleService = null
 } = {}) {
   const contributorId = "users.bootstrap";
-  const appState = resolveAppState(appConfig);
+  const appState = resolveAppState(appConfig, {
+    workspaceInvitationsEnabled
+  });
   const resolvedTenancyProfile = resolveBootstrapTenancyProfile(tenancyProfile, appConfig);
 
   requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId, {
@@ -200,7 +202,7 @@ function createWorkspaceBootstrapContributor({
   requireServiceMethod(workspaceService, "resolveWorkspaceContextForUserBySlug", contributorId, {
     serviceLabel: "workspaceService"
   });
-  if (workspaceTenancyEnabled) {
+  if (workspaceInvitationsEnabled) {
     requireServiceMethod(workspacePendingInvitationsService, "listPendingInvitesForUser", contributorId, {
       serviceLabel: "workspacePendingInvitationsService"
     });
@@ -240,7 +242,7 @@ function createWorkspaceBootstrapContributor({
       const user = authResult?.authenticated ? authResult.profile : null;
       const normalizedUser = authenticatedUserValidator.normalize(user);
       const pendingInvites =
-        workspaceTenancyEnabled && normalizedUser
+        workspaceInvitationsEnabled && normalizedUser
           ? normalizePendingInvites(
               await workspacePendingInvitationsService.listPendingInvitesForUser(normalizedUser, {
                 context: {
@@ -295,7 +297,11 @@ function createWorkspaceBootstrapContributor({
             : null,
           membership: mapMembershipSummary(workspaceContext?.membership, workspaceContext?.workspace),
           permissions: workspaceContext ? [...workspaceContext.permissions] : [],
-          workspaceSettings: workspaceContext ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings) : null,
+          workspaceSettings: workspaceContext
+            ? mapWorkspaceSettingsPublic(workspaceContext.workspaceSettings, {
+                workspaceInvitationsEnabled
+              })
+            : null,
           userSettings: mapUserSettingsBootstrap(userSettings),
           requestMeta: {
             hasRequest: Boolean(request)

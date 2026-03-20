@@ -11,10 +11,12 @@ import { createService as createAuthProfileSyncService } from "./common/services
 import { createWorkspaceActionContextContributor } from "./common/contributors/workspaceActionContextContributor.js";
 import { createWorkspaceRouteVisibilityResolver } from "./common/contributors/workspaceRouteVisibilityResolver.js";
 import { createWorkspaceAuthPolicyContextResolver } from "./common/contributors/workspaceAuthPolicyContextResolver.js";
+import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
 import {
   USERS_PROFILE_SYNC_SERVICE_TOKEN,
   USERS_TENANCY_PROFILE_TOKEN,
   USERS_WORKSPACE_ENABLED_TOKEN,
+  USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN,
   USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN,
   USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
 } from "./common/diTokens.js";
@@ -68,6 +70,15 @@ function registerWorkspaceCore(app) {
 
   app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
     return scope.make(USERS_TENANCY_PROFILE_TOKEN).mode === TENANCY_MODE_WORKSPACE;
+  });
+
+  app.singleton(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN, (scope) => {
+    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const tenancyProfile = scope.make(USERS_TENANCY_PROFILE_TOKEN);
+    return resolveWorkspaceInvitationsPolicy({
+      appConfig,
+      tenancyProfile
+    }).enabled;
   });
 
   registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {

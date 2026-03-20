@@ -8,8 +8,10 @@ import {
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   createJskitClientBootstrapPlugin,
   createVirtualModuleSource,
+  resolveLocalScopeOptimizeExcludeSpecifiers,
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
+  resolveLocalScopePackageIds,
   resolveInstalledClientPackageIds,
   resolveInstalledClientModules
 } from "./clientBootstrapPlugin.js";
@@ -46,7 +48,7 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
   assert.match(source, /installedClientModules/);
 });
 
-test("resolveClientOptimizeExcludeSpecifiers excludes only local/app-local package clients", () => {
+test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package roots and client/shared subpaths", () => {
   const exclude = resolveClientOptimizeExcludeSpecifiers([
     {
       packageId: "@z/pkg",
@@ -70,7 +72,14 @@ test("resolveClientOptimizeExcludeSpecifiers excludes only local/app-local packa
     }
   ]);
 
-  assert.deepEqual(exclude, ["@a/pkg/client", "@b/pkg/client"]);
+  assert.deepEqual(exclude, [
+    "@a/pkg",
+    "@a/pkg/client",
+    "@a/pkg/shared",
+    "@b/pkg",
+    "@b/pkg/client",
+    "@b/pkg/shared"
+  ]);
 });
 
 test("resolveClientOptimizeIncludeSpecifiers includes only non-local package clients", () => {
@@ -98,6 +107,18 @@ test("resolveClientOptimizeIncludeSpecifiers includes only non-local package cli
   ]);
 
   assert.deepEqual(include, ["@c/pkg/client", "@z/pkg/client"]);
+});
+
+test("resolveLocalScopeOptimizeExcludeSpecifiers expands @local package ids to root/client/shared", () => {
+  const exclude = resolveLocalScopeOptimizeExcludeSpecifiers(["@local/app", "@local/feature"]);
+  assert.deepEqual(exclude, [
+    "@local/app",
+    "@local/app/client",
+    "@local/app/shared",
+    "@local/feature",
+    "@local/feature/client",
+    "@local/feature/shared"
+  ]);
 });
 
 test("resolveInstalledClientPackageIds returns only installed packages with a client export", async () => {
@@ -269,6 +290,43 @@ test("resolveInstalledClientModules resolves descriptor via source.packagePath",
   assert.equal(modules[0].descriptorClientProviders[0].export, "LocalClientProvider");
 });
 
+test("resolveLocalScopePackageIds reads @local packages from lock and package.json", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
+  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+    lockVersion: 1,
+    installedPackages: {
+      "@local/main": {
+        source: {
+          type: "packages-directory"
+        }
+      },
+      "@example/remote": {
+        source: {
+          type: "packages-directory"
+        }
+      }
+    }
+  });
+  await writeJson(path.join(tempRoot, "package.json"), {
+    name: "fixture-app",
+    dependencies: {
+      "@local/feature": "file:packages/feature",
+      "@example/remote": "^1.0.0"
+    },
+    devDependencies: {
+      "@local/dev-only": "file:packages/dev-only"
+    }
+  });
+
+  const packageIds = await resolveLocalScopePackageIds({
+    appRoot: tempRoot,
+    lockPath: ".jskit/lock.json"
+  });
+
+  assert.deepEqual(packageIds, ["@local/dev-only", "@local/feature", "@local/main"]);
+});
+
 test("createJskitClientBootstrapPlugin resolves and loads virtual module", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-plugin-"));
   const previousCwd = process.cwd();
@@ -352,7 +410,7 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
   }
 });
 
-test("createJskitClientBootstrapPlugin config excludes only local package clients", async () => {
+test("createJskitClientBootstrapPlugin config excludes local package roots and client/shared subpaths", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-local-"));
   const previousCwd = process.cwd();
 
@@ -405,7 +463,11 @@ test("createJskitClientBootstrapPlugin config excludes only local package client
     const plugin = createJskitClientBootstrapPlugin();
     const result = await plugin.config({});
 
-    assert.deepEqual(result.optimizeDeps.exclude, ["@example/local-client/client"]);
+    assert.deepEqual(result.optimizeDeps.exclude, [
+      "@example/local-client",
+      "@example/local-client/client",
+      "@example/local-client/shared"
+    ]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "vue", "vue-router", "vuetify"]);
   } finally {
@@ -439,6 +501,62 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
       "@": "/tmp/app/src"
     });
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "custom-lib", "vue", "vue-router", "vuetify"]);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin config excludes all @local scoped packages from lock and package.json", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-config-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+      lockVersion: 1,
+      installedPackages: {
+        "@local/main": {
+          source: {
+            type: "packages-directory"
+          }
+        },
+        "@example/remote-client": {
+          source: {
+            type: "packages-directory"
+          }
+        }
+      }
+    });
+    await writeJson(path.join(tempRoot, "package.json"), {
+      name: "fixture-app",
+      dependencies: {
+        "@local/feature": "file:packages/feature",
+        "@example/remote-client": "^1.0.0"
+      }
+    });
+
+    const remotePackageRoot = path.join(tempRoot, "node_modules", "@example", "remote-client");
+    await mkdir(remotePackageRoot, { recursive: true });
+    await writeJson(path.join(remotePackageRoot, "package.json"), {
+      name: "@example/remote-client",
+      exports: {
+        "./client": "./src/client/index.js"
+      }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+    const result = await plugin.config({});
+
+    assert.deepEqual(result.optimizeDeps.exclude, [
+      "@local/feature",
+      "@local/feature/client",
+      "@local/feature/shared",
+      "@local/main",
+      "@local/main/client",
+      "@local/main/shared"
+    ]);
+    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client"]);
   } finally {
     process.chdir(previousCwd);
   }
