@@ -18,7 +18,7 @@ const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = "crud_${option:name
 class ${option:namespace|pascal}ServiceProvider {
   static id = NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID;
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
+  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "users.core"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {

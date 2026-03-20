@@ -183,7 +183,16 @@ function createService({
     }
 
     await workspaceInvitesRepository.revokeById(inviteId, options);
-    return listInvitesPayload(workspace, options);
+    const revokedInviteId = Number(invite?.id);
+    if (!Number.isInteger(revokedInviteId) || revokedInviteId < 1) {
+      throw new Error("workspaceMembersService.revokeInvite expected repository to return pending invite id.");
+    }
+
+    const response = await listInvitesPayload(workspace, options);
+    return {
+      ...response,
+      revokedInviteId
+    };
   }
 
   return Object.freeze({

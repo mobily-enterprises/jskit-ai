@@ -86,16 +86,13 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Workflow to accept an invite
 
   X Re-add realtime
-  - Re-add crud
+  X Re-add crud
 
   - If logged out, redirect to login immediately, check page permissions if not logged out
-
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
-  
   - Re-add icons
-   
-
   - cli: offer help for package paramters
+
   
   - FINAL STEP: Do infrastructure deploy, easy way
 

@@ -148,6 +148,54 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   assert.equal(response.createdInviteId, 31);
 });
 
+test("workspaceMembersService.revokeInvite returns the revoked invite id", async () => {
+  let revokedInviteId = 0;
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert() {
+        return {
+          id: 1
+        };
+      },
+      async findPendingByIdForWorkspace(inviteId, workspaceId) {
+        assert.equal(Number(inviteId), 47);
+        assert.equal(Number(workspaceId), 7);
+        return {
+          id: 47,
+          workspaceId: 7,
+          status: "pending"
+        };
+      },
+      async revokeById(inviteId) {
+        revokedInviteId = Number(inviteId);
+      }
+    },
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog()
+  });
+
+  const response = await service.revokeInvite(
+    {
+      id: 7,
+      ownerUserId: 9
+    },
+    47,
+    authorizedOptions(["workspace.invites.revoke"])
+  );
+
+  assert.equal(revokedInviteId, 47);
+  assert.equal(response.revokedInviteId, 47);
+});
+
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();
 

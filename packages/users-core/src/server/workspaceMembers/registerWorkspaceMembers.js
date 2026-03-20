@@ -176,7 +176,7 @@ function registerWorkspaceMembers(app) {
             source: "users",
             entity: "bootstrap",
             operation: "updated",
-            entityId: ({ args }) => args?.[1],
+            entityId: ({ result }) => result?.revokedInviteId,
             realtime: {
               event: USERS_BOOTSTRAP_CHANGED_EVENT,
               audience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE

@@ -85,6 +85,7 @@ test("workspace register functions publish members/invites/workspace-list realti
   assert.equal(members?.metadata?.events?.removeMember?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.createInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.createInvite?.[1]?.entityId?.({ result: { createdInviteId: 91 } }), 91);
   assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.preset, "event_scope");
   assert.equal(typeof members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery, "function");
   const createInviteAudienceQueryResult = await members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery({
@@ -112,6 +113,7 @@ test("workspace register functions publish members/invites/workspace-list realti
   assert.deepEqual(createInviteAudienceQueryResult, [{ userId: 55 }]);
   assert.equal(members?.metadata?.events?.revokeInvite?.[0]?.realtime?.event, WORKSPACE_INVITES_CHANGED_EVENT);
   assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.entityId?.({ result: { revokedInviteId: 19 } }), 19);
   assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.preset, "event_scope");
   assert.equal(typeof members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.userQuery, "function");
 
