@@ -231,29 +231,24 @@ function createService({
       throw new AppError(400, "workspaceSlug is required.");
     }
 
-    let workspace = null;
-    if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
-      workspace = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
-      if (!workspace) {
-        throw new AppError(404, "Personal workspace not found.");
-      }
-      const personalWorkspaceSlug = normalizeLowerText(workspace.slug);
-      if (normalizedWorkspaceSlug !== personalWorkspaceSlug) {
-        throw new AppError(403, "Only the personal workspace can be used.");
-      }
-    } else {
-      workspace = await workspacesRepository.findBySlug(normalizedWorkspaceSlug, options);
-    }
+    const workspace = await workspacesRepository.findBySlug(normalizedWorkspaceSlug, options);
 
     if (!workspace) {
       throw new AppError(404, "Workspace not found.");
     }
 
-    const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
+    let membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
       workspace.id,
       normalizedUser.id,
       options
     );
+    const actorOwnsWorkspace = Number(workspace.ownerUserId) === Number(normalizedUser.id);
+    const membershipIsActive = normalizeLowerText(membership?.status) === "active";
+
+    if (!membershipIsActive && actorOwnsWorkspace) {
+      membership = await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, normalizedUser.id, options);
+    }
+
     if (!membership || normalizeLowerText(membership.status) !== "active") {
       throw new AppError(403, "You do not have access to this workspace.");
     }

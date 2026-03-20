@@ -3,6 +3,7 @@ import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
+import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
 function bootWorkspaceSettings(app) {
   if (!app || typeof app.make !== "function") {
@@ -10,12 +11,15 @@ function bootWorkspaceSettings(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
 
   router.register(
     "GET",
     resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {
         tags: ["workspace"],
@@ -42,6 +46,7 @@ function bootWorkspaceSettings(app) {
     resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {
         tags: ["workspace"],

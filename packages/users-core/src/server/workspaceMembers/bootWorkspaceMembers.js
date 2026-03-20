@@ -6,6 +6,7 @@ import {
   routeParamsValidator,
   workspaceSlugParamsValidator
 } from "../common/validators/routeParamsValidator.js";
+import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
 function bootWorkspaceMembers(app) {
   if (!app || typeof app.make !== "function") {
@@ -13,12 +14,15 @@ function bootWorkspaceMembers(app) {
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
 
   router.register(
     "GET",
     resolveWorkspaceRoutePath("/roles"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {
@@ -46,6 +50,7 @@ function bootWorkspaceMembers(app) {
     resolveWorkspaceRoutePath("/members"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {
@@ -73,6 +78,7 @@ function bootWorkspaceMembers(app) {
     resolveWorkspaceRoutePath("/members/:memberUserId/role"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {
@@ -106,6 +112,7 @@ function bootWorkspaceMembers(app) {
     resolveWorkspaceRoutePath("/invites"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {
@@ -133,6 +140,7 @@ function bootWorkspaceMembers(app) {
     resolveWorkspaceRoutePath("/invites"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {
@@ -166,6 +174,7 @@ function bootWorkspaceMembers(app) {
     resolveWorkspaceRoutePath("/invites/:inviteId"),
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
       meta: {

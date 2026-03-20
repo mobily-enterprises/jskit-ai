@@ -1,4 +1,5 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
+import { resolveDefaultWorkspaceSurfaceId } from "../../shared/support/workspacePathModel.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -76,8 +77,24 @@ function materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConf
   return materializeWorkspaceActionSurfaces(actions, { workspaceSurfaceIds });
 }
 
+function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
+  const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
+  const workspaceSurfaceSet = new Set(workspaceSurfaceIds);
+
+  const resolvedSurfaceId = resolveDefaultWorkspaceSurfaceId({
+    defaultSurfaceId: appConfig?.surfaceDefaultId,
+    workspaceSurfaceIds,
+    surfaceRequiresWorkspace(surfaceId) {
+      return workspaceSurfaceSet.has(surfaceId);
+    }
+  });
+
+  return normalizeSurfaceId(resolvedSurfaceId) || normalizeSurfaceId(workspaceSurfaceIds[0]) || "app";
+}
+
 export {
   resolveWorkspaceSurfaceIdsFromAppConfig,
+  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
   materializeWorkspaceActionSurfaces,
   materializeWorkspaceActionSurfacesFromAppConfig
 };

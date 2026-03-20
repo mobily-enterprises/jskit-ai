@@ -5,6 +5,8 @@ import { createService } from "../src/server/common/services/workspaceContextSer
 function createWorkspaceServiceFixture({
   tenancyMode = "workspace",
   tenancyPolicy = {},
+  additionalWorkspaces = [],
+  membershipResolver = null,
   personalWorkspace = {
     id: 1,
     slug: "tonymobily3",
@@ -25,9 +27,24 @@ function createWorkspaceServiceFixture({
   const personalWorkspaceState =
     personalWorkspace && typeof personalWorkspace === "object" ? { ...personalWorkspace } : null;
   const insertedPayloads = [];
-  const takenSlugs = new Set(["tonymobily3"]);
+
+  const workspaceBySlug = new Map();
   if (personalWorkspaceState?.slug) {
-    takenSlugs.add(String(personalWorkspaceState.slug).trim().toLowerCase());
+    workspaceBySlug.set(String(personalWorkspaceState.slug).trim().toLowerCase(), {
+      ...personalWorkspaceState
+    });
+  }
+  for (const workspace of Array.isArray(additionalWorkspaces) ? additionalWorkspaces : []) {
+    if (!workspace || typeof workspace !== "object") {
+      continue;
+    }
+    const slug = String(workspace.slug || "").trim().toLowerCase();
+    if (!slug) {
+      continue;
+    }
+    workspaceBySlug.set(slug, {
+      ...workspace
+    });
   }
 
   const service = createService({
@@ -38,16 +55,11 @@ function createWorkspaceServiceFixture({
     workspacesRepository: {
       async findBySlug(slug) {
         const normalizedSlug = String(slug || "").trim().toLowerCase();
-        if (!takenSlugs.has(normalizedSlug)) {
+        const workspace = workspaceBySlug.get(normalizedSlug);
+        if (!workspace) {
           return null;
         }
-        return {
-          id: 1,
-          slug: normalizedSlug,
-          name: "TonyMobily3",
-          avatarUrl: "",
-          color: "#0F6B54"
-        };
+        return { ...workspace };
       },
       async findPersonalByOwnerUserId() {
         calls.findPersonalByOwnerUserId += 1;
@@ -89,7 +101,7 @@ function createWorkspaceServiceFixture({
           avatarUrl: String(payload.avatarUrl || ""),
           color: String(payload.color || "#0F6B54")
         };
-        takenSlugs.add(String(inserted.slug).trim().toLowerCase());
+        workspaceBySlug.set(String(inserted.slug).trim().toLowerCase(), inserted);
         return inserted;
       }
     },
@@ -97,10 +109,13 @@ function createWorkspaceServiceFixture({
       async ensureOwnerMembership() {
         calls.ensureOwnerMembership += 1;
       },
-      async findByWorkspaceIdAndUserId() {
+      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+        if (typeof membershipResolver === "function") {
+          return membershipResolver(workspaceId, userId);
+        }
         return {
-          workspaceId: 1,
-          userId: 1,
+          workspaceId,
+          userId,
           roleId: "owner",
           status: "active"
         };
@@ -238,7 +253,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation when
   );
 });
 
-test("workspaceService.resolveWorkspaceContextForUserBySlug rejects personal tenancy when personal workspace is missing", async () => {
+test("workspaceService.resolveWorkspaceContextForUserBySlug returns workspace-not-found when requested slug does not exist", async () => {
   const { service } = createWorkspaceServiceFixture({
     tenancyMode: "personal",
     personalWorkspace: null
@@ -254,6 +269,116 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug rejects personal ten
         },
         "tonymobily3"
       ),
-    /Personal workspace not found/
+    /Workspace not found/
   );
+});
+
+test("workspaceService.resolveWorkspaceContextForUserBySlug allows personal tenancy access when membership is active", async () => {
+  const { service } = createWorkspaceServiceFixture({
+    tenancyMode: "personal",
+    personalWorkspace: {
+      id: 1,
+      slug: "my-personal",
+      name: "My Personal",
+      ownerUserId: 7,
+      isPersonal: true,
+      avatarUrl: "",
+      color: "#0F6B54"
+    },
+    additionalWorkspaces: [
+      {
+        id: 42,
+        slug: "team-alpha",
+        name: "Team Alpha",
+        ownerUserId: 99,
+        isPersonal: false,
+        avatarUrl: "",
+        color: "#0F6B54"
+      }
+    ]
+  });
+
+  const context = await service.resolveWorkspaceContextForUserBySlug(
+    {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    "team-alpha"
+  );
+
+  assert.equal(context.workspace.slug, "team-alpha");
+  assert.equal(context.membership.roleId, "owner");
+  assert.deepEqual(context.permissions, ["*"]);
+});
+
+test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access even when membership row is missing", async () => {
+  let ensuredMembershipCount = 0;
+  let membershipRecord = null;
+
+  const service = createService({
+    appConfig: {
+      tenancyMode: "personal"
+    },
+    workspacesRepository: {
+      async findBySlug(slug) {
+        if (String(slug) !== "tonymobily") {
+          return null;
+        }
+        return {
+          id: 1,
+          slug: "tonymobily",
+          name: "TonyMobily",
+          ownerUserId: 7,
+          isPersonal: true,
+          avatarUrl: "",
+          color: "#0F6B54"
+        };
+      },
+      async findPersonalByOwnerUserId() {
+        return null;
+      },
+      async listForUserId() {
+        return [];
+      },
+      async insert() {
+        throw new Error("not implemented");
+      }
+    },
+    workspaceMembershipsRepository: {
+      async findByWorkspaceIdAndUserId() {
+        return membershipRecord;
+      },
+      async ensureOwnerMembership(workspaceId, userId) {
+        ensuredMembershipCount += 1;
+        membershipRecord = {
+          workspaceId,
+          userId,
+          roleId: "owner",
+          status: "active"
+        };
+        return membershipRecord;
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId() {
+        return {
+          invitesEnabled: true
+        };
+      }
+    }
+  });
+
+  const context = await service.resolveWorkspaceContextForUserBySlug(
+    {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    "tonymobily"
+  );
+
+  assert.equal(ensuredMembershipCount, 1);
+  assert.equal(context.membership.roleId, "owner");
+  assert.deepEqual(context.permissions, ["*"]);
 });
