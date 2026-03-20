@@ -120,15 +120,41 @@ test("workspace register functions publish members/invites/workspace-list realti
   const pendingApp = createAppDouble();
   registerWorkspacePendingInvitations(pendingApp.app);
   const pending = findServiceCall(pendingApp.serviceCalls, "users.workspace.pending-invitations.service");
-  assert.equal(
-    pending?.metadata?.events?.acceptInviteByToken?.[0]?.realtime?.event,
-    WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
+  const acceptInviteEvents = Array.isArray(pending?.metadata?.events?.acceptInviteByToken)
+    ? pending.metadata.events.acceptInviteByToken
+    : [];
+  const acceptInviteRealtimeEvents = acceptInviteEvents.map((entry) => entry?.realtime?.event).filter(Boolean);
+  assert.ok(acceptInviteRealtimeEvents.includes(WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT));
+  assert.ok(acceptInviteRealtimeEvents.includes(USERS_BOOTSTRAP_CHANGED_EVENT));
+  assert.ok(acceptInviteRealtimeEvents.includes(WORKSPACES_CHANGED_EVENT));
+  assert.ok(acceptInviteRealtimeEvents.includes(WORKSPACE_MEMBERS_CHANGED_EVENT));
+  assert.ok(acceptInviteRealtimeEvents.includes(WORKSPACE_INVITES_CHANGED_EVENT));
+
+  const acceptedMembersChange = acceptInviteEvents.find(
+    (entry) => entry?.realtime?.event === WORKSPACE_MEMBERS_CHANGED_EVENT
   );
-  assert.equal(pending?.metadata?.events?.acceptInviteByToken?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
-  assert.equal(pending?.metadata?.events?.acceptInviteByToken?.[2]?.realtime?.event, WORKSPACES_CHANGED_EVENT);
-  assert.equal(
-    pending?.metadata?.events?.refuseInviteByToken?.[0]?.realtime?.event,
-    WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
+  assert.equal(acceptedMembersChange?.entityId?.({ result: { workspaceId: 9 } }), 9);
+  assert.deepEqual(
+    acceptedMembersChange?.realtime?.audience?.({
+      event: {
+        entityId: 9
+      }
+    }),
+    {
+      workspaceId: 9
+    }
   );
-  assert.equal(pending?.metadata?.events?.refuseInviteByToken?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+
+  const acceptedInvitesChange = acceptInviteEvents.find(
+    (entry) => entry?.realtime?.event === WORKSPACE_INVITES_CHANGED_EVENT
+  );
+  assert.equal(acceptedInvitesChange?.entityId?.({ result: { workspaceId: 9 } }), 9);
+
+  const refuseInviteEvents = Array.isArray(pending?.metadata?.events?.refuseInviteByToken)
+    ? pending.metadata.events.refuseInviteByToken
+    : [];
+  const refuseInviteRealtimeEvents = refuseInviteEvents.map((entry) => entry?.realtime?.event).filter(Boolean);
+  assert.ok(refuseInviteRealtimeEvents.includes(WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT));
+  assert.ok(refuseInviteRealtimeEvents.includes(USERS_BOOTSTRAP_CHANGED_EVENT));
+  assert.ok(refuseInviteRealtimeEvents.includes(WORKSPACE_INVITES_CHANGED_EVENT));
 });

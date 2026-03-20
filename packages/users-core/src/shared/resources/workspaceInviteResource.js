@@ -129,7 +129,12 @@ const workspaceInviteRedeemOutputValidator = Object.freeze({
     },
     { additionalProperties: false }
   ),
-  normalize: normalizeObjectInput
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    return {
+      decision: String(source.decision || "").trim().toLowerCase()
+    };
+  }
 });
 
 const WORKSPACE_INVITE_OPERATION_MESSAGES = createOperationMessages();

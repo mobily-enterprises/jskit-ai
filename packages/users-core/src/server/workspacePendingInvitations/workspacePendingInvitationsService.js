@@ -72,9 +72,13 @@ function createService({
   async function acceptInviteByToken({ user, token } = {}, options = {}) {
     const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
     await revokeExpiredInviteAndThrow(resolvedInvite.invite, options);
+    const workspaceId = Number(resolvedInvite.invite.workspaceId);
+    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+      throw new Error("workspacePendingInvitationsService.acceptInviteByToken expected invite workspace id.");
+    }
 
     await workspaceMembershipsRepository.upsertMembership(
-      resolvedInvite.invite.workspaceId,
+      workspaceId,
       resolvedInvite.user.id,
       {
         roleId: resolvedInvite.invite.roleId,
@@ -85,17 +89,23 @@ function createService({
     await workspaceInvitesRepository.markAcceptedById(resolvedInvite.invite.id, options);
 
     return {
-      decision: "accepted"
+      decision: "accepted",
+      workspaceId
     };
   }
 
   async function refuseInviteByToken({ user, token } = {}, options = {}) {
     const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
     await revokeExpiredInviteAndThrow(resolvedInvite.invite, options);
+    const workspaceId = Number(resolvedInvite.invite.workspaceId);
+    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+      throw new Error("workspacePendingInvitationsService.refuseInviteByToken expected invite workspace id.");
+    }
     await workspaceInvitesRepository.revokeById(resolvedInvite.invite.id, options);
 
     return {
-      decision: "refused"
+      decision: "refused",
+      workspaceId
     };
   }
 

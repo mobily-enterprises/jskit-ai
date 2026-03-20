@@ -66,3 +66,46 @@ test("workspaceInvitesRepository.insert normalizes expiresAt ISO input to databa
 
   assert.equal(state.insertPayload.expires_at, "2026-03-16 00:26:35.709");
 });
+
+test("workspaceInvitesRepository.findPendingByTokenHash reads from invites table without workspace join", async () => {
+  const calls = {
+    tableName: "",
+    whereCriteria: null
+  };
+  const row = {
+    id: 44,
+    workspace_id: 9,
+    email: "invitee@example.com",
+    role_id: "member",
+    status: "pending",
+    token_hash: "hash-token",
+    invited_by_user_id: 1,
+    expires_at: "2030-01-01 00:00:00.000",
+    accepted_at: null,
+    revoked_at: null,
+    created_at: "2026-03-09 00:26:35.710",
+    updated_at: "2026-03-09 00:26:35.710"
+  };
+
+  const repository = createRepository((tableName) => {
+    calls.tableName = String(tableName || "");
+    return {
+      where(criteria) {
+        calls.whereCriteria = criteria;
+        return this;
+      },
+      first() {
+        return Promise.resolve({ ...row });
+      }
+    };
+  });
+
+  const invite = await repository.findPendingByTokenHash("hash-token");
+  assert.equal(calls.tableName, "workspace_invites");
+  assert.deepEqual(calls.whereCriteria, {
+    token_hash: "hash-token",
+    status: "pending"
+  });
+  assert.equal(invite?.workspaceId, 9);
+  assert.equal(invite?.workspaceSlug, undefined);
+});

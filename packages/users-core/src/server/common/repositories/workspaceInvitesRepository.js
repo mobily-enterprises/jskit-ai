@@ -32,6 +32,13 @@ function mapRow(row) {
   };
 }
 
+const WORKSPACE_INVITE_WITH_WORKSPACE_SELECT = Object.freeze([
+  "wi.*",
+  "w.slug as workspace_slug",
+  "w.name as workspace_name",
+  "w.avatar_url as workspace_avatar_url"
+]);
+
 function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspaceInvitesRepository requires knex.");
@@ -56,23 +63,7 @@ function createRepository(knex) {
       .join("workspaces as w", "w.id", "wi.workspace_id")
       .where({ "wi.email": normalizedEmail, "wi.status": "pending" })
       .orderBy("wi.created_at", "desc")
-      .select([
-        "wi.id",
-        "wi.workspace_id",
-        "wi.email",
-        "wi.role_id",
-        "wi.status",
-        "wi.token_hash",
-        "wi.invited_by_user_id",
-        "wi.expires_at",
-        "wi.accepted_at",
-        "wi.revoked_at",
-        "wi.created_at",
-        "wi.updated_at",
-        "w.slug as workspace_slug",
-        "w.name as workspace_name",
-        "w.avatar_url as workspace_avatar_url"
-      ]);
+      .select(WORKSPACE_INVITE_WITH_WORKSPACE_SELECT);
 
     return rows.map(mapRow).filter(Boolean);
   }
@@ -83,23 +74,7 @@ function createRepository(knex) {
       .join("workspaces as w", "w.id", "wi.workspace_id")
       .where({ "wi.workspace_id": Number(workspaceId), "wi.status": "pending" })
       .orderBy("wi.created_at", "desc")
-      .select([
-        "wi.id",
-        "wi.workspace_id",
-        "wi.email",
-        "wi.role_id",
-        "wi.status",
-        "wi.token_hash",
-        "wi.invited_by_user_id",
-        "wi.expires_at",
-        "wi.accepted_at",
-        "wi.revoked_at",
-        "wi.created_at",
-        "wi.updated_at",
-        "w.slug as workspace_slug",
-        "w.name as workspace_name",
-        "w.avatar_url as workspace_avatar_url"
-      ]);
+      .select(WORKSPACE_INVITE_WITH_WORKSPACE_SELECT);
 
     return rows.map(mapRow).filter(Boolean);
   }

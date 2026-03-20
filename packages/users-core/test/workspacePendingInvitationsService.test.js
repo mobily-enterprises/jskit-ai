@@ -113,6 +113,7 @@ test("acceptInviteByToken accepts opaque invite token and resolves invite by dec
   assert.deepEqual(calls.acceptCalls, [44]);
   assert.deepEqual(calls.revokeCalls, []);
   assert.equal(response.decision, "accepted");
+  assert.equal(response.workspaceId, 1);
 });
 
 test("refuseInviteByToken revokes the invite and returns refused", async () => {
@@ -146,4 +147,5 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
   assert.deepEqual(calls.revokeCalls, [45]);
   assert.equal(calls.upsertCalls.length, 0);
   assert.equal(response.decision, "refused");
+  assert.equal(response.workspaceId, 1);
 });
