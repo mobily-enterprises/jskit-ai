@@ -96,7 +96,7 @@ import { useAddEdit } from "../composables/useAddEdit.js";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
-import { normalizePermissionList } from "../lib/permissions.js";
+import { arePermissionListsEqual, normalizePermissionList } from "../lib/permissions.js";
 import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
@@ -110,11 +110,27 @@ const workspaceForm = reactive({
   invitesAvailable: false
 });
 const routeContext = useWorkspaceRouteContext();
-const { mergeContext: mergePlacementContext } = useWebPlacementContext();
+const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
 const bootstrapQuery = useBootstrapQuery({
   workspaceSlug: routeContext.workspaceSlugFromRoute,
   enabled: computed(() => Boolean(routeContext.workspaceSlugFromRoute.value))
 });
+
+function toWorkspaceEntrySnapshot(entry = null) {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+
+  const normalizedEntry = normalizeWorkspaceList([entry])[0] || null;
+  if (!normalizedEntry) {
+    return "";
+  }
+  return JSON.stringify(normalizedEntry);
+}
+
+function toWorkspaceListSnapshot(list = []) {
+  return JSON.stringify(normalizeWorkspaceList(list));
+}
 
 function applyShellWorkspaceContext(payload = {}) {
   const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
@@ -123,6 +139,19 @@ function applyShellWorkspaceContext(payload = {}) {
     routeContext.workspaceSlugFromRoute.value
   );
   const permissions = normalizePermissionList(payload?.permissions);
+  const currentContext =
+    placementContext.value && typeof placementContext.value === "object"
+      ? placementContext.value
+      : {};
+  const currentPermissions = normalizePermissionList(currentContext.permissions);
+  const samePermissions = arePermissionListsEqual(permissions, currentPermissions);
+  const sameWorkspace = toWorkspaceEntrySnapshot(currentContext.workspace) === toWorkspaceEntrySnapshot(currentWorkspace);
+  const sameWorkspaces =
+    toWorkspaceListSnapshot(currentContext.workspaces) === toWorkspaceListSnapshot(availableWorkspaces);
+
+  if (samePermissions && sameWorkspace && sameWorkspaces) {
+    return;
+  }
 
   mergePlacementContext(
     {

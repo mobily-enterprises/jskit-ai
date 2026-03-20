@@ -1,5 +1,5 @@
 import { computed, watch } from "vue";
-import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
+import { arePermissionListsEqual, hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { useBootstrapQuery } from "./useBootstrapQuery.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
@@ -93,9 +93,15 @@ function useAccess({
     watch(
       permissions,
       (nextPermissions) => {
+        const normalizedNextPermissions = normalizePermissionList(nextPermissions);
+        const normalizedCurrentPermissions = normalizePermissionList(placementContext.value?.permissions);
+        if (arePermissionListsEqual(normalizedNextPermissions, normalizedCurrentPermissions)) {
+          return;
+        }
+
         mergePlacementContext(
           {
-            permissions: nextPermissions
+            permissions: normalizedNextPermissions
           },
           String(placementSource || "users-web.access")
         );
