@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
   resolveTenancyProfile
 } from "../../../shared/tenancyProfile.js";
 import { coerceWorkspaceColor } from "../../../shared/settings.js";
@@ -151,15 +150,6 @@ function createService({
     const accessible = list
       .map((entry) => mapWorkspaceSummary(entry, { roleId: entry.roleId, status: entry.membershipStatus }))
       .filter((entry) => entry.isAccessible);
-
-    if (resolvedTenancyMode === TENANCY_MODE_PERSONAL) {
-      const personalWorkspace = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
-      if (!personalWorkspace) {
-        return [];
-      }
-      const personalWorkspaceId = Number(personalWorkspace.id);
-      return accessible.filter((entry) => Number(entry.id) === personalWorkspaceId);
-    }
 
     return accessible;
   }

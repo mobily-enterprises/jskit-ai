@@ -23,6 +23,7 @@ function createWorkspaceServiceFixture({
   tenancyPolicy = {},
   workspaceRoles = createWorkspaceRoles(),
   additionalWorkspaces = [],
+  userWorkspaceRows = null,
   membershipResolver = null,
   personalWorkspace = {
     id: 1,
@@ -85,6 +86,9 @@ function createWorkspaceServiceFixture({
       },
       async listForUserId() {
         calls.listForUserId += 1;
+        if (Array.isArray(userWorkspaceRows)) {
+          return userWorkspaceRows;
+        }
         return [
           {
             id: 1,
@@ -185,6 +189,54 @@ test("workspaceService.listWorkspacesForUser no longer provisions personal works
 
   assert.equal(calls.findPersonalByOwnerUserId, 0);
   assert.equal(calls.insert, 0);
+});
+
+test("workspaceService.listWorkspacesForUser returns all active memberships in personal tenancy", async () => {
+  const { service, calls } = createWorkspaceServiceFixture({
+    tenancyMode: "personal",
+    userWorkspaceRows: [
+      {
+        id: 1,
+        slug: "chiaramobily",
+        name: "Chiara Personal",
+        avatarUrl: "",
+        color: "#0F6B54",
+        roleId: "owner",
+        membershipStatus: "active"
+      },
+      {
+        id: 2,
+        slug: "tonymobily",
+        name: "Tony Workspace",
+        avatarUrl: "",
+        color: "#0F6B54",
+        roleId: "member",
+        membershipStatus: "active"
+      },
+      {
+        id: 3,
+        slug: "pending-workspace",
+        name: "Pending Workspace",
+        avatarUrl: "",
+        color: "#0F6B54",
+        roleId: "member",
+        membershipStatus: "pending"
+      }
+    ]
+  });
+
+  const workspaces = await service.listWorkspacesForUser({
+    id: 7,
+    email: "chiaramobily@gmail.com",
+    displayName: "Chiara"
+  });
+
+  assert.deepEqual(
+    workspaces.map((workspace) => workspace.slug),
+    ["chiaramobily", "tonymobily"]
+  );
+  assert.equal(calls.findPersonalByOwnerUserId, 0);
+  assert.equal(calls.listForUserId, 1);
 });
 
 test("workspaceService.provisionWorkspaceForNewUser provisions personal workspace only in personal tenancy", async () => {
