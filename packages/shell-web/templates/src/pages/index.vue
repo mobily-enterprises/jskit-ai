@@ -39,12 +39,7 @@ const health = computed(() => {
 </script>
 
 <template>
-  <ShellLayout
-    surface="home"
-    surface-label="Home"
-    title=""
-    subtitle=""
-  >
+  <ShellLayout title="" subtitle="">
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
         <template #prepend>

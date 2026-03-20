@@ -7,6 +7,7 @@ config.webRootAllowed = "yes";
 config.surfaceDefinitions = {};
 config.surfaceDefinitions.home = {
   id: "home",
+  label: "Home",
   pagesRoot: "",
   enabled: true,
   requiresAuth: false,
@@ -14,6 +15,7 @@ config.surfaceDefinitions.home = {
 };
 config.surfaceDefinitions.console = {
   id: "console",
+  label: "Console",
   pagesRoot: "console",
   enabled: true,
   requiresAuth: true,

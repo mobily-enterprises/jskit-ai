@@ -12,6 +12,7 @@ Defined in `config/public.js`:
 ```js
 config.surfaceDefinitions.<surfaceId> = {
   id: "<surfaceId>",
+  label: "<display label>",
   pagesRoot: "<filesystem-root-under-src/pages>",
   enabled: true,
   requiresAuth: false,
@@ -22,6 +23,7 @@ config.surfaceDefinitions.<surfaceId> = {
 ## Canonical Fields
 
 - `id`: stable surface id used by runtime and module descriptors.
+- `label` (optional): display label for shell UI chips/menu headers.
 - `pagesRoot`: canonical topology root.
 - `enabled`: runtime inclusion flag.
 - `requiresAuth`: default guard policy input.

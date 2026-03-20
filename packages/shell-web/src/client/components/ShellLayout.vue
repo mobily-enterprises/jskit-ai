@@ -1,16 +1,24 @@
 <script setup>
 import { computed } from "vue";
+import { useRoute } from "vue-router";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface";
+import { useWebPlacementContext } from "../placement/inject.js";
+import {
+  readPlacementSurfaceConfig,
+  resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfaceIdFromPlacementPathname
+} from "../placement/surfaceContext.js";
 import { useShellLayout } from "./useShellLayout.js";
 import ShellOutlet from "./ShellOutlet.vue";
 
 const props = defineProps({
   surface: {
     type: String,
-    default: "app"
+    default: ""
   },
   surfaceLabel: {
     type: String,
-    default: "Surface"
+    default: ""
   },
   title: {
     type: String,
@@ -34,6 +42,68 @@ const props = defineProps({
   }
 });
 
+let route = null;
+try {
+  route = useRoute();
+} catch {
+  route = null;
+}
+const { context: placementContext } = useWebPlacementContext();
+
+function toSurfaceLabel(surfaceId = "") {
+  const normalizedSurfaceId = String(surfaceId || "").trim().toLowerCase();
+  if (!normalizedSurfaceId) {
+    return "Surface";
+  }
+
+  return normalizedSurfaceId
+    .split(/[^a-z0-9]+/g)
+    .filter(Boolean)
+    .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
+    .join(" ");
+}
+
+const resolvedSurface = computed(() => {
+  const explicitSurface = normalizeSurfaceId(props.surface);
+  if (explicitSurface) {
+    return explicitSurface;
+  }
+
+  const pathname =
+    String(route?.path || "").trim() ||
+    (typeof window === "object" && window?.location?.pathname ? String(window.location.pathname).trim() : "/");
+  const contextValue = placementContext?.value || null;
+  const resolvedSurfaceFromPath = resolveSurfaceIdFromPlacementPathname(contextValue, pathname);
+  if (resolvedSurfaceFromPath) {
+    return resolvedSurfaceFromPath;
+  }
+
+  const surfaceConfig = readPlacementSurfaceConfig(contextValue);
+  if (surfaceConfig.defaultSurfaceId) {
+    return surfaceConfig.defaultSurfaceId;
+  }
+
+  return "surface";
+});
+
+const resolvedSurfaceLabel = computed(() => {
+  const explicitLabel = String(props.surfaceLabel || "").trim();
+  if (explicitLabel) {
+    return explicitLabel;
+  }
+
+  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(
+    placementContext?.value || null,
+    resolvedSurface.value
+  );
+  const configuredLabel = String(surfaceDefinition?.label || "").trim();
+  if (configuredLabel) {
+    return configuredLabel;
+  }
+
+  return toSurfaceLabel(resolvedSurface.value);
+});
+
 const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMenuItems, toggleDrawer } = useShellLayout({
   topLeftActions: computed(() => props.topLeftActions),
   topRightActions: computed(() => props.topRightActions),
@@ -46,7 +116,7 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
     <v-app-bar border density="comfortable" elevation="0" class="bg-surface">
       <v-app-bar-nav-icon aria-label="Toggle navigation menu" @click="toggleDrawer" />
 
-      <slot name="top-left" :actions="resolvedTopLeftActions" :surface="surface">
+      <slot name="top-left" :actions="resolvedTopLeftActions" :surface="resolvedSurface">
         <div class="d-flex align-center ga-2">
           <v-btn
             v-for="action in resolvedTopLeftActions"
@@ -59,14 +129,14 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
           >
             {{ action.label }}
           </v-btn>
-          <v-chip color="primary" size="small" label>{{ surfaceLabel }}</v-chip>
-          <ShellOutlet :surface="surface" placement="app.top-left" />
+          <v-chip color="primary" size="small" label>{{ resolvedSurfaceLabel }}</v-chip>
+          <ShellOutlet :surface="resolvedSurface" placement="app.top-left" />
         </div>
       </slot>
 
       <v-spacer />
 
-      <slot name="top-right" :actions="resolvedTopRightActions" :surface="surface">
+      <slot name="top-right" :actions="resolvedTopRightActions" :surface="resolvedSurface">
         <div class="d-flex align-center ga-2">
           <v-btn
             v-for="action in resolvedTopRightActions"
@@ -79,15 +149,15 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
           >
             {{ action.label }}
           </v-btn>
-          <ShellOutlet :surface="surface" placement="app.top-right" />
+          <ShellOutlet :surface="resolvedSurface" placement="app.top-right" />
         </div>
       </slot>
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawerOpen" border class="bg-surface" :width="248">
-      <slot name="menu" :items="resolvedMenuItems" :surface="surface">
+      <slot name="menu" :items="resolvedMenuItems" :surface="resolvedSurface">
         <v-list nav density="comfortable" class="pt-2">
-          <v-list-subheader class="text-uppercase text-caption">{{ surfaceLabel }}</v-list-subheader>
+          <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
           <v-list-item
             v-for="item in resolvedMenuItems"
             :key="`menu-${item.label}`"
@@ -97,9 +167,9 @@ const { drawerOpen, resolvedTopLeftActions, resolvedTopRightActions, resolvedMen
             rounded="lg"
             class="mb-1"
           />
-          <ShellOutlet :surface="surface" placement="app.primary-menu" />
+          <ShellOutlet :surface="resolvedSurface" placement="app.primary-menu" />
           <v-divider class="my-2" />
-          <ShellOutlet :surface="surface" placement="app.secondary-menu" />
+          <ShellOutlet :surface="resolvedSurface" placement="app.secondary-menu" />
         </v-list>
       </slot>
     </v-navigation-drawer>

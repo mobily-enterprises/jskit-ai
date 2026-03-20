@@ -10,6 +10,7 @@ Every layer consumes that contract. No layer redefines it.
 Each `config.surfaceDefinitions.<id>` entry contains only:
 
 - `id`
+- `label` (optional)
 - `pagesRoot`
 - `enabled`
 - `requiresAuth`

@@ -14,12 +14,7 @@ import { RouterView } from "vue-router";
 </script>
 
 <template>
-  <ShellLayout
-    surface="app"
-    surface-label="Workspace"
-    title=""
-    subtitle=""
-  >
+  <ShellLayout title="" subtitle="">
     <RouterView />
   </ShellLayout>
 </template>

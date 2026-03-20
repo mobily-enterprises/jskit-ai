@@ -78,7 +78,8 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Spurious chat settings in profile_settings
 
   X A new workspace seems to be created after changing username (!!!)
-  
+  X Rework completely how surfaces and placements work
+
   - Workflow to accept an invite
   - Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
   - Alert system (queue + element), use it for invites
@@ -93,9 +94,6 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
 
   - cli: offer help for package paramters
   
-  
-  
-
   - FINAL STEP: Do infrastructure deploy, easy way
 
   PORT OVER:
