@@ -1,23 +1,9 @@
 <script setup>
-import {
-  computed,
-  watch
-} from "vue";
-import {
-  useSurfaceRouteContext
-} from "../composables/useSurfaceRouteContext.js";
+import { computed } from "vue";
+import { useSurfaceRouteContext } from "../composables/useSurfaceRouteContext.js";
 import { mdiCogOutline } from "@mdi/js";
-import {
-  hasPermission,
-  normalizePermissionList
-} from "../lib/permissions.js";
-import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
-import {
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
-import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
+import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { usePaths } from "../composables/usePaths.js";
-import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
 
 const props = defineProps({
   label: {
@@ -38,46 +24,14 @@ const props = defineProps({
   }
 });
 
-const { placementContext, mergePlacementContext, currentSurfaceId } = useSurfaceRouteContext();
+const { placementContext, currentSurfaceId } = useSurfaceRouteContext();
 const paths = usePaths();
-const hasPlacementPermissions = computed(() => {
-  const source = placementContext.value;
-  if (!source || typeof source !== "object") {
-    return false;
-  }
-  return Object.hasOwn(source, "permissions");
-});
-
-function writeShellPermissions(permissionList) {
-  mergePlacementContext(
-    {
-      permissions: permissionList
-    },
-    "users-web.workspace-settings-menu"
-  );
-}
-
-const bootstrapQuery = useBootstrapQuery({
-  workspaceSlug: paths.workspaceSlug,
-  enabled: computed(() => !hasPlacementPermissions.value)
-});
-const workspaceSettingsEventsEnabled = computed(() => Boolean(paths.workspaceSlug.value));
-
-function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-  return matchesCurrentWorkspaceEvent(payload, paths.workspaceSlug.value);
-}
-
-const permissions = computed(() => {
-  if (hasPlacementPermissions.value) {
-    return normalizePermissionList(placementContext.value?.permissions);
-  }
-  return normalizePermissionList(bootstrapQuery.query.data.value?.permissions);
-});
 
 const canViewWorkspaceSettings = computed(() => {
+  const permissions = normalizePermissionList(placementContext.value?.permissions);
   return (
-    hasPermission(permissions.value || [], "workspace.settings.view") ||
-    hasPermission(permissions.value || [], "workspace.settings.update")
+    hasPermission(permissions, "workspace.settings.view") ||
+    hasPermission(permissions, "workspace.settings.update")
   );
 });
 
@@ -97,25 +51,6 @@ const resolvedTo = computed(() => {
     surface: targetSurfaceId,
     mode: "auto"
   });
-});
-
-watch(
-  () => bootstrapQuery.query.data.value?.permissions,
-  (nextValue) => {
-    const normalized = normalizePermissionList(nextValue);
-    if (normalized.length > 0) {
-      writeShellPermissions(normalized);
-    }
-  }
-);
-
-useRealtimeEvent({
-  event: USERS_BOOTSTRAP_CHANGED_EVENT,
-  enabled: workspaceSettingsEventsEnabled,
-  matches: isCurrentWorkspaceEvent,
-  onEvent: async () => {
-    await bootstrapQuery.query.refetch();
-  }
 });
 </script>
 

@@ -1,15 +1,8 @@
 <script setup>
-import {
-  computed
-} from "vue";
-import {
-  useSurfaceRouteContext
-} from "../composables/useSurfaceRouteContext.js";
+import { computed } from "vue";
+import { useSurfaceRouteContext } from "../composables/useSurfaceRouteContext.js";
 import { mdiAccountGroupOutline } from "@mdi/js";
-import {
-  hasPermission,
-  normalizePermissionList
-} from "../lib/permissions.js";
+import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { usePaths } from "../composables/usePaths.js";
 
 const props = defineProps({
