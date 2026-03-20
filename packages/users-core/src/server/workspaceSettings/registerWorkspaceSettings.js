@@ -9,6 +9,7 @@ import { createRepository as createWorkspaceSettingsRepository } from "./workspa
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
+import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
@@ -38,7 +39,8 @@ function registerWorkspaceSettings(app) {
     "users.workspace.settings.service",
     (scope) =>
       createWorkspaceSettingsService({
-        workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
+        workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
+        roleCatalog: createWorkspaceRoleCatalog(scope.has("appConfig") ? scope.make("appConfig") : {})
       }),
     {
       events: deepFreeze({

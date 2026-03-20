@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
+import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function authorizedOptions(permissions = []) {
   return {
@@ -11,6 +12,28 @@ function authorizedOptions(permissions = []) {
       permissions
     }
   };
+}
+
+function createRoleCatalog() {
+  return createWorkspaceRoleCatalog({
+    workspaceRoles: {
+      defaultInviteRole: "member",
+      roles: {
+        owner: {
+          assignable: false,
+          permissions: ["*"]
+        },
+        admin: {
+          assignable: true,
+          permissions: ["workspace.members.manage"]
+        },
+        member: {
+          assignable: true,
+          permissions: ["workspace.members.view", "workspace.members.invite"]
+        }
+      }
+    }
+  });
 }
 
 function createFixture() {
@@ -68,7 +91,8 @@ function createFixture() {
       },
       async revokeById() {}
     },
-    inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000
+    inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000,
+    roleCatalog: createRoleCatalog()
   });
 
   return { service, workspace };
@@ -95,7 +119,8 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       },
       async revokeById() {}
     },
-    inviteExpiresInMs: 30 * 60 * 1000
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog()
   });
 
   const before = Date.now();

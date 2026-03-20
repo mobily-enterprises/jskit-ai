@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { arePermissionListsEqual, normalizePermissionList } from "../src/client/lib/permissions.js";
+import { arePermissionListsEqual, hasPermission, normalizePermissionList } from "../src/client/lib/permissions.js";
 
 test("normalizePermissionList trims, removes duplicates, and ignores empty entries", () => {
   assert.deepEqual(
@@ -27,4 +27,9 @@ test("arePermissionListsEqual returns false for different permission sets", () =
     ),
     false
   );
+});
+
+test("hasPermission supports namespace wildcard matches", () => {
+  assert.equal(hasPermission(["crud_contacts.*"], "crud_contacts.update"), true);
+  assert.equal(hasPermission(["crud_contacts.*"], "crud_projects.update"), false);
 });

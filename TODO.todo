@@ -79,17 +79,21 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
 
   X A new workspace seems to be created after changing username (!!!)
   X Rework completely how surfaces and placements work
+  X Place roles and permissions in app-owned config. Check config for assistant?
+  X Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
+
+  - Fix placements properly
 
   - Workflow to accept an invite
-  - Right now going to the wrong workspace returns a page (?!?), put a "ask for invite" (if logged in) instead
   - Alert system (queue + element), use it for invites
-  
+
+  - If logged out, redirect to login immediately, check page permissions if not logged out
+
+
+
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   
   - Re-add icons
-  
-  - If logged out, redirect to login immediately, check page permissions if not logged out
-  - Place roles and permissions in app-owned config. Check config for assistant?
   
 
   - cli: offer help for package paramters
@@ -101,6 +105,12 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X AI agent
   
   LATER, PORT OVER:
+  
+TODO:
+  - Selector at the top: should have "create workspace" + form IF mode is "workspaces"
+  
+
+MODULES:
   - Chat
   - Billing
   - Communications (email, sms)

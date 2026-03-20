@@ -2,9 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/common/services/workspaceContextService.js";
 
+function createWorkspaceRoles() {
+  return {
+    defaultInviteRole: "member",
+    roles: {
+      owner: {
+        assignable: false,
+        permissions: ["*"]
+      },
+      member: {
+        assignable: true,
+        permissions: ["workspace.settings.view"]
+      }
+    }
+  };
+}
+
 function createWorkspaceServiceFixture({
   tenancyMode = "workspace",
   tenancyPolicy = {},
+  workspaceRoles = createWorkspaceRoles(),
   additionalWorkspaces = [],
   membershipResolver = null,
   personalWorkspace = {
@@ -50,7 +67,8 @@ function createWorkspaceServiceFixture({
   const service = createService({
     appConfig: {
       tenancyMode,
-      tenancyPolicy
+      tenancyPolicy,
+      workspaceRoles: workspaceRoles && typeof workspaceRoles === "object" ? { ...workspaceRoles } : workspaceRoles
     },
     workspacesRepository: {
       async findBySlug(slug) {
@@ -318,7 +336,8 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
 
   const service = createService({
     appConfig: {
-      tenancyMode: "personal"
+      tenancyMode: "personal",
+      workspaceRoles: createWorkspaceRoles()
     },
     workspacesRepository: {
       async findBySlug(slug) {
@@ -381,4 +400,29 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   assert.equal(ensuredMembershipCount, 1);
   assert.equal(context.membership.roleId, "owner");
   assert.deepEqual(context.permissions, ["*"]);
+});
+
+test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions from appConfig.workspaceRoles", async () => {
+  const { service } = createWorkspaceServiceFixture({
+    workspaceRoles: {
+      defaultInviteRole: "member",
+      roles: {
+        owner: {
+          assignable: false,
+          permissions: ["workspace.settings.update"]
+        }
+      }
+    }
+  });
+
+  const context = await service.resolveWorkspaceContextForUserBySlug(
+    {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    "tonymobily3"
+  );
+
+  assert.deepEqual(context.permissions, ["workspace.settings.update"]);
 });

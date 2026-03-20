@@ -12,6 +12,7 @@ export {
 } from "./support/normalize.js";
 export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./support/linkPath.js";
 export { sortStrings, sortById } from "./support/sorting.js";
+export { normalizePermissionList, hasPermission } from "./support/permissions.js";
 export { normalizeObjectInput } from "./validators/inputNormalization.js";
 export {
   normalizeRequiredFieldList,

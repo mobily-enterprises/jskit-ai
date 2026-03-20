@@ -1,11 +1,12 @@
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { ASSIGNABLE_ROLE_IDS, OWNER_ROLE_ID, createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { OWNER_ROLE_ID, createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
-  inviteExpiresInMs
+  inviteExpiresInMs,
+  roleCatalog = null
 } = {}) {
   if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
     throw new Error("workspaceMembersService requires membership and invite repositories.");
@@ -15,18 +16,44 @@ function createService({
     throw new Error("workspaceMembersService requires inviteExpiresInMs.");
   }
 
-  const assignableRoleIds = ASSIGNABLE_ROLE_IDS;
+  const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
+  const assignableRoleIds = Array.isArray(resolvedRoleCatalog.assignableRoleIds)
+    ? [...resolvedRoleCatalog.assignableRoleIds]
+    : [];
+
+  function cloneRoleCatalog() {
+    return {
+      collaborationEnabled: resolvedRoleCatalog.collaborationEnabled === true,
+      defaultInviteRole: String(resolvedRoleCatalog.defaultInviteRole || ""),
+      roles: Array.isArray(resolvedRoleCatalog.roles)
+        ? resolvedRoleCatalog.roles.map((role) => ({
+            id: String(role?.id || "").trim().toLowerCase(),
+            assignable: role?.assignable === true,
+            permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
+          }))
+        : [],
+      assignableRoleIds: [...assignableRoleIds]
+    };
+  }
+
+  function withRoleCatalog(payload = {}) {
+    return {
+      ...payload,
+      roleCatalog: cloneRoleCatalog()
+    };
+  }
+
   async function listRoles(options = {}) {
-    return createWorkspaceRoleCatalog();
+    return cloneRoleCatalog();
   }
 
   async function listMembersPayload(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
-    return {
+    return withRoleCatalog({
       workspace,
       members
-    };
+    });
   }
 
   async function listMembers(workspace, options = {}) {
@@ -70,10 +97,10 @@ function createService({
   async function listInvitesPayload(workspace, options = {}) {
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
-    return {
+    return withRoleCatalog({
       workspace,
       invites
-    };
+    });
   }
 
   async function listInvites(workspace, options = {}) {

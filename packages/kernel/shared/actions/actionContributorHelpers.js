@@ -1,6 +1,6 @@
 import { Type } from "typebox";
-import { normalizeText } from "./textNormalization.js";
 import { normalizeObject } from "../support/normalize.js";
+import { hasPermission } from "../support/permissions.js";
 
 function toPositiveInteger(value) {
   const parsed = Number(value);
@@ -25,16 +25,6 @@ function resolveRequest(context) {
 function resolveUser(context, input) {
   const payload = normalizeObject(input);
   return payload.user || resolveRequest(context)?.user || context?.actor || null;
-}
-
-function hasPermission(permissionSet, permission) {
-  const requiredPermission = normalizeText(permission);
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const permissions = Array.isArray(permissionSet) ? permissionSet : [];
-  return permissions.includes("*") || permissions.includes(requiredPermission);
 }
 
 const OBJECT_INPUT_VALIDATOR = Object.freeze({

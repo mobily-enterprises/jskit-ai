@@ -93,10 +93,15 @@ function normalizeWorkspaceOutputEnvelope(
   const source = normalizeObjectInput(payload);
   const workspace = normalizeWorkspaceAdminSummary(source.workspace);
   const items = Array.isArray(source[itemsKey]) ? source[itemsKey] : [];
+  const roleCatalog = normalizeObjectInput(source.roleCatalog);
+  const hasRoleCatalog =
+    Array.isArray(roleCatalog.roles) &&
+    roleCatalog.roles.length > 0 &&
+    Array.isArray(roleCatalog.assignableRoleIds);
   const normalized = {
     workspace,
     [itemsKey]: items.map((item) => normalizeItem(item, workspace)),
-    roleCatalog: createWorkspaceRoleCatalog()
+    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
   };
 
   if (includeInviteTokenPreview && Object.hasOwn(source, "inviteTokenPreview")) {
@@ -125,7 +130,7 @@ const workspaceRoleCatalogOutputValidator = Object.freeze({
   schema: Type.Object(
     {
       collaborationEnabled: Type.Boolean(),
-      defaultInviteRole: Type.String({ minLength: 1 }),
+      defaultInviteRole: Type.String(),
       roles: Type.Array(Type.Object({}, { additionalProperties: true })),
       assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
     },

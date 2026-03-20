@@ -1,4 +1,5 @@
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
 
 const AUTH_REQUIRE_MODES = new Set(["none", "authenticated", "all", "any"]);
@@ -10,13 +11,6 @@ function toPositiveInteger(value) {
   }
 
   return parsed;
-}
-
-function normalizePermissionList(value) {
-  const source = Array.isArray(value) ? value : [value];
-  return source
-    .map((entry) => normalizeText(entry))
-    .filter(Boolean);
 }
 
 function resolveServiceContext(source = {}) {
@@ -31,16 +25,6 @@ function resolveServiceContext(source = {}) {
   }
 
   return payload;
-}
-
-function hasPermission(permissionSet = [], permission = "") {
-  const requiredPermission = normalizeText(permission);
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const permissions = normalizePermissionList(permissionSet);
-  return permissions.includes("*") || permissions.includes(requiredPermission);
 }
 
 function resolveRequireMode(value) {

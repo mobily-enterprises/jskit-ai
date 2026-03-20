@@ -5,6 +5,7 @@ import {
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
+import { createWorkspaceRoleCatalog } from "../roles.js";
 
 function buildCreateBodySchema() {
   const properties = {};
@@ -74,6 +75,11 @@ function normalizeOutput(payload = {}) {
   normalizedSettings.invitesEnabled = invitesEnabled;
   normalizedSettings.invitesAvailable = invitesAvailable;
   normalizedSettings.invitesEffective = invitesEffective;
+  const roleCatalog = normalizeObjectInput(source.roleCatalog);
+  const hasRoleCatalog =
+    Array.isArray(roleCatalog.roles) &&
+    roleCatalog.roles.length > 0 &&
+    Array.isArray(roleCatalog.assignableRoleIds);
 
   return {
     workspace: {
@@ -82,7 +88,7 @@ function normalizeOutput(payload = {}) {
       ownerUserId: Number(workspace.ownerUserId)
     },
     settings: normalizedSettings,
-    roleCatalog: source.roleCatalog
+    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
   };
 }
 
@@ -100,7 +106,7 @@ const responseRecordSchema = Type.Object(
     roleCatalog: Type.Object(
       {
         collaborationEnabled: Type.Boolean(),
-        defaultInviteRole: Type.String({ minLength: 1 }),
+        defaultInviteRole: Type.String(),
         roles: Type.Array(Type.Object({}, { additionalProperties: true })),
         assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
       },

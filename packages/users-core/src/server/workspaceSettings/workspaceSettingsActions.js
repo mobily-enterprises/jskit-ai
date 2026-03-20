@@ -1,14 +1,6 @@
-import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
-
-function withWorkspaceRoleCatalog(payload = {}) {
-  return {
-    ...payload,
-    roleCatalog: createWorkspaceRoleCatalog()
-  };
-}
 
 const workspaceSettingsActions = Object.freeze([
   {
@@ -34,7 +26,7 @@ const workspaceSettingsActions = Object.freeze([
         context
       });
 
-      return withWorkspaceRoleCatalog(response);
+      return response;
     }
   },
   {
@@ -75,7 +67,7 @@ const workspaceSettingsActions = Object.freeze([
         }
       );
 
-      return withWorkspaceRoleCatalog(response);
+      return response;
     }
   }
 ]);

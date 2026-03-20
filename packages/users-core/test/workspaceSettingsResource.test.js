@@ -5,6 +5,36 @@ import "../test-support/registerDefaultSettingsFields.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
+function createRoleCatalog() {
+  return createWorkspaceRoleCatalog({
+    workspaceRoles: {
+      defaultInviteRole: "member",
+      roles: {
+        owner: {
+          assignable: false,
+          permissions: ["*"]
+        },
+        admin: {
+          assignable: true,
+          permissions: [
+            "workspace.roles.view",
+            "workspace.settings.view",
+            "workspace.settings.update",
+            "workspace.members.view",
+            "workspace.members.invite",
+            "workspace.members.manage",
+            "workspace.invites.revoke"
+          ]
+        },
+        member: {
+          assignable: true,
+          permissions: ["workspace.settings.view"]
+        }
+      }
+    }
+  });
+}
+
 function parseBody(operation, payload = {}) {
   return validateOperationSection({
     operation,
@@ -75,7 +105,7 @@ test("workspace settings output normalizes raw service payloads", () => {
       color: "#0f6b54",
       invitesEnabled: false
     },
-    roleCatalog: createWorkspaceRoleCatalog()
+    roleCatalog: createRoleCatalog()
   });
 
   assert.deepEqual(normalized, {

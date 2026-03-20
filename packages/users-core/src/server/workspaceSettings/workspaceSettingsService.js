@@ -1,12 +1,31 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
+import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 const WORKSPACE_SETTINGS_FIELD_KEYS = workspaceSettingsFields.map((field) => field.key);
 
-function createService({ workspaceSettingsRepository } = {}) {
+function createService({ workspaceSettingsRepository, roleCatalog = null } = {}) {
   if (!workspaceSettingsRepository) {
     throw new Error("workspaceSettingsService requires workspaceSettingsRepository.");
+  }
+  const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
+
+  function cloneRoleCatalog() {
+    return {
+      collaborationEnabled: resolvedRoleCatalog.collaborationEnabled === true,
+      defaultInviteRole: String(resolvedRoleCatalog.defaultInviteRole || ""),
+      roles: Array.isArray(resolvedRoleCatalog.roles)
+        ? resolvedRoleCatalog.roles.map((role) => ({
+            id: String(role?.id || "").trim().toLowerCase(),
+            assignable: role?.assignable === true,
+            permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
+          }))
+        : [],
+      assignableRoleIds: Array.isArray(resolvedRoleCatalog.assignableRoleIds)
+        ? [...resolvedRoleCatalog.assignableRoleIds]
+        : []
+    };
   }
 
   async function getWorkspaceSettings(workspace, options = {}) {
@@ -29,7 +48,8 @@ function createService({ workspaceSettingsRepository } = {}) {
         slug: String(workspace.slug || ""),
         ownerUserId: Number(workspace.ownerUserId)
       },
-      settings
+      settings,
+      roleCatalog: cloneRoleCatalog()
     };
   }
 

@@ -7,7 +7,6 @@ import {
 } from "../../../shared/tenancyProfile.js";
 import { coerceWorkspaceColor } from "../../../shared/settings.js";
 import {
-  OWNER_ROLE_ID,
   resolveRolePermissions
 } from "../../../shared/roles.js";
 import {
@@ -52,9 +51,9 @@ function buildWorkspaceName(user = {}) {
   return "Workspace";
 }
 
-function buildPermissionsFromMembership(membership) {
+function buildPermissionsFromMembership(membership, appConfig = {}) {
   const roleId = normalizeLowerText(membership?.roleId || "member");
-  return resolveRolePermissions(roleId);
+  return resolveRolePermissions(roleId, appConfig);
 }
 
 function hashInviteToken(token) {
@@ -254,7 +253,7 @@ function createService({
     }
 
     const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace, options);
-    const permissions = buildPermissionsFromMembership(membership);
+    const permissions = buildPermissionsFromMembership(membership, appConfig);
 
     return {
       workspace,

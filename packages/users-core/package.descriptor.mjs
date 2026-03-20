@@ -45,7 +45,7 @@ export default Object.freeze({
         },
         {
           subpath: "./shared",
-          summary: "Exports shared users/workspace role and settings defaults."
+          summary: "Exports shared users/workspace role and settings utilities."
         },
         {
           subpath: "./client",
@@ -357,6 +357,17 @@ export default Object.freeze({
         reason: "Append default public users/workspace feature toggles into app-owned config.",
         category: "users-core",
         id: "users-core-public-config"
+      },
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.workspaceRoles.roles.owner.permissions.push(\"*\");",
+        value:
+          "\nconfig.workspaceRoles = config.workspaceRoles && typeof config.workspaceRoles === \"object\" ? config.workspaceRoles : {};\nconfig.workspaceRoles.roles =\n  config.workspaceRoles.roles && typeof config.workspaceRoles.roles === \"object\"\n    ? config.workspaceRoles.roles\n    : {};\nconfig.workspaceRoles.defaultInviteRole = config.workspaceRoles.defaultInviteRole || \"member\";\n\nconfig.workspaceRoles.roles.owner = config.workspaceRoles.roles.owner || {};\nconfig.workspaceRoles.roles.owner.assignable = false;\nconfig.workspaceRoles.roles.owner.permissions = Array.isArray(config.workspaceRoles.roles.owner.permissions)\n  ? config.workspaceRoles.roles.owner.permissions\n  : [];\nconfig.workspaceRoles.roles.owner.permissions.push(\"*\");\n\nconfig.workspaceRoles.roles.admin = config.workspaceRoles.roles.admin || {};\nconfig.workspaceRoles.roles.admin.assignable = true;\nconfig.workspaceRoles.roles.admin.permissions = Array.isArray(config.workspaceRoles.roles.admin.permissions)\n  ? config.workspaceRoles.roles.admin.permissions\n  : [];\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.roles.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.settings.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.settings.update\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.view\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.invite\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.members.manage\");\nconfig.workspaceRoles.roles.admin.permissions.push(\"workspace.invites.revoke\");\n\nconfig.workspaceRoles.roles.member = config.workspaceRoles.roles.member || {};\nconfig.workspaceRoles.roles.member.assignable = true;\nconfig.workspaceRoles.roles.member.permissions = Array.isArray(config.workspaceRoles.roles.member.permissions)\n  ? config.workspaceRoles.roles.member.permissions\n  : [];\nconfig.workspaceRoles.roles.member.permissions.push(\"workspace.settings.view\");\n",
+        reason: "Append app-owned workspace role and permission catalog into public config.",
+        category: "users-core",
+        id: "users-core-workspace-roles-public-config"
       },
       {
         op: "append-text",

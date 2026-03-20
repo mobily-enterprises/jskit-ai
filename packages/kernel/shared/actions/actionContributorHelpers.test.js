@@ -6,6 +6,7 @@ import { hasPermission } from "./actionContributorHelpers.js";
 test("hasPermission allows wildcard and direct matches", () => {
   assert.equal(hasPermission(["*"], "workspace.billing.manage"), true);
   assert.equal(hasPermission(["workspace.billing.manage"], "workspace.billing.manage"), true);
+  assert.equal(hasPermission(["workspace.billing.*"], "workspace.billing.manage"), true);
   assert.equal(hasPermission(["workspace.billing.read"], "workspace.billing.manage"), false);
 });
 

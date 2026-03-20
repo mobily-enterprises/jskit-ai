@@ -69,3 +69,20 @@ test("requireAuth allows wildcard permission for any mode", () => {
     )
   );
 });
+
+test("requireAuth allows namespace wildcard permissions", () => {
+  assert.doesNotThrow(() =>
+    requireAuth(
+      {
+        context: {
+          actor: { id: 1 },
+          permissions: ["crud_contacts.*"]
+        }
+      },
+      {
+        require: "all",
+        permissions: ["crud_contacts.update"]
+      }
+    )
+  );
+});

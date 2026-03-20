@@ -1,16 +1,7 @@
-function normalizePermissionList(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      values
-        .map((entry) => String(entry || "").trim())
-        .filter(Boolean)
-    )
-  );
-}
+import {
+  hasPermission,
+  normalizePermissionList
+} from "@jskit-ai/kernel/shared/support";
 
 function toPermissionSet(values) {
   const normalized = normalizePermissionList(values);
@@ -34,16 +25,6 @@ function arePermissionListsEqual(left, right) {
   }
 
   return true;
-}
-
-function hasPermission(permissionList, permission) {
-  const required = String(permission || "").trim();
-  if (!required) {
-    return true;
-  }
-
-  const source = Array.isArray(permissionList) ? permissionList : [];
-  return source.includes("*") || source.includes(required);
 }
 
 export {

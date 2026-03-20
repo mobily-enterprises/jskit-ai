@@ -1,6 +1,7 @@
 import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
+import { hasPermission, normalizePermissionList } from "../support/permissions.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -57,8 +58,7 @@ function ensureActionConsoleUsersOnlyAllowed(definition, context) {
 
   const actorIsOperator =
     context?.actor?.isOperator === true ||
-    (Array.isArray(context?.permissions) &&
-      (context.permissions.includes("console.operator") || context.permissions.includes("*")));
+    hasPermission(context?.permissions, "console.operator");
 
   if (!actorIsOperator) {
     throw createActionRuntimeError(403, "Forbidden.", {
@@ -78,21 +78,6 @@ function toPositiveInteger(value) {
   }
 
   return parsed;
-}
-
-function normalizePermissionList(value) {
-  const source = Array.isArray(value) ? value : [value];
-  return source.map((entry) => normalizeText(entry)).filter(Boolean);
-}
-
-function hasPermission(permissionSet = [], permission = "") {
-  const requiredPermission = normalizeText(permission);
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const permissions = normalizePermissionList(permissionSet);
-  return permissions.includes("*") || permissions.includes(requiredPermission);
 }
 
 function ensureActionPermissionAllowed(definition, context) {

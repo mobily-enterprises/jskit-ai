@@ -8,7 +8,6 @@ export default Object.freeze({
   "capabilities": {
     "provides": [
       "auth.access",
-      "auth.rbac",
       "auth.policy"
     ],
     "requires": []
@@ -20,10 +19,6 @@ export default Object.freeze({
         {
           "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
           "export": "AccessCoreServiceProvider"
-        },
-        {
-          "entrypoint": "src/server/providers/RbacServiceProvider.js",
-          "export": "RbacServiceProvider"
         },
         {
           "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
@@ -38,10 +33,6 @@ export default Object.freeze({
           "export": "AccessCoreClientProvider"
         },
         {
-          "entrypoint": "src/client/providers/RbacClientProvider.js",
-          "export": "RbacClientProvider"
-        },
-        {
           "entrypoint": "src/client/providers/FastifyAuthPolicyClientProvider.js",
           "export": "FastifyAuthPolicyClientProvider"
         }
@@ -53,11 +44,11 @@ export default Object.freeze({
       "surfaces": [
         {
           "subpath": "./client",
-          "summary": "Exports client auth access APIs plus AccessCoreClientProvider/RbacClientProvider/FastifyAuthPolicyClientProvider."
+          "summary": "Exports client auth access APIs plus AccessCoreClientProvider/FastifyAuthPolicyClientProvider."
         },
         {
           "subpath": "./server",
-          "summary": "Exports server auth access, RBAC, and Fastify auth policy providers plus server auth utility modules."
+          "summary": "Exports server auth access and Fastify auth policy providers plus server auth utility modules."
         },
         {
           "subpath": "./shared",
@@ -66,8 +57,7 @@ export default Object.freeze({
       ],
       "containerTokens": {
         "server": [
-          "auth.access",
-          "auth.rbac"
+          "auth.access"
         ],
         "client": [
           "auth.access.client"

@@ -1,17 +1,11 @@
-import { computed, watch } from "vue";
-import { arePermissionListsEqual, hasPermission, normalizePermissionList } from "../lib/permissions.js";
-import { useBootstrapQuery } from "./useBootstrapQuery.js";
+import { computed } from "vue";
+import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
-import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
-import {
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
 import {
   normalizeAccessMode,
   resolveAccessModeEnabled
 } from "./scopeHelpers.js";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 function asPermissionList(value) {
   if (Array.isArray(value)) {
@@ -29,9 +23,7 @@ function useAccess({
   workspaceSlug = "",
   enabled = true,
   access = "always",
-  hasPermissionRequirements = false,
-  mergePlacementContext = null,
-  placementSource = "users-web.access"
+  hasPermissionRequirements = false
 } = {}) {
   const normalizedAccessMode = normalizeAccessMode(access);
   const accessRequired = resolveAccessModeEnabled(normalizedAccessMode, {
@@ -39,6 +31,7 @@ function useAccess({
   });
   const { context: placementContext } = useWebPlacementContext();
   const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
+  const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
   const hasPlacementBootstrapPermissions = computed(() => {
     const source = placementContext.value;
     if (!source || typeof source !== "object") {
@@ -47,70 +40,19 @@ function useAccess({
     return Object.hasOwn(source, "permissions");
   });
   const placementPermissions = computed(() => normalizePermissionList(placementContext.value?.permissions));
-  const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
-  const bootstrap = accessRequired
-    ? useBootstrapQuery({
-        workspaceSlug: normalizedWorkspaceSlug,
-        enabled: computed(() => queryEnabled.value && !hasPlacementBootstrapPermissions.value)
-      })
-    : null;
-
   const permissions = computed(() => {
-    if (!accessRequired) {
+    if (!queryEnabled.value || !hasPlacementBootstrapPermissions.value) {
       return [];
     }
-    if (hasPlacementBootstrapPermissions.value) {
-      return placementPermissions.value;
-    }
-    return normalizePermissionList(bootstrap.query.data.value?.permissions);
+    return placementPermissions.value;
   });
   const bootstrapError = computed(() => {
-    if (!accessRequired || hasPlacementBootstrapPermissions.value) {
+    if (!queryEnabled.value || hasPlacementBootstrapPermissions.value) {
       return "";
     }
-
-    const error = bootstrap.query.error.value;
-    if (!error) {
-      return "";
-    }
-
-    return String(error?.message || "Unable to load permissions.").trim();
+    return "Permissions are unavailable in placement context.";
   });
-  const isBootstrapping = computed(() =>
-    accessRequired && !hasPlacementBootstrapPermissions.value
-      ? Boolean(bootstrap.query.isPending.value || bootstrap.query.isFetching.value)
-      : false
-  );
-  const realtimeEnabled = computed(() =>
-    accessRequired && normalizedWorkspaceSlug.value.length > 0
-  );
-
-  function isCurrentWorkspaceEvent({ payload = {} } = {}) {
-    return matchesCurrentWorkspaceEvent(payload, normalizedWorkspaceSlug.value);
-  }
-
-  if (accessRequired && typeof mergePlacementContext === "function") {
-    watch(
-      permissions,
-      (nextPermissions) => {
-        const normalizedNextPermissions = normalizePermissionList(nextPermissions);
-        const normalizedCurrentPermissions = normalizePermissionList(placementContext.value?.permissions);
-        if (arePermissionListsEqual(normalizedNextPermissions, normalizedCurrentPermissions)) {
-          return;
-        }
-
-        mergePlacementContext(
-          {
-            permissions: normalizedNextPermissions
-          },
-          String(placementSource || "users-web.access")
-        );
-      },
-      {
-        immediate: true
-      }
-    );
-  }
+  const isBootstrapping = computed(() => queryEnabled.value && !hasPlacementBootstrapPermissions.value);
 
   function can(permission) {
     return hasPermission(permissions.value, permission);
@@ -147,19 +89,8 @@ function useAccess({
   }
 
   async function refreshBootstrap() {
-    if (!accessRequired || hasPlacementBootstrapPermissions.value) {
-      return null;
-    }
-
-    return bootstrap.query.refetch();
+    return null;
   }
-
-  useRealtimeEvent({
-    event: USERS_BOOTSTRAP_CHANGED_EVENT,
-    enabled: realtimeEnabled,
-    matches: isCurrentWorkspaceEvent,
-    onEvent: refreshBootstrap
-  });
 
   return Object.freeze({
     accessMode: normalizedAccessMode,

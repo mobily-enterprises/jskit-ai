@@ -194,4 +194,22 @@ test("action permission enforces required permissions", () => {
       }
     )
   );
+
+  assert.doesNotThrow(() =>
+    ensureActionPermissionAllowed(
+      {
+        id: "tests.secure.perm",
+        permission: {
+          require: "all",
+          permissions: ["workspace.settings.update"]
+        }
+      },
+      {
+        actor: {
+          id: 7
+        },
+        permissions: ["workspace.settings.*"]
+      }
+    )
+  );
 });

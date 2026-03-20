@@ -7,13 +7,11 @@
   },
   "exports": {
     "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
-    "./server/providers/RbacServiceProvider": "./src/server/providers/RbacServiceProvider.js",
     "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
     "./server/inviteTokens": "./src/server/inviteTokens.js",
     "./server/membershipAccess": "./src/server/membershipAccess.js",
-    "./server/lib/rbac": "./src/server/lib/rbac.js",
     "./server/lib/index": "./src/server/lib/index.js",
     "./server/lib/plugin": "./src/server/lib/plugin.js",
     "./server/lib/routeMeta": "./src/server/lib/routeMeta.js",

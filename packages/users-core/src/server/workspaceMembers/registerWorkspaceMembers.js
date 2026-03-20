@@ -8,6 +8,7 @@ import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
+import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
@@ -33,7 +34,8 @@ function registerWorkspaceMembers(app) {
       return createWorkspaceMembersService({
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
-        inviteExpiresInMs: resolveWorkspaceMembersInviteExpiresInMs(appConfig)
+        inviteExpiresInMs: resolveWorkspaceMembersInviteExpiresInMs(appConfig),
+        roleCatalog: createWorkspaceRoleCatalog(appConfig)
       });
     },
     {

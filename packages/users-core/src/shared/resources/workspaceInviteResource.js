@@ -6,7 +6,7 @@ import { workspaceResource } from "./workspaceResource.js";
 const roleCatalogSchema = Type.Object(
   {
     collaborationEnabled: Type.Boolean(),
-    defaultInviteRole: Type.String({ minLength: 1 }),
+    defaultInviteRole: Type.String(),
     roles: Type.Array(Type.Object({}, { additionalProperties: true })),
     assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
   },

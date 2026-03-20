@@ -1,88 +1,116 @@
+import {
+  hasPermission,
+  normalizePermissionList
+} from "@jskit-ai/kernel/shared/support";
+
 const OWNER_ROLE_ID = "owner";
 const ADMIN_ROLE_ID = "admin";
 const MEMBER_ROLE_ID = "member";
 
-const ROLE_CATALOG = Object.freeze([
-  Object.freeze({
-    id: OWNER_ROLE_ID,
-    assignable: false,
-    permissions: ["*"]
-  }),
-  Object.freeze({
-    id: ADMIN_ROLE_ID,
-    assignable: true,
-    permissions: [
-      "workspace.roles.view",
-      "workspace.settings.view",
-      "workspace.settings.update",
-      "workspace.members.view",
-      "workspace.members.invite",
-      "workspace.members.manage",
-      "workspace.invites.revoke"
-    ]
-  }),
-  Object.freeze({
-    id: MEMBER_ROLE_ID,
-    assignable: true,
-    permissions: [
-      "workspace.settings.view"
-    ]
-  })
-]);
-
-const ROLE_BY_ID = Object.freeze(
-  ROLE_CATALOG.reduce((accumulator, role) => {
-    accumulator[role.id] = role;
-    return accumulator;
-  }, {})
-);
-
-function resolveRolePermissions(roleId) {
-  const normalized = String(roleId || "").trim().toLowerCase();
-  const role = ROLE_BY_ID[normalized] || null;
-  if (!role) {
-    return [];
+function asRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
   }
-  return [...role.permissions];
+  return value;
 }
 
-function listRoleDescriptors() {
-  return ROLE_CATALOG.map((role) => ({
+function normalizeRoleId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function createRoleDescriptor(roleId, configuredDefinition) {
+  const source = asRecord(configuredDefinition);
+  const assignable = roleId === OWNER_ROLE_ID ? false : source.assignable === true;
+  const permissions = normalizePermissionList(source.permissions);
+
+  return Object.freeze({
+    id: roleId,
+    assignable,
+    permissions: Object.freeze([...permissions])
+  });
+}
+
+function listConfiguredRoleIds(appConfig = {}) {
+  const configuredRoles = normalizeConfiguredRoles(appConfig);
+  return Object.freeze(Object.keys(configuredRoles));
+}
+
+function resolveConfiguredDefaultInviteRole(appConfig = {}) {
+  return normalizeRoleId(appConfig?.workspaceRoles?.defaultInviteRole);
+}
+
+function normalizeConfiguredRoles(appConfig = {}) {
+  const workspaceRoles = asRecord(appConfig?.workspaceRoles);
+  const configuredRoles = asRecord(workspaceRoles.roles);
+  const normalizedRoles = {};
+
+  for (const [roleId, roleDefinition] of Object.entries(configuredRoles)) {
+    const normalizedRoleId = normalizeRoleId(roleId);
+    if (!normalizedRoleId) {
+      continue;
+    }
+    normalizedRoles[normalizedRoleId] = roleDefinition;
+  }
+
+  return normalizedRoles;
+}
+
+function createWorkspaceRoleCatalog(appConfig = {}) {
+  const configuredRoles = normalizeConfiguredRoles(appConfig);
+  const roleIds = listConfiguredRoleIds(appConfig);
+  const roles = roleIds.map((roleId) => createRoleDescriptor(roleId, configuredRoles[roleId]));
+  const assignableRoleIds = roles.filter((role) => role.assignable).map((role) => role.id);
+  const configuredDefaultInviteRole = resolveConfiguredDefaultInviteRole(appConfig);
+  const defaultInviteRole = assignableRoleIds.includes(configuredDefaultInviteRole)
+    ? configuredDefaultInviteRole
+    : assignableRoleIds[0] || "";
+
+  return Object.freeze({
+    collaborationEnabled: assignableRoleIds.length > 0 && Boolean(defaultInviteRole),
+    defaultInviteRole,
+    roles: Object.freeze(
+      roles.map((role) =>
+        Object.freeze({
+          id: role.id,
+          assignable: role.assignable,
+          permissions: Object.freeze([...role.permissions])
+        })
+      )
+    ),
+    assignableRoleIds: Object.freeze([...assignableRoleIds])
+  });
+}
+
+function listRoleDescriptors(appConfig = {}) {
+  const roleCatalog = createWorkspaceRoleCatalog(appConfig);
+  return roleCatalog.roles.map((role) => ({
     id: role.id,
     assignable: role.assignable,
     permissions: [...role.permissions]
   }));
 }
 
-const ASSIGNABLE_ROLE_IDS = Object.freeze(
-  ROLE_CATALOG.filter((role) => role.assignable).map((role) => role.id)
-);
-
-function createWorkspaceRoleCatalog() {
-  return {
-    collaborationEnabled: true,
-    defaultInviteRole: MEMBER_ROLE_ID,
-    roles: listRoleDescriptors(),
-    assignableRoleIds: [...ASSIGNABLE_ROLE_IDS]
-  };
-}
-
-function hasPermission(permissions = [], permission = "") {
-  const required = String(permission || "").trim();
-  if (!required) {
-    return true;
+function resolveRolePermissions(roleId, appConfig = {}) {
+  const normalizedRoleId = normalizeRoleId(roleId);
+  if (!normalizedRoleId) {
+    return [];
   }
 
-  const source = Array.isArray(permissions) ? permissions : [];
-  return source.includes("*") || source.includes(required);
+  const roleCatalog = createWorkspaceRoleCatalog(appConfig);
+  const role = roleCatalog.roles.find((entry) => entry.id === normalizedRoleId);
+  if (!role) {
+    return [];
+  }
+
+  return [...role.permissions];
 }
 
 export {
   OWNER_ROLE_ID,
   ADMIN_ROLE_ID,
   MEMBER_ROLE_ID,
-  ROLE_CATALOG,
-  ASSIGNABLE_ROLE_IDS,
   resolveRolePermissions,
   listRoleDescriptors,
   createWorkspaceRoleCatalog,
