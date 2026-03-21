@@ -20,6 +20,10 @@ import {
   surfaceRequiresWorkspaceFromPlacementContext
 } from "./workspaceSurfaceContext.js";
 
+const ACCOUNT_SURFACE_ID = "account";
+const ACCOUNT_SETTINGS_SUFFIX = "/settings";
+const ACCOUNT_SETTINGS_FALLBACK_PATH = "/account/settings";
+
 function normalizeWorkspaceSuffix(suffix) {
   const rawSuffix = String(suffix || "/").trim();
   if (!rawSuffix || rawSuffix === "/") {
@@ -80,11 +84,20 @@ function resolveWorkspaceSurfaceIdFromPlacementPathname(contextValue = null, pat
   return resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, normalizedPathname);
 }
 
+function resolveAccountSettingsPathFromPlacementContext(contextValue = null) {
+  const accountSurfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, ACCOUNT_SURFACE_ID);
+  if (!accountSurfaceDefinition) {
+    return ACCOUNT_SETTINGS_FALLBACK_PATH;
+  }
+
+  return resolveSurfacePathFromPlacementContext(contextValue, ACCOUNT_SURFACE_ID, ACCOUNT_SETTINGS_SUFFIX);
+}
+
 function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, surfaceId = "", workspaceSlug = "", suffix = "/") {
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedWorkspaceSlug) {
-    return "/account/settings";
+    return resolveAccountSettingsPathFromPlacementContext(contextValue);
   }
 
   const surfaceConfig = readPlacementSurfaceConfig(contextValue);
@@ -156,6 +169,7 @@ function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceI
 }
 
 export {
+  resolveAccountSettingsPathFromPlacementContext,
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   resolveSurfaceWorkspacePathFromPlacementContext,
   extractWorkspaceSlugFromSurfacePathname,

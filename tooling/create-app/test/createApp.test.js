@@ -39,10 +39,16 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.name, "sample-app");
     assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
     assert.equal(packageJson.scripts.postinstall, undefined);
-    assert.equal(packageJson.scripts["dev:all"], undefined);
-    assert.equal(packageJson.scripts["dev:app"], undefined);
-    assert.equal(packageJson.scripts["dev:admin"], undefined);
-    assert.equal(packageJson.scripts["dev:console"], undefined);
+    assert.equal(packageJson.scripts["dev:all"], "vite");
+    assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
+    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+    assert.equal(packageJson.scripts["dev:account"], "VITE_SURFACE=account vite");
+    assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
+    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
+    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    assert.equal(packageJson.scripts["server:all"], "node ./bin/server.js");
+    assert.equal(packageJson.scripts["server:home"], "SERVER_SURFACE=home node ./bin/server.js");
+    assert.equal(packageJson.scripts["build:all"], "vite build");
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
@@ -114,6 +120,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(publicConfig, /pagesRoot:\s*"console"/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
+    assert.match(publicConfig, /origin:\s*""/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
     assert.match(serverConfig, /export const config = \{\};/);
 
@@ -451,8 +458,8 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
-    assert.equal(packageJson.scripts["dev:app"], undefined);
-    assert.equal(packageJson.scripts["dev:admin"], undefined);
+    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
+    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
   });
 });
 
@@ -537,6 +544,7 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
+    assert.match(publicConfig, /config\.surfaceDefinitions\.account = \{/);
     assert.match(accountSettingsClientElement, /useRoute, useRouter/);
     assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
     assert.match(placement, /id:\s*"users\.account\.invites\.cue"/);

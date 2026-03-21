@@ -123,6 +123,9 @@ function createService(options) {
     appPublicUrl: options.appPublicUrl
   });
   const appPublicUrl = String(options.appPublicUrl || "");
+  const authAllowedReturnToOrigins = Array.isArray(options.authAllowedReturnToOrigins)
+    ? options.authAllowedReturnToOrigins
+    : [];
   const authOAuthCatalog = resolveSupabaseOAuthProviderCatalog({
     oauthProviderCatalog: authProvider.oauthProviderCatalog || options.authOAuthProviderCatalog,
     oauthProviders: authProvider.oauthProviders ?? options.authOAuthProviders,
@@ -166,6 +169,13 @@ function createService(options) {
   function resolveOAuthProviderQueryParamsForProvider(providerId) {
     return resolveOAuthProviderQueryParams(providerId, {
       providerQueryParamsById: authOAuthCatalog.providerQueryParamsById
+    });
+  }
+
+  function normalizeAuthReturnToTarget(value, { fallback = "/" } = {}) {
+    return normalizeReturnToPath(value, {
+      fallback,
+      allowedOrigins: authAllowedReturnToOrigins
     });
   }
 
@@ -568,13 +578,13 @@ function createService(options) {
     mapOtpVerifyError,
     setSessionFromRequestCookies,
     mapProfileUpdateError,
-    normalizeReturnToPath
+    normalizeReturnToPath: normalizeAuthReturnToTarget
   });
 
   const { oauthStart, startProviderLink, oauthComplete, unlinkProvider } = createOauthFlows({
     ensureConfigured,
     normalizeOAuthProviderInput,
-    normalizeReturnToPath,
+    normalizeReturnToPath: normalizeAuthReturnToTarget,
     buildOAuthLoginRedirectUrl: buildOAuthLoginRedirectUrlWithCatalog,
     appPublicUrl,
     authOAuthDefaultProvider,

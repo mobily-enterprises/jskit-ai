@@ -1,4 +1,5 @@
 import { deriveSurfaceRouteBaseFromPagesRoot, filterRoutesBySurface } from "../shared/surface/index.js";
+import { isExternalLinkTarget } from "../shared/support/linkPath.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -295,6 +296,12 @@ function createShellBeforeEachGuard({
     }
 
     if (outcome.redirectTo) {
+      if (isExternalLinkTarget(outcome.redirectTo)) {
+        if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
+          window.location.assign(outcome.redirectTo);
+        }
+        return false;
+      }
       return outcome.redirectTo;
     }
 

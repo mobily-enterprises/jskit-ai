@@ -33,11 +33,13 @@ const authMethodKindValidator = Object.freeze({
   schema: Type.Union(AUTH_METHOD_KINDS.map((kind) => Type.Literal(kind)))
 });
 
+const OAUTH_RETURN_TO_PATTERN = "^(?:/(?!/).*$|https?://[^\\s]+)$";
+
 const oauthReturnToValidator = Object.freeze({
   schema: Type.String({
     minLength: 1,
     maxLength: 1024,
-    pattern: "^/(?!/).*$"
+    pattern: OAUTH_RETURN_TO_PATTERN
   })
 });
 

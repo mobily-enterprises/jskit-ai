@@ -1,5 +1,9 @@
 <script setup>
-import { onMounted } from "vue";
+import { computed } from "vue";
+import {
+  useWebPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 
 const props = defineProps({
   label: {
@@ -15,20 +19,32 @@ const props = defineProps({
     default: ""
   }
 });
+const { context: placementContext } = useWebPlacementContext();
 
-onMounted(() => {
-  console.log("[auth-profile-menu-item-debug] mounted", {
-    label: props.label,
-    to: props.to,
-    icon: props.icon
+const resolvedNavigationTarget = computed(() => {
+  const target = String(props.to || "").trim();
+  if (!target) {
+    return {
+      href: "",
+      sameOrigin: true
+    };
+  }
+
+  const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+    path: target
   });
+  return {
+    href: navigationTarget.href,
+    sameOrigin: navigationTarget.sameOrigin
+  };
 });
 </script>
 
 <template>
   <v-list-item
     :title="props.label || undefined"
-    :to="props.to || undefined"
+    :to="resolvedNavigationTarget.sameOrigin ? resolvedNavigationTarget.href || undefined : undefined"
+    :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href || undefined"
     :prepend-icon="props.icon || undefined"
   />
 </template>

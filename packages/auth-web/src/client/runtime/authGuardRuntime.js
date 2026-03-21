@@ -1,5 +1,6 @@
 import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
+import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -32,6 +33,23 @@ function normalizePathname(pathname, fallback = "/") {
     return fallback;
   }
   return raw;
+}
+
+function normalizeLoginRoute(loginRoute, fallback = DEFAULT_LOGIN_ROUTE) {
+  const raw = String(loginRoute || "").trim();
+  if (isExternalLinkTarget(raw)) {
+    if (raw.startsWith("//")) {
+      try {
+        const baseOrigin =
+          typeof window === "object" && window?.location?.origin ? window.location.origin : "http://localhost";
+        return new URL(raw, baseOrigin).toString();
+      } catch {
+        return fallback;
+      }
+    }
+    return raw;
+  }
+  return normalizePathname(raw, fallback);
 }
 
 function normalizeOAuthProviders(rawProviders) {
@@ -130,7 +148,14 @@ async function readSessionState({ sessionPath = DEFAULT_SESSION_PATH, fetchImple
   }
 }
 
-function resolveReturnToPath(context) {
+function resolveReturnToPath(context, { absolute = false } = {}) {
+  if (absolute) {
+    const href = String(context?.location?.href || (typeof window === "object" ? window.location?.href : "") || "").trim();
+    if (href && isExternalLinkTarget(href)) {
+      return href;
+    }
+  }
+
   const pathname = normalizePathname(
     context?.location?.pathname || (typeof window === "object" ? window.location?.pathname : "") || "",
     "/"
@@ -145,8 +170,24 @@ function resolveReturnToPath(context) {
 }
 
 function toLoginRedirect(loginRoute, context) {
-  const normalizedLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
-  const returnTo = resolveReturnToPath(context);
+  const normalizedLoginRoute = normalizeLoginRoute(loginRoute, DEFAULT_LOGIN_ROUTE);
+  const externalLoginRoute = isExternalLinkTarget(normalizedLoginRoute);
+  const returnTo = resolveReturnToPath(context, { absolute: externalLoginRoute });
+  if (externalLoginRoute) {
+    try {
+      const parsed = new URL(
+        normalizedLoginRoute,
+        typeof window === "object" && window?.location?.origin ? window.location.origin : "http://localhost"
+      );
+      if (returnTo) {
+        parsed.searchParams.set("returnTo", returnTo);
+      }
+      return parsed.toString();
+    } catch {
+      return DEFAULT_LOGIN_ROUTE;
+    }
+  }
+
   const params = new URLSearchParams();
   if (returnTo) {
     params.set("returnTo", returnTo);
@@ -285,7 +326,7 @@ function createAuthGuardRuntime({
   }
 
   let currentSessionPath = normalizeRuntimePath(sessionPath, DEFAULT_SESSION_PATH);
-  let currentLoginRoute = normalizePathname(loginRoute, DEFAULT_LOGIN_ROUTE);
+  let currentLoginRoute = normalizeLoginRoute(loginRoute, DEFAULT_LOGIN_ROUTE);
   const foregroundRefreshEnabled = refreshOnForeground === true;
   const reconnectRefreshEnabled = refreshOnReconnect === true;
   const socket = asRealtimeSocket(realtimeSocket);
@@ -350,7 +391,7 @@ function createAuthGuardRuntime({
 
   async function initialize({ sessionPath: nextSessionPath, loginRoute: nextLoginRoute } = {}) {
     currentSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
-    currentLoginRoute = normalizePathname(nextLoginRoute, currentLoginRoute);
+    currentLoginRoute = normalizeLoginRoute(nextLoginRoute, currentLoginRoute);
     installGuardEvaluator({
       loginRoute: currentLoginRoute,
       getAuthState: () => authState

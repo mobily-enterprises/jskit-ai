@@ -66,7 +66,14 @@ const activeTab = computed({
         <v-card-title class="panel-title">Account settings</v-card-title>
         <v-card-subtitle>Global profile, preferences, notifications, and invitation controls.</v-card-subtitle>
         <template #append>
-          <v-btn variant="text" color="secondary" :to="runtime.backTarget.value">Back</v-btn>
+          <v-btn
+            variant="text"
+            color="secondary"
+            :to="runtime.backNavigationTarget.value.sameOrigin ? runtime.backNavigationTarget.value.href : undefined"
+            :href="runtime.backNavigationTarget.value.sameOrigin ? undefined : runtime.backNavigationTarget.value.href"
+          >
+            Back
+          </v-btn>
         </template>
       </v-card-item>
       <v-divider />

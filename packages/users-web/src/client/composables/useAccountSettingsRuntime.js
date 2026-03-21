@@ -4,7 +4,8 @@ import { useTheme } from "vuetify";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import Uppy from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
@@ -36,6 +37,7 @@ import {
   ACCOUNT_SETTINGS_CHANGED_EVENT,
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
 
 const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -101,20 +103,97 @@ const DEFAULTS = Object.freeze({
   }
 });
 
-function normalizeReturnToPath(value, fallback = "/") {
+function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account/settings", allowedOrigins = [] } = {}) {
   const source = Array.isArray(value) ? value[0] : value;
   const rawValue = String(source || "").trim();
-  if (!rawValue || !rawValue.startsWith("/") || rawValue.startsWith("//")) {
+  if (!rawValue) {
     return fallback;
   }
 
-  const normalizedPathname =
-    rawValue.split("?")[0].split("#")[0].replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
-  if (normalizedPathname === "/account/settings") {
+  const normalizedAccountPathname =
+    String(accountSettingsPath || "")
+      .split("?")[0]
+      .split("#")[0]
+      .replace(/\/{2,}/g, "/")
+      .replace(/\/+$/, "") || "/";
+
+  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
+    const normalizedPathname = rawValue.split("?")[0].split("#")[0].replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
+    if (normalizedPathname === normalizedAccountPathname) {
+      return fallback;
+    }
+    return rawValue;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(rawValue);
+  } catch {
     return fallback;
   }
 
-  return rawValue;
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return fallback;
+  }
+
+  if (allowedOrigins.length > 0 && !allowedOrigins.includes(parsed.origin)) {
+    return fallback;
+  }
+
+  const normalizedPathname = String(parsed.pathname || "").replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
+  if (normalizedPathname === normalizedAccountPathname) {
+    return fallback;
+  }
+
+  return parsed.toString();
+}
+
+function normalizeHttpOrigin(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(rawValue);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+function resolveAllowedReturnToOrigins(contextValue = null) {
+  const resolvedOrigins = [];
+
+  if (typeof window === "object" && window?.location?.origin) {
+    const currentOrigin = normalizeHttpOrigin(window.location.origin);
+    if (currentOrigin) {
+      resolvedOrigins.push(currentOrigin);
+    }
+  }
+
+  const surfaceConfig =
+    contextValue && typeof contextValue === "object" && contextValue.surfaceConfig && typeof contextValue.surfaceConfig === "object"
+      ? contextValue.surfaceConfig
+      : {};
+  const surfacesById =
+    surfaceConfig.surfacesById && typeof surfaceConfig.surfacesById === "object" ? surfaceConfig.surfacesById : {};
+
+  for (const definition of Object.values(surfacesById)) {
+    if (!definition || typeof definition !== "object") {
+      continue;
+    }
+    const surfaceOrigin = normalizeHttpOrigin(definition.origin);
+    if (!surfaceOrigin || resolvedOrigins.includes(surfaceOrigin)) {
+      continue;
+    }
+    resolvedOrigins.push(surfaceOrigin);
+  }
+
+  return resolvedOrigins;
 }
 
 function normalizeSettingsPayload(value) {
@@ -186,7 +265,20 @@ function useAccountSettingsRuntime() {
   const pendingInvitesQueryKey = ["users-web", "settings", "pending-invites"];
   const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
 
-  const backTarget = computed(() => normalizeReturnToPath(route?.query?.returnTo, "/"));
+  const accountSettingsPath = computed(() => resolveAccountSettingsPathFromPlacementContext(placementContext.value));
+  const allowedReturnToOrigins = computed(() => resolveAllowedReturnToOrigins(placementContext.value));
+  const backTarget = computed(() =>
+    normalizeReturnToPath(route?.query?.returnTo, {
+      fallback: "/",
+      accountSettingsPath: accountSettingsPath.value,
+      allowedOrigins: allowedReturnToOrigins.value
+    })
+  );
+  const backNavigationTarget = computed(() =>
+    resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+      path: backTarget.value
+    })
+  );
 
   const profileForm = reactive({
     displayName: "",
@@ -514,7 +606,17 @@ function useAccountSettingsRuntime() {
     }
 
     try {
-      await router.push(targetPath);
+      const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+        path: targetPath,
+        surfaceId: workspaceSurfaceId.value
+      });
+      if (navigationTarget.sameOrigin) {
+        await router.push(navigationTarget.href);
+      } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
+        window.location.assign(navigationTarget.href);
+      } else {
+        throw new Error("Cross-origin navigation is unavailable in this environment.");
+      }
     } catch (error) {
       reportAccountFeedback({
         message: String(error?.message || "Unable to open workspace."),
@@ -877,6 +979,7 @@ function useAccountSettingsRuntime() {
 
   return Object.freeze({
     backTarget,
+    backNavigationTarget,
     loadingSettings,
     profile,
     preferences,

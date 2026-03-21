@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveSurfaceWorkspacePathFromPlacementContext } from "../src/client/lib/workspaceSurfacePaths.js";
+import {
+  resolveAccountSettingsPathFromPlacementContext,
+  resolveSurfaceWorkspacePathFromPlacementContext
+} from "../src/client/lib/workspaceSurfacePaths.js";
 
-test("resolveSurfaceWorkspacePathFromPlacementContext falls back to global account settings without workspace slug", () => {
+test("resolveSurfaceWorkspacePathFromPlacementContext falls back to account settings without workspace slug", () => {
   const context = {
     surfaceConfig: {
       defaultSurfaceId: "home",
@@ -18,4 +21,19 @@ test("resolveSurfaceWorkspacePathFromPlacementContext falls back to global accou
   };
 
   assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "", "/"), "/account/settings");
+});
+
+test("resolveAccountSettingsPathFromPlacementContext uses account surface route when available", () => {
+  const context = {
+    surfaceConfig: {
+      defaultSurfaceId: "home",
+      enabledSurfaceIds: ["home", "account"],
+      surfacesById: {
+        home: { id: "home", routeBase: "/home", requiresWorkspace: false },
+        account: { id: "account", routeBase: "/profile", requiresWorkspace: false }
+      }
+    }
+  };
+
+  assert.equal(resolveAccountSettingsPathFromPlacementContext(context), "/profile/settings");
 });

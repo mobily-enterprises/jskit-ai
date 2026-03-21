@@ -3,7 +3,8 @@ import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
@@ -265,7 +266,18 @@ async function openWorkspace(workspaceSlug) {
   selectingWorkspaceSlug.value = normalizedSlug;
 
   try {
-    await router.push(targetPath);
+    const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+      path: targetPath,
+      surfaceId: workspaceSurfaceId.value
+    });
+    if (navigationTarget.sameOrigin && router && typeof router.push === "function") {
+      await router.push(navigationTarget.href);
+    } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
+      window.location.assign(navigationTarget.href);
+      return;
+    } else {
+      throw new Error("Workspace navigation is unavailable.");
+    }
   } catch (error) {
     reportFeedback({
       message: String(error?.message || "Unable to open workspace."),
@@ -387,7 +399,15 @@ watch(
     }
 
     if (!bootstrapModel.sessionAuthenticated) {
-      await router.replace("/auth/login");
+      const loginTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+        path: "/auth/login",
+        surfaceId: "auth"
+      });
+      if (loginTarget.sameOrigin && router && typeof router.replace === "function") {
+        await router.replace(loginTarget.href);
+      } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
+        window.location.assign(loginTarget.href);
+      }
       return;
     }
 

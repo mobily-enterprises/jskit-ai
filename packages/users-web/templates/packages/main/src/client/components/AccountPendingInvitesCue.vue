@@ -4,7 +4,12 @@ import { useRoute } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { mdiEmailAlertOutline } from "@mdi/js";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  useWebPlacementContext,
+  resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfacePathFromPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 
 const { context: placementContext } = useWebPlacementContext();
 const route = useRoute();
@@ -27,6 +32,13 @@ function resolveReturnTo() {
     return path;
   }
   return "/";
+}
+
+function resolveReturnToHref() {
+  if (typeof window === "object" && window?.location?.href) {
+    return String(window.location.href || "").trim() || resolveReturnTo();
+  }
+  return resolveReturnTo();
 }
 
 function countPendingInvites(entries = []) {
@@ -101,12 +113,28 @@ const isVisible = computed(() => {
 });
 
 const resolvedTo = computed(() => {
+  const hasAccountSurface = Boolean(resolveSurfaceDefinitionFromPlacementContext(placementContext.value, "account"));
+  const accountSettingsPath = hasAccountSurface
+    ? resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/settings")
+    : "/account/settings";
+  const accountSettingsNavigation = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+    path: accountSettingsPath,
+    surfaceId: "account"
+  });
+
   const query = new URLSearchParams({
     section: "invites",
-    returnTo: resolveReturnTo()
+    returnTo: accountSettingsNavigation.sameOrigin ? resolveReturnTo() : resolveReturnToHref()
   });
-  return appendQueryString("/account/settings", query.toString());
+  return appendQueryString(accountSettingsPath, query.toString());
 });
+
+const resolvedNavigationTarget = computed(() =>
+  resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+    path: resolvedTo.value,
+    surfaceId: "account"
+  })
+);
 </script>
 
 <template>
@@ -120,7 +148,8 @@ const resolvedTo = computed(() => {
     offset-y="8"
   >
     <v-btn
-      :to="resolvedTo"
+      :to="resolvedNavigationTarget.sameOrigin ? resolvedNavigationTarget.href : undefined"
+      :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href"
       variant="tonal"
       color="warning"
       :prepend-icon="mdiEmailAlertOutline"

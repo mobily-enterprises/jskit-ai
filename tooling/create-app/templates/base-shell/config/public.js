@@ -15,7 +15,8 @@ config.surfaceDefinitions.home = {
   enabled: true,
   requiresAuth: false,
   requiresWorkspace: false,
-  accessPolicyId: "public"
+  accessPolicyId: "public",
+  origin: ""
 };
 config.surfaceDefinitions.console = {
   id: "console",
@@ -24,5 +25,6 @@ config.surfaceDefinitions.console = {
   enabled: true,
   requiresAuth: true,
   requiresWorkspace: false,
-  accessPolicyId: "console_owner"
+  accessPolicyId: "console_owner",
+  origin: ""
 };

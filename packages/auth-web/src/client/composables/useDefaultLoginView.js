@@ -15,8 +15,12 @@ import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/comman
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { authHttpRequest } from "../runtime/authHttpClient.js";
-import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
+import {
+  normalizeAuthReturnToPath,
+  resolveAllowedReturnToOriginsFromPlacementContext
+} from "../lib/returnToPath.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
 
@@ -246,6 +250,7 @@ function resolveValidationMessage(validationResult, fallbackMessage = "Validatio
 export function useDefaultLoginView() {
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
+  const { context: placementContext } = useWebPlacementContext();
   const sessionQueryKey = Object.freeze(["auth-web", "session"]);
   const mode = ref("login");
   const email = ref("");
@@ -415,10 +420,16 @@ export function useDefaultLoginView() {
     return true;
   });
 
+  const allowedReturnToOrigins = computed(() =>
+    resolveAllowedReturnToOriginsFromPlacementContext(placementContext.value)
+  );
   const requestedReturnTo = ref(
     normalizeAuthReturnToPath(
       typeof window === "object" ? new URLSearchParams(window.location.search || "").get("returnTo") : "/",
-      "/"
+      "/",
+      {
+        allowedOrigins: allowedReturnToOrigins.value
+      }
     )
   );
 
@@ -643,7 +654,9 @@ export function useDefaultLoginView() {
       return false;
     }
 
-    requestedReturnTo.value = normalizeAuthReturnToPath(callbackParams.returnTo, requestedReturnTo.value);
+    requestedReturnTo.value = normalizeAuthReturnToPath(callbackParams.returnTo, requestedReturnTo.value, {
+      allowedOrigins: allowedReturnToOrigins.value
+    });
 
     const provider = String(callbackParams.provider || resolveDefaultOAuthProvider() || "")
       .trim()

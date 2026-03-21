@@ -3,7 +3,8 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname
+  resolveSurfaceIdFromPlacementPathname,
+  resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { TENANCY_MODE_NONE } from "@jskit-ai/users-core/shared/tenancyProfile";
 import { mdiBriefcaseOutline } from "@mdi/js";
@@ -116,16 +117,20 @@ async function navigateToWorkspace(slug) {
     workspaceSlug: normalizedSlug,
     mode: "workspace"
   });
+  const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
+    path: targetPath,
+    surfaceId: workspaceSwitchSurfaceId.value
+  });
 
   navigatingToWorkspace.value = normalizedSlug;
   errorMessage.value = "";
 
   try {
-    if (currentPath.value !== targetPath) {
-      if (router && typeof router.push === "function") {
-        await router.push(targetPath);
+    if (currentPath.value !== targetPath || !navigationTarget.sameOrigin) {
+      if (navigationTarget.sameOrigin && router && typeof router.push === "function") {
+        await router.push(navigationTarget.href);
       } else if (typeof window === "object" && window && window.location) {
-        window.location.assign(targetPath);
+        window.location.assign(navigationTarget.href);
         return;
       } else {
         throw new Error("Router is unavailable.");

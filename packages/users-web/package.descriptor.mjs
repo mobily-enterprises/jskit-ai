@@ -410,6 +410,17 @@ export default Object.freeze({
     text: [
       {
         op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.surfaceDefinitions.account = {",
+        value:
+          "\nconfig.surfaceDefinitions.account = {\n  id: \"account\",\n  label: \"Account\",\n  pagesRoot: \"account\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
+        reason: "Register account surface definition in public surface config.",
+        category: "users-web",
+        id: "users-web-surface-config-account"
+      },
+      {
+        op: "append-text",
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",

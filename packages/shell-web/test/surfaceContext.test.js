@@ -6,7 +6,8 @@ import {
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfacePathFromPlacementContext
+  resolveSurfacePathFromPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext
 } from "../src/client/placement/surfaceContext.js";
 
 test("buildSurfaceConfigContext normalizes runtime definitions for placement context", () => {
@@ -130,4 +131,54 @@ test("resolveSurfaceIdFromPlacementPathname prefers most specific dynamic surfac
   assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/projects"), "app");
   assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/admin"), "admin");
   assert.equal(resolveSurfaceIdFromPlacementPathname(context, "/w/acme/admin/users"), "admin");
+});
+
+test("resolveSurfaceNavigationTargetFromPlacementContext resolves cross-origin targets from surface config", () => {
+  const context = {
+    surfaceConfig: {
+      defaultSurfaceId: "home",
+      enabledSurfaceIds: ["home", "auth", "account", "app", "admin"],
+      surfacesById: {
+        home: { id: "home", routeBase: "/home", origin: "https://www.example.com" },
+        auth: { id: "auth", routeBase: "/auth", origin: "https://auth.example.com" },
+        account: { id: "account", routeBase: "/account", origin: "https://www.example.com" },
+        app: { id: "app", routeBase: "/w/:workspaceSlug", origin: "https://app.example.com" },
+        admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", origin: "https://admin.example.com" }
+      }
+    }
+  };
+
+  const sameOriginTarget = resolveSurfaceNavigationTargetFromPlacementContext(context, {
+    path: "/account/settings",
+    currentOrigin: "https://www.example.com"
+  });
+  assert.deepEqual(sameOriginTarget, {
+    href: "/account/settings",
+    sameOrigin: true,
+    surfaceId: "account",
+    external: false
+  });
+
+  const crossOriginTarget = resolveSurfaceNavigationTargetFromPlacementContext(context, {
+    path: "/auth/login",
+    currentOrigin: "https://www.example.com"
+  });
+  assert.deepEqual(crossOriginTarget, {
+    href: "https://auth.example.com/auth/login",
+    sameOrigin: false,
+    surfaceId: "auth",
+    external: false
+  });
+
+  const explicitSurfaceTarget = resolveSurfaceNavigationTargetFromPlacementContext(context, {
+    path: "/w/acme/admin",
+    surfaceId: "admin",
+    currentOrigin: "https://app.example.com"
+  });
+  assert.deepEqual(explicitSurfaceTarget, {
+    href: "https://admin.example.com/w/acme/admin",
+    sameOrigin: false,
+    surfaceId: "admin",
+    external: false
+  });
 });

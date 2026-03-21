@@ -307,3 +307,55 @@ test("auth guard runtime refreshes session when realtime refresh events are rece
   await flushPendingRefresh();
   assert.equal(runtime.getState().authenticated, true);
 });
+
+test("auth guard runtime encodes absolute returnTo for external login routes", async () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    location: {
+      origin: "https://app.example.com",
+      href: "https://app.example.com/w/acme?tab=1",
+      pathname: "/w/acme",
+      search: "?tab=1"
+    }
+  };
+
+  try {
+    const placementRuntime = createPlacementRuntimeStub();
+    const runtime = createAuthGuardRuntime({
+      placementRuntime,
+      loginRoute: "https://auth.example.com/auth/login",
+      fetchImplementation: async () => {
+        return {
+          ok: true,
+          async json() {
+            return {
+              authenticated: false
+            };
+          }
+        };
+      }
+    });
+
+    await runtime.initialize();
+    const evaluator = globalThis.__JSKIT_WEB_SHELL_GUARD_EVALUATOR__;
+    const outcome = evaluator({
+      guard: {
+        policy: "authenticated"
+      },
+      context: {
+        location: {
+          pathname: "/w/acme",
+          search: "?tab=1"
+        }
+      }
+    });
+
+    assert.deepEqual(outcome, {
+      allow: false,
+      redirectTo: "https://auth.example.com/auth/login?returnTo=https%3A%2F%2Fapp.example.com%2Fw%2Facme%3Ftab%3D1",
+      reason: "auth-required"
+    });
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});

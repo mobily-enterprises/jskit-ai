@@ -14,8 +14,8 @@ const AUTH_LOGIN_OAUTH_START_MESSAGES = createCommandMessages({
       default: "OAuth provider id is invalid."
     },
     returnTo: {
-      pattern: "Return path must start with '/'.",
-      default: "Return path must start with '/'."
+      pattern: "Return target must be an absolute path or URL.",
+      default: "Return target must be an absolute path or URL."
     }
   }
 });

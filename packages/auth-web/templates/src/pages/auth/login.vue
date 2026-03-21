@@ -3,9 +3,6 @@
   "meta": {
     "guard": {
       "policy": "public"
-    },
-    "jskit": {
-      "scope": "global"
     }
   }
 }

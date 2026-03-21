@@ -20,5 +20,7 @@ export {
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfacePathFromPlacementContext
+  resolveSurfacePathFromPlacementContext,
+  normalizeSurfaceOrigin,
+  resolveSurfaceNavigationTargetFromPlacementContext
 } from "./surfaceContext.js";

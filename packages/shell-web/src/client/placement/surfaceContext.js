@@ -5,6 +5,7 @@ import {
   normalizeSurfacePagesRoot
 } from "@jskit-ai/kernel/shared/surface";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
 
 const EMPTY_SURFACE_CONFIG = Object.freeze({
   tenancyMode: "",
@@ -157,6 +158,93 @@ function resolveSurfacePathFromPlacementContext(contextValue = null, surfaceId =
   return joinSurfacePath(surfaceDefinition?.routeBase, pathname);
 }
 
+function normalizeSurfaceOrigin(originValue = "") {
+  const rawOrigin = String(originValue || "").trim();
+  if (!rawOrigin) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(rawOrigin);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+function resolveRuntimeOrigin(currentOrigin = "") {
+  const normalizedCurrentOrigin = normalizeSurfaceOrigin(currentOrigin);
+  if (normalizedCurrentOrigin) {
+    return normalizedCurrentOrigin;
+  }
+
+  if (typeof window === "object" && window?.location?.origin) {
+    return normalizeSurfaceOrigin(window.location.origin);
+  }
+
+  return "";
+}
+
+function resolveSurfaceNavigationTargetFromPlacementContext(
+  contextValue = null,
+  {
+    path = "/",
+    surfaceId = "",
+    currentOrigin = ""
+  } = {}
+) {
+  const rawPath = String(path || "").trim() || "/";
+  if (isExternalLinkTarget(rawPath)) {
+    return Object.freeze({
+      href: rawPath,
+      sameOrigin: false,
+      surfaceId: normalizeSurfaceId(surfaceId),
+      external: true
+    });
+  }
+
+  const { pathname, search, hash } = splitPathQueryHash(rawPath);
+  const normalizedPathname = normalizePathname(pathname || "/");
+  const normalizedPath = `${normalizedPathname}${search}${hash}`;
+  const resolvedSurfaceId =
+    normalizeSurfaceId(surfaceId) ||
+    resolveSurfaceIdFromPlacementPathname(contextValue, normalizedPathname) ||
+    "";
+  const surfaceDefinition = resolvedSurfaceId
+    ? resolveSurfaceDefinitionFromPlacementContext(contextValue, resolvedSurfaceId)
+    : null;
+  const targetOrigin = normalizeSurfaceOrigin(surfaceDefinition?.origin || "");
+  const runtimeOrigin = resolveRuntimeOrigin(currentOrigin);
+
+  if (!targetOrigin) {
+    return Object.freeze({
+      href: normalizedPath,
+      sameOrigin: true,
+      surfaceId: resolvedSurfaceId,
+      external: false
+    });
+  }
+
+  if (runtimeOrigin && targetOrigin === runtimeOrigin) {
+    return Object.freeze({
+      href: normalizedPath,
+      sameOrigin: true,
+      surfaceId: resolvedSurfaceId,
+      external: false
+    });
+  }
+
+  return Object.freeze({
+    href: `${targetOrigin}${normalizedPath}`,
+    sameOrigin: false,
+    surfaceId: resolvedSurfaceId,
+    external: false
+  });
+}
+
 function createPlacementSurfacePathHelpers(surfaceConfig = EMPTY_SURFACE_CONFIG) {
   const surfacesById = isRecord(surfaceConfig.surfacesById) ? surfaceConfig.surfacesById : {};
   const defaultSurfaceId = normalizeSurfaceId(surfaceConfig.defaultSurfaceId);
@@ -199,5 +287,7 @@ export {
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext,
-  resolveSurfacePathFromPlacementContext
+  resolveSurfacePathFromPlacementContext,
+  normalizeSurfaceOrigin,
+  resolveSurfaceNavigationTargetFromPlacementContext
 };

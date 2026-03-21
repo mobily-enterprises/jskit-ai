@@ -87,11 +87,41 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
 
   X Re-add realtime
   X Re-add crud
+  X Destination surface for CRUD?
+  X Protect /console and /app
+  X Chiara has access to Console?!?
 
-  - Destination surface for CRUD?
-  - Protect /console and /app
-  - Chiara has access to Console?!?
-  - If logged out, redirect to login immediately, check page permissions if not logged out
+  CHECK:
+   - Surface-protection works
+     - CONFIG FOR THIS: If logged out, redirect to login immediately, check page permissions if not logged out
+   - Everything works with new surfaces + check that surfaces work
+   - CRUD works 
+ 
+   Default surface from config (surfaceDefaultId), auto visibility:
+
+jskit add package @jskit-ai/crud --namespace invoices --visibility auto --no-install
+
+Explicit workspace surface:
+
+jskit add package @jskit-ai/crud --namespace customers --surface app --visibility auto --no-install
+
+Explicit auth-only surface:
+
+jskit add package @jskit-ai/crud --namespace notes --surface console --visibility auto --no-install
+
+Explicit public surface:
+
+jskit add package @jskit-ai/crud --namespace announcements --surface home --visibility auto --no-install
+
+Explicit workspace visibility on workspace surface:
+
+jskit add package @jskit-ai/crud --namespace tasks --surface admin --visibility workspace_user --no-install
+
+Intentional invalid combo (should fail fast):
+
+jskit add package @jskit-ai/crud --namespace badcase --surface console --visibility workspace --no-install
+
+THEN:
   
   - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   - Re-add icons

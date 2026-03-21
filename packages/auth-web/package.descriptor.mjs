@@ -134,7 +134,8 @@ export default Object.freeze({
         {
           "id": "auth.login",
           "path": "/auth/login",
-          "scope": "global",
+          "scope": "surface",
+          "surface": "auth",
           "name": "auth-login",
           "componentKey": "auth-login",
           "autoRegister": false,
@@ -146,7 +147,8 @@ export default Object.freeze({
         {
           "id": "auth.signout",
           "path": "/auth/signout",
-          "scope": "global",
+          "scope": "surface",
+          "surface": "auth",
           "name": "auth-signout",
           "componentKey": "auth-signout",
           "autoRegister": false,
@@ -158,7 +160,8 @@ export default Object.freeze({
         {
           "id": "auth.default-login",
           "path": "/auth/default-login",
-          "scope": "global",
+          "scope": "surface",
+          "surface": "auth",
           "name": "auth-default-login",
           "componentKey": "auth-default-login",
           "autoRegister": true,
@@ -249,19 +252,29 @@ export default Object.freeze({
       {
         "from": "templates/src/pages/auth/login.vue",
         "to": "src/pages/auth/login.vue",
-        "reason": "Provide a global /auth/login wrapper that renders the package login view.",
+        "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
         "category": "auth-web",
         "id": "auth-page-login"
       },
       {
         "from": "templates/src/pages/auth/signout.vue",
         "to": "src/pages/auth/signout.vue",
-        "reason": "Provide a global /auth/signout wrapper that renders the package sign-out view.",
+        "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
         "category": "auth-web",
         "id": "auth-page-signout"
       }
     ],
     "text": [
+      {
+        "op": "append-text",
+        "file": "config/public.js",
+        "position": "bottom",
+        "skipIfContains": "config.surfaceDefinitions.auth = {",
+        "value": "\nconfig.surfaceDefinitions.auth = {\n  id: \"auth\",\n  label: \"Auth\",\n  pagesRoot: \"auth\",\n  enabled: true,\n  requiresAuth: false,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
+        "reason": "Register auth surface definition in public surface config.",
+        "category": "auth-web",
+        "id": "auth-web-surface-config-auth"
+      },
       {
         "op": "append-text",
         "file": "src/placement.js",

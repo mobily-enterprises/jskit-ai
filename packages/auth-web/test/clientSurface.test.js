@@ -14,13 +14,14 @@ import {
   performSignOutRequest as fromRuntimePerformSignOutRequest
 } from "../src/client/runtime/useSignOut.js";
 
-test("auth-web descriptor declares global ui routes", () => {
+test("auth-web descriptor declares auth surface ui routes", () => {
   const uiRoutes = Array.isArray(descriptor?.metadata?.ui?.routes) ? descriptor.metadata.ui.routes : [];
   const authRoutes = uiRoutes.filter((route) => String(route?.path || "").startsWith("/auth/"));
 
   assert.equal(authRoutes.length >= 2, true);
   for (const route of authRoutes) {
-    assert.equal(String(route?.scope || "").trim().toLowerCase(), "global");
+    assert.equal(String(route?.scope || "").trim().toLowerCase(), "surface");
+    assert.equal(String(route?.surface || "").trim().toLowerCase(), "auth");
     assert.equal(String(route?.guard?.policy || "").trim().toLowerCase(), "public");
   }
 });

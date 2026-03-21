@@ -1,8 +1,8 @@
 <route lang="json">
 {
   "meta": {
-    "jskit": {
-      "scope": "global"
+    "guard": {
+      "policy": "authenticated"
     }
   }
 }

@@ -16,8 +16,8 @@ const AUTH_LOGIN_OTP_REQUEST_MESSAGES = createCommandMessages({
       default: "Enter a valid email address."
     },
     returnTo: {
-      pattern: "Return path must start with '/'.",
-      default: "Return path must start with '/'."
+      pattern: "Return target must be an absolute path or URL.",
+      default: "Return target must be an absolute path or URL."
     }
   }
 });

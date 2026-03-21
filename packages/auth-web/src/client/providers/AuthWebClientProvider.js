@@ -4,7 +4,10 @@ import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
 import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
-import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/placement";
+import {
+  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
+  resolveSurfaceNavigationTargetFromPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 import {
   AUTH_GUARD_RUNTIME_CLIENT_TOKEN,
   AUTH_GUARD_RUNTIME_INJECTION_KEY
@@ -33,8 +36,12 @@ class AuthWebClientProvider {
 
       const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
       const realtimeSocket = app.has(REALTIME_SOCKET_CLIENT_TOKEN) ? app.make(REALTIME_SOCKET_CLIENT_TOKEN) : null;
+      const loginRouteTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementRuntime.getContext(), {
+        path: "/auth/login",
+        surfaceId: "auth"
+      });
       return createAuthGuardRuntime({
-        loginRoute: "/auth/login",
+        loginRoute: loginRouteTarget.href,
         placementRuntime,
         realtimeSocket
       });
