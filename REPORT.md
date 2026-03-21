@@ -105,9 +105,8 @@ These are not cosmetic. Several findings are functional correctness or portabili
 - Files:
   - `docs/examples/03.real-app/README.md`
   - `docs/examples/03.real-app/package.descriptor.mjs`
-  - `docs/examples/manifest.json`
 - Why this is a slop marker:
-  - Repeated stage definitions diverged (README/provider list vs manifest stage coverage).
+  - Repeated stage definitions diverged (README provider list vs descriptor coverage).
 
 11. Repeated normalization/rule logic across multiple stage files
 - Files:
