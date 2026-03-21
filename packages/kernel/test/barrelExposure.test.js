@@ -53,6 +53,19 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "getClientAppConfig",
       "resolveClientBootstrapDebugEnabled"
     ])
+  }),
+  Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "shared", "index.js"),
+    expectedExports: Object.freeze([
+      "normalizePathname",
+      "resolveLinkPath"
+    ])
+  }),
+  Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "http", "index.js"),
+    expectedExports: Object.freeze([
+      "registerRouteVisibilityResolver"
+    ])
   })
 ]);
 

@@ -11,13 +11,6 @@ import {
 const SERVICE_REGISTRATION_TAG = Symbol.for("jskit.runtime.services.registrations");
 const ENTITY_CHANGED_EVENT_TYPE = "entity.changed";
 const DEFAULT_REALTIME_AUDIENCE = "event_scope";
-const REALTIME_AUDIENCE_PRESETS = new Set([
-  "none",
-  "all_clients",
-  "all_users",
-  "actor_user",
-  "event_scope"
-]);
 let SERVICE_REGISTRATION_INDEX = 0;
 
 function normalizeMethodName(value, { context = "service method" } = {}) {
@@ -103,10 +96,8 @@ function normalizeRealtimeAudience(value, { context = "service event.realtime.au
 
   if (typeof value === "string") {
     const preset = normalizeText(value).toLowerCase();
-    if (!REALTIME_AUDIENCE_PRESETS.has(preset)) {
-      throw new TypeError(
-        `${context} must be one of: ${[...REALTIME_AUDIENCE_PRESETS].join(", ")}, or a function/object.`
-      );
+    if (!preset) {
+      throw new TypeError(`${context} must be a non-empty string, function, or object.`);
     }
     return preset;
   }

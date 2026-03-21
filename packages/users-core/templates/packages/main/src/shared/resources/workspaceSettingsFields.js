@@ -1,3 +1,6 @@
+// @jskit-contract users.settings-fields.workspace.v1
+// Append-only settings field registrations for workspace settings.
+
 import { Type } from "typebox";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { coerceWorkspaceColor } from "@jskit-ai/users-core/shared/settings";

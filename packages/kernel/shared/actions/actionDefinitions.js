@@ -1,7 +1,8 @@
 import { Type } from "typebox";
 import { mergeValidators } from "../validators/mergeValidators.js";
 import { normalizeObjectInput } from "../validators/inputNormalization.js";
-import { isRecord as isPlainObject } from "../support/normalize.js";
+import { isRecord as isPlainObject, normalizePositiveInteger } from "../support/normalize.js";
+import { normalizePermissionList } from "../support/permissions.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -28,15 +29,6 @@ class ActionRuntimeError extends Error {
 
 function createActionRuntimeError(status, message, options = {}) {
   return new ActionRuntimeError(status, message, options);
-}
-
-function normalizePositiveInteger(value, fallback = 1) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return parsed;
 }
 
 function normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {}) {
@@ -255,19 +247,6 @@ function normalizeActionOutputValidator(value, fieldName, { required = false } =
   });
 }
 
-function normalizePermissionList(value) {
-  const source = Array.isArray(value) ? value : [value];
-  return Object.freeze(
-    Array.from(
-      new Set(
-        source
-          .map((entry) => normalizeText(entry))
-          .filter(Boolean)
-      )
-    )
-  );
-}
-
 function normalizeActionPermission(permission, actionId) {
   if (permission == null) {
     return Object.freeze({
@@ -301,7 +280,7 @@ function normalizeActionPermission(permission, actionId) {
 
   return Object.freeze({
     require: requireMode,
-    permissions: normalizePermissionList(permission.permissions),
+    permissions: Object.freeze(normalizePermissionList(permission.permissions)),
     message: normalizeText(permission.message),
     code: normalizeText(permission.code)
   });
@@ -367,7 +346,9 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
-  const version = normalizePositiveInteger(source.version, 1);
+  const version = normalizePositiveInteger(source.version, {
+    fallback: 1
+  });
   const domain = normalizeActionDomain(source.domain || contributorDomain, {
     context: `Action definition \"${id}\" domain`,
     errorCode: "ACTION_DEFINITION_INVALID"
@@ -390,12 +371,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
 
   if (Object.prototype.hasOwnProperty.call(source, "visibility")) {
     throw createActionRuntimeError(500, `Action definition \"${id}\" visibility is not supported.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  if (Object.prototype.hasOwnProperty.call(source, "consoleUsersOnly")) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" consoleUsersOnly is not supported.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
@@ -484,13 +459,12 @@ function normalizeActionContributor(contributor) {
 }
 
 function createActionVersionKey(actionId, version) {
-  return `${normalizeText(actionId)}@v${normalizePositiveInteger(version, 1)}`;
+  return `${normalizeText(actionId)}@v${normalizePositiveInteger(version, { fallback: 1 })}`;
 }
 
 const __testables = {
   normalizeText,
   isPlainObject,
-  normalizePositiveInteger,
   normalizeStringArray,
   normalizeSingleActionValidator,
   normalizeSectionActionValidatorMap,

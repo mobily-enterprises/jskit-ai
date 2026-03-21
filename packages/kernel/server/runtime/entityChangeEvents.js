@@ -3,23 +3,6 @@ import { resolveServiceContext } from "./serviceAuthorization.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
-function createUserScope(userOwnerId) {
-  const normalizedUserOwnerId = normalizeOpaqueId(userOwnerId);
-  if (normalizedUserOwnerId == null) {
-    return null;
-  }
-
-  return {
-    kind: "user",
-    id: normalizedUserOwnerId
-  };
-}
-
-function resolveContextUserOwnerId(context = {}) {
-  const actor = context?.actor || context?.user || context?.request?.user;
-  return normalizeOpaqueId(actor?.id);
-}
-
 function resolveContextScope(context = {}) {
   const sourceScope = normalizeObject(context?.scope || context?.requestMeta?.scope || context?.request?.scope);
   const kind = normalizeText(sourceScope.kind).toLowerCase();
@@ -60,7 +43,7 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
   const visibility = normalizeText(visibilityContext.visibility).toLowerCase();
   const scopeKind = normalizeText(visibilityContext.scopeKind || visibility).toLowerCase();
   const scopeOwnerId = normalizeOpaqueId(visibilityContext.scopeOwnerId);
-  const userOwnerId = normalizeOpaqueId(visibilityContext.userOwnerId) ?? resolveContextUserOwnerId(runtimeContext);
+  const userOwnerId = normalizeOpaqueId(visibilityContext.userOwnerId);
   const requiresActorScope = visibilityContext.requiresActorScope === true;
 
   if (requiresActorScope && userOwnerId == null) {
@@ -89,7 +72,14 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
     };
   }
 
-  return createUserScope(userOwnerId);
+  if (scopeKind === "user" && userOwnerId != null) {
+    return {
+      kind: "user",
+      id: userOwnerId
+    };
+  }
+
+  return null;
 }
 
 function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
@@ -103,11 +93,6 @@ function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
   const contextScope = resolveContextScope(runtimeContext);
   if (contextScope) {
     return contextScope;
-  }
-
-  const userScope = createUserScope(resolveContextUserOwnerId(runtimeContext));
-  if (userScope) {
-    return userScope;
   }
 
   return {

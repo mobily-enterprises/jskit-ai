@@ -277,42 +277,44 @@ test("action registry rejects invalid version requests", async () => {
   );
 });
 
-test("action registry rejects deprecated consoleUsersOnly field", () => {
-  assert.throws(
-    () =>
-      createActionRegistry({
-        contributors: [
+test("action registry ignores unknown legacy fields", async () => {
+  const registry = createActionRegistry({
+    contributors: [
+      {
+        contributorId: "tests.internal",
+        domain: "settings",
+        actions: [
           {
-            contributorId: "tests.internal",
+            id: "settings.internal.ping",
+            version: 1,
             domain: "settings",
-            actions: [
-              {
-                id: "settings.internal.ping",
-                version: 1,
-                domain: "settings",
-                kind: "query",
-                channels: ["api", "internal"],
-                surfaces: ["app"],
-                consoleUsersOnly: true,
-                inputValidator: { schema: createPassThroughSchema() },
-                idempotency: "none",
-                audit: {
-                  actionName: "settings.internal.ping"
-                },
-                observability: {},
-                async execute() {
-                  return { ok: true };
-                }
-              }
-            ]
+            kind: "query",
+            channels: ["api", "internal"],
+            surfaces: ["app"],
+            consoleUsersOnly: true,
+            inputValidator: { schema: createPassThroughSchema() },
+            idempotency: "none",
+            audit: {
+              actionName: "settings.internal.ping"
+            },
+            observability: {},
+            async execute() {
+              return { ok: true };
+            }
           }
         ]
-      }),
-    (error) => {
-      assert.equal(error?.code, "ACTION_DEFINITION_INVALID");
-      return String(error?.message || "").includes("consoleUsersOnly is not supported");
+      }
+    ]
+  });
+
+  const result = await registry.execute({
+    actionId: "settings.internal.ping",
+    context: {
+      channel: "api",
+      surface: "app"
     }
-  );
+  });
+  assert.deepEqual(result, { ok: true });
 });
 
 test("action registry enforces action-level permissions", async () => {

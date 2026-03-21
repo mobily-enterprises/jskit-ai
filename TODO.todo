@@ -299,21 +299,12 @@ Task:
    ›     Do a multi-pass, thorough and careful check, where you check for:
  
         * Typical AI slop. This includes (amongst other things) repetition of code, overcomplication, string indirection, etc
-        * General         * Typical AI slop. This includes (amongst other things) repetition of code, overcomplication, string indirection, etc
         * General structure. Check that the whole module has a solid structure.
         * Layering. Check that there is good layering in the code.
         * Ownership. This is very important. Make sure kernel only does things that are generally useful for every module. If you see something that isn't,
         recommend which module it should go to, and why.
         * Visible API. You will have to look at the whole repo for this: is it exposing too much API, compared to what other modules actually use?
-        * Surface independence: make sure the module doesn't have "app", "public", etc.
- 
-        DO it!
-structure. Check that the whole module has a solid structure.
-        * Layering. Check that there is good layering in the code.
-        * Ownership. This is very important. Make sure kernel only does things that are generally useful for every module. If you see something that isn't,
-        recommend which module it should go to, and why.
-        * Visible API. You will have to look at the whole repo for this: is it exposing too much API, compared to what other modules actually use?
-        * Surface independence: make sure the module doesn't have "app", "public", etc.
- 
+        * Modules other than kernel, users-* and 
+        
         DO it!
 

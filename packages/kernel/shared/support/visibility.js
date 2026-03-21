@@ -33,7 +33,7 @@ function normalizeRouteVisibility(value, { fallback = "public" } = {}) {
   return "public";
 }
 
-function normalizeScopeKind(value) {
+function normalizeVisibilityScopeKind(value) {
   const normalized = normalizeText(value).toLowerCase();
   return normalized || null;
 }
@@ -41,7 +41,7 @@ function normalizeScopeKind(value) {
 function normalizeVisibilityContext(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const normalizedVisibility = normalizeRouteVisibilityToken(source.visibility);
-  const normalizedScopeKind = normalizeScopeKind(source.scopeKind);
+  const normalizedScopeKind = normalizeVisibilityScopeKind(source.scopeKind);
 
   return Object.freeze({
     visibility: normalizedVisibility,

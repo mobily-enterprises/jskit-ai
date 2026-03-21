@@ -157,3 +157,41 @@ test("app.service keeps realtime audience callbacks", () => {
   const service = app.make("test.audience.service");
   assert.equal(typeof service.serviceEvents.updateRecord[0].realtime.audience, "function");
 });
+
+test("app.service accepts opaque realtime audience string presets", () => {
+  const app = createContainer();
+  app.singleton("domainEvents", () => ({
+    async publish() {
+      return null;
+    }
+  }));
+  installServiceRegistrationApi(app);
+
+  app.service(
+    "test.opaque.audience.service",
+    () => ({
+      async updateRecord() {
+        return { id: 2 };
+      }
+    }),
+    {
+      events: {
+        updateRecord: [
+          {
+            type: "entity.changed",
+            source: "crud",
+            entity: "record",
+            operation: "updated",
+            realtime: {
+              event: "customers.record.changed",
+              audience: "workspace_member"
+            }
+          }
+        ]
+      }
+    }
+  );
+
+  const service = app.make("test.opaque.audience.service");
+  assert.equal(service.serviceEvents.updateRecord[0].realtime.audience, "workspace_member");
+});

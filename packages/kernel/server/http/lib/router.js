@@ -25,7 +25,7 @@ function joinPath(left, right) {
   return joined || "/";
 }
 
-function normalizeMiddlewareStack(value, { context = "middleware" } = {}) {
+function normalizeRouterMiddlewareStack(value, { context = "middleware" } = {}) {
   return normalizeSharedMiddlewareStack(value, {
     context,
     ErrorType: RouteDefinitionError,
@@ -64,7 +64,7 @@ class HttpRouter {
   constructor({ routes = null, prefix = "", middleware = [] } = {}) {
     this._routes = Array.isArray(routes) ? routes : [];
     this._prefix = normalizeText(prefix);
-    this._middleware = normalizeMiddlewareStack(middleware, {
+    this._middleware = normalizeRouterMiddlewareStack(middleware, {
       context: "router middleware"
     });
   }
@@ -76,7 +76,7 @@ class HttpRouter {
       path: input.path,
       options: input.options
     });
-    const routeMiddleware = normalizeMiddlewareStack(resolvedOptions.middleware, {
+    const routeMiddleware = normalizeRouterMiddlewareStack(resolvedOptions.middleware, {
       context: `Route ${input.method} ${input.path} middleware`
     });
     const routeInput = Object.prototype.hasOwnProperty.call(resolvedOptions, "input") ? resolvedOptions.input : null;
@@ -138,7 +138,7 @@ class HttpRouter {
       prefix: joinPath(this._prefix, prefix || ""),
       middleware: [
         ...this._middleware,
-        ...normalizeMiddlewareStack(middleware, {
+        ...normalizeRouterMiddlewareStack(middleware, {
           context: "group middleware"
         })
       ]
@@ -171,7 +171,7 @@ class HttpRouter {
     const itemPath = `/${resourceName}/:${idParam}`;
 
     const methods = normalizeObject(controller);
-    const middleware = normalizeMiddlewareStack(options.middleware, {
+    const middleware = normalizeRouterMiddlewareStack(options.middleware, {
       context: `resource ${resourceName} middleware`
     });
 

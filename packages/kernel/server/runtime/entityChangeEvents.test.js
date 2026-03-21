@@ -133,6 +133,7 @@ test("entity change publisher supports opaque actor and scope identifiers", asyn
       visibilityContext: {
         scopeKind: "workspace_user",
         scopeOwnerId: "workspace_23",
+        userOwnerId: "user_17",
         requiresActorScope: true
       }
     }
@@ -143,6 +144,37 @@ test("entity change publisher supports opaque actor and scope identifiers", asyn
     id: "workspace_23",
     scopeId: "workspace_23",
     userId: "user_17"
+  });
+  assert.equal(payload?.actorId, "user_17");
+  assert.equal(published.length, 1);
+});
+
+test("entity change publisher does not infer actor-scoped ownership from actor.id", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "workspace",
+    entity: "settings"
+  });
+
+  const payload = await publishEntityChange("updated", 11, {
+    context: {
+      actor: { id: "user_17" },
+      visibilityContext: {
+        scopeKind: "workspace_user",
+        scopeOwnerId: "workspace_23",
+        requiresActorScope: true
+      }
+    }
+  });
+
+  assert.deepEqual(payload?.scope, {
+    kind: "global",
+    id: null
   });
   assert.equal(payload?.actorId, "user_17");
   assert.equal(published.length, 1);

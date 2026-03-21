@@ -7,9 +7,6 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/providers/UsersWebClientProvider": "./src/client/providers/UsersWebClientProvider.js",
-    "./client/components/ProfileClientElement": "./src/client/components/ProfileClientElement.vue",
-    "./client/components/WorkspacesClientElement": "./src/client/components/WorkspacesClientElement.vue",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
     "./client/composables/useAddEdit": "./src/client/composables/useAddEdit.js",
     "./client/composables/useList": "./src/client/composables/useList.js",

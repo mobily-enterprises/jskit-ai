@@ -6,32 +6,22 @@
     "test": "node --test"
   },
   "exports": {
-    "./client": "./src/client/index.js",
-    "./server/UsersCoreServiceProvider": "./src/server/UsersCoreServiceProvider.js",
     "./server/support/workspaceActionSurfaces": "./src/server/support/workspaceActionSurfaces.js",
     "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
     "./server/support/resolveWorkspace": "./src/server/support/resolveWorkspace.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
-    "./shared": "./src/shared/index.js",
-    "./shared/roles": "./src/shared/roles.js",
     "./shared/settings": "./src/shared/settings.js",
-    "./shared/operationMessages": "./src/shared/operationMessages.js",
     "./shared/events/usersEvents": "./src/shared/events/usersEvents.js",
-    "./shared/tenancyMode": "./src/shared/tenancyMode.js",
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/usersVisibility": "./src/shared/support/usersVisibility.js",
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",
     "./shared/support/usersApiPaths": "./src/shared/support/usersApiPaths.js",
-    "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
     "./shared/resources/workspaceSettingsFields": "./src/shared/resources/workspaceSettingsFields.js",
-    "./shared/resources/workspaceMembersResource": "./src/shared/resources/workspaceMembersResource.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsFields": "./src/shared/resources/userSettingsFields.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
-    "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js",
-    "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js",
-    "./shared/resources/workspacePendingInvitationsResource": "./src/shared/resources/workspacePendingInvitationsResource.js"
+    "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.0",
