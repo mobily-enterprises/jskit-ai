@@ -1,4 +1,4 @@
-import { proxyRefs } from "vue";
+import { computed, proxyRefs } from "vue";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
@@ -103,6 +103,9 @@ function useAddEdit({
     fieldBag
   });
 
+  const isInitialLoading = operationScope.isLoading(endpointResource.isInitialLoading);
+  const isFetching = operationScope.isLoading(endpointResource.isFetching);
+  const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
   setupOperationErrorReporting({
@@ -114,6 +117,9 @@ function useAddEdit({
     canView,
     canSave,
     loadError,
+    isInitialLoading,
+    isFetching,
+    isRefetching,
     isLoading,
     isSaving: addEdit.saving,
     fieldErrors: addEdit.fieldErrors,

@@ -2,6 +2,7 @@ import { watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
+import { captureModelSnapshot, restoreModelSnapshot } from "./modelStateHelpers.js";
 
 function useAddEditCore({
   model,
@@ -18,6 +19,21 @@ function useAddEditCore({
   messages = {}
 } = {}) {
   const queryClient = useQueryClient();
+  const modelSnapshot = captureModelSnapshot(model);
+
+  watch(
+    () => resource?.query?.isPending?.value,
+    (isPending) => {
+      if (!isPending || !modelSnapshot) {
+        return;
+      }
+
+      restoreModelSnapshot(model, modelSnapshot);
+    },
+    {
+      immediate: true
+    }
+  );
 
   watch(
     () => resource?.data?.value,

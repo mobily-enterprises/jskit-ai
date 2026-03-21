@@ -9,14 +9,26 @@
           </div>
           <v-spacer />
           <v-btn variant="text" :to="viewPath || listPath">Cancel</v-btn>
-          <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
+          <v-btn
+            color="primary"
+            :loading="addEdit.isSaving"
+            :disabled="addEdit.isInitialLoading || addEdit.isRefetching || !addEdit.canSave"
+            @click="addEdit.submit"
+          >
             Save changes
           </v-btn>
         </div>
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-form v-if="!addEdit.loadError" @submit.prevent="addEdit.submit" novalidate>
+        <p v-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
+          {{ addEdit.loadError }}
+        </p>
+        <template v-else-if="showFormSkeleton">
+          <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
+        </template>
+        <v-form v-else @submit.prevent="addEdit.submit" novalidate>
+          <v-progress-linear v-if="addEdit.isRefetching" indeterminate class="mb-4" />
           <v-row>
             <v-col cols="12" md="6">
               <v-text-field
@@ -25,7 +37,7 @@
                 variant="outlined"
                 density="comfortable"
                 maxlength="160"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.textField ? [addEdit.fieldErrors.textField] : []"
               />
             </v-col>
@@ -36,7 +48,7 @@
                 type="date"
                 variant="outlined"
                 density="comfortable"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.dateField ? [addEdit.fieldErrors.dateField] : []"
               />
             </v-col>
@@ -47,7 +59,7 @@
                 type="number"
                 variant="outlined"
                 density="comfortable"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.numberField ? [addEdit.fieldErrors.numberField] : []"
               />
             </v-col>
@@ -59,7 +71,7 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { computed, reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import {
@@ -123,4 +135,6 @@ const addEdit = useAddEdit({
     await invalidateAndGoView(queryClient, payload?.id || recordId.value);
   }
 });
+
+const showFormSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
 </script>

@@ -66,7 +66,10 @@ function useEndpointResource({
   });
 
   const data = computed(() => query.data.value);
-  const isLoading = computed(() => Boolean(queryEnabled.value && (query.isPending.value || query.isFetching.value)));
+  const isInitialLoading = computed(() => Boolean(queryEnabled.value && query.isPending.value));
+  const isFetching = computed(() => Boolean(queryEnabled.value && query.isFetching.value));
+  const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
+  const isLoading = computed(() => Boolean(isInitialLoading.value || isFetching.value));
   const isSaving = computed(() => Boolean(mutation.isPending.value));
   const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, "Request failed."));
   const saveError = computed(() => toQueryErrorMessage(mutation.error.value, fallbackSaveError, "Request failed."));
@@ -86,6 +89,9 @@ function useEndpointResource({
     query,
     mutation,
     data,
+    isInitialLoading,
+    isFetching,
+    isRefetching,
     isLoading,
     isSaving,
     loadError,

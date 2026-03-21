@@ -1,3 +1,4 @@
+import { computed } from "vue";
 import { useListCore } from "./useListCore.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
@@ -46,6 +47,9 @@ function useList({
     fallbackLoadError
   });
 
+  const isInitialLoading = operationScope.isLoading(list.isInitialLoading);
+  const isFetching = operationScope.isLoading(list.isFetching);
+  const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const loadError = operationScope.loadError(list.loadError);
   const isLoading = operationScope.isLoading(list.isLoading);
   setupOperationErrorReporting({
@@ -63,6 +67,9 @@ function useList({
 
   return Object.freeze({
     canView,
+    isInitialLoading,
+    isFetching,
+    isRefetching,
     isLoading,
     isLoadingMore: list.isLoadingMore,
     hasMore: list.hasMore,

@@ -1,4 +1,5 @@
 import { computed, watch } from "vue";
+import { captureModelSnapshot, restoreModelSnapshot } from "./modelStateHelpers.js";
 
 function normalizeStatusList(value) {
   if (Array.isArray(value)) {
@@ -17,6 +18,21 @@ function useViewCore({
   notFoundMessage = "Record not found."
 } = {}) {
   const statusList = normalizeStatusList(notFoundStatuses);
+  const modelSnapshot = captureModelSnapshot(model);
+
+  watch(
+    () => resource?.query?.isPending?.value,
+    (isPending) => {
+      if (!isPending || !modelSnapshot) {
+        return;
+      }
+
+      restoreModelSnapshot(model, modelSnapshot);
+    },
+    {
+      immediate: true
+    }
+  );
 
   watch(
     () => resource?.data?.value,

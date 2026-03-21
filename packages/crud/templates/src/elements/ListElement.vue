@@ -8,49 +8,57 @@
             <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="outlined" :loading="isLoading" @click="records.reload">Refresh</v-btn>
+          <v-btn variant="outlined" :loading="isFetching" @click="records.reload">Refresh</v-btn>
           <v-btn color="primary" :to="createPath">New ${option:namespace|singular|default(record)}</v-btn>
         </div>
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <v-table density="comfortable">
-          <thead>
-            <tr>
-              <th>Text field</th>
-              <th>Date field</th>
-              <th>Number field</th>
-              <th>Updated</th>
-              <th class="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="items.length < 1">
-              <td colspan="5" class="text-center py-6 text-medium-emphasis">No records yet.</td>
-            </tr>
-            <tr v-for="record in items" :key="record.id">
-              <td>{{ record.textField }}</td>
-              <td>{{ crudContext.formatDateTime(record.dateField) }}</td>
-              <td>{{ record.numberField }}</td>
-              <td>{{ crudContext.formatDateTime(record.updatedAt) }}</td>
-              <td class="text-right">
-                <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id)">
-                  Open
-                </v-btn>
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
+        <template v-if="showListSkeleton">
+          <v-skeleton-loader type="text@2, list-item-two-line@5" />
+        </template>
+        <template v-else>
+          <v-progress-linear v-if="isRefetching" indeterminate class="mb-3" />
 
-        <div v-if="hasMore" class="d-flex justify-center pt-4">
-          <v-btn variant="text" :loading="isLoadingMore" @click="records.loadMore">Load more</v-btn>
-        </div>
+          <v-table density="comfortable">
+            <thead>
+              <tr>
+                <th>Text field</th>
+                <th>Date field</th>
+                <th>Number field</th>
+                <th>Updated</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="items.length < 1">
+                <td colspan="5" class="text-center py-6 text-medium-emphasis">No records yet.</td>
+              </tr>
+              <tr v-for="record in items" :key="record.id">
+                <td>{{ record.textField }}</td>
+                <td>{{ crudContext.formatDateTime(record.dateField) }}</td>
+                <td>{{ record.numberField }}</td>
+                <td>{{ crudContext.formatDateTime(record.updatedAt) }}</td>
+                <td class="text-right">
+                  <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id)">
+                    Open
+                  </v-btn>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+
+          <div v-if="hasMore" class="d-flex justify-center pt-4">
+            <v-btn variant="text" :loading="isLoadingMore" @click="records.loadMore">Load more</v-btn>
+          </div>
+        </template>
       </v-card-text>
     </v-card>
   </section>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import { useCrudListRuntime, useCrudModulePolicyRuntime } from "./clientSupport.js";
 
@@ -71,7 +79,10 @@ const records = useList({
 });
 
 const items = records.items;
-const isLoading = records.isLoading;
+const isLoading = records.isInitialLoading;
+const isFetching = records.isFetching;
+const isRefetching = records.isRefetching;
 const hasMore = records.hasMore;
 const isLoadingMore = records.isLoadingMore;
+const showListSkeleton = computed(() => Boolean(isLoading.value && items.value.length < 1));
 </script>

@@ -86,7 +86,10 @@ function usePagedCollection({
     return result;
   });
 
-  const isLoading = computed(() => Boolean(query.isPending.value || query.isFetching.value));
+  const isInitialLoading = computed(() => Boolean(query.isPending.value));
+  const isFetching = computed(() => Boolean(query.isFetching.value));
+  const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
+  const isLoading = computed(() => Boolean(isInitialLoading.value || isFetching.value));
   const isLoadingMore = computed(() => Boolean(query.isFetchingNextPage.value));
   const hasMore = computed(() => Boolean(query.hasNextPage.value));
   const loadError = computed(() => toQueryErrorMessage(query.error.value, fallbackLoadError, "Unable to load list."));
@@ -107,6 +110,9 @@ function usePagedCollection({
     query,
     pages,
     items,
+    isInitialLoading,
+    isFetching,
+    isRefetching,
     isLoading,
     isLoadingMore,
     hasMore,

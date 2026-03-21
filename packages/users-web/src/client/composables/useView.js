@@ -1,3 +1,4 @@
+import { computed } from "vue";
 import { useViewCore } from "./useViewCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
@@ -55,6 +56,7 @@ function useView({
   const loadError = operationScope.loadError(view.loadError);
   const isLoading = operationScope.isLoading(view.isLoading);
   const isFetching = operationScope.isLoading(view.isFetching);
+  const isRefetching = computed(() => Boolean(isFetching.value && !isLoading.value));
   setupOperationErrorReporting({
     source: `${placementSource}.load`,
     loadError,
@@ -74,6 +76,7 @@ function useView({
     canView,
     isLoading,
     isFetching,
+    isRefetching,
     isNotFound: view.isNotFound,
     notFoundError: view.notFoundError,
     loadError,

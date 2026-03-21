@@ -19,12 +19,12 @@
           Record unavailable.
         </div>
 
-        <div v-else-if="view.isLoading.value" class="d-flex align-center ga-3 text-medium-emphasis">
-          <v-progress-circular indeterminate size="18" width="2" />
-          <span>Loading ${option:namespace|singular|default(record)}...</span>
-        </div>
+        <template v-else-if="view.isLoading.value">
+          <v-skeleton-loader type="text@2, list-item-two-line@5" />
+        </template>
 
         <template v-else>
+          <v-progress-linear v-if="view.isRefetching.value" indeterminate class="mb-4" />
           <v-row>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Text field</div>
