@@ -1,4 +1,5 @@
 import { registerBootstrapPayloadContributor } from "@jskit-ai/kernel/server/runtime";
+import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import {
   USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN,
   USERS_TENANCY_PROFILE_TOKEN,
@@ -24,7 +25,7 @@ function registerWorkspaceBootstrap(app) {
       workspaceInvitationsEnabled,
       userProfilesRepository: scope.make("userProfilesRepository"),
       userSettingsRepository: scope.make("userSettingsRepository"),
-      appConfig: scope.has("appConfig") ? scope.make("appConfig") : {},
+      appConfig: resolveAppConfig(scope),
       tenancyProfile: scope.make(USERS_TENANCY_PROFILE_TOKEN),
       authService: scope.make("authService"),
       consoleService: scope.has("consoleService") ? scope.make("consoleService") : null

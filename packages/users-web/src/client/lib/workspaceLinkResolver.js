@@ -21,15 +21,15 @@ function normalizeSurfaceId(value = "") {
 
 function resolveSurfaceBasePath(context = null, surface = "") {
   const normalizedSurface = normalizeSurfaceId(surface);
-  if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
-    return resolveSurfaceRootPathFromPlacementContext(context, normalizedSurface);
-  }
-
   if (!normalizedSurface) {
-    return "/";
+    return "";
   }
 
-  return `/${normalizedSurface}`;
+  if (!resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
+    return "";
+  }
+
+  return resolveSurfaceRootPathFromPlacementContext(context, normalizedSurface);
 }
 
 function resolveWorkspaceSlugFromContextOrPath({
@@ -68,26 +68,19 @@ function resolveWorkspaceSlugFromContextOrPath({
 function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = "") {
   const normalizedSurface = normalizeSurfaceId(surface);
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
-  if (!normalizedWorkspaceSlug) {
+  if (!normalizedSurface || !normalizedWorkspaceSlug) {
     return "";
   }
 
-  if (normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
-    if (!surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
-      return resolveSurfaceBasePath(context, normalizedSurface);
-    }
-    return resolveSurfaceWorkspacePathFromPlacementContext(context, normalizedSurface, normalizedWorkspaceSlug, "/");
+  if (!resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)) {
+    return "";
   }
 
-  if (normalizedSurface) {
-    const defaultSurfaceId = normalizeSurfaceId(context?.surfaceConfig?.defaultSurfaceId);
-    if (defaultSurfaceId && normalizedSurface === defaultSurfaceId) {
-      return `/w/${normalizedWorkspaceSlug}`;
-    }
-    return `/w/${normalizedWorkspaceSlug}/${normalizedSurface}`;
+  if (!surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
+    return resolveSurfaceBasePath(context, normalizedSurface);
   }
 
-  return `/w/${normalizedWorkspaceSlug}`;
+  return resolveSurfaceWorkspacePathFromPlacementContext(context, normalizedSurface, normalizedWorkspaceSlug, "/");
 }
 
 function resolveWorkspaceShellLinkPath({
@@ -111,6 +104,10 @@ function resolveWorkspaceShellLinkPath({
   const hasSurfaceDefinition = Boolean(
     normalizedSurface && resolveSurfaceDefinitionFromPlacementContext(context, normalizedSurface)
   );
+  if (!hasSurfaceDefinition) {
+    return "";
+  }
+
   const resolvedWorkspaceSlug = resolveWorkspaceSlugFromContextOrPath({
     context,
     surface: normalizedSurface,
@@ -127,35 +124,32 @@ function resolveWorkspaceShellLinkPath({
   }
 
   if (normalizedMode === "workspace") {
-    if (hasSurfaceDefinition && !surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
+    if (!surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
       return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
     }
     if (!resolvedWorkspaceSlug) {
       return "";
     }
+    const workspaceBasePath = resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug);
+    if (!workspaceBasePath) {
+      return "";
+    }
     return resolveLinkPath(
-      resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
+      workspaceBasePath,
       nextWorkspaceRelativePath
     );
   }
 
-  if (hasSurfaceDefinition) {
-    if (surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
-      if (!resolvedWorkspaceSlug) {
-        return "";
-      }
-      return resolveLinkPath(
-        resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
-        nextWorkspaceRelativePath
-      );
+  if (surfaceRequiresWorkspaceFromPlacementContext(context, normalizedSurface)) {
+    if (!resolvedWorkspaceSlug) {
+      return "";
     }
-
-    return resolveLinkPath(nextSurfaceBasePath, nextSurfaceRelativePath);
-  }
-
-  if (resolvedWorkspaceSlug) {
+    const workspaceBasePath = resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug);
+    if (!workspaceBasePath) {
+      return "";
+    }
     return resolveLinkPath(
-      resolveWorkspaceBasePath(context, normalizedSurface, resolvedWorkspaceSlug),
+      workspaceBasePath,
       nextWorkspaceRelativePath
     );
   }

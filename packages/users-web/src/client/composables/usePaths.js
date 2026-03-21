@@ -45,6 +45,9 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
   function page(relativePath = "/", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
     const surface = resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value);
+    if (!surface) {
+      return "";
+    }
     const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
     const mode = normalizeText(source.mode).toLowerCase() || "auto";
 

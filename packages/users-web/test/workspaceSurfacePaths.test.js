@@ -6,7 +6,7 @@ import {
   resolveSurfaceWorkspacePathFromPlacementContext
 } from "../src/client/lib/workspaceSurfacePaths.js";
 
-test("resolveSurfaceWorkspacePathFromPlacementContext falls back to account settings without workspace slug", () => {
+test("resolveSurfaceWorkspacePathFromPlacementContext returns empty path without workspace slug", () => {
   const context = {
     surfaceConfig: {
       defaultSurfaceId: "home",
@@ -20,7 +20,7 @@ test("resolveSurfaceWorkspacePathFromPlacementContext falls back to account sett
     }
   };
 
-  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "", "/"), "/account/settings");
+  assert.equal(resolveSurfaceWorkspacePathFromPlacementContext(context, "app", "", "/"), "");
 });
 
 test("resolveAccountSettingsPathFromPlacementContext uses account surface route when available", () => {

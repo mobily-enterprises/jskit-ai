@@ -1,4 +1,5 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import {
   WORKSPACE_MEMBERS_CHANGED_EVENT,
   WORKSPACE_INVITES_CHANGED_EVENT
@@ -56,7 +57,7 @@ function registerWorkspaceMembers(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerWorkspaceMembers requires application singleton()/service()/actions().");
   }
-  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const appConfig = resolveAppConfig(app);
   const workspaceInvitationsEnabled =
     typeof app.has === "function" && app.has(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN)
       ? app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true
@@ -65,7 +66,7 @@ function registerWorkspaceMembers(app) {
   app.service(
     USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN,
     (scope) => {
-      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+      const appConfig = resolveAppConfig(scope);
       return createWorkspaceMembersService({
         workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),

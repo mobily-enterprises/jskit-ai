@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import {
   WORKSPACE_SETTINGS_CHANGED_EVENT
 } from "../../shared/events/usersEvents.js";
@@ -26,11 +27,11 @@ function registerWorkspaceSettings(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function" || typeof app.service !== "function") {
     throw new Error("registerWorkspaceSettings requires application singleton()/service()/actions().");
   }
-  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const appConfig = resolveAppConfig(app);
 
   app.singleton("workspaceSettingsRepository", (scope) => {
     const knex = scope.make(KERNEL_TOKENS.Knex);
-    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const appConfig = resolveAppConfig(scope);
     return createWorkspaceSettingsRepository(knex, {
       defaultInvitesEnabled: resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig)
     });
@@ -42,7 +43,7 @@ function registerWorkspaceSettings(app) {
       createWorkspaceSettingsService({
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
         workspaceInvitationsEnabled: scope.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN),
-        roleCatalog: createWorkspaceRoleCatalog(scope.has("appConfig") ? scope.make("appConfig") : {})
+        roleCatalog: createWorkspaceRoleCatalog(resolveAppConfig(scope))
       }),
     {
       events: deepFreeze({

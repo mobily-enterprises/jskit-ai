@@ -3,6 +3,7 @@ import {
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
+import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { TENANCY_MODE_WORKSPACE, resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
@@ -28,7 +29,7 @@ function registerWorkspaceCore(app) {
   }
 
   app.singleton("users.workspace.service", (scope) => {
-    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const appConfig = resolveAppConfig(scope);
     return createWorkspaceService({
       appConfig,
       workspacesRepository: scope.make("workspacesRepository"),
@@ -45,7 +46,7 @@ function registerWorkspaceCore(app) {
   });
 
   app.singleton(USERS_TENANCY_PROFILE_TOKEN, (scope) => {
-    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const appConfig = resolveAppConfig(scope);
     return resolveTenancyProfile(appConfig);
   });
 
@@ -62,7 +63,7 @@ function registerWorkspaceCore(app) {
   });
 
   app.singleton(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN, (scope) => {
-    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+    const appConfig = resolveAppConfig(scope);
     const tenancyProfile = scope.make(USERS_TENANCY_PROFILE_TOKEN);
     return resolveWorkspaceInvitationsPolicy({
       appConfig,

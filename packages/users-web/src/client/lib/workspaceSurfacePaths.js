@@ -12,8 +12,7 @@ import {
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfacePathFromPlacementContext,
-  resolveSurfaceRootPathFromPlacementContext,
-  joinSurfacePath
+  resolveSurfaceRootPathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import {
   listWorkspaceSurfaceIdsFromSurfaceConfig,
@@ -97,7 +96,7 @@ function resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, su
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedWorkspaceSlug) {
-    return resolveAccountSettingsPathFromPlacementContext(contextValue);
+    return "";
   }
 
   const surfaceConfig = readPlacementSurfaceConfig(contextValue);
@@ -156,22 +155,9 @@ function extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId 
   return parsedWorkspacePath.workspaceSlug;
 }
 
-function resolveSurfaceApiPathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "", apiBasePath = "/api") {
-  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
-  const normalizedApiBasePath = normalizePathname(apiBasePath);
-  const normalizedSurfaceRouteBase = normalizePathname(surfaceDefinition?.routeBase || "/");
-  const prefixedApiBasePath = joinSurfacePath(normalizedApiBasePath, normalizedSurfaceRouteBase);
-  const normalizedPathname = String(pathname || "").trim();
-  if (!normalizedPathname) {
-    return prefixedApiBasePath;
-  }
-  return joinSurfacePath(prefixedApiBasePath, normalizedPathname);
-}
-
 export {
   resolveAccountSettingsPathFromPlacementContext,
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   resolveSurfaceWorkspacePathFromPlacementContext,
-  extractWorkspaceSlugFromSurfacePathname,
-  resolveSurfaceApiPathFromPlacementContext
+  extractWorkspaceSlugFromSurfacePathname
 };

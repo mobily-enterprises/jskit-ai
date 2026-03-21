@@ -2,12 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveWorkspaceShellLinkPath } from "../src/client/lib/workspaceLinkResolver.js";
 
-test("resolveWorkspaceShellLinkPath uses configured default workspace surface fallback", () => {
+function createContext({ defaultSurfaceId = "dashboard", enabledSurfaceIds = ["dashboard"], surfacesById = {} } = {}) {
+  return {
+    surfaceConfig: {
+      defaultSurfaceId,
+      enabledSurfaceIds,
+      surfacesById
+    }
+  };
+}
+
+test("resolveWorkspaceShellLinkPath resolves workspace path for known workspace surfaces", () => {
   const context = {
     surfaceConfig: {
       defaultSurfaceId: "dashboard",
       enabledSurfaceIds: ["dashboard"],
-      surfacesById: {}
+      surfacesById: {
+        dashboard: {
+          routeBase: "/dashboard",
+          requiresWorkspace: true
+        }
+      }
     }
   };
 
@@ -21,15 +36,8 @@ test("resolveWorkspaceShellLinkPath uses configured default workspace surface fa
   assert.equal(path, "/w/acme");
 });
 
-test("resolveWorkspaceShellLinkPath keeps explicit non-default workspace surface segment", () => {
-  const context = {
-    surfaceConfig: {
-      defaultSurfaceId: "dashboard",
-      enabledSurfaceIds: ["dashboard"],
-      surfacesById: {}
-    }
-  };
-
+test("resolveWorkspaceShellLinkPath returns empty path for unknown non-default workspace surface", () => {
+  const context = createContext();
   const path = resolveWorkspaceShellLinkPath({
     context,
     surface: "admin",
@@ -37,18 +45,11 @@ test("resolveWorkspaceShellLinkPath keeps explicit non-default workspace surface
     workspaceSlug: "acme"
   });
 
-  assert.equal(path, "/w/acme/admin");
+  assert.equal(path, "");
 });
 
-test("resolveWorkspaceShellLinkPath treats unknown console-like ids as regular surface segments", () => {
-  const context = {
-    surfaceConfig: {
-      defaultSurfaceId: "dashboard",
-      enabledSurfaceIds: ["dashboard"],
-      surfacesById: {}
-    }
-  };
-
+test("resolveWorkspaceShellLinkPath returns empty path for unknown console-like surface ids", () => {
+  const context = createContext();
   const path = resolveWorkspaceShellLinkPath({
     context,
     surface: "console",
@@ -56,5 +57,5 @@ test("resolveWorkspaceShellLinkPath treats unknown console-like ids as regular s
     workspaceSlug: "acme"
   });
 
-  assert.equal(path, "/w/acme/console");
+  assert.equal(path, "");
 });

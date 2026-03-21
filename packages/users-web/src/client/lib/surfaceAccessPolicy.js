@@ -1,15 +1,16 @@
 import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  normalizeRecord,
+  normalizeWorkspaceBootstrapStatusValue
+} from "../support/runtimeNormalization.js";
 import { hasPermission, normalizePermissionList } from "./permissions.js";
 
 const WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND = "not_found";
 const WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN = "forbidden";
-
-function asRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
+const WORKSPACE_ACCESS_BLOCKING_STATUSES = new Set([
+  WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
+  WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN
+]);
 
 function normalizeSurfaceId(value = "") {
   return String(value || "")
@@ -50,7 +51,7 @@ function normalizeStringList(value) {
 }
 
 function normalizeSurfaceAccessFlags(value = null) {
-  const source = asRecord(value);
+  const source = normalizeRecord(value);
   const flags = {};
 
   for (const [candidateKey, candidateValue] of Object.entries(source)) {
@@ -83,26 +84,13 @@ function hasKnownSurfaceAccessContext(contextValue = null) {
   return hasPlacementValue(contextValue, "surfaceAccess");
 }
 
-function normalizeWorkspaceBootstrapStatus(status = "") {
-  const normalizedStatus = String(status || "")
-    .trim()
-    .toLowerCase();
-  if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
-    return WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND;
-  }
-  if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN) {
-    return WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN;
-  }
-  return "";
-}
-
 function hasWorkspaceMembership(contextValue = null, workspaceSlug = "") {
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug);
   if (!normalizedWorkspaceSlug) {
     return false;
   }
 
-  const context = asRecord(contextValue);
+  const context = normalizeRecord(contextValue);
   if (normalizeWorkspaceSlug(context?.workspace?.slug) === normalizedWorkspaceSlug) {
     return true;
   }
@@ -118,8 +106,8 @@ function hasWorkspaceMembership(contextValue = null, workspaceSlug = "") {
 }
 
 function resolveSurfaceAccessPolicies(contextValue = null) {
-  const context = asRecord(contextValue);
-  const configuredPolicies = asRecord(context.surfaceAccessPolicies);
+  const context = normalizeRecord(contextValue);
+  const configuredPolicies = normalizeRecord(context.surfaceAccessPolicies);
   const policies = {};
 
   for (const [candidatePolicyId, candidatePolicy] of Object.entries(configuredPolicies)) {
@@ -127,17 +115,17 @@ function resolveSurfaceAccessPolicies(contextValue = null) {
     if (!policyId) {
       continue;
     }
-    policies[policyId] = asRecord(candidatePolicy);
+    policies[policyId] = normalizeRecord(candidatePolicy);
   }
 
   return policies;
 }
 
 function resolveSurfaceAccessPolicy(contextValue = null, surfaceDefinition = null) {
-  const definition = asRecord(surfaceDefinition);
+  const definition = normalizeRecord(surfaceDefinition);
   const policyId = normalizeSurfaceAccessPolicyId(definition.accessPolicyId);
   const configuredPolicies = resolveSurfaceAccessPolicies(contextValue);
-  const configuredPolicy = policyId ? asRecord(configuredPolicies[policyId]) : {};
+  const configuredPolicy = policyId ? normalizeRecord(configuredPolicies[policyId]) : {};
 
   const requireAuth = Object.hasOwn(configuredPolicy, "requireAuth")
     ? configuredPolicy.requireAuth === true
@@ -232,7 +220,7 @@ function evaluateSurfaceAccess({
   workspaceSlug = "",
   allowOnUnknown = false
 } = {}) {
-  const source = asRecord(context);
+  const source = normalizeRecord(context);
   const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
   if (!normalizedSurfaceId) {
     return toAccessDecision({
@@ -266,8 +254,11 @@ function evaluateSurfaceAccess({
       });
     }
 
-    const workspaceBootstrapStatuses = asRecord(source.workspaceBootstrapStatuses);
-    const workspaceStatus = normalizeWorkspaceBootstrapStatus(workspaceBootstrapStatuses[normalizedWorkspaceSlug]);
+    const workspaceBootstrapStatuses = normalizeRecord(source.workspaceBootstrapStatuses);
+    const workspaceStatus = normalizeWorkspaceBootstrapStatusValue(
+      workspaceBootstrapStatuses[normalizedWorkspaceSlug],
+      WORKSPACE_ACCESS_BLOCKING_STATUSES
+    );
     if (workspaceStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
       return toAccessDecision({
         allowed: false,
@@ -345,7 +336,7 @@ function evaluateSurfaceAccess({
       });
     }
 
-    const accessFlags = asRecord(source.surfaceAccess);
+    const accessFlags = normalizeRecord(source.surfaceAccess);
     const flagDecision = evaluateFlagRequirements(policy, accessFlags);
     if (!flagDecision.allowed) {
       return flagDecision;

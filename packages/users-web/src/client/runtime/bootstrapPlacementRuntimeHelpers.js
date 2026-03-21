@@ -5,6 +5,9 @@ import {
 import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { buildBootstrapApiPath } from "../lib/bootstrap.js";
+import {
+  normalizeWorkspaceBootstrapStatusValue
+} from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
 
 function createProviderLogger(app) {
@@ -67,11 +70,6 @@ function isGuardDenied(outcome) {
   return outcome.allow === false;
 }
 
-function resolveErrorStatusCode(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  return Number.isInteger(statusCode) && statusCode > 0 ? statusCode : 0;
-}
-
 function normalizeWorkspaceSlugKey(workspaceSlug = "") {
   return String(workspaceSlug || "")
     .trim()
@@ -79,13 +77,7 @@ function normalizeWorkspaceSlugKey(workspaceSlug = "") {
 }
 
 function normalizeWorkspaceBootstrapStatus(status = "") {
-  const normalizedStatus = String(status || "")
-    .trim()
-    .toLowerCase();
-  if (WORKSPACE_BOOTSTRAP_STATUSES.has(normalizedStatus)) {
-    return normalizedStatus;
-  }
-  return "";
+  return normalizeWorkspaceBootstrapStatusValue(status, WORKSPACE_BOOTSTRAP_STATUSES);
 }
 
 function resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = "") {
@@ -155,7 +147,6 @@ export {
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,
   resolveAuthSignature,
-  resolveErrorStatusCode,
   resolveRequestedWorkspaceBootstrapStatus,
   resolveRouteState,
   resolveSearchFromFullPath

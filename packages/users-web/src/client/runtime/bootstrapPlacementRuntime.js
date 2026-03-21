@@ -33,10 +33,10 @@ import {
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,
   resolveAuthSignature,
-  resolveErrorStatusCode,
   resolveRequestedWorkspaceBootstrapStatus,
   resolveRouteState
 } from "./bootstrapPlacementRuntimeHelpers.js";
+import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
 function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = fetchBootstrapPayload } = {}) {
   if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
