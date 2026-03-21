@@ -7,6 +7,7 @@ import { resolveActionContextContributors } from "../../actions/ActionRuntimeSer
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
 import { resolveRouteVisibilityContext } from "../../registries/routeVisibilityResolverRegistry.js";
+import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
 
@@ -260,7 +261,7 @@ function resolveRequestPathname(request) {
   return (noHash.split("?")[0] || "/").trim() || "/";
 }
 
-function resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurfaceId = "app") {
+function resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurfaceId = "") {
   const normalizedExplicitSurface = normalizeText(explicitSurface).toLowerCase();
   if (normalizedExplicitSurface) {
     return normalizedExplicitSurface;
@@ -276,11 +277,12 @@ function resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurface
     return normalizedRequestSurface;
   }
 
-  const normalizedDefaultSurface = normalizeText(defaultSurfaceId).toLowerCase();
-  return normalizedDefaultSurface || "app";
+  return resolveDefaultSurfaceId(null, {
+    defaultSurfaceId
+  });
 }
 
-function buildActionExecutionContext({ request = null, context = {}, channel = "api", defaultSurfaceId = "app" } = {}) {
+function buildActionExecutionContext({ request = null, context = {}, channel = "api", defaultSurfaceId = "" } = {}) {
   const source = normalizeObject(context);
   const sourceRequestMeta = normalizeObject(source.requestMeta);
 
@@ -406,7 +408,7 @@ function attachRequestActionExecutor({
   requestActionExecutorProperty = "executeAction",
   actionExecutorToken = "actionExecutor",
   defaultChannel = "api",
-  defaultSurfaceId = "app"
+  defaultSurfaceId = ""
 } = {}) {
   if (!request || typeof request !== "object") {
     return null;
@@ -566,7 +568,7 @@ function registerRoutes(
     requestActionExecutorProperty = "executeAction",
     actionExecutorToken = "actionExecutor",
     requestActionDefaultChannel = "api",
-    requestActionDefaultSurface = "app",
+    requestActionDefaultSurface = "",
     requestScopeIdPrefix = "http",
     requestIdResolver = null,
     middleware = {}
@@ -587,8 +589,9 @@ function registerRoutes(
     const routeHandler = typeof route?.handler === "function" ? route.handler : fallbackHandler;
     const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
     const routeInputTransforms = normalizeRouteInputTransforms(route);
-    const routeActionDefaultSurface =
-      normalizeText(route?.surface || routeOptions?.config?.surface || requestActionDefaultSurface).toLowerCase() || "app";
+    const routeActionDefaultSurface = resolveDefaultSurfaceId(null, {
+      defaultSurfaceId: route?.surface || routeOptions?.config?.surface || requestActionDefaultSurface
+    });
 
     fastify.route({
       ...routeOptions,
@@ -659,10 +662,9 @@ function registerHttpRuntime(app, options = {}) {
   const fastify = app.make(fastifyToken);
   const router = app.make(routerToken);
   const routes = typeof router?.list === "function" ? router.list() : [];
-  const appConfig =
-    typeof app.has === "function" && app.has("appConfig") && typeof app.make === "function" ? normalizeObject(app.make("appConfig")) : {};
-  const resolvedDefaultActionSurface =
-    normalizeText(routeRegistrationOptions.requestActionDefaultSurface || appConfig.surfaceDefaultId || "app").toLowerCase() || "app";
+  const resolvedDefaultActionSurface = resolveDefaultSurfaceId(app, {
+    defaultSurfaceId: routeRegistrationOptions.requestActionDefaultSurface
+  });
 
   if (autoRegisterApiErrorHandling !== false) {
     ensureApiErrorHandling(app, {

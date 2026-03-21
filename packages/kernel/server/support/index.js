@@ -9,4 +9,4 @@ export {
 export { sortStrings, sortById } from "../../shared/support/sorting.js";
 export { SupportCoreServiceProvider } from "./SupportCoreServiceProvider.js";
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
-export { resolveAppConfig } from "./appConfig.js";
+export { DEFAULT_KERNEL_SURFACE_ID, resolveAppConfig, normalizeDefaultSurfaceId, resolveDefaultSurfaceId } from "./appConfig.js";

@@ -1,6 +1,7 @@
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { ActionRuntimeError } from "../../shared/actions/index.js";
 import { isAppError } from "./errors.js";
+import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
 const API_ERROR_HANDLER_MARKER_TOKEN = "kernel.runtime.apiErrorHandlerRegistered";
 
@@ -46,7 +47,8 @@ function registerRequestLoggingHooks(
     getPathname,
     getSurface,
     observeRequest,
-    enableRequestLogs = true
+    enableRequestLogs = true,
+    defaultSurfaceId = ""
   } = {}
 ) {
   if (!app || typeof app.addHook !== "function") {
@@ -55,7 +57,13 @@ function registerRequestLoggingHooks(
 
   const startedAtSymbol = requestStartedAtSymbol || Symbol("request_started_at_ns");
   const resolvePathname = typeof getPathname === "function" ? getPathname : () => "/";
-  const resolveSurface = typeof getSurface === "function" ? getSurface : () => "app";
+  const resolveSurface =
+    typeof getSurface === "function"
+      ? getSurface
+      : () =>
+          resolveDefaultSurfaceId(null, {
+            defaultSurfaceId
+          });
 
   app.addHook("onRequest", async (request) => {
     request[startedAtSymbol] = process.hrtime.bigint();

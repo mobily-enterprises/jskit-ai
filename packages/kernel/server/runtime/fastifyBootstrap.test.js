@@ -2,16 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError, isAppError } from "./errors.js";
-import { registerApiErrorHandler } from "./fastifyBootstrap.js";
+import { registerApiErrorHandler, registerRequestLoggingHooks } from "./fastifyBootstrap.js";
 
 function createFastifyStub() {
   return {
     errorHandler: null,
+    hooks: {},
     log: {
       error() {}
     },
     setErrorHandler(handler) {
       this.errorHandler = handler;
+    },
+    addHook(name, handler) {
+      this.hooks[name] = handler;
     }
   };
 }
@@ -129,4 +133,62 @@ test("registerApiErrorHandler keeps known error code for non-app errors", () => 
   assert.deepEqual(reply.payload.details, {
     code: "FST_CSRF_BAD_TOKEN"
   });
+});
+
+test("registerRequestLoggingHooks uses configured default surface when getSurface is absent", async () => {
+  const fastify = createFastifyStub();
+  let loggedPayload = null;
+
+  registerRequestLoggingHooks(fastify, {
+    defaultSurfaceId: "home"
+  });
+
+  const request = {
+    id: "req-home",
+    method: "GET",
+    routeOptions: {
+      url: "/status"
+    },
+    log: {
+      info(payload) {
+        loggedPayload = payload;
+      }
+    }
+  };
+  const reply = {
+    statusCode: 204
+  };
+
+  await fastify.hooks.onRequest(request);
+  await fastify.hooks.onResponse(request, reply);
+
+  assert.equal(loggedPayload.surface, "home");
+});
+
+test("registerRequestLoggingHooks defaults surface to public when no surface default is configured", async () => {
+  const fastify = createFastifyStub();
+  let loggedPayload = null;
+
+  registerRequestLoggingHooks(fastify);
+
+  const request = {
+    id: "req-public",
+    method: "GET",
+    routeOptions: {
+      url: "/status"
+    },
+    log: {
+      info(payload) {
+        loggedPayload = payload;
+      }
+    }
+  };
+  const reply = {
+    statusCode: 204
+  };
+
+  await fastify.hooks.onRequest(request);
+  await fastify.hooks.onResponse(request, reply);
+
+  assert.equal(loggedPayload.surface, "public");
 });

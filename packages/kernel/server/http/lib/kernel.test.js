@@ -517,6 +517,79 @@ test("registerHttpRuntime can disable automatic API error handling", () => {
   assert.equal(fastify.setErrorHandlerCalls, 0);
 });
 
+test("registerHttpRuntime resolves request action default surface from appConfig", async () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+  const observed = [];
+
+  router.get("/runtime-default-surface", async (request, reply) => {
+    await request.executeAction({
+      actionId: "surface.default"
+    });
+    reply.code(200).send({ ok: true });
+  });
+
+  app.instance(KERNEL_TOKENS.Fastify, fastify);
+  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("appConfig", {
+    surfaceDefaultId: "home"
+  });
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return { ok: true };
+    }
+  });
+
+  registerHttpRuntime(app);
+
+  const request = { id: "runtime-default-surface" };
+  const reply = createReplyStub();
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0].context.surface, "home");
+});
+
+test("registerRoutes defaults request action surface to public when no default is configured", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const observed = [];
+
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return { ok: true };
+    }
+  });
+
+  registerRoutes(fastify, {
+    app,
+    routes: [
+      {
+        method: "GET",
+        path: "/public-default-surface",
+        handler: async (request, reply) => {
+          await request.executeAction({
+            actionId: "surface.default.public"
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = { id: "public-default-surface" };
+  const reply = createReplyStub();
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0].context.surface, "public");
+});
+
 test("createHttpRuntime installs API error handling when Fastify is provided", () => {
   const app = createApplication();
   const fastify = createFastifyStub();

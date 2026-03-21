@@ -1,8 +1,9 @@
 import { parsePositiveInteger } from "./integers.js";
 import { safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
+import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
-function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null) {
+function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null, defaultSurfaceId = "") {
   const normalizedExplicit = normalizeSurfaceId(explicitSurface);
   if (normalizedExplicit) {
     return normalizedExplicit;
@@ -15,17 +16,19 @@ function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurface
     }
   }
 
-  return "app";
+  return resolveDefaultSurfaceId(null, {
+    defaultSurfaceId
+  });
 }
 
-function buildAuditEventBase(request, { resolveSurfaceFromPathname = null } = {}) {
+function buildAuditEventBase(request, { resolveSurfaceFromPathname = null, defaultSurfaceId = "" } = {}) {
   const pathnameValue = safePathnameFromRequest(request);
   return {
     actorUserId: parsePositiveInteger(request?.user?.id),
     actorEmail: String(request?.user?.email || "")
       .trim()
       .toLowerCase(),
-    surface: resolveAuditSurface(pathnameValue, request?.surface, resolveSurfaceFromPathname),
+    surface: resolveAuditSurface(pathnameValue, request?.surface, resolveSurfaceFromPathname, defaultSurfaceId),
     requestId: String(request?.id || "").trim(),
     method: String(request?.method || "")
       .trim()
@@ -139,11 +142,12 @@ function safeBuildEventPayload({ request, action, outcome, shared, event, metada
   }
 }
 
-async function recordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null }) {
+async function recordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null, defaultSurfaceId = "" }) {
   await auditService.recordSafe(
     {
       ...buildAuditEventBase(request, {
-        resolveSurfaceFromPathname
+        resolveSurfaceFromPathname,
+        defaultSurfaceId
       }),
       ...event
     },
@@ -151,13 +155,14 @@ async function recordAuditEvent({ auditService, request, event, resolveSurfaceFr
   );
 }
 
-async function safeRecordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null }) {
+async function safeRecordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null, defaultSurfaceId = "" }) {
   try {
     await recordAuditEvent({
       auditService,
       request,
       event,
-      resolveSurfaceFromPathname
+      resolveSurfaceFromPathname,
+      defaultSurfaceId
     });
   } catch (error) {
     logAuditFailure(
@@ -181,7 +186,8 @@ async function withAuditEvent({
   metadata,
   onSuccess,
   onFailure,
-  resolveSurfaceFromPathname = null
+  resolveSurfaceFromPathname = null,
+  defaultSurfaceId = ""
 }) {
   if (!auditService || typeof auditService.recordSafe !== "function") {
     throw new TypeError("withAuditEvent auditService.recordSafe is required.");
@@ -211,7 +217,8 @@ async function withAuditEvent({
       auditService,
       request,
       event: successEvent,
-      resolveSurfaceFromPathname
+      resolveSurfaceFromPathname,
+      defaultSurfaceId
     });
     return result;
   } catch (error) {
@@ -238,7 +245,8 @@ async function withAuditEvent({
         ...failureEvent,
         metadata: mergeFailureMetadata(error, failureEvent.metadata)
       },
-      resolveSurfaceFromPathname
+      resolveSurfaceFromPathname,
+      defaultSurfaceId
     });
     throw error;
   }
