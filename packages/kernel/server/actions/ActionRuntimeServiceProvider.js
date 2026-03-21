@@ -6,6 +6,11 @@ import {
   ensureActionSurfaceSourceRegistry,
   resolveActionSurfaceSourceIds
 } from "../registries/actionSurfaceSourceRegistry.js";
+import {
+  normalizeNestedEntries,
+  registerTaggedSingleton,
+  resolveTaggedEntries as resolveRegistryTaggedEntries
+} from "../registries/primitives.js";
 
 const ACTION_RUNTIME_API = Object.freeze({
   ...actionRuntime
@@ -33,23 +38,6 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
   return Object.freeze(normalized);
 }
 
-function normalizeContributorList(value) {
-  const queue = Array.isArray(value) ? [...value] : [value];
-  const contributors = [];
-  while (queue.length > 0) {
-    const entry = queue.shift();
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-    if (entry == null) {
-      continue;
-    }
-    contributors.push(entry);
-  }
-  return contributors;
-}
-
 function normalizeActionContextContributor(entry) {
   if (typeof entry === "function") {
     return {
@@ -68,21 +56,14 @@ function normalizeActionContextContributor(entry) {
   return null;
 }
 
-function resolveTaggedEntries(scope, tagName) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
-  }
-  return normalizeContributorList(scope.resolveTag(tagName));
-}
-
 function resolveActionContributors(scope) {
-  return resolveTaggedEntries(scope, ACTION_RUNTIME_CONTRIBUTOR_TAG).filter(
+  return resolveRegistryTaggedEntries(scope, ACTION_RUNTIME_CONTRIBUTOR_TAG).filter(
     (entry) => entry && typeof entry === "object" && !Array.isArray(entry)
   );
 }
 
 function resolveActionContextContributors(scope) {
-  return resolveTaggedEntries(scope, ACTION_CONTEXT_CONTRIBUTOR_TAG)
+  return resolveRegistryTaggedEntries(scope, ACTION_CONTEXT_CONTRIBUTOR_TAG)
     .map((entry) => normalizeActionContextContributor(entry))
     .filter(Boolean);
 }
@@ -116,15 +97,6 @@ function createActionExecutor(actionRegistry) {
       return actionRegistry.getDefinition(actionId, version);
     }
   });
-}
-
-function registerTaggedContributor(app, token, factory, tagName, label) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error(`${label} requires application singleton()/tag().`);
-  }
-
-  app.singleton(token, factory);
-  app.tag(token, tagName);
 }
 
 function createActionContributorToken() {
@@ -183,7 +155,7 @@ function materializeAction(scope, actionDefinition) {
 
 function registerActionDefinition(app, actionSpec, { context = "app.action" } = {}) {
   const token = createActionContributorToken();
-  registerTaggedContributor(
+  registerTaggedSingleton(
     app,
     token,
     (scope) => {
@@ -199,7 +171,7 @@ function registerActionDefinition(app, actionSpec, { context = "app.action" } = 
       };
     },
     ACTION_RUNTIME_CONTRIBUTOR_TAG,
-    context
+    { context }
   );
 }
 
@@ -235,7 +207,7 @@ function installActionRegistrationApi(app) {
       throw new Error("app.actions requires an array of action definitions.");
     }
 
-    const entries = normalizeContributorList(actionDefinitions);
+    const entries = normalizeNestedEntries(actionDefinitions);
     for (const entry of entries) {
       this.action(entry);
     }
@@ -263,12 +235,12 @@ function installActionRegistrationApi(app) {
 }
 
 function registerActionContextContributor(app, token, factory) {
-  registerTaggedContributor(
+  registerTaggedSingleton(
     app,
     token,
     factory,
     ACTION_CONTEXT_CONTRIBUTOR_TAG,
-    "registerActionContextContributor"
+    { context: "registerActionContextContributor" }
   );
 }
 

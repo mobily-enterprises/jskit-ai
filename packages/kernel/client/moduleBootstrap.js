@@ -1,6 +1,7 @@
 import { createApplication } from "../shared/runtime/application.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
 const CLIENT_MODULE_RUNTIME_APP_TOKEN = Symbol.for("jskit.client.runtime.app");
 const CLIENT_MODULE_ROUTER_TOKEN = Symbol.for("jskit.client.router");
@@ -14,23 +15,6 @@ function normalizePackageId(value) {
   return String(value || "").trim();
 }
 
-function createLogger(logger) {
-  if (isRecord(logger)) {
-    const info = typeof logger.info === "function" ? logger.info.bind(logger) : console.info.bind(console);
-    const debug = typeof logger.debug === "function" ? logger.debug.bind(logger) : () => {};
-    const warn = typeof logger.warn === "function" ? logger.warn.bind(logger) : console.warn.bind(console);
-    const error = typeof logger.error === "function" ? logger.error.bind(logger) : console.error.bind(console);
-    return Object.freeze({ info, debug, warn, error });
-  }
-
-  return Object.freeze({
-    info: console.info.bind(console),
-    debug: () => {},
-    warn: console.warn.bind(console),
-    error: console.error.bind(console)
-  });
-}
-
 function toRouteSnapshot(route) {
   const metaJskit = isRecord(route?.meta?.jskit) ? route.meta.jskit : {};
   return Object.freeze({
@@ -42,23 +26,6 @@ function toRouteSnapshot(route) {
     metaScope: String(metaJskit.scope || "").trim(),
     metaSurface: String(metaJskit.surface || "").trim()
   });
-}
-
-function summarizeRouterRoutes(router) {
-  if (!router || typeof router.getRoutes !== "function") {
-    return Object.freeze([]);
-  }
-
-  return Object.freeze(
-    router.getRoutes().map((route) =>
-      Object.freeze({
-        name: String(route?.name || "").trim(),
-        path: String(route?.path || "").trim(),
-        metaScope: String(route?.meta?.jskit?.scope || "").trim(),
-        metaSurface: String(route?.meta?.jskit?.surface || "").trim()
-      })
-    )
-  );
 }
 
 function isRouteComponent(value) {
@@ -174,7 +141,7 @@ function registerClientModuleRoutes({
     surfaceRuntime,
     surfaceMode
   });
-  const log = createLogger(logger);
+  const log = createStructuredLogger(logger);
   log.debug(
     {
       packageId: normalizedPackageId,
@@ -440,7 +407,7 @@ function resolveDescriptorClientRoutes({
     );
   }
 
-  const log = createLogger(logger);
+  const log = createStructuredLogger(logger);
   const routes = [];
   const skippedRoutes = [];
   for (const descriptorRoute of descriptorRoutes) {
@@ -590,7 +557,7 @@ async function bootClientModules({
     throw new TypeError("bootClientModules requires surfaceRuntime.normalizeSurfaceMode().");
   }
 
-  const log = createLogger(logger);
+  const log = createStructuredLogger(logger);
   const moduleEntries = normalizeClientModuleEntries(clientModules);
   const runtimeApp = createClientRuntimeApp({
     profile: String(surfaceRuntime.normalizeSurfaceMode(surfaceMode) || "client"),

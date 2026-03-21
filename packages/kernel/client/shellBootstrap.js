@@ -1,24 +1,7 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
-
-function createBaseLogger(logger = console) {
-  if (isRecord(logger)) {
-    return Object.freeze({
-      info: typeof logger.info === "function" ? logger.info.bind(logger) : console.info.bind(console),
-      warn: typeof logger.warn === "function" ? logger.warn.bind(logger) : console.warn.bind(console),
-      error: typeof logger.error === "function" ? logger.error.bind(logger) : console.error.bind(console),
-      debug: typeof logger.debug === "function" ? logger.debug.bind(logger) : () => {}
-    });
-  }
-
-  return Object.freeze({
-    info: console.info.bind(console),
-    warn: console.warn.bind(console),
-    error: console.error.bind(console),
-    debug: () => {}
-  });
-}
+import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
 function resolveClientBootstrapDebugEnabled({
   env = {},
@@ -40,7 +23,7 @@ function createClientBootstrapLogger({
   debugEnabled = undefined,
   debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG"
 } = {}) {
-  const baseLogger = createBaseLogger(logger);
+  const baseLogger = createStructuredLogger(logger);
   const isDebugEnabled = resolveClientBootstrapDebugEnabled({
     env,
     debugEnabled,
@@ -53,22 +36,6 @@ function createClientBootstrapLogger({
     debug: isDebugEnabled ? baseLogger.info : () => {},
     isDebugEnabled
   });
-}
-
-function summarizeRouterRoutes(router) {
-  if (!router || typeof router.getRoutes !== "function") {
-    return Object.freeze([]);
-  }
-
-  return Object.freeze(
-    router.getRoutes().map((route) =>
-      Object.freeze({
-        name: String(route?.name || "").trim(),
-        path: String(route?.path || "").trim(),
-        scope: String(route?.meta?.jskit?.scope || "").trim()
-      })
-    )
-  );
 }
 
 function installAppPlugins(app, appPlugins = []) {
@@ -187,7 +154,7 @@ async function bootstrapClientShellApp({
           debugEnabled,
           debugEnvKey
         });
-  const bootstrapLogger = createBaseLogger(resolvedLogger);
+  const bootstrapLogger = createStructuredLogger(resolvedLogger);
 
   const clientBootstrap = await bootClientModules({
     app,

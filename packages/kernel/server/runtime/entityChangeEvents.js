@@ -3,6 +3,18 @@ import { resolveServiceContext } from "./serviceAuthorization.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
+function createUserScope(userOwnerId) {
+  const normalizedUserOwnerId = normalizeOpaqueId(userOwnerId);
+  if (normalizedUserOwnerId == null) {
+    return null;
+  }
+
+  return {
+    kind: "user",
+    id: normalizedUserOwnerId
+  };
+}
+
 function resolveContextUserOwnerId(context = {}) {
   const actor = context?.actor || context?.user || context?.request?.user;
   return normalizeOpaqueId(actor?.id);
@@ -77,14 +89,7 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
     };
   }
 
-  if (userOwnerId != null) {
-    return {
-      kind: "user",
-      id: userOwnerId
-    };
-  }
-
-  return null;
+  return createUserScope(userOwnerId);
 }
 
 function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
@@ -100,12 +105,9 @@ function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
     return contextScope;
   }
 
-  const userOwnerId = resolveContextUserOwnerId(runtimeContext);
-  if (userOwnerId != null) {
-    return {
-      kind: "user",
-      id: userOwnerId
-    };
+  const userScope = createUserScope(resolveContextUserOwnerId(runtimeContext));
+  if (userScope) {
+    return userScope;
   }
 
   return {
