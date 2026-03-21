@@ -7,7 +7,6 @@ import * as domainEvents from "../registries/domainEventListenerRegistry.js";
 import * as errors from "./errors.js";
 import * as fastifyBootstrap from "./fastifyBootstrap.js";
 import * as integers from "./integers.js";
-import * as lockfile from "./lib/lockfile.js";
 import * as pagination from "./pagination.js";
 import * as realtimeNormalization from "./realtimeNormalization.js";
 import * as requestUrl from "./requestUrl.js";
@@ -30,7 +29,6 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   errors: Object.freeze({ ...errors }),
   fastifyBootstrap: Object.freeze({ ...fastifyBootstrap }),
   integers: Object.freeze({ ...integers }),
-  lockfile: Object.freeze({ ...lockfile }),
   pagination: Object.freeze({ ...pagination }),
   realtimeNormalization: Object.freeze({ ...realtimeNormalization }),
   requestUrl: Object.freeze({ ...requestUrl }),

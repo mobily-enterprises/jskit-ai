@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
-import { bootClientModules, registerClientModuleRoutes } from "./moduleBootstrap.js";
+import { bootClientModules } from "./moduleBootstrap.js";
 
 function createRouterStub() {
   const routes = [];
@@ -24,65 +24,85 @@ function createSurfaceRuntimeFixture() {
   });
 }
 
-test("registerClientModuleRoutes registers global routes", () => {
+test("bootClientModules registers global routes regardless of surface mode", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
 
-  const result = registerClientModuleRoutes({
-    packageId: "@example/auth",
-    routes: [
+  const result = await bootClientModules({
+    clientModules: [
       {
-        id: "auth.login",
-        name: "auth-login",
-        path: "/auth/login",
-        scope: "global",
-        component: {}
+        packageId: "@example/auth",
+        descriptorUiRoutes: [
+          {
+            id: "auth.login",
+            path: "/auth/login",
+            scope: "global",
+            autoRegister: false
+          }
+        ],
+        module: {
+          clientRoutes: [
+            {
+              id: "auth.login",
+              name: "auth-login",
+              path: "/auth/login",
+              scope: "global",
+              component: {}
+            }
+          ]
+        }
       }
     ],
     router,
     surfaceRuntime,
     surfaceMode: "admin",
-    seenRoutePaths: new Set(),
-    seenRouteNames: new Set()
+    logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.equal(result.declaredCount, 1);
-  assert.equal(result.registeredCount, 1);
+  assert.equal(result.routeResults.length, 1);
+  assert.equal(result.routeResults[0].declaredCount, 1);
+  assert.equal(result.routeResults[0].registeredCount, 1);
   assert.equal(router.routes.length, 1);
   assert.equal(router.routes[0].path, "/auth/login");
 });
 
-test("registerClientModuleRoutes filters surface routes by mode", () => {
+test("bootClientModules filters surface routes by mode", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
 
-  const result = registerClientModuleRoutes({
-    packageId: "@example/admin",
-    routes: [
+  const result = await bootClientModules({
+    clientModules: [
       {
-        id: "admin.dashboard",
-        name: "admin-dashboard",
-        path: "/admin/dashboard",
-        scope: "surface",
-        component: {}
-      },
-      {
-        id: "app.dashboard",
-        name: "app-dashboard",
-        path: "/app/dashboard",
-        scope: "surface",
-        component: {}
+        packageId: "@example/admin",
+        module: {
+          clientRoutes: [
+            {
+              id: "admin.dashboard",
+              name: "admin-dashboard",
+              path: "/admin/dashboard",
+              scope: "surface",
+              component: {}
+            },
+            {
+              id: "app.dashboard",
+              name: "app-dashboard",
+              path: "/app/dashboard",
+              scope: "surface",
+              component: {}
+            }
+          ]
+        }
       }
     ],
     router,
     surfaceRuntime,
     surfaceMode: "admin",
-    seenRoutePaths: new Set(),
-    seenRouteNames: new Set()
+    logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.equal(result.declaredCount, 2);
-  assert.equal(result.registeredCount, 1);
+  assert.equal(result.routeResults.length, 1);
+  assert.equal(result.routeResults[0].declaredCount, 2);
+  assert.equal(result.routeResults[0].registeredCount, 1);
   assert.equal(router.routes.length, 1);
   assert.equal(router.routes[0].path, "/admin/dashboard");
 });

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { sortStrings } from "../../../shared/support/sorting.js";
-import { loadInstalledPackageDescriptor } from "../../../shared/support/packageDescriptor.js";
+import { loadInstalledPackageDescriptor } from "../../../internal/node/installedPackageDescriptor.js";
 
 function normalizeUiRoutePath(pathValue) {
   const rawPath = String(pathValue || "").trim();

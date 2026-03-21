@@ -124,12 +124,8 @@ jskit add package @jskit-ai/crud --namespace badcase --surface console --visibil
 THEN:
   
   X Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
-  - Re-add icons
-
-
-  - cli: offer help for package paramters
-
-
+  X Re-add icons
+  
   - Final DESLOP
   - Final deslop ticket
   - Publish NPM packages
@@ -304,7 +300,7 @@ Task:
         * Ownership. This is very important. Make sure kernel only does things that are generally useful for every module. If you see something that isn't,
         recommend which module it should go to, and why.
         * Visible API. You will have to look at the whole repo for this: is it exposing too much API, compared to what other modules actually use?
-        * Modules other than kernel, users-* and 
+      
         
         DO it!
 

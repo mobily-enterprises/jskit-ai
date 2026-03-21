@@ -1,9 +1,9 @@
-import { deriveSurfaceRouteBaseFromPagesRoot, filterRoutesBySurface } from "../shared/surface/index.js";
+import { deriveSurfaceRouteBaseFromPagesRoot } from "../shared/surface/index.js";
+import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isExternalLinkTarget } from "../shared/support/linkPath.js";
+import { AUTH_POLICY_AUTHENTICATED, AUTH_POLICY_PUBLIC } from "../shared/support/policies.js";
 
 const DEFAULT_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
-const AUTH_POLICY_AUTHENTICATED = "authenticated";
-const AUTH_POLICY_PUBLIC = "public";
 const WEB_ROOT_ALLOW_YES = "yes";
 const WEB_ROOT_ALLOW_NO = "no";
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadInstalledPackageDescriptor, resolveDescriptorPathForInstalledPackage } from "./packageDescriptor.js";
+import { loadInstalledPackageDescriptor, resolveDescriptorPathForInstalledPackage } from "../../internal/node/installedPackageDescriptor.js";
 
 async function createFixtureRoot(prefix) {
   return mkdtemp(path.join(tmpdir(), prefix));

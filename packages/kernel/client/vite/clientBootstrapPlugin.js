@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
+import { loadInstalledPackageDescriptor } from "../../internal/node/installedPackageDescriptor.js";
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {

@@ -1,14 +1,6 @@
-import { access, constants as fsConstants, readFile } from "node:fs/promises";
 import path from "node:path";
-
-async function fileExists(absolutePath) {
-  try {
-    await access(absolutePath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { readFile } from "node:fs/promises";
+import { fileExists } from "../../../internal/node/fileSystem.js";
 
 async function readLockFromApp({ appRoot, lockPath = ".jskit/lock.json" } = {}) {
   if (!appRoot || typeof appRoot !== "string") {

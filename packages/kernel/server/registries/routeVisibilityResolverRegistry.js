@@ -1,5 +1,6 @@
 import { normalizeRouteVisibility, normalizeRouteVisibilityToken, normalizeVisibilityContext } from "../../shared/support/visibility.js";
 import { normalizeText } from "../../shared/support/normalize.js";
+import { ROUTE_VISIBILITY_PUBLIC } from "../../shared/support/policies.js";
 import { RouteRegistrationError } from "../http/lib/errors.js";
 import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
@@ -39,7 +40,7 @@ function registerRouteVisibilityResolver(app, token, factory) {
 async function resolveRouteVisibilityContext({
   resolutionScope = null,
   request = null,
-  routeVisibility = "public",
+  routeVisibility = ROUTE_VISIBILITY_PUBLIC,
   context = {},
   input = {},
   deps = {},

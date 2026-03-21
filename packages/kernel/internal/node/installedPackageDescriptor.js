@@ -1,16 +1,7 @@
-import { access, constants as fsConstants } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { normalizeObject } from "./normalize.js";
-
-async function fileExists(filePath) {
-  try {
-    await access(filePath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { normalizeObject } from "../../shared/support/normalize.js";
+import { fileExists } from "./fileSystem.js";
 
 function resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageState }) {
   const normalizedAppRoot = String(appRoot || "").trim();
@@ -28,7 +19,9 @@ function resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageS
   const packagePathFromSource = String(source.packagePath || "").trim();
   const jskitRoot = path.join(normalizedAppRoot, "node_modules", "@jskit-ai", "jskit-cli");
 
-  const candidatePaths = [path.resolve(normalizedAppRoot, "node_modules", normalizedPackageId, "package.descriptor.mjs")];
+  const candidatePaths = [
+    path.resolve(normalizedAppRoot, "node_modules", normalizedPackageId, "package.descriptor.mjs")
+  ];
   if (packagePathFromSource) {
     candidatePaths.push(path.resolve(normalizedAppRoot, packagePathFromSource, "package.descriptor.mjs"));
   }

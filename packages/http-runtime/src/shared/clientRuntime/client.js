@@ -265,7 +265,7 @@ function createHttpClient(options = {}) {
       headers,
       requestOptions,
       state: resolvedState,
-      stream: false
+      stream: Boolean(stream)
     });
     if (decorateHeadersResult && typeof decorateHeadersResult.then === "function") {
       await decorateHeadersResult;
@@ -362,8 +362,22 @@ function createHttpClient(options = {}) {
     throw error;
   }
 
-  async function request(url, requestOptions = {}, state = null) {
-    const requestContext = await prepareRequestConfig(url, requestOptions, state, false);
+  async function executeRequestLifecycle({
+    url,
+    requestOptions = {},
+    state = null,
+    stream = false,
+    handleNetworkFailure,
+    retryRequest
+  } = {}) {
+    if (typeof handleNetworkFailure !== "function") {
+      throw new TypeError("executeRequestLifecycle requires handleNetworkFailure().");
+    }
+    if (typeof retryRequest !== "function") {
+      throw new TypeError("executeRequestLifecycle requires retryRequest().");
+    }
+
+    const requestContext = await prepareRequestConfig(url, requestOptions, state, stream);
     const {
       method,
       state: resolvedState
@@ -372,7 +386,52 @@ function createHttpClient(options = {}) {
       url,
       requestContext.config,
       requestContext,
-      async (cause) => {
+      (cause) =>
+        handleNetworkFailure({
+          cause,
+          url,
+          method,
+          state: resolvedState,
+          stream
+        })
+    );
+
+    if (!result.response.ok) {
+      return {
+        handled: true,
+        value: await handleHttpFailure({
+          url,
+          method,
+          state: resolvedState,
+          response: result.response,
+          data: result.data,
+          contentType: result.contentType,
+          isJson: result.isJson,
+          stream,
+          retryRequest() {
+            return retryRequest(resolvedState);
+          }
+        })
+      };
+    }
+
+    return {
+      handled: false,
+      value: {
+        method,
+        state: resolvedState,
+        result
+      }
+    };
+  }
+
+  async function request(url, requestOptions = {}, state = null) {
+    const execution = await executeRequestLifecycle({
+      url,
+      requestOptions,
+      state,
+      stream: false,
+      async handleNetworkFailure({ cause, method, state: resolvedState }) {
         const error = createNetworkError(cause);
         await notifyFailure({
           url,
@@ -383,24 +442,20 @@ function createHttpClient(options = {}) {
           stream: false
         });
         throw error;
+      },
+      retryRequest(nextState) {
+        return request(url, requestOptions, nextState);
       }
-    );
-
-    if (!result.response.ok) {
-      return handleHttpFailure({
-        url,
-        method,
-        state: resolvedState,
-        response: result.response,
-        data: result.data,
-        contentType: result.contentType,
-        isJson: result.isJson,
-        stream: false,
-        retryRequest() {
-          return request(url, requestOptions, resolvedState);
-        }
-      });
+    });
+    if (execution.handled) {
+      return execution.value;
     }
+
+    const {
+      method,
+      state: resolvedState,
+      result
+    } = execution.value;
 
     await notifySuccess({
       url,
@@ -416,16 +471,12 @@ function createHttpClient(options = {}) {
   }
 
   async function requestStream(url, requestOptions = {}, handlers = {}, state = null) {
-    const requestContext = await prepareRequestConfig(url, requestOptions, state, true);
-    const {
-      method,
-      state: resolvedState
-    } = requestContext;
-    const result = await executePreparedRequest(
+    const execution = await executeRequestLifecycle({
       url,
-      requestContext.config,
-      requestContext,
-      async (cause) => {
+      requestOptions,
+      state,
+      stream: true,
+      async handleNetworkFailure({ cause, method, state: resolvedState }) {
         const aborted = String(cause?.name || "") === "AbortError";
         const reason = aborted ? "aborted" : "network_error";
         await notifyFailure({
@@ -441,24 +492,20 @@ function createHttpClient(options = {}) {
         }
 
         throw createNetworkError(cause);
+      },
+      retryRequest(nextState) {
+        return requestStream(url, requestOptions, handlers, nextState);
       }
-    );
-
-    if (!result.response.ok) {
-      return handleHttpFailure({
-        url,
-        method,
-        state: resolvedState,
-        response: result.response,
-        data: result.data,
-        contentType: result.contentType,
-        isJson: result.isJson,
-        stream: true,
-        retryRequest() {
-          return requestStream(url, requestOptions, handlers, resolvedState);
-        }
-      });
+    });
+    if (execution.handled) {
+      return execution.value;
     }
+
+    const {
+      method,
+      state: resolvedState,
+      result
+    } = execution.value;
 
     try {
       let shouldParseAsNdjson = result.contentType.includes(DEFAULT_NDJSON_CONTENT_TYPE);

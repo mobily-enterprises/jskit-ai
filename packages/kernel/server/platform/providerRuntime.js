@@ -3,7 +3,7 @@ import { ServerRuntimeCoreServiceProvider } from "../runtime/ServerRuntimeCoreSe
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { readLockFromApp } from "../runtime/lib/lockfile.js";
+import { readLockFromApp } from "./providerRuntime/lockfile.js";
 import {
   collectGlobalUiPaths,
   resolveInstalledPackageDescriptors,

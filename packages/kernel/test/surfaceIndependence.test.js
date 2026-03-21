@@ -10,10 +10,7 @@ const KERNEL_ROOT = path.join(REPO_ROOT, "packages", "kernel");
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage"]);
 const DISALLOWED_SURFACE_LITERALS = new Set(["app", "admin", "console", "home"]);
 const ALLOWED_PUBLIC_LITERAL_FILES = new Set([
-  "packages/kernel/client/shellRouting.js",
-  "packages/kernel/server/registries/routeVisibilityResolverRegistry.js",
-  "packages/kernel/server/runtime/bootBootstrapRoutes.js",
-  "packages/kernel/shared/support/visibility.js"
+  "packages/kernel/shared/support/policies.js"
 ]);
 
 function walkFiles(directoryPath) {
