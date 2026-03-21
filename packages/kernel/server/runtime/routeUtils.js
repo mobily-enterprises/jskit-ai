@@ -1,10 +1,5 @@
 import { AppError } from "./errors.js";
-
-function defaultMissingHandler(_request, reply) {
-  reply.code(501).send({
-    error: "Endpoint is not available in this server wiring."
-  });
-}
+import { defaultMissingHandler } from "../support/defaultMissingHandler.js";
 
 function normalizeIdempotencyKey(value) {
   const normalized = String(value || "").trim();

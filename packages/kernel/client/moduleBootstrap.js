@@ -1,6 +1,7 @@
 import { createApplication } from "../shared/runtime/application.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { normalizeDescriptorClientProviders, normalizeDescriptorUiRoutes } from "./descriptorSections.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
 const CLIENT_MODULE_RUNTIME_APP_TOKEN = Symbol.for("jskit.client.runtime.app");
@@ -231,28 +232,6 @@ function normalizeExplicitProviderClasses(value, packageId) {
   return providers;
 }
 
-function normalizeDescriptorClientProviders(value) {
-  const entries = Array.isArray(value) ? value : [];
-  const providers = [];
-  for (const entry of entries) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      continue;
-    }
-
-    const exportName = String(entry.export || "").trim();
-    if (!exportName) {
-      continue;
-    }
-    providers.push(
-      Object.freeze({
-        export: exportName,
-        entrypoint: String(entry.entrypoint || "").trim()
-      })
-    );
-  }
-  return Object.freeze(providers);
-}
-
 function resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders = []) {
   const providers = [];
   const seenProviderIds = new Set();
@@ -299,14 +278,6 @@ function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClie
     return resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders);
   }
   return [];
-}
-
-function normalizeDescriptorUiRoutes(value) {
-  if (!Array.isArray(value)) {
-    return Object.freeze([]);
-  }
-
-  return Object.freeze(value.filter((entry) => isRecord(entry)));
 }
 
 function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = [] } = {}) {

@@ -1,6 +1,7 @@
 import { parsePositiveInteger } from "./integers.js";
 import { safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
+import { normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
 function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null, defaultSurfaceId = "") {
@@ -24,7 +25,7 @@ function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurface
 function buildAuditEventBase(request, { resolveSurfaceFromPathname = null, defaultSurfaceId = "" } = {}) {
   const pathnameValue = safePathnameFromRequest(request);
   return {
-    actorUserId: parsePositiveInteger(request?.user?.id),
+    actorId: normalizeOpaqueId(request?.user?.id),
     actorEmail: String(request?.user?.email || "")
       .trim()
       .toLowerCase(),

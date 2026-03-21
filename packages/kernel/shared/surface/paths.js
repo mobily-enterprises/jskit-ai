@@ -270,4 +270,4 @@ function createSurfacePathHelpers(options = {}) {
   });
 }
 
-export { createSurfacePathHelpers, normalizePathname };
+export { createSurfacePathHelpers, normalizePathname, matchesPathPrefix };

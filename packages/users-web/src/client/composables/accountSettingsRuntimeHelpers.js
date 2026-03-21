@@ -1,96 +1,20 @@
 import { ACCOUNT_SETTINGS_DEFAULTS } from "./accountSettingsRuntimeConstants.js";
+import {
+  normalizeReturnToPath as normalizeSharedReturnToPath,
+  resolveAllowedOriginsFromPlacementContext
+} from "@jskit-ai/kernel/shared/support";
 
 function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account/settings", allowedOrigins = [] } = {}) {
-  const source = Array.isArray(value) ? value[0] : value;
-  const rawValue = String(source || "").trim();
-  if (!rawValue) {
-    return fallback;
-  }
-
-  const normalizedAccountPathname =
-    String(accountSettingsPath || "")
-      .split("?")[0]
-      .split("#")[0]
-      .replace(/\/{2,}/g, "/")
-      .replace(/\/+$/, "") || "/";
-
-  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
-    const normalizedPathname = rawValue.split("?")[0].split("#")[0].replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
-    if (normalizedPathname === normalizedAccountPathname) {
-      return fallback;
-    }
-    return rawValue;
-  }
-
-  let parsed;
-  try {
-    parsed = new URL(rawValue);
-  } catch {
-    return fallback;
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return fallback;
-  }
-
-  if (allowedOrigins.length > 0 && !allowedOrigins.includes(parsed.origin)) {
-    return fallback;
-  }
-
-  const normalizedPathname = String(parsed.pathname || "").replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
-  if (normalizedPathname === normalizedAccountPathname) {
-    return fallback;
-  }
-
-  return parsed.toString();
-}
-
-function normalizeHttpOrigin(value) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(rawValue);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return "";
-    }
-    return parsed.origin;
-  } catch {
-    return "";
-  }
+  return normalizeSharedReturnToPath(value, {
+    fallback,
+    allowedOrigins,
+    blockedPathnames: [accountSettingsPath],
+    pickFirstArrayValue: true
+  });
 }
 
 function resolveAllowedReturnToOrigins(contextValue = null) {
-  const resolvedOrigins = [];
-
-  if (typeof window === "object" && window?.location?.origin) {
-    const currentOrigin = normalizeHttpOrigin(window.location.origin);
-    if (currentOrigin) {
-      resolvedOrigins.push(currentOrigin);
-    }
-  }
-
-  const surfaceConfig =
-    contextValue && typeof contextValue === "object" && contextValue.surfaceConfig && typeof contextValue.surfaceConfig === "object"
-      ? contextValue.surfaceConfig
-      : {};
-  const surfacesById =
-    surfaceConfig.surfacesById && typeof surfaceConfig.surfacesById === "object" ? surfaceConfig.surfacesById : {};
-
-  for (const definition of Object.values(surfacesById)) {
-    if (!definition || typeof definition !== "object") {
-      continue;
-    }
-    const surfaceOrigin = normalizeHttpOrigin(definition.origin);
-    if (!surfaceOrigin || resolvedOrigins.includes(surfaceOrigin)) {
-      continue;
-    }
-    resolvedOrigins.push(surfaceOrigin);
-  }
-
-  return resolvedOrigins;
+  return resolveAllowedOriginsFromPlacementContext(contextValue);
 }
 
 function normalizeSettingsPayload(value) {
@@ -152,7 +76,6 @@ function resolveErrorStatusCode(error) {
 export {
   resolveAllowedReturnToOrigins,
   normalizeAvatarSize,
-  normalizeHttpOrigin,
   normalizePendingInvite,
   normalizeReturnToPath,
   normalizeSettingsPayload,

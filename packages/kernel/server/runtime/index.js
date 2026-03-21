@@ -46,8 +46,7 @@ export {
   toCanonicalJson,
   toSha256Hex,
   toHmacSha256Hex,
-  safeParseJson,
-  __testables as canonicalJsonTestables
+  safeParseJson
 } from "./canonicalJson.js";
 export {
   BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG,

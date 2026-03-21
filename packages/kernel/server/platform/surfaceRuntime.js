@@ -1,14 +1,5 @@
 import { createProviderRuntimeFromApp } from "./providerRuntime.js";
-
-function normalizePathname(pathname) {
-  const rawPath = String(pathname || "").trim() || "/";
-  const withLeadingSlash = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (!squashed || squashed === "/") {
-    return "/";
-  }
-  return squashed.replace(/\/+$/, "") || "/";
-}
+import { matchesPathPrefix, normalizePathname } from "../../shared/surface/paths.js";
 
 function toRequestPathname(urlValue) {
   const rawUrl = String(urlValue || "").trim() || "/";
@@ -27,7 +18,7 @@ function matchesGlobalUiPath(pathname, globalUiPaths = []) {
     .sort((left, right) => right.length - left.length);
 
   for (const globalUiPath of normalizedGlobalUiPaths) {
-    if (normalizedPathname === globalUiPath || normalizedPathname.startsWith(`${globalUiPath}/`)) {
+    if (matchesPathPrefix(normalizedPathname, globalUiPath)) {
       return true;
     }
   }
@@ -113,7 +104,7 @@ function registerSurfaceRequestConstraint({
 function resolveRuntimeProfileFromSurface({
   surfaceRuntime,
   serverSurface,
-  defaultProfile = "app"
+  defaultProfile = ""
 } = {}) {
   if (!surfaceRuntime || typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
     throw new TypeError("resolveRuntimeProfileFromSurface requires surfaceRuntime.normalizeSurfaceMode().");
@@ -121,8 +112,12 @@ function resolveRuntimeProfileFromSurface({
 
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);
   const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
+  const fallbackProfile =
+    surfaceRuntime.normalizeSurfaceMode(defaultProfile) ||
+    surfaceRuntime.normalizeSurfaceMode(surfaceRuntime.DEFAULT_SURFACE_ID) ||
+    "public";
   if (normalizedSurface === allMode) {
-    return String(defaultProfile || "app").trim() || "app";
+    return fallbackProfile;
   }
   return normalizedSurface;
 }

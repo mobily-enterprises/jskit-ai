@@ -8,6 +8,7 @@ import { createHttpRuntime } from "../http/lib/kernel.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
+import { escapeRegExp } from "../../shared/surface/escapeRegExp.js";
 import { readLockFromApp } from "../runtime/lib/lockfile.js";
 
 const KERNEL_BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
@@ -16,10 +17,6 @@ const KERNEL_BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
 
 function isIdentifier(value) {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(value || ""));
-}
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function createWildcardMatcher(pattern) {

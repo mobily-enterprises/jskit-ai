@@ -1,18 +1,13 @@
 import { normalizeArray, normalizeObject } from "../../../shared/support/normalize.js";
 import { defaultApplyRoutePolicy } from "../../support/routePolicyConfig.js";
 import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
+import { defaultMissingHandler } from "../../support/defaultMissingHandler.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
 import { attachRequestScope } from "./requestScope.js";
 import { attachRequestActionExecutor } from "./requestActionExecutor.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
-
-function defaultMissingHandler(_request, reply) {
-  reply.code(501).send({
-    error: "Route handler is not available in this runtime profile."
-  });
-}
 
 function toFastifyRouteOptions(route) {
   const sourceRoute = normalizeObject(route);

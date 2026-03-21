@@ -55,12 +55,16 @@ export default Object.freeze({
     "apiSummary": {
       "surfaces": [
         {
-          "subpath": "./server",
-          "summary": "Exports Supabase auth provider service providers and supporting server auth library modules."
+          "subpath": "./server/providers/AuthSupabaseServiceProvider",
+          "summary": "Exports the Supabase auth provider service provider."
+        },
+        {
+          "subpath": "./server/providers/AuthProviderServiceProvider",
+          "summary": "Exports the generic auth provider registration service provider."
         },
         {
           "subpath": "./server/lib/index",
-          "summary": "Exports server-side Supabase auth service and action contributor helpers."
+          "summary": "Exports curated server-side Supabase auth service helpers."
         },
         {
           "subpath": "./client",

@@ -1,4 +1,4 @@
-import { normalizePathname } from "./paths.js";
+import { matchesPathPrefix, normalizePathname } from "./paths.js";
 
 const API_BASE_PATH = "/api";
 const API_PREFIX = "/api";
@@ -6,12 +6,6 @@ const API_PREFIX_SLASH = `${API_PREFIX}/`;
 const API_DOCS_PATH = `${API_PREFIX}/docs`;
 const API_REALTIME_PATH = `${API_PREFIX}/realtime`;
 const VERSIONED_API_PATH_PATTERN = /^\/api\/v[0-9]+(?:$|\/)/;
-
-function matchesPathPrefix(pathname, prefix) {
-  const normalizedPathname = normalizePathname(pathname);
-  const normalizedPrefix = normalizePathname(prefix);
-  return normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`);
-}
 
 function isApiPath(pathname) {
   return matchesPathPrefix(pathname, API_BASE_PATH);

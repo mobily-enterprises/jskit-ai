@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { ActionRuntimeError } from "../../shared/actions/index.js";
+import { normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { isAppError } from "./errors.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
@@ -76,7 +77,7 @@ function registerRequestLoggingHooks(
     const pathnameValue = resolvePathname(request);
     const routeUrl = String(request?.routeOptions?.url || "").trim();
     const surface = resolveSurface(pathnameValue, request);
-    const userId = Number(request?.user?.id);
+    const actorId = normalizeOpaqueId(request?.user?.id);
     const logPayload = {
       requestId: String(request?.id || ""),
       method: String(request?.method || ""),
@@ -87,8 +88,8 @@ function registerRequestLoggingHooks(
       durationMs: Number.isFinite(durationMs) ? Number(durationMs.toFixed(3)) : null
     };
 
-    if (Number.isInteger(userId) && userId > 0) {
-      logPayload.userId = userId;
+    if (actorId != null) {
+      logPayload.actorId = actorId;
     }
 
     if (typeof observeRequest === "function") {

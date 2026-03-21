@@ -2,6 +2,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
 import { sortStrings } from "../../shared/support/sorting.js";
+import {
+  normalizeDescriptorClientProviders,
+  normalizeDescriptorClientOptimizeIncludeSpecifiers,
+  normalizeDescriptorUiRoutes,
+  normalizeClientDescriptorSections
+} from "../descriptorSections.js";
 
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
@@ -32,67 +38,6 @@ async function readJsonFile(filePath, fallback) {
 function hasClientExport(packageJson) {
   const exportsMap = ensureObject(packageJson?.exports);
   return Boolean(exportsMap["./client"]);
-}
-
-function normalizeDescriptorUiRoutes(value) {
-  const routeEntries = Array.isArray(value) ? value : [];
-  const normalizedRoutes = [];
-
-  for (const routeEntry of routeEntries) {
-    const routeRecord = ensureObject(routeEntry);
-    if (Object.keys(routeRecord).length < 1) {
-      continue;
-    }
-
-    try {
-      normalizedRoutes.push(Object.freeze(JSON.parse(JSON.stringify(routeRecord))));
-    } catch {
-      continue;
-    }
-  }
-
-  return Object.freeze(normalizedRoutes);
-}
-
-function normalizeDescriptorClientProviders(value) {
-  const entries = Array.isArray(value) ? value : [];
-  const providers = [];
-
-  for (const entry of entries) {
-    const record = ensureObject(entry);
-    if (Object.keys(record).length < 1) {
-      continue;
-    }
-
-    const exportName = String(record.export || "").trim();
-    if (!exportName) {
-      continue;
-    }
-
-    providers.push(
-      Object.freeze({
-        export: exportName,
-        entrypoint: String(record.entrypoint || "").trim()
-      })
-    );
-  }
-
-  return Object.freeze(providers);
-}
-
-function normalizeDescriptorClientOptimizeIncludeSpecifiers(value) {
-  return Object.freeze(sortStrings(value));
-}
-
-function normalizeClientDescriptorSections(descriptorValue) {
-  const descriptor = ensureObject(descriptorValue);
-  return Object.freeze({
-    descriptorUiRoutes: normalizeDescriptorUiRoutes(descriptor?.metadata?.ui?.routes),
-    descriptorClientProviders: normalizeDescriptorClientProviders(descriptor?.runtime?.client?.providers),
-    descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeIncludeSpecifiers(
-      descriptor?.metadata?.client?.optimizeDeps?.include
-    )
-  });
 }
 
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
