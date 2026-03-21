@@ -28,12 +28,20 @@ const profile = props.runtime.profile;
 
           <v-col cols="12" md="8">
             <div class="d-flex flex-wrap ga-2 mb-2">
-              <v-btn variant="tonal" color="secondary" @click="profile.openAvatarEditor">Replace avatar</v-btn>
+              <v-btn
+                variant="tonal"
+                color="secondary"
+                :disabled="profile.isSaving.value || profile.isDeletingAvatar.value || profile.isRefreshing.value"
+                @click="profile.openAvatarEditor"
+              >
+                Replace avatar
+              </v-btn>
               <v-btn
                 v-if="profile.avatar.hasUploadedAvatar"
                 variant="text"
                 color="error"
                 :loading="profile.isDeletingAvatar.value"
+                :disabled="profile.isSaving.value || profile.isRefreshing.value"
                 @click="profile.removeAvatar"
               >
                 Remove avatar
@@ -54,6 +62,7 @@ const profile = props.runtime.profile;
               variant="outlined"
               density="comfortable"
               autocomplete="nickname"
+              :readonly="profile.isSaving.value || profile.isRefreshing.value"
               :error-messages="profile.fieldErrors.displayName ? [profile.fieldErrors.displayName] : []"
             />
           </v-col>
@@ -71,7 +80,14 @@ const profile = props.runtime.profile;
           </v-col>
         </v-row>
 
-        <v-btn type="submit" color="primary" :loading="profile.isSaving.value">Save profile</v-btn>
+        <v-btn
+          type="submit"
+          color="primary"
+          :loading="profile.isSaving.value"
+          :disabled="profile.isDeletingAvatar.value || profile.isRefreshing.value"
+        >
+          Save profile
+        </v-btn>
       </v-form>
     </v-card-text>
   </v-card>

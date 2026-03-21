@@ -400,8 +400,11 @@ const status = computed(() => {
     isRevokingInvite: Boolean(revokeInviteCommand.isRunning.value),
     isRemovingMember: Boolean(memberRemoveCommand.isRunning.value),
     hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading.value,
-    hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isLoading.value,
-    hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isLoading.value
+    hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading.value,
+    hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading.value,
+    isRefreshingWorkspaceSettings: canInviteMembers.value && Boolean(workspaceSettingsView.isRefetching.value),
+    isRefreshingMembersList: canViewMembers.value && Boolean(workspaceMembersList.isRefetching.value),
+    isRefreshingInviteList: canViewMembers.value && Boolean(workspaceInvitesList.isRefetching.value)
   };
 });
 

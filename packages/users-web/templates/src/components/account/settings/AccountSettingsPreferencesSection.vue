@@ -27,6 +27,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.theme ? [preferences.fieldErrors.theme] : []"
             />
           </v-col>
@@ -40,6 +41,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.locale ? [preferences.fieldErrors.locale] : []"
             />
           </v-col>
@@ -51,6 +53,7 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.timeZone"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.timeZone ? [preferences.fieldErrors.timeZone] : []"
             />
           </v-col>
@@ -64,6 +67,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.dateFormat ? [preferences.fieldErrors.dateFormat] : []"
             />
           </v-col>
@@ -77,6 +81,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.numberFormat ? [preferences.fieldErrors.numberFormat] : []"
             />
           </v-col>
@@ -88,6 +93,7 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.currency"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.currencyCode ? [preferences.fieldErrors.currencyCode] : []"
             />
           </v-col>
@@ -99,12 +105,20 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.avatarSize"
               variant="outlined"
               density="comfortable"
+              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
               :error-messages="preferences.fieldErrors.avatarSize ? [preferences.fieldErrors.avatarSize] : []"
             />
           </v-col>
         </v-row>
 
-        <v-btn type="submit" color="primary" :loading="preferences.isSaving.value">Save preferences</v-btn>
+        <v-btn
+          type="submit"
+          color="primary"
+          :loading="preferences.isSaving.value"
+          :disabled="preferences.isRefreshing.value"
+        >
+          Save preferences
+        </v-btn>
       </v-form>
     </v-card-text>
   </v-card>

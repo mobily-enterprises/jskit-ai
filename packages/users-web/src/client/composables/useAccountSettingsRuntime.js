@@ -542,8 +542,10 @@ function useAccountSettingsRuntime() {
   });
 
   const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
+  const refreshingSettings = computed(() => Boolean(settingsView.isRefetching.value));
   const invitesAvailable = computed(() => pendingInvitesModel.workspaceInvitesEnabled === true);
   const loadingInvites = computed(() => invitesAvailable.value && Boolean(pendingInvitesView.isLoading.value));
+  const refreshingInvites = computed(() => invitesAvailable.value && Boolean(pendingInvitesView.isRefetching.value));
   const pendingInvites = computed(() => {
     return Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : [];
   });
@@ -940,6 +942,7 @@ function useAccountSettingsRuntime() {
     fieldErrors: profileAddEdit.fieldErrors,
     isSaving: profileAddEdit.isSaving,
     isDeletingAvatar: avatarDeleteCommand.isRunning,
+    isRefreshing: refreshingSettings,
     submit: submitProfile,
     openAvatarEditor,
     removeAvatar: submitAvatarDelete
@@ -949,6 +952,7 @@ function useAccountSettingsRuntime() {
     form: preferencesForm,
     fieldErrors: preferencesAddEdit.fieldErrors,
     isSaving: preferencesAddEdit.isSaving,
+    isRefreshing: refreshingSettings,
     options: Object.freeze({
       theme: THEME_OPTIONS,
       locale: LOCALE_OPTIONS,
@@ -964,6 +968,7 @@ function useAccountSettingsRuntime() {
   const notifications = Object.freeze({
     form: notificationsForm,
     isSaving: notificationsAddEdit.isSaving,
+    isRefreshing: refreshingSettings,
     submit: submitNotifications
   });
 
@@ -971,6 +976,7 @@ function useAccountSettingsRuntime() {
     isAvailable: invitesAvailable,
     items: pendingInvites,
     isLoading: loadingInvites,
+    isRefetching: refreshingInvites,
     isResolving: isResolvingInvite,
     action: inviteAction,
     accept: acceptInvite,
@@ -981,6 +987,7 @@ function useAccountSettingsRuntime() {
     backTarget,
     backNavigationTarget,
     loadingSettings,
+    refreshingSettings,
     profile,
     preferences,
     notifications,

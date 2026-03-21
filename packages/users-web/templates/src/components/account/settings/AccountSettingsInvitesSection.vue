@@ -17,13 +17,17 @@ const invites = props.runtime.invites;
     </v-card-item>
     <v-divider />
     <v-card-text>
-      <v-progress-linear v-if="invites.isLoading.value" indeterminate class="mb-4" />
+      <template v-if="invites.isLoading.value">
+        <v-skeleton-loader type="text@2, list-item-two-line@3" />
+      </template>
 
-      <template v-if="invites.items.value.length < 1">
+      <template v-else-if="invites.items.value.length < 1">
+        <v-progress-linear v-if="invites.isRefetching.value" indeterminate class="mb-4" />
         <p class="text-body-2 text-medium-emphasis mb-0">No pending invitations.</p>
       </template>
 
       <template v-else>
+        <v-progress-linear v-if="invites.isRefetching.value" indeterminate class="mb-4" />
         <v-list density="comfortable" class="pa-0">
           <v-list-item
             v-for="invite in invites.items.value"

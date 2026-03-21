@@ -7,7 +7,11 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <p v-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
+        <template v-if="showFormSkeleton">
+          <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
+        </template>
+
+        <p v-else-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
           {{ addEdit.loadError }}
         </p>
 
@@ -17,6 +21,7 @@
 
         <template v-else>
           <v-form @submit.prevent="addEdit.submit" novalidate>
+            <v-progress-linear v-if="addEdit.isRefetching" indeterminate class="mb-4" />
             <v-row>
               <v-col cols="12" md="5">
                 <v-text-field
@@ -24,7 +29,7 @@
                   label="Workspace name"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                   :error-messages="addEdit.fieldErrors.name ? [addEdit.fieldErrors.name] : []"
                 />
               </v-col>
@@ -36,7 +41,7 @@
                   type="color"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                   :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
                 />
               </v-col>
@@ -47,7 +52,7 @@
                   label="Workspace avatar URL"
                   variant="outlined"
                   density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving"
+                  :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                   placeholder="https://..."
                   hint="Optional"
                   persistent-hint
@@ -61,18 +66,17 @@
                   color="primary"
                   hide-details
                   label="Enable invites"
-                  :disabled="!addEdit.canSave || !workspaceForm.invitesAvailable || addEdit.isSaving"
+                  :disabled="!addEdit.canSave || !workspaceForm.invitesAvailable || addEdit.isSaving || addEdit.isRefetching"
                 />
               </v-col>
 
               <v-col cols="12" class="d-flex align-center justify-end ga-3">
-                <v-progress-circular v-if="addEdit.isLoading" size="18" indeterminate />
                 <v-btn
                   v-if="addEdit.canSave"
                   type="submit"
                   color="primary"
                   :loading="addEdit.isSaving"
-                  :disabled="addEdit.isLoading"
+                  :disabled="addEdit.isInitialLoading || addEdit.isRefetching"
                 >
                   Save workspace settings
                 </v-btn>
@@ -219,4 +223,6 @@ const addEdit = useAddEdit({
     await bootstrapQuery.query.refetch();
   }
 });
+
+const showFormSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
 </script>

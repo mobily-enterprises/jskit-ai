@@ -13,6 +13,7 @@
               <v-skeleton-loader type="text@2, paragraph, button" class="mb-3" />
             </template>
             <template v-else>
+              <v-progress-linear v-if="showWorkspaceInviteRefreshingIndicator" indeterminate class="mb-3" />
               <p
                 v-if="workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
                 class="text-body-2 text-medium-emphasis mb-3"
@@ -73,6 +74,7 @@
               <v-skeleton-loader type="text, list-item-two-line@2" />
             </template>
             <template v-else>
+              <v-progress-linear v-if="showMembersRefreshingIndicator" indeterminate class="mb-3" />
               <p v-if="!canViewMembers" class="text-body-2 text-medium-emphasis mb-0">
                 You do not have permission to view members.
               </p>
@@ -264,21 +266,44 @@ const isRemovingMember = computed(() => Boolean(unref(status.value.isRemovingMem
 const workspaceInvitePolicyLoaded = computed(() =>
   requireBoolean(status.value.hasLoadedWorkspaceSettings, "status.hasLoadedWorkspaceSettings", "MembersAdminClientElement")
 );
+const workspaceInvitePolicyRefreshing = computed(() =>
+  requireBoolean(
+    status.value.isRefreshingWorkspaceSettings,
+    "status.isRefreshingWorkspaceSettings",
+    "MembersAdminClientElement"
+  )
+);
 const membersListLoaded = computed(() =>
   requireBoolean(status.value.hasLoadedMembersList, "status.hasLoadedMembersList", "MembersAdminClientElement")
+);
+const membersListRefreshing = computed(() =>
+  requireBoolean(status.value.isRefreshingMembersList, "status.isRefreshingMembersList", "MembersAdminClientElement")
 );
 const inviteListLoaded = computed(() =>
   requireBoolean(status.value.hasLoadedInviteList, "status.hasLoadedInviteList", "MembersAdminClientElement")
 );
+const inviteListRefreshing = computed(() =>
+  requireBoolean(status.value.isRefreshingInviteList, "status.isRefreshingInviteList", "MembersAdminClientElement")
+);
 
 const showWorkspaceInviteLoadingSkeleton = computed(
   () => canInviteMembers.value && !workspaceInvitePolicyLoaded.value
+);
+const showWorkspaceInviteRefreshingIndicator = computed(
+  () => canInviteMembers.value && workspaceInvitePolicyLoaded.value && workspaceInvitePolicyRefreshing.value
 );
 
 const showMembersLoadingSkeleton = computed(
   () =>
     canViewMembers.value &&
     (!membersListLoaded.value || !inviteListLoaded.value)
+);
+const showMembersRefreshingIndicator = computed(
+  () =>
+    canViewMembers.value &&
+    membersListLoaded.value &&
+    inviteListLoaded.value &&
+    (membersListRefreshing.value || inviteListRefreshing.value)
 );
 
 const workspaceInvitesAvailable = computed(() => Boolean(unref(workspaceForm.value.invitesAvailable)));

@@ -79,42 +79,47 @@ const activeTab = computed({
       <v-divider />
 
       <v-card-text class="pt-4">
-        <v-progress-linear v-if="runtime.loadingSettings.value" indeterminate class="mb-4" />
+        <template v-if="runtime.loadingSettings.value">
+          <v-skeleton-loader type="text@2, list-item-two-line@4" class="mb-4" />
+          <v-skeleton-loader type="text@2, paragraph, button" />
+        </template>
+        <template v-else>
+          <v-progress-linear v-if="runtime.refreshingSettings.value" indeterminate class="mb-4" />
+          <v-row class="settings-layout" no-gutters>
+            <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
+              <v-list nav density="comfortable" class="settings-section-list rounded-lg">
+                <v-list-item
+                  v-for="section in sections"
+                  :key="section.value"
+                  :title="section.title"
+                  :active="activeTab === section.value"
+                  rounded="lg"
+                  @click="activeTab = section.value"
+                />
+              </v-list>
+            </v-col>
 
-        <v-row class="settings-layout" no-gutters>
-          <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
-            <v-list nav density="comfortable" class="settings-section-list rounded-lg">
-              <v-list-item
-                v-for="section in sections"
-                :key="section.value"
-                :title="section.title"
-                :active="activeTab === section.value"
-                rounded="lg"
-                @click="activeTab = section.value"
-              />
-            </v-list>
-          </v-col>
+            <v-col cols="12" md="9" lg="10">
+              <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
+                <v-window-item value="profile">
+                  <AccountSettingsProfileSection :runtime="runtime" />
+                </v-window-item>
 
-          <v-col cols="12" md="9" lg="10">
-            <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
-              <v-window-item value="profile">
-                <AccountSettingsProfileSection :runtime="runtime" />
-              </v-window-item>
+                <v-window-item value="preferences">
+                  <AccountSettingsPreferencesSection :runtime="runtime" />
+                </v-window-item>
 
-              <v-window-item value="preferences">
-                <AccountSettingsPreferencesSection :runtime="runtime" />
-              </v-window-item>
+                <v-window-item value="notifications">
+                  <AccountSettingsNotificationsSection :runtime="runtime" />
+                </v-window-item>
 
-              <v-window-item value="notifications">
-                <AccountSettingsNotificationsSection :runtime="runtime" />
-              </v-window-item>
-
-              <v-window-item value="invites">
-                <AccountSettingsInvitesSection :runtime="runtime" />
-              </v-window-item>
-            </v-window>
-          </v-col>
-        </v-row>
+                <v-window-item value="invites">
+                  <AccountSettingsInvitesSection :runtime="runtime" />
+                </v-window-item>
+              </v-window>
+            </v-col>
+          </v-row>
+        </template>
       </v-card-text>
     </v-card>
   </section>
