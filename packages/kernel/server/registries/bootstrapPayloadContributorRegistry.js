@@ -1,25 +1,7 @@
 import { normalizeObject } from "../../shared/support/normalize.js";
+import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
+
 const BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.bootstrap.payloadContributors");
-
-function normalizeContributorList(value) {
-  const queue = Array.isArray(value) ? [...value] : [value];
-  const contributors = [];
-
-  while (queue.length > 0) {
-    const entry = queue.shift();
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-    if (entry == null) {
-      continue;
-    }
-
-    contributors.push(entry);
-  }
-
-  return contributors;
-}
 
 function normalizeBootstrapPayloadContributor(entry) {
   if (typeof entry === "function") {
@@ -40,20 +22,13 @@ function normalizeBootstrapPayloadContributor(entry) {
 }
 
 function registerBootstrapPayloadContributor(app, token, factory) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error("registerBootstrapPayloadContributor requires application singleton()/tag().");
-  }
-
-  app.singleton(token, factory);
-  app.tag(token, BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG);
+  registerTaggedSingleton(app, token, factory, BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG, {
+    context: "registerBootstrapPayloadContributor"
+  });
 }
 
 function resolveBootstrapPayloadContributors(scope) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
-  }
-
-  return normalizeContributorList(scope.resolveTag(BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG))
+  return resolveTaggedEntries(scope, BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG)
     .map((entry) => normalizeBootstrapPayloadContributor(entry))
     .filter(Boolean);
 }

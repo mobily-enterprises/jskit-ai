@@ -5,7 +5,7 @@ import {
   registerDomainEventListener,
   resolveDomainEventListeners,
   createDomainEvents
-} from "./domainEvents.js";
+} from "../registries/domainEventListenerRegistry.js";
 
 test("registerDomainEventListener + resolveDomainEventListeners resolve canonical listeners", () => {
   const app = createContainer();

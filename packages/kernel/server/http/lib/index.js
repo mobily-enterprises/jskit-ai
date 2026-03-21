@@ -15,4 +15,4 @@ export {
   resolveRouteVisibilityResolvers,
   registerRouteVisibilityResolver,
   resolveRouteVisibilityContext
-} from "./visibilityResolver.js";
+} from "../../registries/routeVisibilityResolverRegistry.js";

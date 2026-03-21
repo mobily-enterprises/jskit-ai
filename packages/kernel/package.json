@@ -31,6 +31,8 @@
     "./server/platform/surfaceRuntime": "./server/platform/surfaceRuntime.js",
     "./server/runtime": "./server/runtime/index.js",
     "./server/runtime/*": "./server/runtime/*.js",
+    "./server/registries": "./server/registries/index.js",
+    "./server/registries/*": "./server/registries/*.js",
     "./server/support": "./server/support/index.js",
     "./server/surface": "./server/surface/index.js",
     "./shared": "./shared/index.js",

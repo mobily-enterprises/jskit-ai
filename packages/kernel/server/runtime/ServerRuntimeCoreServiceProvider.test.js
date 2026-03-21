@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createContainer } from "../container/lib/container.js";
-import { registerDomainEventListener } from "./domainEvents.js";
+import { registerDomainEventListener } from "../registries/domainEventListenerRegistry.js";
 import { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";
 
 test("ServerRuntimeCoreServiceProvider registers runtime.server and default domainEvents", () => {

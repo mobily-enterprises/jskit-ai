@@ -1,6 +1,7 @@
-import { normalizeRouteVisibility, normalizeVisibilityContext } from "../../../shared/support/visibility.js";
-import { normalizeText } from "../../../shared/support/normalize.js";
-import { RouteRegistrationError } from "./errors.js";
+import { normalizeRouteVisibility, normalizeVisibilityContext } from "../../shared/support/visibility.js";
+import { normalizeText } from "../../shared/support/normalize.js";
+import { RouteRegistrationError } from "../http/lib/errors.js";
+import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
 const ROUTE_VISIBILITY_RESOLVER_TAG = Symbol.for("jskit.runtime.http.visibilityResolvers");
 
@@ -22,42 +23,17 @@ function normalizeRouteVisibilityResolver(entry) {
   };
 }
 
-function normalizeResolverList(value) {
-  const queue = Array.isArray(value) ? [...value] : [value];
-  const resolved = [];
-
-  while (queue.length > 0) {
-    const entry = queue.shift();
-
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-
-    const resolver = normalizeRouteVisibilityResolver(entry);
-    if (resolver) {
-      resolved.push(resolver);
-    }
-  }
-
-  return resolved;
-}
-
 function resolveRouteVisibilityResolvers(scope) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
-  }
-
-  return normalizeResolverList(scope.resolveTag(ROUTE_VISIBILITY_RESOLVER_TAG));
+  return resolveTaggedEntries(scope, ROUTE_VISIBILITY_RESOLVER_TAG)
+    .map((entry) => normalizeRouteVisibilityResolver(entry))
+    .filter(Boolean);
 }
 
 function registerRouteVisibilityResolver(app, token, factory) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new RouteRegistrationError("registerRouteVisibilityResolver requires application singleton()/tag().");
-  }
-
-  app.singleton(token, factory);
-  app.tag(token, ROUTE_VISIBILITY_RESOLVER_TAG);
+  registerTaggedSingleton(app, token, factory, ROUTE_VISIBILITY_RESOLVER_TAG, {
+    context: "registerRouteVisibilityResolver",
+    ErrorType: RouteRegistrationError
+  });
 }
 
 async function resolveRouteVisibilityContext({

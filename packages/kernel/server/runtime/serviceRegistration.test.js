@@ -4,7 +4,7 @@ import { createContainer } from "../container/lib/container.js";
 import {
   installServiceRegistrationApi,
   resolveServiceRegistrations
-} from "./serviceRegistration.js";
+} from "../registries/serviceRegistrationRegistry.js";
 
 test("installServiceRegistrationApi exposes app.service and publishes declared events", async () => {
   const app = createContainer();

@@ -1,25 +1,7 @@
 import { normalizeObject } from "../../shared/support/normalize.js";
+import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
 const DOMAIN_EVENT_LISTENER_TAG = Symbol.for("jskit.runtime.domainEvent.listeners");
-
-function normalizeListenerList(value) {
-  const queue = Array.isArray(value) ? [...value] : [value];
-  const listeners = [];
-
-  while (queue.length > 0) {
-    const entry = queue.shift();
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-    if (entry == null) {
-      continue;
-    }
-    listeners.push(entry);
-  }
-
-  return listeners;
-}
 
 function normalizeDomainEventListener(entry) {
   if (typeof entry === "function") {
@@ -42,20 +24,13 @@ function normalizeDomainEventListener(entry) {
 }
 
 function registerDomainEventListener(app, token, factory) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error("registerDomainEventListener requires application singleton()/tag().");
-  }
-
-  app.singleton(token, factory);
-  app.tag(token, DOMAIN_EVENT_LISTENER_TAG);
+  registerTaggedSingleton(app, token, factory, DOMAIN_EVENT_LISTENER_TAG, {
+    context: "registerDomainEventListener"
+  });
 }
 
 function resolveDomainEventListeners(scope) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
-  }
-
-  return normalizeListenerList(scope.resolveTag(DOMAIN_EVENT_LISTENER_TAG))
+  return resolveTaggedEntries(scope, DOMAIN_EVENT_LISTENER_TAG)
     .map((entry) => normalizeDomainEventListener(entry))
     .filter(Boolean);
 }

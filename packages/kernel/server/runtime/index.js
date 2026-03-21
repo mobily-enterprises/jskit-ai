@@ -20,10 +20,10 @@ export {
   SERVICE_REGISTRATION_TAG,
   normalizeServiceRegistration,
   materializeServiceRegistration,
-  registerTaggedServiceRegistration,
+  registerServiceRegistration,
   resolveServiceRegistrations,
   installServiceRegistrationApi
-} from "./serviceRegistration.js";
+} from "../registries/serviceRegistrationRegistry.js";
 export { resolveDefaultScope, createEntityChangePublisher, createNoopEntityChangePublisher } from "./entityChangeEvents.js";
 export { buildAuditEventBase, buildAuditError, recordAuditEvent, withAuditEvent } from "./securityAudit.js";
 export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, createRuntimeComposition } from "./composition.js";
@@ -42,7 +42,7 @@ export {
   registerDomainEventListener,
   resolveDomainEventListeners,
   createDomainEvents
-} from "./domainEvents.js";
+} from "../registries/domainEventListenerRegistry.js";
 export {
   toCanonicalJson,
   toSha256Hex,
@@ -55,7 +55,7 @@ export {
   registerBootstrapPayloadContributor,
   resolveBootstrapPayloadContributors,
   resolveBootstrapPayload
-} from "./bootstrapContributors.js";
+} from "../registries/bootstrapPayloadContributorRegistry.js";
 export {
   bootBootstrapRoutes,
   bootstrapQueryValidator,

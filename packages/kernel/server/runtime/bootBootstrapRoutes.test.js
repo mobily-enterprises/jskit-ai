@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createContainer } from "../container/lib/container.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { registerBootstrapPayloadContributor } from "./bootstrapContributors.js";
+import { registerBootstrapPayloadContributor } from "../registries/bootstrapPayloadContributorRegistry.js";
 import { bootBootstrapRoutes, bootstrapQueryValidator } from "./bootBootstrapRoutes.js";
 
 function createReplyDouble() {

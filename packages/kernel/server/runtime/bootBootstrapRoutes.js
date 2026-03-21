@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "../../shared/validators/inputNormalization.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { resolveBootstrapPayload } from "./bootstrapContributors.js";
+import { resolveBootstrapPayload } from "../registries/bootstrapPayloadContributorRegistry.js";
 
 const bootstrapQueryValidator = Object.freeze({
   schema: Type.Object({}, { additionalProperties: true }),

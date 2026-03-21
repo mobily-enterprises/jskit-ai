@@ -1,5 +1,11 @@
 import { normalizeText } from "../../shared/support/normalize.js";
-import { createEntityChangePublisher } from "./entityChangeEvents.js";
+import { createEntityChangePublisher } from "../runtime/entityChangeEvents.js";
+import {
+  assertTaggableApp,
+  normalizeNestedEntries,
+  registerTaggedSingleton,
+  resolveTaggedEntries
+} from "./primitives.js";
 
 const SERVICE_REGISTRATION_TAG = Symbol.for("jskit.runtime.services.registrations");
 const ENTITY_CHANGED_EVENT_TYPE = "entity.changed";
@@ -18,23 +24,6 @@ function normalizePlainObject(value) {
     return {};
   }
   return value;
-}
-
-function normalizeArray(value) {
-  const queue = Array.isArray(value) ? [...value] : [value];
-  const list = [];
-  while (queue.length > 0) {
-    const entry = queue.shift();
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-    if (entry == null) {
-      continue;
-    }
-    list.push(entry);
-  }
-  return list;
 }
 
 function isContainerToken(value) {
@@ -177,7 +166,7 @@ function normalizeServiceMetadata(value = {}) {
     const normalizedMethodName = normalizeMethodName(methodName, {
       context: "service metadata.events method"
     });
-    const normalizedEventEntries = normalizeArray(eventEntries).map((entry, index) =>
+    const normalizedEventEntries = normalizeNestedEntries(eventEntries).map((entry, index) =>
       normalizeServiceEventSpec(entry, {
         context: `service metadata.events.${normalizedMethodName}[${index}]`
       })
@@ -205,7 +194,7 @@ function normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata)
       throw new TypeError(`service metadata.events.${methodName} does not match a service method.`);
     }
 
-    const normalizedEntries = normalizeArray(events).map((entry, index) =>
+    const normalizedEntries = normalizeNestedEntries(events).map((entry, index) =>
       normalizeServiceEventSpec(entry, {
         context: `service metadata.events.${methodName}[${index}]`
       })
@@ -414,30 +403,23 @@ function normalizeServiceRegistration(value = {}) {
   });
 }
 
-function registerTaggedServiceRegistration(app, token, factory) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error("registerTaggedServiceRegistration requires application singleton()/tag().");
-  }
-
-  app.singleton(token, factory);
-  app.tag(token, SERVICE_REGISTRATION_TAG);
+function registerServiceRegistration(app, token, factory) {
+  registerTaggedSingleton(app, token, factory, SERVICE_REGISTRATION_TAG, {
+    context: "registerServiceRegistration"
+  });
 }
 
 function resolveServiceRegistrations(scope) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
-  }
-
-  return normalizeArray(scope.resolveTag(SERVICE_REGISTRATION_TAG))
+  return resolveTaggedEntries(scope, SERVICE_REGISTRATION_TAG)
     .map((entry) => normalizePlainObject(entry))
     .filter((entry) => Object.keys(entry).length > 0)
     .sort((left, right) => String(left.serviceToken || "").localeCompare(String(right.serviceToken || "")));
 }
 
 function installServiceRegistrationApi(app) {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error("installServiceRegistrationApi requires application singleton()/tag().");
-  }
+  assertTaggableApp(app, {
+    context: "installServiceRegistrationApi"
+  });
   if (typeof app.service === "function") {
     return;
   }
@@ -452,7 +434,7 @@ function installServiceRegistrationApi(app) {
     this.singleton(registration.serviceToken, (scope) => materializeServiceRegistration(scope, registration));
 
     const registrationToken = createServiceRegistrationToken();
-    registerTaggedServiceRegistration(this, registrationToken, () =>
+    registerServiceRegistration(this, registrationToken, () =>
       Object.freeze({
         serviceToken: registration.serviceToken,
         metadata: registration.metadata
@@ -473,7 +455,7 @@ export {
   SERVICE_REGISTRATION_TAG,
   normalizeServiceRegistration,
   materializeServiceRegistration,
-  registerTaggedServiceRegistration,
+  registerServiceRegistration,
   resolveServiceRegistrations,
   installServiceRegistrationApi
 };

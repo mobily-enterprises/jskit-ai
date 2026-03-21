@@ -6,7 +6,7 @@ import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveActionContextContributors } from "../../actions/ActionRuntimeServiceProvider.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
-import { resolveRouteVisibilityContext } from "./visibilityResolver.js";
+import { resolveRouteVisibilityContext } from "../../registries/routeVisibilityResolverRegistry.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
 

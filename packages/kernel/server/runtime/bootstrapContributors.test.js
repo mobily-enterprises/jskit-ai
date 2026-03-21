@@ -5,7 +5,7 @@ import {
   registerBootstrapPayloadContributor,
   resolveBootstrapPayloadContributors,
   resolveBootstrapPayload
-} from "./bootstrapContributors.js";
+} from "../registries/bootstrapPayloadContributorRegistry.js";
 
 test("registerBootstrapPayloadContributor + resolveBootstrapPayloadContributors register canonical contributors", () => {
   const app = createContainer();

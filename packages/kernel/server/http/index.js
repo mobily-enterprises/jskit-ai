@@ -15,5 +15,5 @@ export {
   resolveRouteVisibilityResolvers,
   registerRouteVisibilityResolver,
   resolveRouteVisibilityContext
-} from "./lib/visibilityResolver.js";
+} from "../registries/routeVisibilityResolverRegistry.js";
 export { HttpFastifyServiceProvider } from "./HttpFastifyServiceProvider.js";

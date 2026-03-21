@@ -6,7 +6,7 @@ import { registerActionContextContributor } from "../../actions/ActionRuntimeSer
 import { createApplication } from "../../kernel/lib/index.js";
 import { createRouter } from "./router.js";
 import { createHttpRuntime, registerHttpRuntime, registerRoutes } from "./kernel.js";
-import { registerRouteVisibilityResolver } from "./visibilityResolver.js";
+import { registerRouteVisibilityResolver } from "../../registries/routeVisibilityResolverRegistry.js";
 
 function createFastifyStub() {
   const routes = [];

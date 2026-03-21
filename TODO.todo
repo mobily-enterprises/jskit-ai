@@ -92,12 +92,12 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Chiara has access to Console?!?
 
   CHECK:
-   - Surface-protection works
-     - CONFIG FOR THIS: If logged out, redirect to login immediately, check page permissions if not logged out
-   - Everything works with new surfaces + check that surfaces work
-   - CRUD works 
+  X Surface-protection works
+   X CONFIG FOR THIS: If logged out, redirect to login immediately, check page permissions if not logged out
+  X Everything works with new surfaces + check that surfaces work
+  X CRUD works 
  
-   Default surface from config (surfaceDefaultId), auto visibility:
+Default surface from config (surfaceDefaultId), auto visibility:
 
 jskit add package @jskit-ai/crud --namespace invoices --visibility auto --no-install
 
@@ -293,5 +293,3 @@ Task:
          - residual risks/testing gaps
 
 ```
-
-
