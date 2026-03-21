@@ -5,7 +5,7 @@ import {
 } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeUsersRouteVisibility,
+  normalizeScopedRouteVisibility,
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
@@ -34,7 +34,7 @@ function normalizeCrudNamespace(value) {
 }
 
 function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
-  return normalizeUsersRouteVisibility(value, { fallback });
+  return normalizeScopedRouteVisibility(value, { fallback });
 }
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
@@ -208,7 +208,7 @@ function resolveCrudSurfacePolicy(
   const ownershipFilter =
     requestedOwnershipFilter === CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
       ? resolveOwnershipFilterFromSurfaceDefinition(surfaceDefinition)
-      : normalizeUsersRouteVisibility(requestedOwnershipFilter, {
+      : normalizeScopedRouteVisibility(requestedOwnershipFilter, {
           fallback: "public"
         });
 
