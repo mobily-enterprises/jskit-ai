@@ -93,69 +93,77 @@ function resetPassword(rawPassword) {
   return registerPassword(rawPassword);
 }
 
-function registerInput(payload = {}) {
-  const emailCheck = validateEmail(payload.email);
-  const passwordCheck = registerPassword(payload.password);
+function buildFieldErrors(entries = []) {
   const fieldErrors = {};
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const field = String(entry?.field || "").trim();
+    const error = String(entry?.error || "").trim();
+    if (!field || !error) {
+      continue;
+    }
+    fieldErrors[field] = error;
+  }
+  return fieldErrors;
+}
 
-  if (emailCheck.error) {
-    fieldErrors.email = emailCheck.error;
-  }
-  if (passwordCheck.error) {
-    fieldErrors.password = passwordCheck.error;
-  }
+function buildEmailPasswordInput(payload = {}, { passwordValidator } = {}) {
+  const emailCheck = validateEmail(payload.email);
+  const resolvePassword = typeof passwordValidator === "function" ? passwordValidator : registerPassword;
+  const passwordCheck = resolvePassword(payload.password);
 
   return {
     email: emailCheck.email,
     password: passwordCheck.password,
-    fieldErrors
+    fieldErrors: buildFieldErrors([
+      {
+        field: "email",
+        error: emailCheck.error
+      },
+      {
+        field: "password",
+        error: passwordCheck.error
+      }
+    ])
   };
 }
 
+function registerInput(payload = {}) {
+  return buildEmailPasswordInput(payload, {
+    passwordValidator: registerPassword
+  });
+}
+
 function loginInput(payload = {}) {
-  const emailCheck = validateEmail(payload.email);
-  const passwordCheck = loginPassword(payload.password);
-  const fieldErrors = {};
-
-  if (emailCheck.error) {
-    fieldErrors.email = emailCheck.error;
-  }
-  if (passwordCheck.error) {
-    fieldErrors.password = passwordCheck.error;
-  }
-
-  return {
-    email: emailCheck.email,
-    password: passwordCheck.password,
-    fieldErrors
-  };
+  return buildEmailPasswordInput(payload, {
+    passwordValidator: loginPassword
+  });
 }
 
 function forgotPasswordInput(payload = {}) {
   const emailCheck = validateEmail(payload.email);
-  const fieldErrors = {};
-
-  if (emailCheck.error) {
-    fieldErrors.email = emailCheck.error;
-  }
 
   return {
     email: emailCheck.email,
-    fieldErrors
+    fieldErrors: buildFieldErrors([
+      {
+        field: "email",
+        error: emailCheck.error
+      }
+    ])
   };
 }
 
 function resetPasswordInput(payload = {}) {
   const passwordCheck = resetPassword(payload.password);
-  const fieldErrors = {};
-
-  if (passwordCheck.error) {
-    fieldErrors.password = passwordCheck.error;
-  }
 
   return {
     password: passwordCheck.password,
-    fieldErrors
+    fieldErrors: buildFieldErrors([
+      {
+        field: "password",
+        error: passwordCheck.error
+      }
+    ])
   };
 }
 

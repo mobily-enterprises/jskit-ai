@@ -5,6 +5,10 @@ import {
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
+import {
+  createWorkspaceRoleCatalogOutputSchema,
+  hasWorkspaceRoleCatalog
+} from "./workspaceRoleCatalogSchema.js";
 import { createWorkspaceRoleCatalog } from "../roles.js";
 
 function buildCreateBodySchema() {
@@ -34,6 +38,7 @@ function buildSettingsOutputSchema() {
 }
 
 function buildResponseRecordSchema() {
+  const roleCatalogSchema = createWorkspaceRoleCatalogOutputSchema(Type);
   return Type.Object(
     {
       workspace: Type.Object(
@@ -45,15 +50,7 @@ function buildResponseRecordSchema() {
         { additionalProperties: false }
       ),
       settings: buildSettingsOutputSchema(),
-      roleCatalog: Type.Object(
-        {
-          collaborationEnabled: Type.Boolean(),
-          defaultInviteRole: Type.String(),
-          roles: Type.Array(Type.Object({}, { additionalProperties: true })),
-          assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
-        },
-        { additionalProperties: true }
-      )
+      roleCatalog: roleCatalogSchema
     },
     { additionalProperties: false }
   );
@@ -102,10 +99,6 @@ function normalizeOutput(payload = {}) {
   normalizedSettings.invitesAvailable = invitesAvailable;
   normalizedSettings.invitesEffective = invitesEffective;
   const roleCatalog = normalizeObjectInput(source.roleCatalog);
-  const hasRoleCatalog =
-    Array.isArray(roleCatalog.roles) &&
-    roleCatalog.roles.length > 0 &&
-    Array.isArray(roleCatalog.assignableRoleIds);
 
   return {
     workspace: {
@@ -114,7 +107,7 @@ function normalizeOutput(payload = {}) {
       ownerUserId: Number(workspace.ownerUserId)
     },
     settings: normalizedSettings,
-    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
+    roleCatalog: hasWorkspaceRoleCatalog(roleCatalog) ? roleCatalog : createWorkspaceRoleCatalog()
   };
 }
 

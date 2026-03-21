@@ -116,14 +116,27 @@ function wordsToKebab(words) {
     .join("-");
 }
 
-function toSingularForm(value) {
+function resolveLastWordMutationInput(value) {
   const words = splitTextIntoWords(value);
   if (words.length < 1) {
-    return "";
+    return null;
   }
 
   const lastIndex = words.length - 1;
-  const last = words[lastIndex];
+  return {
+    words,
+    lastIndex,
+    last: words[lastIndex]
+  };
+}
+
+function toSingularForm(value) {
+  const input = resolveLastWordMutationInput(value);
+  if (!input) {
+    return "";
+  }
+
+  const { words, lastIndex, last } = input;
   if (!last) {
     return wordsToKebab(words);
   }
@@ -145,13 +158,12 @@ function toSingularForm(value) {
 }
 
 function toPluralForm(value) {
-  const words = splitTextIntoWords(value);
-  if (words.length < 1) {
+  const input = resolveLastWordMutationInput(value);
+  if (!input) {
     return "";
   }
 
-  const lastIndex = words.length - 1;
-  const last = words[lastIndex];
+  const { words, lastIndex, last } = input;
   if (!last) {
     return wordsToKebab(words);
   }

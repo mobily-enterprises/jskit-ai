@@ -1,5 +1,5 @@
 import {
-  createProviderLogger as createSharedProviderLogger
+  createProviderLogger
 } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   resolveRuntimePathname,
@@ -12,10 +12,6 @@ import {
   normalizeWorkspaceBootstrapStatusValue
 } from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
-
-function createProviderLogger(app) {
-  return createSharedProviderLogger(app);
-}
 
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
