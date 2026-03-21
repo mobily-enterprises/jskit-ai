@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Type } from "typebox";
-import { createContainer } from "@jskit-ai/kernel/server/container";
+import { createContainer } from "@jskit-ai/kernel/_testable";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";

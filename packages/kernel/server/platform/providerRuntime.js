@@ -452,7 +452,7 @@ async function loadPackageProviders({ descriptorEntry }) {
       });
 
       for (const discoveredProviderPath of discoveredProviderPaths) {
-        const providerModule = await import(pathToFileURL(discoveredProviderPath).href + `?t=${Date.now()}_${Math.random()}`);
+        const providerModule = await import(pathToFileURL(discoveredProviderPath).href);
         providerClasses.push(
           ...resolveProviderClassesFromModule(providerModule, {
             packageId: `${descriptorEntry.packageId} (${normalizeRelativePath(
@@ -478,7 +478,7 @@ async function loadPackageProviders({ descriptorEntry }) {
       );
     }
 
-    const providerModule = await import(pathToFileURL(providerModulePath).href + `?t=${Date.now()}_${Math.random()}`);
+    const providerModule = await import(pathToFileURL(providerModulePath).href);
     providerClasses.push(
       ...resolveProviderClassesFromModule(providerModule, {
         packageId: descriptorEntry.packageId,
@@ -526,12 +526,10 @@ async function createProviderRuntimeApp({
 async function createProviderRuntimeFromApp({
   appRoot,
   lockPath = ".jskit/lock.json",
-  strict = false,
   profile = "app",
   env = {},
   logger = console,
-  fastify = null,
-  missingHandler = null
+  fastify = null
 } = {}) {
   if (!appRoot || typeof appRoot !== "string") {
     throw new TypeError("createProviderRuntimeFromApp requires appRoot.");

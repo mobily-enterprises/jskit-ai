@@ -136,10 +136,16 @@ test("assistant routes build list inputs with explicit query object", async () =
     workspaceSlug: "acme",
     query: { cursor: 30, limit: 50, status: "active" }
   });
+  assert.deepEqual(calls[0].context, {
+    surface: "app"
+  });
   assert.deepEqual(calls[1].input, {
     workspaceSlug: "acme",
     conversationId: 10,
     query: { page: 3, pageSize: 100 }
+  });
+  assert.deepEqual(calls[1].context, {
+    surface: "app"
   });
   assert.deepEqual(calls[2], {
     actionId: "assistant.console.settings.read"
@@ -154,12 +160,18 @@ test("assistant routes build list inputs with explicit query object", async () =
   });
   assert.deepEqual(calls[4], {
     actionId: "assistant.workspace.settings.read",
+    context: {
+      surface: "app"
+    },
     input: {
       workspaceSlug: "acme"
     }
   });
   assert.deepEqual(calls[5], {
     actionId: "assistant.workspace.settings.update",
+    context: {
+      surface: "app"
+    },
     input: {
       workspaceSlug: "acme",
       patch: {
@@ -169,7 +181,7 @@ test("assistant routes build list inputs with explicit query object", async () =
   });
 });
 
-test("assistant workspace routes bind surface from app config assistant.workspaceSurfaceId", () => {
+test("assistant workspace routes use workspace default surface and honor x-jskit-surface header", async () => {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -191,8 +203,23 @@ test("assistant workspace routes bind surface from app config assistant.workspac
       }
       if (token === "appConfig") {
         return {
-          assistant: {
-            workspaceSurfaceId: "app"
+          surfaceDefaultId: "admin",
+          surfaceDefinitions: {
+            app: {
+              id: "app",
+              enabled: true,
+              requiresWorkspace: true
+            },
+            admin: {
+              id: "admin",
+              enabled: true,
+              requiresWorkspace: true
+            },
+            console: {
+              id: "console",
+              enabled: true,
+              requiresWorkspace: false
+            }
           }
         };
       }
@@ -213,6 +240,48 @@ test("assistant workspace routes bind surface from app config assistant.workspac
   for (const [method, path] of expectedWorkspaceRoutes) {
     const route = findRoute(registeredRoutes, method, path);
     assert.ok(route);
-    assert.equal(route.route.surface, "app");
+    assert.equal(route.route.surface, "admin");
   }
+
+  const conversationsRoute = findRoute(registeredRoutes, "GET", "/api/w/:workspaceSlug/assistant/conversations");
+  const actionCalls = [];
+  const executeAction = async (payload) => {
+    actionCalls.push(payload);
+    return {};
+  };
+
+  await conversationsRoute.handler(
+    {
+      headers: {
+        "x-jskit-surface": "app"
+      },
+      input: {
+        params: { workspaceSlug: "acme" },
+        query: {}
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+  await conversationsRoute.handler(
+    {
+      headers: {
+        "x-jskit-surface": "missing"
+      },
+      input: {
+        params: { workspaceSlug: "acme" },
+        query: {}
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+
+  assert.equal(actionCalls.length, 2);
+  assert.deepEqual(actionCalls[0].context, {
+    surface: "app"
+  });
+  assert.deepEqual(actionCalls[1].context, {
+    surface: "admin"
+  });
 });

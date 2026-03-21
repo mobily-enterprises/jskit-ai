@@ -1,8 +1,13 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   workspaceSlugParamsValidator
 } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import {
+  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
+  resolveWorkspaceSurfaceIdsFromAppConfig
+} from "@jskit-ai/users-core/server/support/workspaceActionSurfaces";
 import { resolveAssistantApiBasePath } from "../shared/assistantPaths.js";
 import { assistantResource } from "../shared/assistantResource.js";
 import {
@@ -12,14 +17,32 @@ import {
 import { actionIds } from "./actionIds.js";
 import { endNdjson, mapStreamError, setNdjsonHeaders, writeNdjson } from "./lib/ndjson.js";
 
-function resolveAssistantWorkspaceRouteSurfaceId(app) {
+function resolveAssistantWorkspaceRouteSurfaceConfig(app) {
   const appConfig = typeof app?.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
-  const assistantConfig =
-    appConfig && typeof appConfig === "object" && appConfig.assistant && typeof appConfig.assistant === "object"
-      ? appConfig.assistant
-      : {};
-  const configuredSurfaceId = String(assistantConfig.workspaceSurfaceId || "").trim().toLowerCase();
-  return configuredSurfaceId || "admin";
+  const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
+  const fallbackSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
+  return Object.freeze({
+    fallbackSurfaceId,
+    allowedSurfaceIds: new Set(workspaceSurfaceIds)
+  });
+}
+
+function resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig = {}) {
+  const headerValue = request?.headers?.["x-jskit-surface"];
+  const headerCandidate = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  const requestedSurfaceId = normalizeText(headerCandidate).toLowerCase();
+  const fallbackSurfaceId = normalizeText(workspaceRouteSurfaceConfig?.fallbackSurfaceId).toLowerCase() || "app";
+  const allowedSurfaceIds = workspaceRouteSurfaceConfig?.allowedSurfaceIds instanceof Set
+    ? workspaceRouteSurfaceConfig.allowedSurfaceIds
+    : new Set();
+
+  if (!requestedSurfaceId) {
+    return fallbackSurfaceId;
+  }
+  if (allowedSurfaceIds.size > 0 && !allowedSurfaceIds.has(requestedSurfaceId)) {
+    return fallbackSurfaceId;
+  }
+  return requestedSurfaceId;
 }
 
 function registerRoutes(app) {
@@ -29,7 +52,8 @@ function registerRoutes(app) {
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const visibility = "workspace";
-  const workspaceRouteSurfaceId = resolveAssistantWorkspaceRouteSurfaceId(app);
+  const workspaceRouteSurfaceConfig = resolveAssistantWorkspaceRouteSurfaceConfig(app);
+  const workspaceRouteSurfaceId = workspaceRouteSurfaceConfig.fallbackSurfaceId;
   const routeBase = resolveAssistantApiBasePath({
     visibility
   });
@@ -108,6 +132,9 @@ function registerRoutes(app) {
     async function assistantWorkspaceSettingsReadRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.workspaceSettingsRead,
+        context: {
+          surface: resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig)
+        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug
         }
@@ -142,6 +169,9 @@ function registerRoutes(app) {
     async function assistantWorkspaceSettingsPatchRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.workspaceSettingsUpdate,
+        context: {
+          surface: resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig)
+        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           patch: request.input.body
@@ -224,6 +254,9 @@ function registerRoutes(app) {
 
         await request.executeAction({
           actionId: actionIds.chatStream,
+          context: {
+            surface: resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig)
+          },
           input: (() => {
             const body = request.input.body;
             const input = {
@@ -300,6 +333,9 @@ function registerRoutes(app) {
     async function assistantConversationsRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.conversationsList,
+        context: {
+          surface: resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig)
+        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           query: request.input.query
@@ -330,6 +366,9 @@ function registerRoutes(app) {
     async function assistantConversationMessagesRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.conversationMessagesList,
+        context: {
+          surface: resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig)
+        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           conversationId: request.input.params.conversationId,

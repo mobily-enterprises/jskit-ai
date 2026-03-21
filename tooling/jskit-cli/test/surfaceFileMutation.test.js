@@ -135,6 +135,59 @@ test("files mutation resolves toSurface targets from config surfaceDefinitions.p
   });
 });
 
+test("files mutation supports comma-separated toSurface values", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "surface-mutation-multi-surface");
+    await createMinimalApp(appRoot);
+
+    await createSurfaceMutationPackage({
+      appRoot,
+      packageName: "surface-multi-targeted",
+      descriptorBody: `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "@demo/surface-multi-targeted",
+  version: "0.1.0",
+  description: "surface targeted files mutation",
+  dependsOn: [],
+  capabilities: { provides: [], requires: [] },
+  runtime: {
+    server: { providers: [] },
+    client: { providers: [{ entrypoint: "src/client/providers/DemoProvider.js", export: "DemoProvider" }] }
+  },
+  mutations: {
+    dependencies: { runtime: {}, dev: {} },
+    packageJson: { scripts: {} },
+    procfile: {},
+    files: [{ from: "templates/page.vue", toSurface: "app,admin", toSurfacePath: "workspace/assistant/index.vue" }],
+    text: []
+  }
+});
+`,
+      templates: {
+        "templates/page.vue": "<template>assistant page</template>\n"
+      }
+    });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/surface-multi-targeted", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const appPage = await readFile(
+      path.join(appRoot, "src/pages/w/[workspaceSlug]/workspace/assistant/index.vue"),
+      "utf8"
+    );
+    const adminPage = await readFile(
+      path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/workspace/assistant/index.vue"),
+      "utf8"
+    );
+
+    assert.match(appPage, /assistant page/);
+    assert.match(adminPage, /assistant page/);
+  });
+});
+
 test("files mutation fails when toSurface references unknown surface id", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "surface-mutation-unknown");

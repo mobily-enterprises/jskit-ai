@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Type } from "@fastify/type-provider-typebox";
-import { compileRouteValidator } from "@jskit-ai/kernel/server/http/routeValidator";
+import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
 test("routeParamsValidator exposes a shared route params validator", () => {

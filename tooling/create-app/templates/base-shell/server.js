@@ -25,7 +25,6 @@ async function createServer() {
   const appRoot = path.resolve(process.cwd());
   const runtime = await tryCreateProviderRuntimeFromApp({
     appRoot,
-    strict: false,
     profile: resolveRuntimeProfileFromSurface({
       surfaceRuntime,
       serverSurface: runtimeEnv.SERVER_SURFACE,

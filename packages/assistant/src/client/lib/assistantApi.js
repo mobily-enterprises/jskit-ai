@@ -36,7 +36,26 @@ function resolveWorkspaceBasePath(workspaceSlug = "") {
   return path;
 }
 
-function createAssistantWorkspaceApi({ request, requestStream }) {
+function normalizeSurfaceHeaderValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function resolveAssistantRequestHeaders(resolveSurfaceId) {
+  if (typeof resolveSurfaceId !== "function") {
+    return null;
+  }
+
+  const surfaceId = normalizeSurfaceHeaderValue(resolveSurfaceId());
+  if (!surfaceId) {
+    return null;
+  }
+
+  return {
+    "x-jskit-surface": surfaceId
+  };
+}
+
+function createAssistantWorkspaceApi({ request, requestStream, resolveSurfaceId = null }) {
   if (typeof request !== "function" || typeof requestStream !== "function") {
     throw new Error("createAssistantWorkspaceApi requires request() and requestStream().");
   }
@@ -45,6 +64,7 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
     async streamChat(workspaceSlug, payload, { signal, onEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
       const basePath = resolveWorkspaceBasePath(workspaceSlug);
       let streamEventError = null;
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
 
       const streamHandlers = {
         onEvent(event) {
@@ -69,6 +89,7 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
         `${basePath}/chat/stream`,
         {
           method: "POST",
+          ...(requestHeaders ? { headers: requestHeaders } : {}),
           body: payload,
           signal
         },
@@ -86,8 +107,12 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
       appendQueryParam(params, "cursor", query.cursor);
       appendQueryParam(params, "limit", query.limit);
       appendQueryParam(params, "status", query.status);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
 
-      return request(appendQueryString(`${basePath}/conversations`, params.toString()));
+      return request(
+        appendQueryString(`${basePath}/conversations`, params.toString()),
+        requestHeaders ? { headers: requestHeaders } : {}
+      );
     },
 
     getConversationMessages(workspaceSlug, conversationId, query = {}) {
@@ -96,8 +121,12 @@ function createAssistantWorkspaceApi({ request, requestStream }) {
       const params = new URLSearchParams();
       appendQueryParam(params, "page", query.page);
       appendQueryParam(params, "pageSize", query.pageSize);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
 
-      return request(appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()));
+      return request(
+        appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
+        requestHeaders ? { headers: requestHeaders } : {}
+      );
     }
   });
 }

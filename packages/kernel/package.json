@@ -9,6 +9,7 @@
     "test": "node --test"
   },
   "exports": {
+    "./_testable": "./_testable/index.js",
     "./client": {
       "types": "./client/index.d.ts",
       "default": "./client/index.js"
@@ -16,11 +17,7 @@
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
     "./client/vite": "./client/vite/index.js",
     "./server/actions": "./server/actions/index.js",
-    "./server/container": "./server/container/index.js",
     "./server/http": "./server/http/index.js",
-    "./server/http/kernel": "./server/http/lib/kernel.js",
-    "./server/http/routeValidator": "./server/http/lib/routeValidator.js",
-    "./server/kernel": "./server/kernel/index.js",
     "./server/platform": "./server/platform/index.js",
     "./server/runtime": "./server/runtime/index.js",
     "./server/runtime/errors": "./server/runtime/errors.js",
@@ -32,7 +29,6 @@
     "./shared/actions/textNormalization": "./shared/actions/textNormalization.js",
     "./shared/validators": "./shared/validators/index.js",
     "./shared/validators/inputNormalization": "./shared/validators/inputNormalization.js",
-    "./shared/validators/resourceRequiredMetadata": "./shared/validators/resourceRequiredMetadata.js",
     "./shared/support": "./shared/support/index.js",
     "./shared/support/tokens": "./shared/support/tokens.js",
     "./shared/support/normalize": "./shared/support/normalize.js",

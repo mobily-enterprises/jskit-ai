@@ -18,7 +18,9 @@ const SCAN_ROOTS = [
 ];
 const SCANNED_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".vue"]);
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage"]);
-const EXPORTED_UNUSED_ALLOWLIST = new Set([]);
+const EXCLUDED_USAGE_PATH_SEGMENTS = new Set(["test", "tests", "__tests__", "test-support"]);
+const TEST_FILENAME_PATTERN = /\.(test|spec)\.[A-Za-z0-9]+$/;
+const EXPORTED_UNUSED_ALLOWLIST = new Set(["./_testable"]);
 
 function normalizeSlash(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -70,11 +72,27 @@ function collectScanFiles() {
   return files;
 }
 
+function isProductionOrTemplateUsageFile(filePath) {
+  const relativePath = normalizeSlash(path.relative(REPO_ROOT, filePath));
+  if (relativePath.startsWith("packages/kernel/")) {
+    return false;
+  }
+
+  const relativeSegments = relativePath.split("/");
+  if (relativeSegments.some((segment) => EXCLUDED_USAGE_PATH_SEGMENTS.has(segment))) {
+    return false;
+  }
+
+  const baseName = path.posix.basename(relativePath);
+  if (TEST_FILENAME_PATTERN.test(baseName)) {
+    return false;
+  }
+
+  return true;
+}
+
 function collectKernelImportUsages() {
-  const candidateFiles = collectScanFiles().filter((filePath) => {
-    const relativePath = normalizeSlash(path.relative(REPO_ROOT, filePath));
-    return !relativePath.startsWith("packages/kernel/");
-  });
+  const candidateFiles = collectScanFiles().filter((filePath) => isProductionOrTemplateUsageFile(filePath));
 
   const moduleSpecifierPatterns = [
     /\bimport\s+(?:[^"'`]+?\s+from\s+)?["'`]([^"'`]+)["'`]/g,

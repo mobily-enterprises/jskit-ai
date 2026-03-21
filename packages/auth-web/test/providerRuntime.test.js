@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel/server/kernel";
-import { createHttpRuntime } from "@jskit-ai/kernel/server/http/kernel";
+import { createApplication, createHttpRuntime } from "@jskit-ai/kernel/_testable";
 import { AuthRouteServiceProvider } from "../src/server/providers/AuthRouteServiceProvider.js";
 import { AuthWebServiceProvider } from "../src/server/providers/AuthWebServiceProvider.js";
 

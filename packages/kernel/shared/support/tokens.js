@@ -7,14 +7,9 @@ const KERNEL_TOKENS = Object.freeze({
   Reply: Symbol.for("jskit.http.reply"),
   RequestId: Symbol.for("jskit.http.requestId"),
   RequestScope: Symbol.for("jskit.http.requestScope"),
-  CommandRegistry: Symbol.for("jskit.console.commands"),
-  ConsoleKernel: Symbol.for("jskit.console.kernel"),
-  QueueRegistry: Symbol.for("jskit.queue.jobs"),
-  WorkerKernel: Symbol.for("jskit.queue.workerKernel"),
   Knex: Symbol.for("jskit.database.knex"),
   TransactionManager: Symbol.for("jskit.database.transactionManager"),
   Storage: Symbol.for("jskit.storage"),
-  HealthService: Symbol.for("jskit.health.service"),
   SurfaceRuntime: Symbol.for("jskit.surface.runtime")
 });
 

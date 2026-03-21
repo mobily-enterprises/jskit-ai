@@ -250,23 +250,27 @@ function resolveRuntimePolicy() {
   });
 }
 
-function createRuntimeApi(overrideApi = null) {
+function createRuntimeApi({ overrideApi = null, resolveSurfaceId = null } = {}) {
   if (overrideApi && typeof overrideApi.streamChat === "function") {
     return overrideApi;
   }
 
   return createAssistantWorkspaceApi({
     request: assistantHttpClient.request,
-    requestStream: assistantHttpClient.requestStream
+    requestStream: assistantHttpClient.requestStream,
+    resolveSurfaceId
   });
 }
 
 function useAssistantWorkspaceRuntime({ api = null } = {}) {
   const runtimePolicy = resolveRuntimePolicy();
-  const runtimeApi = createRuntimeApi(api);
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
   const { workspaceSlugFromRoute, currentSurfaceId, placementContext } = useWorkspaceRouteContext();
+  const runtimeApi = createRuntimeApi({
+    overrideApi: api,
+    resolveSurfaceId: () => normalizeText(currentSurfaceId.value).toLowerCase()
+  });
 
   const messages = ref([]);
   const input = ref("");

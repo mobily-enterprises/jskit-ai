@@ -3297,9 +3297,9 @@ function validateSurfaceVisibilityOptionPolicy({
   configContext = {}
 } = {}) {
   const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
-  const surfaceId = normalizeSurfaceIdForMutation(resolvedOptions?.[policy.surfaceOption]);
+  const surfaceIds = parseSurfaceIdListForMutation(resolvedOptions?.[policy.surfaceOption]);
   const visibility = normalizeResolvedOptionValue(resolvedOptions?.[policy.visibilityOption]);
-  if (!surfaceId || !visibility) {
+  if (surfaceIds.length < 1 || !visibility) {
     return;
   }
   if (policy.allowAuto && visibility === "auto") {
@@ -3307,22 +3307,24 @@ function validateSurfaceVisibilityOptionPolicy({
   }
 
   const surfaceDefinitions = resolveSurfaceDefinitionsForOptionPolicy(configContext);
-  const surfaceDefinition = surfaceDefinitions[surfaceId];
-  if (!surfaceDefinition) {
-    throw createCliError(
-      `Invalid option combination for package ${packageId}: --${policy.surfaceOption} "${surfaceId}" does not match any configured surface in config/public.js.`
-    );
-  }
-  if (surfaceDefinition.enabled !== true) {
-    throw createCliError(
-      `Invalid option combination for package ${packageId}: surface "${surfaceId}" is disabled in config/public.js.`
-    );
-  }
+  for (const surfaceId of surfaceIds) {
+    const surfaceDefinition = surfaceDefinitions[surfaceId];
+    if (!surfaceDefinition) {
+      throw createCliError(
+        `Invalid option combination for package ${packageId}: --${policy.surfaceOption} includes unknown surface "${surfaceId}" in config/public.js.`
+      );
+    }
+    if (surfaceDefinition.enabled !== true) {
+      throw createCliError(
+        `Invalid option combination for package ${packageId}: surface "${surfaceId}" is disabled in config/public.js.`
+      );
+    }
 
-  if (WORKSPACE_VISIBILITY_SET.has(visibility) && surfaceDefinition.requiresWorkspace !== true) {
-    throw createCliError(
-      `Invalid option combination for package ${packageId}: --${policy.visibilityOption} "${visibility}" requires a surface with requiresWorkspace=true, but "${surfaceId}" has requiresWorkspace=false.`
-    );
+    if (WORKSPACE_VISIBILITY_SET.has(visibility) && surfaceDefinition.requiresWorkspace !== true) {
+      throw createCliError(
+        `Invalid option combination for package ${packageId}: --${policy.visibilityOption} "${visibility}" requires surfaces with requiresWorkspace=true, but "${surfaceId}" has requiresWorkspace=false.`
+      );
+    }
   }
 }
 
@@ -3608,6 +3610,28 @@ function normalizeSurfaceIdForMutation(value = "") {
     .toLowerCase();
 }
 
+function parseSurfaceIdListForMutation(value = "") {
+  const sourceValues = Array.isArray(value) ? value : [value];
+  const surfaceIds = [];
+  const seen = new Set();
+
+  for (const sourceValue of sourceValues) {
+    const parsed = String(sourceValue || "")
+      .split(",")
+      .map((entry) => normalizeSurfaceIdForMutation(entry))
+      .filter(Boolean);
+    for (const surfaceId of parsed) {
+      if (seen.has(surfaceId)) {
+        continue;
+      }
+      seen.add(surfaceId);
+      surfaceIds.push(surfaceId);
+    }
+  }
+
+  return Object.freeze(surfaceIds);
+}
+
 function normalizeSurfacePagesRootForMutation(value = "") {
   const rawValue = String(value || "").trim();
   if (!rawValue || rawValue === "/") {
@@ -3693,18 +3717,16 @@ function resolveSurfaceDefinitionFromConfigForMutation({
   );
 }
 
-function resolveSurfaceTargetPathForMutation({
+function resolveSurfaceTargetPathsForMutation({
   appRoot,
   packageId,
   mutation,
   configContext
 } = {}) {
-  const normalizedSurfaceId = normalizeSurfaceIdForMutation(mutation.toSurface);
-  const definition = resolveSurfaceDefinitionFromConfigForMutation({
-    configContext,
-    surfaceId: normalizedSurfaceId,
-    packageId
-  });
+  const normalizedSurfaceIds = parseSurfaceIdListForMutation(mutation.toSurface);
+  if (normalizedSurfaceIds.length < 1) {
+    throw createCliError(`Invalid files mutation in ${packageId}: "toSurface" is required when using surface targeting.`);
+  }
 
   if (mutation.toSurfaceRoot === true) {
     if (String(mutation.toSurfacePath || "").trim()) {
@@ -3712,12 +3734,22 @@ function resolveSurfaceTargetPathForMutation({
         `Invalid files mutation in ${packageId}: "toSurfacePath" cannot be combined with "toSurfaceRoot".`
       );
     }
-    if (!definition.pagesRoot) {
-      throw createCliError(
-        `Invalid files mutation in ${packageId}: root surface "${normalizedSurfaceId}" cannot use "toSurfaceRoot".`
-      );
+
+    const targetPaths = [];
+    for (const surfaceId of normalizedSurfaceIds) {
+      const definition = resolveSurfaceDefinitionFromConfigForMutation({
+        configContext,
+        surfaceId,
+        packageId
+      });
+      if (!definition.pagesRoot) {
+        throw createCliError(
+          `Invalid files mutation in ${packageId}: root surface "${surfaceId}" cannot use "toSurfaceRoot".`
+        );
+      }
+      targetPaths.push(path.join(appRoot, "src/pages", `${definition.pagesRoot}.vue`));
     }
-    return path.join(appRoot, "src/pages", `${definition.pagesRoot}.vue`);
+    return Object.freeze(targetPaths);
   }
 
   const normalizedSurfacePath = normalizeSurfacePathForMutation(mutation.toSurfacePath, {
@@ -3729,10 +3761,19 @@ function resolveSurfaceTargetPathForMutation({
     );
   }
 
-  const basePagesDirectory = definition.pagesRoot
-    ? path.join(appRoot, "src/pages", definition.pagesRoot)
-    : path.join(appRoot, "src/pages");
-  return path.join(basePagesDirectory, normalizedSurfacePath);
+  const targetPaths = [];
+  for (const surfaceId of normalizedSurfaceIds) {
+    const definition = resolveSurfaceDefinitionFromConfigForMutation({
+      configContext,
+      surfaceId,
+      packageId
+    });
+    const basePagesDirectory = definition.pagesRoot
+      ? path.join(appRoot, "src/pages", definition.pagesRoot)
+      : path.join(appRoot, "src/pages");
+    targetPaths.push(path.join(basePagesDirectory, normalizedSurfacePath));
+  }
+  return Object.freeze(targetPaths);
 }
 
 async function applyFileMutations(
@@ -3870,35 +3911,37 @@ async function applyFileMutations(
       throw createCliError(`Missing template source ${sourcePath} for ${packageEntry.packageId}.`);
     }
 
-    const targetPath = toSurface
-      ? resolveSurfaceTargetPathForMutation({
+    const targetPaths = toSurface
+      ? resolveSurfaceTargetPathsForMutation({
           appRoot,
           packageId: packageEntry.packageId,
           mutation,
           configContext
         })
-      : path.join(appRoot, to);
-    const previous = await readFileBufferIfExists(targetPath);
-    await copyTemplateFile(
-      sourcePath,
-      targetPath,
-      options,
-      packageEntry.packageId,
-      `${mutation.id || to || from}.source`
-    );
-    const nextBuffer = await readFile(targetPath);
+      : [path.join(appRoot, to)];
+    for (const targetPath of targetPaths) {
+      const previous = await readFileBufferIfExists(targetPath);
+      await copyTemplateFile(
+        sourcePath,
+        targetPath,
+        options,
+        packageEntry.packageId,
+        `${mutation.id || to || from}.source`
+      );
+      const nextBuffer = await readFile(targetPath);
 
-    managedFiles.push({
-      path: normalizeRelativePath(appRoot, targetPath),
-      hash: hashBuffer(nextBuffer),
-      hadPrevious: previous.exists,
-      previousContentBase64: previous.exists ? previous.buffer.toString("base64") : "",
-      preserveOnRemove: mutation.preserveOnRemove,
-      reason: mutation.reason,
-      category: mutation.category,
-      id: mutation.id
-    });
-    touchedFiles.add(normalizeRelativePath(appRoot, targetPath));
+      managedFiles.push({
+        path: normalizeRelativePath(appRoot, targetPath),
+        hash: hashBuffer(nextBuffer),
+        hadPrevious: previous.exists,
+        previousContentBase64: previous.exists ? previous.buffer.toString("base64") : "",
+        preserveOnRemove: mutation.preserveOnRemove,
+        reason: mutation.reason,
+        category: mutation.category,
+        id: mutation.id
+      });
+      touchedFiles.add(normalizeRelativePath(appRoot, targetPath));
+    }
   }
 }
 

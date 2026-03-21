@@ -94,7 +94,7 @@ async function loadInstalledPackageDescriptor({ appRoot, packageId, installedPac
   }
 
   try {
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptorModule = await import(pathToFileURL(descriptorPath).href);
     return Object.freeze({
       descriptorPath,
       descriptor: normalizeDescriptorPayload(descriptorModule)

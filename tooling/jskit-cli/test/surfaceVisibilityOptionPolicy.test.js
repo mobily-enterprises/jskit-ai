@@ -40,7 +40,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function createSurfaceVisibilityPolicyPackage(appRoot) {
+async function createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName = "surface" } = {}) {
   const packageRoot = path.join(appRoot, "packages", "surface-policy");
   await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
   await mkdir(path.join(packageRoot, "templates"), { recursive: true });
@@ -67,7 +67,7 @@ async function createSurfaceVisibilityPolicyPackage(appRoot) {
 
   await writeFile(
     path.join(packageRoot, "templates", "settings.txt"),
-    "surface=${option:surface} visibility=${option:visibility}\n",
+    `surface=\${option:${surfaceOptionName}} visibility=\${option:visibility}\n`,
     "utf8"
   );
 
@@ -85,7 +85,7 @@ async function createSurfaceVisibilityPolicyPackage(appRoot) {
     }
   },
   options: {
-    surface: {
+    ${surfaceOptionName}: {
       required: true,
       defaultFromConfig: "surfaceDefaultId"
     },
@@ -95,7 +95,9 @@ async function createSurfaceVisibilityPolicyPackage(appRoot) {
     }
   },
   optionPolicies: {
-    surfaceVisibility: true
+    surfaceVisibility: {
+      surfaceOption: "${surfaceOptionName}"
+    }
   },
   mutations: {
     dependencies: {
@@ -136,7 +138,7 @@ test("add package fails fast when workspace visibility targets a non-workspace s
 
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /Invalid option combination for package @demo\/surface-policy/);
-    assert.match(String(addResult.stderr || ""), /requires a surface with requiresWorkspace=true/);
+    assert.match(String(addResult.stderr || ""), /requires surfaces with requiresWorkspace=true/);
   });
 });
 
@@ -163,5 +165,82 @@ test("add package allows auto visibility on non-workspace surfaces", async () =>
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
     const generated = await readFile(path.join(appRoot, "src/generated/settings.txt"), "utf8");
     assert.equal(generated, "surface=console visibility=auto\n");
+  });
+});
+
+test("add package validates every surface in comma-separated surface option", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "surface-visibility-policy-multi-unknown");
+    await createMinimalApp(appRoot, { name: "surface-visibility-policy-multi-unknown" });
+    await createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName: "surfaces" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "@demo/surface-policy",
+        "--surfaces",
+        "admin,missing",
+        "--visibility",
+        "auto",
+        "--no-install"
+      ]
+    });
+
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /includes unknown surface "missing"/);
+  });
+});
+
+test("add package rejects workspace visibility when any comma-separated surface is non-workspace", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "surface-visibility-policy-multi-workspace");
+    await createMinimalApp(appRoot, { name: "surface-visibility-policy-multi-workspace" });
+    await createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName: "surfaces" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "@demo/surface-policy",
+        "--surfaces",
+        "admin,console",
+        "--visibility",
+        "workspace",
+        "--no-install"
+      ]
+    });
+
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /requires surfaces with requiresWorkspace=true/);
+    assert.match(String(addResult.stderr || ""), /"console" has requiresWorkspace=false/);
+  });
+});
+
+test("add package accepts comma-separated workspace surfaces", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "surface-visibility-policy-multi-valid");
+    await createMinimalApp(appRoot, { name: "surface-visibility-policy-multi-valid" });
+    await createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName: "surfaces" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "@demo/surface-policy",
+        "--surfaces",
+        "admin,admin",
+        "--visibility",
+        "workspace",
+        "--no-install"
+      ]
+    });
+
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+    const generated = await readFile(path.join(appRoot, "src/generated/settings.txt"), "utf8");
+    assert.equal(generated, "surface=admin,admin visibility=workspace\n");
   });
 });
