@@ -39,3 +39,22 @@ test("resolveWorkspaceShellLinkPath keeps explicit non-default workspace surface
 
   assert.equal(path, "/w/acme/admin");
 });
+
+test("resolveWorkspaceShellLinkPath treats unknown console-like ids as regular surface segments", () => {
+  const context = {
+    surfaceConfig: {
+      defaultSurfaceId: "dashboard",
+      enabledSurfaceIds: ["dashboard"],
+      surfacesById: {}
+    }
+  };
+
+  const path = resolveWorkspaceShellLinkPath({
+    context,
+    surface: "console",
+    mode: "workspace",
+    workspaceSlug: "acme"
+  });
+
+  assert.equal(path, "/w/acme/console");
+});

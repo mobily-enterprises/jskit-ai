@@ -1,5 +1,8 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveDefaultWorkspaceSurfaceId } from "../../shared/support/workspacePathModel.js";
+
+const CONSOLE_OWNER_ACCESS_POLICY_ID = "console_owner";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -56,7 +59,10 @@ function resolveConsoleSurfaceIdsFromAppConfig(appConfig = {}) {
     if (definition.enabled === false) {
       continue;
     }
-    if (surfaceId === "console") {
+    if (
+      definition.requiresWorkspace !== true &&
+      normalizeLowerText(definition.accessPolicyId) === CONSOLE_OWNER_ACCESS_POLICY_ID
+    ) {
       resolved.push(surfaceId);
     }
   }
