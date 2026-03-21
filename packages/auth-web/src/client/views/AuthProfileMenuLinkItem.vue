@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { mdiCogOutline, mdiLogin, mdiLogout } from "@mdi/js";
+import { mdiAccountCogOutline, mdiCogOutline, mdiLogin, mdiLogout } from "@mdi/js";
 import {
   useWebPlacementContext,
   resolveSurfaceNavigationTargetFromPlacementContext
@@ -63,6 +63,9 @@ const resolvedIcon = computed(() => {
   }
 
   if (normalizedLabel.includes("settings") || normalizedTarget.includes("/settings")) {
+    if (normalizedTarget.includes("/account/settings")) {
+      return mdiAccountCogOutline;
+    }
     return mdiCogOutline;
   }
 

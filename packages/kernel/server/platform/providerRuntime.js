@@ -6,6 +6,8 @@ import { ServerRuntimeCoreServiceProvider } from "../runtime/ServerRuntimeCoreSe
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
+import { sortStrings } from "../../shared/support/sorting.js";
+import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
 import { readLockFromApp } from "../runtime/lib/lockfile.js";
 
 const KERNEL_BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
@@ -47,12 +49,6 @@ async function fileExists(absolutePath) {
 function isInsidePackageRoot(packageRoot, candidatePath) {
   const relative = path.relative(path.resolve(packageRoot), path.resolve(candidatePath));
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-function toSortedUniqueStrings(values) {
-  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right)
-  );
 }
 
 function normalizeUiRoutePath(pathValue) {
@@ -99,30 +95,7 @@ function collectGlobalUiPaths(descriptorEntries) {
     }
   }
 
-  return Object.freeze(toSortedUniqueStrings(globalUiPaths));
-}
-
-async function resolveDescriptorPathForInstalledPackage({ appRoot, installedPackageState, packageId }) {
-  const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
-  const packagePathFromSource = String(installedPackageState?.source?.packagePath || "").trim();
-  const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
-
-  const candidatePaths = [path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs")];
-  if (packagePathFromSource) {
-    candidatePaths.push(path.resolve(appRoot, packagePathFromSource, "package.descriptor.mjs"));
-  }
-  if (descriptorPathFromSource) {
-    candidatePaths.push(path.resolve(appRoot, descriptorPathFromSource));
-    candidatePaths.push(path.resolve(jskitRoot, descriptorPathFromSource));
-  }
-
-  for (const candidatePath of candidatePaths) {
-    if (await fileExists(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  throw new Error(`Unable to resolve package descriptor for ${packageId}.`);
+  return Object.freeze(sortStrings(globalUiPaths));
 }
 
 async function resolveInstalledPackageDescriptors({ appRoot, lock }) {
@@ -132,20 +105,19 @@ async function resolveInstalledPackageDescriptors({ appRoot, lock }) {
       : {};
 
   const descriptorEntries = [];
-  for (const packageId of toSortedUniqueStrings(Object.keys(installedPackages))) {
+  for (const packageId of sortStrings(Object.keys(installedPackages))) {
     const installedPackageState = installedPackages[packageId] || {};
-    const descriptorPath = await resolveDescriptorPathForInstalledPackage({
+    const descriptorRecord = await loadInstalledPackageDescriptor({
       appRoot,
       installedPackageState,
-      packageId
+      packageId,
+      required: true
     });
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
-    const descriptor = descriptorModule?.default && typeof descriptorModule.default === "object" ? descriptorModule.default : {};
     descriptorEntries.push({
       packageId,
-      descriptor,
-      descriptorPath,
-      packageRoot: path.dirname(descriptorPath)
+      descriptor: descriptorRecord.descriptor,
+      descriptorPath: descriptorRecord.descriptorPath,
+      packageRoot: path.dirname(descriptorRecord.descriptorPath)
     });
   }
 
@@ -183,7 +155,7 @@ function resolveDescriptorLoadOrder(descriptorEntries) {
     ordered.push(entry);
   }
 
-  for (const packageId of toSortedUniqueStrings([...byPackageId.keys()])) {
+  for (const packageId of sortStrings([...byPackageId.keys()])) {
     visit(packageId);
   }
 

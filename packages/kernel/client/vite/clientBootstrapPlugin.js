@@ -1,6 +1,7 @@
-import { access, constants as fsConstants, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
+import { sortStrings } from "../../shared/support/sorting.js";
 
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
@@ -15,18 +16,6 @@ function ensureObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-function normalizePackageIds(value) {
-  return [...new Set((Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right)
-  );
-}
-
-function toSortedUniqueStrings(value) {
-  return [...new Set((Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right)
-  );
-}
-
 function isLocalScopePackageId(value) {
   return String(value || "").trim().startsWith("@local/");
 }
@@ -37,15 +26,6 @@ async function readJsonFile(filePath, fallback) {
     return JSON.parse(source);
   } catch {
     return fallback;
-  }
-}
-
-async function fileExists(filePath) {
-  try {
-    await access(filePath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -101,93 +81,25 @@ function normalizeDescriptorClientProviders(value) {
 }
 
 function normalizeDescriptorClientOptimizeIncludeSpecifiers(value) {
-  return Object.freeze(toSortedUniqueStrings(value));
+  return Object.freeze(sortStrings(value));
 }
 
-async function resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState }) {
-  const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
-  const packagePathFromSource = String(installedPackageState?.source?.packagePath || "").trim();
-  const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
-  const candidatePaths = [path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs")];
-  if (packagePathFromSource) {
-    candidatePaths.push(path.resolve(appRoot, packagePathFromSource, "package.descriptor.mjs"));
-  }
-  if (descriptorPathFromSource) {
-    candidatePaths.push(path.resolve(appRoot, descriptorPathFromSource));
-    candidatePaths.push(path.resolve(jskitRoot, descriptorPathFromSource));
-  }
-
-  for (const candidatePath of candidatePaths) {
-    if (await fileExists(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  return "";
-}
-
-async function resolveDescriptorUiRoutes({ appRoot, packageId, installedPackageState }) {
-  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
-    appRoot,
-    packageId,
-    installedPackageState
+function normalizeClientDescriptorSections(descriptorValue) {
+  const descriptor = ensureObject(descriptorValue);
+  return Object.freeze({
+    descriptorUiRoutes: normalizeDescriptorUiRoutes(descriptor?.metadata?.ui?.routes),
+    descriptorClientProviders: normalizeDescriptorClientProviders(descriptor?.runtime?.client?.providers),
+    descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeIncludeSpecifiers(
+      descriptor?.metadata?.client?.optimizeDeps?.include
+    )
   });
-  if (!descriptorPath) {
-    return Object.freeze([]);
-  }
-
-  try {
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
-    const descriptor = ensureObject(descriptorModule?.default);
-    return normalizeDescriptorUiRoutes(descriptor?.metadata?.ui?.routes);
-  } catch {
-    return Object.freeze([]);
-  }
-}
-
-async function resolveDescriptorClientProviders({ appRoot, packageId, installedPackageState }) {
-  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
-    appRoot,
-    packageId,
-    installedPackageState
-  });
-  if (!descriptorPath) {
-    return Object.freeze([]);
-  }
-
-  try {
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
-    const descriptor = ensureObject(descriptorModule?.default);
-    return normalizeDescriptorClientProviders(descriptor?.runtime?.client?.providers);
-  } catch {
-    return Object.freeze([]);
-  }
-}
-
-async function resolveDescriptorClientOptimizeIncludeSpecifiers({ appRoot, packageId, installedPackageState }) {
-  const descriptorPath = await resolveDescriptorPathForInstalledPackage({
-    appRoot,
-    packageId,
-    installedPackageState
-  });
-  if (!descriptorPath) {
-    return Object.freeze([]);
-  }
-
-  try {
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
-    const descriptor = ensureObject(descriptorModule?.default);
-    return normalizeDescriptorClientOptimizeIncludeSpecifiers(descriptor?.metadata?.client?.optimizeDeps?.include);
-  } catch {
-    return Object.freeze([]);
-  }
 }
 
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
   const installedPackages = ensureObject(lockPayload.installedPackages);
-  const packageIds = normalizePackageIds(Object.keys(installedPackages));
+  const packageIds = sortStrings(Object.keys(installedPackages));
 
   const modules = [];
   for (const packageId of packageIds) {
@@ -198,29 +110,21 @@ async function resolveInstalledClientModules({ appRoot, lockPath }) {
       continue;
     }
 
-    const descriptorUiRoutes = await resolveDescriptorUiRoutes({
+    const descriptorRecord = await loadInstalledPackageDescriptor({
       appRoot,
       packageId,
-      installedPackageState
+      installedPackageState,
+      required: false
     });
-    const descriptorClientProviders = await resolveDescriptorClientProviders({
-      appRoot,
-      packageId,
-      installedPackageState
-    });
-    const descriptorClientOptimizeIncludeSpecifiers = await resolveDescriptorClientOptimizeIncludeSpecifiers({
-      appRoot,
-      packageId,
-      installedPackageState
-    });
+    const descriptorSections = normalizeClientDescriptorSections(descriptorRecord.descriptor);
 
     modules.push(
       Object.freeze({
         packageId,
         sourceType: String(installedPackageState?.source?.type || "").trim().toLowerCase(),
-        descriptorUiRoutes,
-        descriptorClientProviders,
-        descriptorClientOptimizeIncludeSpecifiers
+        descriptorUiRoutes: descriptorSections.descriptorUiRoutes,
+        descriptorClientProviders: descriptorSections.descriptorClientProviders,
+        descriptorClientOptimizeIncludeSpecifiers: descriptorSections.descriptorClientOptimizeIncludeSpecifiers
       })
     );
   }
@@ -247,7 +151,7 @@ async function resolveLocalScopePackageIds({ appRoot, lockPath }) {
     ...ensureObject(appPackageJson.peerDependencies)
   }).filter((packageId) => isLocalScopePackageId(packageId));
 
-  return Object.freeze(toSortedUniqueStrings([...localScopeFromLock, ...localScopeFromPackageJson]));
+  return Object.freeze(sortStrings([...localScopeFromLock, ...localScopeFromPackageJson]));
 }
 
 function normalizeClientModuleDescriptors(value) {
@@ -310,7 +214,7 @@ export { installedClientModules, bootInstalledClientModules };
 function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);
-  return toSortedUniqueStrings(
+  return sortStrings(
     moduleDescriptors
       .filter((entry) => localSourceTypes.has(entry.sourceType))
       .flatMap((entry) => [entry.packageId, `${entry.packageId}/shared`, `${entry.packageId}/client`])
@@ -320,7 +224,7 @@ function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
 function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);
-  return toSortedUniqueStrings(
+  return sortStrings(
     [
       ...moduleDescriptors
       .filter((entry) => !localSourceTypes.has(entry.sourceType))
@@ -331,15 +235,15 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
 }
 
 function resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = []) {
-  return toSortedUniqueStrings(
+  return sortStrings(
     localScopePackageIds.flatMap((packageId) => [packageId, `${packageId}/shared`, `${packageId}/client`])
   );
 }
 
 function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
   const resolveConfig = ensureObject(userResolveConfig);
-  const userDedupe = toSortedUniqueStrings(resolveConfig.dedupe);
-  return toSortedUniqueStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
+  const userDedupe = sortStrings(resolveConfig.dedupe);
+  return sortStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
 }
 
 function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}) {
@@ -359,10 +263,10 @@ function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}
       const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules);
       const userOptimizeDeps = ensureObject(userConfig.optimizeDeps);
-      const userExclude = toSortedUniqueStrings(userOptimizeDeps.exclude);
-      const userInclude = toSortedUniqueStrings(userOptimizeDeps.include);
-      const exclude = toSortedUniqueStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
-      const include = toSortedUniqueStrings([...userInclude, ...clientIncludeSpecifiers]);
+      const userExclude = sortStrings(userOptimizeDeps.exclude);
+      const userInclude = sortStrings(userOptimizeDeps.include);
+      const exclude = sortStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
+      const include = sortStrings([...userInclude, ...clientIncludeSpecifiers]);
       const userResolve = ensureObject(userConfig.resolve);
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
 

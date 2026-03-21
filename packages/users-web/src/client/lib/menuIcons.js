@@ -1,9 +1,13 @@
 import {
+  mdiAccountCircleOutline,
+  mdiAccountCogOutline,
   mdiAccountGroupOutline,
   mdiArrowRightCircleOutline,
+  mdiClipboardListOutline,
   mdiCogOutline,
-  mdiConsole,
-  mdiHomeOutline,
+  mdiConsoleNetworkOutline,
+  mdiFolderOutline,
+  mdiHomeVariantOutline,
   mdiLogin,
   mdiLogout,
   mdiRobotOutline,
@@ -11,16 +15,61 @@ import {
   mdiViewDashboardOutline,
   mdiViewListOutline
 } from "@mdi/js";
+import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
+import { normalizePathname as normalizeKernelPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
-  home: mdiHomeOutline,
+  home: mdiHomeVariantOutline,
   app: mdiViewDashboardOutline,
   admin: mdiShieldCrownOutline,
-  console: mdiConsole
+  console: mdiConsoleNetworkOutline
 });
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function normalizePathname(value) {
+  const normalizedValue = normalizeText(value);
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (isExternalLinkTarget(normalizedValue)) {
+    const isHttpTarget = normalizedValue.startsWith("http://") || normalizedValue.startsWith("https://");
+    if (!isHttpTarget) {
+      return "";
+    }
+
+    let parsedPathname = "";
+    try {
+      parsedPathname = String(new URL(normalizedValue).pathname || "");
+    } catch {
+      return "";
+    }
+
+    const normalizedPathname = normalizeText(parsedPathname);
+    if (!normalizedPathname) {
+      return "";
+    }
+    return normalizeKernelPathname(normalizedPathname).toLowerCase();
+  }
+
+  const { pathname } = splitPathQueryHash(normalizedValue);
+  const normalizedPathname = normalizeText(pathname);
+  if (!normalizedPathname) {
+    return "";
+  }
+
+  return normalizeKernelPathname(normalizedPathname).toLowerCase();
+}
+
+function resolveSurfaceSwitchIdFromLabel(label = "") {
+  const normalizedLabel = normalizeText(label).toLowerCase();
+  if (!normalizedLabel.startsWith("go to ")) {
+    return "";
+  }
+  return normalizeText(normalizedLabel.slice("go to ".length));
 }
 
 function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
@@ -40,51 +89,94 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
   }
 
   const normalizedLabel = normalizeText(label).toLowerCase();
-  const normalizedTarget = normalizeText(to).toLowerCase();
-  if (!normalizedLabel && !normalizedTarget) {
+  const normalizedPathname = normalizePathname(to);
+  if (!normalizedLabel && !normalizedPathname) {
     return "";
+  }
+
+  const surfaceSwitchSurfaceId = resolveSurfaceSwitchIdFromLabel(normalizedLabel);
+  if (surfaceSwitchSurfaceId) {
+    return resolveSurfaceSwitchIcon(surfaceSwitchSurfaceId);
   }
 
   if (
     normalizedLabel.includes("sign in") ||
-    normalizedTarget.includes("/auth/login")
+    normalizedPathname.includes("/auth/login")
   ) {
     return mdiLogin;
   }
 
   if (
     normalizedLabel.includes("sign out") ||
-    normalizedTarget.includes("/auth/signout")
+    normalizedPathname.includes("/auth/signout")
   ) {
     return mdiLogout;
   }
 
-  if (normalizedLabel.includes("settings") || normalizedTarget.includes("/settings")) {
-    return mdiCogOutline;
+  if (
+    normalizedLabel.includes("account") ||
+    normalizedPathname.includes("/account")
+  ) {
+    if (normalizedLabel.includes("settings") || normalizedPathname.includes("/settings")) {
+      return mdiAccountCogOutline;
+    }
+    return mdiAccountCircleOutline;
   }
 
   if (
     normalizedLabel.includes("members") ||
     normalizedLabel.includes("team") ||
-    normalizedTarget.includes("/members")
+    normalizedPathname.includes("/members")
   ) {
     return mdiAccountGroupOutline;
   }
 
-  if (normalizedLabel.includes("assistant") || normalizedTarget.includes("/assistant")) {
+  if (normalizedLabel.includes("assistant") || normalizedPathname.includes("/assistant")) {
     return mdiRobotOutline;
   }
 
-  if (normalizedLabel.includes("console") || normalizedTarget.includes("/console")) {
-    return mdiConsole;
+  if (
+    normalizedLabel.includes("console") ||
+    normalizedPathname.startsWith("/console")
+  ) {
+    return mdiConsoleNetworkOutline;
+  }
+
+  if (
+    normalizedLabel.includes("admin") ||
+    normalizedPathname.includes("/admin")
+  ) {
+    return mdiShieldCrownOutline;
+  }
+
+  if (normalizedLabel.includes("settings") || normalizedPathname.includes("/settings")) {
+    return mdiCogOutline;
+  }
+
+  if (
+    normalizedLabel.includes("home") ||
+    normalizedPathname === "/"
+  ) {
+    return mdiHomeVariantOutline;
   }
 
   if (
     normalizedLabel.includes("workspace") ||
-    normalizedLabel.includes("admin") ||
-    normalizedTarget.includes("/w/")
+    normalizedLabel.includes("dashboard") ||
+    normalizedPathname.includes("/w/")
   ) {
     return mdiViewDashboardOutline;
+  }
+
+  if (normalizedPathname) {
+    const segments = normalizedPathname.split("/").filter(Boolean);
+    if (segments.length === 1) {
+      return mdiFolderOutline;
+    }
+  }
+
+  if (normalizedLabel.includes("list")) {
+    return mdiClipboardListOutline;
   }
 
   return mdiViewListOutline;
