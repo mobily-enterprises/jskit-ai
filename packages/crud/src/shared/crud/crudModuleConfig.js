@@ -83,11 +83,10 @@ function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSu
   return compacted === "/" ? "/" : compacted.replace(/\/+$/, "") || "/";
 }
 
-function resolveCrudApiBasePath({ namespace = "", visibility = DEFAULT_VISIBILITY } = {}) {
-  const normalizedVisibility = normalizeCrudVisibility(visibility);
+function resolveCrudApiBasePath({ namespace = "", surfaceRequiresWorkspace = false } = {}) {
   const relativePath = resolveCrudRelativePath(namespace);
   return resolveUsersApiBasePath({
-    visibility: normalizedVisibility,
+    surfaceRequiresWorkspace: surfaceRequiresWorkspace === true,
     relativePath
   });
 }
@@ -138,7 +137,7 @@ function resolveCrudConfig(source = {}) {
     workspaceScoped: isWorkspaceVisibility(visibility),
     namespacePath: resolveCrudNamespacePath(namespace),
     relativePath: resolveCrudRelativePath(namespace),
-    apiBasePath: resolveCrudApiBasePath({ namespace, visibility }),
+    apiBasePath: resolveCrudApiBasePath({ namespace }),
     tableName: resolveCrudTableName(namespace),
     actionIdPrefix: resolveCrudActionIdPrefix(namespace),
     contributorId: resolveCrudContributorId(namespace),

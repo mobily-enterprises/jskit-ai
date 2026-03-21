@@ -1,21 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  isWorkspaceVisibility,
+  normalizeSurfaceWorkspaceRequirement,
   resolveUsersApiBasePath
 } from "../src/shared/support/usersApiPaths.js";
 
-test("isWorkspaceVisibility returns true only for workspace-scoped visibilities", () => {
-  assert.equal(isWorkspaceVisibility("workspace"), true);
-  assert.equal(isWorkspaceVisibility("workspace_user"), true);
-  assert.equal(isWorkspaceVisibility("public"), false);
-  assert.equal(isWorkspaceVisibility("user"), false);
+test("normalizeSurfaceWorkspaceRequirement only accepts explicit true", () => {
+  assert.equal(normalizeSurfaceWorkspaceRequirement(true), true);
+  assert.equal(normalizeSurfaceWorkspaceRequirement(false), false);
+  assert.equal(normalizeSurfaceWorkspaceRequirement("true"), false);
+  assert.equal(normalizeSurfaceWorkspaceRequirement(1), false);
 });
 
 test("resolveUsersApiBasePath resolves workspace and non-workspace API base paths", () => {
   assert.equal(
     resolveUsersApiBasePath({
-      visibility: "workspace",
+      surfaceRequiresWorkspace: true,
       relativePath: "/customers"
     }),
     "/api/w/:workspaceSlug/workspace/customers"
@@ -23,7 +23,7 @@ test("resolveUsersApiBasePath resolves workspace and non-workspace API base path
 
   assert.equal(
     resolveUsersApiBasePath({
-      visibility: "public",
+      surfaceRequiresWorkspace: false,
       relativePath: "/customers"
     }),
     "/api/customers"

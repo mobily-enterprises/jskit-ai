@@ -9,6 +9,7 @@
     "./client": "./src/client/index.js",
     "./server/UsersCoreServiceProvider": "./src/server/UsersCoreServiceProvider.js",
     "./server/support/workspaceActionSurfaces": "./src/server/support/workspaceActionSurfaces.js",
+    "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
     "./server/support/resolveWorkspace": "./src/server/support/resolveWorkspace.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./shared": "./src/shared/index.js",

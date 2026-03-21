@@ -1,10 +1,13 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
+import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { crudResource } from "../shared/crud/crudResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {
@@ -17,17 +20,13 @@ function joinRoutePath(basePath = "", suffix = "") {
   return `${base}/${end.replace(/^\/+/, "")}`;
 }
 
-function requireRouteBasePath(routeBasePath) {
-  const routeBase = String(routeBasePath || "").trim();
-  if (!routeBase) {
-    throw new TypeError("registerRoutes requires routeBasePath.");
+function requireRouteRelativePath(routeRelativePath) {
+  const routePath = String(routeRelativePath || "").trim();
+  if (!routePath) {
+    throw new TypeError("registerRoutes requires routeRelativePath.");
   }
 
-  return routeBase;
-}
-
-function normalizeRouteSurface(value = "") {
-  return String(value || "").trim().toLowerCase();
+  return routePath;
 }
 
 function requireActionIds(actionIds) {
@@ -49,28 +48,13 @@ function requireActionIds(actionIds) {
   return Object.freeze(normalized);
 }
 
-function readWorkspaceSlugFromParams(params = {}) {
-  const workspaceSlug = String(params?.workspaceSlug || "").trim().toLowerCase();
-  return workspaceSlug || "";
-}
-
-function buildWorkspaceInput(params = {}) {
-  const workspaceSlug = readWorkspaceSlugFromParams(params);
-  if (!workspaceSlug) {
-    return {};
-  }
-
-  return {
-    workspaceSlug
-  };
-}
-
 function registerRoutes(
   app,
   {
-    routeBasePath,
+    routeRelativePath,
     routeVisibility = "public",
     routeSurface = "",
+    routeSurfaceRequiresWorkspace = false,
     actionIds
   } = {}
 ) {
@@ -79,9 +63,13 @@ function registerRoutes(
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeBase = requireRouteBasePath(routeBasePath);
+  const relativePath = requireRouteRelativePath(routeRelativePath);
+  const routeBase = resolveUsersApiBasePath({
+    surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
+    relativePath
+  });
   const visibility = String(routeVisibility || "").trim() || "public";
-  const surface = normalizeRouteSurface(routeSurface);
+  const surface = normalizeSurfaceId(routeSurface);
   const resolvedActionIds = requireActionIds(actionIds);
 
   router.register(
@@ -103,7 +91,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const listInput = {
-        ...buildWorkspaceInput(request.input.params)
+        ...buildWorkspaceInputFromRouteParams(request.input.params)
       };
       if (request.input.query.cursor != null) {
         listInput.cursor = request.input.query.cursor;
@@ -139,7 +127,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.view,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId
         }
       });
@@ -171,7 +159,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.create,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           payload: request.input.body
         }
       });
@@ -203,7 +191,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.update,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId,
           patch: request.input.body
         }
@@ -232,7 +220,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: resolvedActionIds.delete,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId
         }
       });

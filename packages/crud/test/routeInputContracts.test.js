@@ -44,7 +44,8 @@ test("crud routes build create/update action input with explicit payload and pat
   };
 
   registerRoutes(app, {
-    routeBasePath: "/api/w/:workspaceSlug/crud/customers",
+    routeRelativePath: "/customers",
+    routeSurfaceRequiresWorkspace: true,
     actionIds: {
       list: "crud.customers.list",
       view: "crud.customers.view",
@@ -54,8 +55,8 @@ test("crud routes build create/update action input with explicit payload and pat
     }
   });
 
-  const createRoute = findRoute(registeredRoutes, "POST", "/api/w/:workspaceSlug/crud/customers");
-  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/w/:workspaceSlug/crud/customers/:recordId");
+  const createRoute = findRoute(registeredRoutes, "POST", "/api/w/:workspaceSlug/workspace/customers");
+  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/w/:workspaceSlug/workspace/customers/:recordId");
   assert.ok(createRoute);
   assert.ok(updateRoute);
 
@@ -119,7 +120,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   };
 
   registerRoutes(app, {
-    routeBasePath: "/api/customers",
+    routeRelativePath: "/customers",
     routeSurface: "console",
     actionIds: {
       list: "crud.customers.list",

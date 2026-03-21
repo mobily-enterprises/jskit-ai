@@ -1,40 +1,23 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
 import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { crudModuleConfig } from "../shared/moduleConfig.js";
-
-function normalizeRouteSurface(value = "") {
-  return String(value || "").trim().toLowerCase();
-}
-
-function readWorkspaceSlugFromParams(params = {}) {
-  const workspaceSlug = String(params?.workspaceSlug || "").trim().toLowerCase();
-  return workspaceSlug || "";
-}
-
-function buildWorkspaceInput(params = {}) {
-  const workspaceSlug = readWorkspaceSlugFromParams(params);
-  if (!workspaceSlug) {
-    return {};
-  }
-
-  return {
-    workspaceSlug
-  };
-}
 
 function registerRoutes(
   app,
   {
     routeVisibility = "",
     routeSurface = "",
+    routeSurfaceRequiresWorkspace = false,
     routeRelativePath = crudModuleConfig.relativePath
   } = {}
 ) {
@@ -44,9 +27,9 @@ function registerRoutes(
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const visibility = String(routeVisibility || "").trim() || "public";
-  const normalizedRouteSurface = normalizeRouteSurface(routeSurface);
+  const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveUsersApiBasePath({
-    visibility,
+    surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
     relativePath: routeRelativePath
   });
 
@@ -69,7 +52,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const listInput = {
-        ...buildWorkspaceInput(request.input.params)
+        ...buildWorkspaceInputFromRouteParams(request.input.params)
       };
       if (request.input.query.cursor != null) {
         listInput.cursor = request.input.query.cursor;
@@ -105,7 +88,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.view,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId
         }
       });
@@ -137,7 +120,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.create,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           payload: request.input.body
         }
       });
@@ -169,7 +152,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.update,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId,
           patch: request.input.body
         }
@@ -198,7 +181,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.delete,
         input: {
-          ...buildWorkspaceInput(request.input.params),
+          ...buildWorkspaceInputFromRouteParams(request.input.params),
           recordId: request.input.params.recordId
         }
       });

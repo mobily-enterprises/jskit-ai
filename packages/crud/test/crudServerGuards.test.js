@@ -33,7 +33,7 @@ test("createActions requires explicit surface", () => {
   );
 });
 
-test("registerRoutes requires explicit routeBasePath and actionIds", () => {
+test("registerRoutes requires explicit routeRelativePath and actionIds", () => {
   const app = {
     make() {
       return {
@@ -44,13 +44,14 @@ test("registerRoutes requires explicit routeBasePath and actionIds", () => {
 
   assert.throws(
     () => registerRoutes(app, {}),
-    /requires routeBasePath/
+    /requires routeRelativePath/
   );
 
   assert.throws(
     () =>
       registerRoutes(app, {
-        routeBasePath: "/api/w/:workspaceSlug/workspace/customers",
+        routeRelativePath: "/customers",
+        routeSurfaceRequiresWorkspace: true,
         actionIds: {
           list: "crud.customers.list"
         }

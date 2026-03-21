@@ -1,9 +1,9 @@
 import { computed, unref } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
-import { normalizeUsersVisibility, isWorkspaceVisibility } from "./scopeHelpers.js";
 import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
 import { useWorkspaceLinkResolver } from "../lib/workspaceLinkResolver.js";
+import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 
 function normalizePathSuffix(value = "") {
   const raw = normalizeText(unref(value));
@@ -57,23 +57,16 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
 
   function api(relativePath = "", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
-    if (!Object.hasOwn(source, "visibility")) {
-      throw new TypeError("usePaths().api(relativePath, { visibility }) requires explicit visibility.");
-    }
-    if (source.visibility === undefined || source.visibility === null || String(source.visibility).trim() === "") {
-      throw new TypeError("usePaths().api(relativePath, { visibility }) requires non-empty visibility.");
-    }
-
-    const visibility = normalizeUsersVisibility(source.visibility);
+    const surface = resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value);
     const suffix = normalizePathSuffix(relativePath);
-    const workspaceScoped = isWorkspaceVisibility(visibility);
+    const workspaceScoped = surfaceRequiresWorkspaceFromPlacementContext(routeContext.placementContext.value, surface);
 
     if (!suffix) {
       throw new TypeError("usePaths().api(relativePath) requires a non-empty relativePath.");
     }
 
     const templatePath = resolveUsersApiBasePath({
-      visibility,
+      surfaceRequiresWorkspace: workspaceScoped,
       relativePath: suffix
     });
 
@@ -81,7 +74,7 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
       const nextWorkspaceSlug = resolveWorkspaceSlug(source.workspaceSlug, workspaceSlug.value);
       if (!nextWorkspaceSlug) {
         throw new Error(
-          `usePaths().api(${suffix}) requires workspace slug for visibility "${visibility}".`
+          `usePaths().api(${suffix}) requires workspace slug for workspace surface "${surface || "<unknown>"}".`
         );
       }
 

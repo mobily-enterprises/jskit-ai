@@ -1,24 +1,25 @@
 import { computed } from "vue";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { useAccess } from "./useAccess.js";
 import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
 import { usePaths } from "./usePaths.js";
+import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 import {
   asPlainObject,
   ensureAccessModeCompatibility,
   resolveAccessModeEnabled,
   normalizeUsersVisibility,
-  isWorkspaceVisibility,
   resolveApiSuffix
 } from "./scopeHelpers.js";
 
 function useScopeRuntime({
   visibility = "workspace",
+  surface = "",
   accessMode = "auto",
   hasPermissionRequirements = false,
   placementSource = "users-web.scope-runtime"
 } = {}) {
   const normalizedVisibility = normalizeUsersVisibility(visibility);
-  const workspaceScoped = isWorkspaceVisibility(normalizedVisibility);
   const normalizedAccessMode = ensureAccessModeCompatibility({
     accessMode,
     hasPermissionRequirements,
@@ -33,17 +34,28 @@ function useScopeRuntime({
   });
 
   const workspaceSlugFromRoute = routeContext.workspaceSlugFromRoute;
-  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped ? Boolean(workspaceSlugFromRoute.value) : true));
+  const resolvedSurfaceId = computed(() => {
+    const explicitSurfaceId = normalizeSurfaceId(surface);
+    if (explicitSurfaceId) {
+      return explicitSurfaceId;
+    }
+
+    return normalizeSurfaceId(routeContext.currentSurfaceId.value);
+  });
+  const workspaceScoped = computed(() =>
+    surfaceRequiresWorkspaceFromPlacementContext(routeContext.placementContext.value, resolvedSurfaceId.value)
+  );
+  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped.value ? Boolean(workspaceSlugFromRoute.value) : true));
   const workspaceRouteError = computed(() => {
-    if (!workspaceScoped || hasRouteWorkspaceSlug.value) {
+    if (!workspaceScoped.value || hasRouteWorkspaceSlug.value) {
       return "";
     }
 
-    return "Route parameter workspaceSlug is required for workspace/workspace_user visibility.";
+    return `Route parameter workspaceSlug is required for surface "${resolvedSurfaceId.value || "<unknown>"}".`;
   });
 
   const accessRuntime = useAccess({
-    workspaceSlug: workspaceScoped ? workspaceSlugFromRoute : "",
+    workspaceSlug: computed(() => (workspaceScoped.value ? workspaceSlugFromRoute.value : "")),
     enabled: computed(() => accessRequired && hasRouteWorkspaceSlug.value),
     access: normalizedAccessMode,
     hasPermissionRequirements,
@@ -64,7 +76,7 @@ function useScopeRuntime({
     });
 
     return paths.api(suffix, {
-      visibility: normalizedVisibility,
+      surface: resolvedSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value
     });
   }
@@ -77,7 +89,8 @@ function useScopeRuntime({
 
   return Object.freeze({
     normalizedVisibility,
-    workspaceScoped,
+    workspaceScoped: workspaceScoped.value,
+    resolvedSurfaceId,
     accessMode: normalizedAccessMode,
     accessRequired,
     routeContext,

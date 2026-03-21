@@ -78,6 +78,7 @@ class ${option:namespace|pascal}ServiceProvider {
     registerRoutes(app, {
       routeVisibility: crudPolicy.visibility,
       routeSurface: crudPolicy.surfaceId,
+      routeSurfaceRequiresWorkspace: crudPolicy.surfaceDefinition.requiresWorkspace === true,
       routeRelativePath: crudPolicy.relativePath
     });
   }
