@@ -13,6 +13,7 @@ import {
   extractWorkspaceSlugFromSurfacePathname
 } from "./workspaceSurfacePaths.js";
 import { surfaceRequiresWorkspaceFromPlacementContext } from "./workspaceSurfaceContext.js";
+import { parseWorkspacePathname } from "@jskit-ai/users-core/shared/support/workspacePathModel";
 
 function normalizeSurfaceId(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -48,8 +49,7 @@ function resolveWorkspaceSlugFromContextOrPath({
   }
 
   const currentPathname = resolveRuntimePathname(pathname);
-  const workspaceSlugMatch = currentPathname.match(/\/w\/([^/]+)/);
-  const workspaceSlugFromPath = String(workspaceSlugMatch?.[1] || "").trim();
+  const workspaceSlugFromPath = String(parseWorkspacePathname(currentPathname)?.workspaceSlug || "").trim();
   if (workspaceSlugFromPath) {
     return workspaceSlugFromPath;
   }

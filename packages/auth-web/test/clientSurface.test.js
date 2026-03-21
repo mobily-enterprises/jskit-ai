@@ -1,13 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import descriptor from "../package.descriptor.mjs";
-import {
-  useSignOut as fromComposableUseSignOut,
-  createSignOutAction as fromComposableCreateSignOutAction,
-  performSignOutRequest as fromComposablePerformSignOutRequest
-} from "../src/client/composables/useSignOut.js";
 import {
   useSignOut as fromRuntimeUseSignOut,
   createSignOutAction as fromRuntimeCreateSignOutAction,
@@ -36,10 +31,24 @@ test("auth-web auth page templates declare public route guard", () => {
   assert.match(signOutTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
 });
 
-test("auth-web composables/useSignOut re-exports runtime signout helpers", () => {
-  assert.equal(fromComposableUseSignOut, fromRuntimeUseSignOut);
-  assert.equal(fromComposableCreateSignOutAction, fromRuntimeCreateSignOutAction);
-  assert.equal(fromComposablePerformSignOutRequest, fromRuntimePerformSignOutRequest);
+test("auth-web exports runtime signout helpers directly", () => {
+  assert.equal(typeof fromRuntimeUseSignOut, "function");
+  assert.equal(typeof fromRuntimeCreateSignOutAction, "function");
+  assert.equal(typeof fromRuntimePerformSignOutRequest, "function");
+});
+
+test("auth-web removes legacy client wrapper modules", () => {
+  const legacyFiles = [
+    "../src/client/composables/authHttpClient.js",
+    "../src/client/composables/authGuardRuntime.js",
+    "../src/client/composables/useSignOut.js",
+    "../src/client/api/AuthHttpClient.js"
+  ];
+
+  for (const relativePath of legacyFiles) {
+    const absolutePath = fileURLToPath(new URL(relativePath, import.meta.url));
+    assert.equal(existsSync(absolutePath), false, `${relativePath} must not exist.`);
+  }
 });
 
 test("auth-web runtime/useLoginView delegates to useDefaultLoginView", () => {

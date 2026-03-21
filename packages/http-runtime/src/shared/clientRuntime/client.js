@@ -243,11 +243,17 @@ function createHttpClient(options = {}) {
     return true;
   }
 
-  async function request(url, requestOptions = {}, state = null) {
+  function resolveRequestState(state) {
     const resolvedState = state && typeof state === "object" ? state : {};
     if (typeof resolvedState.csrfRetried !== "boolean") {
       resolvedState.csrfRetried = false;
     }
+
+    return resolvedState;
+  }
+
+  async function prepareRequestConfig(url, requestOptions, state, stream) {
+    const resolvedState = resolveRequestState(state);
 
     const method = normalizeMethod(requestOptions.method);
     const headers =
@@ -284,193 +290,198 @@ function createHttpClient(options = {}) {
       }
     }
 
+    return {
+      method,
+      config,
+      state: resolvedState
+    };
+  }
+
+  async function executePreparedRequest(url, config, { method, state }, onNetworkFailure) {
     let response;
     try {
       const activeFetch = configuredFetchImpl || resolveFetch();
       response = await activeFetch(url, config);
     } catch (cause) {
-      const error = createNetworkError(cause);
-      await notifyFailure({
-        url,
-        method,
-        state: resolvedState,
-        reason: "network_error",
-        error,
-        stream: false
-      });
-      throw error;
+      return onNetworkFailure(cause);
     }
 
     const { contentType, isJson, data } = await parseJsonSafely(response);
     updateCsrfTokenFromPayload(data);
 
-    if (!response.ok) {
-      if (
-        await maybeRetry({
-          response,
+    return {
+      response,
+      data,
+      contentType,
+      isJson,
+      method,
+      state
+    };
+  }
+
+  async function handleHttpFailure({
+    url,
+    method,
+    state,
+    response,
+    data,
+    contentType,
+    isJson,
+    stream,
+    retryRequest
+  }) {
+    if (
+      await maybeRetry({
+        response,
+        method,
+        state,
+        data,
+        stream
+      })
+    ) {
+      return retryRequest();
+    }
+
+    const error = createHttpError(response, data);
+    if (Number(response.status) === 401 && typeof hooks.onUnauthorized === "function") {
+      await hooks.onUnauthorized(error);
+    }
+
+    await notifyFailure({
+      url,
+      method,
+      state,
+      reason: `http_${response.status}`,
+      error,
+      response,
+      data,
+      contentType,
+      isJson,
+      stream
+    });
+    throw error;
+  }
+
+  async function request(url, requestOptions = {}, state = null) {
+    const requestContext = await prepareRequestConfig(url, requestOptions, state, false);
+    const {
+      method,
+      state: resolvedState
+    } = requestContext;
+    const result = await executePreparedRequest(
+      url,
+      requestContext.config,
+      requestContext,
+      async (cause) => {
+        const error = createNetworkError(cause);
+        await notifyFailure({
+          url,
           method,
           state: resolvedState,
-          data,
+          reason: "network_error",
+          error,
           stream: false
-        })
-      ) {
-        return request(url, requestOptions, resolvedState);
+        });
+        throw error;
       }
+    );
 
-      const error = createHttpError(response, data);
-      if (Number(response.status) === 401 && typeof hooks.onUnauthorized === "function") {
-        await hooks.onUnauthorized(error);
-      }
-
-      await notifyFailure({
+    if (!result.response.ok) {
+      return handleHttpFailure({
         url,
         method,
         state: resolvedState,
-        reason: `http_${response.status}`,
-        error,
-        response,
-        data,
-        contentType,
-        isJson,
-        stream: false
+        response: result.response,
+        data: result.data,
+        contentType: result.contentType,
+        isJson: result.isJson,
+        stream: false,
+        retryRequest() {
+          return request(url, requestOptions, resolvedState);
+        }
       });
-      throw error;
     }
 
     await notifySuccess({
       url,
       method,
       state: resolvedState,
-      response,
-      data,
-      contentType,
-      isJson,
+      response: result.response,
+      data: result.data,
+      contentType: result.contentType,
+      isJson: result.isJson,
       stream: false
     });
-    return data;
+    return result.data;
   }
 
   async function requestStream(url, requestOptions = {}, handlers = {}, state = null) {
-    const resolvedState = state && typeof state === "object" ? state : {};
-    if (typeof resolvedState.csrfRetried !== "boolean") {
-      resolvedState.csrfRetried = false;
-    }
-
-    const method = normalizeMethod(requestOptions.method);
-    const headers =
-      requestOptions.headers && typeof requestOptions.headers === "object" ? { ...requestOptions.headers } : {};
-
-    const decorateHeadersResult = decorateHeaders({
+    const requestContext = await prepareRequestConfig(url, requestOptions, state, true);
+    const {
+      method,
+      state: resolvedState
+    } = requestContext;
+    const result = await executePreparedRequest(
       url,
-      method,
-      headers,
-      requestOptions,
-      state: resolvedState,
-      stream: true
-    });
-    if (decorateHeadersResult && typeof decorateHeadersResult.then === "function") {
-      await decorateHeadersResult;
-    }
-
-    const config = {
-      credentials: String(options?.credentials || "same-origin"),
-      ...requestOptions,
-      method,
-      headers
-    };
-
-    if (isObjectBody(config.body)) {
-      setHeaderIfMissing(headers, "Content-Type", "application/json");
-      config.body = JSON.stringify(config.body);
-    }
-
-    if (csrf.enabled && unsafeMethods.has(method) && !hasHeader(headers, csrf.headerName)) {
-      const token = await ensureCsrfToken();
-      if (token) {
-        setHeaderIfMissing(headers, csrf.headerName, token);
-      }
-    }
-
-    let response;
-    try {
-      const activeFetch = configuredFetchImpl || resolveFetch();
-      response = await activeFetch(url, config);
-    } catch (cause) {
-      const aborted = String(cause?.name || "") === "AbortError";
-      const reason = aborted ? "aborted" : "network_error";
-      await notifyFailure({
-        url,
-        method,
-        state: resolvedState,
-        reason,
-        error: cause,
-        stream: true
-      });
-      if (aborted) {
-        throw cause;
-      }
-
-      throw createNetworkError(cause);
-    }
-
-    const { contentType, isJson, data } = await parseJsonSafely(response);
-    updateCsrfTokenFromPayload(data);
-
-    if (!response.ok) {
-      if (
-        await maybeRetry({
-          response,
+      requestContext.config,
+      requestContext,
+      async (cause) => {
+        const aborted = String(cause?.name || "") === "AbortError";
+        const reason = aborted ? "aborted" : "network_error";
+        await notifyFailure({
+          url,
           method,
           state: resolvedState,
-          data,
+          reason,
+          error: cause,
           stream: true
-        })
-      ) {
-        return requestStream(url, requestOptions, handlers, resolvedState);
-      }
+        });
+        if (aborted) {
+          throw cause;
+        }
 
-      const error = createHttpError(response, data);
-      if (Number(response.status) === 401 && typeof hooks.onUnauthorized === "function") {
-        await hooks.onUnauthorized(error);
+        throw createNetworkError(cause);
       }
+    );
 
-      await notifyFailure({
+    if (!result.response.ok) {
+      return handleHttpFailure({
         url,
         method,
         state: resolvedState,
-        reason: `http_${response.status}`,
-        error,
-        response,
-        data,
-        contentType,
-        isJson,
-        stream: true
+        response: result.response,
+        data: result.data,
+        contentType: result.contentType,
+        isJson: result.isJson,
+        stream: true,
+        retryRequest() {
+          return requestStream(url, requestOptions, handlers, resolvedState);
+        }
       });
-      throw error;
     }
 
     try {
-      let shouldParseAsNdjson = contentType.includes(DEFAULT_NDJSON_CONTENT_TYPE);
+      let shouldParseAsNdjson = result.contentType.includes(DEFAULT_NDJSON_CONTENT_TYPE);
       if (!shouldParseAsNdjson && typeof hooks.shouldTreatAsNdjsonStream === "function") {
         shouldParseAsNdjson = Boolean(
           await hooks.shouldTreatAsNdjsonStream({
             url,
             method,
             state: resolvedState,
-            contentType,
-            isJson,
-            data,
-            response
+            contentType: result.contentType,
+            isJson: result.isJson,
+            data: result.data,
+            response: result.response
           })
         );
       }
 
       if (shouldParseAsNdjson) {
-        await readNdjsonStream(response, handlers);
-      } else if (typeof handlers?.onEvent === "function" && Object.keys(data).length > 0) {
-        handlers.onEvent(data);
-      } else if (typeof handlers?.onEvent === "function" && typeof response?.text === "function") {
-        const rawText = await response.text().catch(() => "");
+        await readNdjsonStream(result.response, handlers);
+      } else if (typeof handlers?.onEvent === "function" && Object.keys(result.data).length > 0) {
+        handlers.onEvent(result.data);
+      } else if (typeof handlers?.onEvent === "function" && typeof result.response?.text === "function") {
+        const rawText = await result.response.text().catch(() => "");
         for (const line of String(rawText || "").split(/\r?\n/g)) {
           emitNdjsonLine(line, handlers);
         }
@@ -482,10 +493,10 @@ function createHttpClient(options = {}) {
         state: resolvedState,
         reason: "stream_error",
         error,
-        response,
-        data,
-        contentType,
-        isJson,
+        response: result.response,
+        data: result.data,
+        contentType: result.contentType,
+        isJson: result.isJson,
         stream: true
       });
       throw error;
@@ -495,10 +506,10 @@ function createHttpClient(options = {}) {
       url,
       method,
       state: resolvedState,
-      response,
-      data,
-      contentType,
-      isJson,
+      response: result.response,
+      data: result.data,
+      contentType: result.contentType,
+      isJson: result.isJson,
       stream: true
     });
   }

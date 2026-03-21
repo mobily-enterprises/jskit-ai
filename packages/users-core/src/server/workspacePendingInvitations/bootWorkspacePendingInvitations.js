@@ -1,7 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
-import { workspaceInviteResource } from "../../shared/resources/workspaceInviteResource.js";
 
 function bootWorkspacePendingInvitations(app) {
   if (!app || typeof app.make !== "function") {
@@ -40,10 +40,10 @@ function bootWorkspacePendingInvitations(app) {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token"
       },
-      bodyValidator: workspaceInviteResource.operations.redeem.bodyValidator,
+      bodyValidator: workspaceMembersResource.operations.redeemInvite.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
-          200: workspaceInviteResource.operations.redeem.outputValidator
+          200: workspaceMembersResource.operations.redeemInvite.outputValidator
         },
         { includeValidation400: true }
       )

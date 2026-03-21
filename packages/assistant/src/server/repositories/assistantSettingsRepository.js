@@ -1,17 +1,5 @@
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
-
-function toIso(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString();
-}
+import { toIso } from "./repositoryPersistenceUtils.js";
 
 function mapConsoleRow(row = {}) {
   return {

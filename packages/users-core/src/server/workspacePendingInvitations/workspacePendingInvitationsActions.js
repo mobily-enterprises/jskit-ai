@@ -1,8 +1,8 @@
 import {
   EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
-import { workspaceInviteResource } from "../../shared/resources/workspaceInviteResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
@@ -40,9 +40,9 @@ const workspacePendingInvitationsActions = Object.freeze([
       require: "authenticated"
     },
     inputValidator: {
-      payload: workspaceInviteResource.operations.redeem.bodyValidator
+      payload: workspaceMembersResource.operations.redeemInvite.bodyValidator
     },
-    outputValidator: workspaceInviteResource.operations.redeem.outputValidator,
+    outputValidator: workspaceMembersResource.operations.redeemInvite.outputValidator,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.redeem"

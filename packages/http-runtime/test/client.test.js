@@ -168,6 +168,69 @@ test("requestStream parses ndjson and supports fallback hook", async () => {
   ]);
 });
 
+test("requestStream retries once on retryable csrf failure and preserves stateful headers", async () => {
+  const calls = [];
+  const seenEvents = [];
+  const fetchImpl = async (url, options) => {
+    calls.push([url, options]);
+    if (url === "/api/session") {
+      return mockResponse({
+        data: {
+          csrfToken: calls.length < 3 ? "csrf-stream-1" : "csrf-stream-2"
+        }
+      });
+    }
+
+    if (calls.length === 2) {
+      return mockResponse({
+        status: 403,
+        data: {
+          error: "forbidden",
+          details: {
+            code: "FST_CSRF_INVALID_TOKEN"
+          }
+        }
+      });
+    }
+
+    return mockResponse({
+      contentType: "application/x-ndjson",
+      text: '{"type":"done"}\n'
+    });
+  };
+
+  const client = createHttpClient({
+    fetchImpl,
+    hooks: {
+      decorateHeaders({ headers, state }) {
+        state.commandId = state.commandId || "cmd_stream";
+        headers["x-command-id"] = state.commandId;
+      }
+    }
+  });
+
+  const state = {};
+  await client.requestStream(
+    "/api/workspace/stream",
+    {
+      method: "POST"
+    },
+    {
+      onEvent(event) {
+        seenEvents.push(event);
+      }
+    },
+    state
+  );
+
+  assert.equal(calls.length, 4);
+  assert.equal(calls[1][1].headers["x-command-id"], "cmd_stream");
+  assert.equal(calls[3][1].headers["x-command-id"], "cmd_stream");
+  assert.equal(calls[1][1].headers["csrf-token"], "csrf-stream-1");
+  assert.equal(calls[3][1].headers["csrf-token"], "csrf-stream-2");
+  assert.deepEqual(seenEvents, [{ type: "done" }]);
+});
+
 test("request maps network errors to normalized transport error", async () => {
   const networkFailure = new Error("offline");
   const fetchImpl = async () => {

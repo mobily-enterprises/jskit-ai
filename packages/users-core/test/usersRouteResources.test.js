@@ -8,9 +8,8 @@ import "../test-support/registerDefaultSettingsFields.js";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
-import { workspaceInviteResource } from "../src/shared/resources/workspaceInviteResource.js";
-import { workspaceMemberResource } from "../src/shared/resources/workspaceMemberResource.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 
 function assertResourceShape(resource, label) {
@@ -52,8 +51,6 @@ test("workspace/settings/console resources expose canonical validators", () => {
   const resourcesByLabel = {
     workspace: workspaceResource,
     workspaceSettings: workspaceSettingsResource,
-    workspaceMember: workspaceMemberResource,
-    workspaceInvite: workspaceInviteResource,
     userProfile: userProfileResource,
     userSettings: userSettingsResource,
     consoleSettings: consoleSettingsResource
@@ -65,8 +62,18 @@ test("workspace/settings/console resources expose canonical validators", () => {
 });
 
 test("specialized settings and invite operations expose canonical validators", () => {
+  const workspaceMembersOperationSpecs = [
+    { label: "workspaceMembers.rolesList", operation: workspaceMembersResource.operations.rolesList },
+    { label: "workspaceMembers.membersList", operation: workspaceMembersResource.operations.membersList },
+    { label: "workspaceMembers.updateMemberRole", operation: workspaceMembersResource.operations.updateMemberRole },
+    { label: "workspaceMembers.removeMember", operation: workspaceMembersResource.operations.removeMember },
+    { label: "workspaceMembers.invitesList", operation: workspaceMembersResource.operations.invitesList },
+    { label: "workspaceMembers.createInvite", operation: workspaceMembersResource.operations.createInvite },
+    { label: "workspaceMembers.revokeInvite", operation: workspaceMembersResource.operations.revokeInvite },
+    { label: "workspaceMembers.redeemInvite", operation: workspaceMembersResource.operations.redeemInvite }
+  ];
   const operationSpecs = [
-    { label: "workspaceInvite.redeem", operation: workspaceInviteResource.operations.redeem },
+    ...workspaceMembersOperationSpecs,
     { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },
     { label: "userProfile.avatarDelete", operation: userProfileResource.operations.avatarDelete },
     { label: "userSettings.passwordChange", operation: userSettingsResource.operations.passwordChange },

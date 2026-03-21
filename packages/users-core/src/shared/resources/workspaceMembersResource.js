@@ -247,6 +247,57 @@ const revokeInviteInputValidator = Object.freeze({
   }
 });
 
+const redeemInviteBodyValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      token: Type.String({
+        minLength: 1,
+        messages: {
+          required: "Invite token is required.",
+          minLength: "Invite token is required.",
+          default: "Invite token is invalid."
+        }
+      }),
+      decision: Type.Union([Type.Literal("accept"), Type.Literal("refuse")], {
+        messages: {
+          required: "Decision is required.",
+          default: "Decision must be accept or refuse."
+        }
+      })
+    },
+    {
+      additionalProperties: false,
+      messages: {
+        additionalProperties: "Unexpected field."
+      }
+    }
+  ),
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      token: normalizeText(source.token),
+      decision: normalizeLowerText(source.decision)
+    };
+  }
+});
+
+const redeemInviteOutputValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      decision: Type.Union([Type.Literal("accepted"), Type.Literal("refused")])
+    },
+    { additionalProperties: false }
+  ),
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      decision: normalizeLowerText(source.decision)
+    };
+  }
+});
+
 const WORKSPACE_MEMBERS_MESSAGES = createOperationMessages();
 
 const workspaceMembersResource = Object.freeze({
@@ -292,6 +343,12 @@ const workspaceMembersResource = Object.freeze({
       messages: WORKSPACE_MEMBERS_MESSAGES,
       inputValidator: revokeInviteInputValidator,
       outputValidator: workspaceInvitesOutputValidator
+    }),
+    redeemInvite: Object.freeze({
+      method: "POST",
+      messages: WORKSPACE_MEMBERS_MESSAGES,
+      bodyValidator: redeemInviteBodyValidator,
+      outputValidator: redeemInviteOutputValidator
     })
   })
 });
