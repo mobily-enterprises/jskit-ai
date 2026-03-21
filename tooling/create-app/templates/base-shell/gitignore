@@ -5,5 +5,3 @@ test-results/
 .env
 .env.*
 !.env.example
-scripts/verdaccio/storage/
-scripts/verdaccio/htpasswd
