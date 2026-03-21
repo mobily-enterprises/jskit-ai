@@ -3,5 +3,5 @@
 </template>
 
 <script setup>
-import AssistantWorkspaceClientElement from "@jskit-ai/assistant/client/components/AssistantWorkspaceClientElement";
+import { AssistantWorkspaceClientElement } from "@jskit-ai/assistant/client";
 </script>

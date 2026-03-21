@@ -25,22 +25,11 @@ function createOauthFlows(deps) {
     buildSecurityStatusFromAuthMethodsStatus
   } = deps;
 
-  async function oauthStart(payload = {}) {
-    ensureConfigured();
-
-    const provider = normalizeOAuthProviderInput(payload.provider || authOAuthDefaultProvider);
-    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
-    const redirectTo = buildOAuthLoginRedirectUrl({
-      appPublicUrl,
-      provider,
-      returnTo
-    });
-
-    const supabase = getSupabaseClient();
+  async function requestOAuthRedirectUrl(supabase, provider, redirectTo, requestFlow) {
     let response;
     try {
       const queryParams = resolveOAuthProviderQueryParams(provider);
-      response = await supabase.auth.signInWithOAuth({
+      response = await requestFlow({
         provider,
         options: {
           redirectTo,
@@ -55,10 +44,28 @@ function createOauthFlows(deps) {
       throw mapAuthError(response.error, 400);
     }
 
+    return String(response.data.url);
+  }
+
+  async function oauthStart(payload = {}) {
+    ensureConfigured();
+
+    const provider = normalizeOAuthProviderInput(payload.provider || authOAuthDefaultProvider);
+    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
+    const redirectTo = buildOAuthLoginRedirectUrl({
+      appPublicUrl,
+      provider,
+      returnTo
+    });
+    const supabase = getSupabaseClient();
+    const url = await requestOAuthRedirectUrl(supabase, provider, redirectTo, (input) =>
+      supabase.auth.signInWithOAuth(input)
+    );
+
     return {
       provider,
       returnTo,
-      url: String(response.data.url)
+      url
     };
   }
 
@@ -81,29 +88,14 @@ function createOauthFlows(deps) {
       provider,
       returnTo
     });
-
-    let response;
-    try {
-      const queryParams = resolveOAuthProviderQueryParams(provider);
-      response = await supabase.auth.linkIdentity({
-        provider,
-        options: {
-          redirectTo,
-          queryParams: queryParams || undefined
-        }
-      });
-    } catch (error) {
-      throw mapAuthError(error, 500);
-    }
-
-    if (response.error || !response.data?.url) {
-      throw mapAuthError(response.error, 400);
-    }
+    const url = await requestOAuthRedirectUrl(supabase, provider, redirectTo, (input) =>
+      supabase.auth.linkIdentity(input)
+    );
 
     return {
       provider,
       returnTo,
-      url: String(response.data.url)
+      url
     };
   }
 

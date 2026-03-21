@@ -40,6 +40,19 @@ function normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimi
   };
 }
 
+function createConversationBaseQuery(client) {
+  return client("ai_conversations as c")
+    .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+    .leftJoin("user_profiles as u", "u.id", "c.created_by_user_id")
+    .select(
+      "c.*",
+      client.raw("COALESCE(w.slug, '') AS workspace_slug"),
+      client.raw("COALESCE(w.name, '') AS workspace_name"),
+      client.raw("COALESCE(u.display_name, '') AS created_by_user_display_name"),
+      client.raw("COALESCE(u.email, '') AS created_by_user_email")
+    );
+}
+
 function createConversationsRepository(knex) {
   if (!knex || typeof knex !== "function") {
     throw new Error("createConversationsRepository requires knex client.");
@@ -52,16 +65,7 @@ function createConversationsRepository(knex) {
     }
 
     const client = options?.trx || knex;
-    const row = await client("ai_conversations as c")
-      .leftJoin("workspaces as w", "w.id", "c.workspace_id")
-      .leftJoin("user_profiles as u", "u.id", "c.created_by_user_id")
-      .select(
-        "c.*",
-        client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name"),
-        client.raw("COALESCE(u.display_name, '') AS created_by_user_display_name"),
-        client.raw("COALESCE(u.email, '') AS created_by_user_email")
-      )
+    const row = await createConversationBaseQuery(client)
       .where("c.id", numericConversationId)
       .first();
 
@@ -77,16 +81,7 @@ function createConversationsRepository(knex) {
     }
 
     const client = options?.trx || knex;
-    const row = await client("ai_conversations as c")
-      .leftJoin("workspaces as w", "w.id", "c.workspace_id")
-      .leftJoin("user_profiles as u", "u.id", "c.created_by_user_id")
-      .select(
-        "c.*",
-        client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name"),
-        client.raw("COALESCE(u.display_name, '') AS created_by_user_display_name"),
-        client.raw("COALESCE(u.email, '') AS created_by_user_email")
-      )
+    const row = await createConversationBaseQuery(client)
       .where("c.id", numericConversationId)
       .where("c.workspace_id", numericWorkspaceId)
       .where("c.created_by_user_id", numericActorUserId)
@@ -200,16 +195,7 @@ function createConversationsRepository(knex) {
     const client = options?.trx || knex;
     const { cursor, limit } = normalizeCursorPagination(pagination);
 
-    let query = client("ai_conversations as c")
-      .leftJoin("workspaces as w", "w.id", "c.workspace_id")
-      .leftJoin("user_profiles as u", "u.id", "c.created_by_user_id")
-      .select(
-        "c.*",
-        client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name"),
-        client.raw("COALESCE(u.display_name, '') AS created_by_user_display_name"),
-        client.raw("COALESCE(u.email, '') AS created_by_user_email")
-      )
+    let query = createConversationBaseQuery(client)
       .where("c.workspace_id", numericWorkspaceId)
       .where("c.created_by_user_id", numericActorUserId);
 

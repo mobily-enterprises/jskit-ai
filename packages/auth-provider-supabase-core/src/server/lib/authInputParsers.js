@@ -10,6 +10,21 @@ import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { validationError } from "./authErrorMappers.js";
 
 const OTP_VERIFY_TYPE = "email";
+const SESSION_PAIR_REQUIRED_ERRORS = Object.freeze({
+  accessToken: "Access token is required when a refresh token is provided.",
+  refreshToken: "Refresh token is required when an access token is provided."
+});
+
+function applySessionPairValidation(accessToken, refreshToken, fieldErrors) {
+  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
+    if (!accessToken) {
+      fieldErrors.accessToken = SESSION_PAIR_REQUIRED_ERRORS.accessToken;
+    }
+    if (!refreshToken) {
+      fieldErrors.refreshToken = SESSION_PAIR_REQUIRED_ERRORS.refreshToken;
+    }
+  }
+}
 
 function resolveConfiguredOAuthProviders(options = {}) {
   return normalizeOAuthProviderList(options.providerIds, { fallback: [] });
@@ -67,14 +82,7 @@ function validatePasswordRecoveryPayload(payload) {
     fieldErrors.refreshToken = "Refresh token is too long.";
   }
 
-  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
-    if (!accessToken) {
-      fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
-    }
-    if (!refreshToken) {
-      fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
-    }
-  }
+  applySessionPairValidation(accessToken, refreshToken, fieldErrors);
 
   const hasCode = Boolean(code);
   const hasTokenHash = Boolean(tokenHash);
@@ -126,14 +134,7 @@ function parseOAuthCompletePayload(payload = {}, options = {}) {
     fieldErrors.refreshToken = "Refresh token is too long.";
   }
 
-  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
-    if (!accessToken) {
-      fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
-    }
-    if (!refreshToken) {
-      fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
-    }
-  }
+  applySessionPairValidation(accessToken, refreshToken, fieldErrors);
 
   const hasSessionPair = Boolean(accessToken && refreshToken);
 
