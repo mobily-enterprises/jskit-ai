@@ -15,7 +15,17 @@ import {
   CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
   CLIENT_MODULE_VUE_APP_TOKEN
 } from "@jskit-ai/kernel/client/moduleBootstrap";
-import { setClientAppConfig } from "@jskit-ai/kernel/client";
+
+const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
+
+function setClientAppConfig(source = {}) {
+  const normalized =
+    source && typeof source === "object" && !Array.isArray(source) ? Object.freeze({ ...source }) : Object.freeze({});
+  if (typeof globalThis === "object" && globalThis) {
+    globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = normalized;
+  }
+  return normalized;
+}
 
 function createAppDouble({ surfaceRuntime = null } = {}) {
   const singletons = new Map();

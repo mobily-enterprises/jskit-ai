@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import {
-  createDomainEvents,
-  installServiceRegistrationApi
-} from "@jskit-ai/kernel/server/runtime";
+import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
 
 import { RealtimeServiceProvider } from "../src/server/RealtimeServiceProvider.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
@@ -18,6 +15,46 @@ import {
   REALTIME_RUNTIME_CLIENT_TOKEN,
   REALTIME_SOCKET_CLIENT_TOKEN
 } from "../src/client/tokens.js";
+
+const DOMAIN_EVENT_LISTENER_TAG = Symbol.for("jskit.runtime.domainEvent.listeners");
+
+function normalizeDomainEventListener(entry) {
+  if (typeof entry === "function") {
+    return {
+      listenerId: String(entry.name || "anonymous"),
+      matches: null,
+      handle: entry
+    };
+  }
+  if (entry && typeof entry === "object" && typeof entry.handle === "function") {
+    return {
+      ...entry,
+      listenerId: String(entry.listenerId || "anonymous"),
+      matches: typeof entry.matches === "function" ? entry.matches : null
+    };
+  }
+  return null;
+}
+
+function createDomainEvents(scope) {
+  return Object.freeze({
+    async publish(event = {}) {
+      const payload = event && typeof event === "object" && !Array.isArray(event) ? event : {};
+      const listeners = typeof scope?.resolveTag === "function" ? scope.resolveTag(DOMAIN_EVENT_LISTENER_TAG) : [];
+      for (const listenerEntry of listeners) {
+        const listener = normalizeDomainEventListener(listenerEntry);
+        if (!listener) {
+          continue;
+        }
+        if (listener.matches && listener.matches(payload) !== true) {
+          continue;
+        }
+        await listener.handle(payload);
+      }
+      return null;
+    }
+  });
+}
 
 function createSingletonApp() {
   const instances = new Map();
