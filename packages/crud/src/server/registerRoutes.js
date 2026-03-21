@@ -6,9 +6,9 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { normalizeUsersRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { normalizeScopedRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
-import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { crudResource } from "../shared/crud/crudResource.js";
 
 function joinRoutePath(basePath = "", suffix = "") {
@@ -65,11 +65,11 @@ function registerRoutes(
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const relativePath = requireRouteRelativePath(routeRelativePath);
-  const routeBase = resolveUsersApiBasePath({
+  const routeBase = resolveApiBasePath({
     surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
     relativePath
   });
-  const routeVisibility = normalizeUsersRouteVisibility(routeOwnershipFilter, {
+  const routeVisibility = normalizeScopedRouteVisibility(routeOwnershipFilter, {
     fallback: "public"
   });
   const surface = normalizeSurfaceId(routeSurface);

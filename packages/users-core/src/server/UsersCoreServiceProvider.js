@@ -18,7 +18,7 @@ import {
   USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN,
   USERS_WORKSPACE_ENABLED_TOKEN
 } from "./common/diTokens.js";
-import { registerUsersCoreApi } from "./common/registerUsersCoreApi.js";
+import { registerSharedApi } from "./common/registerSharedApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
@@ -35,7 +35,7 @@ class UsersCoreServiceProvider {
   static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider"];
 
   register(app) {
-    registerUsersCoreApi(app, USERS_SHARED_API);
+    registerSharedApi(app, USERS_SHARED_API);
     registerCommonRepositories(app);
     registerWorkspaceCore(app);
     registerWorkspaceBootstrap(app);

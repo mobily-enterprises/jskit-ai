@@ -3,7 +3,7 @@ import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 const USERS_PUBLIC_API_BASE_PATH = "/api";
 const USERS_WORKSPACE_API_BASE_PATH = "/api/w/:workspaceSlug/workspace";
 
-function normalizeUsersApiRelativePath(relativePath = "/") {
+function normalizeApiRelativePath(relativePath = "/") {
   const normalizedPath = normalizePathname(relativePath);
   return normalizedPath || "/";
 }
@@ -12,11 +12,11 @@ function normalizeSurfaceWorkspaceRequirement(value = false) {
   return value === true;
 }
 
-function resolveUsersApiBasePath({ surfaceRequiresWorkspace = false, relativePath = "/" } = {}) {
+function resolveApiBasePath({ surfaceRequiresWorkspace = false, relativePath = "/" } = {}) {
   const basePath = normalizeSurfaceWorkspaceRequirement(surfaceRequiresWorkspace)
     ? USERS_WORKSPACE_API_BASE_PATH
     : USERS_PUBLIC_API_BASE_PATH;
-  const normalizedRelativePath = normalizeUsersApiRelativePath(relativePath);
+  const normalizedRelativePath = normalizeApiRelativePath(relativePath);
 
   if (normalizedRelativePath === "/") {
     return basePath;
@@ -28,7 +28,7 @@ function resolveUsersApiBasePath({ surfaceRequiresWorkspace = false, relativePat
 export {
   USERS_PUBLIC_API_BASE_PATH,
   USERS_WORKSPACE_API_BASE_PATH,
-  normalizeUsersApiRelativePath,
+  normalizeApiRelativePath,
   normalizeSurfaceWorkspaceRequirement,
-  resolveUsersApiBasePath
+  resolveApiBasePath
 };

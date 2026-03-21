@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   normalizeSurfaceWorkspaceRequirement,
-  resolveUsersApiBasePath
+  resolveApiBasePath
 } from "../src/shared/support/usersApiPaths.js";
 
 test("normalizeSurfaceWorkspaceRequirement only accepts explicit true", () => {
@@ -12,9 +12,9 @@ test("normalizeSurfaceWorkspaceRequirement only accepts explicit true", () => {
   assert.equal(normalizeSurfaceWorkspaceRequirement(1), false);
 });
 
-test("resolveUsersApiBasePath resolves workspace and non-workspace API base paths", () => {
+test("resolveApiBasePath resolves workspace and non-workspace API base paths", () => {
   assert.equal(
-    resolveUsersApiBasePath({
+    resolveApiBasePath({
       surfaceRequiresWorkspace: true,
       relativePath: "/customers"
     }),
@@ -22,7 +22,7 @@ test("resolveUsersApiBasePath resolves workspace and non-workspace API base path
   );
 
   assert.equal(
-    resolveUsersApiBasePath({
+    resolveApiBasePath({
       surfaceRequiresWorkspace: false,
       relativePath: "/customers"
     }),

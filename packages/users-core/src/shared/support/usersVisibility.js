@@ -13,7 +13,7 @@ const USERS_ROUTE_VISIBILITY_LEVELS = Object.freeze([
 ]);
 const USERS_ROUTE_VISIBILITY_LEVEL_SET = new Set(USERS_ROUTE_VISIBILITY_LEVELS);
 
-function normalizeUsersRouteVisibility(value, { fallback = USERS_ROUTE_VISIBILITY_PUBLIC } = {}) {
+function normalizeScopedRouteVisibility(value, { fallback = USERS_ROUTE_VISIBILITY_PUBLIC } = {}) {
   const normalized = normalizeRouteVisibility(value, { fallback: USERS_ROUTE_VISIBILITY_PUBLIC });
   if (USERS_ROUTE_VISIBILITY_LEVEL_SET.has(normalized)) {
     return normalized;
@@ -28,7 +28,7 @@ function normalizeUsersRouteVisibility(value, { fallback = USERS_ROUTE_VISIBILIT
 }
 
 function isWorkspaceVisibility(visibility = "") {
-  const normalized = normalizeUsersRouteVisibility(visibility, {
+  const normalized = normalizeScopedRouteVisibility(visibility, {
     fallback: USERS_ROUTE_VISIBILITY_PUBLIC
   });
   return normalized === USERS_ROUTE_VISIBILITY_WORKSPACE || normalized === USERS_ROUTE_VISIBILITY_WORKSPACE_USER;
@@ -40,6 +40,6 @@ export {
   USERS_ROUTE_VISIBILITY_WORKSPACE,
   USERS_ROUTE_VISIBILITY_WORKSPACE_USER,
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeUsersRouteVisibility,
+  normalizeScopedRouteVisibility,
   isWorkspaceVisibility
 };

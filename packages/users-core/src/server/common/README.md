@@ -13,7 +13,7 @@ Use these folders:
 Keep these files here:
 - `diTokens.js`: shared DI tokens used across slices.
 - `registerCommonRepositories.js`: shared repository bindings.
-- `registerUsersCoreApi.js`: shared API metadata registration.
+- `registerSharedApi.js`: shared API metadata registration.
 
 Do not put these in `common/`:
 - feature-only actions/services/repositories/controllers

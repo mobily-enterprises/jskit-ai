@@ -1,6 +1,6 @@
 import { computed, unref } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
 import { useWorkspaceLinkResolver } from "../lib/workspaceLinkResolver.js";
 import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
@@ -65,7 +65,7 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
       throw new TypeError("usePaths().api(relativePath) requires a non-empty relativePath.");
     }
 
-    const templatePath = resolveUsersApiBasePath({
+    const templatePath = resolveApiBasePath({
       surfaceRequiresWorkspace: workspaceScoped,
       relativePath: suffix
     });

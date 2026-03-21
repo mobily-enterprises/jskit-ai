@@ -8,7 +8,7 @@ import {
   asPlainObject,
   ensureAccessModeCompatibility,
   resolveAccessModeEnabled,
-  normalizeUsersOwnershipFilter,
+  normalizeOwnershipFilter,
   resolveApiSuffix
 } from "./scopeHelpers.js";
 
@@ -19,7 +19,7 @@ function useScopeRuntime({
   hasPermissionRequirements = false,
   placementSource = "users-web.scope-runtime"
 } = {}) {
-  const normalizedOwnershipFilter = normalizeUsersOwnershipFilter(ownershipFilter);
+  const normalizedOwnershipFilter = normalizeOwnershipFilter(ownershipFilter);
   const normalizedAccessMode = ensureAccessModeCompatibility({
     accessMode,
     hasPermissionRequirements,

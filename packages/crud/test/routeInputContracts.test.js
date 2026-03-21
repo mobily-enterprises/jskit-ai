@@ -156,3 +156,56 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
     payload: { textField: "A", dateField: "2026-03-11", numberField: 2 }
   });
 });
+
+test("crud routes normalize route ownership filter values before registering visibility", () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== KERNEL_TOKENS.HttpRouter) {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerRoutes(app, {
+    routeRelativePath: "/customers",
+    routeOwnershipFilter: " Workspace_User ",
+    actionIds: {
+      list: "crud.customers.list",
+      view: "crud.customers.view",
+      create: "crud.customers.create",
+      update: "crud.customers.update",
+      delete: "crud.customers.delete"
+    }
+  });
+  registerRoutes(app, {
+    routeRelativePath: "/customers-public",
+    routeOwnershipFilter: "not-a-real-filter",
+    actionIds: {
+      list: "crud.customers-public.list",
+      view: "crud.customers-public.view",
+      create: "crud.customers-public.create",
+      update: "crud.customers-public.update",
+      delete: "crud.customers-public.delete"
+    }
+  });
+
+  const workspaceUserRoute = findRoute(registeredRoutes, "GET", "/api/customers");
+  const fallbackPublicRoute = findRoute(registeredRoutes, "GET", "/api/customers-public");
+
+  assert.ok(workspaceUserRoute);
+  assert.ok(fallbackPublicRoute);
+  assert.equal(workspaceUserRoute.route.visibility, "workspace_user");
+  assert.equal(fallbackPublicRoute.route.visibility, "public");
+});

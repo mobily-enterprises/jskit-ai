@@ -80,7 +80,7 @@ function resolveEnabled(value, context = {}) {
   return resolveEnabledRef(value);
 }
 
-function normalizeUsersOwnershipFilter(value = "workspace") {
+function normalizeOwnershipFilter(value = "workspace") {
   const normalized = String(value || "workspace").trim().toLowerCase();
   if (USERS_OWNERSHIP_FILTER_VALUES.includes(normalized)) {
     return normalized;
@@ -126,7 +126,7 @@ export {
   ensureAccessModeCompatibility,
   resolveApiSuffix,
   resolveEnabled,
-  normalizeUsersOwnershipFilter,
+  normalizeOwnershipFilter,
   isWorkspaceOwnershipFilter,
   resolveQueryKey,
   resolveResourceMessages

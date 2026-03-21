@@ -2,11 +2,11 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
-  resolveUsersApiBasePath
+  resolveApiBasePath
 } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeUsersRouteVisibility,
+  normalizeScopedRouteVisibility,
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
@@ -85,7 +85,7 @@ function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSu
 
 function resolveCrudApiBasePath({ namespace = "", surfaceRequiresWorkspace = false } = {}) {
   const relativePath = resolveCrudRelativePath(namespace);
-  return resolveUsersApiBasePath({
+  return resolveApiBasePath({
     surfaceRequiresWorkspace: surfaceRequiresWorkspace === true,
     relativePath
   });
@@ -209,7 +209,7 @@ function resolveCrudSurfacePolicy(
   const ownershipFilter =
     requestedOwnershipFilter === CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
       ? resolveOwnershipFilterFromSurfaceDefinition(surfaceDefinition)
-      : normalizeUsersRouteVisibility(requestedOwnershipFilter, {
+      : normalizeScopedRouteVisibility(requestedOwnershipFilter, {
           fallback: "public"
         });
 

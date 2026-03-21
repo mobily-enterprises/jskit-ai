@@ -2,7 +2,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeUsersRouteVisibility,
+  normalizeScopedRouteVisibility,
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
@@ -116,7 +116,7 @@ function resolveCrudModulePolicy({
   const resolvedOwnershipFilter =
     requestedOwnershipFilter === CRUD_MODULE_OWNERSHIP_FILTER_AUTO
       ? resolveOwnershipFilterForSurfaceDefinition(surfaceDefinition)
-      : normalizeUsersRouteVisibility(requestedOwnershipFilter, {
+      : normalizeScopedRouteVisibility(requestedOwnershipFilter, {
           fallback: "public"
         });
 

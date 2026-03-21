@@ -28,7 +28,7 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-async function registerUsersRoutes({
+async function registerRoutes({
   authService = {},
   consoleService = null,
   workspaceEnabled = true,
@@ -91,7 +91,7 @@ async function registerUsersRoutes({
   return registeredRoutes;
 }
 
-async function registerUsersRoutesForMode({
+async function registerRoutesForMode({
   tenancyMode = "none",
   tenancyPolicy = {}
 } = {}) {
@@ -99,7 +99,7 @@ async function registerUsersRoutesForMode({
     tenancyMode,
     tenancyPolicy
   });
-  return registerUsersRoutes({
+  return registerRoutes({
     workspaceEnabled: tenancyProfile.workspace.enabled === true,
     workspaceTenancyEnabled: tenancyProfile.mode === "workspace",
     workspaceInvitationsEnabled:
@@ -120,7 +120,7 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
 }
 
 test("workspace and settings routes attach only the shared transport normalizers they actually use", async () => {
-  const routes = await registerUsersRoutes();
+  const routes = await registerRoutes();
 
   const workspaceSettings = findRoute(routes, {
     method: "GET",
@@ -168,7 +168,7 @@ test("workspace and settings routes attach only the shared transport normalizers
 });
 
 test("workspace settings routes mount one canonical workspace endpoint", async () => {
-  const routes = await registerUsersRoutes();
+  const routes = await registerRoutes();
   const workspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -196,7 +196,7 @@ test("workspace settings routes mount one canonical workspace endpoint", async (
 });
 
 test("users-core boot skips workspace routes when workspace policy is disabled", async () => {
-  const routes = await registerUsersRoutes({
+  const routes = await registerRoutes({
     workspaceEnabled: false,
     workspaceTenancyEnabled: false,
     workspaceInvitationsEnabled: false,
@@ -210,7 +210,7 @@ test("users-core boot skips workspace routes when workspace policy is disabled",
 });
 
 test("users-core boot skips workspace create route when self-create policy is disabled", async () => {
-  const routes = await registerUsersRoutes({
+  const routes = await registerRoutes({
     workspaceEnabled: true,
     workspaceTenancyEnabled: true,
     workspaceInvitationsEnabled: true,
@@ -222,16 +222,16 @@ test("users-core boot skips workspace create route when self-create policy is di
 });
 
 test("users-core route registration follows tenancy mode matrix", async () => {
-  const noneRoutes = await registerUsersRoutesForMode({
+  const noneRoutes = await registerRoutesForMode({
     tenancyMode: "none"
   });
-  const personalRoutes = await registerUsersRoutesForMode({
+  const personalRoutes = await registerRoutesForMode({
     tenancyMode: "personal"
   });
-  const workspaceRoutes = await registerUsersRoutesForMode({
+  const workspaceRoutes = await registerRoutesForMode({
     tenancyMode: "workspace"
   });
-  const workspaceSelfCreateRoutes = await registerUsersRoutesForMode({
+  const workspaceSelfCreateRoutes = await registerRoutesForMode({
     tenancyMode: "workspace",
     tenancyPolicy: {
       workspace: {
@@ -274,7 +274,7 @@ test("users-core route registration follows tenancy mode matrix", async () => {
 });
 
 test("users-core boot skips invitation redeem/list routes when workspace invitations are disabled", async () => {
-  const routes = await registerUsersRoutes({
+  const routes = await registerRoutes({
     workspaceEnabled: true,
     workspaceTenancyEnabled: true,
     workspaceInvitationsEnabled: false,
@@ -289,7 +289,7 @@ test("users-core boot skips invitation redeem/list routes when workspace invitat
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {
-  const routes = await registerUsersRoutes();
+  const routes = await registerRoutes();
   const workspaceCreate = findRoute(routes, {
     method: "POST",
     path: "/api/workspaces"
@@ -389,7 +389,7 @@ test("workspace invite and member handlers build action input from request.input
 });
 
 test("workspace settings route handlers build action input from request.input", async () => {
-  const routes = await registerUsersRoutes();
+  const routes = await registerRoutes();
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -418,7 +418,7 @@ test("workspace settings route handlers build action input from request.input", 
 });
 
 test("account route handlers build action input from request.input", async () => {
-  const routes = await registerUsersRoutes({
+  const routes = await registerRoutes({
     authService: {
       writeSessionCookies() {}
     }
@@ -522,7 +522,7 @@ test("account route handlers build action input from request.input", async () =>
 });
 
 test("console settings route handlers use request.input payloads", async () => {
-  const routes = await registerUsersRoutes();
+  const routes = await registerRoutes();
   const calls = [];
   const executeAction = async (payload) => {
     calls.push(payload);
