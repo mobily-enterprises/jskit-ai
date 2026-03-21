@@ -196,6 +196,48 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
   assert.equal(response.revokedInviteId, 47);
 });
 
+test("workspaceMembersService rejects invite operations when invitations are disabled", async () => {
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async listPendingByWorkspaceIdWithWorkspace() {
+        throw new Error("invite repository should not be called when invitations are disabled");
+      },
+      async expirePendingByWorkspaceIdAndEmail() {
+        throw new Error("invite repository should not be called when invitations are disabled");
+      },
+      async insert() {
+        throw new Error("invite repository should not be called when invitations are disabled");
+      },
+      async findPendingByIdForWorkspace() {
+        throw new Error("invite repository should not be called when invitations are disabled");
+      },
+      async revokeById() {
+        throw new Error("invite repository should not be called when invitations are disabled");
+      }
+    },
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog(),
+    workspaceInvitationsEnabled: false
+  });
+
+  await assert.rejects(
+    () =>
+      service.listInvites(
+        {
+          id: 7,
+          ownerUserId: 9
+        },
+        authorizedOptions(["workspace.members.view"])
+      ),
+    /Workspace invitations are disabled/
+  );
+});
+
 test("workspaceMembersService.listMembers uses the resolved workspace directly", async () => {
   const { service, workspace } = createFixture();
 

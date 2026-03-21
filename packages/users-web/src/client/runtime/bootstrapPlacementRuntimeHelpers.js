@@ -2,6 +2,7 @@ import {
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
+import { parseWorkspacePathname } from "@jskit-ai/users-core/shared/support/workspacePathModel";
 import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { buildBootstrapApiPath } from "../lib/bootstrap.js";
@@ -28,7 +29,10 @@ function resolveRouteState(placementRuntime, router) {
   const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, path) || "")
     .trim()
     .toLowerCase();
-  const workspaceSlug = String(extractWorkspaceSlugFromSurfacePathname(context, surfaceId, path) || "").trim();
+  const workspaceSlugFromSurface = String(extractWorkspaceSlugFromSurfacePathname(context, surfaceId, path) || "").trim();
+  const workspaceSlug =
+    workspaceSlugFromSurface ||
+    String(parseWorkspacePathname(path)?.workspaceSlug || "").trim();
 
   return Object.freeze({
     context,

@@ -8,7 +8,6 @@ import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
-import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
@@ -27,7 +26,6 @@ function registerWorkspaceSettings(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function" || typeof app.service !== "function") {
     throw new Error("registerWorkspaceSettings requires application singleton()/service()/actions().");
   }
-  const appConfig = resolveAppConfig(app);
 
   app.singleton("workspaceSettingsRepository", (scope) => {
     const knex = scope.make(KERNEL_TOKENS.Knex);
@@ -57,15 +55,12 @@ function registerWorkspaceSettings(app) {
   );
 
   app.actions(
-    materializeWorkspaceActionSurfacesFromAppConfig(
-      withActionDefaults(workspaceSettingsActions, {
-        domain: "workspace",
-        dependencies: {
-          workspaceSettingsService: "users.workspace.settings.service"
-        }
-      }),
-      { appConfig }
-    )
+    withActionDefaults(workspaceSettingsActions, {
+      domain: "workspace",
+      dependencies: {
+        workspaceSettingsService: "users.workspace.settings.service"
+      }
+    })
   );
 }
 

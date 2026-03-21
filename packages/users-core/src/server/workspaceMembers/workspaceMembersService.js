@@ -6,7 +6,8 @@ function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
   inviteExpiresInMs,
-  roleCatalog = null
+  roleCatalog = null,
+  workspaceInvitationsEnabled = true
 } = {}) {
   if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
     throw new Error("workspaceMembersService requires membership and invite repositories.");
@@ -20,6 +21,14 @@ function createService({
   const assignableRoleIds = Array.isArray(resolvedRoleCatalog.assignableRoleIds)
     ? [...resolvedRoleCatalog.assignableRoleIds]
     : [];
+  const resolvedWorkspaceInvitationsEnabled = workspaceInvitationsEnabled === true;
+
+  function ensureWorkspaceInvitationsEnabled() {
+    if (resolvedWorkspaceInvitationsEnabled) {
+      return;
+    }
+    throw new AppError(403, "Workspace invitations are disabled.");
+  }
 
   function withRoleCatalog(payload = {}) {
     return {
@@ -110,6 +119,7 @@ function createService({
   }
 
   async function listInvitesPayload(workspace, options = {}) {
+    ensureWorkspaceInvitationsEnabled();
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return withRoleCatalog({
