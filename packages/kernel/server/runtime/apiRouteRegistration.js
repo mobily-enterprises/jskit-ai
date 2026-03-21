@@ -1,5 +1,5 @@
 import { defaultMissingHandler } from "./routeUtils.js";
-import { normalizeRouteVisibility } from "../../shared/support/visibility.js";
+import { defaultApplyRoutePolicy, normalizeRoutePolicyConfig } from "../support/routePolicyConfig.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -28,53 +28,6 @@ function buildBaseRouteOptions(route) {
   }
 
   return routeOptions;
-}
-
-function normalizeRoutePolicyConfig(routeOptions, route) {
-  const sourceRouteOptions = isRecord(routeOptions) ? routeOptions : {};
-  const sourceConfig = isRecord(sourceRouteOptions.config) ? sourceRouteOptions.config : {};
-  const sourceRoute = isRecord(route) ? route : {};
-
-  const nextConfig = {
-    ...sourceConfig
-  };
-
-  if (Object.hasOwn(sourceRoute, "auth")) {
-    nextConfig.authPolicy = sourceRoute.auth;
-  }
-  if (Object.hasOwn(sourceRoute, "contextPolicy")) {
-    nextConfig.contextPolicy = sourceRoute.contextPolicy;
-  }
-  if (Object.hasOwn(sourceRoute, "surface")) {
-    nextConfig.surface = sourceRoute.surface;
-  }
-  if (Object.hasOwn(sourceRoute, "visibility")) {
-    nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
-  }
-  if (Object.hasOwn(sourceRoute, "permission")) {
-    nextConfig.permission = sourceRoute.permission;
-  }
-  if (Object.hasOwn(sourceRoute, "ownerParam")) {
-    nextConfig.ownerParam = sourceRoute.ownerParam;
-  }
-  if (Object.hasOwn(sourceRoute, "userField")) {
-    nextConfig.userField = sourceRoute.userField;
-  }
-  if (Object.hasOwn(sourceRoute, "ownerResolver")) {
-    nextConfig.ownerResolver = sourceRoute.ownerResolver;
-  }
-  if (Object.hasOwn(sourceRoute, "csrfProtection")) {
-    nextConfig.csrfProtection = sourceRoute.csrfProtection;
-  }
-
-  return nextConfig;
-}
-
-function defaultApplyRoutePolicy(routeOptions, route) {
-  return {
-    ...routeOptions,
-    config: normalizeRoutePolicyConfig(routeOptions, route)
-  };
 }
 
 function registerApiRouteDefinitions(

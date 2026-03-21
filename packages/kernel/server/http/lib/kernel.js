@@ -1,6 +1,7 @@
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { normalizeRouteVisibility } from "../../../shared/support/visibility.js";
+import { defaultApplyRoutePolicy, normalizeRoutePolicyConfig } from "../../support/routePolicyConfig.js";
 import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveActionContextContributors } from "../../actions/ActionRuntimeServiceProvider.js";
 import { RouteRegistrationError } from "./errors.js";
@@ -13,52 +14,6 @@ function defaultMissingHandler(_request, reply) {
   reply.code(501).send({
     error: "Route handler is not available in this runtime profile."
   });
-}
-
-function normalizeRoutePolicyConfig(routeOptions, route) {
-  const sourceRouteOptions = routeOptions && typeof routeOptions === "object" ? routeOptions : {};
-  const sourceConfig =
-    sourceRouteOptions.config && typeof sourceRouteOptions.config === "object" ? sourceRouteOptions.config : {};
-  const sourceRoute = route && typeof route === "object" ? route : {};
-
-  const nextConfig = { ...sourceConfig };
-
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "auth")) {
-    nextConfig.authPolicy = sourceRoute.auth;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "contextPolicy")) {
-    nextConfig.contextPolicy = sourceRoute.contextPolicy;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "surface")) {
-    nextConfig.surface = sourceRoute.surface;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
-    nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
-    nextConfig.permission = sourceRoute.permission;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerParam")) {
-    nextConfig.ownerParam = sourceRoute.ownerParam;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "userField")) {
-    nextConfig.userField = sourceRoute.userField;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerResolver")) {
-    nextConfig.ownerResolver = sourceRoute.ownerResolver;
-  }
-  if (Object.prototype.hasOwnProperty.call(sourceRoute, "csrfProtection")) {
-    nextConfig.csrfProtection = sourceRoute.csrfProtection;
-  }
-
-  return nextConfig;
-}
-
-function defaultApplyRoutePolicy(routeOptions, route) {
-  return {
-    ...routeOptions,
-    config: normalizeRoutePolicyConfig(routeOptions, route)
-  };
 }
 
 async function executeMiddlewareStack(middleware, request, reply) {
