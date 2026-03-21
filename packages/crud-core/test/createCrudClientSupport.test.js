@@ -10,16 +10,16 @@ import {
   resolveCrudRecordChangedEvent
 } from "../src/client/composables/crudClientSupportHelpers.js";
 
-test("resolveCrudClientConfig normalizes namespace, visibility, and derives relativePath", () => {
+test("resolveCrudClientConfig normalizes namespace, ownership filter, and derives relativePath", () => {
   const config = resolveCrudClientConfig({
     namespace: " Customers ",
-    visibility: "workspace",
+    ownershipFilter: "workspace",
     relativePath: "/crm/customers"
   });
 
   assert.deepEqual(config, {
     namespace: "customers",
-    visibility: "workspace",
+    ownershipFilter: "workspace",
     relativePath: "/crm/customers"
   });
 });
@@ -27,7 +27,7 @@ test("resolveCrudClientConfig normalizes namespace, visibility, and derives rela
 test("resolveCrudClientConfig infers default relativePath from namespace", () => {
   const config = resolveCrudClientConfig({
     namespace: "appointments",
-    visibility: "public"
+    ownershipFilter: "public"
   });
 
   assert.equal(config.relativePath, "/appointments");
@@ -35,7 +35,7 @@ test("resolveCrudClientConfig infers default relativePath from namespace", () =>
 
 test("resolveCrudClientConfig throws when namespace is missing", () => {
   assert.throws(
-    () => resolveCrudClientConfig({ visibility: "workspace" }),
+    () => resolveCrudClientConfig({ ownershipFilter: "workspace" }),
     /requires a non-empty namespace/
   );
 });

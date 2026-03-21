@@ -2,7 +2,7 @@ import { normalizeLowerText, normalizeText, normalizeQueryToken } from "@jskit-a
 import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 
-const DEFAULT_CRUD_VISIBILITY = "workspace";
+const DEFAULT_CRUD_OWNERSHIP_FILTER = "workspace";
 
 function requireCrudNamespace(namespace, { context = "resolveCrudClientConfig" } = {}) {
   const normalizedNamespace = normalizeLowerText(namespace);
@@ -32,8 +32,8 @@ function resolveCrudClientConfig(source = {}) {
   const namespace = requireCrudNamespace(payload.namespace, {
     context: "resolveCrudClientConfig"
   });
-  const visibility = normalizeRouteVisibility(payload.visibility, {
-    fallback: DEFAULT_CRUD_VISIBILITY
+  const ownershipFilter = normalizeRouteVisibility(payload.ownershipFilter, {
+    fallback: DEFAULT_CRUD_OWNERSHIP_FILTER
   });
   const inferredRelativePath = `/${namespace}`;
   const relativePath = normalizeRelativePath(
@@ -43,7 +43,7 @@ function resolveCrudClientConfig(source = {}) {
 
   return Object.freeze({
     namespace,
-    visibility,
+    ownershipFilter,
     relativePath
   });
 }
@@ -98,7 +98,7 @@ function toRouteRecordId(value) {
 }
 
 export {
-  DEFAULT_CRUD_VISIBILITY,
+  DEFAULT_CRUD_OWNERSHIP_FILTER,
   requireCrudNamespace,
   resolveCrudClientConfig,
   formatDateTime,

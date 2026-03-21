@@ -1,6 +1,6 @@
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 
-const USERS_VISIBILITY_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
+const USERS_OWNERSHIP_FILTER_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
 const ACCESS_MODE_VALUES = Object.freeze(["auto", "always", "never"]);
 
 function asPlainObject(value) {
@@ -80,31 +80,31 @@ function resolveEnabled(value, context = {}) {
   return resolveEnabledRef(value);
 }
 
-function normalizeUsersVisibility(value = "workspace") {
+function normalizeUsersOwnershipFilter(value = "workspace") {
   const normalized = String(value || "workspace").trim().toLowerCase();
-  if (USERS_VISIBILITY_VALUES.includes(normalized)) {
+  if (USERS_OWNERSHIP_FILTER_VALUES.includes(normalized)) {
     return normalized;
   }
 
   throw new TypeError(
-    `visibility must be one of: ${USERS_VISIBILITY_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
+    `ownershipFilter must be one of: ${USERS_OWNERSHIP_FILTER_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
   );
 }
 
-function isWorkspaceVisibility(visibility) {
-  return visibility === "workspace" || visibility === "workspace_user";
+function isWorkspaceOwnershipFilter(ownershipFilter) {
+  return ownershipFilter === "workspace" || ownershipFilter === "workspace_user";
 }
 
-function resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", visibility = "workspace" } = {}) {
+function resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", ownershipFilter = "workspace" } = {}) {
   if (typeof queryKeyFactory !== "function") {
     throw new TypeError("queryKeyFactory is required.");
   }
 
-  if (isWorkspaceVisibility(visibility)) {
-    return queryKeyFactory(surfaceId, workspaceSlug, visibility);
+  if (isWorkspaceOwnershipFilter(ownershipFilter)) {
+    return queryKeyFactory(surfaceId, workspaceSlug, ownershipFilter);
   }
 
-  return queryKeyFactory(surfaceId, visibility);
+  return queryKeyFactory(surfaceId, ownershipFilter);
 }
 
 function resolveResourceMessages(resource, defaults = {}) {
@@ -126,8 +126,8 @@ export {
   ensureAccessModeCompatibility,
   resolveApiSuffix,
   resolveEnabled,
-  normalizeUsersVisibility,
-  isWorkspaceVisibility,
+  normalizeUsersOwnershipFilter,
+  isWorkspaceOwnershipFilter,
   resolveQueryKey,
   resolveResourceMessages
 };

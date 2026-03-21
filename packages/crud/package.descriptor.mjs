@@ -19,11 +19,11 @@ export default Object.freeze({
       promptLabel: "Target surface",
       promptHint: "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
     },
-    visibility: {
+    "ownership-filter": {
       required: true,
       inputType: "text",
       defaultValue: "auto",
-      promptLabel: "Route visibility",
+      promptLabel: "Ownership filter",
       promptHint: "auto | public | user | workspace | workspace_user"
     },
     "directory-prefix": {
@@ -35,7 +35,9 @@ export default Object.freeze({
     }
   },
   optionPolicies: {
-    surfaceVisibility: true
+    surfaceVisibility: {
+      visibilityOption: "ownership-filter"
+    }
   },
   dependsOn: [
     "@jskit-ai/auth-core",

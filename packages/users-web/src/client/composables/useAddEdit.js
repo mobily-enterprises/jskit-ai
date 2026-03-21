@@ -13,7 +13,7 @@ import {
 } from "./scopeHelpers.js";
 
 function useAddEdit({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   access = "auto",
   resource = null,
@@ -39,7 +39,7 @@ function useAddEdit({
   realtime = null
 } = {}) {
   const operationScope = useOperationScope({
-    visibility,
+    ownershipFilter,
     surfaceId,
     access,
     placementSource,

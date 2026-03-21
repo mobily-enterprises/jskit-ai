@@ -74,7 +74,7 @@ const {
   createQueryKey,
   invalidateAndGoView
 } = useCrudCreateRuntime();
-const { visibility, surfaceId } = useCrudModulePolicyRuntime();
+const { ownershipFilter, surfaceId } = useCrudModulePolicyRuntime();
 const recordForm = reactive({
   textField: "",
   dateField: "",
@@ -82,7 +82,7 @@ const recordForm = reactive({
 });
 
 const addEdit = useAddEdit({
-  visibility,
+  ownershipFilter,
   surfaceId,
   resource: crudResource,
   apiSuffix,

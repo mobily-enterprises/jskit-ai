@@ -15,7 +15,7 @@ import { crudModuleConfig } from "../shared/moduleConfig.js";
 function registerRoutes(
   app,
   {
-    routeVisibility = "",
+    routeOwnershipFilter = "",
     routeSurface = "",
     routeSurfaceRequiresWorkspace = false,
     routeRelativePath = crudModuleConfig.relativePath
@@ -26,7 +26,7 @@ function registerRoutes(
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const visibility = String(routeVisibility || "").trim() || "public";
+  const routeVisibility = String(routeOwnershipFilter || "").trim() || "public";
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveUsersApiBasePath({
     surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
@@ -39,7 +39,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "List records."
@@ -74,7 +74,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "View a record."
@@ -102,7 +102,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Create a record."
@@ -134,7 +134,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Update a record."
@@ -167,7 +167,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Delete a record."

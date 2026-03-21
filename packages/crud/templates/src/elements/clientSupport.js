@@ -26,7 +26,7 @@ function useCrudModulePolicyRuntime() {
   return Object.freeze({
     modulePolicy,
     surfaceId: modulePolicy.surfaceId,
-    visibility: modulePolicy.visibility
+    ownershipFilter: modulePolicy.ownershipFilter
   });
 }
 

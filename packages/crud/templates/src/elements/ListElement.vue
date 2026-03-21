@@ -60,10 +60,10 @@ const {
   apiSuffix,
   listQueryKey
 } = useCrudListRuntime();
-const { visibility, surfaceId } = useCrudModulePolicyRuntime();
+const { ownershipFilter, surfaceId } = useCrudModulePolicyRuntime();
 
 const records = useList({
-  visibility,
+  ownershipFilter,
   surfaceId,
   apiSuffix,
   queryKeyFactory: listQueryKey,

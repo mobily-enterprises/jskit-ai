@@ -6,6 +6,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { normalizeUsersRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveUsersApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { crudResource } from "../shared/crud/crudResource.js";
@@ -52,7 +53,7 @@ function registerRoutes(
   app,
   {
     routeRelativePath,
-    routeVisibility = "public",
+    routeOwnershipFilter = "public",
     routeSurface = "",
     routeSurfaceRequiresWorkspace = false,
     actionIds
@@ -68,7 +69,9 @@ function registerRoutes(
     surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
     relativePath
   });
-  const visibility = String(routeVisibility || "").trim() || "public";
+  const routeVisibility = normalizeUsersRouteVisibility(routeOwnershipFilter, {
+    fallback: "public"
+  });
   const surface = normalizeSurfaceId(routeSurface);
   const resolvedActionIds = requireActionIds(actionIds);
 
@@ -78,7 +81,7 @@ function registerRoutes(
     {
       auth: "required",
       surface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "List records."
@@ -113,7 +116,7 @@ function registerRoutes(
     {
       auth: "required",
       surface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "View a record."
@@ -141,7 +144,7 @@ function registerRoutes(
     {
       auth: "required",
       surface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Create a record."
@@ -173,7 +176,7 @@ function registerRoutes(
     {
       auth: "required",
       surface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Update a record."
@@ -206,7 +209,7 @@ function registerRoutes(
     {
       auth: "required",
       surface,
-      visibility,
+      visibility: routeVisibility,
       meta: {
         tags: ["crud"],
         summary: "Delete a record."

@@ -395,7 +395,7 @@ function useAccountSettingsRuntime() {
   };
 
   const settingsView = useView({
-    visibility: "public",
+    ownershipFilter: "public",
     apiSuffix: "/settings",
     queryKeyFactory: () => accountSettingsQueryKey,
     realtime: {
@@ -406,7 +406,7 @@ function useAccountSettingsRuntime() {
   });
 
   const pendingInvitesView = useView({
-    visibility: "public",
+    ownershipFilter: "public",
     apiSuffix: "/bootstrap",
     queryKeyFactory: () => pendingInvitesQueryKey,
     realtime: {
@@ -425,7 +425,7 @@ function useAccountSettingsRuntime() {
   });
 
   const redeemInviteCommand = useCommand({
-    visibility: "public",
+    ownershipFilter: "public",
     apiSuffix: "/workspace/invitations/redeem",
     writeMethod: "POST",
     fallbackRunError: "Unable to respond to invitation.",
@@ -441,7 +441,7 @@ function useAccountSettingsRuntime() {
   });
 
   const profileAddEdit = useAddEdit({
-    visibility: "public",
+    ownershipFilter: "public",
     resource: userProfileResource,
     apiSuffix: "/settings/profile",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -467,7 +467,7 @@ function useAccountSettingsRuntime() {
   });
 
   const avatarDeleteCommand = useCommand({
-    visibility: "public",
+    ownershipFilter: "public",
     apiSuffix: "/settings/profile/avatar",
     writeMethod: "DELETE",
     fallbackRunError: "Unable to remove avatar.",
@@ -483,7 +483,7 @@ function useAccountSettingsRuntime() {
   });
 
   const preferencesAddEdit = useAddEdit({
-    visibility: "public",
+    ownershipFilter: "public",
     resource: userSettingsResource,
     apiSuffix: "/settings/preferences",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -515,7 +515,7 @@ function useAccountSettingsRuntime() {
   });
 
   const notificationsAddEdit = useAddEdit({
-    visibility: "public",
+    ownershipFilter: "public",
     resource: userSettingsResource,
     apiSuffix: "/settings/notifications",
     queryKeyFactory: () => accountSettingsQueryKey,

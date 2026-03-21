@@ -8,18 +8,18 @@ import {
   asPlainObject,
   ensureAccessModeCompatibility,
   resolveAccessModeEnabled,
-  normalizeUsersVisibility,
+  normalizeUsersOwnershipFilter,
   resolveApiSuffix
 } from "./scopeHelpers.js";
 
 function useScopeRuntime({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   accessMode = "auto",
   hasPermissionRequirements = false,
   placementSource = "users-web.scope-runtime"
 } = {}) {
-  const normalizedVisibility = normalizeUsersVisibility(visibility);
+  const normalizedOwnershipFilter = normalizeUsersOwnershipFilter(ownershipFilter);
   const normalizedAccessMode = ensureAccessModeCompatibility({
     accessMode,
     hasPermissionRequirements,
@@ -71,7 +71,7 @@ function useScopeRuntime({
     const suffix = resolveApiSuffix(apiSuffix, {
       surfaceId: routeContext.currentSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility,
+      ownershipFilter: normalizedOwnershipFilter,
       ...asPlainObject(context)
     });
 
@@ -88,7 +88,7 @@ function useScopeRuntime({
   }
 
   return Object.freeze({
-    normalizedVisibility,
+    normalizedOwnershipFilter,
     workspaceScoped: workspaceScoped.value,
     resolvedSurfaceId,
     accessMode: normalizedAccessMode,

@@ -4,7 +4,7 @@ import { useOperationScope } from "./internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useView({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
@@ -21,7 +21,7 @@ function useView({
   realtime = null
 } = {}) {
   const operationScope = useOperationScope({
-    visibility,
+    ownershipFilter,
     surfaceId,
     access,
     placementSource,

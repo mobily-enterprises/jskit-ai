@@ -79,13 +79,13 @@ const errorRuntime = useShellWebErrorRuntime();
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceMembersApiPath = computed(() =>
   usersPaths.api("/members", {
-    visibility: "workspace",
+    ownershipFilter: "workspace",
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );
 const workspaceInvitesApiPath = computed(() =>
   usersPaths.api("/invites", {
-    visibility: "workspace",
+    ownershipFilter: "workspace",
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );
@@ -273,7 +273,7 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
 }
 
 const workspaceSettingsView = useView({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("settings", surfaceId, workspaceSlug),
@@ -286,7 +286,7 @@ const workspaceSettingsView = useView({
 });
 
 const workspaceRolesView = useView({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/roles",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => buildWorkspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
@@ -294,7 +294,7 @@ const workspaceRolesView = useView({
 });
 
 const workspaceMembersList = useList({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/members",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("members", surfaceId, workspaceSlug),
@@ -308,7 +308,7 @@ const workspaceMembersList = useList({
 });
 
 const workspaceInvitesList = useList({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/invites",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("invites", surfaceId, workspaceSlug),
@@ -322,7 +322,7 @@ const workspaceInvitesList = useList({
 });
 
 const inviteCreateCommand = useCommand({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/invites",
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
@@ -338,7 +338,7 @@ const inviteCreateCommand = useCommand({
 });
 
 const revokeInviteCommand = useCommand({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/invites",
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
@@ -356,7 +356,7 @@ const revokeInviteCommand = useCommand({
 });
 
 const memberRoleCommand = useCommand({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",
@@ -377,7 +377,7 @@ const memberRoleCommand = useCommand({
 });
 
 const memberRemoveCommand = useCommand({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "DELETE",

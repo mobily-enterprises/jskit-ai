@@ -3,7 +3,7 @@ import { useOperationScope } from "./internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useList({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
@@ -20,7 +20,7 @@ function useList({
   realtime = null
 } = {}) {
   const operationScope = useOperationScope({
-    visibility,
+    ownershipFilter,
     surfaceId,
     access,
     placementSource,

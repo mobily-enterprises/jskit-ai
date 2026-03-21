@@ -10,11 +10,11 @@ import {
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
-const DEFAULT_VISIBILITY = "workspace";
-const CRUD_REQUESTED_VISIBILITY_AUTO = "auto";
-const CRUD_REQUESTED_VISIBILITY_SET = new Set([
+const DEFAULT_OWNERSHIP_FILTER = "workspace";
+const CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO = "auto";
+const CRUD_REQUESTED_OWNERSHIP_FILTER_SET = new Set([
   ...USERS_ROUTE_VISIBILITY_LEVELS,
-  CRUD_REQUESTED_VISIBILITY_AUTO
+  CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
 ]);
 const CRUD_MODULE_ID = "crud";
 
@@ -34,22 +34,22 @@ function normalizeCrudNamespace(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function normalizeCrudVisibility(value, { fallback = DEFAULT_VISIBILITY } = {}) {
+function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
   return normalizeRouteVisibility(value, { fallback });
 }
 
-function normalizeCrudRequestedVisibility(value, { fallback = CRUD_REQUESTED_VISIBILITY_AUTO } = {}) {
+function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
   const normalized = normalizeText(value).toLowerCase();
-  if (CRUD_REQUESTED_VISIBILITY_SET.has(normalized)) {
+  if (CRUD_REQUESTED_OWNERSHIP_FILTER_SET.has(normalized)) {
     return normalized;
   }
 
   const normalizedFallback = normalizeText(fallback).toLowerCase();
-  if (CRUD_REQUESTED_VISIBILITY_SET.has(normalizedFallback)) {
+  if (CRUD_REQUESTED_OWNERSHIP_FILTER_SET.has(normalizedFallback)) {
     return normalizedFallback;
   }
 
-  return CRUD_REQUESTED_VISIBILITY_AUTO;
+  return CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO;
 }
 
 function requireCrudNamespace(namespace, { context = "CRUD config" } = {}) {
@@ -129,12 +129,12 @@ function resolveCrudConfig(source = {}) {
   const namespace = requireCrudNamespace(settings.namespace, {
     context: "resolveCrudConfig"
   });
-  const visibility = normalizeCrudVisibility(settings.visibility);
+  const ownershipFilter = normalizeCrudOwnershipFilter(settings.ownershipFilter);
 
   return Object.freeze({
     namespace,
-    visibility,
-    workspaceScoped: isWorkspaceVisibility(visibility),
+    ownershipFilter,
+    workspaceScoped: isWorkspaceVisibility(ownershipFilter),
     namespacePath: resolveCrudNamespacePath(namespace),
     relativePath: resolveCrudRelativePath(namespace),
     apiBasePath: resolveCrudApiBasePath({ namespace }),
@@ -170,7 +170,7 @@ function normalizeSurfaceDefinitions(sourceDefinitions = {}) {
   return Object.freeze(normalized);
 }
 
-function resolveVisibilityFromSurfaceDefinition(definition = {}) {
+function resolveOwnershipFilterFromSurfaceDefinition(definition = {}) {
   if (definition.requiresWorkspace === true) {
     return "workspace";
   }
@@ -205,17 +205,17 @@ function resolveCrudSurfacePolicy(
     throw new Error(`${context} surface "${surfaceId}" is disabled.`);
   }
 
-  const requestedVisibility = normalizeCrudRequestedVisibility(config.visibility);
-  const visibility =
-    requestedVisibility === CRUD_REQUESTED_VISIBILITY_AUTO
-      ? resolveVisibilityFromSurfaceDefinition(surfaceDefinition)
-      : normalizeUsersRouteVisibility(requestedVisibility, {
+  const requestedOwnershipFilter = normalizeCrudRequestedOwnershipFilter(config.ownershipFilter);
+  const ownershipFilter =
+    requestedOwnershipFilter === CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
+      ? resolveOwnershipFilterFromSurfaceDefinition(surfaceDefinition)
+      : normalizeUsersRouteVisibility(requestedOwnershipFilter, {
           fallback: "public"
         });
 
-  if (isWorkspaceVisibility(visibility) && surfaceDefinition.requiresWorkspace !== true) {
+  if (isWorkspaceVisibility(ownershipFilter) && surfaceDefinition.requiresWorkspace !== true) {
     throw new Error(
-      `${context} visibility "${visibility}" requires a workspace-enabled surface.`
+      `${context} ownershipFilter "${ownershipFilter}" requires a workspace-enabled surface.`
     );
   }
 
@@ -225,9 +225,9 @@ function resolveCrudSurfacePolicy(
 
   return Object.freeze({
     surfaceId,
-    visibility,
-    requestedVisibility,
-    workspaceScoped: isWorkspaceVisibility(visibility),
+    ownershipFilter,
+    requestedOwnershipFilter,
+    workspaceScoped: isWorkspaceVisibility(ownershipFilter),
     relativePath,
     surfaceDefinition
   });
@@ -288,11 +288,11 @@ function resolveCrudConfigFromModules(modulesSource = {}, options = {}) {
 
 export {
   CRUD_MODULE_ID,
-  DEFAULT_VISIBILITY,
-  CRUD_REQUESTED_VISIBILITY_AUTO,
+  DEFAULT_OWNERSHIP_FILTER,
+  CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO,
   normalizeCrudNamespace,
-  normalizeCrudVisibility,
-  normalizeCrudRequestedVisibility,
+  normalizeCrudOwnershipFilter,
+  normalizeCrudRequestedOwnershipFilter,
   isWorkspaceVisibility,
   requireCrudNamespace,
   resolveCrudNamespacePath,

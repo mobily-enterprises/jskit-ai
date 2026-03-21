@@ -69,7 +69,7 @@ const {
   viewQueryKey,
   invalidateAndGoList
 } = useCrudRecordRuntime();
-const { visibility, surfaceId } = useCrudModulePolicyRuntime();
+const { ownershipFilter, surfaceId } = useCrudModulePolicyRuntime();
 const record = reactive({
   id: 0,
   textField: "",
@@ -85,7 +85,7 @@ const title = computed(() => {
 });
 
 const view = useView({
-  visibility,
+  ownershipFilter,
   surfaceId,
   apiSuffix,
   queryKeyFactory: viewQueryKey,
@@ -102,7 +102,7 @@ const view = useView({
   }
 });
 const deleteCommand = useCommand({
-  visibility,
+  ownershipFilter,
   surfaceId,
   apiSuffix,
   writeMethod: "DELETE",

@@ -10,7 +10,7 @@ import {
 } from "./operationUiHelpers.js";
 
 function useCommand({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
@@ -32,7 +32,7 @@ function useCommand({
   realtime = null
 } = {}) {
   const operationScope = useOperationScope({
-    visibility,
+    ownershipFilter,
     surfaceId,
     access,
     placementSource,

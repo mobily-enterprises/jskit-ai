@@ -179,7 +179,7 @@ function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
 }
 
 const addEdit = useAddEdit({
-  visibility: "workspace",
+  ownershipFilter: "workspace",
   resource: workspaceSettingsResource,
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>

@@ -76,7 +76,7 @@ class ${option:namespace|pascal}ServiceProvider {
   boot(app) {
     const crudPolicy = resolveCrudPolicyFromApp(app);
     registerRoutes(app, {
-      routeVisibility: crudPolicy.visibility,
+      routeOwnershipFilter: crudPolicy.ownershipFilter,
       routeSurface: crudPolicy.surfaceId,
       routeSurfaceRequiresWorkspace: crudPolicy.surfaceDefinition.requiresWorkspace === true,
       routeRelativePath: crudPolicy.relativePath

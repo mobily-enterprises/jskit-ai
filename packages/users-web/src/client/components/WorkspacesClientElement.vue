@@ -52,7 +52,7 @@ const redeemInviteModel = reactive({
 const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", "__none__"]);
 
 const bootstrapView = useView({
-  visibility: "public",
+  ownershipFilter: "public",
   apiSuffix: "/bootstrap",
   queryKeyFactory: () => bootstrapQueryKey,
   realtime: {
@@ -75,7 +75,7 @@ const bootstrapView = useView({
 });
 
 const redeemInviteCommand = useCommand({
-  visibility: "public",
+  ownershipFilter: "public",
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
   fallbackRunError: "Unable to respond to invitation.",
@@ -91,7 +91,7 @@ const redeemInviteCommand = useCommand({
 });
 
 const createWorkspaceCommand = useCommand({
-  visibility: "public",
+  ownershipFilter: "public",
   apiSuffix: "/workspaces",
   writeMethod: "POST",
   fallbackRunError: "Unable to create workspace.",

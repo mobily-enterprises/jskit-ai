@@ -17,11 +17,11 @@ test("resolveCrudConfig throws when namespace is missing", () => {
 test("resolveCrudConfig normalizes namespaced public settings", () => {
   const config = resolveCrudConfig({
     namespace: "CRM Team",
-    visibility: "public"
+    ownershipFilter: "public"
   });
 
   assert.equal(config.namespace, "crm-team");
-  assert.equal(config.visibility, "public");
+  assert.equal(config.ownershipFilter, "public");
   assert.equal(config.workspaceScoped, false);
   assert.equal(config.namespacePath, "/crm-team");
   assert.equal(config.relativePath, "/crm-team");
@@ -37,12 +37,12 @@ test("resolveCrudConfigsFromModules returns only crud module entries", () => {
     "crud.customers": {
       module: "crud",
       namespace: "customers",
-      visibility: "workspace"
+      ownershipFilter: "workspace"
     },
     "crud.dragons": {
       module: "crud",
       namespace: "dragons",
-      visibility: "public"
+      ownershipFilter: "public"
     },
     "users.default": {
       module: "users",
@@ -51,7 +51,7 @@ test("resolveCrudConfigsFromModules returns only crud module entries", () => {
   });
 
   assert.deepEqual(configs.map((entry) => entry.namespace), ["customers", "dragons"]);
-  assert.deepEqual(configs.map((entry) => entry.visibility), ["workspace", "public"]);
+  assert.deepEqual(configs.map((entry) => entry.ownershipFilter), ["workspace", "public"]);
 });
 
 test("resolveCrudConfigFromModules resolves explicit namespace", () => {
@@ -60,12 +60,12 @@ test("resolveCrudConfigFromModules resolves explicit namespace", () => {
       "crud.customers": {
         module: "crud",
         namespace: "customers",
-        visibility: "workspace"
+        ownershipFilter: "workspace"
       },
       "crud.dragons": {
         module: "crud",
         namespace: "dragons",
-        visibility: "workspace_user"
+        ownershipFilter: "workspace_user"
       }
     },
     {
@@ -75,7 +75,7 @@ test("resolveCrudConfigFromModules resolves explicit namespace", () => {
 
   assert.ok(config);
   assert.equal(config.namespace, "dragons");
-  assert.equal(config.visibility, "workspace_user");
+  assert.equal(config.ownershipFilter, "workspace_user");
 });
 
 test("resolveCrudConfigFromModules returns null without namespace when multiple crud entries exist", () => {
@@ -83,12 +83,12 @@ test("resolveCrudConfigFromModules returns null without namespace when multiple 
     "crud.customers": {
       module: "crud",
       namespace: "customers",
-      visibility: "workspace"
+      ownershipFilter: "workspace"
     },
     "crud.dragons": {
       module: "crud",
       namespace: "dragons",
-      visibility: "workspace"
+      ownershipFilter: "workspace"
     }
   });
 
@@ -102,12 +102,12 @@ test("resolveCrudConfigsFromModules rejects duplicate normalized namespaces", ()
         "crud.customers": {
           module: "crud",
           namespace: "customers",
-          visibility: "workspace"
+          ownershipFilter: "workspace"
         },
         "crud.customers-copy": {
           module: "crud",
           namespace: "Customers",
-          visibility: "public"
+          ownershipFilter: "public"
         }
       }),
     /Duplicate CRUD namespace/
@@ -121,18 +121,18 @@ test("resolveCrudConfigsFromModules rejects module entries without namespace", (
         "crud.invalid": {
           module: "crud",
           namespace: "",
-          visibility: "workspace"
+          ownershipFilter: "workspace"
         }
       }),
     /requires a non-empty namespace/
   );
 });
 
-test("resolveCrudSurfacePolicy resolves auto visibility from workspace surface metadata", () => {
+test("resolveCrudSurfacePolicy resolves auto ownership filter from workspace surface metadata", () => {
   const policy = resolveCrudSurfacePolicy(
     {
       surface: "admin",
-      visibility: "auto",
+      ownershipFilter: "auto",
       relativePath: "/crm/customers"
     },
     {
@@ -144,16 +144,16 @@ test("resolveCrudSurfacePolicy resolves auto visibility from workspace surface m
   );
 
   assert.equal(policy.surfaceId, "admin");
-  assert.equal(policy.visibility, "workspace");
+  assert.equal(policy.ownershipFilter, "workspace");
   assert.equal(policy.workspaceScoped, true);
   assert.equal(policy.relativePath, "/crm/customers");
 });
 
-test("resolveCrudSurfacePolicy resolves auto visibility from auth-only surface metadata", () => {
+test("resolveCrudSurfacePolicy resolves auto ownership filter from auth-only surface metadata", () => {
   const policy = resolveCrudSurfacePolicy(
     {
       surface: "console",
-      visibility: "auto",
+      ownershipFilter: "auto",
       relativePath: "/crm/customers"
     },
     {
@@ -165,17 +165,17 @@ test("resolveCrudSurfacePolicy resolves auto visibility from auth-only surface m
   );
 
   assert.equal(policy.surfaceId, "console");
-  assert.equal(policy.visibility, "user");
+  assert.equal(policy.ownershipFilter, "user");
   assert.equal(policy.workspaceScoped, false);
 });
 
-test("resolveCrudSurfacePolicy rejects explicit workspace visibility on non-workspace surfaces", () => {
+test("resolveCrudSurfacePolicy rejects explicit workspace ownership filter on non-workspace surfaces", () => {
   assert.throws(
     () =>
       resolveCrudSurfacePolicy(
         {
           surface: "console",
-          visibility: "workspace",
+          ownershipFilter: "workspace",
           relativePath: "/crm/customers"
         },
         {
@@ -194,7 +194,7 @@ test("resolveCrudSurfacePolicy rejects unknown or disabled surfaces", () => {
       resolveCrudSurfacePolicy(
         {
           surface: "missing",
-          visibility: "auto",
+          ownershipFilter: "auto",
           relativePath: "/crm/customers"
         },
         {
@@ -211,7 +211,7 @@ test("resolveCrudSurfacePolicy rejects unknown or disabled surfaces", () => {
       resolveCrudSurfacePolicy(
         {
           surface: "console",
-          visibility: "auto",
+          ownershipFilter: "auto",
           relativePath: "/crm/customers"
         },
         {

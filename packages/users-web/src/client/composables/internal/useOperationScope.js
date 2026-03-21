@@ -32,7 +32,7 @@ function hasAnyPermissions(permissionSets = {}) {
 }
 
 function useOperationScope({
-  visibility = "workspace",
+  ownershipFilter = "workspace",
   surfaceId = "",
   access = "auto",
   placementSource = "users-web.operation",
@@ -45,13 +45,13 @@ function useOperationScope({
 } = {}) {
   const normalizedPermissionSets = normalizePermissionSets(permissionSets);
   const scopeRuntime = useScopeRuntime({
-    visibility,
+    ownershipFilter,
     surfaceId,
     accessMode: access,
     hasPermissionRequirements: hasAnyPermissions(normalizedPermissionSets),
     placementSource
   });
-  const normalizedVisibility = scopeRuntime.normalizedVisibility;
+  const normalizedOwnershipFilter = scopeRuntime.normalizedOwnershipFilter;
   const routeContext = scopeRuntime.routeContext;
   const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
   const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
@@ -67,7 +67,7 @@ function useOperationScope({
     resolveEnabled(readEnabled, {
       surfaceId: routeContext.currentSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility,
+      ownershipFilter: normalizedOwnershipFilter,
       model
     })
   );
@@ -76,7 +76,7 @@ function useOperationScope({
     resolveQueryKey(queryKeyFactory, {
       surfaceId: routeContext.currentSurfaceId.value,
       workspaceSlug: workspaceSlugFromRoute.value,
-      visibility: normalizedVisibility
+      ownershipFilter: normalizedOwnershipFilter
     })
   );
   const realtimeBinding = useOperationRealtime({
@@ -125,7 +125,7 @@ function useOperationScope({
   return Object.freeze({
     scopeRuntime,
     routeContext,
-    normalizedVisibility,
+    normalizedOwnershipFilter,
     workspaceSlugFromRoute,
     hasRouteWorkspaceSlug,
     access: accessRuntime,
