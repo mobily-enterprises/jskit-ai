@@ -3,7 +3,6 @@ import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
@@ -12,16 +11,13 @@ import { useCommand } from "../composables/useCommand.js";
 import { useView } from "../composables/useView.js";
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeQueryInvalidation } from "../composables/useRealtimeQueryInvalidation.js";
+import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import {
   WORKSPACE_SETTINGS_CHANGED_EVENT,
   WORKSPACES_CHANGED_EVENT,
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import {
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  surfaceRequiresWorkspaceFromPlacementContext
-} from "../lib/workspaceSurfaceContext.js";
 import { normalizePendingInvite } from "../composables/accountSettingsRuntimeHelpers.js";
 
 const route = useRoute();
@@ -160,31 +156,9 @@ function reportFeedback({
   });
 }
 
-function resolveCurrentPathname() {
-  const routePath = String(route?.path || "").trim();
-  if (routePath) {
-    return routePath;
-  }
-
-  if (typeof window === "object" && window?.location?.pathname) {
-    return String(window.location.pathname);
-  }
-
-  return "/";
-}
-
-const currentSurfaceId = computed(() => {
-  return resolveSurfaceIdFromPlacementPathname(placementContext.value, resolveCurrentPathname());
-});
-
-const workspaceSurfaceId = computed(() => {
-  const surfaceId = String(currentSurfaceId.value || "").trim().toLowerCase();
-  if (surfaceId && surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, surfaceId)) {
-    return surfaceId;
-  }
-
-  const targets = resolveSurfaceSwitchTargetsFromPlacementContext(placementContext.value, surfaceId);
-  return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
+const { workspaceSurfaceId } = useWorkspaceSurfaceId({
+  route,
+  placementContext
 });
 
 function workspaceInitials(workspace) {

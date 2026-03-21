@@ -1,4 +1,5 @@
 import { computed, unref } from "vue";
+import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useScopeRuntime } from "../useScopeRuntime.js";
 import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
 import {
@@ -32,7 +33,7 @@ function hasAnyPermissions(permissionSets = {}) {
 }
 
 function useOperationScope({
-  ownershipFilter = "workspace",
+  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   placementSource = "users-web.operation",

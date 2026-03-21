@@ -1,6 +1,7 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { mergeValidators } from "../../../shared/validators/mergeValidators.js";
 import { RouteDefinitionError } from "./errors.js";
+import { resolveRouteLabel } from "./routeSupport.js";
 
 const ROUTE_VALIDATOR_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeValidator");
 const VALIDATOR_OPTION_KEYS = Object.freeze([
@@ -14,16 +15,6 @@ const VALIDATOR_OPTION_KEYS = Object.freeze([
 
 function passThroughInputSection(value) {
   return value;
-}
-
-function resolveRouteLabel({ method = "", path = "" } = {}) {
-  const normalizedMethod = normalizeText(method, {
-    fallback: "<unknown>"
-  }).toUpperCase();
-  const normalizedPath = normalizeText(path, {
-    fallback: "<unknown>"
-  });
-  return `${normalizedMethod} ${normalizedPath}`;
 }
 
 function normalizeOptionalValidatorTransformer(source, normalized, { context = "route validator" } = {}) {

@@ -4,21 +4,20 @@ import { useTheme } from "vuetify";
 import { useRoute, useRouter } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
+import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
   resolveThemeNameForPreference,
   setVuetifyThemeName
 } from "../lib/theme.js";
 import {
-  resolveSurfaceSwitchTargetsFromPlacementContext,
-  surfaceRequiresWorkspaceFromPlacementContext
-} from "../lib/workspaceSurfaceContext.js";
+  useWorkspaceSurfaceId
+} from "./useWorkspaceSurfaceId.js";
 import { useAddEdit } from "./useAddEdit.js";
 import { useCommand } from "./useCommand.js";
 import { useView } from "./useView.js";
@@ -61,6 +60,7 @@ function useAccountSettingsRuntime() {
   const accountSettingsQueryKey = ["users-web", "settings", "account"];
   const pendingInvitesQueryKey = ["users-web", "settings", "pending-invites"];
   const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
+  const OWNERSHIP_PUBLIC = USERS_ROUTE_VISIBILITY_PUBLIC;
 
   const accountSettingsPath = computed(() => resolveAccountSettingsPathFromPlacementContext(placementContext.value));
   const allowedReturnToOrigins = computed(() => resolveAllowedReturnToOrigins(placementContext.value));
@@ -200,7 +200,7 @@ function useAccountSettingsRuntime() {
   };
 
   const settingsView = useView({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/settings",
     queryKeyFactory: () => accountSettingsQueryKey,
     realtime: {
@@ -211,7 +211,7 @@ function useAccountSettingsRuntime() {
   });
 
   const pendingInvitesView = useView({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/bootstrap",
     queryKeyFactory: () => pendingInvitesQueryKey,
     realtime: {
@@ -230,7 +230,7 @@ function useAccountSettingsRuntime() {
   });
 
   const redeemInviteCommand = useCommand({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/workspace/invitations/redeem",
     writeMethod: "POST",
     fallbackRunError: "Unable to respond to invitation.",
@@ -246,7 +246,7 @@ function useAccountSettingsRuntime() {
   });
 
   const profileAddEdit = useAddEdit({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userProfileResource,
     apiSuffix: "/settings/profile",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -272,7 +272,7 @@ function useAccountSettingsRuntime() {
   });
 
   const avatarDeleteCommand = useCommand({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/settings/profile/avatar",
     writeMethod: "DELETE",
     fallbackRunError: "Unable to remove avatar.",
@@ -288,7 +288,7 @@ function useAccountSettingsRuntime() {
   });
 
   const preferencesAddEdit = useAddEdit({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userSettingsResource,
     apiSuffix: "/settings/preferences",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -320,7 +320,7 @@ function useAccountSettingsRuntime() {
   });
 
   const notificationsAddEdit = useAddEdit({
-    ownershipFilter: "public",
+    ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userSettingsResource,
     apiSuffix: "/settings/notifications",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -356,31 +356,9 @@ function useAccountSettingsRuntime() {
   });
   const isResolvingInvite = computed(() => Boolean(redeemInviteCommand.isRunning.value));
 
-  function resolveCurrentPathname() {
-    const routePath = String(route?.path || "").trim();
-    if (routePath) {
-      return routePath;
-    }
-
-    if (typeof window === "object" && window?.location?.pathname) {
-      return String(window.location.pathname);
-    }
-
-    return "/";
-  }
-
-  const currentSurfaceId = computed(() => {
-    return resolveSurfaceIdFromPlacementPathname(placementContext.value, resolveCurrentPathname());
-  });
-
-  const workspaceSurfaceId = computed(() => {
-    const surfaceId = String(currentSurfaceId.value || "").trim().toLowerCase();
-    if (surfaceId && surfaceRequiresWorkspaceFromPlacementContext(placementContext.value, surfaceId)) {
-      return surfaceId;
-    }
-
-    const targets = resolveSurfaceSwitchTargetsFromPlacementContext(placementContext.value, surfaceId);
-    return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
+  const { workspaceSurfaceId } = useWorkspaceSurfaceId({
+    route,
+    placementContext
   });
 
   function workspaceHomePath(workspaceSlug) {

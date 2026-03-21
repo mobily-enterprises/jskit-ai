@@ -1,5 +1,6 @@
 import { computed } from "vue";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
+import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useAccess } from "./useAccess.js";
 import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
 import { usePaths } from "./usePaths.js";
@@ -13,7 +14,7 @@ import {
 } from "./scopeHelpers.js";
 
 function useScopeRuntime({
-  ownershipFilter = "workspace",
+  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   accessMode = "auto",
   hasPermissionRequirements = false,

@@ -1,10 +1,11 @@
 import { computed } from "vue";
+import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useList({
-  ownershipFilter = "workspace",
+  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",

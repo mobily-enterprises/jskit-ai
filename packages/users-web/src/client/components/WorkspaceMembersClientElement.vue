@@ -36,6 +36,7 @@ import {
   WORKSPACE_MEMBERS_CHANGED_EVENT,
   WORKSPACE_INVITES_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
 const forms = reactive({
   invite: {
@@ -75,6 +76,7 @@ const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext }
   useWorkspaceRouteContext();
 const usersPaths = usePaths();
 const errorRuntime = useShellWebErrorRuntime();
+const OWNERSHIP_WORKSPACE = USERS_ROUTE_VISIBILITY_WORKSPACE;
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceMembersApiPath = computed(() =>
@@ -271,7 +273,7 @@ function applyWorkspaceSettingsPolicy(payload = {}) {
 }
 
 const workspaceSettingsView = useView({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("settings", surfaceId, workspaceSlug),
@@ -284,7 +286,7 @@ const workspaceSettingsView = useView({
 });
 
 const workspaceRolesView = useView({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/roles",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => buildWorkspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
@@ -292,7 +294,7 @@ const workspaceRolesView = useView({
 });
 
 const workspaceMembersList = useList({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/members",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("members", surfaceId, workspaceSlug),
@@ -306,7 +308,7 @@ const workspaceMembersList = useList({
 });
 
 const workspaceInvitesList = useList({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/invites",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("invites", surfaceId, workspaceSlug),
@@ -320,7 +322,7 @@ const workspaceInvitesList = useList({
 });
 
 const inviteCreateCommand = useCommand({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/invites",
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
@@ -336,7 +338,7 @@ const inviteCreateCommand = useCommand({
 });
 
 const revokeInviteCommand = useCommand({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/invites",
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
@@ -354,7 +356,7 @@ const revokeInviteCommand = useCommand({
 });
 
 const memberRoleCommand = useCommand({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",
@@ -375,7 +377,7 @@ const memberRoleCommand = useCommand({
 });
 
 const memberRemoveCommand = useCommand({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "DELETE",

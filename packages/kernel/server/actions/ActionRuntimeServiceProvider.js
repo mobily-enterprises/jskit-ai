@@ -1,4 +1,8 @@
-import * as actionRuntime from "../../shared/actions/index.js";
+import { normalizeActionDomain } from "../../shared/actions/actionDefinitions.js";
+import { createNoopAuditAdapter } from "../../shared/actions/audit.js";
+import { createNoopIdempotencyAdapter } from "../../shared/actions/idempotency.js";
+import { createNoopObservabilityAdapter } from "../../shared/actions/observability.js";
+import { createActionRegistry } from "../../shared/actions/registry.js";
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { isContainerToken } from "../../shared/support/tokens.js";
 import { installServiceRegistrationApi } from "../registries/serviceRegistrationRegistry.js";
@@ -14,7 +18,10 @@ import {
 } from "../registries/primitives.js";
 
 const ACTION_RUNTIME_API = Object.freeze({
-  ...actionRuntime
+  createActionRegistry,
+  createNoopIdempotencyAdapter,
+  createNoopAuditAdapter,
+  createNoopObservabilityAdapter
 });
 const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
@@ -170,7 +177,7 @@ function normalizeSingleActionRegistration(actionDefinition, { context = "app.ac
     ...source
   };
   delete normalizedAction.contributorId;
-  normalizedAction.domain = actionRuntime.normalizeActionDomain(normalizedAction.domain, {
+  normalizedAction.domain = normalizeActionDomain(normalizedAction.domain, {
     context: `${context} domain`
   });
 
@@ -243,11 +250,11 @@ class ActionRuntimeServiceProvider {
 
     if (!app.has("actionRegistry")) {
       app.singleton("actionRegistry", (scope) => {
-        return actionRuntime.createActionRegistry({
+        return createActionRegistry({
           contributors: resolveActionContributors(scope),
-          idempotencyAdapter: actionRuntime.createNoopIdempotencyAdapter(),
-          auditAdapter: actionRuntime.createNoopAuditAdapter(),
-          observabilityAdapter: actionRuntime.createNoopObservabilityAdapter(),
+          idempotencyAdapter: createNoopIdempotencyAdapter(),
+          auditAdapter: createNoopAuditAdapter(),
+          observabilityAdapter: createNoopObservabilityAdapter(),
           logger: scope.has(LOGGER_TOKEN) ? scope.make(LOGGER_TOKEN) : console
         });
       });

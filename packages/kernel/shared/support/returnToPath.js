@@ -1,10 +1,4 @@
-function normalizePathname(value = "") {
-  return String(value || "")
-    .split("?")[0]
-    .split("#")[0]
-    .replace(/\/{2,}/g, "/")
-    .replace(/\/+$/, "") || "/";
-}
+import { normalizePathname } from "../surface/paths.js";
 
 function normalizeHttpOrigin(value = "") {
   const rawValue = String(value || "").trim();

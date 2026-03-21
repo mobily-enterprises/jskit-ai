@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { loadInstalledPackageDescriptor } from "../../shared/support/packageDescriptor.js";
+import { normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
   normalizeDescriptorClientProviders,
@@ -18,10 +19,6 @@ const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "vuetify"
 ]);
 
-function ensureObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
 function isLocalScopePackageId(value) {
   return String(value || "").trim().startsWith("@local/");
 }
@@ -36,19 +33,19 @@ async function readJsonFile(filePath, fallback) {
 }
 
 function hasClientExport(packageJson) {
-  const exportsMap = ensureObject(packageJson?.exports);
+  const exportsMap = normalizeObject(packageJson?.exports);
   return Boolean(exportsMap["./client"]);
 }
 
 async function resolveInstalledClientModules({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
-  const installedPackages = ensureObject(lockPayload.installedPackages);
+  const installedPackages = normalizeObject(lockPayload.installedPackages);
   const packageIds = sortStrings(Object.keys(installedPackages));
 
   const modules = [];
   for (const packageId of packageIds) {
-    const installedPackageState = ensureObject(installedPackages[packageId]);
+    const installedPackageState = normalizeObject(installedPackages[packageId]);
     const packageJsonPath = path.resolve(appRoot, "node_modules", ...packageId.split("/"), "package.json");
     const packageJson = await readJsonFile(packageJsonPath, {});
     if (!hasClientExport(packageJson)) {
@@ -85,15 +82,15 @@ async function resolveInstalledClientPackageIds(options) {
 async function resolveLocalScopePackageIds({ appRoot, lockPath }) {
   const absoluteLockPath = path.resolve(appRoot, lockPath);
   const lockPayload = await readJsonFile(absoluteLockPath, {});
-  const installedPackages = ensureObject(lockPayload.installedPackages);
+  const installedPackages = normalizeObject(lockPayload.installedPackages);
   const localScopeFromLock = Object.keys(installedPackages).filter((packageId) => isLocalScopePackageId(packageId));
 
   const appPackageJson = await readJsonFile(path.resolve(appRoot, "package.json"), {});
   const localScopeFromPackageJson = Object.keys({
-    ...ensureObject(appPackageJson.dependencies),
-    ...ensureObject(appPackageJson.devDependencies),
-    ...ensureObject(appPackageJson.optionalDependencies),
-    ...ensureObject(appPackageJson.peerDependencies)
+    ...normalizeObject(appPackageJson.dependencies),
+    ...normalizeObject(appPackageJson.devDependencies),
+    ...normalizeObject(appPackageJson.optionalDependencies),
+    ...normalizeObject(appPackageJson.peerDependencies)
   }).filter((packageId) => isLocalScopePackageId(packageId));
 
   return Object.freeze(sortStrings([...localScopeFromLock, ...localScopeFromPackageJson]));
@@ -104,7 +101,7 @@ function normalizeClientModuleDescriptors(value) {
   const descriptors = [];
 
   for (const item of items) {
-    const record = ensureObject(item);
+    const record = normalizeObject(item);
     const packageId = String(record.packageId || "").trim();
     if (!packageId) {
       continue;
@@ -186,7 +183,7 @@ function resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = []) {
 }
 
 function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
-  const resolveConfig = ensureObject(userResolveConfig);
+  const resolveConfig = normalizeObject(userResolveConfig);
   const userDedupe = sortStrings(resolveConfig.dedupe);
   return sortStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
 }
@@ -207,12 +204,12 @@ function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}
       const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
       const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules);
-      const userOptimizeDeps = ensureObject(userConfig.optimizeDeps);
+      const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
       const userExclude = sortStrings(userOptimizeDeps.exclude);
       const userInclude = sortStrings(userOptimizeDeps.include);
       const exclude = sortStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
       const include = sortStrings([...userInclude, ...clientIncludeSpecifiers]);
-      const userResolve = ensureObject(userConfig.resolve);
+      const userResolve = normalizeObject(userConfig.resolve);
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
 
       return {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { normalizePathname as normalizeKernelPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 import {
   normalizePathname,
@@ -8,6 +9,10 @@ import {
   resolveDefaultWorkspaceSurfaceId,
   resolveWorkspaceSurfaceIdFromSuffixSegments
 } from "../src/shared/support/workspacePathModel.js";
+
+test("normalizePathname reuses kernel surface path helper", () => {
+  assert.equal(normalizePathname, normalizeKernelPathname);
+});
 
 test("normalizePathname trims query/hash and trailing slashes", () => {
   assert.equal(normalizePathname("w/acme/admin/?a=1#x"), "/w/acme/admin");

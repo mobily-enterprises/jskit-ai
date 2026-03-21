@@ -1,7 +1,6 @@
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  USERS_ROUTE_VISIBILITY_PUBLIC,
   USERS_ROUTE_VISIBILITY_WORKSPACE,
   USERS_ROUTE_VISIBILITY_WORKSPACE_USER
 } from "@jskit-ai/users-core/shared/support/usersVisibility";

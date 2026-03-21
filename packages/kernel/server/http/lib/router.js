@@ -1,6 +1,7 @@
 import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
+import { normalizeMiddlewareStack as normalizeSharedMiddlewareStack } from "./routeSupport.js";
 
 function normalizeMethod(method) {
   return ensureNonEmptyText(method, "route method").toUpperCase();
@@ -24,21 +25,13 @@ function joinPath(left, right) {
   return joined || "/";
 }
 
-function normalizeMiddlewareEntry(entry, { context = "middleware" } = {}) {
-  if (typeof entry === "function") {
-    return entry;
-  }
-
-  const normalizedName = normalizeText(entry);
-  if (normalizedName) {
-    return normalizedName;
-  }
-
-  throw new RouteDefinitionError(`${context} entries must be functions or non-empty strings.`);
-}
-
 function normalizeMiddlewareStack(value, { context = "middleware" } = {}) {
-  return normalizeArray(value).map((entry) => normalizeMiddlewareEntry(entry, { context }));
+  return normalizeSharedMiddlewareStack(value, {
+    context,
+    ErrorType: RouteDefinitionError,
+    entryLabel: "entries",
+    includeIndex: false
+  });
 }
 
 function normalizeRouteInput(method, path, optionsOrHandler, maybeHandler) {

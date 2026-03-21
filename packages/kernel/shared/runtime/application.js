@@ -26,7 +26,7 @@ class Application {
   constructor({ profile = "", strict = true, container = null } = {}) {
     this.profile = normalizeText(profile);
     this.strict = strict !== false;
-    this.container = container || createContainer({ scopeId: "app-root" });
+    this.container = container || createContainer({ scopeId: "root" });
 
     this.providerEntries = [];
     this.registeredProviders = [];

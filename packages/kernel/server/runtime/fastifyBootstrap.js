@@ -1,5 +1,5 @@
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
-import { ActionRuntimeError } from "../../shared/actions/index.js";
+import { ActionRuntimeError } from "../../shared/actions/actionDefinitions.js";
 import { normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { isAppError } from "./errors.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";

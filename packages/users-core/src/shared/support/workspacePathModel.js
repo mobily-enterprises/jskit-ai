@@ -2,22 +2,7 @@ import {
   deriveSurfaceRouteBaseFromPagesRoot,
   normalizeSurfaceId
 } from "@jskit-ai/kernel/shared/surface/registry";
-
-function normalizePathname(pathname) {
-  const rawValue = String(pathname || "/").trim();
-  if (!rawValue) {
-    return "/";
-  }
-
-  const withoutQuery = rawValue.split("?")[0].split("#")[0];
-  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (squashed === "/") {
-    return "/";
-  }
-
-  return squashed.replace(/\/+$/, "") || "/";
-}
+import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 function normalizeWorkspaceBasePath(workspaceBasePath = "/w") {
   return normalizePathname(workspaceBasePath || "/w");

@@ -1,5 +1,6 @@
 import { normalizeArray, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteRegistrationError } from "./errors.js";
+import { normalizeMiddlewareEntry, resolveRouteLabel } from "./routeSupport.js";
 
 async function executeMiddlewareStack(middleware, request, reply) {
   for (const handler of normalizeArray(middleware)) {
@@ -12,20 +13,6 @@ async function executeMiddlewareStack(middleware, request, reply) {
 
 function normalizeMiddlewareName(value) {
   return normalizeText(value);
-}
-
-function normalizeMiddlewareEntry(entry, { context = "middleware", index = -1 } = {}) {
-  if (typeof entry === "function") {
-    return entry;
-  }
-
-  const normalizedName = normalizeMiddlewareName(entry);
-  if (normalizedName) {
-    return normalizedName;
-  }
-
-  const indexSuffix = Number.isInteger(index) && index >= 0 ? ` at index ${index}` : "";
-  throw new RouteRegistrationError(`${context} entry${indexSuffix} must be a function or non-empty string.`);
 }
 
 function normalizeMiddlewareAliases(sourceAliases) {
@@ -61,7 +48,8 @@ function normalizeMiddlewareGroups(sourceGroups) {
     const normalizedEntries = normalizeArray(entries).map((entry, index) =>
       normalizeMiddlewareEntry(entry, {
         context: `middleware.groups["${name}"]`,
-        index
+        index,
+        ErrorType: RouteRegistrationError
       })
     );
 
@@ -86,12 +74,6 @@ function normalizeRuntimeMiddlewareConfig(runtimeMiddleware) {
     aliases,
     groups
   };
-}
-
-function resolveRouteLabel(route) {
-  const method = String(route?.method || "<unknown>").toUpperCase();
-  const path = String(route?.path || "<unknown>");
-  return `${method} ${path}`;
 }
 
 function expandMiddlewareEntry({

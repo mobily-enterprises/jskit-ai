@@ -6,28 +6,33 @@ function normalizePermissions(value) {
   return Array.from(new Set(source.map((entry) => normalizeText(entry)).filter(Boolean)));
 }
 
-function normalizeActor(actor) {
-  if (!actor || typeof actor !== "object") {
+function copyRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
   return {
-    id: actor.id == null ? null : actor.id,
-    email: normalizeLowerText(actor.email),
-    roleId: normalizeLowerText(actor.roleId),
-    isOperator: actor.isOperator === true
+    ...value
   };
 }
 
-function normalizeMembership(membership) {
-  if (!membership || typeof membership !== "object") {
+function normalizeActor(actor) {
+  const source = copyRecord(actor);
+  if (!source) {
     return null;
   }
 
-  return {
-    roleId: normalizeLowerText(membership.roleId),
-    status: normalizeLowerText(membership.status)
-  };
+  if (!Object.prototype.hasOwnProperty.call(source, "id")) {
+    source.id = null;
+  } else if (source.id == null) {
+    source.id = null;
+  }
+
+  return source;
+}
+
+function normalizeMembership(membership) {
+  return copyRecord(membership);
 }
 
 function normalizeTimeMeta(timeMeta) {
@@ -82,6 +87,7 @@ const __testables = {
   normalizeText,
   normalizeLowerText,
   normalizePermissions,
+  copyRecord,
   normalizeActor,
   normalizeMembership,
   normalizeRequestMeta,

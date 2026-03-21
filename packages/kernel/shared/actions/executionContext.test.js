@@ -36,3 +36,31 @@ test("normalizeExecutionContext leaves surface empty when missing", () => {
   const context = normalizeExecutionContext({});
   assert.equal(context.surface, "");
 });
+
+test("normalizeExecutionContext keeps actor payload generic", () => {
+  const context = normalizeExecutionContext({
+    actor: {
+      id: "user_1",
+      email: "UPPER@EXAMPLE.COM",
+      roleId: "OWNER",
+      customFlag: true
+    },
+    membership: {
+      roleId: "OWNER",
+      status: "ACTIVE",
+      extra: "x"
+    }
+  });
+
+  assert.deepEqual(context.actor, {
+    id: "user_1",
+    email: "UPPER@EXAMPLE.COM",
+    roleId: "OWNER",
+    customFlag: true
+  });
+  assert.deepEqual(context.membership, {
+    roleId: "OWNER",
+    status: "ACTIVE",
+    extra: "x"
+  });
+});

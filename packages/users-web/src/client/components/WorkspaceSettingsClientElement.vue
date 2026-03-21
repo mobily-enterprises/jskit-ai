@@ -95,6 +95,7 @@ import { computed, reactive, watch } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
 import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
@@ -115,6 +116,7 @@ const workspaceForm = reactive({
 });
 const routeContext = useWorkspaceRouteContext();
 const { context: placementContext, mergeContext: mergePlacementContext } = useWebPlacementContext();
+const OWNERSHIP_WORKSPACE = USERS_ROUTE_VISIBILITY_WORKSPACE;
 const bootstrapQuery = useBootstrapQuery({
   workspaceSlug: routeContext.workspaceSlugFromRoute,
   enabled: computed(() => Boolean(routeContext.workspaceSlugFromRoute.value))
@@ -183,7 +185,7 @@ function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
 }
 
 const addEdit = useAddEdit({
-  ownershipFilter: "workspace",
+  ownershipFilter: OWNERSHIP_WORKSPACE,
   resource: workspaceSettingsResource,
   apiSuffix: "/settings",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>

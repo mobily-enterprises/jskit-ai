@@ -1,10 +1,7 @@
 import { access, constants as fsConstants } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-function ensureObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
+import { normalizeObject } from "./normalize.js";
 
 async function fileExists(filePath) {
   try {
@@ -26,7 +23,7 @@ function resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageS
     throw new TypeError("resolveDescriptorCandidatePaths requires packageId.");
   }
 
-  const source = ensureObject(installedPackageState?.source);
+  const source = normalizeObject(installedPackageState?.source);
   const descriptorPathFromSource = String(source.descriptorPath || "").trim();
   const packagePathFromSource = String(source.packagePath || "").trim();
   const jskitRoot = path.join(normalizedAppRoot, "node_modules", "@jskit-ai", "jskit-cli");
@@ -75,7 +72,7 @@ async function resolveDescriptorPathForInstalledPackage({ appRoot, packageId, in
 }
 
 function normalizeDescriptorPayload(descriptorModule) {
-  return ensureObject(descriptorModule?.default);
+  return normalizeObject(descriptorModule?.default);
 }
 
 async function loadInstalledPackageDescriptor({ appRoot, packageId, installedPackageState, required = false }) {
