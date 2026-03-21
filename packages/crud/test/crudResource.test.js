@@ -11,7 +11,7 @@ test("crudResource normalizes create payload", () => {
 
   assert.deepEqual(normalized, {
     textField: "Example text",
-    dateField: "2026-03-11T00:00:00.000Z",
+    dateField: "2026-03-11 00:00:00.000",
     numberField: 42.5
   });
 });

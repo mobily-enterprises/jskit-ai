@@ -1,5 +1,8 @@
 import { Type } from "typebox";
-import { toIsoString } from "@jskit-ai/database-runtime/shared";
+import {
+  toIsoString,
+  toDatabaseDateTimeUtc
+} from "@jskit-ai/database-runtime/shared";
 import {
   normalizeObjectInput,
   createCursorListValidator
@@ -23,6 +26,14 @@ function normalizeDateTimeField(value, { fieldLabel = "Date field" } = {}) {
   }
 }
 
+function normalizeDatabaseDateTimeField(value, { fieldLabel = "Date field" } = {}) {
+  try {
+    return toDatabaseDateTimeUtc(value);
+  } catch {
+    throw new TypeError(`${fieldLabel} must be a valid date/time.`);
+  }
+}
+
 function normalizeRecordInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};
@@ -32,7 +43,7 @@ function normalizeRecordInput(payload = {}) {
   }
 
   if (Object.hasOwn(source, "dateField")) {
-    normalized.dateField = normalizeDateTimeField(source.dateField, {
+    normalized.dateField = normalizeDatabaseDateTimeField(source.dateField, {
       fieldLabel: "Date field"
     });
   }
