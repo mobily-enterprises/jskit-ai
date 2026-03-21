@@ -14,7 +14,7 @@ import {
 
 function useScopeRuntime({
   visibility = "workspace",
-  surface = "",
+  surfaceId = "",
   accessMode = "auto",
   hasPermissionRequirements = false,
   placementSource = "users-web.scope-runtime"
@@ -35,7 +35,7 @@ function useScopeRuntime({
 
   const workspaceSlugFromRoute = routeContext.workspaceSlugFromRoute;
   const resolvedSurfaceId = computed(() => {
-    const explicitSurfaceId = normalizeSurfaceId(surface);
+    const explicitSurfaceId = normalizeSurfaceId(surfaceId);
     if (explicitSurfaceId) {
       return explicitSurfaceId;
     }

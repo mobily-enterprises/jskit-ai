@@ -69,7 +69,7 @@ const {
   viewQueryKey,
   invalidateAndGoList
 } = useCrudRecordRuntime();
-const { visibility } = useCrudModulePolicyRuntime();
+const { visibility, surfaceId } = useCrudModulePolicyRuntime();
 const record = reactive({
   id: 0,
   textField: "",
@@ -86,6 +86,7 @@ const title = computed(() => {
 
 const view = useView({
   visibility,
+  surfaceId,
   apiSuffix,
   queryKeyFactory: viewQueryKey,
   fallbackLoadError: "Unable to load record.",
@@ -102,6 +103,7 @@ const view = useView({
 });
 const deleteCommand = useCommand({
   visibility,
+  surfaceId,
   apiSuffix,
   writeMethod: "DELETE",
   fallbackRunError: "Unable to delete record.",

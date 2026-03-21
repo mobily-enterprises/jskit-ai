@@ -4,6 +4,7 @@ import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useList({
   visibility = "workspace",
+  surfaceId = "",
   access = "auto",
   apiSuffix = "",
   queryKeyFactory = null,
@@ -20,6 +21,7 @@ function useList({
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
+    surfaceId,
     access,
     placementSource,
     apiSuffix,

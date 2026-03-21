@@ -60,10 +60,11 @@ const {
   apiSuffix,
   listQueryKey
 } = useCrudListRuntime();
-const { visibility } = useCrudModulePolicyRuntime();
+const { visibility, surfaceId } = useCrudModulePolicyRuntime();
 
 const records = useList({
   visibility,
+  surfaceId,
   apiSuffix,
   queryKeyFactory: listQueryKey,
   fallbackLoadError: "Unable to load records."

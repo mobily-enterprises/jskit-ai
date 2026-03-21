@@ -11,6 +11,7 @@ import {
 
 function useCommand({
   visibility = "workspace",
+  surfaceId = "",
   access = "auto",
   apiSuffix = "",
   runPermissions = [],
@@ -32,6 +33,7 @@ function useCommand({
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
+    surfaceId,
     access,
     placementSource,
     apiSuffix,

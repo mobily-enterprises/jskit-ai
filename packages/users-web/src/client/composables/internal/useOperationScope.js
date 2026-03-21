@@ -33,6 +33,7 @@ function hasAnyPermissions(permissionSets = {}) {
 
 function useOperationScope({
   visibility = "workspace",
+  surfaceId = "",
   access = "auto",
   placementSource = "users-web.operation",
   apiSuffix = "",
@@ -45,6 +46,7 @@ function useOperationScope({
   const normalizedPermissionSets = normalizePermissionSets(permissionSets);
   const scopeRuntime = useScopeRuntime({
     visibility,
+    surfaceId,
     accessMode: access,
     hasPermissionRequirements: hasAnyPermissions(normalizedPermissionSets),
     placementSource

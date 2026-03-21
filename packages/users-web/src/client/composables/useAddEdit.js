@@ -14,6 +14,7 @@ import {
 
 function useAddEdit({
   visibility = "workspace",
+  surfaceId = "",
   access = "auto",
   resource = null,
   apiSuffix = "",
@@ -39,6 +40,7 @@ function useAddEdit({
 } = {}) {
   const operationScope = useOperationScope({
     visibility,
+    surfaceId,
     access,
     placementSource,
     apiSuffix,
