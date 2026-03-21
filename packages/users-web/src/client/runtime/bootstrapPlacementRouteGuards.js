@@ -34,7 +34,7 @@ function createBootstrapPlacementRouteGuards({
   let delegatedGuardEvaluator = null;
   let workspaceGuardEvaluatorInstalled = false;
 
-  function resolveWorkspaceRouteState(pathname = "/", search = "") {
+  function resolveNormalizedSurfaceState(pathname = "/", search = "") {
     const context = placementRuntime.getContext();
     const normalizedPathname = normalizeGuardPathname(pathname);
     const normalizedSearch = normalizeSearch(search);
@@ -46,53 +46,64 @@ function createBootstrapPlacementRouteGuards({
     }
 
     const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, surfaceId);
-    if (!surfaceDefinition || surfaceDefinition.requiresWorkspace !== true) {
+    if (!surfaceDefinition) {
+      return null;
+    }
+
+    return Object.freeze({
+      context,
+      normalizedPathname,
+      normalizedSearch,
+      surfaceId,
+      surfaceDefinition
+    });
+  }
+
+  function resolveWorkspaceRouteState(pathname = "/", search = "") {
+    const surfaceState = resolveNormalizedSurfaceState(pathname, search);
+    if (!surfaceState || surfaceState.surfaceDefinition.requiresWorkspace !== true) {
       return null;
     }
 
     const workspaceSlug = normalizeWorkspaceSlugKey(
-      extractWorkspaceSlugFromSurfacePathname(context, surfaceId, normalizedPathname)
+      extractWorkspaceSlugFromSurfacePathname(surfaceState.context, surfaceState.surfaceId, surfaceState.normalizedPathname)
     );
     if (!workspaceSlug) {
       return null;
     }
 
     return Object.freeze({
-      pathname: normalizedPathname,
-      search: normalizedSearch,
-      surfaceId,
+      pathname: surfaceState.normalizedPathname,
+      search: surfaceState.normalizedSearch,
+      surfaceId: surfaceState.surfaceId,
       workspaceSlug,
       workspaceRootPath: normalizeGuardPathname(
-        resolveSurfaceWorkspacePathFromPlacementContext(context, surfaceId, workspaceSlug, "/")
+        resolveSurfaceWorkspacePathFromPlacementContext(surfaceState.context, surfaceState.surfaceId, workspaceSlug, "/")
       ),
       workspaceBootstrapStatus: String(getWorkspaceBootstrapStatus(workspaceSlug) || "")
     });
   }
 
   function resolveSurfaceRouteState(pathname = "/", search = "") {
-    const context = placementRuntime.getContext();
-    const normalizedPathname = normalizeGuardPathname(pathname);
-    const normalizedSearch = normalizeSearch(search);
-    const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, normalizedPathname) || "")
-      .trim()
-      .toLowerCase();
-    if (!surfaceId) {
-      return null;
-    }
-
-    const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(context, surfaceId);
-    if (!surfaceDefinition || surfaceDefinition.enabled === false) {
+    const surfaceState = resolveNormalizedSurfaceState(pathname, search);
+    if (!surfaceState || surfaceState.surfaceDefinition.enabled === false) {
       return null;
     }
 
     const workspaceSlug =
-      surfaceDefinition.requiresWorkspace === true
-        ? normalizeWorkspaceSlugKey(extractWorkspaceSlugFromSurfacePathname(context, surfaceId, normalizedPathname))
+      surfaceState.surfaceDefinition.requiresWorkspace === true
+        ? normalizeWorkspaceSlugKey(
+            extractWorkspaceSlugFromSurfacePathname(
+              surfaceState.context,
+              surfaceState.surfaceId,
+              surfaceState.normalizedPathname
+            )
+          )
         : "";
     return Object.freeze({
-      pathname: normalizedPathname,
-      search: normalizedSearch,
-      surfaceId,
+      pathname: surfaceState.normalizedPathname,
+      search: surfaceState.normalizedSearch,
+      surfaceId: surfaceState.surfaceId,
       workspaceSlug,
       workspaceBootstrapStatus: workspaceSlug ? String(getWorkspaceBootstrapStatus(workspaceSlug) || "") : ""
     });
