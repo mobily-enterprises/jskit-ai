@@ -6,6 +6,7 @@ import {
   normalizeSeverity,
   normalizeText
 } from "./normalize.js";
+import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { createDefaultErrorPolicy } from "./policy.js";
 
 function createRuntimeLogger(logger = null) {
@@ -178,14 +179,7 @@ function createErrorRuntime({
   }
 
   function subscribe(listener) {
-    if (typeof listener !== "function") {
-      return () => {};
-    }
-
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
+    return subscribeListener(listeners, listener);
   }
 
   function notify(event = {}) {

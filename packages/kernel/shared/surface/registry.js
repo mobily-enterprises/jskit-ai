@@ -1,3 +1,5 @@
+import { normalizeObject } from "../support/normalize.js";
+
 function normalizeSurfaceId(value) {
   return String(value || "")
     .trim()
@@ -59,7 +61,7 @@ function createSurfaceRegistry(options = {}) {
 
   const normalizedEntries = Object.entries(rawSurfaces)
     .map(([key, value]) => {
-      const sourceDefinition = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      const sourceDefinition = normalizeObject(value);
       const normalizedId = normalizeSurfaceId(sourceDefinition.id || key);
       if (!normalizedId) {
         return null;

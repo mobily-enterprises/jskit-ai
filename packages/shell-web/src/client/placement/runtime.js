@@ -3,6 +3,7 @@ import {
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
 import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
+import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
@@ -301,13 +302,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
   }
 
   function subscribe(listener) {
-    if (typeof listener !== "function") {
-      return () => {};
-    }
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
+    return subscribeListener(listeners, listener);
   }
 
   function getRevision() {

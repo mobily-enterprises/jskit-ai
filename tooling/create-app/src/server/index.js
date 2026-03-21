@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { createCliError } from "@jskit-ai/cli-runtime/server";
 import { shellQuote } from "./cliEntrypoint.js";
 
 const DEFAULT_TEMPLATE = "base-shell";
@@ -12,13 +13,6 @@ const TENANCY_MODES = new Set(["none", "personal", "workspace"]);
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
-
-function createCliError(message, { showUsage = false, exitCode = 1 } = {}) {
-  const error = new Error(String(message || "Command failed."));
-  error.showUsage = Boolean(showUsage);
-  error.exitCode = Number.isInteger(exitCode) ? exitCode : 1;
-  return error;
-}
 
 function toAppTitle(appName) {
   const words = String(appName)

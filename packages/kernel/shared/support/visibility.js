@@ -1,4 +1,4 @@
-import { normalizeOpaqueId, normalizeText } from "./normalize.js";
+import { normalizeObject, normalizeOpaqueId, normalizeText } from "./normalize.js";
 import { ROUTE_VISIBILITY_PUBLIC, ROUTE_VISIBILITY_USER } from "./policies.js";
 
 const ROUTE_VISIBILITY_LEVELS = Object.freeze([ROUTE_VISIBILITY_PUBLIC, ROUTE_VISIBILITY_USER]);
@@ -40,7 +40,7 @@ function normalizeVisibilityScopeKind(value) {
 }
 
 function normalizeVisibilityContext(value = {}) {
-  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const source = normalizeObject(value);
   const normalizedVisibility = normalizeRouteVisibilityToken(source.visibility);
   const normalizedScopeKind = normalizeVisibilityScopeKind(source.scopeKind);
 

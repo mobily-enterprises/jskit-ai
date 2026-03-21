@@ -1,6 +1,7 @@
 import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
+import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -351,13 +352,7 @@ function createAuthGuardRuntime({
   }
 
   function subscribe(listener) {
-    if (typeof listener !== "function") {
-      return () => {};
-    }
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
+    return subscribeListener(listeners, listener);
   }
 
   async function refresh({ sessionPath: nextSessionPath } = {}) {

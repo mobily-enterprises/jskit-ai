@@ -16,6 +16,7 @@ import {
   mdiViewListOutline
 } from "@mdi/js";
 import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname as normalizeKernelPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
@@ -24,10 +25,6 @@ const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
   admin: mdiShieldCrownOutline,
   console: mdiConsoleNetworkOutline
 });
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
 
 function normalizePathname(value) {
   const normalizedValue = normalizeText(value);

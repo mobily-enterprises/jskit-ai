@@ -20,7 +20,9 @@
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@jskit-ai/cli-runtime": "0.1.0"
+  },
   "engines": {
     "node": "20.x"
   },

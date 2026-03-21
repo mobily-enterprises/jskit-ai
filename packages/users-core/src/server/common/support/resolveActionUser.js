@@ -1,6 +1,4 @@
-function normalizeObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 
 function resolveActionUser(context, input) {
   const payload = normalizeObject(input);

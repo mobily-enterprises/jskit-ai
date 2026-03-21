@@ -3,6 +3,7 @@ import {
   normalizeSeverity,
   normalizeText
 } from "./normalize.js";
+import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
 
 const PRESENTATION_CHANNELS = Object.freeze(["snackbar", "banner", "dialog"]);
 const SINGLETON_CHANNELS = new Set(["banner"]);
@@ -67,14 +68,7 @@ function createErrorPresentationStore({
   }
 
   function subscribe(listener) {
-    if (typeof listener !== "function") {
-      return () => {};
-    }
-
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
+    return subscribeListener(listeners, listener);
   }
 
   function present(channel, payload = {}) {

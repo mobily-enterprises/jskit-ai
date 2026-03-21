@@ -1,4 +1,5 @@
 import { Check, Errors, Parse } from "typebox/value";
+import { deepFreeze } from "../../shared/support/deepFreeze.js";
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
 
 function normalizeModuleId(value) {
@@ -69,23 +70,6 @@ function buildInvalidConfigMessage(moduleId, issues = []) {
     return `Invalid config for module "${moduleId}".`;
   }
   return `Invalid config for module "${moduleId}": ${summary}`;
-}
-
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  if (seen.has(value)) {
-    return value;
-  }
-  seen.add(value);
-
-  for (const key of Object.getOwnPropertyNames(value)) {
-    deepFreeze(value[key], seen);
-  }
-
-  return Object.freeze(value);
 }
 
 function normalizeCustomValidationIssues(result) {
