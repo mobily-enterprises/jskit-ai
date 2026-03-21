@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime",
-  version: "0.1.0",
+  version: "0.1.8",
   dependsOn: [
     "@jskit-ai/kernel"
   ],
@@ -55,7 +55,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.0",
+        "@jskit-ai/kernel": "0.1.8",
         "dotenv": "^16.4.5",
         "knex": "^3.1.0"
       },

@@ -19,6 +19,12 @@ npm run dev
 
 Set `JSKIT_GITHUB_TARBALL_URL` in Dokku when local JSKIT packages are not published to npm yet.
 
+Refresh JSKIT dependencies to the latest published versions:
+
+```bash
+npm run jskit:update
+```
+
 ## Server
 
 ```bash

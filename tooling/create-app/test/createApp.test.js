@@ -249,6 +249,7 @@ test("base-shell scripts do not hardcode machine-specific jskit paths", async ()
   const scriptPaths = [
     path.join(baseScriptsDir, "dev-bootstrap-jskit.sh"),
     path.join(baseScriptsDir, "link-local-jskit-packages.sh"),
+    path.join(baseScriptsDir, "update-jskit-packages.sh"),
     path.join(baseScriptsDir, "verdaccio-reset-and-publish-packages.sh")
   ];
 

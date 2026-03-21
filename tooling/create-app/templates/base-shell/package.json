@@ -39,21 +39,22 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
-    "preinstall": "bash ./scripts/dev-bootstrap-jskit.sh"
+    "preinstall": "bash ./scripts/dev-bootstrap-jskit.sh",
+    "jskit:update": "bash ./scripts/update-jskit-packages.sh"
   },
   "dependencies": {
     "@local/main": "file:packages/main",
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/kernel": "0.1.0",
+    "@jskit-ai/kernel": "0.1.8",
     "fastify": "^5.7.4",
     "vue": "^3.5.13",
     "vue-router": "^4.6.4",
     "vuetify": "^4.0.0",
-    "@jskit-ai/http-runtime": "0.1.0"
+    "@jskit-ai/http-runtime": "0.1.8"
   },
   "devDependencies": {
-    "@jskit-ai/config-eslint": "0.1.0",
-    "@jskit-ai/jskit-cli": "0.2.0",
+    "@jskit-ai/config-eslint": "0.1.8",
+    "@jskit-ai/jskit-cli": "0.2.8",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "unplugin-vue-router": "^0.19.2",

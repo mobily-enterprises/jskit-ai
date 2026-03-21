@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.0",
+  version: "0.1.8",
   description: "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
   options: {
     "ai-provider": {
@@ -110,14 +110,14 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/assistant": "0.1.0",
-        "@jskit-ai/auth-core": "0.1.0",
-        "@jskit-ai/database-runtime": "0.1.0",
-        "@jskit-ai/http-runtime": "0.1.0",
-        "@jskit-ai/kernel": "0.1.0",
-        "@jskit-ai/realtime": "0.1.0",
-        "@jskit-ai/users-core": "0.1.0",
-        "@jskit-ai/users-web": "0.1.0",
+        "@jskit-ai/assistant": "0.1.8",
+        "@jskit-ai/auth-core": "0.1.8",
+        "@jskit-ai/database-runtime": "0.1.8",
+        "@jskit-ai/http-runtime": "0.1.8",
+        "@jskit-ai/kernel": "0.1.8",
+        "@jskit-ai/realtime": "0.1.8",
+        "@jskit-ai/users-core": "0.1.8",
+        "@jskit-ai/users-web": "0.1.8",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",
         "marked": "^17.0.4",

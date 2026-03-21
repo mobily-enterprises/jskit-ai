@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud",
-  "version": "0.1.0",
+  "version": "0.1.8",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,11 +12,11 @@
     "./shared/crud/*": "./src/shared/crud/*.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.1.0",
-    "@jskit-ai/database-runtime": "0.1.0",
-    "@jskit-ai/http-runtime": "0.1.0",
-    "@jskit-ai/kernel": "0.1.0",
-    "@jskit-ai/users-core": "0.1.0",
+    "@jskit-ai/crud-core": "0.1.8",
+    "@jskit-ai/database-runtime": "0.1.8",
+    "@jskit-ai/http-runtime": "0.1.8",
+    "@jskit-ai/kernel": "0.1.8",
+    "@jskit-ai/users-core": "0.1.8",
     "typebox": "^1.0.81"
   }
 }

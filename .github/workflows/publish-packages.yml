@@ -1,0 +1,80 @@
+name: Publish Packages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/**"
+      - "tooling/**"
+      - "scripts/release-npm.mjs"
+      - "package.json"
+      - ".github/workflows/publish-packages.yml"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: Git ref/SHA to diff against (optional)
+        required: false
+        type: string
+      force_all:
+        description: Publish all packages regardless of changed paths
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: Run release planning without publishing
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish changed packages
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          args=()
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ -n "$before" && "$before" != "0000000000000000000000000000000000000000" ]]; then
+              args+=(--since "$before")
+            else
+              args+=(--force-all)
+            fi
+          else
+            input_since="${{ inputs.since }}"
+            if [[ -n "$input_since" ]]; then
+              args+=(--since "$input_since")
+            fi
+            if [[ "${{ inputs.force_all }}" == "true" ]]; then
+              args+=(--force-all)
+            fi
+            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+              args+=(--dry-run)
+            fi
+          fi
+
+          echo "release args: ${args[*]}"
+          npm run release:npm -- "${args[@]}"
