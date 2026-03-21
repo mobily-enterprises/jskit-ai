@@ -9,3 +9,4 @@ export {
 export { sortStrings, sortById } from "../../shared/support/sorting.js";
 export { SupportCoreServiceProvider } from "./SupportCoreServiceProvider.js";
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
+export { resolveAppConfig } from "./appConfig.js";

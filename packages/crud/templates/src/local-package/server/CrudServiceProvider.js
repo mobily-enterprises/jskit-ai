@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository } from "./repository.js";
 import {
@@ -20,13 +21,7 @@ const NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID = NAMESPACE_${option
 const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = "crud_${option:namespace|snake}";
 
 function resolveCrudPolicyFromApp(app) {
-  const appConfig =
-    typeof app?.has === "function" &&
-    typeof app?.make === "function" &&
-    app.has("appConfig")
-    ? app.make("appConfig")
-    : {};
-  return resolveCrudModulePolicyFromAppConfig(appConfig, {
+  return resolveCrudModulePolicyFromAppConfig(resolveAppConfig(app), {
     moduleConfig: crudModuleConfig,
     context: "${option:namespace|pascal}ServiceProvider"
   });

@@ -50,6 +50,8 @@ const SERVER_APP_CONFIG_RELATIVE_PATH = "config/server.js";
 const PACKAGE_INSTALL_MODE_INSTALLABLE = "installable";
 const PACKAGE_INSTALL_MODE_CLONE_ONLY = "clone-only";
 const PACKAGE_INSTALL_MODES = Object.freeze([PACKAGE_INSTALL_MODE_INSTALLABLE, PACKAGE_INSTALL_MODE_CLONE_ONLY]);
+const WORKSPACE_VISIBILITY_LEVELS = Object.freeze(["workspace", "workspace_user"]);
+const WORKSPACE_VISIBILITY_SET = new Set(WORKSPACE_VISIBILITY_LEVELS);
 const MATERIALIZED_PACKAGE_ROOTS = new Map();
 const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
 const BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
@@ -3224,6 +3226,129 @@ function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, ac
   throw createCliError(lines.join("\n"));
 }
 
+function resolveSurfaceVisibilityOptionPolicy(packageEntry = {}) {
+  const descriptor = ensureObject(packageEntry?.descriptor);
+  const optionPolicies = ensureObject(descriptor.optionPolicies);
+  const surfaceVisibilityPolicy = optionPolicies.surfaceVisibility;
+  if (!surfaceVisibilityPolicy || surfaceVisibilityPolicy === false) {
+    return null;
+  }
+
+  let policy = {};
+  if (surfaceVisibilityPolicy === true) {
+    policy = {};
+  } else if (typeof surfaceVisibilityPolicy === "object" && !Array.isArray(surfaceVisibilityPolicy)) {
+    policy = ensureObject(surfaceVisibilityPolicy);
+  } else {
+    throw createCliError(
+      `Invalid option policy in package ${packageEntry.packageId}: surfaceVisibility must be true or an object.`
+    );
+  }
+
+  const surfaceOption = String(policy.surfaceOption || "surface").trim();
+  const visibilityOption = String(policy.visibilityOption || "visibility").trim();
+  if (!surfaceOption || !visibilityOption) {
+    throw createCliError(
+      `Invalid option policy in package ${packageEntry.packageId}: surfaceVisibility requires non-empty surfaceOption and visibilityOption.`
+    );
+  }
+
+  return Object.freeze({
+    surfaceOption,
+    visibilityOption,
+    allowAuto: policy.allowAuto !== false
+  });
+}
+
+function resolveSurfaceDefinitionsForOptionPolicy(configContext = {}) {
+  const publicConfig = ensureObject(configContext.public);
+  const mergedConfig = ensureObject(configContext.merged);
+  const sourceDefinitions = ensureObject(publicConfig.surfaceDefinitions);
+  const fallbackDefinitions = ensureObject(mergedConfig.surfaceDefinitions);
+  const surfaceDefinitions =
+    Object.keys(sourceDefinitions).length > 0 ? sourceDefinitions : fallbackDefinitions;
+
+  const normalizedDefinitions = {};
+  for (const [key, value] of Object.entries(surfaceDefinitions)) {
+    const definition = ensureObject(value);
+    const definitionId = normalizeSurfaceIdForMutation(definition.id || key);
+    if (!definitionId) {
+      continue;
+    }
+
+    normalizedDefinitions[definitionId] = Object.freeze({
+      id: definitionId,
+      enabled: definition.enabled !== false,
+      requiresWorkspace: definition.requiresWorkspace === true
+    });
+  }
+
+  return Object.freeze(normalizedDefinitions);
+}
+
+function normalizeResolvedOptionValue(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function validateSurfaceVisibilityOptionPolicy({
+  packageEntry,
+  resolvedOptions = {},
+  policy,
+  configContext = {}
+} = {}) {
+  const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
+  const surfaceId = normalizeSurfaceIdForMutation(resolvedOptions?.[policy.surfaceOption]);
+  const visibility = normalizeResolvedOptionValue(resolvedOptions?.[policy.visibilityOption]);
+  if (!surfaceId || !visibility) {
+    return;
+  }
+  if (policy.allowAuto && visibility === "auto") {
+    return;
+  }
+
+  const surfaceDefinitions = resolveSurfaceDefinitionsForOptionPolicy(configContext);
+  const surfaceDefinition = surfaceDefinitions[surfaceId];
+  if (!surfaceDefinition) {
+    throw createCliError(
+      `Invalid option combination for package ${packageId}: --${policy.surfaceOption} "${surfaceId}" does not match any configured surface in config/public.js.`
+    );
+  }
+  if (surfaceDefinition.enabled !== true) {
+    throw createCliError(
+      `Invalid option combination for package ${packageId}: surface "${surfaceId}" is disabled in config/public.js.`
+    );
+  }
+
+  if (WORKSPACE_VISIBILITY_SET.has(visibility) && surfaceDefinition.requiresWorkspace !== true) {
+    throw createCliError(
+      `Invalid option combination for package ${packageId}: --${policy.visibilityOption} "${visibility}" requires a surface with requiresWorkspace=true, but "${surfaceId}" has requiresWorkspace=false.`
+    );
+  }
+}
+
+async function validateResolvedOptionPolicies({
+  packageEntry,
+  resolvedOptions = {},
+  appRoot = "",
+  resolveConfigContext
+} = {}) {
+  const policy = resolveSurfaceVisibilityOptionPolicy(packageEntry);
+  if (!policy) {
+    return;
+  }
+  if (!appRoot) {
+    return;
+  }
+
+  const configContext = await resolveConfigContext();
+  validateSurfaceVisibilityOptionPolicy({
+    packageEntry,
+    resolvedOptions,
+    policy,
+    configContext
+  });
+}
+
 async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {}) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
   const optionNames = Object.keys(optionSchemas);
@@ -3232,15 +3357,20 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
   const hasInlineOption = (name) => Object.prototype.hasOwnProperty.call(inlineOptionValues, name);
   let configContext = null;
 
+  async function loadConfigContext() {
+    if (!configContext) {
+      configContext = await loadMutationWhenConfigContext(appRoot);
+    }
+    return configContext;
+  }
+
   async function resolveOptionDefaultFromConfig(configPath = "") {
     const normalizedConfigPath = String(configPath || "").trim();
     if (!normalizedConfigPath || !appRoot) {
       return "";
     }
 
-    if (!configContext) {
-      configContext = await loadMutationWhenConfigContext(appRoot);
-    }
+    await loadConfigContext();
     return normalizeWhenSourceValue(resolveWhenConfigValue(configContext, normalizedConfigPath));
   }
 
@@ -3286,6 +3416,13 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
 
     resolved[optionName] = "";
   }
+
+  await validateResolvedOptionPolicies({
+    packageEntry,
+    resolvedOptions: resolved,
+    appRoot,
+    resolveConfigContext: loadConfigContext
+  });
 
   return resolved;
 }

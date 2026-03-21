@@ -34,6 +34,9 @@ export default Object.freeze({
       promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
     }
   },
+  optionPolicies: {
+    surfaceVisibility: true
+  },
   dependsOn: [
     "@jskit-ai/auth-core",
     "@jskit-ai/crud-core",
