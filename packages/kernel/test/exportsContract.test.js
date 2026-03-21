@@ -12,6 +12,10 @@ const KERNEL_PACKAGE_JSON_PATH = path.join(
   "kernel",
   "package.json"
 );
+const SCAN_ROOTS = [
+  path.join(REPO_ROOT, "packages"),
+  path.join(REPO_ROOT, "tooling", "create-app", "templates")
+];
 const SCANNED_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".vue"]);
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage"]);
 const EXPORTED_UNUSED_ALLOWLIST = new Set([]);
@@ -55,9 +59,19 @@ function toExportKey(importSubpath) {
   return `./${normalizedSubpath}`;
 }
 
+function collectScanFiles() {
+  const files = [];
+  for (const rootPath of SCAN_ROOTS) {
+    if (!fs.existsSync(rootPath)) {
+      continue;
+    }
+    files.push(...walkFiles(rootPath));
+  }
+  return files;
+}
+
 function collectKernelImportUsages() {
-  const packagesRoot = path.join(REPO_ROOT, "packages");
-  const candidateFiles = walkFiles(packagesRoot).filter((filePath) => {
+  const candidateFiles = collectScanFiles().filter((filePath) => {
     const relativePath = normalizeSlash(path.relative(REPO_ROOT, filePath));
     return !relativePath.startsWith("packages/kernel/");
   });

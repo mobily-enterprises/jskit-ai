@@ -168,3 +168,51 @@ test("assistant routes build list inputs with explicit query object", async () =
     }
   });
 });
+
+test("assistant workspace routes bind surface from app config assistant.workspaceSurfaceId", () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    has(token) {
+      return token === "appConfig";
+    },
+    make(token) {
+      if (token === KERNEL_TOKENS.HttpRouter) {
+        return router;
+      }
+      if (token === "appConfig") {
+        return {
+          assistant: {
+            workspaceSurfaceId: "app"
+          }
+        };
+      }
+      throw new Error(`Unexpected token: ${String(token)}`);
+    }
+  };
+
+  registerRoutes(app);
+
+  const expectedWorkspaceRoutes = [
+    ["GET", "/api/w/:workspaceSlug/workspace/settings/assistant"],
+    ["PATCH", "/api/w/:workspaceSlug/workspace/settings/assistant"],
+    ["POST", "/api/w/:workspaceSlug/assistant/chat/stream"],
+    ["GET", "/api/w/:workspaceSlug/assistant/conversations"],
+    ["GET", "/api/w/:workspaceSlug/assistant/conversations/:conversationId/messages"]
+  ];
+
+  for (const [method, path] of expectedWorkspaceRoutes) {
+    const route = findRoute(registeredRoutes, method, path);
+    assert.ok(route);
+    assert.equal(route.route.surface, "app");
+  }
+});

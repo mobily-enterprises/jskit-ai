@@ -21,11 +21,13 @@ test("assistant descriptor exposes configurable workspace surface option", () =>
 
 test("assistant descriptor routes workspace page + placements through surface option", () => {
   const workspacePage = findFileMutation("assistant-page-admin-workspace-assistant-index");
+  const workspaceSurfaceConfig = findTextMutation("assistant-config-workspace-surface");
   const menuPlacement = findTextMutation("assistant-placement-menu");
   const workspaceSettingsPlacement = findTextMutation("assistant-workspace-settings-form-placement");
   const consoleSettingsPlacement = findTextMutation("assistant-console-settings-form-placement");
 
   assert.equal(workspacePage?.toSurface, "${option:surface|lower}");
+  assert.match(String(workspaceSurfaceConfig?.value || ""), /config\.assistant\.workspaceSurfaceId = "\$\{option:surface\|lower\}";/);
   assert.match(String(menuPlacement?.value || ""), /surfaces: \["\$\{option:surface\|lower\}"\]/);
   assert.match(String(menuPlacement?.value || ""), /surface: "\$\{option:surface\|lower\}"/);
   assert.match(String(workspaceSettingsPlacement?.value || ""), /surfaces: \["\$\{option:surface\|lower\}"\]/);

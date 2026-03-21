@@ -182,6 +182,23 @@
           "text": [
             {
               "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "jskit:assistant.workspace-surface",
+              "value": "\n// jskit:assistant.workspace-surface\nconfig.assistant = config.assistant || {};\nconfig.assistant.workspaceSurfaceId = \"${option:surface|lower}\";\n",
+              "reason": "Persist assistant workspace surface id for server-side route/action surface resolution.",
+              "category": "assistant",
+              "id": "assistant-config-workspace-surface",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"assistant.workspace.menu\"",

@@ -12,6 +12,16 @@ import {
 import { actionIds } from "./actionIds.js";
 import { endNdjson, mapStreamError, setNdjsonHeaders, writeNdjson } from "./lib/ndjson.js";
 
+function resolveAssistantWorkspaceRouteSurfaceId(app) {
+  const appConfig = typeof app?.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
+  const assistantConfig =
+    appConfig && typeof appConfig === "object" && appConfig.assistant && typeof appConfig.assistant === "object"
+      ? appConfig.assistant
+      : {};
+  const configuredSurfaceId = String(assistantConfig.workspaceSurfaceId || "").trim().toLowerCase();
+  return configuredSurfaceId || "admin";
+}
+
 function registerRoutes(app) {
   if (!app || typeof app.make !== "function") {
     throw new Error("registerRoutes requires application make().");
@@ -19,6 +29,7 @@ function registerRoutes(app) {
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
   const visibility = "workspace";
+  const workspaceRouteSurfaceId = resolveAssistantWorkspaceRouteSurfaceId(app);
   const routeBase = resolveAssistantApiBasePath({
     visibility
   });
@@ -83,6 +94,7 @@ function registerRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings/assistant",
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility,
       meta: {
         tags: ["assistant", "settings"],
@@ -110,6 +122,7 @@ function registerRoutes(app) {
     "/api/w/:workspaceSlug/workspace/settings/assistant",
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility,
       meta: {
         tags: ["assistant", "settings"],
@@ -144,6 +157,7 @@ function registerRoutes(app) {
     `${routeBase}/chat/stream`,
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility,
       meta: {
         tags: ["assistant"],
@@ -271,6 +285,7 @@ function registerRoutes(app) {
     `${routeBase}/conversations`,
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility,
       meta: {
         tags: ["assistant"],
@@ -300,6 +315,7 @@ function registerRoutes(app) {
     `${routeBase}/conversations/:conversationId/messages`,
     {
       auth: "required",
+      surface: workspaceRouteSurfaceId,
       visibility,
       meta: {
         tags: ["assistant"],
