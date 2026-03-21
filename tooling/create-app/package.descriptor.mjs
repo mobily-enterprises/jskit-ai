@@ -20,10 +20,6 @@ export default Object.freeze({
     "procfile": {},
     "files": [
       {
-        "from": "templates/base-shell/app.scripts.config.mjs",
-        "to": "base-shell/app.scripts.config.mjs"
-      },
-      {
         "from": "templates/base-shell/bin/server.js",
         "to": "base-shell/bin/server.js"
       },
