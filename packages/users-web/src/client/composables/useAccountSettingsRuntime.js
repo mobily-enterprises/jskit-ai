@@ -7,20 +7,10 @@ import {
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import Uppy from "@uppy/core";
-import Dashboard from "@uppy/dashboard";
-import ImageEditor from "@uppy/image-editor";
-import Compressor from "@uppy/compressor";
-import XHRUpload from "@uppy/xhr-upload";
-import "@uppy/core/css/style.min.css";
-import "@uppy/dashboard/css/style.min.css";
-import "@uppy/image-editor/css/style.min.css";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
-import { usersWebHttpClient } from "../lib/httpClient.js";
 import {
   resolveThemeNameForPreference,
   setVuetifyThemeName
@@ -38,219 +28,26 @@ import {
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
-
-const AVATAR_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
-const AVATAR_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const AVATAR_DEFAULT_SIZE = 64;
-
-const THEME_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "Light", value: "light" },
-  { title: "Dark", value: "dark" }
-]);
-
-const LOCALE_OPTIONS = Object.freeze([
-  { title: "English (US)", value: "en-US" },
-  { title: "English (UK)", value: "en-GB" },
-  { title: "Italian", value: "it-IT" },
-  { title: "Spanish", value: "es-ES" }
-]);
-
-const DATE_FORMAT_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "MM/DD/YYYY", value: "mdy" },
-  { title: "DD/MM/YYYY", value: "dmy" },
-  { title: "YYYY-MM-DD", value: "ymd" }
-]);
-
-const NUMBER_FORMAT_OPTIONS = Object.freeze([
-  { title: "System", value: "system" },
-  { title: "1,234.56", value: "comma-dot" },
-  { title: "1.234,56", value: "dot-comma" },
-  { title: "1 234,56", value: "space-comma" }
-]);
-
-const CURRENCY_OPTIONS = Object.freeze(["USD", "EUR", "GBP", "AUD", "JPY"]);
-
-const TIME_ZONE_OPTIONS = Object.freeze([
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Rome",
-  "Asia/Tokyo",
-  "Australia/Sydney"
-]);
-
-const AVATAR_SIZE_OPTIONS = Object.freeze([32, 40, 48, 56, 64, 72, 80, 96, 112, 128]);
-
-const DEFAULTS = Object.freeze({
-  preferences: {
-    theme: "system",
-    locale: "en-US",
-    timeZone: "UTC",
-    dateFormat: "system",
-    numberFormat: "system",
-    currencyCode: "USD",
-    avatarSize: AVATAR_DEFAULT_SIZE
-  },
-  notifications: {
-    productUpdates: true,
-    accountActivity: true,
-    securityAlerts: true
-  }
-});
-
-function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account/settings", allowedOrigins = [] } = {}) {
-  const source = Array.isArray(value) ? value[0] : value;
-  const rawValue = String(source || "").trim();
-  if (!rawValue) {
-    return fallback;
-  }
-
-  const normalizedAccountPathname =
-    String(accountSettingsPath || "")
-      .split("?")[0]
-      .split("#")[0]
-      .replace(/\/{2,}/g, "/")
-      .replace(/\/+$/, "") || "/";
-
-  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
-    const normalizedPathname = rawValue.split("?")[0].split("#")[0].replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
-    if (normalizedPathname === normalizedAccountPathname) {
-      return fallback;
-    }
-    return rawValue;
-  }
-
-  let parsed;
-  try {
-    parsed = new URL(rawValue);
-  } catch {
-    return fallback;
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return fallback;
-  }
-
-  if (allowedOrigins.length > 0 && !allowedOrigins.includes(parsed.origin)) {
-    return fallback;
-  }
-
-  const normalizedPathname = String(parsed.pathname || "").replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
-  if (normalizedPathname === normalizedAccountPathname) {
-    return fallback;
-  }
-
-  return parsed.toString();
-}
-
-function normalizeHttpOrigin(value) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(rawValue);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return "";
-    }
-    return parsed.origin;
-  } catch {
-    return "";
-  }
-}
-
-function resolveAllowedReturnToOrigins(contextValue = null) {
-  const resolvedOrigins = [];
-
-  if (typeof window === "object" && window?.location?.origin) {
-    const currentOrigin = normalizeHttpOrigin(window.location.origin);
-    if (currentOrigin) {
-      resolvedOrigins.push(currentOrigin);
-    }
-  }
-
-  const surfaceConfig =
-    contextValue && typeof contextValue === "object" && contextValue.surfaceConfig && typeof contextValue.surfaceConfig === "object"
-      ? contextValue.surfaceConfig
-      : {};
-  const surfacesById =
-    surfaceConfig.surfacesById && typeof surfaceConfig.surfacesById === "object" ? surfaceConfig.surfacesById : {};
-
-  for (const definition of Object.values(surfacesById)) {
-    if (!definition || typeof definition !== "object") {
-      continue;
-    }
-    const surfaceOrigin = normalizeHttpOrigin(definition.origin);
-    if (!surfaceOrigin || resolvedOrigins.includes(surfaceOrigin)) {
-      continue;
-    }
-    resolvedOrigins.push(surfaceOrigin);
-  }
-
-  return resolvedOrigins;
-}
-
-function normalizeSettingsPayload(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function normalizePendingInvite(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = Number(entry.id);
-  const workspaceId = Number(entry.workspaceId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(workspaceId) || workspaceId < 1) {
-    return null;
-  }
-
-  const workspaceSlug = String(entry.workspaceSlug || "").trim();
-  if (!workspaceSlug) {
-    return null;
-  }
-
-  const token = String(entry.token || "").trim();
-  if (!token) {
-    return null;
-  }
-
-  return {
-    id,
-    token,
-    workspaceId,
-    workspaceSlug,
-    workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
-    roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
-    status: String(entry.status || "pending").trim().toLowerCase() || "pending",
-    expiresAt: String(entry.expiresAt || "").trim()
-  };
-}
-
-function normalizeAvatarSize(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric)) {
-    return DEFAULTS.preferences.avatarSize;
-  }
-
-  const clamped = Math.min(128, Math.max(32, numeric));
-  return clamped;
-}
-
-function resolveErrorStatusCode(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  return Number.isInteger(statusCode) && statusCode > 0 ? statusCode : 0;
-}
+import {
+  ACCOUNT_SETTINGS_DEFAULTS,
+  AVATAR_DEFAULT_SIZE,
+  AVATAR_SIZE_OPTIONS,
+  CURRENCY_OPTIONS,
+  DATE_FORMAT_OPTIONS,
+  LOCALE_OPTIONS,
+  NUMBER_FORMAT_OPTIONS,
+  THEME_OPTIONS,
+  TIME_ZONE_OPTIONS
+} from "./accountSettingsRuntimeConstants.js";
+import {
+  normalizeAvatarSize,
+  normalizePendingInvite,
+  normalizeReturnToPath,
+  normalizeSettingsPayload,
+  resolveAllowedReturnToOrigins
+} from "./accountSettingsRuntimeHelpers.js";
+import { createAccountSettingsAvatarUploadRuntime } from "./accountSettingsAvatarUploadRuntime.js";
+import { createAccountSettingsInvitesRuntime } from "./accountSettingsInvitesRuntime.js";
 
 function useAccountSettingsRuntime() {
   const route = useRoute();
@@ -286,19 +83,19 @@ function useAccountSettingsRuntime() {
   });
 
   const preferencesForm = reactive({
-    theme: DEFAULTS.preferences.theme,
-    locale: DEFAULTS.preferences.locale,
-    timeZone: DEFAULTS.preferences.timeZone,
-    dateFormat: DEFAULTS.preferences.dateFormat,
-    numberFormat: DEFAULTS.preferences.numberFormat,
-    currencyCode: DEFAULTS.preferences.currencyCode,
-    avatarSize: DEFAULTS.preferences.avatarSize
+    theme: ACCOUNT_SETTINGS_DEFAULTS.preferences.theme,
+    locale: ACCOUNT_SETTINGS_DEFAULTS.preferences.locale,
+    timeZone: ACCOUNT_SETTINGS_DEFAULTS.preferences.timeZone,
+    dateFormat: ACCOUNT_SETTINGS_DEFAULTS.preferences.dateFormat,
+    numberFormat: ACCOUNT_SETTINGS_DEFAULTS.preferences.numberFormat,
+    currencyCode: ACCOUNT_SETTINGS_DEFAULTS.preferences.currencyCode,
+    avatarSize: ACCOUNT_SETTINGS_DEFAULTS.preferences.avatarSize
   });
 
   const notificationsForm = reactive({
-    productUpdates: DEFAULTS.notifications.productUpdates,
-    accountActivity: DEFAULTS.notifications.accountActivity,
-    securityAlerts: DEFAULTS.notifications.securityAlerts
+    productUpdates: ACCOUNT_SETTINGS_DEFAULTS.notifications.productUpdates,
+    accountActivity: ACCOUNT_SETTINGS_DEFAULTS.notifications.accountActivity,
+    securityAlerts: ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts
   });
 
   const profileAvatar = reactive({
@@ -306,7 +103,7 @@ function useAccountSettingsRuntime() {
     gravatarUrl: "",
     effectiveUrl: "",
     hasUploadedAvatar: false,
-    size: DEFAULTS.preferences.avatarSize,
+    size: ACCOUNT_SETTINGS_DEFAULTS.preferences.avatarSize,
     version: null
   });
 
@@ -316,7 +113,6 @@ function useAccountSettingsRuntime() {
   });
 
   const selectedAvatarFileName = ref("");
-  let avatarUppy = null;
   const inviteAction = ref({
     token: "",
     decision: ""
@@ -375,20 +171,29 @@ function useAccountSettingsRuntime() {
     profileForm.email = String(data.profile?.email || "");
     applyAvatarData(data.profile?.avatar);
 
-    preferencesForm.theme = String(data.preferences?.theme || DEFAULTS.preferences.theme);
-    preferencesForm.locale = String(data.preferences?.locale || DEFAULTS.preferences.locale);
-    preferencesForm.timeZone = String(data.preferences?.timeZone || DEFAULTS.preferences.timeZone);
-    preferencesForm.dateFormat = String(data.preferences?.dateFormat || DEFAULTS.preferences.dateFormat);
-    preferencesForm.numberFormat = String(data.preferences?.numberFormat || DEFAULTS.preferences.numberFormat);
-    preferencesForm.currencyCode = String(data.preferences?.currencyCode || DEFAULTS.preferences.currencyCode);
-    preferencesForm.avatarSize = normalizeAvatarSize(data.preferences?.avatarSize || DEFAULTS.preferences.avatarSize);
+    preferencesForm.theme = String(data.preferences?.theme || ACCOUNT_SETTINGS_DEFAULTS.preferences.theme);
+    preferencesForm.locale = String(data.preferences?.locale || ACCOUNT_SETTINGS_DEFAULTS.preferences.locale);
+    preferencesForm.timeZone = String(data.preferences?.timeZone || ACCOUNT_SETTINGS_DEFAULTS.preferences.timeZone);
+    preferencesForm.dateFormat = String(data.preferences?.dateFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.dateFormat);
+    preferencesForm.numberFormat = String(data.preferences?.numberFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.numberFormat);
+    preferencesForm.currencyCode = String(data.preferences?.currencyCode || ACCOUNT_SETTINGS_DEFAULTS.preferences.currencyCode);
+    preferencesForm.avatarSize = normalizeAvatarSize(data.preferences?.avatarSize || ACCOUNT_SETTINGS_DEFAULTS.preferences.avatarSize);
 
     notificationsForm.productUpdates = Boolean(data.notifications?.productUpdates);
     notificationsForm.accountActivity = Boolean(data.notifications?.accountActivity);
-    notificationsForm.securityAlerts = DEFAULTS.notifications.securityAlerts;
+    notificationsForm.securityAlerts = ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts;
 
     applyThemePreference(preferencesForm.theme);
   }
+
+  const avatarUploadRuntime = createAccountSettingsAvatarUploadRuntime({
+    queryClient,
+    sessionQueryKey,
+    accountSettingsQueryKey,
+    selectedAvatarFileName,
+    applySettingsData,
+    reportAccountFeedback
+  });
 
   const mapAccountSettingsPayload = (_model, payload = {}) => {
     applySettingsData(payload);
@@ -629,274 +434,29 @@ function useAccountSettingsRuntime() {
     }
   }
 
-  async function respondToInvite(invite, decision) {
-    if (!invitesAvailable.value) {
-      return;
-    }
-
-    const token = String(invite?.token || "").trim();
-    const normalizedDecision = String(decision || "").trim().toLowerCase();
-    if (!token || (normalizedDecision !== "accept" && normalizedDecision !== "refuse")) {
-      return;
-    }
-    if (isResolvingInvite.value) {
-      return;
-    }
-
-    inviteAction.value = {
-      token,
-      decision: normalizedDecision
-    };
-    redeemInviteModel.token = token;
-    redeemInviteModel.decision = normalizedDecision;
-
-    try {
-      await redeemInviteCommand.run();
-      pendingInvitesModel.pendingInvites = pendingInvites.value.filter((entry) => entry.token !== token);
-      await pendingInvitesView.refresh();
-
-      if (normalizedDecision === "accept") {
-        const nextWorkspaceSlug = String(invite?.workspaceSlug || "").trim();
-        if (nextWorkspaceSlug) {
-          await openWorkspace(nextWorkspaceSlug);
-          return;
-        }
-      }
-
-      reportAccountFeedback({
-        message: normalizedDecision === "accept" ? "Invitation accepted." : "Invitation refused.",
-        severity: "success",
-        channel: "snackbar",
-        dedupeKey: `users-web.account-settings-runtime:invite-${normalizedDecision}:${token}`
-      });
-    } catch (error) {
-      const statusCode = resolveErrorStatusCode(error);
-      const fallbackMessage = normalizedDecision === "accept"
-        ? "Unable to accept invitation."
-        : "Unable to refuse invitation.";
-      reportAccountFeedback({
-        message: statusCode === 404
-          ? "Invitation no longer exists."
-          : String(error?.message || fallbackMessage),
-        severity: "error",
-        channel: "banner",
-        dedupeKey: `users-web.account-settings-runtime:invite-${normalizedDecision}-error:${token}`
-      });
-    } finally {
-      inviteAction.value = {
-        token: "",
-        decision: ""
-      };
-      redeemInviteModel.token = "";
-      redeemInviteModel.decision = "";
-    }
-  }
+  const invitesRuntime = createAccountSettingsInvitesRuntime({
+    invitesAvailable,
+    isResolvingInvite,
+    inviteAction,
+    redeemInviteModel,
+    redeemInviteCommand,
+    pendingInvites,
+    pendingInvitesModel,
+    pendingInvitesView,
+    openWorkspace,
+    reportAccountFeedback
+  });
 
   function acceptInvite(invite) {
-    return respondToInvite(invite, "accept");
+    return invitesRuntime.accept(invite);
   }
 
   function refuseInvite(invite) {
-    return respondToInvite(invite, "refuse");
+    return invitesRuntime.refuse(invite);
   }
 
-  async function resolveCsrfToken() {
-    const sessionPayload = await queryClient.fetchQuery({
-      queryKey: sessionQueryKey,
-      queryFn: () =>
-        usersWebHttpClient.request("/api/session", {
-          method: "GET"
-        }),
-      staleTime: 60_000
-    });
-
-    const csrfToken = String(sessionPayload?.csrfToken || "");
-    if (!csrfToken) {
-      throw new Error("Unable to prepare secure avatar upload request.");
-    }
-
-    return csrfToken;
-  }
-
-  function setupAvatarUploader() {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (avatarUppy) {
-      return;
-    }
-
-    const uppy = new Uppy({
-      autoProceed: false,
-      restrictions: {
-        maxNumberOfFiles: 1,
-        allowedFileTypes: [...AVATAR_ALLOWED_MIME_TYPES],
-        maxFileSize: AVATAR_MAX_UPLOAD_BYTES
-      }
-    });
-
-    uppy.use(Dashboard, {
-      inline: false,
-      closeAfterFinish: false,
-      showProgressDetails: true,
-      proudlyDisplayPoweredByUppy: false,
-      hideUploadButton: false,
-      doneButtonHandler: () => {
-        const dashboard = uppy.getPlugin("Dashboard");
-        if (dashboard && typeof dashboard.closeModal === "function") {
-          dashboard.closeModal();
-        }
-      },
-      note: `Accepted: ${AVATAR_ALLOWED_MIME_TYPES.join(", ")}, max ${Math.floor(AVATAR_MAX_UPLOAD_BYTES / (1024 * 1024))}MB`
-    });
-
-    uppy.use(ImageEditor, {
-      quality: 0.9
-    });
-
-    uppy.use(Compressor, {
-      quality: 0.84,
-      limit: 1
-    });
-
-    uppy.use(XHRUpload, {
-      endpoint: "/api/settings/profile/avatar",
-      method: "POST",
-      formData: true,
-      fieldName: "avatar",
-      withCredentials: true,
-      onBeforeRequest: async (xhr) => {
-        const csrfToken = await resolveCsrfToken();
-        xhr.setRequestHeader("csrf-token", csrfToken);
-      },
-      getResponseData: (xhr) => {
-        if (!xhr.responseText) {
-          return {};
-        }
-
-        try {
-          return JSON.parse(xhr.responseText);
-        } catch {
-          return {};
-        }
-      }
-    });
-
-    uppy.on("file-added", (file) => {
-      selectedAvatarFileName.value = String(file?.name || "");
-    });
-
-    uppy.on("file-removed", () => {
-      selectedAvatarFileName.value = "";
-    });
-
-    uppy.on("file-editor:complete", (file) => {
-      selectedAvatarFileName.value = String(file?.name || selectedAvatarFileName.value || "");
-      const imageEditor = uppy.getPlugin("ImageEditor");
-      if (imageEditor && typeof imageEditor.stop === "function") {
-        imageEditor.stop();
-      }
-    });
-
-    uppy.on("file-editor:cancel", () => {
-      const imageEditor = uppy.getPlugin("ImageEditor");
-      if (imageEditor && typeof imageEditor.stop === "function") {
-        imageEditor.stop();
-      }
-    });
-
-    uppy.on("dashboard:modal-closed", () => {
-      const imageEditor = uppy.getPlugin("ImageEditor");
-      if (imageEditor && typeof imageEditor.stop === "function") {
-        imageEditor.stop();
-      }
-    });
-
-    uppy.on("upload-success", (_file, response) => {
-      const data = response?.body;
-      if (!data || typeof data !== "object") {
-        reportAccountFeedback({
-          message: "Avatar uploaded, but the response payload was invalid.",
-          severity: "error",
-          channel: "banner",
-          dedupeKey: "users-web.account-settings-runtime:avatar-upload-invalid-response"
-        });
-        return;
-      }
-
-      applySettingsData(data);
-      queryClient.setQueryData(accountSettingsQueryKey, data);
-
-      const dashboard = uppy.getPlugin("Dashboard");
-      if (dashboard && typeof dashboard.closeModal === "function") {
-        dashboard.closeModal();
-      }
-
-      reportAccountFeedback({
-        message: "Avatar uploaded.",
-        severity: "success",
-        channel: "snackbar",
-        dedupeKey: "users-web.account-settings-runtime:avatar-uploaded"
-      });
-      selectedAvatarFileName.value = "";
-    });
-
-    uppy.on("upload-error", (_file, error, response) => {
-      const body = response?.body && typeof response.body === "object" ? response.body : {};
-      const fieldErrors = resolveFieldErrors(body);
-
-      reportAccountFeedback({
-        message: String(fieldErrors.avatar || body?.error || error?.message || "Unable to upload avatar."),
-        severity: "error",
-        channel: "banner",
-        dedupeKey: "users-web.account-settings-runtime:avatar-upload-error"
-      });
-    });
-
-    uppy.on("restriction-failed", (_file, error) => {
-      reportAccountFeedback({
-        message: String(error?.message || "Selected avatar file does not meet upload restrictions."),
-        severity: "error",
-        channel: "banner",
-        dedupeKey: "users-web.account-settings-runtime:avatar-upload-restriction"
-      });
-    });
-
-    uppy.on("complete", (result) => {
-      const successfulCount = Array.isArray(result?.successful) ? result.successful.length : 0;
-      if (successfulCount <= 0) {
-        return;
-      }
-
-      try {
-        uppy.clear();
-      } catch {
-        // Upload succeeded; ignore clear timing issues.
-      }
-    });
-
-    avatarUppy = uppy;
-  }
-
-  async function openAvatarEditor() {
-    setupAvatarUploader();
-
-    const uppy = avatarUppy;
-    if (!uppy) {
-      reportAccountFeedback({
-        message: "Avatar editor is unavailable in this environment.",
-        severity: "error",
-        channel: "banner",
-        dedupeKey: "users-web.account-settings-runtime:avatar-editor-unavailable"
-      });
-      return;
-    }
-
-    const dashboard = uppy.getPlugin("Dashboard");
-    if (dashboard && typeof dashboard.openModal === "function") {
-      dashboard.openModal();
-    }
+  function openAvatarEditor() {
+    avatarUploadRuntime.openEditor();
   }
 
   async function submitAvatarDelete() {
@@ -924,14 +484,11 @@ function useAccountSettingsRuntime() {
   );
 
   onMounted(() => {
-    setupAvatarUploader();
+    avatarUploadRuntime.setup();
   });
 
   onBeforeUnmount(() => {
-    if (avatarUppy) {
-      avatarUppy.destroy();
-      avatarUppy = null;
-    }
+    avatarUploadRuntime.destroy();
   });
 
   const profile = Object.freeze({

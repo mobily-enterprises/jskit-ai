@@ -298,15 +298,17 @@ Task:
 
 
 
-  5. Medium: Non-general utilities are owned by kernel but are module-specific.
-     packages/kernel/server/runtime/storagePaths.js:3, packages/storage-runtime/src/server/storageBinding.js:6, packages/kernel/shared/actions/
-     realtimePublish.js:35, packages/kernel/shared/actions/actionContributorHelpers.js:16.
-     Recommendations:
-       Move resolveFsBasePath to storage-runtime (only consumer is storage-runtime).
-       Move realtime publish adapter logic to realtime (or drop until used).
-       Split actionContributorHelpers: keep generic helpers in kernel, move resolveUser policy to users-core/auth layer.
-  9. Low: Clear slop/repetition remains.
-     packages/kernel/server/runtime/entityChangeEvents.js:81, packages/kernel/server/runtime/entityChangeEvents.js:88, packages/kernel/client/
-     moduleBootstrap.js:44, packages/kernel/client/shellBootstrap.js:58, packages/kernel/server/actions/ActionRuntimeServiceProvider.js:36, packages/kernel/
-     server/registries/primitives.js:1.
-     There is duplicated/unreachable code and repeated helper logic instead of reusing existing primitives.
+
+      Work on the kernel module
+›     Do a multi-pass, thorough and careful check, where you check for:
+ 
+      * Typical AI slop. This includes (amongst other things) repetition of code, overcomplication, string indirection, etc
+      * General structure. Check that the whole module has a solid structure.
+      * Layering. Check that there is good layering in the code.
+      * Ownership. This is very important. Make sure kernel only does things that are generally useful for every module. If you see something that isn't,
+      recommend which module it should go to, and why.
+      * Visible API. You will have to look at the whole repo for this: is it exposing too much API, compared to what other modules actually use?
+      * Kernel surfage independence: make sure the kernel doesn't have "app", "public", etc.
+
+      DO it!
+ 
