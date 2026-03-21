@@ -544,8 +544,8 @@ function useAccountSettingsRuntime() {
   const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
   const refreshingSettings = computed(() => Boolean(settingsView.isRefetching.value));
   const invitesAvailable = computed(() => pendingInvitesModel.workspaceInvitesEnabled === true);
-  const loadingInvites = computed(() => invitesAvailable.value && Boolean(pendingInvitesView.isLoading.value));
-  const refreshingInvites = computed(() => invitesAvailable.value && Boolean(pendingInvitesView.isRefetching.value));
+  const loadingInvites = computed(() => Boolean(pendingInvitesView.isLoading.value));
+  const refreshingInvites = computed(() => Boolean(pendingInvitesView.isRefetching.value));
   const pendingInvites = computed(() => {
     return Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : [];
   });

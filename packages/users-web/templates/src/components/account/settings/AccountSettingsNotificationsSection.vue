@@ -22,6 +22,7 @@ const notifications = props.runtime.notifications;
           label="Product updates"
           color="primary"
           hide-details
+          :disabled="notifications.isSaving.value || notifications.isRefreshing.value"
           class="mb-2"
         />
         <v-switch
@@ -29,6 +30,7 @@ const notifications = props.runtime.notifications;
           label="Account activity alerts"
           color="primary"
           hide-details
+          :disabled="notifications.isSaving.value || notifications.isRefreshing.value"
           class="mb-2"
         />
         <v-switch
@@ -39,7 +41,12 @@ const notifications = props.runtime.notifications;
           disabled
           class="mb-4"
         />
-        <v-btn type="submit" color="primary" :loading="notifications.isSaving.value">
+        <v-btn
+          type="submit"
+          color="primary"
+          :loading="notifications.isSaving.value"
+          :disabled="notifications.isRefreshing.value"
+        >
           Save notification settings
         </v-btn>
       </v-form>

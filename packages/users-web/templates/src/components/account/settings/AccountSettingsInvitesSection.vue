@@ -48,7 +48,9 @@ const invites = props.runtime.invites;
                   variant="text"
                   color="error"
                   :loading="invites.action.value.token === invite.token && invites.action.value.decision === 'refuse'"
-                  :disabled="invites.isResolving.value && invites.action.value.token !== invite.token"
+                  :disabled="
+                    invites.isRefetching.value || (invites.isResolving.value && invites.action.value.token !== invite.token)
+                  "
                   @click="invites.refuse(invite)"
                 >
                   Refuse
@@ -58,7 +60,9 @@ const invites = props.runtime.invites;
                   variant="tonal"
                   color="primary"
                   :loading="invites.action.value.token === invite.token && invites.action.value.decision === 'accept'"
-                  :disabled="invites.isResolving.value && invites.action.value.token !== invite.token"
+                  :disabled="
+                    invites.isRefetching.value || (invites.isResolving.value && invites.action.value.token !== invite.token)
+                  "
                   @click="invites.accept(invite)"
                 >
                   Join

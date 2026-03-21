@@ -9,7 +9,12 @@
           </div>
           <v-spacer />
           <v-btn variant="text" :to="listPath">Cancel</v-btn>
-          <v-btn color="primary" :loading="addEdit.isSaving" :disabled="addEdit.isLoading || !addEdit.canSave" @click="addEdit.submit">
+          <v-btn
+            color="primary"
+            :loading="addEdit.isSaving"
+            :disabled="addEdit.isInitialLoading || addEdit.isRefetching || !addEdit.canSave"
+            @click="addEdit.submit"
+          >
             Save ${option:namespace|singular|default(record)}
           </v-btn>
         </div>
@@ -25,7 +30,7 @@
                 variant="outlined"
                 density="comfortable"
                 maxlength="160"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.textField ? [addEdit.fieldErrors.textField] : []"
               />
             </v-col>
@@ -36,7 +41,7 @@
                 type="date"
                 variant="outlined"
                 density="comfortable"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.dateField ? [addEdit.fieldErrors.dateField] : []"
               />
             </v-col>
@@ -47,7 +52,7 @@
                 type="number"
                 variant="outlined"
                 density="comfortable"
-                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                 :error-messages="addEdit.fieldErrors.numberField ? [addEdit.fieldErrors.numberField] : []"
               />
             </v-col>

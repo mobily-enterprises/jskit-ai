@@ -132,6 +132,7 @@ const pendingInvites = computed(() => {
 const workspaceInvitesEnabled = computed(() => bootstrapModel.workspaceInvitesEnabled === true);
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
+const isRefreshingBootstrap = computed(() => Boolean(bootstrapView.isRefetching.value));
 const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
 const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
 
@@ -433,6 +434,7 @@ watch(
         <v-divider />
 
         <v-card-text class="pt-4">
+          <v-progress-linear v-if="!isBootstrapping && isRefreshingBootstrap" indeterminate class="mb-4" />
           <v-row>
             <v-col cols="12" :md="workspaceInvitesEnabled ? 6 : 12">
               <template v-if="isBootstrapping">

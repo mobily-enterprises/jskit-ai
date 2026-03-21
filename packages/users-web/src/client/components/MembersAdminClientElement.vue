@@ -40,6 +40,7 @@
                     density="comfortable"
                     type="email"
                     autocomplete="email"
+                    :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
                     class="mb-3"
                   />
                   <v-select
@@ -50,9 +51,17 @@
                     item-value="value"
                     variant="outlined"
                     density="comfortable"
+                    :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
                     class="mb-3"
                   />
-                  <v-btn type="submit" color="primary" :loading="isCreatingInvite">Send invite</v-btn>
+                  <v-btn
+                    type="submit"
+                    color="primary"
+                    :loading="isCreatingInvite"
+                    :disabled="showWorkspaceInviteRefreshingIndicator"
+                  >
+                    Send invite
+                  </v-btn>
                 </v-form>
               </template>
             </template>
@@ -104,13 +113,13 @@
                           variant="outlined"
                           hide-details
                           class="member-role-select"
-                          :disabled="isMemberRoleLocked(member)"
+                          :disabled="showMembersRefreshingIndicator || isMemberRoleLocked(member)"
                           @update:model-value="(value) => onMemberRoleUpdate(member, value)"
                         />
                         <v-btn
                           variant="text"
                           color="error"
-                          :disabled="isMemberRemoveLocked(member)"
+                          :disabled="showMembersRefreshingIndicator || isMemberRemoveLocked(member)"
                           :loading="isRemoveMemberLoading(member.userId)"
                           @click="onRemoveMember(member)"
                         >
@@ -137,6 +146,7 @@
                         v-if="canRevokeInvites"
                         variant="text"
                         color="error"
+                        :disabled="showMembersRefreshingIndicator"
                         :loading="isRevokeInviteLoading(invite.id)"
                         @click="onRevokeInvite(invite.id)"
                       >
