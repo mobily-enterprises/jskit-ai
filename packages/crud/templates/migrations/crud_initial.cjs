@@ -29,8 +29,9 @@ exports.up = async function up(knex) {
     table.increments("id").unsigned().primary();
     table.integer("workspace_owner_id").unsigned().nullable().index();
     table.integer("user_owner_id").unsigned().nullable().index();
-    table.string("name", 160).notNullable();
-    table.string("surname", 160).notNullable();
+    table.string("text_field", 160).notNullable();
+    table.timestamp("date_field").notNullable();
+    table.double("number_field").notNullable();
     table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at").notNullable().defaultTo(knex.fn.now());
   });

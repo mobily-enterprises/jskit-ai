@@ -11,7 +11,7 @@ test("crudService delegates CRUD operations to the repository", async () => {
     },
     async findById(recordId) {
       calls.push(["findById", recordId]);
-      return { id: recordId, name: "Ada", surname: "Lovelace" };
+      return { id: recordId, textField: "Example", dateField: "2026-03-11T00:00:00.000Z", numberField: 3 };
     },
     async create(payload) {
       calls.push(["create", payload]);
@@ -32,15 +32,15 @@ test("crudService delegates CRUD operations to the repository", async () => {
   const options = {};
   await service.listRecords({ limit: 10 }, options);
   await service.getRecord(3, options);
-  await service.createRecord({ name: "Ada", surname: "Lovelace" }, options);
-  await service.updateRecord(4, { surname: "Byron" }, options);
+  await service.createRecord({ textField: "Example", dateField: "2026-03-11", numberField: 3 }, options);
+  await service.updateRecord(4, { textField: "Changed" }, options);
   await service.deleteRecord(5, options);
 
   assert.deepEqual(calls, [
     ["list", { limit: 10 }],
     ["findById", 3],
-    ["create", { name: "Ada", surname: "Lovelace" }],
-    ["updateById", 4, { surname: "Byron" }],
+    ["create", { textField: "Example", dateField: "2026-03-11", numberField: 3 }],
+    ["updateById", 4, { textField: "Changed" }],
     ["deleteById", 5]
   ]);
 });
@@ -72,7 +72,7 @@ test("crudService throws 404 when a record is missing", async () => {
   );
 
   await assert.rejects(
-    () => service.updateRecord(9, { name: "Ada" }, {}),
+    () => service.updateRecord(9, { textField: "Changed" }, {}),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
 

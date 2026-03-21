@@ -20,24 +20,35 @@
           <v-row>
             <v-col cols="12" md="6">
               <v-text-field
-                v-model="recordForm.name"
-                label="Name"
+                v-model="recordForm.textField"
+                label="Text field"
                 variant="outlined"
                 density="comfortable"
                 maxlength="160"
                 :readonly="!addEdit.canSave || addEdit.isSaving"
-                :error-messages="addEdit.fieldErrors.name ? [addEdit.fieldErrors.name] : []"
+                :error-messages="addEdit.fieldErrors.textField ? [addEdit.fieldErrors.textField] : []"
               />
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field
-                v-model="recordForm.surname"
-                label="Surname"
+                v-model="recordForm.dateField"
+                label="Date field"
+                type="date"
                 variant="outlined"
                 density="comfortable"
-                maxlength="160"
                 :readonly="!addEdit.canSave || addEdit.isSaving"
-                :error-messages="addEdit.fieldErrors.surname ? [addEdit.fieldErrors.surname] : []"
+                :error-messages="addEdit.fieldErrors.dateField ? [addEdit.fieldErrors.dateField] : []"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="recordForm.numberField"
+                label="Number field"
+                type="number"
+                variant="outlined"
+                density="comfortable"
+                :readonly="!addEdit.canSave || addEdit.isSaving"
+                :error-messages="addEdit.fieldErrors.numberField ? [addEdit.fieldErrors.numberField] : []"
               />
             </v-col>
           </v-row>
@@ -65,8 +76,9 @@ const {
 } = useCrudCreateRuntime();
 const { visibility } = useCrudModulePolicyRuntime();
 const recordForm = reactive({
-  name: "",
-  surname: ""
+  textField: "",
+  dateField: "",
+  numberField: ""
 });
 
 const addEdit = useAddEdit({
@@ -77,7 +89,7 @@ const addEdit = useAddEdit({
   readEnabled: false,
   writeMethod: "POST",
   fallbackSaveError: "Unable to save record.",
-  fieldErrorKeys: ["name", "surname"],
+  fieldErrorKeys: ["textField", "dateField", "numberField"],
   model: recordForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
@@ -86,8 +98,9 @@ const addEdit = useAddEdit({
       value: rawPayload
     }),
   buildRawPayload: (model) => ({
-    name: model.name,
-    surname: model.surname
+    textField: model.textField,
+    dateField: model.dateField,
+    numberField: model.numberField
   }),
   onSaveSuccess: async (payload, { queryClient }) => {
     await invalidateAndGoView(queryClient, payload?.id);

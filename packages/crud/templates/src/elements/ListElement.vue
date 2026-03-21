@@ -17,19 +17,21 @@
         <v-table density="comfortable">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Surname</th>
+              <th>Text field</th>
+              <th>Date field</th>
+              <th>Number field</th>
               <th>Updated</th>
               <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="items.length < 1">
-              <td colspan="4" class="text-center py-6 text-medium-emphasis">No records yet.</td>
+              <td colspan="5" class="text-center py-6 text-medium-emphasis">No records yet.</td>
             </tr>
             <tr v-for="record in items" :key="record.id">
-              <td>{{ record.name }}</td>
-              <td>{{ record.surname }}</td>
+              <td>{{ record.textField }}</td>
+              <td>{{ crudContext.formatDateTime(record.dateField) }}</td>
+              <td>{{ record.numberField }}</td>
               <td>{{ crudContext.formatDateTime(record.updatedAt) }}</td>
               <td class="text-right">
                 <v-btn size="small" variant="text" :to="crudContext.resolveViewPath(record.id)">

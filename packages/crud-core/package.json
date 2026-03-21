@@ -7,7 +7,8 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/composables/*": "./src/client/composables/*.js"
+    "./client/composables/*": "./src/client/composables/*.js",
+    "./server/repositorySupport": "./src/server/repositorySupport.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",

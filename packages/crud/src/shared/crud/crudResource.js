@@ -1,20 +1,46 @@
 import { Type } from "typebox";
+import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import {
   normalizeObjectInput,
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
+function normalizeNumberField(value, { fieldLabel = "Number field" } = {}) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized)) {
+    throw new TypeError(`${fieldLabel} must be a valid number.`);
+  }
+
+  return normalized;
+}
+
+function normalizeDateTimeField(value, { fieldLabel = "Date field" } = {}) {
+  try {
+    return toIsoString(value);
+  } catch {
+    throw new TypeError(`${fieldLabel} must be a valid date/time.`);
+  }
+}
+
 function normalizeRecordInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};
 
-  if (Object.hasOwn(source, "name")) {
-    normalized.name = normalizeText(source.name);
+  if (Object.hasOwn(source, "textField")) {
+    normalized.textField = normalizeText(source.textField);
   }
 
-  if (Object.hasOwn(source, "surname")) {
-    normalized.surname = normalizeText(source.surname);
+  if (Object.hasOwn(source, "dateField")) {
+    normalized.dateField = normalizeDateTimeField(source.dateField, {
+      fieldLabel: "Date field"
+    });
+  }
+
+  if (Object.hasOwn(source, "numberField")) {
+    normalized.numberField = normalizeNumberField(source.numberField, {
+      fieldLabel: "Number field"
+    });
   }
 
   return normalized;
@@ -25,18 +51,28 @@ function normalizeRecordOutput(payload = {}) {
 
   return {
     id: Number(source.id),
-    name: normalizeText(source.name),
-    surname: normalizeText(source.surname),
-    createdAt: normalizeText(source.createdAt),
-    updatedAt: normalizeText(source.updatedAt)
+    textField: normalizeText(source.textField),
+    dateField: normalizeDateTimeField(source.dateField, {
+      fieldLabel: "Date field"
+    }),
+    numberField: normalizeNumberField(source.numberField, {
+      fieldLabel: "Number field"
+    }),
+    createdAt: normalizeDateTimeField(source.createdAt, {
+      fieldLabel: "Created at"
+    }),
+    updatedAt: normalizeDateTimeField(source.updatedAt, {
+      fieldLabel: "Updated at"
+    })
   };
 }
 
 const recordOutputSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
-    name: Type.String({ minLength: 1, maxLength: 160 }),
-    surname: Type.String({ minLength: 1, maxLength: 160 }),
+    textField: Type.String({ minLength: 1, maxLength: 160 }),
+    dateField: Type.String({ minLength: 1 }),
+    numberField: Type.Number(),
     createdAt: Type.String({ minLength: 1 }),
     updatedAt: Type.String({ minLength: 1 })
   },
@@ -45,24 +81,28 @@ const recordOutputSchema = Type.Object(
 
 const recordBodySchema = Type.Object(
   {
-    name: Type.String({
+    textField: Type.String({
       minLength: 1,
       maxLength: 160,
       messages: {
-        required: "Name is required.",
-        minLength: "Name is required.",
-        maxLength: "Name must be at most 160 characters.",
-        default: "Name is required."
+        required: "Text field is required.",
+        minLength: "Text field is required.",
+        maxLength: "Text field must be at most 160 characters.",
+        default: "Text field is required."
       }
     }),
-    surname: Type.String({
+    dateField: Type.String({
       minLength: 1,
-      maxLength: 160,
       messages: {
-        required: "Surname is required.",
-        minLength: "Surname is required.",
-        maxLength: "Surname must be at most 160 characters.",
-        default: "Surname is required."
+        required: "Date field is required.",
+        minLength: "Date field is required.",
+        default: "Date field is required."
+      }
+    }),
+    numberField: Type.Number({
+      messages: {
+        required: "Number field is required.",
+        default: "Number field must be a valid number."
       }
     })
   },

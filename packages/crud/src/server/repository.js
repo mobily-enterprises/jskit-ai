@@ -1,10 +1,12 @@
-import { toInsertDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
+import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
+import {
+  DEFAULT_LIST_LIMIT,
+  normalizeCrudListLimit,
+  requireCrudTableName
+} from "@jskit-ai/crud-core/server/repositorySupport";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-
-const DEFAULT_LIST_LIMIT = 20;
-const MAX_LIST_LIMIT = 100;
 
 function mapRecordRow(row) {
   if (!row) {
@@ -12,30 +14,13 @@ function mapRecordRow(row) {
   }
 
   return {
-    id: Number(row.id),
-    name: String(row.name || "").trim(),
-    surname: String(row.surname || "").trim(),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
+    id: row.id,
+    textField: row.text_field,
+    dateField: row.date_field,
+    numberField: row.number_field,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
-}
-
-function normalizeListLimit(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return DEFAULT_LIST_LIMIT;
-  }
-
-  return Math.min(parsed, MAX_LIST_LIMIT);
-}
-
-function requireTableName(tableName) {
-  const normalizedTableName = String(tableName || "").trim();
-  if (!normalizedTableName) {
-    throw new TypeError("crudRepository requires tableName.");
-  }
-
-  return normalizedTableName;
 }
 
 function createRepository(knex, { tableName } = {}) {
@@ -43,16 +28,16 @@ function createRepository(knex, { tableName } = {}) {
     throw new TypeError("crudRepository requires knex.");
   }
 
-  const resolvedTableName = requireTableName(tableName);
+  const resolvedTableName = requireCrudTableName(tableName);
 
   async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT } = {}, options = {}) {
     const client = options?.trx || knex;
     const normalizedCursor = Number.isInteger(Number(cursor)) && Number(cursor) > 0 ? Number(cursor) : 0;
-    const normalizedLimit = normalizeListLimit(limit);
+    const normalizedLimit = normalizeCrudListLimit(limit);
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     let query = client(resolvedTableName)
-      .select("id", "name", "surname", "created_at", "updated_at")
+      .select("id", "text_field", "date_field", "number_field", "created_at", "updated_at")
       .where(visible)
       .orderBy("id", "asc")
       .limit(normalizedLimit + 1);
@@ -76,7 +61,7 @@ function createRepository(knex, { tableName } = {}) {
     const client = options?.trx || knex;
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
     const row = await client(resolvedTableName)
-      .select("id", "name", "surname", "created_at", "updated_at")
+      .select("id", "text_field", "date_field", "number_field", "created_at", "updated_at")
       .where(visible)
       .where({ id: Number(recordId) })
       .first();
@@ -90,8 +75,9 @@ function createRepository(knex, { tableName } = {}) {
     const timestamp = toInsertDateTime();
     const insertPayload = applyVisibilityOwners(
       {
-        name: source.name,
-        surname: source.surname,
+        text_field: source.textField,
+        date_field: source.dateField,
+        number_field: source.numberField,
         created_at: timestamp,
         updated_at: timestamp
       },
@@ -110,7 +96,17 @@ function createRepository(knex, { tableName } = {}) {
   async function updateById(recordId, patch = {}, options = {}) {
     const client = options?.trx || knex;
     const source = normalizeObjectInput(patch);
-    const dbPatch = pickOwnProperties(source, ["name", "surname"]);
+    const dbPatch = {};
+    const patchSource = pickOwnProperties(source, ["textField", "dateField", "numberField"]);
+    if (Object.hasOwn(patchSource, "textField")) {
+      dbPatch.text_field = patchSource.textField;
+    }
+    if (Object.hasOwn(patchSource, "dateField")) {
+      dbPatch.date_field = patchSource.dateField;
+    }
+    if (Object.hasOwn(patchSource, "numberField")) {
+      dbPatch.number_field = patchSource.numberField;
+    }
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     if (Object.keys(dbPatch).length === 0) {

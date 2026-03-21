@@ -69,7 +69,7 @@ test("crud routes build create/update action input with explicit payload and pat
     {
       input: {
         params: { workspaceSlug: "acme" },
-        body: { name: "A", surname: "B" }
+        body: { textField: "A", dateField: "2026-03-11", numberField: 2 }
       },
       executeAction
     },
@@ -79,7 +79,7 @@ test("crud routes build create/update action input with explicit payload and pat
     {
       input: {
         params: { workspaceSlug: "acme", recordId: 12 },
-        body: { name: "Renamed" }
+        body: { textField: "Renamed" }
       },
       executeAction
     },
@@ -88,12 +88,12 @@ test("crud routes build create/update action input with explicit payload and pat
 
   assert.deepEqual(calls[0].input, {
     workspaceSlug: "acme",
-    payload: { name: "A", surname: "B" }
+    payload: { textField: "A", dateField: "2026-03-11", numberField: 2 }
   });
   assert.deepEqual(calls[1].input, {
     workspaceSlug: "acme",
     recordId: 12,
-    patch: { name: "Renamed" }
+    patch: { textField: "Renamed" }
   });
 });
 
@@ -144,7 +144,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
     {
       input: {
         params: {},
-        body: { name: "A", surname: "B" }
+        body: { textField: "A", dateField: "2026-03-11", numberField: 2 }
       },
       executeAction
     },
@@ -152,6 +152,6 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   );
 
   assert.deepEqual(calls[0].input, {
-    payload: { name: "A", surname: "B" }
+    payload: { textField: "A", dateField: "2026-03-11", numberField: 2 }
   });
 });

@@ -27,12 +27,16 @@
         <template v-else>
           <v-row>
             <v-col cols="12" md="6">
-              <div class="text-caption text-medium-emphasis">Name</div>
-              <div class="text-body-1">{{ record.name }}</div>
+              <div class="text-caption text-medium-emphasis">Text field</div>
+              <div class="text-body-1">{{ record.textField }}</div>
             </v-col>
             <v-col cols="12" md="6">
-              <div class="text-caption text-medium-emphasis">Surname</div>
-              <div class="text-body-1">{{ record.surname }}</div>
+              <div class="text-caption text-medium-emphasis">Date field</div>
+              <div class="text-body-1">{{ crudContext.formatDateTime(record.dateField) }}</div>
+            </v-col>
+            <v-col cols="12" md="6">
+              <div class="text-caption text-medium-emphasis">Number field</div>
+              <div class="text-body-1">{{ record.numberField }}</div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">Created</div>
@@ -68,16 +72,16 @@ const {
 const { visibility } = useCrudModulePolicyRuntime();
 const record = reactive({
   id: 0,
-  name: "",
-  surname: "",
+  textField: "",
+  dateField: "",
+  numberField: 0,
   createdAt: "",
   updatedAt: ""
 });
 
 const title = computed(() => {
-  const name = String(record.name || "").trim();
-  const surname = String(record.surname || "").trim();
-  return `${name} ${surname}`.trim() || "${option:namespace|singular|pascal|default(Record)}";
+  const textField = String(record.textField || "").trim();
+  return textField || "${option:namespace|singular|pascal|default(Record)}";
 });
 
 const view = useView({
@@ -89,8 +93,9 @@ const view = useView({
   model: record,
   mapLoadedToModel: (model, payload = {}) => {
     model.id = Number(payload.id || 0);
-    model.name = String(payload.name || "");
-    model.surname = String(payload.surname || "");
+    model.textField = String(payload.textField || "");
+    model.dateField = String(payload.dateField || "");
+    model.numberField = Number(payload.numberField || 0);
     model.createdAt = String(payload.createdAt || "");
     model.updatedAt = String(payload.updatedAt || "");
   }
