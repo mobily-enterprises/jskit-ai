@@ -3,8 +3,9 @@ import { createNoopAuditAdapter } from "../../shared/actions/audit.js";
 import { createNoopIdempotencyAdapter } from "../../shared/actions/idempotency.js";
 import { createNoopObservabilityAdapter } from "../../shared/actions/observability.js";
 import { createActionRegistry } from "../../shared/actions/registry.js";
+import { createSurfaceRuntime } from "../../shared/surface/runtime.js";
 import { normalizeObject } from "../../shared/support/normalize.js";
-import { isContainerToken } from "../../shared/support/tokens.js";
+import { KERNEL_TOKENS, isContainerToken } from "../../shared/support/tokens.js";
 import { installServiceRegistrationApi } from "../registries/serviceRegistrationRegistry.js";
 import {
   ensureActionSurfaceSourceRegistry,
@@ -27,6 +28,32 @@ const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contrib
 const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
 let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
+
+function createSurfaceRuntimeFromAppConfig(scope) {
+  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
+    throw new Error("Surface runtime registration requires scope.has()/make().");
+  }
+
+  if (!scope.has("appConfig")) {
+    throw new Error(
+      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when KERNEL_TOKENS.SurfaceRuntime is not registered."
+    );
+  }
+
+  const appConfig = normalizeObject(scope.make("appConfig"));
+  const surfaceDefinitions = normalizeObject(appConfig.surfaceDefinitions);
+  if (Object.keys(surfaceDefinitions).length < 1) {
+    throw new Error(
+      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when KERNEL_TOKENS.SurfaceRuntime is not registered."
+    );
+  }
+
+  return createSurfaceRuntime({
+    allMode: appConfig.surfaceModeAll,
+    surfaces: surfaceDefinitions,
+    defaultSurfaceId: appConfig.surfaceDefaultId
+  });
+}
 
 function normalizeDependencyMap(value, { context = "action dependencies" } = {}) {
   const source = normalizeObject(value);
@@ -245,6 +272,10 @@ class ActionRuntimeServiceProvider {
     installActionRegistrationApi(app);
     ensureActionSurfaceSourceRegistry(app);
     installServiceRegistrationApi(app);
+
+    if (!app.has(KERNEL_TOKENS.SurfaceRuntime)) {
+      app.singleton(KERNEL_TOKENS.SurfaceRuntime, (scope) => createSurfaceRuntimeFromAppConfig(scope));
+    }
 
     app.singleton("runtime.actions", () => ACTION_RUNTIME_API);
 

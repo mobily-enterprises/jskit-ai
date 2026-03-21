@@ -1,10 +1,8 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { AUTH_POLICY_CONTEXT_RESOLVER_TOKEN } from "@jskit-ai/auth-core/server/lib/tokens";
 import {
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
-import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { TENANCY_MODE_WORKSPACE, resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
@@ -43,15 +41,6 @@ function registerWorkspaceCore(app) {
     return createAuthProfileSyncService({
       userProfilesRepository: scope.make("userProfilesRepository"),
       workspaceProvisioningService: scope.make("users.workspace.service")
-    });
-  });
-
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, (scope) => {
-    const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
-    return createSurfaceRuntime({
-      allMode: appConfig.surfaceModeAll,
-      surfaces: appConfig.surfaceDefinitions,
-      defaultSurfaceId: appConfig.surfaceDefaultId
     });
   });
 

@@ -1,5 +1,3 @@
-import { createSurfaceRuntime } from "../../shared/surface/runtime.js";
-import { normalizeObject } from "../../shared/support/normalize.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { assertTaggableApp } from "./primitives.js";
 
@@ -25,18 +23,7 @@ function resolveSurfaceRuntime(scope) {
   }
 
   if (!scope.has(KERNEL_TOKENS.SurfaceRuntime)) {
-    if (scope.has("appConfig")) {
-      const appConfig = normalizeObject(scope.make("appConfig"));
-      const surfaceDefinitions = normalizeObject(appConfig.surfaceDefinitions);
-      if (Object.keys(surfaceDefinitions).length > 0) {
-        return createSurfaceRuntime({
-          allMode: appConfig.surfaceModeAll,
-          surfaces: surfaceDefinitions,
-          defaultSurfaceId: appConfig.surfaceDefaultId
-        });
-      }
-    }
-    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime or appConfig.surfaceDefinitions.");
+    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime.");
   }
 
   return scope.make(KERNEL_TOKENS.SurfaceRuntime);

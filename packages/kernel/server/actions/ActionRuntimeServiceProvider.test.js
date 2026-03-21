@@ -71,6 +71,7 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(app.singletons.has("runtime.actions"), true);
   assert.equal(app.singletons.has("actionRegistry"), true);
   assert.equal(app.singletons.has("actionExecutor"), true);
+  assert.equal(app.singletons.has(KERNEL_TOKENS.SurfaceRuntime), true);
   assert.equal(typeof app.action, "function");
   assert.equal(typeof app.actions, "function");
   assert.equal(typeof app.actionSurfaceSource, "function");
@@ -132,7 +133,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   assert.deepEqual(result, { echoed: { value: "ok" }, ok: true });
 });
 
-test("ActionRuntimeServiceProvider resolves surfacesFrom from appConfig when SurfaceRuntime token is absent", async () => {
+test("ActionRuntimeServiceProvider registers SurfaceRuntime from appConfig when token is absent", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
