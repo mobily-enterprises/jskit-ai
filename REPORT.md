@@ -61,14 +61,10 @@ These are not cosmetic. Several findings are functional correctness or portabili
   - Path joining without strict containment check.
   - Indicates defensive boundary checks were skipped.
 
-5. Generated base-shell scripts contain machine-specific repo path assumptions
-- Files:
-  - `tooling/create-app/templates/base-shell/scripts/dev-bootstrap-jskit.sh`
-  - `tooling/create-app/templates/base-shell/scripts/link-local-jskit-packages.sh`
-  - `tooling/create-app/templates/base-shell/scripts/verdaccio-reset-and-publish-packages.sh`
-- Why this is a slop marker:
-  - Scaffold output encodes one developer’s local directory layout.
-  - Violates clean-checkout portability.
+5. Resolved: base-shell script portability debt in create-app generator
+- Status:
+  - Removed local bootstrap/registry scripts from generated template.
+  - Kept only clean, portable script surfaces in template output.
 
 ### Medium
 6. Large exact clones in `auth-web` across runtime/template/api layers

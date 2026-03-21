@@ -12,24 +12,6 @@ Source of truth for the end-state code shown in this chapter:
 - `docs/examples/01.create-app-end/src/server/providers/MainHelloProvider.js`
 - `docs/examples/01.create-app-end/src/shared/schemas/mainHelloSchema.js`
 
-## Developers only (ignore for now)
-
-```bash
-~/Development/current/jskit-ai/tooling/create-app/templates/base-shell/scripts/verdaccio-reset-and-publish-packages.sh
-mkdir -p manual-app
-cd manual-app
-npm_config_registry=http://127.0.0.1:4873 \
-  npm_config_cache=/tmp/jskit-npm-cache-$(date +%s) \
-  npx @jskit-ai/create-app manual-app --target .
-npm install
-npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
-npx jskit add auth-base --no-install
-cp ~/Development/DOTENV_DEV ./.env
-npm install
-scripts/link-local-jskit-packages.sh
-
-```
-
 ## Get it ready
 
 
