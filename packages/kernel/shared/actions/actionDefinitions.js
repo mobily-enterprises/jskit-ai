@@ -400,16 +400,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
-  if (Object.prototype.hasOwnProperty.call(source, "assistantTool")) {
-    throw createActionRuntimeError(
-      500,
-      `Action definition \"${id}\" assistantTool is not supported. Use extensions.assistant instead.`,
-      {
-        code: "ACTION_DEFINITION_INVALID"
-      }
-    );
-  }
-
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
   if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
     throw createActionRuntimeError(

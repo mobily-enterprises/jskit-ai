@@ -1,6 +1,6 @@
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
-import { normalizeRouteVisibility } from "../../../shared/support/visibility.js";
+import { normalizeRouteVisibilityToken } from "../../../shared/support/visibility.js";
 import { defaultApplyRoutePolicy, normalizeRoutePolicyConfig } from "../../support/routePolicyConfig.js";
 import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveActionContextContributors } from "../../actions/ActionRuntimeServiceProvider.js";
@@ -393,10 +393,10 @@ function resolveRouteVisibilityFromRequestAndPayload(request, payload = {}) {
   const routeConfig =
     request?.routeOptions?.config && typeof request.routeOptions.config === "object" ? request.routeOptions.config : null;
   if (routeConfig && Object.prototype.hasOwnProperty.call(routeConfig, "visibility")) {
-    return normalizeRouteVisibility(routeConfig.visibility);
+    return normalizeRouteVisibilityToken(routeConfig.visibility);
   }
 
-  return normalizeRouteVisibility(payload.visibility);
+  return normalizeRouteVisibilityToken(payload.visibility);
 }
 
 function attachRequestActionExecutor({

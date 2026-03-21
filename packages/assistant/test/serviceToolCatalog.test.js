@@ -473,6 +473,121 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
   assert.equal(toolSet.tools[0].outputSchema, outputSchema);
 });
 
+test("service tool catalog rejects legacy assistantTool field at assistant layer", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.service(
+    "demo.legacy_assistant.service",
+    () => ({
+      createLegacy(input = {}) {
+        return {
+          ok: Boolean(input)
+        };
+      },
+      createModern(input = {}) {
+        return {
+          ok: Boolean(input)
+        };
+      }
+    })
+  );
+
+  const schema = Object.freeze({
+    type: "object",
+    additionalProperties: false
+  });
+  const outputSchema = Object.freeze({
+    type: "object",
+    properties: {
+      ok: {
+        type: "boolean"
+      }
+    },
+    required: ["ok"],
+    additionalProperties: false
+  });
+
+  app.actions([
+    {
+      id: "demo.legacy_assistant.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["automation"],
+      surfaces: ["admin"],
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        legacyAssistantService: "demo.legacy_assistant.service"
+      },
+      inputValidator: {
+        schema
+      },
+      outputValidator: {
+        schema: outputSchema
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.legacy_assistant.create"
+      },
+      observability: {},
+      assistantTool: {
+        description: "Legacy assistant tool metadata."
+      },
+      async execute(input, _context, deps) {
+        return deps.legacyAssistantService.createLegacy(input);
+      }
+    },
+    {
+      id: "demo.modern_assistant.create",
+      domain: "demo",
+      version: 1,
+      kind: "command",
+      channels: ["automation"],
+      surfaces: ["admin"],
+      permission: {
+        require: "authenticated"
+      },
+      dependencies: {
+        legacyAssistantService: "demo.legacy_assistant.service"
+      },
+      inputValidator: {
+        schema
+      },
+      outputValidator: {
+        schema: outputSchema
+      },
+      idempotency: "optional",
+      audit: {
+        actionName: "demo.modern_assistant.create"
+      },
+      observability: {},
+      extensions: {
+        assistant: {
+          description: "Modern assistant extension metadata."
+        }
+      },
+      async execute(input, _context, deps) {
+        return deps.legacyAssistantService.createModern(input);
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipActionPrefixes: []
+  });
+  const toolSet = catalog.resolveToolSet({
+    actor: { id: 1 },
+    permissions: []
+  });
+  const actionIds = toolSet.tools.map((tool) => tool.actionId).sort();
+
+  assert.deepEqual(actionIds, ["demo.modern_assistant.create"]);
+});
+
 test("service tool catalog can require input/output schemas for tool exposure", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();

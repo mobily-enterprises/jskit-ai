@@ -131,30 +131,29 @@ test("normalizeActionExtensions keeps plain objects", () => {
   assert.equal(extensions.assistant?.description, "Update workspace settings.");
 });
 
-test("normalizeActionDefinition rejects legacy assistantTool field", () => {
-  assert.throws(
-    () =>
-      normalizeActionDefinition({
-        id: "demo.workspace.settings.update",
-        domain: "demo",
-        version: 1,
-        kind: "command",
-        channels: ["automation"],
-        surfaces: ["admin"],
-        inputValidator: {
-          schema: Type.Object({}, { additionalProperties: false })
-        },
-        outputValidator: {
-          schema: Type.Object({}, { additionalProperties: false })
-        },
-        idempotency: "none",
-        assistantTool: {
-          description: "Legacy field"
-        },
-        execute: async () => ({})
-      }),
-    /assistantTool is not supported/
-  );
+test("normalizeActionDefinition stays channel-agnostic and ignores unknown legacy fields", () => {
+  const definition = normalizeActionDefinition({
+    id: "demo.workspace.settings.update",
+    domain: "demo",
+    version: 1,
+    kind: "command",
+    channels: ["automation"],
+    surfaces: ["admin"],
+    inputValidator: {
+      schema: Type.Object({}, { additionalProperties: false })
+    },
+    outputValidator: {
+      schema: Type.Object({}, { additionalProperties: false })
+    },
+    idempotency: "none",
+    assistantTool: {
+      description: "Legacy field"
+    },
+    execute: async () => ({})
+  });
+
+  assert.equal(typeof definition, "object");
+  assert.equal(Object.prototype.hasOwnProperty.call(definition, "assistantTool"), false);
 });
 
 test("normalizeActionOutputValidator accepts section-map syntax", async () => {

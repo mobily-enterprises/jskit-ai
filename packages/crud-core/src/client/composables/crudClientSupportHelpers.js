@@ -1,5 +1,5 @@
 import { normalizeLowerText, normalizeText, normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { normalizeRouteVisibilityToken } from "@jskit-ai/kernel/shared/support/visibility";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 
 const DEFAULT_CRUD_OWNERSHIP_FILTER = "workspace";
@@ -32,7 +32,7 @@ function resolveCrudClientConfig(source = {}) {
   const namespace = requireCrudNamespace(payload.namespace, {
     context: "resolveCrudClientConfig"
   });
-  const ownershipFilter = normalizeRouteVisibility(payload.ownershipFilter, {
+  const ownershipFilter = normalizeRouteVisibilityToken(payload.ownershipFilter, {
     fallback: DEFAULT_CRUD_OWNERSHIP_FILTER
   });
   const inferredRelativePath = `/${namespace}`;

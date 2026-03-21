@@ -4,7 +4,7 @@ function createAuthRouteVisibilityResolver() {
   return Object.freeze({
     resolverId: "auth.policy.visibility",
     resolve({ visibility, context, request } = {}) {
-      if (visibility !== "user" && visibility !== "workspace_user") {
+      if (visibility !== "user") {
         return {};
       }
 

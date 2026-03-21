@@ -1,4 +1,4 @@
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { normalizeRouteVisibilityToken } from "@jskit-ai/kernel/shared/support/visibility";
 
 const USERS_ROUTE_VISIBILITY_PUBLIC = "public";
 const USERS_ROUTE_VISIBILITY_USER = "user";
@@ -14,12 +14,12 @@ const USERS_ROUTE_VISIBILITY_LEVELS = Object.freeze([
 const USERS_ROUTE_VISIBILITY_LEVEL_SET = new Set(USERS_ROUTE_VISIBILITY_LEVELS);
 
 function normalizeScopedRouteVisibility(value, { fallback = USERS_ROUTE_VISIBILITY_PUBLIC } = {}) {
-  const normalized = normalizeRouteVisibility(value, { fallback: USERS_ROUTE_VISIBILITY_PUBLIC });
+  const normalized = normalizeRouteVisibilityToken(value, { fallback: USERS_ROUTE_VISIBILITY_PUBLIC });
   if (USERS_ROUTE_VISIBILITY_LEVEL_SET.has(normalized)) {
     return normalized;
   }
 
-  const normalizedFallback = normalizeRouteVisibility(fallback, { fallback: USERS_ROUTE_VISIBILITY_PUBLIC });
+  const normalizedFallback = normalizeRouteVisibilityToken(fallback, { fallback: USERS_ROUTE_VISIBILITY_PUBLIC });
   if (USERS_ROUTE_VISIBILITY_LEVEL_SET.has(normalizedFallback)) {
     return normalizedFallback;
   }

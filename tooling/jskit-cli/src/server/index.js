@@ -64,6 +64,7 @@ const KNOWN_COMMANDS = new Set([
   "show",
   "view",
   "add",
+  "position",
   "update",
   "remove",
   "doctor",
@@ -979,6 +980,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>      Add one package to current app (catalog/app-local/installed external)\n");
+  stream.write("  position element <packageId> Re-apply positioning mutations for one installed package\n");
   stream.write("  show <id>                    Show details for bundle id or package id\n");
   stream.write("  view <id>                    Alias of show <id>\n");
   stream.write("  update package <packageId>   Re-apply one installed package\n");
@@ -4042,6 +4044,167 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
   }
 }
 
+function normalizeMutationRelativeFilePath(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/^\/+/, "");
+}
+
+function isPositioningTextMutation(value = {}) {
+  const mutation = ensureObject(value);
+  const operation = String(mutation.op || "").trim();
+  if (operation !== "append-text") {
+    return false;
+  }
+  return normalizeMutationRelativeFilePath(mutation.file) === "src/placement.js";
+}
+
+function resolvePositioningMutations(descriptorMutations = {}) {
+  const mutations = ensureObject(descriptorMutations);
+  const files = ensureArray(mutations.files).filter((mutationValue) => {
+    const normalized = normalizeFileMutationRecord(mutationValue);
+    return Boolean(normalized.toSurface);
+  });
+  const text = ensureArray(mutations.text).filter((mutationValue) => isPositioningTextMutation(mutationValue));
+  return {
+    files,
+    text
+  };
+}
+
+function cloneManagedMap(value = {}) {
+  const cloned = {};
+  for (const [key, entry] of Object.entries(ensureObject(value))) {
+    cloned[key] = {
+      ...ensureObject(entry)
+    };
+  }
+  return cloned;
+}
+
+function cloneManagedArray(value = []) {
+  return ensureArray(value).map((entry) => ({
+    ...ensureObject(entry)
+  }));
+}
+
+function resolveManagedSourceRecord(packageEntry, existingInstall = {}) {
+  const existingSource = ensureObject(existingInstall.source);
+  if (Object.keys(existingSource).length > 0) {
+    return {
+      ...existingSource
+    };
+  }
+
+  const sourceRecord = {
+    type: String(packageEntry?.sourceType || "packages-directory"),
+    ...ensureObject(packageEntry?.source)
+  };
+  if (!sourceRecord.descriptorPath && String(packageEntry?.descriptorRelativePath || "").trim()) {
+    sourceRecord.descriptorPath = String(packageEntry.descriptorRelativePath).trim();
+  }
+  return sourceRecord;
+}
+
+async function applyPackagePositioning({
+  packageEntry,
+  packageOptions,
+  appRoot,
+  lock,
+  touchedFiles
+}) {
+  const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
+  if (Object.keys(existingInstall).length < 1) {
+    throw createCliError(`Package is not installed: ${packageEntry.packageId}`);
+  }
+
+  const existingManaged = ensureObject(existingInstall.managed);
+  const existingPackageJsonManaged = ensureObject(existingManaged.packageJson);
+  const nextManaged = {
+    packageJson: {
+      dependencies: cloneManagedMap(existingPackageJsonManaged.dependencies),
+      devDependencies: cloneManagedMap(existingPackageJsonManaged.devDependencies),
+      scripts: cloneManagedMap(existingPackageJsonManaged.scripts)
+    },
+    text: cloneManagedMap(existingManaged.text),
+    vite: cloneManagedMap(existingManaged.vite),
+    files: cloneManagedArray(existingManaged.files),
+    migrations: cloneManagedArray(existingManaged.migrations)
+  };
+
+  const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
+  const packageEntryForMutations =
+    templateRoot === packageEntry.rootDir
+      ? packageEntry
+      : {
+          ...packageEntry,
+          rootDir: templateRoot
+        };
+
+  const mutations = ensureObject(packageEntry.descriptor.mutations);
+  const positioningMutations = resolvePositioningMutations(mutations);
+  const appliedManagedFiles = [];
+  const appliedManagedText = {};
+  if (positioningMutations.files.length > 0) {
+    await applyFileMutations(
+      packageEntryForMutations,
+      packageOptions,
+      appRoot,
+      positioningMutations.files,
+      appliedManagedFiles,
+      [],
+      touchedFiles
+    );
+  }
+  if (positioningMutations.text.length > 0) {
+    await applyTextMutations(
+      packageEntryForMutations,
+      appRoot,
+      positioningMutations.text,
+      packageOptions,
+      appliedManagedText,
+      touchedFiles
+    );
+  }
+
+  if (appliedManagedFiles.length > 0) {
+    const replacedPaths = new Set(
+      appliedManagedFiles
+        .map((entry) => String(ensureObject(entry).path || "").trim())
+        .filter(Boolean)
+    );
+    const retainedFiles = nextManaged.files.filter((entry) => {
+      const managedPath = String(ensureObject(entry).path || "").trim();
+      return !managedPath || !replacedPaths.has(managedPath);
+    });
+    nextManaged.files = [...retainedFiles, ...appliedManagedFiles];
+  }
+
+  if (Object.keys(appliedManagedText).length > 0) {
+    nextManaged.text = {
+      ...nextManaged.text,
+      ...appliedManagedText
+    };
+  }
+
+  const managedRecord = {
+    ...existingInstall,
+    packageId: packageEntry.packageId,
+    version: packageEntry.version,
+    source: resolveManagedSourceRecord(packageEntry, existingInstall),
+    managed: nextManaged,
+    options: {
+      ...ensureObject(packageOptions)
+    },
+    installedAt: String(existingInstall.installedAt || new Date().toISOString())
+  };
+  lock.installedPackages[packageEntry.packageId] = managedRecord;
+  return managedRecord;
+}
+
 async function applyPackageInstall({
   packageEntry,
   packageOptions,
@@ -4256,6 +4419,7 @@ const commandHandlers = createCommandHandlers({
   validatePlannedCapabilityClosure,
   resolvePackageOptions,
   applyPackageInstall,
+  applyPackagePositioning,
   adoptAppLocalPackageDependencies,
   loadAppPackageJson,
   resolveLocalPackageId,
@@ -4314,6 +4478,14 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
     }
     if (command === "add") {
       return await commandHandlers.commandAdd({
+        positional,
+        options,
+        cwd,
+        io: { stdin, stdout, stderr }
+      });
+    }
+    if (command === "position") {
+      return await commandHandlers.commandPosition({
         positional,
         options,
         cwd,

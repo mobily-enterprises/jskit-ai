@@ -1,4 +1,4 @@
-import { normalizeRouteVisibility } from "../../shared/support/visibility.js";
+import { normalizeRouteVisibilityToken } from "../../shared/support/visibility.js";
 import { isRecord } from "../../shared/support/normalize.js";
 
 function normalizeRoutePolicyConfig(routeOptions, route) {
@@ -20,7 +20,7 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
     nextConfig.surface = sourceRoute.surface;
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "visibility")) {
-    nextConfig.visibility = normalizeRouteVisibility(sourceRoute.visibility);
+    nextConfig.visibility = normalizeRouteVisibilityToken(sourceRoute.visibility);
   }
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
     nextConfig.permission = sourceRoute.permission;

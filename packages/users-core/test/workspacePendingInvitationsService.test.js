@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodeInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
+import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createService } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
 
 function createFixture({

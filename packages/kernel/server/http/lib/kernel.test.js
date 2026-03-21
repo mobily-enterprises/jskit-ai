@@ -228,7 +228,8 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
       }
 
       return {
-        userOwnerId: context?.actor?.id
+        userOwnerId: context?.actor?.id,
+        requiresActorScope: true
       };
     }
   }));
@@ -276,6 +277,123 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
   });
   assert.deepEqual(observed[0].context.requestMeta.visibilityContext, observed[0].context.visibilityContext);
   assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
+});
+
+test("registerRoutes keeps actor scope requirement for core user visibility without resolver opt-in", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const observed = [];
+
+  registerActionContextContributor(app, "test.auth.actionContextContributor", () => ({
+    contributorId: "test.auth",
+    contribute({ request }) {
+      return {
+        actor: request?.user || null
+      };
+    }
+  }));
+
+  registerRouteVisibilityResolver(app, "test.http.visibilityResolver", () => ({
+    resolverId: "test.visibility",
+    resolve({ visibility, context }) {
+      if (visibility !== "user") {
+        return {};
+      }
+
+      return {
+        userOwnerId: context?.actor?.id
+      };
+    }
+  }));
+
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return { ok: true };
+    }
+  });
+
+  registerRoutes(fastify, {
+    app,
+    routes: [
+      {
+        method: "GET",
+        path: "/visible-no-actor-scope",
+        visibility: "user",
+        handler: async (request, reply) => {
+          request.user = {
+            id: 23
+          };
+          await request.executeAction({
+            actionId: "contacts.list"
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = { id: "req-visible-no-actor-scope" };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(observed.length, 1);
+  assert.deepEqual(observed[0].context.visibilityContext, {
+    visibility: "user",
+    scopeKind: null,
+    requiresActorScope: true,
+    scopeOwnerId: null,
+    userOwnerId: 23
+  });
+  assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
+});
+
+test("registerRoutes does not infer actor scope from non-core route visibility tokens", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const observed = [];
+
+  app.instance("actionExecutor", {
+    async execute(payload) {
+      observed.push(payload);
+      return { ok: true };
+    }
+  });
+
+  registerRoutes(fastify, {
+    app,
+    routes: [
+      {
+        method: "GET",
+        path: "/scoped-visible",
+        visibility: "workspace_user",
+        handler: async (request, reply) => {
+          await request.executeAction({
+            actionId: "contacts.list"
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = { id: "req-scoped-visible" };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(observed.length, 1);
+  assert.deepEqual(observed[0].context.visibilityContext, {
+    visibility: "workspace_user",
+    scopeKind: null,
+    requiresActorScope: false,
+    scopeOwnerId: null,
+    userOwnerId: null
+  });
+  assert.equal(observed[0].context.requestMeta.routeVisibility, "workspace_user");
 });
 
 test("registerRoutes can disable request scope attachment", async () => {

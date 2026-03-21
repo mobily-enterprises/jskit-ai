@@ -1,4 +1,4 @@
-import { normalizeRouteVisibility, normalizeVisibilityContext } from "../../shared/support/visibility.js";
+import { normalizeRouteVisibility, normalizeRouteVisibilityToken, normalizeVisibilityContext } from "../../shared/support/visibility.js";
 import { normalizeText } from "../../shared/support/normalize.js";
 import { RouteRegistrationError } from "../http/lib/errors.js";
 import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
@@ -47,7 +47,8 @@ async function resolveRouteVisibilityContext({
   version = null,
   channel = "api"
 } = {}) {
-  const normalizedRouteVisibility = normalizeRouteVisibility(routeVisibility);
+  const normalizedRouteVisibility = normalizeRouteVisibilityToken(routeVisibility);
+  const normalizedCoreVisibility = normalizeRouteVisibility(normalizedRouteVisibility);
   const resolvers = resolveRouteVisibilityResolvers(resolutionScope);
   const patch = {};
 
@@ -73,10 +74,7 @@ async function resolveRouteVisibilityContext({
   return normalizeVisibilityContext({
     ...patch,
     visibility: normalizedRouteVisibility,
-    requiresActorScope:
-      patch.requiresActorScope === true ||
-      normalizedRouteVisibility === "user" ||
-      normalizedRouteVisibility === "workspace_user"
+    requiresActorScope: patch.requiresActorScope === true || normalizedCoreVisibility === "user"
   });
 }
 

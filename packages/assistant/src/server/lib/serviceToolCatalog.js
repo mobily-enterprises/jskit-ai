@@ -13,6 +13,22 @@ function normalizeAssistantExtension(value) {
   });
 }
 
+function normalizeAssistantActionExtension(action = {}) {
+  const source = action && typeof action === "object" && !Array.isArray(action) ? action : {};
+  const actionId = normalizeText(source.id);
+
+  if (Object.prototype.hasOwnProperty.call(source, "assistantTool")) {
+    throw new Error(
+      `Action definition \"${actionId || "<unknown>"}\" assistantTool is not supported. Use extensions.assistant instead.`
+    );
+  }
+
+  const extensions = source.extensions && typeof source.extensions === "object" && !Array.isArray(source.extensions)
+    ? source.extensions
+    : {};
+  return normalizeAssistantExtension(extensions.assistant);
+}
+
 function normalizeBarredEntry(value) {
   return normalizeText(value).toLowerCase();
 }
@@ -220,7 +236,9 @@ function resolveActionBackedToolEntries(scope) {
       }
 
       let normalizedAction = null;
+      let assistantExtension = null;
       try {
+        assistantExtension = normalizeAssistantActionExtension(action);
         normalizedAction = normalizeActionDefinition(action, {
           contributorDomain: action.domain
         });
@@ -228,7 +246,6 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      const assistantExtension = normalizeAssistantExtension(normalizedAction.extensions?.assistant);
       const inputSchema = normalizedAction.inputValidator?.schema || null;
       const outputSchema = normalizedAction.outputValidator?.schema || null;
       if (!inputSchema || !outputSchema) {

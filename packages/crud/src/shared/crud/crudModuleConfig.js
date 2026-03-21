@@ -1,5 +1,4 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   resolveApiBasePath
@@ -35,7 +34,7 @@ function normalizeCrudNamespace(value) {
 }
 
 function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
-  return normalizeRouteVisibility(value, { fallback });
+  return normalizeScopedRouteVisibility(value, { fallback });
 }
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {

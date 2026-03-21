@@ -202,7 +202,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.console.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"console\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append assistant console settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-console-settings-form-placement"

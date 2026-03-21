@@ -1,5 +1,22 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeOpaqueId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+
+function buildVisibilityContribution({ visibility, scopeOwnerId = 0, userOwnerId = null } = {}) {
+  const requiresActorScope = visibility === "workspace_user";
+  const contribution = {
+    scopeKind: requiresActorScope ? "workspace_user" : "workspace",
+    requiresActorScope
+  };
+
+  if (scopeOwnerId > 0) {
+    contribution.scopeOwnerId = scopeOwnerId;
+  }
+  if (requiresActorScope && userOwnerId != null) {
+    contribution.userOwnerId = userOwnerId;
+  }
+
+  return contribution;
+}
 
 function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
   if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
@@ -13,15 +30,21 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         return {};
       }
 
+      const actor = context?.actor || request?.user || null;
+      const userOwnerId = normalizeOpaqueId(actor?.id);
       const workspace =
         context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
       const scopeOwnerId = parsePositiveInteger(workspace?.id);
       if (!scopeOwnerId) {
         const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
-        const actor = context?.actor || request?.user || null;
 
         if (!workspaceSlug || !actor) {
-          return {};
+          return visibility === "workspace_user"
+            ? buildVisibilityContribution({
+                visibility,
+                userOwnerId
+              })
+            : {};
         }
 
         const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, {
@@ -29,17 +52,26 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         });
         const resolvedWorkspaceOwnerId = parsePositiveInteger(resolvedWorkspaceContext?.workspace?.id);
         if (!resolvedWorkspaceOwnerId) {
-          return {};
+          return visibility === "workspace_user"
+            ? buildVisibilityContribution({
+                visibility,
+                userOwnerId
+              })
+            : {};
         }
 
-        return {
-          scopeOwnerId: resolvedWorkspaceOwnerId
-        };
+        return buildVisibilityContribution({
+          visibility,
+          scopeOwnerId: resolvedWorkspaceOwnerId,
+          userOwnerId
+        });
       }
 
-      return {
-        scopeOwnerId
-      };
+      return buildVisibilityContribution({
+        visibility,
+        scopeOwnerId,
+        userOwnerId
+      });
     }
   });
 }

@@ -17,7 +17,7 @@ export { sortStrings, sortById } from "./sorting.js";
 export { isExternalLinkTarget, splitPathQueryHash, resolveLinkPath } from "./linkPath.js";
 export { appendQueryString } from "./queryPath.js";
 export { normalizePermissionList, hasPermission } from "./permissions.js";
-export { ROUTE_VISIBILITY_LEVELS, normalizeRouteVisibility, normalizeVisibilityContext } from "./visibility.js";
+export { ROUTE_VISIBILITY_LEVELS, normalizeRouteVisibilityToken, normalizeRouteVisibility, normalizeVisibilityContext } from "./visibility.js";
 export {
   TRANSIENT_QUERY_ERROR_STATUSES,
   MAX_TRANSIENT_QUERY_RETRIES,
