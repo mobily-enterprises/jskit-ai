@@ -553,7 +553,7 @@ test("registerHttpRuntime resolves request action default surface from appConfig
   assert.equal(observed[0].context.surface, "home");
 });
 
-test("registerRoutes defaults request action surface to public when no default is configured", async () => {
+test("registerRoutes leaves request action surface empty when no default is configured", async () => {
   const fastify = createFastifyStub();
   const app = createApplication();
   const observed = [];
@@ -587,7 +587,7 @@ test("registerRoutes defaults request action surface to public when no default i
 
   assert.equal(reply.statusCode, 200);
   assert.equal(observed.length, 1);
-  assert.equal(observed[0].context.surface, "public");
+  assert.equal(observed[0].context.surface, "");
 });
 
 test("createHttpRuntime installs API error handling when Fastify is provided", () => {

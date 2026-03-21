@@ -20,9 +20,9 @@ test("resolveAuditSurface resolves surface from pathname resolver before default
   assert.equal(resolved, "console");
 });
 
-test("resolveAuditSurface uses configured default and falls back to public", () => {
+test("resolveAuditSurface uses configured default and falls back to empty surface", () => {
   assert.equal(resolveAuditSurface("/", "", null, "home"), "home");
-  assert.equal(resolveAuditSurface("/", "", null, ""), "public");
+  assert.equal(resolveAuditSurface("/", "", null, ""), "");
 });
 
 test("buildAuditEventBase uses default surface id when request surface is missing", () => {

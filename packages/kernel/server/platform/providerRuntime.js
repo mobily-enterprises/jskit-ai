@@ -488,7 +488,7 @@ async function loadPackageProviders({ descriptorEntry }) {
 }
 
 async function createProviderRuntimeApp({
-  profile = "app",
+  profile = "",
   providers = [],
   env = {},
   logger = console,
@@ -523,7 +523,7 @@ async function createProviderRuntimeApp({
 async function createProviderRuntimeFromApp({
   appRoot,
   lockPath = ".jskit/lock.json",
-  profile = "app",
+  profile = "",
   env = {},
   logger = console,
   fastify = null

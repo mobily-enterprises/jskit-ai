@@ -1,6 +1,16 @@
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import {
+  USERS_ROUTE_VISIBILITY_LEVELS,
+  USERS_ROUTE_VISIBILITY_PUBLIC,
+  USERS_ROUTE_VISIBILITY_WORKSPACE,
+  USERS_ROUTE_VISIBILITY_WORKSPACE_USER
+} from "@jskit-ai/users-core/shared/support/usersVisibility";
 
-const USERS_OWNERSHIP_FILTER_VALUES = Object.freeze(["public", "workspace", "user", "workspace_user"]);
+const USERS_OWNERSHIP_FILTER_VALUES = USERS_ROUTE_VISIBILITY_LEVELS;
+const WORKSPACE_OWNERSHIP_FILTER_SET = new Set([
+  USERS_ROUTE_VISIBILITY_WORKSPACE,
+  USERS_ROUTE_VISIBILITY_WORKSPACE_USER
+]);
 const ACCESS_MODE_VALUES = Object.freeze(["auto", "always", "never"]);
 
 function asPlainObject(value) {
@@ -80,8 +90,8 @@ function resolveEnabled(value, context = {}) {
   return resolveEnabledRef(value);
 }
 
-function normalizeOwnershipFilter(value = "workspace") {
-  const normalized = String(value || "workspace").trim().toLowerCase();
+function normalizeOwnershipFilter(value = USERS_ROUTE_VISIBILITY_WORKSPACE) {
+  const normalized = String(value || USERS_ROUTE_VISIBILITY_WORKSPACE).trim().toLowerCase();
   if (USERS_OWNERSHIP_FILTER_VALUES.includes(normalized)) {
     return normalized;
   }
@@ -92,10 +102,13 @@ function normalizeOwnershipFilter(value = "workspace") {
 }
 
 function isWorkspaceOwnershipFilter(ownershipFilter) {
-  return ownershipFilter === "workspace" || ownershipFilter === "workspace_user";
+  return WORKSPACE_OWNERSHIP_FILTER_SET.has(ownershipFilter);
 }
 
-function resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", ownershipFilter = "workspace" } = {}) {
+function resolveQueryKey(
+  queryKeyFactory,
+  { surfaceId = "", workspaceSlug = "", ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE } = {}
+) {
   if (typeof queryKeyFactory !== "function") {
     throw new TypeError("queryKeyFactory is required.");
   }

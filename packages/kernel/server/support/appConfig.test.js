@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DEFAULT_KERNEL_SURFACE_ID,
   resolveAppConfig,
   normalizeDefaultSurfaceId,
   resolveDefaultSurfaceId
@@ -47,7 +46,7 @@ test("resolveAppConfig returns empty object for non-container values", () => {
 test("normalizeDefaultSurfaceId normalizes explicit values and fallback values", () => {
   assert.equal(normalizeDefaultSurfaceId(" HOME "), "home");
   assert.equal(normalizeDefaultSurfaceId("", { fallback: " Console " }), "console");
-  assert.equal(normalizeDefaultSurfaceId("", { fallback: "" }), DEFAULT_KERNEL_SURFACE_ID);
+  assert.equal(normalizeDefaultSurfaceId("", { fallback: "" }), "");
 });
 
 test("resolveDefaultSurfaceId prefers explicit default surface", () => {
@@ -70,7 +69,7 @@ test("resolveDefaultSurfaceId prefers explicit default surface", () => {
   assert.equal(surfaceId, "home");
 });
 
-test("resolveDefaultSurfaceId falls back to appConfig and then kernel default", () => {
+test("resolveDefaultSurfaceId falls back to appConfig and then empty default", () => {
   const fromAppConfig = resolveDefaultSurfaceId({
     has(token) {
       return token === "appConfig";
@@ -91,5 +90,5 @@ test("resolveDefaultSurfaceId falls back to appConfig and then kernel default", 
       throw new Error("make should not be called");
     }
   });
-  assert.equal(fromKernelFallback, DEFAULT_KERNEL_SURFACE_ID);
+  assert.equal(fromKernelFallback, "");
 });

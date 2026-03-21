@@ -109,3 +109,28 @@ test("resolveRuntimeProfileFromSurface maps all mode to default profile", () => 
     "admin"
   );
 });
+
+test("resolveRuntimeProfileFromSurface uses runtime default surface when default profile is not configured", () => {
+  const surfaceRuntime = {
+    SURFACE_MODE_ALL: "all",
+    DEFAULT_SURFACE_ID: "home",
+    normalizeSurfaceMode(value) {
+      const normalized = String(value || "")
+        .trim()
+        .toLowerCase();
+      if (!normalized || normalized === "all") {
+        return "all";
+      }
+      return ["home", "admin"].includes(normalized) ? normalized : "all";
+    }
+  };
+
+  assert.equal(
+    resolveRuntimeProfileFromSurface({
+      surfaceRuntime,
+      serverSurface: "all",
+      defaultProfile: "app"
+    }),
+    "home"
+  );
+});

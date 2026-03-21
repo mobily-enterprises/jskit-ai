@@ -79,13 +79,11 @@ const errorRuntime = useShellWebErrorRuntime();
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
 const workspaceMembersApiPath = computed(() =>
   usersPaths.api("/members", {
-    ownershipFilter: "workspace",
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );
 const workspaceInvitesApiPath = computed(() =>
   usersPaths.api("/invites", {
-    ownershipFilter: "workspace",
     workspaceSlug: workspaceSlugFromRoute.value
   })
 );

@@ -126,7 +126,12 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
     }
   });
 
-  return normalizeSurfaceId(resolvedSurfaceId) || normalizeSurfaceId(workspaceSurfaceIds[0]) || "app";
+  return (
+    normalizeSurfaceId(resolvedSurfaceId) ||
+    normalizeSurfaceId(workspaceSurfaceIds[0]) ||
+    normalizeSurfaceId(appConfig?.surfaceDefaultId) ||
+    ""
+  );
 }
 
 export {

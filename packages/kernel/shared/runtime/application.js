@@ -23,10 +23,8 @@ function nowMilliseconds() {
 }
 
 class Application {
-  constructor({ profile = "app", strict = true, container = null } = {}) {
-    this.profile = normalizeText(profile, {
-      fallback: "app"
-    });
+  constructor({ profile = "", strict = true, container = null } = {}) {
+    this.profile = normalizeText(profile);
     this.strict = strict !== false;
     this.container = container || createContainer({ scopeId: "app-root" });
 

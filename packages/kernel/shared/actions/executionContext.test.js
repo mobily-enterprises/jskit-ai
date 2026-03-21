@@ -32,7 +32,7 @@ test("normalizeExecutionContext keeps custom requestMeta fields", () => {
   assert.deepEqual(context.requestMeta.resolvedWorkspaceContext, resolvedWorkspaceContext);
 });
 
-test("normalizeExecutionContext defaults surface to public when missing", () => {
+test("normalizeExecutionContext leaves surface empty when missing", () => {
   const context = normalizeExecutionContext({});
-  assert.equal(context.surface, "public");
+  assert.equal(context.surface, "");
 });

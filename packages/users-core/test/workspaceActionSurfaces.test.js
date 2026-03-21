@@ -71,3 +71,15 @@ test("resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig picks a workspace surfa
 
   assert.equal(surfaceId, "app");
 });
+
+test("resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig falls back to app default when no workspace surfaces exist", () => {
+  const surfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig({
+    surfaceDefaultId: "home",
+    surfaceDefinitions: {
+      home: { id: "home", enabled: true, requiresWorkspace: false },
+      console: { id: "console", enabled: true, requiresWorkspace: false }
+    }
+  });
+
+  assert.equal(surfaceId, "home");
+});

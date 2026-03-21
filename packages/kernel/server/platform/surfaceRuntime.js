@@ -112,14 +112,21 @@ function resolveRuntimeProfileFromSurface({
 
   const normalizedSurface = surfaceRuntime.normalizeSurfaceMode(serverSurface);
   const allMode = String(surfaceRuntime.SURFACE_MODE_ALL || "all").trim().toLowerCase() || "all";
-  const fallbackProfile =
-    surfaceRuntime.normalizeSurfaceMode(defaultProfile) ||
-    surfaceRuntime.normalizeSurfaceMode(surfaceRuntime.DEFAULT_SURFACE_ID) ||
-    "public";
-  if (normalizedSurface === allMode) {
-    return fallbackProfile;
+  if (normalizedSurface !== allMode) {
+    return normalizedSurface;
   }
-  return normalizedSurface;
+
+  const normalizedDefaultProfile = surfaceRuntime.normalizeSurfaceMode(defaultProfile);
+  if (normalizedDefaultProfile && normalizedDefaultProfile !== allMode) {
+    return normalizedDefaultProfile;
+  }
+
+  const normalizedRuntimeDefaultSurface = surfaceRuntime.normalizeSurfaceMode(surfaceRuntime.DEFAULT_SURFACE_ID);
+  if (normalizedRuntimeDefaultSurface && normalizedRuntimeDefaultSurface !== allMode) {
+    return normalizedRuntimeDefaultSurface;
+  }
+
+  return "";
 }
 
 async function tryCreateProviderRuntimeFromApp(options = {}) {

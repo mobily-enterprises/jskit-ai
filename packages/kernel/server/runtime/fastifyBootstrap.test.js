@@ -165,7 +165,7 @@ test("registerRequestLoggingHooks uses configured default surface when getSurfac
   assert.equal(loggedPayload.surface, "home");
 });
 
-test("registerRequestLoggingHooks defaults surface to public when no surface default is configured", async () => {
+test("registerRequestLoggingHooks leaves surface empty when no surface default is configured", async () => {
   const fastify = createFastifyStub();
   let loggedPayload = null;
 
@@ -190,5 +190,5 @@ test("registerRequestLoggingHooks defaults surface to public when no surface def
   await fastify.hooks.onRequest(request);
   await fastify.hooks.onResponse(request, reply);
 
-  assert.equal(loggedPayload.surface, "public");
+  assert.equal(loggedPayload.surface, "");
 });

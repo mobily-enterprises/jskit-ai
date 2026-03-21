@@ -71,7 +71,7 @@ function normalizeExecutionContext(context = {}) {
     actor: normalizeActor(source.actor),
     membership: normalizeMembership(source.membership),
     permissions: normalizePermissions(source.permissions),
-    surface: normalizeLowerText(source.surface) || "public",
+    surface: normalizeLowerText(source.surface),
     channel: normalizeLowerText(source.channel) || "internal",
     requestMeta: normalizeRequestMeta(source.requestMeta),
     timeMeta: normalizeTimeMeta(source.timeMeta)

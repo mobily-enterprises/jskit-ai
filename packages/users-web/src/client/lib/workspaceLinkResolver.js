@@ -80,10 +80,11 @@ function resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = 
   }
 
   if (normalizedSurface) {
+    const defaultSurfaceId = normalizeSurfaceId(context?.surfaceConfig?.defaultSurfaceId);
     if (normalizedSurface === "console") {
       return "/console";
     }
-    if (normalizedSurface === "app") {
+    if (defaultSurfaceId && normalizedSurface === defaultSurfaceId) {
       return `/w/${normalizedWorkspaceSlug}`;
     }
     return `/w/${normalizedWorkspaceSlug}/${normalizedSurface}`;

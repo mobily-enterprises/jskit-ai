@@ -17,10 +17,12 @@ import {
   WORKSPACES_CHANGED_EVENT,
   WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
 } from "@jskit-ai/users-core/shared/events/usersEvents";
+import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
   resolveSurfaceSwitchTargetsFromPlacementContext,
   surfaceRequiresWorkspaceFromPlacementContext
 } from "../lib/workspaceSurfaceContext.js";
+import { normalizePendingInvite } from "../composables/accountSettingsRuntimeHelpers.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -50,9 +52,10 @@ const redeemInviteModel = reactive({
   decision: ""
 });
 const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", "__none__"]);
+const OWNERSHIP_PUBLIC = USERS_ROUTE_VISIBILITY_PUBLIC;
 
 const bootstrapView = useView({
-  ownershipFilter: "public",
+  ownershipFilter: OWNERSHIP_PUBLIC,
   apiSuffix: "/bootstrap",
   queryKeyFactory: () => bootstrapQueryKey,
   realtime: {
@@ -75,7 +78,7 @@ const bootstrapView = useView({
 });
 
 const redeemInviteCommand = useCommand({
-  ownershipFilter: "public",
+  ownershipFilter: OWNERSHIP_PUBLIC,
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
   fallbackRunError: "Unable to respond to invitation.",
@@ -91,7 +94,7 @@ const redeemInviteCommand = useCommand({
 });
 
 const createWorkspaceCommand = useCommand({
-  ownershipFilter: "public",
+  ownershipFilter: OWNERSHIP_PUBLIC,
   apiSuffix: "/workspaces",
   writeMethod: "POST",
   fallbackRunError: "Unable to create workspace.",
@@ -183,40 +186,6 @@ const workspaceSurfaceId = computed(() => {
   const targets = resolveSurfaceSwitchTargetsFromPlacementContext(placementContext.value, surfaceId);
   return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
 });
-
-function normalizePendingInvite(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = Number(entry.id);
-  const workspaceId = Number(entry.workspaceId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(workspaceId) || workspaceId < 1) {
-    return null;
-  }
-
-  const workspaceSlug = String(entry.workspaceSlug || "").trim();
-  if (!workspaceSlug) {
-    return null;
-  }
-
-  const token = String(entry.token || "").trim();
-  if (!token) {
-    return null;
-  }
-
-  return {
-    id,
-    token,
-    workspaceId,
-    workspaceSlug,
-    workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
-    workspaceAvatarUrl: String(entry.workspaceAvatarUrl || "").trim(),
-    roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
-    status: String(entry.status || "pending").trim().toLowerCase() || "pending",
-    expiresAt: String(entry.expiresAt || "").trim()
-  };
-}
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();

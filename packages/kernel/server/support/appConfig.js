@@ -1,8 +1,6 @@
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
-const DEFAULT_KERNEL_SURFACE_ID = "public";
-
 function resolveAppConfig(scope = null) {
   const source = scope && typeof scope === "object" ? scope : null;
   if (!source || typeof source.has !== "function" || typeof source.make !== "function") {
@@ -15,7 +13,7 @@ function resolveAppConfig(scope = null) {
   return normalizeObject(source.make("appConfig"));
 }
 
-function normalizeDefaultSurfaceId(value, { fallback = DEFAULT_KERNEL_SURFACE_ID } = {}) {
+function normalizeDefaultSurfaceId(value, { fallback = "" } = {}) {
   const normalizedValue = normalizeSurfaceId(value);
   if (normalizedValue) {
     return normalizedValue;
@@ -26,7 +24,7 @@ function normalizeDefaultSurfaceId(value, { fallback = DEFAULT_KERNEL_SURFACE_ID
     return normalizedFallback;
   }
 
-  return DEFAULT_KERNEL_SURFACE_ID;
+  return "";
 }
 
 function resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {}) {
@@ -36,4 +34,4 @@ function resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {}) {
   });
 }
 
-export { DEFAULT_KERNEL_SURFACE_ID, resolveAppConfig, normalizeDefaultSurfaceId, resolveDefaultSurfaceId };
+export { resolveAppConfig, normalizeDefaultSurfaceId, resolveDefaultSurfaceId };
