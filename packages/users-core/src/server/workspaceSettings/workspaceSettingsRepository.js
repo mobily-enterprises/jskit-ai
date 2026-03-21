@@ -5,11 +5,10 @@ import {
 } from "../common/repositories/repositoryUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
-
-function resolveWorkspaceSettingsFieldKeys() {
-  return workspaceSettingsFields.map((field) => field.key);
-}
+import {
+  workspaceSettingsFields,
+  resolveWorkspaceSettingsFieldKeys
+} from "../../shared/resources/workspaceSettingsFields.js";
 
 function resolveWorkspaceSettingsSeed(workspace = {}, { defaultInvitesEnabled = true } = {}) {
   const source = normalizeObjectInput(workspace);

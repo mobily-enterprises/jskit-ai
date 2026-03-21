@@ -1,4 +1,5 @@
 import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   normalizeRecord,
   normalizeWorkspaceBootstrapStatusValue
@@ -11,12 +12,6 @@ const WORKSPACE_ACCESS_BLOCKING_STATUSES = new Set([
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN
 ]);
-
-function normalizeSurfaceId(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 function normalizeSurfaceAccessPolicyId(value = "") {
   return String(value || "")

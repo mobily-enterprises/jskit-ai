@@ -48,8 +48,13 @@ function resetWorkspaceSettingsFields() {
   workspaceSettingsFields.splice(0, workspaceSettingsFields.length);
 }
 
+function resolveWorkspaceSettingsFieldKeys() {
+  return workspaceSettingsFields.map((field) => field.key);
+}
+
 export {
   defineField,
   resetWorkspaceSettingsFields,
+  resolveWorkspaceSettingsFieldKeys,
   workspaceSettingsFields
 };

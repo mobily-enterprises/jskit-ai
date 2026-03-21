@@ -1,4 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
+import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
@@ -19,46 +20,15 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
-function normalizeHttpOrigin(value) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(rawValue);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return "";
-    }
-    return parsed.origin;
-  } catch {
-    return "";
-  }
-}
-
 function resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {}) {
-  const resolvedOrigins = [];
-  const appPublicOrigin = normalizeHttpOrigin(appPublicUrl);
-  if (appPublicOrigin) {
-    resolvedOrigins.push(appPublicOrigin);
-  }
-
   const surfaceDefinitions =
     appConfig && typeof appConfig === "object" && appConfig.surfaceDefinitions && typeof appConfig.surfaceDefinitions === "object"
       ? appConfig.surfaceDefinitions
       : {};
-  for (const definition of Object.values(surfaceDefinitions)) {
-    if (!definition || typeof definition !== "object") {
-      continue;
-    }
-    const surfaceOrigin = normalizeHttpOrigin(definition.origin);
-    if (!surfaceOrigin || resolvedOrigins.includes(surfaceOrigin)) {
-      continue;
-    }
-    resolvedOrigins.push(surfaceOrigin);
-  }
 
-  return resolvedOrigins;
+  return resolveAllowedOriginsFromSurfaceDefinitions(surfaceDefinitions, {
+    seedOrigins: [appPublicUrl]
+  });
 }
 
 function resolveAuthProviderConfig(env) {

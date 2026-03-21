@@ -5,6 +5,7 @@ import {
   normalizeAllowedOrigins,
   normalizeHttpOrigin,
   normalizeReturnToPath,
+  resolveAllowedOriginsFromSurfaceDefinitions,
   resolveAllowedOriginsFromPlacementContext
 } from "./returnToPath.js";
 
@@ -65,6 +66,26 @@ test("normalizeReturnToPath can read first value from array payloads", () => {
     fallback: "/",
     pickFirstArrayValue: true
   }), "/dashboard");
+});
+
+test("resolveAllowedOriginsFromSurfaceDefinitions includes seed origins and surface origins", () => {
+  const origins = resolveAllowedOriginsFromSurfaceDefinitions(
+    {
+      home: { origin: "https://home.example.com" },
+      app: { origin: "https://app.example.com" },
+      duplicate: { origin: "https://home.example.com" },
+      invalid: { origin: "mailto:hello@example.com" }
+    },
+    {
+      seedOrigins: ["https://public.example.com", "https://home.example.com"]
+    }
+  );
+
+  assert.deepEqual(origins, [
+    "https://public.example.com",
+    "https://home.example.com",
+    "https://app.example.com"
+  ]);
 });
 
 test("resolveAllowedOriginsFromPlacementContext collects current and surface origins", () => {

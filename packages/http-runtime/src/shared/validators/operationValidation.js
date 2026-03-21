@@ -1,9 +1,6 @@
 import { Check, Errors } from "typebox/value";
 import { mapOperationIssues } from "./operationMessages.js";
-
-function isRecord(value) {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function defaultNormalize(value) {
   if (!isRecord(value)) {

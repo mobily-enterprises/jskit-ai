@@ -1,6 +1,4 @@
-function isRecord(value) {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeFieldErrors(value) {
   const source = isRecord(value) ? value : {};

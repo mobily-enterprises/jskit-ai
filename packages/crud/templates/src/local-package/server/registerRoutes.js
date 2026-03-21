@@ -6,7 +6,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { normalizeScopedRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { normalizeUsersRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
@@ -27,7 +27,7 @@ function registerRoutes(
   }
 
   const router = app.make(KERNEL_TOKENS.HttpRouter);
-  const routeVisibility = normalizeScopedRouteVisibility(routeOwnershipFilter, {
+  const routeVisibility = normalizeUsersRouteVisibility(routeOwnershipFilter, {
     fallback: "public"
   });
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);

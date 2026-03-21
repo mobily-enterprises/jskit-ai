@@ -1,12 +1,8 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveDefaultWorkspaceSurfaceId } from "../../shared/support/workspacePathModel.js";
 
 const CONSOLE_OWNER_ACCESS_POLICY_ID = "console_owner";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeSurfaceIds(surfaceIds = []) {
   const source = Array.isArray(surfaceIds) ? surfaceIds : [];
@@ -26,27 +22,19 @@ function normalizeSurfaceIds(surfaceIds = []) {
 }
 
 function resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {}) {
-  const source = isRecord(appConfig?.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
-  const resolved = [];
-
-  for (const [key, value] of Object.entries(source)) {
-    const definition = isRecord(value) ? value : {};
-    const surfaceId = normalizeSurfaceId(definition.id || key);
-    if (!surfaceId) {
-      continue;
-    }
-    if (definition.enabled === false) {
-      continue;
-    }
-    if (definition.requiresWorkspace === true) {
-      resolved.push(surfaceId);
-    }
-  }
-
-  return normalizeSurfaceIds(resolved);
+  return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => definition.requiresWorkspace === true);
 }
 
 function resolveConsoleSurfaceIdsFromAppConfig(appConfig = {}) {
+  return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => {
+    return (
+      definition.requiresWorkspace !== true &&
+      normalizeLowerText(definition.accessPolicyId) === CONSOLE_OWNER_ACCESS_POLICY_ID
+    );
+  });
+}
+
+function resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate) {
   const source = isRecord(appConfig?.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
   const resolved = [];
 
@@ -59,10 +47,7 @@ function resolveConsoleSurfaceIdsFromAppConfig(appConfig = {}) {
     if (definition.enabled === false) {
       continue;
     }
-    if (
-      definition.requiresWorkspace !== true &&
-      normalizeLowerText(definition.accessPolicyId) === CONSOLE_OWNER_ACCESS_POLICY_ID
-    ) {
+    if (typeof predicate === "function" && predicate(definition) === true) {
       resolved.push(surfaceId);
     }
   }

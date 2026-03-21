@@ -1,6 +1,4 @@
-function asObject(value) {
-  return value && typeof value === "object" ? value : {};
-}
+import { asObject } from "./objectUtils.js";
 
 function assertFunction(value, name) {
   if (typeof value !== "function") {

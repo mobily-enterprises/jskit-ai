@@ -1,5 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   registerDomainEventListener,
   resolveServiceRegistrations
@@ -24,14 +24,6 @@ const REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN = "runtime.realtime.domain-event-bridge
 
 const REALTIME_ROOM_ALL_CLIENTS = "clients";
 const REALTIME_ROOM_ALL_USERS = "users";
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-  return parsed;
-}
 
 function normalizeArray(value) {
   const queue = Array.isArray(value) ? [...value] : [value];
@@ -231,23 +223,23 @@ function mergeRealtimePayload(event, payloadPatch) {
 function resolveScopeWorkspaceId(scope = {}) {
   const source = scope && typeof scope === "object" && !Array.isArray(scope) ? scope : {};
   if (String(source.kind || "").trim().toLowerCase() === "workspace") {
-    return toPositiveInteger(source.id);
+    return normalizePositiveInteger(source.id);
   }
   if (String(source.kind || "").trim().toLowerCase() === "workspace_user") {
-    return toPositiveInteger(source.workspaceId || source.id);
+    return normalizePositiveInteger(source.workspaceId || source.id);
   }
-  return toPositiveInteger(source.workspaceId);
+  return normalizePositiveInteger(source.workspaceId);
 }
 
 function resolveScopeUserId(scope = {}) {
   const source = scope && typeof scope === "object" && !Array.isArray(scope) ? scope : {};
   if (String(source.kind || "").trim().toLowerCase() === "user") {
-    return toPositiveInteger(source.id);
+    return normalizePositiveInteger(source.id);
   }
   if (String(source.kind || "").trim().toLowerCase() === "workspace_user") {
-    return toPositiveInteger(source.userId);
+    return normalizePositiveInteger(source.userId);
   }
-  return toPositiveInteger(source.userId);
+  return normalizePositiveInteger(source.userId);
 }
 
 function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
@@ -267,7 +259,7 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
   }
 
   if (normalizedPreset === "actor_user") {
-    const actorId = toPositiveInteger(event?.actorId);
+    const actorId = normalizePositiveInteger(event?.actorId);
     if (actorId > 0) {
       rooms.add(roomForUser(actorId));
     }
@@ -354,23 +346,23 @@ function addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } =
     }
   }
 
-  const userId = toPositiveInteger(selection.userId);
+  const userId = normalizePositiveInteger(selection.userId);
   if (userId > 0) {
     rooms.add(roomForUser(userId));
   }
   for (const entry of normalizeArray(selection.userIds)) {
-    const normalizedUserId = toPositiveInteger(entry);
+    const normalizedUserId = normalizePositiveInteger(entry);
     if (normalizedUserId > 0) {
       rooms.add(roomForUser(normalizedUserId));
     }
   }
 
-  const workspaceId = toPositiveInteger(selection.workspaceId);
+  const workspaceId = normalizePositiveInteger(selection.workspaceId);
   if (workspaceId > 0) {
     rooms.add(roomForWorkspace(workspaceId));
   }
   for (const entry of normalizeArray(selection.workspaceIds)) {
-    const normalizedWorkspaceId = toPositiveInteger(entry);
+    const normalizedWorkspaceId = normalizePositiveInteger(entry);
     if (normalizedWorkspaceId > 0) {
       rooms.add(roomForWorkspace(normalizedWorkspaceId));
     }
@@ -378,8 +370,8 @@ function addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } =
 
   const workspaceUser = selection.workspaceUser;
   if (workspaceUser && typeof workspaceUser === "object") {
-    const targetWorkspaceId = toPositiveInteger(workspaceUser.workspaceId);
-    const targetUserId = toPositiveInteger(workspaceUser.userId);
+    const targetWorkspaceId = normalizePositiveInteger(workspaceUser.workspaceId);
+    const targetUserId = normalizePositiveInteger(workspaceUser.userId);
     if (targetWorkspaceId > 0 && targetUserId > 0) {
       rooms.add(roomForWorkspaceUser(targetWorkspaceId, targetUserId));
     }
@@ -389,8 +381,8 @@ function addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } =
     if (!entry || typeof entry !== "object") {
       continue;
     }
-    const targetWorkspaceId = toPositiveInteger(entry.workspaceId);
-    const targetUserId = toPositiveInteger(entry.userId);
+    const targetWorkspaceId = normalizePositiveInteger(entry.workspaceId);
+    const targetUserId = normalizePositiveInteger(entry.userId);
     if (targetWorkspaceId > 0 && targetUserId > 0) {
       rooms.add(roomForWorkspaceUser(targetWorkspaceId, targetUserId));
     }
@@ -401,7 +393,7 @@ function collectUserIdsFromQueryRows(rows = []) {
   const result = new Set();
   for (const row of normalizeArray(rows)) {
     if (typeof row === "number") {
-      const directId = toPositiveInteger(row);
+      const directId = normalizePositiveInteger(row);
       if (directId > 0) {
         result.add(directId);
       }
@@ -410,7 +402,7 @@ function collectUserIdsFromQueryRows(rows = []) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       continue;
     }
-    const userId = toPositiveInteger(row.userId || row.user_id || row.id);
+    const userId = normalizePositiveInteger(row.userId || row.user_id || row.id);
     if (userId > 0) {
       result.add(userId);
     }
@@ -502,7 +494,7 @@ async function resolveSocketActorId(authService, socket) {
   if (!authResult || authResult.authenticated !== true) {
     return 0;
   }
-  return toPositiveInteger(authResult?.profile?.id);
+  return normalizePositiveInteger(authResult?.profile?.id);
 }
 
 async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId) {
@@ -512,7 +504,7 @@ async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId)
 
   const workspaceIds = await workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId(actorId);
   return normalizeArray(workspaceIds)
-    .map((entry) => toPositiveInteger(entry))
+    .map((entry) => normalizePositiveInteger(entry))
     .filter((entry) => entry > 0);
 }
 

@@ -23,6 +23,76 @@ function workspaceAudienceFromEntityId({ event } = {}) {
   };
 }
 
+function actorUserEntityId({ options } = {}) {
+  return Number(options?.context?.actor?.id || 0);
+}
+
+function createActorUserEvent({ source, entity, realtimeEvent }) {
+  return {
+    type: "entity.changed",
+    source,
+    entity,
+    operation: "updated",
+    entityId: actorUserEntityId,
+    realtime: {
+      event: realtimeEvent,
+      audience: "actor_user"
+    }
+  };
+}
+
+function createWorkspaceAudienceEvent({ entity, realtimeEvent }) {
+  return {
+    type: "entity.changed",
+    source: "workspace",
+    entity,
+    operation: "updated",
+    entityId: ({ result }) => result?.workspaceId,
+    realtime: {
+      event: realtimeEvent,
+      audience: workspaceAudienceFromEntityId
+    }
+  };
+}
+
+function createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {}) {
+  const events = [
+    createActorUserEvent({
+      source: "workspace",
+      entity: "invitation",
+      realtimeEvent: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
+    }),
+    createActorUserEvent({
+      source: "users",
+      entity: "bootstrap",
+      realtimeEvent: USERS_BOOTSTRAP_CHANGED_EVENT
+    })
+  ];
+
+  if (includeDirectoryAndMembers) {
+    events.push(
+      createActorUserEvent({
+        source: "workspace",
+        entity: "directory",
+        realtimeEvent: WORKSPACES_CHANGED_EVENT
+      }),
+      createWorkspaceAudienceEvent({
+        entity: "member",
+        realtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+      })
+    );
+  }
+
+  events.push(
+    createWorkspaceAudienceEvent({
+      entity: "invite",
+      realtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT
+    })
+  );
+
+  return events;
+}
+
 function registerWorkspacePendingInvitations(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerWorkspacePendingInvitations requires application singleton()/service()/actions().");
@@ -37,98 +107,10 @@ function registerWorkspacePendingInvitations(app) {
       }),
     {
       events: deepFreeze({
-        acceptInviteByToken: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invitation",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "directory",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: WORKSPACES_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "member",
-            operation: "updated",
-            entityId: ({ result }) => result?.workspaceId,
-            realtime: {
-              event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-              audience: workspaceAudienceFromEntityId
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invite",
-            operation: "updated",
-            entityId: ({ result }) => result?.workspaceId,
-            realtime: {
-              event: WORKSPACE_INVITES_CHANGED_EVENT,
-              audience: workspaceAudienceFromEntityId
-            }
-          }
-        ],
-        refuseInviteByToken: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invitation",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invite",
-            operation: "updated",
-            entityId: ({ result }) => result?.workspaceId,
-            realtime: {
-              event: WORKSPACE_INVITES_CHANGED_EVENT,
-              audience: workspaceAudienceFromEntityId
-            }
-          }
-        ]
+        acceptInviteByToken: createInviteDecisionEvents({
+          includeDirectoryAndMembers: true
+        }),
+        refuseInviteByToken: createInviteDecisionEvents()
       })
     }
   );

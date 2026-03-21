@@ -1,9 +1,7 @@
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+
 const ERROR_CHANNELS = Object.freeze(["snackbar", "banner", "dialog", "silent"]);
 const ERROR_SEVERITIES = Object.freeze(["info", "success", "warning", "error", "critical"]);
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeText(value, fallback = "") {
   const normalized = String(value || "").trim();

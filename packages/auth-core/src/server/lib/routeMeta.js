@@ -1,3 +1,5 @@
+import { asObject } from "./objectUtils.js";
+
 const AUTH_POLICIES = Object.freeze({
   PUBLIC: "public",
   REQUIRED: "required",
@@ -20,10 +22,6 @@ const DEFAULT_AUTH_POLICY_META = Object.freeze({
   ownerResolver: null,
   csrfProtection: true
 });
-
-function asObject(value) {
-  return value && typeof value === "object" ? value : {};
-}
 
 function resolveAuthPolicyMeta(input = {}) {
   const source = asObject(input);

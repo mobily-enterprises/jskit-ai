@@ -1,11 +1,10 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
+import {
+  workspaceSettingsFields,
+  resolveWorkspaceSettingsFieldKeys
+} from "../../shared/resources/workspaceSettingsFields.js";
 import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
-
-function resolveWorkspaceSettingsFieldKeys() {
-  return workspaceSettingsFields.map((field) => field.key);
-}
 
 function createService({
   workspaceSettingsRepository,

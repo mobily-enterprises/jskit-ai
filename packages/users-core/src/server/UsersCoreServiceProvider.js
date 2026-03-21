@@ -41,16 +41,10 @@ class UsersCoreServiceProvider {
     registerCommonRepositories(app);
     registerWorkspaceCore(app);
     registerWorkspaceBootstrap(app);
-
-    if (app.make(USERS_WORKSPACE_ENABLED_TOKEN) === true) {
-      registerWorkspaceDirectory(app);
-      registerWorkspaceMembers(app);
-      registerWorkspaceSettings(app);
-
-      if (app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true) {
-        registerWorkspacePendingInvitations(app);
-      }
-    }
+    registerWorkspaceDirectory(app);
+    registerWorkspaceMembers(app);
+    registerWorkspaceSettings(app);
+    registerWorkspacePendingInvitations(app);
 
     registerAccountProfile(app);
     registerAccountPreferences(app);

@@ -1,5 +1,6 @@
 import { unref } from "vue";
 import { resolveLinkPath } from "@jskit-ai/kernel/shared";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   useWebPlacementContext,
   resolveRuntimePathname,
@@ -14,10 +15,6 @@ import {
 } from "./workspaceSurfacePaths.js";
 import { surfaceRequiresWorkspaceFromPlacementContext } from "./workspaceSurfaceContext.js";
 import { parseWorkspacePathname } from "@jskit-ai/users-core/shared/support/workspacePathModel";
-
-function normalizeSurfaceId(value = "") {
-  return String(value || "").trim().toLowerCase();
-}
 
 function resolveSurfaceBasePath(context = null, surface = "") {
   const normalizedSurface = normalizeSurfaceId(surface);

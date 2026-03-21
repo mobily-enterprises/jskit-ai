@@ -4,14 +4,11 @@ import {
   TENANCY_MODE_WORKSPACE,
   normalizeTenancyMode
 } from "./tenancyMode.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const WORKSPACE_SLUG_POLICY_NONE = "none";
 const WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME = "immutable_username";
 const WORKSPACE_SLUG_POLICY_USER_SELECTED = "user_selected";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function resolveWorkspacePolicyOverrides(appConfig = {}) {
   const tenancyPolicy = isRecord(appConfig?.tenancyPolicy) ? appConfig.tenancyPolicy : {};

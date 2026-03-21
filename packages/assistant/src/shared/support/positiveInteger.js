@@ -1,10 +1,9 @@
-function toPositiveInteger(value, fallback = 0) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
+import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 
-  return parsed;
+function toPositiveInteger(value, fallback = 0) {
+  return normalizePositiveInteger(value, {
+    fallback
+  });
 }
 
 export { toPositiveInteger };

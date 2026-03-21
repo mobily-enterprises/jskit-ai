@@ -4,6 +4,7 @@ import {
   normalizeSurfaceId,
   normalizeSurfacePagesRoot
 } from "@jskit-ai/kernel/shared/surface";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
 
@@ -13,10 +14,6 @@ const EMPTY_SURFACE_CONFIG = Object.freeze({
   enabledSurfaceIds: Object.freeze([]),
   surfacesById: Object.freeze({})
 });
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeSurfaceIdList(value) {
   if (!Array.isArray(value)) {

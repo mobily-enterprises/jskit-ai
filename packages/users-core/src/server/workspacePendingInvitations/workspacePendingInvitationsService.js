@@ -69,13 +69,31 @@ function createService({
     return workspaceInvitesRepository.listPendingByEmail(normalizedUser.email, options);
   }
 
-  async function acceptInviteByToken({ user, token } = {}, options = {}) {
+  function requireWorkspaceIdFromInvite(invite, methodName = "workspacePendingInvitationsService") {
+    const workspaceId = Number(invite?.workspaceId);
+    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+      throw new Error(`${methodName} expected invite workspace id.`);
+    }
+    return workspaceId;
+  }
+
+  async function resolveInviteActionInput(user, token, options = {}, methodName = "workspacePendingInvitationsService") {
     const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
     await revokeExpiredInviteAndThrow(resolvedInvite.invite, options);
-    const workspaceId = Number(resolvedInvite.invite.workspaceId);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-      throw new Error("workspacePendingInvitationsService.acceptInviteByToken expected invite workspace id.");
-    }
+
+    return {
+      resolvedInvite,
+      workspaceId: requireWorkspaceIdFromInvite(resolvedInvite.invite, methodName)
+    };
+  }
+
+  async function acceptInviteByToken({ user, token } = {}, options = {}) {
+    const { resolvedInvite, workspaceId } = await resolveInviteActionInput(
+      user,
+      token,
+      options,
+      "workspacePendingInvitationsService.acceptInviteByToken"
+    );
 
     await workspaceMembershipsRepository.upsertMembership(
       workspaceId,
@@ -95,12 +113,12 @@ function createService({
   }
 
   async function refuseInviteByToken({ user, token } = {}, options = {}) {
-    const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
-    await revokeExpiredInviteAndThrow(resolvedInvite.invite, options);
-    const workspaceId = Number(resolvedInvite.invite.workspaceId);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-      throw new Error("workspacePendingInvitationsService.refuseInviteByToken expected invite workspace id.");
-    }
+    const { resolvedInvite, workspaceId } = await resolveInviteActionInput(
+      user,
+      token,
+      options,
+      "workspacePendingInvitationsService.refuseInviteByToken"
+    );
     await workspaceInvitesRepository.revokeById(resolvedInvite.invite.id, options);
 
     return {

@@ -1,8 +1,5 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeMfa(source) {
   const mfaSource = isRecord(source?.mfa) ? source.mfa : {};

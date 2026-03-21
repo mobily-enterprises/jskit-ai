@@ -32,6 +32,32 @@ function normalizeAllowedOrigins(allowedOrigins = []) {
   return normalizedOrigins;
 }
 
+function appendNormalizedOrigin(origins, value) {
+  const normalizedOrigin = normalizeHttpOrigin(value);
+  if (!normalizedOrigin || origins.includes(normalizedOrigin)) {
+    return;
+  }
+  origins.push(normalizedOrigin);
+}
+
+function resolveAllowedOriginsFromSurfaceDefinitions(surfaceDefinitions = {}, { seedOrigins = [] } = {}) {
+  const resolvedOrigins = normalizeAllowedOrigins(seedOrigins);
+  const source =
+    surfaceDefinitions && typeof surfaceDefinitions === "object" && !Array.isArray(surfaceDefinitions)
+      ? surfaceDefinitions
+      : {};
+
+  for (const definition of Object.values(source)) {
+    if (!definition || typeof definition !== "object") {
+      continue;
+    }
+
+    appendNormalizedOrigin(resolvedOrigins, definition.origin);
+  }
+
+  return resolvedOrigins;
+}
+
 function normalizeBlockedPathnames(blockedPathnames = []) {
   const source = Array.isArray(blockedPathnames) ? blockedPathnames : [blockedPathnames];
   const normalizedPathnames = [];
@@ -52,13 +78,10 @@ function normalizeBlockedPathnames(blockedPathnames = []) {
 }
 
 function resolveAllowedOriginsFromPlacementContext(contextValue = null, { includeWindowOrigin = true } = {}) {
-  const resolvedOrigins = [];
+  const seedOrigins = [];
 
   if (includeWindowOrigin && typeof window === "object" && window?.location?.origin) {
-    const windowOrigin = normalizeHttpOrigin(window.location.origin);
-    if (windowOrigin) {
-      resolvedOrigins.push(windowOrigin);
-    }
+    appendNormalizedOrigin(seedOrigins, window.location.origin);
   }
 
   const surfaceConfig =
@@ -67,20 +90,9 @@ function resolveAllowedOriginsFromPlacementContext(contextValue = null, { includ
       : {};
   const surfacesById =
     surfaceConfig.surfacesById && typeof surfaceConfig.surfacesById === "object" ? surfaceConfig.surfacesById : {};
-
-  for (const surfaceDefinition of Object.values(surfacesById)) {
-    if (!surfaceDefinition || typeof surfaceDefinition !== "object") {
-      continue;
-    }
-
-    const normalizedOrigin = normalizeHttpOrigin(surfaceDefinition.origin);
-    if (!normalizedOrigin || resolvedOrigins.includes(normalizedOrigin)) {
-      continue;
-    }
-    resolvedOrigins.push(normalizedOrigin);
-  }
-
-  return resolvedOrigins;
+  return resolveAllowedOriginsFromSurfaceDefinitions(surfacesById, {
+    seedOrigins
+  });
 }
 
 function normalizeReturnToPath(
@@ -136,5 +148,6 @@ export {
   normalizeAllowedOrigins,
   normalizeHttpOrigin,
   normalizeReturnToPath,
+  resolveAllowedOriginsFromSurfaceDefinitions,
   resolveAllowedOriginsFromPlacementContext
 };

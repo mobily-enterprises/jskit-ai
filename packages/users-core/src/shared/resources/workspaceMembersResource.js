@@ -1,13 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
 import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../roles.js";
-
-function toPositiveInteger(value) {
-  const numeric = Number(value);
-  return Number.isInteger(numeric) && numeric > 0 ? numeric : 0;
-}
 
 const workspaceSummaryOutputSchema = Type.Object(
   {
@@ -191,7 +187,7 @@ const updateMemberRoleInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      memberUserId: toPositiveInteger(source.memberUserId),
+      memberUserId: normalizePositiveInteger(source.memberUserId),
       roleId: normalizeLowerText(source.roleId)
     };
   }
@@ -208,7 +204,7 @@ const removeMemberInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      memberUserId: toPositiveInteger(source.memberUserId)
+      memberUserId: normalizePositiveInteger(source.memberUserId)
     };
   }
 });
@@ -242,7 +238,7 @@ const revokeInviteInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      inviteId: toPositiveInteger(source.inviteId)
+      inviteId: normalizePositiveInteger(source.inviteId)
     };
   }
 });

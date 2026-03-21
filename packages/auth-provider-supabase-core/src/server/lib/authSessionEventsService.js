@@ -1,14 +1,8 @@
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-  return parsed;
-}
+import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createAuthSessionEventsService() {
   async function notifySessionChanged(options = {}) {
-    const actorId = toPositiveInteger(options?.context?.actor?.id);
+    const actorId = normalizePositiveInteger(options?.context?.actor?.id);
     if (!actorId) {
       return null;
     }

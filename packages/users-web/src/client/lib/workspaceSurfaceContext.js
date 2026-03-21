@@ -5,41 +5,38 @@ import {
 } from "@jskit-ai/shell-web/client/placement";
 
 function listWorkspaceSurfaceIdsFromSurfaceConfig(surfaceConfig = null) {
-  const source = surfaceConfig && typeof surfaceConfig === "object" ? surfaceConfig : {};
-  const enabledSurfaceIds = Array.isArray(source.enabledSurfaceIds) ? source.enabledSurfaceIds : [];
-  const surfacesById = source.surfacesById && typeof source.surfacesById === "object" ? source.surfacesById : {};
-
-  const workspaceSurfaceIds = [];
-  for (const candidate of enabledSurfaceIds) {
-    const surfaceId = normalizeSurfaceId(candidate);
-    if (!surfaceId) {
-      continue;
-    }
-    if (surfacesById[surfaceId]?.requiresWorkspace !== true) {
-      continue;
-    }
-    workspaceSurfaceIds.push(surfaceId);
-  }
-  return workspaceSurfaceIds;
+  return listSurfaceIdsFromSurfaceConfig(surfaceConfig, {
+    requiresWorkspace: true
+  });
 }
 
 function listNonWorkspaceSurfaceIdsFromSurfaceConfig(surfaceConfig = null) {
+  return listSurfaceIdsFromSurfaceConfig(surfaceConfig, {
+    requiresWorkspace: false
+  });
+}
+
+function listSurfaceIdsFromSurfaceConfig(surfaceConfig = null, { requiresWorkspace = null } = {}) {
   const source = surfaceConfig && typeof surfaceConfig === "object" ? surfaceConfig : {};
   const enabledSurfaceIds = Array.isArray(source.enabledSurfaceIds) ? source.enabledSurfaceIds : [];
   const surfacesById = source.surfacesById && typeof source.surfacesById === "object" ? source.surfacesById : {};
 
-  const nonWorkspaceSurfaceIds = [];
+  const result = [];
   for (const candidate of enabledSurfaceIds) {
     const surfaceId = normalizeSurfaceId(candidate);
     if (!surfaceId) {
       continue;
     }
-    if (surfacesById[surfaceId]?.requiresWorkspace === true) {
+    const surfaceRequiresWorkspace = surfacesById[surfaceId]?.requiresWorkspace === true;
+    if (requiresWorkspace === true && !surfaceRequiresWorkspace) {
       continue;
     }
-    nonWorkspaceSurfaceIds.push(surfaceId);
+    if (requiresWorkspace === false && surfaceRequiresWorkspace) {
+      continue;
+    }
+    result.push(surfaceId);
   }
-  return nonWorkspaceSurfaceIds;
+  return result;
 }
 
 function surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "") {

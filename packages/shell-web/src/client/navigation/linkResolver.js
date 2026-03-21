@@ -1,14 +1,11 @@
 import { unref } from "vue";
 import { resolveLinkPath, normalizePathname } from "@jskit-ai/kernel/shared";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { useWebPlacementContext } from "../placement/inject.js";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext
 } from "../placement/surfaceContext.js";
-
-function normalizeSurfaceId(value = "") {
-  return String(value || "").trim().toLowerCase();
-}
 
 function normalizeParamsMap(params = null) {
   if (!params || typeof params !== "object" || Array.isArray(params)) {
