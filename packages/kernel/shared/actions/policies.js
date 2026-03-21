@@ -2,7 +2,7 @@ import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 import { hasPermission, normalizePermissionList } from "../support/permissions.js";
-import { normalizePositiveInteger } from "../support/normalize.js";
+import { normalizeOpaqueId } from "../support/normalize.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -60,8 +60,8 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const actorId = normalizePositiveInteger(context?.actor?.id);
-  if (actorId < 1) {
+  const actorId = normalizeOpaqueId(context?.actor?.id);
+  if (actorId == null) {
     throw createActionRuntimeError(401, permission.message || "Authentication required.", {
       code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",
       details: {

@@ -12,19 +12,25 @@ test("normalizeRouteVisibility normalizes non-empty visibility tokens", () => {
 test("normalizeVisibilityContext normalizes mode and owner identifiers", () => {
   assert.deepEqual(normalizeVisibilityContext({ visibility: "user", userOwnerId: "7" }), {
     visibility: "user",
+    scopeKind: null,
+    requiresActorScope: false,
     scopeOwnerId: null,
-    userOwnerId: 7
+    userOwnerId: "7"
   });
 
   assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace_user", scopeOwnerId: "4", userOwnerId: 9 }), {
     visibility: "workspace_user",
-    scopeOwnerId: 4,
+    scopeKind: null,
+    requiresActorScope: false,
+    scopeOwnerId: "4",
     userOwnerId: 9
   });
 
   assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace", scopeOwnerId: "0" }), {
     visibility: "workspace",
-    scopeOwnerId: null,
+    scopeKind: null,
+    requiresActorScope: false,
+    scopeOwnerId: "0",
     userOwnerId: null
   });
 });

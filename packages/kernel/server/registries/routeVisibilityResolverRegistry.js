@@ -72,7 +72,11 @@ async function resolveRouteVisibilityContext({
 
   return normalizeVisibilityContext({
     ...patch,
-    visibility: normalizedRouteVisibility
+    visibility: normalizedRouteVisibility,
+    requiresActorScope:
+      patch.requiresActorScope === true ||
+      normalizedRouteVisibility === "user" ||
+      normalizedRouteVisibility === "workspace_user"
   });
 }
 

@@ -1,4 +1,4 @@
-import { createApplication } from "../server/kernel/lib/application.js";
+import { createApplication } from "../shared/runtime/application.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
 

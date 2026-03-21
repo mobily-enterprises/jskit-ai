@@ -1,6 +1,6 @@
-import { Application, createApplication, createProviderClass } from "./lib/application.js";
-import { ServiceProvider } from "./lib/serviceProvider.js";
-import * as errors from "./lib/errors.js";
+import { Application, createApplication, createProviderClass } from "../../shared/runtime/application.js";
+import { ServiceProvider } from "../../shared/runtime/serviceProvider.js";
+import * as errors from "../../shared/runtime/kernelErrors.js";
 
 const KERNEL_CORE_API = Object.freeze({
   Application,

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { usePaths } from "../composables/usePaths.js";
 import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
+import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 
 const props = defineProps({
   label: {
@@ -65,6 +66,14 @@ const resolvedTo = computed(() => {
     mode: "auto"
   });
 });
+
+const resolvedIcon = computed(() =>
+  resolveMenuLinkIcon({
+    icon: props.icon,
+    label: props.label,
+    to: resolvedTo.value
+  })
+);
 </script>
 
 <template>
@@ -72,7 +81,7 @@ const resolvedTo = computed(() => {
     v-if="resolvedTo"
     :title="props.label"
     :to="resolvedTo"
-    :prepend-icon="props.icon"
+    :prepend-icon="resolvedIcon || undefined"
     :disabled="props.disabled"
   />
 </template>

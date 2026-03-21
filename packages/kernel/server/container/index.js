@@ -1,4 +1,4 @@
-export { Container, createContainer, tokenLabel } from "./lib/container.js";
+export { Container, createContainer, tokenLabel } from "../../shared/runtime/container.js";
 export {
   ContainerError,
   InvalidTokenError,
@@ -6,5 +6,5 @@ export {
   DuplicateBindingError,
   UnresolvedTokenError,
   CircularDependencyError
-} from "./lib/errors.js";
+} from "../../shared/runtime/containerErrors.js";
 export { ContainerCoreServiceProvider } from "./ContainerCoreServiceProvider.js";

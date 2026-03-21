@@ -78,3 +78,66 @@ test("entity change publisher infers scoped owner from service context when visi
   assert.deepEqual(payload?.scope, { kind: "workspace", id: 23 });
   assert.equal(published.length, 1);
 });
+
+test("entity change publisher supports opaque actor and scope identifiers", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "workspace",
+    entity: "settings"
+  });
+
+  const payload = await publishEntityChange("updated", 11, {
+    context: {
+      actor: { id: "user_17" },
+      visibilityContext: {
+        scopeKind: "workspace_user",
+        scopeOwnerId: "workspace_23",
+        requiresActorScope: true
+      }
+    }
+  });
+
+  assert.deepEqual(payload?.scope, {
+    kind: "workspace_user",
+    id: "workspace_23",
+    scopeId: "workspace_23",
+    userId: "user_17"
+  });
+  assert.equal(payload?.actorId, "user_17");
+  assert.equal(published.length, 1);
+});
+
+test("entity change publisher does not infer actor scope from scope kind suffix", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "workspace",
+    entity: "settings"
+  });
+
+  const payload = await publishEntityChange("updated", 11, {
+    context: {
+      visibilityContext: {
+        scopeKind: "workspace_user",
+        scopeOwnerId: "workspace_23",
+        requiresActorScope: false
+      }
+    }
+  });
+
+  assert.deepEqual(payload?.scope, {
+    kind: "workspace_user",
+    id: "workspace_23"
+  });
+  assert.equal(payload?.actorId, null);
+  assert.equal(published.length, 1);
+});

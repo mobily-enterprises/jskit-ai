@@ -54,6 +54,27 @@ function normalizePositiveInteger(value, { fallback = 0 } = {}) {
   return numeric;
 }
 
+function normalizeOpaqueId(value, { fallback = null } = {}) {
+  if (value == null) {
+    return fallback;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized || fallback;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  if (typeof value === "bigint") {
+    return String(value);
+  }
+
+  return fallback;
+}
+
 function normalizeOneOf(value, allowedValues = [], fallback = "") {
   const normalized = normalizeText(value).toLowerCase();
   const supported = Array.isArray(allowedValues)
@@ -89,6 +110,7 @@ export {
   normalizeArray,
   normalizeInteger,
   normalizePositiveInteger,
+  normalizeOpaqueId,
   normalizeOneOf,
   ensureNonEmptyText
 };

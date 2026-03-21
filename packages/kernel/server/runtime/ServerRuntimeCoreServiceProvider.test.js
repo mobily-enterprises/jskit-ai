@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createContainer } from "../container/lib/container.js";
+import { createContainer } from "../container/index.js";
 import { registerDomainEventListener } from "../registries/domainEventListenerRegistry.js";
 import { ServerRuntimeCoreServiceProvider } from "./ServerRuntimeCoreServiceProvider.js";
 

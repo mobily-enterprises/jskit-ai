@@ -1,4 +1,4 @@
-import { normalizeObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
 import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
 
@@ -42,9 +42,9 @@ function normalizeRequireAuthOptions(options = {}, { context = "requireAuth opti
 
 function requireAuthenticatedActor(context = {}, options = {}) {
   const actor = normalizeObject(context.actor);
-  const actorId = normalizePositiveInteger(actor.id);
+  const actorId = normalizeOpaqueId(actor.id);
 
-  if (actorId < 1) {
+  if (actorId == null) {
     throw new AppError(401, options.message || "Authentication required.", {
       code: options.code || "AUTHENTICATION_REQUIRED"
     });

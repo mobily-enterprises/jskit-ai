@@ -27,6 +27,18 @@ test("requireAuth accepts actor context", () => {
   assert.equal(actor.id, 7);
 });
 
+test("requireAuth accepts non-numeric actor ids", () => {
+  const actor = requireAuth({
+    context: {
+      actor: {
+        id: "user-7"
+      }
+    }
+  });
+
+  assert.equal(actor.id, "user-7");
+});
+
 test("requireAuth throws when actor is missing", () => {
   assert.throws(
     () => requireAuth({ context: {} }),

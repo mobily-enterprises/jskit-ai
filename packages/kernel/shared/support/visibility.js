@@ -1,4 +1,4 @@
-import { normalizeText } from "./normalize.js";
+import { normalizeOpaqueId, normalizeText } from "./normalize.js";
 
 const ROUTE_VISIBILITY_LEVELS = Object.freeze(["public", "user"]);
 const ROUTE_VISIBILITY_LEVEL_SET = new Set(ROUTE_VISIBILITY_LEVELS);
@@ -17,22 +17,22 @@ function normalizeRouteVisibility(value, { fallback = "public" } = {}) {
   return "public";
 }
 
-function normalizeOwnerId(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return null;
-  }
-
-  return parsed;
+function normalizeScopeKind(value) {
+  const normalized = normalizeText(value).toLowerCase();
+  return normalized || null;
 }
 
 function normalizeVisibilityContext(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const normalizedVisibility = normalizeRouteVisibility(source.visibility);
+  const normalizedScopeKind = normalizeScopeKind(source.scopeKind);
 
   return Object.freeze({
-    visibility: normalizeRouteVisibility(source.visibility),
-    scopeOwnerId: normalizeOwnerId(source.scopeOwnerId),
-    userOwnerId: normalizeOwnerId(source.userOwnerId)
+    visibility: normalizedVisibility,
+    scopeKind: normalizedScopeKind,
+    requiresActorScope: source.requiresActorScope === true,
+    scopeOwnerId: normalizeOpaqueId(source.scopeOwnerId),
+    userOwnerId: normalizeOpaqueId(source.userOwnerId)
   });
 }
 

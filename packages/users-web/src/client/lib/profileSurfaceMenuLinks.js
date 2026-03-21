@@ -8,6 +8,7 @@ import {
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
 } from "./workspaceSurfacePaths.js";
+import { resolveSurfaceSwitchIcon } from "./menuIcons.js";
 
 function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {
   const context = contextValue && typeof contextValue === "object" ? contextValue : {};
@@ -99,6 +100,7 @@ function resolveSurfaceSwitchLinks({ context, surface } = {}) {
     links.push({
       id: `surface-switch.${targetSurfaceId}`,
       label: resolveSurfaceSwitchLinkLabel(targetSurface, targetSurfaceId),
+      icon: resolveSurfaceSwitchIcon(targetSurfaceId, targetSurface?.icon),
       to: resolveWorkspaceShellLinkPath({
         context: source,
         surface: targetSurfaceId,

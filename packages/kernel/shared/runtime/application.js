@@ -1,12 +1,12 @@
-import { createContainer } from "../../container/index.js";
+import { createContainer } from "./container.js";
 import {
   DuplicateProviderError,
   ProviderDependencyError,
   ProviderLifecycleError,
   ProviderNormalizationError
-} from "./errors.js";
+} from "./kernelErrors.js";
 import { ServiceProvider } from "./serviceProvider.js";
-import { normalizeText } from "../../../shared/support/normalize.js";
+import { normalizeText } from "../support/normalize.js";
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) {

@@ -7,6 +7,7 @@ export {
   normalizeArray,
   normalizeInteger,
   normalizePositiveInteger,
+  normalizeOpaqueId,
   normalizeOneOf,
   ensureNonEmptyText
 } from "./normalize.js";

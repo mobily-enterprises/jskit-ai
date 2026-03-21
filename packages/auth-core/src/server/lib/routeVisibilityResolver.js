@@ -1,11 +1,4 @@
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return null;
-  }
-
-  return parsed;
-}
+import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createAuthRouteVisibilityResolver() {
   return Object.freeze({
@@ -16,13 +9,14 @@ function createAuthRouteVisibilityResolver() {
       }
 
       const actor = context?.actor || request?.user || null;
-      const userOwnerId = toPositiveInteger(actor?.id);
-      if (!userOwnerId) {
+      const userOwnerId = normalizeOpaqueId(actor?.id);
+      if (userOwnerId == null) {
         return {};
       }
 
       return {
-        userOwnerId
+        userOwnerId,
+        requiresActorScope: true
       };
     }
   });

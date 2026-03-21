@@ -1,11 +1,11 @@
-import { normalizeObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizeOpaqueId, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
 import { resolveServiceContext } from "./serviceAuthorization.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
 function resolveContextUserOwnerId(context = {}) {
   const actor = context?.actor || context?.user || context?.request?.user;
-  return normalizePositiveInteger(actor?.id);
+  return normalizeOpaqueId(actor?.id);
 }
 
 function resolveContextScope(context = {}) {
@@ -21,8 +21,8 @@ function resolveContextScope(context = {}) {
     };
   }
 
-  const scopeId = normalizePositiveInteger(sourceScope.id);
-  if (scopeId < 1) {
+  const scopeId = normalizeOpaqueId(sourceScope.id);
+  if (scopeId == null) {
     return null;
   }
 
@@ -31,13 +31,13 @@ function resolveContextScope(context = {}) {
     id: scopeId
   };
 
-  const scopeUserId = normalizePositiveInteger(sourceScope.userId);
-  if (scopeUserId > 0) {
+  const scopeUserId = normalizeOpaqueId(sourceScope.userId);
+  if (scopeUserId != null) {
     resolvedScope.userId = scopeUserId;
   }
 
-  const scopedScopeId = normalizePositiveInteger(sourceScope.scopeId);
-  if (scopedScopeId > 0) {
+  const scopedScopeId = normalizeOpaqueId(sourceScope.scopeId);
+  if (scopedScopeId != null) {
     resolvedScope.scopeId = scopedScopeId;
   }
 
@@ -47,21 +47,20 @@ function resolveContextScope(context = {}) {
 function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
   const visibility = normalizeText(visibilityContext.visibility).toLowerCase();
   const scopeKind = normalizeText(visibilityContext.scopeKind || visibility).toLowerCase();
-  const scopeOwnerId = normalizePositiveInteger(visibilityContext.scopeOwnerId);
-  const userOwnerId =
-    normalizePositiveInteger(visibilityContext.userOwnerId) || resolveContextUserOwnerId(runtimeContext);
+  const scopeOwnerId = normalizeOpaqueId(visibilityContext.scopeOwnerId);
+  const userOwnerId = normalizeOpaqueId(visibilityContext.userOwnerId) ?? resolveContextUserOwnerId(runtimeContext);
+  const requiresActorScope = visibilityContext.requiresActorScope === true;
 
-  const requiresScopedUser = scopeKind.endsWith("_user");
-  if (requiresScopedUser && userOwnerId < 1) {
+  if (requiresActorScope && userOwnerId == null) {
     return null;
   }
 
-  if (scopeKind && scopeOwnerId > 0) {
+  if (scopeKind && scopeOwnerId != null) {
     const scope = {
       kind: scopeKind,
       id: scopeOwnerId
     };
-    if (requiresScopedUser) {
+    if (requiresActorScope) {
       scope.scopeId = scopeOwnerId;
       scope.userId = userOwnerId;
     }
@@ -71,21 +70,14 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
     return null;
   }
 
-  if (!scopeKind && scopeOwnerId > 0) {
+  if (!scopeKind && scopeOwnerId != null) {
     return {
       kind: "scope",
       id: scopeOwnerId
     };
   }
 
-  if (userOwnerId > 0) {
-    return {
-      kind: "user",
-      id: userOwnerId
-    };
-  }
-
-  if (userOwnerId > 0) {
+  if (userOwnerId != null) {
     return {
       kind: "user",
       id: userOwnerId
@@ -109,7 +101,7 @@ function resolveDefaultScope(visibilityContext = {}, runtime = {}) {
   }
 
   const userOwnerId = resolveContextUserOwnerId(runtimeContext);
-  if (userOwnerId > 0) {
+  if (userOwnerId != null) {
     return {
       kind: "user",
       id: userOwnerId
@@ -175,7 +167,7 @@ function createEntityChangePublisher({
       operation: normalizedOperation,
       entityId: normalizedEntityId,
       scope: scope && typeof scope === "object" ? scope : resolveDefaultScope(visibilityContext),
-      actorId: normalizePositiveInteger(context?.actor?.id) || null,
+      actorId: normalizeOpaqueId(context?.actor?.id),
       commandId: resolveCommandId(requestMeta),
       sourceClientId: resolveSourceClientId(requestMeta),
       occurredAt: new Date().toISOString()

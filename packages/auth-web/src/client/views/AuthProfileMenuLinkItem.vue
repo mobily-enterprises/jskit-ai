@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { mdiCogOutline, mdiLogin, mdiLogout } from "@mdi/js";
 import {
   useWebPlacementContext,
   resolveSurfaceNavigationTargetFromPlacementContext
@@ -38,6 +39,35 @@ const resolvedNavigationTarget = computed(() => {
     sameOrigin: navigationTarget.sameOrigin
   };
 });
+
+const resolvedIcon = computed(() => {
+  const explicitIcon = String(props.icon || "").trim();
+  if (explicitIcon) {
+    return explicitIcon;
+  }
+
+  const normalizedLabel = String(props.label || "").trim().toLowerCase();
+  const normalizedTarget = String(props.to || "").trim().toLowerCase();
+  if (
+    normalizedLabel.includes("sign in") ||
+    normalizedTarget.includes("/auth/login")
+  ) {
+    return mdiLogin;
+  }
+
+  if (
+    normalizedLabel.includes("sign out") ||
+    normalizedTarget.includes("/auth/signout")
+  ) {
+    return mdiLogout;
+  }
+
+  if (normalizedLabel.includes("settings") || normalizedTarget.includes("/settings")) {
+    return mdiCogOutline;
+  }
+
+  return "";
+});
 </script>
 
 <template>
@@ -45,6 +75,6 @@ const resolvedNavigationTarget = computed(() => {
     :title="props.label || undefined"
     :to="resolvedNavigationTarget.sameOrigin ? resolvedNavigationTarget.href || undefined : undefined"
     :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href || undefined"
-    :prepend-icon="props.icon || undefined"
+    :prepend-icon="resolvedIcon || undefined"
   />
 </template>

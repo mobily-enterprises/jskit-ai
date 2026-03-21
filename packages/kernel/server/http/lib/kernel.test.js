@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { registerActionContextContributor } from "../../actions/ActionRuntimeServiceProvider.js";
-import { createApplication } from "../../kernel/lib/index.js";
+import { createApplication } from "../../kernel/index.js";
 import { createRouter } from "./router.js";
 import { createHttpRuntime, registerHttpRuntime, registerRoutes } from "./kernel.js";
 import { registerRouteVisibilityResolver } from "../../registries/routeVisibilityResolverRegistry.js";
@@ -269,6 +269,8 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
   assert.equal(observed.length, 1);
   assert.deepEqual(observed[0].context.visibilityContext, {
     visibility: "user",
+    scopeKind: null,
+    requiresActorScope: true,
     scopeOwnerId: null,
     userOwnerId: 23
   });

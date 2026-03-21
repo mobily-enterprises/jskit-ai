@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizeOpaqueId,
   normalizePositiveInteger,
   normalizeOneOf,
   normalizeQueryToken
@@ -35,4 +36,13 @@ test("normalizePositiveInteger normalizes valid integers and applies fallback", 
     }),
     null
   );
+});
+
+test("normalizeOpaqueId preserves opaque identifiers", () => {
+  assert.equal(normalizeOpaqueId("  user-123  "), "user-123");
+  assert.equal(normalizeOpaqueId(7), 7);
+  assert.equal(normalizeOpaqueId(0), 0);
+  assert.equal(normalizeOpaqueId(10n), "10");
+  assert.equal(normalizeOpaqueId(""), null);
+  assert.equal(normalizeOpaqueId(null), null);
 });

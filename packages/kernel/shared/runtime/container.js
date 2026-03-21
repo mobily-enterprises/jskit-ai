@@ -4,7 +4,7 @@ import {
   InvalidFactoryError,
   InvalidTokenError,
   UnresolvedTokenError
-} from "./errors.js";
+} from "./containerErrors.js";
 
 const LIFETIME_TRANSIENT = "transient";
 const LIFETIME_SINGLETON = "singleton";

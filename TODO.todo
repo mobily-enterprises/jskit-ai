@@ -123,8 +123,10 @@ jskit add package @jskit-ai/crud --namespace badcase --surface console --visibil
 
 THEN:
   
-  - Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
+  X Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   - Re-add icons
+
+
   - cli: offer help for package paramters
 
 
@@ -293,3 +295,26 @@ Task:
          - residual risks/testing gaps
 
 ```
+
+
+
+  3. Medium: Significant duplicated descriptor/runtime discovery logic across client and server paths.
+     packages/kernel/client/vite/clientBootstrapPlugin.js:107, packages/kernel/server/platform/providerRuntime.js:105, packages/kernel/client/vite/
+     clientBootstrapPlugin.js:24, packages/kernel/server/platform/providerRuntime.js:52.
+     Same responsibilities are implemented twice (descriptor path resolution, sorted-unique helpers), which is classic drift risk.
+  4. Medium: Public API surface is broader than real module usage, with many deep/internal entrypoints exported.
+     packages/kernel/package.json:11, packages/kernel/package.json:20, packages/kernel/package.json:35.
+     From repo usage scan: 40 export keys declared; only 23 are used by src/templates (17 unused there, 13 still unused even including tests). Wildcard deep
+     exports are the main overexposure source.
+  5. Medium: Non-general utilities are owned by kernel but are module-specific.
+     packages/kernel/server/runtime/storagePaths.js:3, packages/storage-runtime/src/server/storageBinding.js:6, packages/kernel/shared/actions/
+     realtimePublish.js:35, packages/kernel/shared/actions/actionContributorHelpers.js:16.
+     Recommendations:
+  6. Move resolveFsBasePath to storage-runtime (only consumer is storage-runtime).
+  7. Move realtime publish adapter logic to realtime (or drop until used).
+  8. Split actionContributorHelpers: keep generic helpers in kernel, move resolveUser policy to users-core/auth layer.
+  9. Low: Clear slop/repetition remains.
+     packages/kernel/server/runtime/entityChangeEvents.js:81, packages/kernel/server/runtime/entityChangeEvents.js:88, packages/kernel/client/
+     moduleBootstrap.js:44, packages/kernel/client/shellBootstrap.js:58, packages/kernel/server/actions/ActionRuntimeServiceProvider.js:36, packages/kernel/
+     server/registries/primitives.js:1.
+     There is duplicated/unreachable code and repeated helper logic instead of reusing existing primitives.

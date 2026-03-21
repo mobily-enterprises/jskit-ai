@@ -8,6 +8,7 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
+import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 
 const props = defineProps({
   label: {
@@ -118,6 +119,14 @@ const resolvedNavigationTarget = computed(() => {
     sameOrigin: navigationTarget.sameOrigin
   };
 });
+
+const resolvedIcon = computed(() =>
+  resolveMenuLinkIcon({
+    icon: props.icon,
+    label: props.label,
+    to: resolvedTo.value
+  })
+);
 </script>
 
 <template>
@@ -125,7 +134,7 @@ const resolvedNavigationTarget = computed(() => {
     :title="props.label"
     :to="resolvedNavigationTarget.sameOrigin ? resolvedNavigationTarget.href : undefined"
     :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href"
-    :prepend-icon="props.icon"
+    :prepend-icon="resolvedIcon || undefined"
     :disabled="props.disabled"
   />
 </template>

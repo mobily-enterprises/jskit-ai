@@ -1,5 +1,5 @@
-import { Container, createContainer, tokenLabel } from "./lib/container.js";
-import * as containerErrors from "./lib/errors.js";
+import { Container, createContainer, tokenLabel } from "../../shared/runtime/container.js";
+import * as containerErrors from "../../shared/runtime/containerErrors.js";
 
 const CONTAINER_CORE_API = Object.freeze({
   Container,
