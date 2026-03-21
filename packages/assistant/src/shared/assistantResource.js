@@ -4,6 +4,7 @@ import {
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeConversationStatus } from "./support/conversationStatus.js";
 import { toPositiveInteger } from "./support/positiveInteger.js";
 
 const MAX_INPUT_CHARS = 8000;
@@ -14,15 +15,6 @@ const MAX_MESSAGE_PAGE_SIZE = 500;
 function normalizePaginationValue(value, fallback, max) {
   const parsed = toPositiveInteger(value, fallback);
   return Math.max(1, Math.min(max, parsed));
-}
-
-function normalizeConversationStatus(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "active" || normalized === "completed" || normalized === "failed" || normalized === "aborted") {
-    return normalized;
-  }
-
-  return "";
 }
 
 function normalizeChatStreamBody(payload = {}) {
@@ -72,7 +64,9 @@ function normalizeChatStreamBody(payload = {}) {
 
 function normalizeConversationsListQuery(payload = {}) {
   const source = normalizeObjectInput(payload);
-  const status = normalizeConversationStatus(source.status);
+  const status = normalizeConversationStatus(source.status, {
+    fallback: ""
+  });
   const normalized = {};
 
   if (Object.hasOwn(source, "cursor")) {

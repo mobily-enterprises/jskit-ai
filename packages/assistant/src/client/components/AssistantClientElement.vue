@@ -251,6 +251,7 @@ import {
   normalizeText,
   normalizeOneOf
 } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeConversationStatus as normalizeAssistantConversationStatus } from "../../shared/support/conversationStatus.js";
 import { renderMarkdownToSafeHtml } from "../lib/markdownRenderer.js";
 
 const DEFAULT_COPY = Object.freeze({
@@ -427,7 +428,9 @@ function normalizeConversationStatus(value) {
   if (typeof normalizer === "function") {
     return normalizer(value);
   }
-  return normalizeText(value).toLowerCase() || "unknown";
+  return normalizeAssistantConversationStatus(value, {
+    fallback: "unknown"
+  });
 }
 
 const viewer = computed(() => {

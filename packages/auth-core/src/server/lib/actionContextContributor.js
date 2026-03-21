@@ -1,16 +1,12 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-
-function normalizePermissions(value) {
-  const source = Array.isArray(value) ? value : [];
-  return source.map((entry) => normalizeText(entry)).filter(Boolean);
-}
+import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 
 function createAuthActionContextContributor() {
   return Object.freeze({
     contributorId: "auth.policy.request-context",
     contribute({ request } = {}) {
       const contribution = {};
-      const permissions = normalizePermissions(request?.permissions);
+      const permissions = normalizePermissionList(request?.permissions);
 
       if (request?.user) {
         contribution.actor = request.user;

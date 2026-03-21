@@ -1,4 +1,5 @@
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import { normalizePermissionList } from "@jskit-ai/kernel/shared/support";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
   USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -21,12 +22,7 @@ function asPlainObject(value) {
 }
 
 function normalizePermissions(value) {
-  if (Array.isArray(value)) {
-    return value.map((entry) => String(entry || "").trim()).filter(Boolean);
-  }
-
-  const one = String(value || "").trim();
-  return one ? [one] : [];
+  return normalizePermissionList(value);
 }
 
 function resolvePermissionAccess(access, normalizedPermissions = []) {

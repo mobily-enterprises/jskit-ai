@@ -61,10 +61,6 @@ function createShellWebQueryClient() {
   });
 }
 
-function createProviderLogger(app) {
-  return createSharedProviderLogger(isRecord(app) ? app : null);
-}
-
 function isMissingDynamicModule(error, moduleSpecifier) {
   const message = String(error?.message || error || "");
   return (
@@ -256,7 +252,7 @@ class ShellWebClientProvider {
       throw new Error("ShellWebClientProvider requires application singleton().");
     }
 
-    const logger = createProviderLogger(app);
+    const logger = createSharedProviderLogger(isRecord(app) ? app : null);
     app.singleton(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
     app.singleton(SHELL_WEB_QUERY_CLIENT_TOKEN, () => createShellWebQueryClient());
     app.singleton(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN, () => createErrorPresentationStore());
@@ -277,7 +273,7 @@ class ShellWebClientProvider {
       throw new Error("ShellWebClientProvider requires application make()/has().");
     }
 
-    const logger = createProviderLogger(app);
+    const logger = createSharedProviderLogger(isRecord(app) ? app : null);
     const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
       const placements = await loadAppPlacementDefinitions(logger);

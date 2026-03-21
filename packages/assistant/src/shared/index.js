@@ -36,4 +36,9 @@ export {
   ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT
 } from "./settingsEvents.js";
 
+export {
+  ASSISTANT_CONVERSATION_STATUSES,
+  normalizeConversationStatus
+} from "./support/conversationStatus.js";
+
 export { toPositiveInteger } from "./support/positiveInteger.js";

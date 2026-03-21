@@ -11,7 +11,7 @@
     "./server/repositorySupport": "./src/server/repositorySupport.js"
   },
   "dependencies": {
-    "@tanstack/vue-query": "^5.90.5",
+    "@tanstack/vue-query": "5.92.12",
     "@jskit-ai/kernel": "0.1.0",
     "@jskit-ai/realtime": "0.1.0",
     "@jskit-ai/shell-web": "0.1.0",

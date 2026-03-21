@@ -29,6 +29,11 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeUniqueTextList(value, { acceptSingle = false } = {}) {
+  const source = Array.isArray(value) ? value : acceptSingle ? [value] : [];
+  return Array.from(new Set(source.map((entry) => normalizeText(entry)).filter(Boolean)));
+}
+
 function normalizeInteger(value, { fallback = 0, min = null, max = null } = {}) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -108,6 +113,7 @@ export {
   normalizeObject,
   isRecord,
   normalizeArray,
+  normalizeUniqueTextList,
   normalizeInteger,
   normalizePositiveInteger,
   normalizeOpaqueId,

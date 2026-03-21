@@ -1,3 +1,5 @@
+import { createDatabaseRuntimeEnvTextMutations } from "@jskit-ai/database-runtime/shared/packageDescriptorMutations";
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-postgres",
@@ -100,61 +102,9 @@ export default Object.freeze({
     },
     procfile: {},
     files: [],
-    text: [
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_CLIENT",
-        value: "pg",
-        reason: "Configure database client driver for runtime wiring.",
-        category: "runtime-config",
-        id: "database-client-postgres"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_HOST",
-        value: "${option:db-host}",
-        reason: "Configure database host.",
-        category: "runtime-config",
-        id: "database-host"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_PORT",
-        value: "${option:db-port}",
-        reason: "Configure database port.",
-        category: "runtime-config",
-        id: "database-port"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_NAME",
-        value: "${option:db-name}",
-        reason: "Configure database name.",
-        category: "runtime-config",
-        id: "database-name"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_USER",
-        value: "${option:db-user}",
-        reason: "Configure database user.",
-        category: "runtime-config",
-        id: "database-user"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "DB_PASSWORD",
-        value: "${option:db-password}",
-        reason: "Configure database password.",
-        category: "runtime-config",
-        id: "database-password"
-      }
-    ]
+    text: createDatabaseRuntimeEnvTextMutations({
+      databaseClient: "pg",
+      databaseClientMutationId: "database-client-postgres"
+    })
   }
 });

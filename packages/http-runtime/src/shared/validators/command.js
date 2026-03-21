@@ -1,16 +1,5 @@
 import { asSchema } from "./schemaUtils.js";
-
-function normalizeInvalidates(value) {
-  if (!Array.isArray(value)) {
-    return Object.freeze([]);
-  }
-
-  const normalized = value
-    .map((entry) => String(entry || "").trim())
-    .filter(Boolean);
-
-  return Object.freeze(Array.from(new Set(normalized)));
-}
+import { normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createCommand({
   input,
@@ -21,7 +10,7 @@ function createCommand({
   const command = {
     input: asSchema(input, "input"),
     output: asSchema(output, "output"),
-    invalidates: normalizeInvalidates(invalidates)
+    invalidates: Object.freeze(normalizeUniqueTextList(invalidates))
   };
 
   if (typeof idempotent === "boolean") {

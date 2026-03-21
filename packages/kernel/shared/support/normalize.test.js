@@ -4,7 +4,8 @@ import {
   normalizeOpaqueId,
   normalizePositiveInteger,
   normalizeOneOf,
-  normalizeQueryToken
+  normalizeQueryToken,
+  normalizeUniqueTextList
 } from "./normalize.js";
 
 test("normalizeQueryToken trims, lowercases, and falls back when empty", () => {
@@ -45,4 +46,15 @@ test("normalizeOpaqueId preserves opaque identifiers", () => {
   assert.equal(normalizeOpaqueId(10n), "10");
   assert.equal(normalizeOpaqueId(""), null);
   assert.equal(normalizeOpaqueId(null), null);
+});
+
+test("normalizeUniqueTextList trims, dedupes, and supports optional single values", () => {
+  assert.deepEqual(normalizeUniqueTextList([" one ", "two", "one", "", null]), ["one", "two"]);
+  assert.deepEqual(normalizeUniqueTextList("one"), []);
+  assert.deepEqual(
+    normalizeUniqueTextList(" one ", {
+      acceptSingle: true
+    }),
+    ["one"]
+  );
 });

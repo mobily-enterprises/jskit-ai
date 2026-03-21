@@ -105,7 +105,7 @@ export default Object.freeze({
         "@jskit-ai/users-core": "0.1.0",
         "@jskit-ai/users-web": "0.1.0",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
-        "@tanstack/vue-query": "^5.90.5",
+        "@tanstack/vue-query": "5.92.12",
         "typebox": "^1.0.81",
         "vuetify": "^4.0.0"
       },

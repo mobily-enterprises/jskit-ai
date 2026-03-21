@@ -18,6 +18,7 @@
     "server:admin": "SERVER_SURFACE=admin node ./bin/server.js",
     "start": "node ./bin/server.js",
     "link:local:jskit": "bash ./scripts/link-local-jskit-packages.sh",
+    "jskit:update": "bash ./scripts/update-jskit-packages.sh",
     "verdaccio:reset:publish": "bash ./scripts/verdaccio-reset-and-publish-packages.sh",
     "dev": "vite",
     "dev:all": "vite",

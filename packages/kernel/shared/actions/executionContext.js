@@ -1,10 +1,6 @@
 import { normalizeRequestMeta } from "./requestMeta.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
-
-function normalizePermissions(value) {
-  const source = Array.isArray(value) ? value : [];
-  return Array.from(new Set(source.map((entry) => normalizeText(entry)).filter(Boolean)));
-}
+import { normalizePermissionList } from "../support/permissions.js";
 
 function copyRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -75,7 +71,7 @@ function normalizeExecutionContext(context = {}) {
     ...passthrough,
     actor: normalizeActor(source.actor),
     membership: normalizeMembership(source.membership),
-    permissions: normalizePermissions(source.permissions),
+    permissions: normalizePermissionList(source.permissions),
     surface: normalizeLowerText(source.surface),
     channel: normalizeLowerText(source.channel) || "internal",
     requestMeta: normalizeRequestMeta(source.requestMeta),
@@ -86,7 +82,7 @@ function normalizeExecutionContext(context = {}) {
 const __testables = {
   normalizeText,
   normalizeLowerText,
-  normalizePermissions,
+  normalizePermissions: normalizePermissionList,
   copyRecord,
   normalizeActor,
   normalizeMembership,

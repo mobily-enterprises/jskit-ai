@@ -234,7 +234,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@tanstack/vue-query": "^5.90.5",
+        "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
         "@uppy/compressor": "^3.1.0",
         "@uppy/core": "^5.2.0",

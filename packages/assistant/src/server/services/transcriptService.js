@@ -1,6 +1,7 @@
 import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ASSISTANT_TRANSCRIPT_CHANGED_EVENT } from "../../shared/streamEvents.js";
+import { normalizeConversationStatus } from "../../shared/support/conversationStatus.js";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 200;
@@ -96,15 +97,6 @@ function normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZ
     cursor,
     limit
   };
-}
-
-function normalizeConversationStatus(value, fallback = "active") {
-  const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "active" || normalized === "completed" || normalized === "failed" || normalized === "aborted") {
-    return normalized;
-  }
-
-  return fallback;
 }
 
 function deriveConversationTitleFromMessage(contentText) {
@@ -233,7 +225,9 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     }
 
     return conversationsRepository.updateById(numericConversationId, {
-      status: normalizeConversationStatus(source.status, "completed"),
+      status: normalizeConversationStatus(source.status, {
+        fallback: "completed"
+      }),
       endedAt: source.endedAt || new Date(),
       metadata: {
         ...normalizeObject(existing.metadata),
@@ -252,7 +246,9 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       maxLimit: MAX_PAGE_SIZE
     });
 
-    const status = normalizeConversationStatus(query.status, "");
+    const status = normalizeConversationStatus(query.status, {
+      fallback: ""
+    });
     const filters = {
       ...(status ? { status } : {})
     };

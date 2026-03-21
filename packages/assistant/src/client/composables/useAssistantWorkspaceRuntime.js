@@ -15,6 +15,7 @@ import {
   assistantConversationsListQueryKey,
   assistantWorkspaceScopeQueryKey,
   normalizeAssistantStreamEventType,
+  normalizeConversationStatus as normalizeAssistantConversationStatus,
   toPositiveInteger
 } from "../../shared/index.js";
 import { assistantHttpClient } from "../lib/assistantHttpClient.js";
@@ -98,8 +99,9 @@ function normalizeToolName(value) {
 }
 
 function normalizeConversationStatus(value) {
-  const status = normalizeText(value).toLowerCase();
-  return status || "unknown";
+  return normalizeAssistantConversationStatus(value, {
+    fallback: "unknown"
+  });
 }
 
 function formatConversationStartedAt(value) {

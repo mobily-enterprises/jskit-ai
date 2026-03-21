@@ -6,6 +6,8 @@
     "app:create": "node ./tooling/create-app/bin/jskit-create-app.js",
     "app:create:interactive": "node ./tooling/create-app/bin/jskit-create-app.js --interactive",
     "jskit": "node ./tooling/jskit-cli/bin/jskit.js",
+    "release:npm": "node ./scripts/release-npm.mjs",
+    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run",
     "catalog:build": "npm run --workspace tooling/jskit-catalog catalog:build",
     "docs:sync": "node ./docs/scripts/sync-doc-snippets.mjs",
     "docs:sync:check": "node ./docs/scripts/sync-doc-snippets.mjs --check",

@@ -129,7 +129,7 @@
               "@jskit-ai/realtime": "0.1.0",
               "@jskit-ai/users-core": "0.1.0",
               "@jskit-ai/users-web": "0.1.0",
-              "@tanstack/vue-query": "^5.90.5",
+              "@tanstack/vue-query": "5.92.12",
               "dompurify": "^3.3.3",
               "marked": "^17.0.4",
               "openai": "^6.22.0",
@@ -774,7 +774,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@tanstack/vue-query": "^5.90.5",
+              "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@fastify/type-provider-typebox": "^6.1.0",
               "@jskit-ai/auth-core": "0.1.0",
@@ -959,7 +959,7 @@
               "@jskit-ai/users-core": "0.1.0",
               "@jskit-ai/users-web": "0.1.0",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
-              "@tanstack/vue-query": "^5.90.5",
+              "@tanstack/vue-query": "5.92.12",
               "typebox": "^1.0.81",
               "vuetify": "^4.0.0"
             },
@@ -1984,7 +1984,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@tanstack/vue-query": "^5.90.5",
+              "@tanstack/vue-query": "5.92.12",
               "@jskit-ai/kernel": "0.1.0",
               "vuetify": "^4.0.0"
             },
@@ -2861,7 +2861,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@tanstack/vue-query": "^5.90.5",
+              "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@uppy/compressor": "^3.1.0",
               "@uppy/core": "^5.2.0",

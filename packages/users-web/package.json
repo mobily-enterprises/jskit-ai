@@ -19,7 +19,7 @@
     "./client/support/realtimeWorkspace": "./src/client/support/realtimeWorkspace.js"
   },
   "dependencies": {
-    "@tanstack/vue-query": "^5.90.5",
+    "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
     "@jskit-ai/users-core": "0.1.0",
     "@jskit-ai/realtime": "0.1.0",
