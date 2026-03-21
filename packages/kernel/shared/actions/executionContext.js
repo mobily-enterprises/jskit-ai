@@ -30,17 +30,6 @@ function normalizeMembership(membership) {
   };
 }
 
-function normalizeAssistantMeta(assistantMeta) {
-  const source = assistantMeta && typeof assistantMeta === "object" ? assistantMeta : {};
-
-  return {
-    conversationId: normalizeText(source.conversationId),
-    toolCallId: normalizeText(source.toolCallId),
-    provider: normalizeText(source.provider),
-    turnId: normalizeText(source.turnId)
-  };
-}
-
 function normalizeTimeMeta(timeMeta) {
   const source = timeMeta && typeof timeMeta === "object" ? timeMeta : {};
   const nowValue = source.now instanceof Date ? source.now : new Date();
@@ -59,7 +48,6 @@ const RESERVED_CONTEXT_KEYS = new Set([
   "surface",
   "channel",
   "requestMeta",
-  "assistantMeta",
   "timeMeta"
 ]);
 
@@ -86,7 +74,6 @@ function normalizeExecutionContext(context = {}) {
     surface: normalizeLowerText(source.surface) || "app",
     channel: normalizeLowerText(source.channel) || "internal",
     requestMeta: normalizeRequestMeta(source.requestMeta),
-    assistantMeta: normalizeAssistantMeta(source.assistantMeta),
     timeMeta: normalizeTimeMeta(source.timeMeta)
   });
 }
@@ -98,7 +85,6 @@ const __testables = {
   normalizeActor,
   normalizeMembership,
   normalizeRequestMeta,
-  normalizeAssistantMeta,
   normalizeTimeMeta
 };
 

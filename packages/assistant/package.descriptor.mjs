@@ -30,12 +30,12 @@ export default Object.freeze({
       promptLabel: "AI timeout (ms)",
       promptHint: "Abort AI requests after this many milliseconds."
     },
-    surface: {
+    surfaces: {
       required: true,
       inputType: "text",
       defaultValue: "admin",
-      promptLabel: "Target workspace surface",
-      promptHint: "Workspace surface id for assistant page + menu placement (for example: admin or app)."
+      promptLabel: "Target workspace surfaces",
+      promptHint: "Comma-separated workspace surface ids for assistant page + menu placement (for example: admin,app)."
     }
   },
   dependsOn: [
@@ -154,7 +154,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/workspace/assistant/index.vue",
-        toSurface: "${option:surface|lower}",
+        toSurface: "${option:surfaces|lower}",
         toSurfacePath: "workspace/assistant/index.vue",
         reason: "Install assistant workspace page scaffold.",
         category: "assistant",
@@ -168,26 +168,11 @@ export default Object.freeze({
     text: [
       {
         op: "append-text",
-        file: "config/public.js",
-        position: "bottom",
-        skipIfContains: "jskit:assistant.workspace-surface",
-        value:
-          "\n// jskit:assistant.workspace-surface\nconfig.assistant = config.assistant || {};\nconfig.assistant.workspaceSurfaceId = \"${option:surface|lower}\";\n",
-        reason: "Persist assistant workspace surface id for server-side route/action surface resolution.",
-        category: "assistant",
-        id: "assistant-config-workspace-surface",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspace"]
-        }
-      },
-      {
-        op: "append-text",
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.menu\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\n(() => {\n  const assistantWorkspaceSurfaceIds = \"${option:surfaces|lower}\"\n    .split(\",\")\n    .map((entry) => String(entry || \"\").trim().toLowerCase())\n    .filter(Boolean);\n\n  addPlacement({\n    id: \"assistant.workspace.menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: assistantWorkspaceSurfaceIds.length > 0 ? assistantWorkspaceSurfaceIds : [\"*\"],\n    order: 310,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"Assistant\",\n      workspaceSuffix: \"/workspace/assistant\",\n      nonWorkspaceSuffix: \"/workspace/assistant\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n})();\n",
         reason: "Append assistant menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu",
@@ -202,7 +187,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
         reason: "Append assistant workspace settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-workspace-settings-form-placement",

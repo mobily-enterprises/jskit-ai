@@ -448,8 +448,10 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
         actionName: "demo.schemas.update"
       },
       observability: {},
-      assistantTool: {
-        description: "Update profile display name."
+      extensions: {
+        assistant: {
+          description: "Update profile display name."
+        }
       },
       async execute(input, _context, deps) {
         return deps.schemasService.updateRecord(input);
@@ -789,10 +791,8 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
         actionName: "demo.workspace.settings.update"
       },
       observability: {},
-      assistantTool: {
-        inputValidator: {
-          patch: patchValidator
-        }
+      extensions: {
+        assistant: {}
       },
       async execute(input, _context, deps) {
         const result = deps.workspaceSettingsService.updateSettings(input);

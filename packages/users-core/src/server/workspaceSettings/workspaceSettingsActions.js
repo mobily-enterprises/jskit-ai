@@ -50,10 +50,9 @@ const workspaceSettingsActions = Object.freeze([
       actionName: "workspace.settings.update"
     },
     observability: {},
-    assistantTool: {
-      description: "Update workspace settings.",
-      inputValidator: {
-        patch: workspaceSettingsResource.operations.patch.bodyValidator
+    extensions: {
+      assistant: {
+        description: "Update workspace settings."
       }
     },
     async execute(input, context, deps) {

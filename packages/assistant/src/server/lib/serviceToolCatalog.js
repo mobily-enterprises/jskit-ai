@@ -6,6 +6,13 @@ import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
 const AUTOMATION_CHANNEL = "automation";
 
+function normalizeAssistantExtension(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return Object.freeze({
+    description: normalizeText(source.description)
+  });
+}
+
 function normalizeBarredEntry(value) {
   return normalizeText(value).toLowerCase();
 }
@@ -221,8 +228,8 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      const assistantTool = normalizedAction.assistantTool;
-      const inputSchema = assistantTool?.inputValidator?.schema || normalizedAction.inputValidator?.schema || null;
+      const assistantExtension = normalizeAssistantExtension(normalizedAction.extensions?.assistant);
+      const inputSchema = normalizedAction.inputValidator?.schema || null;
       const outputSchema = normalizedAction.outputValidator?.schema || null;
       if (!inputSchema || !outputSchema) {
         continue;
@@ -234,7 +241,7 @@ function resolveActionBackedToolEntries(scope) {
         actionId,
         actionVersion,
         toolBaseName: actionId,
-        description: normalizeText(assistantTool?.description) || `Run ${actionId}.`,
+        description: assistantExtension.description || `Run ${actionId}.`,
         inputSchema,
         outputSchema,
         permission: normalizePermissionSpec(normalizedAction.permission)

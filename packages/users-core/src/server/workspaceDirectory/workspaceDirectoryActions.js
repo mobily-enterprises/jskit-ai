@@ -22,9 +22,10 @@ const workspaceDirectoryActions = Object.freeze([
       actionName: "workspace.workspaces.create"
     },
     observability: {},
-    assistantTool: {
-      description: "Create a workspace for the authenticated user.",
-      inputValidator: workspaceResource.operations.create.bodyValidator
+    extensions: {
+      assistant: {
+        description: "Create a workspace for the authenticated user."
+      }
     },
     async execute(input, context, deps) {
       return deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {

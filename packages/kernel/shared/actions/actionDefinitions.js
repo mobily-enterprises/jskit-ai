@@ -5,12 +5,10 @@ import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
-const ACTION_CHANNELS = Object.freeze(["api", "assistant_tool", "assistant_chat", "automation", "internal", "worker"]);
 const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", "all", "any"]);
 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
-const ACTION_CHANNEL_SET = new Set(ACTION_CHANNELS);
 const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
 const ACTION_DOMAIN_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
@@ -348,40 +346,18 @@ function normalizeObservabilityConfig(observability) {
   });
 }
 
-function normalizeAssistantToolConfig(assistantTool) {
-  if (assistantTool == null) {
-    return null;
+function normalizeActionExtensions(value) {
+  if (value == null) {
+    return Object.freeze({});
   }
 
-  if (!isPlainObject(assistantTool)) {
-    throw createActionRuntimeError(500, "Action definition assistantTool must be an object when provided.", {
+  if (!isPlainObject(value)) {
+    throw createActionRuntimeError(500, "Action definition extensions must be an object when provided.", {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  const description = normalizeText(assistantTool.description);
-  if (Object.prototype.hasOwnProperty.call(assistantTool, "input")) {
-    throw createActionRuntimeError(500, "Action definition assistantTool.input is not supported. Use assistantTool.inputValidator.", {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  const inputValidator = assistantTool.inputValidator;
-  const assistantToolInputValidator =
-    typeof inputValidator === "undefined"
-      ? null
-      : normalizeActionValidators(inputValidator, "assistantTool.inputValidator");
-  if (typeof assistantTool.inputJsonSchema !== "undefined") {
-    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema is not supported. Use assistantTool.inputValidator.", {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  return Object.freeze({
-    description,
-    inputValidator: assistantToolInputValidator,
-    inputJsonSchema: assistantToolInputValidator?.schema || null
-  });
+  return Object.freeze(normalizeObjectInput(value));
 }
 
 function normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {}) {
@@ -408,8 +384,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   }
 
   const channels = normalizeStringArray(source.channels, {
-    fieldName: "channels",
-    allowedSet: ACTION_CHANNEL_SET
+    fieldName: "channels"
   });
 
   const surfaces = normalizeStringArray(source.surfaces, {
@@ -426,6 +401,16 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     throw createActionRuntimeError(500, `Action definition \"${id}\" consoleUsersOnly is not supported.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(source, "assistantTool")) {
+    throw createActionRuntimeError(
+      500,
+      `Action definition \"${id}\" assistantTool is not supported. Use extensions.assistant instead.`,
+      {
+        code: "ACTION_DEFINITION_INVALID"
+      }
+    );
   }
 
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
@@ -476,7 +461,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
       actionId: id
     }),
     observability: normalizeObservabilityConfig(source.observability),
-    assistantTool: normalizeAssistantToolConfig(source.assistantTool),
+    extensions: normalizeActionExtensions(source.extensions),
     execute: source.execute,
     contributorId: normalizeText(contributorId)
   });
@@ -527,7 +512,7 @@ const __testables = {
   normalizeActionPermission,
   normalizeAuditConfig,
   normalizeObservabilityConfig,
-  normalizeAssistantToolConfig
+  normalizeActionExtensions
 };
 
 export {

@@ -3302,9 +3302,7 @@ function validateSurfaceVisibilityOptionPolicy({
   if (surfaceIds.length < 1 || !visibility) {
     return;
   }
-  if (policy.allowAuto && visibility === "auto") {
-    return;
-  }
+  const skipWorkspaceRequirement = policy.allowAuto && visibility === "auto";
 
   const surfaceDefinitions = resolveSurfaceDefinitionsForOptionPolicy(configContext);
   for (const surfaceId of surfaceIds) {
@@ -3320,7 +3318,7 @@ function validateSurfaceVisibilityOptionPolicy({
       );
     }
 
-    if (WORKSPACE_VISIBILITY_SET.has(visibility) && surfaceDefinition.requiresWorkspace !== true) {
+    if (!skipWorkspaceRequirement && WORKSPACE_VISIBILITY_SET.has(visibility) && surfaceDefinition.requiresWorkspace !== true) {
       throw createCliError(
         `Invalid option combination for package ${packageId}: --${policy.visibilityOption} "${visibility}" requires surfaces with requiresWorkspace=true, but "${surfaceId}" has requiresWorkspace=false.`
       );

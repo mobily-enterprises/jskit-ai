@@ -139,9 +139,10 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.invite.create"
     },
     observability: {},
-    assistantTool: {
-      description: "Invite a person to the workspace.",
-      inputValidator: workspaceMembersResource.operations.createInvite.bodyValidator
+    extensions: {
+      assistant: {
+        description: "Invite a person to the workspace."
+      }
     },
     async execute(input, context, deps) {
       return deps.workspaceMembersService.createInvite(

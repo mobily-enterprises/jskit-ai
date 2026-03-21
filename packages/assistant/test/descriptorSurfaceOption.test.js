@@ -13,7 +13,7 @@ function findTextMutation(id) {
 }
 
 test("assistant descriptor exposes configurable workspace surface option", () => {
-  const option = descriptor?.options?.surface;
+  const option = descriptor?.options?.surfaces;
   assert.equal(option?.required, true);
   assert.equal(option?.inputType, "text");
   assert.equal(option?.defaultValue, "admin");
@@ -21,15 +21,15 @@ test("assistant descriptor exposes configurable workspace surface option", () =>
 
 test("assistant descriptor routes workspace page + placements through surface option", () => {
   const workspacePage = findFileMutation("assistant-page-admin-workspace-assistant-index");
-  const workspaceSurfaceConfig = findTextMutation("assistant-config-workspace-surface");
   const menuPlacement = findTextMutation("assistant-placement-menu");
   const workspaceSettingsPlacement = findTextMutation("assistant-workspace-settings-form-placement");
   const consoleSettingsPlacement = findTextMutation("assistant-console-settings-form-placement");
 
-  assert.equal(workspacePage?.toSurface, "${option:surface|lower}");
-  assert.match(String(workspaceSurfaceConfig?.value || ""), /config\.assistant\.workspaceSurfaceId = "\$\{option:surface\|lower\}";/);
-  assert.match(String(menuPlacement?.value || ""), /surfaces: \["\$\{option:surface\|lower\}"\]/);
-  assert.match(String(menuPlacement?.value || ""), /surface: "\$\{option:surface\|lower\}"/);
-  assert.match(String(workspaceSettingsPlacement?.value || ""), /surfaces: \["\$\{option:surface\|lower\}"\]/);
+  assert.equal(workspacePage?.toSurface, "${option:surfaces|lower}");
+  assert.match(String(menuPlacement?.value || ""), /"\$\{option:surfaces\|lower\}"/);
+  assert.match(String(menuPlacement?.value || ""), /\.split\(","\)/);
+  assert.match(String(menuPlacement?.value || ""), /surfaces: assistantWorkspaceSurfaceIds\.length > 0 \? assistantWorkspaceSurfaceIds : \["\*"\]/);
+  assert.doesNotMatch(String(menuPlacement?.value || ""), /surface:\s*"/);
+  assert.match(String(workspaceSettingsPlacement?.value || ""), /surfaces: \["\*"\]/);
   assert.match(String(consoleSettingsPlacement?.value || ""), /surfaces: \["console"\]/);
 });
