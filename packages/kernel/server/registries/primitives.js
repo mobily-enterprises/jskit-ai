@@ -36,9 +36,28 @@ function resolveTaggedEntries(scope, tag) {
   return normalizeNestedEntries(scope.resolveTag(tag));
 }
 
+function normalizeContributorEntry(entry) {
+  if (typeof entry === "function") {
+    return {
+      contributorId: String(entry.name || "anonymous"),
+      contribute: entry
+    };
+  }
+
+  if (entry && typeof entry === "object" && typeof entry.contribute === "function") {
+    return {
+      ...entry,
+      contributorId: String(entry.contributorId || "anonymous")
+    };
+  }
+
+  return null;
+}
+
 export {
   normalizeNestedEntries,
   assertTaggableApp,
   registerTaggedSingleton,
-  resolveTaggedEntries
+  resolveTaggedEntries,
+  normalizeContributorEntry
 };

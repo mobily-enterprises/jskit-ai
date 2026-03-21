@@ -2,11 +2,7 @@ import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 import { hasPermission, normalizePermissionList } from "../support/permissions.js";
-import { normalizeOpaqueId } from "../support/normalize.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord, normalizeOpaqueId } from "../support/normalize.js";
 
 function createActionValidationError({
   status = 400,

@@ -1,8 +1,5 @@
 import { mergeObjectSchemas } from "./mergeObjectSchemas.js";
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord as isPlainObject } from "../support/normalize.js";
 
 function isPromiseLike(value) {
   return Boolean(value) && typeof value.then === "function";

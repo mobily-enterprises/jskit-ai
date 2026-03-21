@@ -26,6 +26,20 @@ function resolveRouteLabel({ method = "", path = "" } = {}) {
   return `${normalizedMethod} ${normalizedPath}`;
 }
 
+function normalizeOptionalValidatorTransformer(source, normalized, { context = "route validator" } = {}) {
+  if (!Object.prototype.hasOwnProperty.call(source, "normalize")) {
+    return;
+  }
+
+  const normalize = source.normalize;
+  if (normalize != null && typeof normalize !== "function") {
+    throw new RouteDefinitionError(`${context}.normalize must be a function.`);
+  }
+  if (typeof normalize === "function") {
+    normalized.normalize = normalize;
+  }
+}
+
 function normalizeSingleRouteValidator(value, { context = "route validator" } = {}) {
   if (value == null) {
     return Object.freeze({});
@@ -42,14 +56,7 @@ function normalizeSingleRouteValidator(value, { context = "route validator" } = 
     normalized.schema = source.schema;
   }
 
-  if (Object.prototype.hasOwnProperty.call(source, "normalize")) {
-    if (source.normalize != null && typeof source.normalize !== "function") {
-      throw new RouteDefinitionError(`${context}.normalize must be a function.`);
-    }
-    if (typeof source.normalize === "function") {
-      normalized.normalize = source.normalize;
-    }
-  }
+  normalizeOptionalValidatorTransformer(source, normalized, { context });
 
   return Object.freeze(normalized);
 }
@@ -116,14 +123,7 @@ function normalizeResponseValidatorEntry(value, { context = "route validator res
   }
   normalized.schema = source.schema;
 
-  if (Object.prototype.hasOwnProperty.call(source, "normalize")) {
-    if (source.normalize != null && typeof source.normalize !== "function") {
-      throw new RouteDefinitionError(`${context}.normalize must be a function.`);
-    }
-    if (typeof source.normalize === "function") {
-      normalized.normalize = source.normalize;
-    }
-  }
+  normalizeOptionalValidatorTransformer(source, normalized, { context });
 
   return Object.freeze(normalized);
 }

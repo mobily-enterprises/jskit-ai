@@ -7,6 +7,7 @@ import {
   resolveActionSurfaceSourceIds
 } from "../registries/actionSurfaceSourceRegistry.js";
 import {
+  normalizeContributorEntry,
   normalizeNestedEntries,
   registerTaggedSingleton,
   resolveTaggedEntries as resolveRegistryTaggedEntries
@@ -38,24 +39,6 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
   return Object.freeze(normalized);
 }
 
-function normalizeActionContextContributor(entry) {
-  if (typeof entry === "function") {
-    return {
-      contributorId: String(entry.name || "anonymous"),
-      contribute: entry
-    };
-  }
-
-  if (entry && typeof entry === "object" && typeof entry.contribute === "function") {
-    return {
-      ...entry,
-      contributorId: String(entry.contributorId || "anonymous")
-    };
-  }
-
-  return null;
-}
-
 function resolveActionContributors(scope) {
   return resolveRegistryTaggedEntries(scope, ACTION_RUNTIME_CONTRIBUTOR_TAG).filter(
     (entry) => entry && typeof entry === "object" && !Array.isArray(entry)
@@ -64,7 +47,7 @@ function resolveActionContributors(scope) {
 
 function resolveActionContextContributors(scope) {
   return resolveRegistryTaggedEntries(scope, ACTION_CONTEXT_CONTRIBUTOR_TAG)
-    .map((entry) => normalizeActionContextContributor(entry))
+    .map((entry) => normalizeContributorEntry(entry))
     .filter(Boolean);
 }
 

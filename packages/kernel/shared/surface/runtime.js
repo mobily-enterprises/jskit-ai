@@ -5,10 +5,7 @@ import {
   normalizeSurfaceId,
   normalizeSurfacePagesRoot
 } from "./registry.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../support/normalize.js";
 
 function uniqueSurfaceIds(ids) {
   const seen = new Set();

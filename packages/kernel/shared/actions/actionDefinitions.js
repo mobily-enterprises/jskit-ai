@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import { mergeValidators } from "../validators/mergeValidators.js";
 import { normalizeObjectInput } from "../validators/inputNormalization.js";
+import { isRecord as isPlainObject } from "../support/normalize.js";
 import { normalizeText } from "./textNormalization.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
@@ -27,10 +28,6 @@ class ActionRuntimeError extends Error {
 
 function createActionRuntimeError(status, message, options = {}) {
   return new ActionRuntimeError(status, message, options);
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizePositiveInteger(value, fallback = 1) {

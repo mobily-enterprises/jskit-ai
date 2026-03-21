@@ -1,9 +1,6 @@
 import { defaultMissingHandler } from "./routeUtils.js";
 import { defaultApplyRoutePolicy, normalizeRoutePolicyConfig } from "../support/routePolicyConfig.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../../shared/support/normalize.js";
 
 function buildBaseRouteOptions(route) {
   if (!isRecord(route)) {

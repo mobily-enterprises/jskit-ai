@@ -1,8 +1,5 @@
 import { normalizeRouteVisibility } from "../../shared/support/visibility.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../../shared/support/normalize.js";
 
 function normalizeRoutePolicyConfig(routeOptions, route) {
   const sourceRouteOptions = isRecord(routeOptions) ? routeOptions : {};
