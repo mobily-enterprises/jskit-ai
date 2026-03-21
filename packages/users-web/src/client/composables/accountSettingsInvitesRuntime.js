@@ -1,4 +1,4 @@
-import { resolveErrorStatusCode } from "./accountSettingsRuntimeHelpers.js";
+import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
 function createAccountSettingsInvitesRuntime({
   invitesAvailable,

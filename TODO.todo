@@ -122,13 +122,13 @@ Intentional invalid combo (should fail fast):
 jskit add package @jskit-ai/crud --namespace badcase --surface console --visibility workspace --no-install
 
 THEN:
-  
-  X Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
+   
+   X Nice loading, with skeleton thing (Also: * Flashing "you do not have permissions" when loading workspace settings)
   X Re-add icons
-  
-  - Final DESLOP
-  - Final deslop ticket
+
+  X Final DESLOP
   - Publish NPM packages
+  - Final deslop ticket
   - FINAL STEP: Do infrastructure deploy, easy way
 
   22/03 AM Chiara

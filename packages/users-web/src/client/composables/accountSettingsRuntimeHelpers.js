@@ -3,6 +3,7 @@ import {
   normalizeReturnToPath as normalizeSharedReturnToPath,
   resolveAllowedOriginsFromPlacementContext
 } from "@jskit-ai/kernel/shared/support";
+import { normalizeRecord } from "../support/runtimeNormalization.js";
 
 function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account/settings", allowedOrigins = [] } = {}) {
   return normalizeSharedReturnToPath(value, {
@@ -18,11 +19,7 @@ function resolveAllowedReturnToOrigins(contextValue = null) {
 }
 
 function normalizeSettingsPayload(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
+  return normalizeRecord(value);
 }
 
 function normalizePendingInvite(entry) {
@@ -69,16 +66,10 @@ function normalizeAvatarSize(value) {
   return clamped;
 }
 
-function resolveErrorStatusCode(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  return Number.isInteger(statusCode) && statusCode > 0 ? statusCode : 0;
-}
-
 export {
   resolveAllowedReturnToOrigins,
   normalizeAvatarSize,
   normalizePendingInvite,
   normalizeReturnToPath,
-  normalizeSettingsPayload,
-  resolveErrorStatusCode
+  normalizeSettingsPayload
 };
