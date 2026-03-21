@@ -1,4 +1,6 @@
 import * as actionRuntime from "../../shared/actions/index.js";
+import { normalizeObject } from "../../shared/support/normalize.js";
+import { isContainerToken } from "../../shared/support/tokens.js";
 import { installServiceRegistrationApi } from "../registries/serviceRegistrationRegistry.js";
 import {
   ensureActionSurfaceSourceRegistry,
@@ -13,22 +15,8 @@ const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.context
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
 let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
 
-function normalizePlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function isContainerToken(value) {
-  if (typeof value === "string") {
-    return value.trim().length > 0;
-  }
-  return typeof value === "symbol" || typeof value === "function";
-}
-
 function normalizeDependencyMap(value, { context = "action dependencies" } = {}) {
-  const source = normalizePlainObject(value);
+  const source = normalizeObject(value);
   const normalized = {};
 
   for (const [key, token] of Object.entries(source)) {
@@ -102,23 +90,23 @@ function resolveActionContextContributors(scope) {
 function createActionExecutor(actionRegistry) {
   return Object.freeze({
     execute(payload) {
-      const source = normalizePlainObject(payload);
+      const source = normalizeObject(payload);
       return actionRegistry.execute({
         actionId: source.actionId,
         version: source.version == null ? null : source.version,
-        input: normalizePlainObject(source.input),
-        context: normalizePlainObject(source.context),
-        deps: normalizePlainObject(source.deps)
+        input: normalizeObject(source.input),
+        context: normalizeObject(source.context),
+        deps: normalizeObject(source.deps)
       });
     },
     executeStream(payload) {
-      const source = normalizePlainObject(payload);
+      const source = normalizeObject(payload);
       return actionRegistry.executeStream({
         actionId: source.actionId,
         version: source.version == null ? null : source.version,
-        input: normalizePlainObject(source.input),
-        context: normalizePlainObject(source.context),
-        deps: normalizePlainObject(source.deps)
+        input: normalizeObject(source.input),
+        context: normalizeObject(source.context),
+        deps: normalizeObject(source.deps)
       });
     },
     listDefinitions() {
@@ -154,7 +142,7 @@ function materializeDependencies(scope, dependencyMap, { context = "action.depen
 }
 
 function materializeAction(scope, actionDefinition) {
-  const source = normalizePlainObject(actionDefinition);
+  const source = normalizeObject(actionDefinition);
   const materialized = { ...source };
   const actionDependencies = materializeDependencies(scope, source.dependencies, {
     context: `action ${String(source.id || "<unknown>")}.dependencies`
@@ -180,7 +168,7 @@ function materializeAction(scope, actionDefinition) {
 
   if (typeof source.execute === "function") {
     materialized.execute = async function executeMaterializedAction(input, context, runtimeDependencies = {}) {
-      const runtimeDeps = normalizePlainObject(runtimeDependencies);
+      const runtimeDeps = normalizeObject(runtimeDependencies);
       const mergedDependencies = Object.freeze({
         ...resolvedDependencies,
         ...runtimeDeps
@@ -216,7 +204,7 @@ function registerActionDefinition(app, actionSpec, { context = "app.action" } = 
 }
 
 function normalizeSingleActionRegistration(actionDefinition, { context = "app.action" } = {}) {
-  const source = normalizePlainObject(actionDefinition);
+  const source = normalizeObject(actionDefinition);
   const actionId = String(source.id || "").trim();
   const contributorId = String(source.contributorId || "").trim() || (actionId ? `action.${actionId}` : "");
   if (!contributorId) {

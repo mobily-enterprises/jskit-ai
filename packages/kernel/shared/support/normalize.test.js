@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizePositiveInteger,
   normalizeOneOf,
   normalizeQueryToken
 } from "./normalize.js";
@@ -22,4 +23,16 @@ test("normalizeOneOf returns fallback when value is unsupported", () => {
 
 test("normalizeOneOf falls back to first allowed value when fallback is empty", () => {
   assert.equal(normalizeOneOf("", ["compact", "comfortable"], ""), "compact");
+});
+
+test("normalizePositiveInteger normalizes valid integers and applies fallback", () => {
+  assert.equal(normalizePositiveInteger("12"), 12);
+  assert.equal(normalizePositiveInteger(0), 0);
+  assert.equal(normalizePositiveInteger(-1), 0);
+  assert.equal(
+    normalizePositiveInteger("abc", {
+      fallback: null
+    }),
+    null
+  );
 });

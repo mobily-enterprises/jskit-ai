@@ -1,11 +1,9 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "./inputNormalization.js";
-import { normalizeText } from "../support/normalize.js";
+import { normalizePositiveInteger, normalizeText } from "../support/normalize.js";
 
-function toPositiveInteger(value) {
-  const normalized = normalizeText(value);
-  const parsed = Number(normalized);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+function normalizeRecordId(value) {
+  return normalizePositiveInteger(normalizeText(value));
 }
 
 const positiveIntegerValidator = Object.freeze({
@@ -13,7 +11,7 @@ const positiveIntegerValidator = Object.freeze({
     Type.Integer({ minimum: 1 }),
     Type.String({ minLength: 1, pattern: "^[1-9][0-9]*$" })
   ]),
-  normalize: toPositiveInteger
+  normalize: normalizeRecordId
 });
 
 const recordIdParamsValidator = Object.freeze({
@@ -28,7 +26,7 @@ const recordIdParamsValidator = Object.freeze({
     const normalized = {};
 
     if (Object.hasOwn(source, "recordId")) {
-      normalized.recordId = toPositiveInteger(source.recordId);
+      normalized.recordId = normalizeRecordId(source.recordId);
     }
 
     return normalized;

@@ -1,15 +1,6 @@
 import { Type } from "typebox";
-import { normalizeObject } from "../support/normalize.js";
+import { normalizeObject, normalizePositiveInteger as toPositiveInteger } from "../support/normalize.js";
 import { hasPermission } from "../support/permissions.js";
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
 
 function requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {}) {
   if (!service || typeof service[methodName] !== "function") {

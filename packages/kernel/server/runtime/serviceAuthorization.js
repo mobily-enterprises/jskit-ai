@@ -1,17 +1,8 @@
-import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
 import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
 import { AppError } from "./errors.js";
 
 const AUTH_REQUIRE_MODES = new Set(["none", "authenticated", "all", "any"]);
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
 
 function resolveServiceContext(source = {}) {
   const payload = normalizeObject(source);
@@ -51,7 +42,7 @@ function normalizeRequireAuthOptions(options = {}, { context = "requireAuth opti
 
 function requireAuthenticatedActor(context = {}, options = {}) {
   const actor = normalizeObject(context.actor);
-  const actorId = toPositiveInteger(actor.id);
+  const actorId = normalizePositiveInteger(actor.id);
 
   if (actorId < 1) {
     throw new AppError(401, options.message || "Authentication required.", {

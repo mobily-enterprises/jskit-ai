@@ -2,6 +2,7 @@ import { Check, Errors } from "typebox/value";
 import { createActionRuntimeError } from "./actionDefinitions.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 import { hasPermission, normalizePermissionList } from "../support/permissions.js";
+import { normalizePositiveInteger } from "../support/normalize.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -51,15 +52,6 @@ function ensureActionSurfaceAllowed(definition, context) {
   }
 }
 
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
-
 function ensureActionPermissionAllowed(definition, context) {
   const permission = isRecord(definition?.permission) ? definition.permission : { require: "none" };
   const mode = normalizeLowerText(permission.require || "none");
@@ -68,7 +60,7 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const actorId = toPositiveInteger(context?.actor?.id);
+  const actorId = normalizePositiveInteger(context?.actor?.id);
   if (actorId < 1) {
     throw createActionRuntimeError(401, permission.message || "Authentication required.", {
       code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",

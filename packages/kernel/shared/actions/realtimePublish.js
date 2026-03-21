@@ -1,17 +1,8 @@
-import { normalizeObject } from "../support/normalize.js";
+import { normalizeObject, normalizePositiveInteger as toPositiveInteger } from "../support/normalize.js";
 
 function normalizeHeaderValue(value) {
   const normalized = String(value || "").trim();
   return normalized || null;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
 }
 
 function resolveCommandId(context, input) {

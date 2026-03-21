@@ -1,21 +1,16 @@
-function normalizePlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
+import { normalizeObject } from "../support/normalize.js";
 
 function withActionDefaults(actions = [], defaults = {}) {
   const sourceActions = Array.isArray(actions) ? actions : [];
-  const sourceDefaults = normalizePlainObject(defaults);
-  const defaultDependencies = normalizePlainObject(sourceDefaults.dependencies);
+  const sourceDefaults = normalizeObject(defaults);
+  const defaultDependencies = normalizeObject(sourceDefaults.dependencies);
   const hasDefaultDependencies = Object.keys(defaultDependencies).length > 0;
   const hasDefaultDomain = Object.hasOwn(sourceDefaults, "domain");
 
   return Object.freeze(
     sourceActions.map((entry) => {
-      const action = normalizePlainObject(entry);
-      const actionDependencies = normalizePlainObject(action.dependencies);
+      const action = normalizeObject(entry);
+      const actionDependencies = normalizeObject(action.dependencies);
       const next = {
         ...action
       };

@@ -45,6 +45,15 @@ function normalizeInteger(value, { fallback = 0, min = null, max = null } = {}) 
   return next;
 }
 
+function normalizePositiveInteger(value, { fallback = 0 } = {}) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 1) {
+    return fallback;
+  }
+
+  return numeric;
+}
+
 function normalizeOneOf(value, allowedValues = [], fallback = "") {
   const normalized = normalizeText(value).toLowerCase();
   const supported = Array.isArray(allowedValues)
@@ -79,6 +88,7 @@ export {
   isRecord,
   normalizeArray,
   normalizeInteger,
+  normalizePositiveInteger,
   normalizeOneOf,
   ensureNonEmptyText
 };

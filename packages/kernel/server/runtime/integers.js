@@ -1,10 +1,9 @@
-function parsePositiveInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric) || numeric < 1) {
-    return null;
-  }
+import { normalizePositiveInteger } from "../../shared/support/normalize.js";
 
-  return numeric;
+function parsePositiveInteger(value) {
+  return normalizePositiveInteger(value, {
+    fallback: null
+  });
 }
 
 function normalizeNullablePositiveInteger(value) {

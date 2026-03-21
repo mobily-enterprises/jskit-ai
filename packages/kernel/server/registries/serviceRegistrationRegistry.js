@@ -1,4 +1,5 @@
-import { normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
+import { isContainerToken } from "../../shared/support/tokens.js";
 import { createEntityChangePublisher } from "../runtime/entityChangeEvents.js";
 import {
   assertTaggableApp,
@@ -19,34 +20,12 @@ const REALTIME_AUDIENCE_PRESETS = new Set([
 ]);
 let SERVICE_REGISTRATION_INDEX = 0;
 
-function normalizePlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function isContainerToken(value) {
-  if (typeof value === "string") {
-    return value.trim().length > 0;
-  }
-  return typeof value === "symbol" || typeof value === "function";
-}
-
 function normalizeMethodName(value, { context = "service method" } = {}) {
   const methodName = String(value || "").trim();
   if (!methodName) {
     throw new TypeError(`${context} must be a non-empty string.`);
   }
   return methodName;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-  return parsed;
 }
 
 function createServiceRegistrationToken() {
@@ -82,7 +61,7 @@ function normalizeServiceEventEntityId(value) {
     return value;
   }
 
-  const parsed = toPositiveInteger(value);
+  const parsed = normalizePositiveInteger(value);
   if (parsed > 0) {
     return parsed;
   }
@@ -91,7 +70,7 @@ function normalizeServiceEventEntityId(value) {
 }
 
 function normalizeRealtimeDispatch(value, { context = "service event.realtime" } = {}) {
-  const source = normalizePlainObject(value);
+  const source = normalizeObject(value);
   if (Object.keys(source).length < 1) {
     return null;
   }
@@ -142,7 +121,7 @@ function normalizeRealtimeAudience(value, { context = "service event.realtime.au
 }
 
 function normalizeServiceEventSpec(entry, { context = "service event" } = {}) {
-  const source = normalizePlainObject(entry);
+  const source = normalizeObject(entry);
 
   return Object.freeze({
     type: normalizeServiceEventType(source.type, { context }),
@@ -155,11 +134,11 @@ function normalizeServiceEventSpec(entry, { context = "service event" } = {}) {
 }
 
 function normalizeServiceMetadata(value = {}) {
-  const source = normalizePlainObject(value);
+  const source = normalizeObject(value);
   if (Object.hasOwn(source, "permissions")) {
     throw new TypeError("service metadata.permissions is no longer supported. Define permissions on actions.");
   }
-  const eventsSource = normalizePlainObject(source.events);
+  const eventsSource = normalizeObject(source.events);
   const events = {};
 
   for (const [methodName, eventEntries] of Object.entries(eventsSource)) {
@@ -180,13 +159,13 @@ function normalizeServiceMetadata(value = {}) {
 }
 
 function normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata) {
-  const service = normalizePlainObject(serviceDefinition);
+  const service = normalizeObject(serviceDefinition);
   const methodNameSet = new Set(
     Object.entries(service)
       .filter(([, value]) => typeof value === "function")
       .map(([name]) => name)
   );
-  const declaredEvents = normalizePlainObject(serviceMetadata.events);
+  const declaredEvents = normalizeObject(serviceMetadata.events);
   const normalizedEvents = {};
 
   for (const [methodName, events] of Object.entries(declaredEvents)) {
@@ -330,7 +309,7 @@ function createServiceMethodEventPublisher(scope, serviceToken, methodName, spec
 
 function materializeServiceRegistration(scope, registrationSpec) {
   const service = registrationSpec.factory(scope);
-  const normalizedService = normalizePlainObject(service);
+  const normalizedService = normalizeObject(service);
   const events = normalizeServiceEventsForDefinition(normalizedService, registrationSpec.metadata);
   const wrappedService = {};
 
@@ -388,7 +367,7 @@ function materializeServiceRegistration(scope, registrationSpec) {
 }
 
 function normalizeServiceRegistration(value = {}) {
-  const source = normalizePlainObject(value);
+  const source = normalizeObject(value);
   if (!isContainerToken(source.serviceToken)) {
     throw new TypeError("app.service requires a valid service token.");
   }
@@ -411,7 +390,7 @@ function registerServiceRegistration(app, token, factory) {
 
 function resolveServiceRegistrations(scope) {
   return resolveTaggedEntries(scope, SERVICE_REGISTRATION_TAG)
-    .map((entry) => normalizePlainObject(entry))
+    .map((entry) => normalizeObject(entry))
     .filter((entry) => Object.keys(entry).length > 0)
     .sort((left, right) => String(left.serviceToken || "").localeCompare(String(right.serviceToken || "")));
 }

@@ -18,4 +18,11 @@ const KERNEL_TOKENS = Object.freeze({
   SurfaceRuntime: Symbol.for("jskit.surface.runtime")
 });
 
-export { KERNEL_TOKENS };
+function isContainerToken(value) {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  return typeof value === "symbol" || typeof value === "function";
+}
+
+export { KERNEL_TOKENS, isContainerToken };

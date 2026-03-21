@@ -1,4 +1,4 @@
-export { KERNEL_TOKENS } from "./tokens.js";
+export { KERNEL_TOKENS, isContainerToken } from "./tokens.js";
 export {
   normalizeText,
   normalizeQueryToken,
@@ -6,6 +6,7 @@ export {
   isRecord,
   normalizeArray,
   normalizeInteger,
+  normalizePositiveInteger,
   normalizeOneOf,
   ensureNonEmptyText
 } from "./normalize.js";

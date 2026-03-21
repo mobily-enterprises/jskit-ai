@@ -1,16 +1,10 @@
 import { createSurfaceRuntime } from "../../shared/surface/runtime.js";
+import { normalizeObject } from "../../shared/support/normalize.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { assertTaggableApp } from "./primitives.js";
 
 const ACTION_SURFACE_SOURCE_REGISTRY_TOKEN = Symbol.for("jskit.runtime.actions.surfaceSourceRegistry");
 const ACTION_SURFACE_SOURCE_NAME_PATTERN = /^[a-z][a-z0-9_.-]*$/;
-
-function normalizePlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
 
 function normalizeSurfaceIdValue(value) {
   return String(value || "").trim().toLowerCase();
@@ -32,8 +26,8 @@ function resolveSurfaceRuntime(scope) {
 
   if (!scope.has(KERNEL_TOKENS.SurfaceRuntime)) {
     if (scope.has("appConfig")) {
-      const appConfig = normalizePlainObject(scope.make("appConfig"));
-      const surfaceDefinitions = normalizePlainObject(appConfig.surfaceDefinitions);
+      const appConfig = normalizeObject(scope.make("appConfig"));
+      const surfaceDefinitions = normalizeObject(appConfig.surfaceDefinitions);
       if (Object.keys(surfaceDefinitions).length > 0) {
         return createSurfaceRuntime({
           allMode: appConfig.surfaceModeAll,
