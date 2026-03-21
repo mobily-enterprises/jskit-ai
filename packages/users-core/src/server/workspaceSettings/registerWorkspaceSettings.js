@@ -1,7 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import {
-  USERS_BOOTSTRAP_CHANGED_EVENT,
   WORKSPACE_SETTINGS_CHANGED_EVENT
 } from "../../shared/events/usersEvents.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
@@ -11,6 +10,7 @@ import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
+import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
   const defaultInvitesEnabled = appConfig?.workspaceSettings?.defaults?.invitesEnabled;
@@ -46,33 +46,11 @@ function registerWorkspaceSettings(app) {
       }),
     {
       events: deepFreeze({
-        updateWorkspaceSettings: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "settings",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-              payload: ({ args }) => ({
-                workspaceSlug: String(args?.[0]?.slug || "").trim()
-              }),
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "event_scope"
-            }
-          }
-        ]
+        updateWorkspaceSettings: createWorkspaceEntityAndBootstrapEvents({
+          workspaceEntity: "settings",
+          workspaceOperation: "updated",
+          workspaceRealtimeEvent: WORKSPACE_SETTINGS_CHANGED_EVENT
+        })
       })
     }
   );

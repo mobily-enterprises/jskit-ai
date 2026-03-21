@@ -1,6 +1,5 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import {
-  USERS_BOOTSTRAP_CHANGED_EVENT,
   WORKSPACE_MEMBERS_CHANGED_EVENT,
   WORKSPACE_INVITES_CHANGED_EVENT
 } from "../../shared/events/usersEvents.js";
@@ -10,6 +9,7 @@ import { workspaceMembersActions } from "./workspaceMembersActions.js";
 import { materializeWorkspaceActionSurfacesFromAppConfig } from "../support/workspaceActionSurfaces.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
+import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 
 const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
@@ -75,114 +75,30 @@ function registerWorkspaceMembers(app) {
     },
     {
       events: deepFreeze({
-        updateMemberRole: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "member",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-              payload: ({ args }) => ({
-                workspaceSlug: String(args?.[0]?.slug || "").trim()
-              }),
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "event_scope"
-            }
-          }
-        ],
-        removeMember: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "member",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-              payload: ({ args }) => ({
-                workspaceSlug: String(args?.[0]?.slug || "").trim()
-              }),
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "event_scope"
-            }
-          }
-        ],
-        createInvite: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invite",
-            operation: "created",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: WORKSPACE_INVITES_CHANGED_EVENT,
-              payload: ({ args }) => ({
-                workspaceSlug: String(args?.[0]?.slug || "").trim()
-              }),
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ result }) => result?.createdInviteId,
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
-            }
-          }
-        ],
-        revokeInvite: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "invite",
-            operation: "updated",
-            entityId: ({ args }) => args?.[0]?.id,
-            realtime: {
-              event: WORKSPACE_INVITES_CHANGED_EVENT,
-              payload: ({ args }) => ({
-                workspaceSlug: String(args?.[0]?.slug || "").trim()
-              }),
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ result }) => result?.revokedInviteId,
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
-            }
-          }
-        ]
+        updateMemberRole: createWorkspaceEntityAndBootstrapEvents({
+          workspaceEntity: "member",
+          workspaceOperation: "updated",
+          workspaceRealtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+        }),
+        removeMember: createWorkspaceEntityAndBootstrapEvents({
+          workspaceEntity: "member",
+          workspaceOperation: "updated",
+          workspaceRealtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+        }),
+        createInvite: createWorkspaceEntityAndBootstrapEvents({
+          workspaceEntity: "invite",
+          workspaceOperation: "created",
+          workspaceRealtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT,
+          bootstrapEntityId: ({ result }) => result?.createdInviteId,
+          bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
+        }),
+        revokeInvite: createWorkspaceEntityAndBootstrapEvents({
+          workspaceEntity: "invite",
+          workspaceOperation: "updated",
+          workspaceRealtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT,
+          bootstrapEntityId: ({ result }) => result?.revokedInviteId,
+          bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
+        })
       })
     }
   );

@@ -1,72 +1,14 @@
-import { createPaginationQuerySchema } from "../../shared/validators/paginationQuery.js";
-import { registerTypeBoxFormats, __testables } from "../../shared/validators/typeboxFormats.js";
-import {
-  fieldErrorsSchema,
-  apiErrorDetailsSchema,
-  apiErrorResponseSchema,
-  apiValidationErrorResponseSchema,
-  fastifyDefaultErrorResponseSchema,
-  STANDARD_ERROR_STATUS_CODES,
-  passthroughErrorResponses,
-  withStandardErrorResponses,
-  enumSchema
-} from "../../shared/validators/errorResponses.js";
-import {
-  createCursorPagedListResponseSchema,
-  createResource
-} from "../../shared/validators/resource.js";
-import { createCommand } from "../../shared/validators/command.js";
-import {
-  resolveSchemaMessages,
-  resolveFieldSchema,
-  resolveIssueField,
-  resolveMissingRequiredFields,
-  resolveIssueMessageFromSchema,
-  mapOperationIssues
-} from "../../shared/validators/operationMessages.js";
-import {
-  validateOperationSection,
-  validateOperationInput
-} from "../../shared/validators/operationValidation.js";
+import { SingletonApiProvider } from "../../shared/providers/singletonApiProvider.js";
+import { HTTP_VALIDATORS_API } from "../../shared/validators/httpValidatorsApi.js";
 
-const HTTP_VALIDATORS_CLIENT_API = Object.freeze({
-  createPaginationQuerySchema,
-  registerTypeBoxFormats,
-  __testables,
-  fieldErrorsSchema,
-  apiErrorDetailsSchema,
-  apiErrorResponseSchema,
-  apiValidationErrorResponseSchema,
-  fastifyDefaultErrorResponseSchema,
-  STANDARD_ERROR_STATUS_CODES,
-  passthroughErrorResponses,
-  withStandardErrorResponses,
-  enumSchema,
-  createCursorPagedListResponseSchema,
-  createResource,
-  createCommand,
-  resolveSchemaMessages,
-  resolveFieldSchema,
-  resolveIssueField,
-  resolveMissingRequiredFields,
-  resolveIssueMessageFromSchema,
-  mapOperationIssues,
-  validateOperationSection,
-  validateOperationInput
-});
-
-class HttpValidatorsClientProvider {
+class HttpValidatorsClientProvider extends SingletonApiProvider {
   static id = "validators.http.client";
 
-  register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("HttpValidatorsClientProvider requires application singleton().");
-    }
+  static bindingToken = "validators.http.client";
 
-    app.singleton("validators.http.client", () => HTTP_VALIDATORS_CLIENT_API);
-  }
+  static api = HTTP_VALIDATORS_API;
 
-  boot() {}
+  static providerName = "HttpValidatorsClientProvider";
 }
 
 export { HttpValidatorsClientProvider };
