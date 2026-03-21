@@ -18,7 +18,6 @@ import * as serviceAuthorization from "./serviceAuthorization.js";
 import * as serviceRegistration from "../registries/serviceRegistrationRegistry.js";
 import * as entityChangeEvents from "./entityChangeEvents.js";
 import * as securityAudit from "./securityAudit.js";
-import * as storagePaths from "./storagePaths.js";
 import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 
 const SERVER_RUNTIME_CORE_API = Object.freeze({
@@ -41,8 +40,7 @@ const SERVER_RUNTIME_CORE_API = Object.freeze({
   serviceAuthorization: Object.freeze({ ...serviceAuthorization }),
   serviceRegistration: Object.freeze({ ...serviceRegistration }),
   entityChangeEvents: Object.freeze({ ...entityChangeEvents }),
-  securityAudit: Object.freeze({ ...securityAudit }),
-  storagePaths: Object.freeze({ ...storagePaths })
+  securityAudit: Object.freeze({ ...securityAudit })
 });
 
 class ServerRuntimeCoreServiceProvider {

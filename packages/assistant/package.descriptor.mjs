@@ -29,6 +29,13 @@ export default Object.freeze({
       defaultValue: "120000",
       promptLabel: "AI timeout (ms)",
       promptHint: "Abort AI requests after this many milliseconds."
+    },
+    surface: {
+      required: true,
+      inputType: "text",
+      defaultValue: "admin",
+      promptLabel: "Target workspace surface",
+      promptHint: "Workspace surface id for assistant page + menu placement (for example: admin or app)."
     }
   },
   dependsOn: [
@@ -147,7 +154,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/workspace/assistant/index.vue",
-        toSurface: "admin",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "workspace/assistant/index.vue",
         reason: "Install assistant workspace page scaffold.",
         category: "assistant",
@@ -165,8 +172,8 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.menu\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append admin Assistant menu placement into app-owned placement registry.",
+          "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append assistant menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu",
         when: {
@@ -180,7 +187,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
         reason: "Append assistant workspace settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-workspace-settings-form-placement",

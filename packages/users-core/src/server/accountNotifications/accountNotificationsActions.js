@@ -1,8 +1,8 @@
 import {
-  resolveRequest,
-  resolveUser
+  resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const accountNotificationsActions = Object.freeze([
   {
@@ -26,7 +26,7 @@ const accountNotificationsActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountNotificationsService.updateNotifications(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input.payload,
         {
           context

@@ -1,8 +1,8 @@
 import {
-  resolveRequest,
-  resolveUser
+  resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const accountSecurityActions = Object.freeze([
   {
@@ -26,7 +26,7 @@ const accountSecurityActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountSecurityService.changePassword(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input.payload,
         {
           context
@@ -55,7 +55,7 @@ const accountSecurityActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input.payload,
         {
           context
@@ -82,7 +82,7 @@ const accountSecurityActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountSecurityService.startOAuthProviderLink(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input,
         {
           context
@@ -109,7 +109,7 @@ const accountSecurityActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountSecurityService.unlinkOAuthProvider(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input,
         {
           context
@@ -134,7 +134,7 @@ const accountSecurityActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveUser(context, input), {
+      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveActionUser(context, input), {
         context
       });
     }

@@ -1,9 +1,9 @@
 import {
   normalizeObject,
-  requireServiceMethod,
-  resolveUser
+  requireServiceMethod
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { normalizeScopedRouteVisibility } from "../../../shared/support/usersVisibility.js";
+import { resolveActionUser } from "../support/resolveActionUser.js";
 
 const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
   "workspace.roles.list",
@@ -42,7 +42,7 @@ function createWorkspaceActionContextContributor({ workspaceService } = {}) {
       }
 
       const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-        resolveUser(context, payload),
+        resolveActionUser(context, payload),
         payload.workspaceSlug,
         { request }
       );

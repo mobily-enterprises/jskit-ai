@@ -154,18 +154,12 @@ test("assistant routes build list inputs with explicit query object", async () =
   });
   assert.deepEqual(calls[4], {
     actionId: "assistant.workspace.settings.read",
-    context: {
-      surface: "admin"
-    },
     input: {
       workspaceSlug: "acme"
     }
   });
   assert.deepEqual(calls[5], {
     actionId: "assistant.workspace.settings.update",
-    context: {
-      surface: "admin"
-    },
     input: {
       workspaceSlug: "acme",
       patch: {

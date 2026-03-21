@@ -1,9 +1,9 @@
 import {
   EMPTY_INPUT_VALIDATOR,
-  resolveRequest,
-  resolveUser
+  resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspaceDirectoryActions = Object.freeze([
   {
@@ -27,7 +27,7 @@ const workspaceDirectoryActions = Object.freeze([
       inputValidator: workspaceResource.operations.create.bodyValidator
     },
     async execute(input, context, deps) {
-      return deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveUser(context, input), input, {
+      return deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
         request: resolveRequest(context),
         context
       });
@@ -51,7 +51,7 @@ const workspaceDirectoryActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        items: await deps.workspaceService.listWorkspacesForAuthenticatedUser(resolveUser(context, input), {
+        items: await deps.workspaceService.listWorkspacesForAuthenticatedUser(resolveActionUser(context, input), {
           request: resolveRequest(context),
           context
         }),

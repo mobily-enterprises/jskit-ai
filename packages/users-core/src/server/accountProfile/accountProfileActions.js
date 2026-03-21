@@ -1,12 +1,12 @@
 import {
   EMPTY_INPUT_VALIDATOR,
-  resolveRequest,
-  resolveUser
+  resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const settingsProfileUpdateOutputValidator = Object.freeze({
   schema: Type.Object(
@@ -44,7 +44,7 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.accountProfileService.getForUser(resolveRequest(context), resolveUser(context, input), {
+      return deps.accountProfileService.getForUser(resolveRequest(context), resolveActionUser(context, input), {
         context
       });
     }
@@ -70,7 +70,7 @@ const accountProfileActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input.payload,
         {
           context
@@ -97,7 +97,7 @@ const accountProfileActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountProfileService.uploadAvatar(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input,
         {
           context
@@ -124,7 +124,7 @@ const accountProfileActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountProfileService.deleteAvatar(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input,
         {
           context

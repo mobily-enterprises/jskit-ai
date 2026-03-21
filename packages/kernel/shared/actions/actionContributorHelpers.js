@@ -13,11 +13,6 @@ function resolveRequest(context) {
   return context?.requestMeta?.request || null;
 }
 
-function resolveUser(context, input) {
-  const payload = normalizeObject(input);
-  return payload.user || resolveRequest(context)?.user || context?.actor || null;
-}
-
 const OBJECT_INPUT_VALIDATOR = Object.freeze({
   parse(value) {
     return normalizeObject(value);
@@ -33,7 +28,6 @@ export {
   toPositiveInteger,
   requireServiceMethod,
   resolveRequest,
-  resolveUser,
   hasPermission,
   EMPTY_INPUT_VALIDATOR,
   OBJECT_INPUT_VALIDATOR

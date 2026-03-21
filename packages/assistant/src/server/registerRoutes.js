@@ -96,9 +96,6 @@ function registerRoutes(app) {
     async function assistantWorkspaceSettingsReadRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.workspaceSettingsRead,
-        context: {
-          surface: "admin"
-        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug
         }
@@ -132,9 +129,6 @@ function registerRoutes(app) {
     async function assistantWorkspaceSettingsPatchRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.workspaceSettingsUpdate,
-        context: {
-          surface: "admin"
-        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           patch: request.input.body
@@ -216,9 +210,6 @@ function registerRoutes(app) {
 
         await request.executeAction({
           actionId: actionIds.chatStream,
-          context: {
-            surface: "admin"
-          },
           input: (() => {
             const body = request.input.body;
             const input = {
@@ -294,9 +285,6 @@ function registerRoutes(app) {
     async function assistantConversationsRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.conversationsList,
-        context: {
-          surface: "admin"
-        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           query: request.input.query
@@ -326,9 +314,6 @@ function registerRoutes(app) {
     async function assistantConversationMessagesRoute(request, reply) {
       const response = await request.executeAction({
         actionId: actionIds.conversationMessagesList,
-        context: {
-          surface: "admin"
-        },
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           conversationId: request.input.params.conversationId,

@@ -1,7 +1,5 @@
-import {
-  resolveUser
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 
@@ -148,7 +146,7 @@ const workspaceMembersActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         {
           email: input.email,
           roleId: input.roleId

@@ -1,8 +1,8 @@
 import {
-  resolveRequest,
-  resolveUser
+  resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const accountPreferencesActions = Object.freeze([
   {
@@ -26,7 +26,7 @@ const accountPreferencesActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.accountPreferencesService.updatePreferences(
         resolveRequest(context),
-        resolveUser(context, input),
+        resolveActionUser(context, input),
         input.payload,
         {
           context

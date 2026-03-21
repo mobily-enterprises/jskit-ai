@@ -1,9 +1,9 @@
 import {
-  EMPTY_INPUT_VALIDATOR,
-  resolveUser
+  EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { workspaceInviteResource } from "../../shared/resources/workspaceInviteResource.js";
+import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
   {
@@ -24,7 +24,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       return {
-        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveUser(context, input), {
+        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
           context
         })
       };
@@ -50,7 +50,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     observability: {},
     async execute(input, context, deps) {
       const payload = input.payload || {};
-      const user = resolveUser(context, input);
+      const user = resolveActionUser(context, input);
 
       if (payload.decision === "accept") {
         return deps.workspacePendingInvitationsService.acceptInviteByToken({
