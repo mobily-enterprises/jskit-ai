@@ -9,7 +9,6 @@ const workspaceSettingsActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
@@ -35,7 +34,6 @@ const workspaceSettingsActions = Object.freeze([
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.settings.update"]

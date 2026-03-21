@@ -417,18 +417,16 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   });
 
   if (Object.prototype.hasOwnProperty.call(source, "visibility")) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" must use consoleUsersOnly instead of visibility.`, {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" visibility is not supported.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  if (Object.prototype.hasOwnProperty.call(source, "consoleUsersOnly") && typeof source.consoleUsersOnly !== "boolean") {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" consoleUsersOnly must be a boolean.`, {
+  if (Object.prototype.hasOwnProperty.call(source, "consoleUsersOnly")) {
+    throw createActionRuntimeError(500, `Action definition \"${id}\" consoleUsersOnly is not supported.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
-
-  const consoleUsersOnly = source.consoleUsersOnly === true;
 
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
   if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
@@ -466,7 +464,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     kind,
     channels,
     surfaces,
-    consoleUsersOnly,
     inputValidator: normalizeActionValidators(source.inputValidator, "inputValidator", {
       required: true
     }),

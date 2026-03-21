@@ -46,7 +46,6 @@
     "./shared/support/linkPath": "./shared/support/linkPath.js",
     "./shared/surface": "./shared/surface/index.js",
     "./shared/surface/apiPaths": "./shared/surface/apiPaths.js",
-    "./shared/surface/appSurfaces": "./shared/surface/appSurfaces.js",
     "./shared/surface/paths": "./shared/surface/paths.js",
     "./shared/surface/runtime": "./shared/surface/runtime.js",
     "./shared/surface/registry": "./shared/surface/registry.js",

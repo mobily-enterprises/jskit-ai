@@ -12,7 +12,6 @@ const workspaceDirectoryActions = Object.freeze([
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -40,7 +39,6 @@ const workspaceDirectoryActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },

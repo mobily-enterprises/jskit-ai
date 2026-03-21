@@ -28,6 +28,7 @@ import { registerAccountProfile } from "./accountProfile/registerAccountProfile.
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
 import { registerAvatarMultipartSupport } from "./accountProfile/registerAvatarMultipartSupport.js";
+import { registerUsersCoreActionSurfaceSources } from "./support/workspaceActionSurfaces.js";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -35,6 +36,7 @@ class UsersCoreServiceProvider {
   static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider"];
 
   register(app) {
+    registerUsersCoreActionSurfaceSources(app);
     registerSharedApi(app, USERS_SHARED_API);
     registerCommonRepositories(app);
     registerWorkspaceCore(app);

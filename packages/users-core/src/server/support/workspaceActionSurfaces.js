@@ -5,8 +5,8 @@ function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeWorkspaceSurfaceIds(workspaceSurfaceIds = []) {
-  const source = Array.isArray(workspaceSurfaceIds) ? workspaceSurfaceIds : [];
+function normalizeSurfaceIds(surfaceIds = []) {
+  const source = Array.isArray(surfaceIds) ? surfaceIds : [];
   const seen = new Set();
   const normalized = [];
 
@@ -40,12 +40,33 @@ function resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {}) {
     }
   }
 
-  return normalizeWorkspaceSurfaceIds(resolved);
+  return normalizeSurfaceIds(resolved);
+}
+
+function resolveConsoleSurfaceIdsFromAppConfig(appConfig = {}) {
+  const source = isRecord(appConfig?.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
+  const resolved = [];
+
+  for (const [key, value] of Object.entries(source)) {
+    const definition = isRecord(value) ? value : {};
+    const surfaceId = normalizeSurfaceId(definition.id || key);
+    if (!surfaceId) {
+      continue;
+    }
+    if (definition.enabled === false) {
+      continue;
+    }
+    if (surfaceId === "console") {
+      resolved.push(surfaceId);
+    }
+  }
+
+  return normalizeSurfaceIds(resolved);
 }
 
 function materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {}) {
   const sourceActions = Array.isArray(actions) ? actions : [];
-  const resolvedWorkspaceSurfaceIds = normalizeWorkspaceSurfaceIds(workspaceSurfaceIds);
+  const resolvedWorkspaceSurfaceIds = normalizeSurfaceIds(workspaceSurfaceIds);
   const materialized = [];
 
   for (const entry of sourceActions) {
@@ -72,6 +93,22 @@ function materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds 
   return Object.freeze(materialized.map((entry) => Object.freeze({ ...entry })));
 }
 
+function registerUsersCoreActionSurfaceSources(app) {
+  if (!app || typeof app.actionSurfaceSource !== "function") {
+    return;
+  }
+
+  app.actionSurfaceSource("workspace", ({ scope }) => {
+    const appConfig = scope?.has?.("appConfig") ? scope.make("appConfig") : {};
+    return resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
+  });
+
+  app.actionSurfaceSource("console", ({ scope }) => {
+    const appConfig = scope?.has?.("appConfig") ? scope.make("appConfig") : {};
+    return resolveConsoleSurfaceIdsFromAppConfig(appConfig);
+  });
+}
+
 function materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {}) {
   const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
   return materializeWorkspaceActionSurfaces(actions, { workspaceSurfaceIds });
@@ -94,7 +131,9 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
 
 export {
   resolveWorkspaceSurfaceIdsFromAppConfig,
+  resolveConsoleSurfaceIdsFromAppConfig,
   resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
   materializeWorkspaceActionSurfaces,
-  materializeWorkspaceActionSurfacesFromAppConfig
+  materializeWorkspaceActionSurfacesFromAppConfig,
+  registerUsersCoreActionSurfaceSources
 };

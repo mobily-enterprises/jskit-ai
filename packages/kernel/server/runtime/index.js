@@ -9,7 +9,7 @@ export {
   createValidationError
 } from "./errors.js";
 export { parsePositiveInteger } from "./integers.js";
-export { safeRequestUrl, safePathnameFromRequest, buildLoginRedirectPathFromRequest, resolveClientIpAddress } from "./requestUrl.js";
+export { safeRequestUrl, safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 export { normalizePagination } from "./pagination.js";
 export {
   resolveServiceContext,

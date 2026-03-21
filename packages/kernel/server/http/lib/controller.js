@@ -3,7 +3,6 @@ const DEFAULT_DOMAIN_ERROR_STATUS_BY_CODE = Object.freeze({
   validation_failed: 422,
   invalid_input: 422,
   duplicate: 409,
-  duplicate_contact: 409,
   conflict: 409,
   not_found: 404,
   forbidden: 403,

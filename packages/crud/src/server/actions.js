@@ -26,7 +26,6 @@ function createActions({ actionIdPrefix, surface = "" } = {}) {
       kind: "query",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -50,7 +49,6 @@ function createActions({ actionIdPrefix, surface = "" } = {}) {
       kind: "query",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -74,7 +72,6 @@ function createActions({ actionIdPrefix, surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -103,7 +100,6 @@ function createActions({ actionIdPrefix, surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -133,7 +129,6 @@ function createActions({ actionIdPrefix, surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },

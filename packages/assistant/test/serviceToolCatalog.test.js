@@ -42,7 +42,6 @@ test("service tool catalog hides methods user cannot execute", () => {
       kind: "query",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -77,7 +76,6 @@ test("service tool catalog hides methods user cannot execute", () => {
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "all",
         permissions: ["customers.delete"]
@@ -206,7 +204,6 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
       kind: "query",
       channels: ["internal"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -265,7 +262,6 @@ test("service tool catalog honors barred action ids", () => {
       kind: "query",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -324,7 +320,6 @@ test("service tool catalog materializes action tools once and filters per reques
       kind: "query",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -436,7 +431,6 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -506,7 +500,6 @@ test("service tool catalog can require input/output schemas for tool exposure", 
       kind: "query",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -605,7 +598,6 @@ test("service tool catalog derives tool schemas from action contributors", () =>
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -670,7 +662,6 @@ test("service tool catalog derives input schema from array action validators", (
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -766,7 +757,6 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -861,7 +851,6 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -946,7 +935,6 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },
@@ -1049,7 +1037,6 @@ test("service tool catalog executes action-backed tools with object payloads", a
       kind: "command",
       channels: ["automation"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       permission: {
         require: "authenticated"
       },

@@ -10,7 +10,6 @@ const consoleSettingsActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -33,7 +32,6 @@ const consoleSettingsActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },

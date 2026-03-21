@@ -30,14 +30,14 @@ function createReplyStub() {
 test("resolveDomainErrorStatus prefers explicit status", () => {
   const status = resolveDomainErrorStatus({
     status: 418,
-    code: "duplicate_contact"
+    code: "duplicate"
   });
 
   assert.equal(status, 418);
 });
 
 test("resolveDomainErrorStatus maps known domain codes", () => {
-  assert.equal(resolveDomainErrorStatus({ code: "duplicate_contact" }), 409);
+  assert.equal(resolveDomainErrorStatus({ code: "duplicate" }), 409);
   assert.equal(resolveDomainErrorStatus({ code: "domain_validation_failed" }), 422);
   assert.equal(resolveDomainErrorStatus({ code: "not_found" }), 404);
 });
@@ -66,16 +66,33 @@ test("BaseController.sendActionResult maps domain failure", () => {
 
   controller.sendActionResult(reply, {
     ok: false,
-    code: "duplicate_contact",
+    code: "duplicate",
     details: ["already exists"]
   });
 
   assert.equal(reply.state.statusCode, 409);
   assert.deepEqual(reply.state.payload, {
     error: "Request failed.",
+    code: "duplicate",
+    details: ["already exists"]
+  });
+});
+
+test("BaseController supports module-specific domain error codes through overrides", () => {
+  const controller = new BaseController({
+    domainErrorStatusByCode: {
+      duplicate_contact: 409
+    }
+  });
+  const reply = createReplyStub();
+
+  controller.sendActionResult(reply, {
+    ok: false,
     code: "duplicate_contact",
     details: ["already exists"]
   });
+
+  assert.equal(reply.state.statusCode, 409);
 });
 
 test("BaseController.fail includes fieldErrors and default details shape", () => {

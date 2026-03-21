@@ -17,7 +17,6 @@ const assistantActions = Object.freeze([
     kind: "stream",
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -41,7 +40,6 @@ const assistantActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -69,7 +67,6 @@ const assistantActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -98,7 +95,6 @@ const assistantActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -121,7 +117,6 @@ const assistantActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "console",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -146,7 +141,6 @@ const assistantActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
@@ -170,7 +164,6 @@ const assistantActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.settings.update"]

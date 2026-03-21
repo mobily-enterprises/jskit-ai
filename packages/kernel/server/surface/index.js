@@ -16,10 +16,4 @@ export {
   buildVersionedApiPath,
   isVersionedApiPrefixMatch
 } from "../../shared/surface/apiPaths.js";
-export {
-  DEFAULT_SURFACES,
-  DEFAULT_ROUTES,
-  createDefaultAppSurfaceRegistry,
-  createDefaultAppSurfacePaths
-} from "../../shared/surface/appSurfaces.js";
 export { SurfaceRoutingServiceProvider } from "./SurfaceRoutingServiceProvider.js";

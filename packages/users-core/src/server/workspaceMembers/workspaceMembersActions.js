@@ -12,7 +12,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.roles.view"]
@@ -34,7 +33,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.members.view"]
@@ -58,7 +56,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.members.manage"]
@@ -85,7 +82,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.members.manage"]
@@ -111,7 +107,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.members.view"]
@@ -135,7 +130,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.members.invite"]
@@ -171,7 +165,6 @@ const workspaceMembersActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "workspace",
-    consoleUsersOnly: false,
     permission: {
       require: "all",
       permissions: ["workspace.invites.revoke"]

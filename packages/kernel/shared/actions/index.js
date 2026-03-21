@@ -15,7 +15,6 @@ export { executeActionPipeline } from "./pipeline.js";
 export {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
-  ensureActionConsoleUsersOnlyAllowed,
   ensureActionPermissionAllowed,
   normalizeActionInput,
   normalizeActionOutput

@@ -38,9 +38,3 @@ export {
   buildVersionedApiPath,
   isVersionedApiPrefixMatch
 } from "./surface/apiPaths.js";
-export {
-  DEFAULT_SURFACES,
-  DEFAULT_ROUTES,
-  createDefaultAppSurfaceRegistry,
-  createDefaultAppSurfacePaths
-} from "./surface/appSurfaces.js";

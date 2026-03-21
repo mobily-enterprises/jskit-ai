@@ -28,7 +28,6 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
@@ -49,7 +48,6 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
@@ -98,7 +96,6 @@ test("action registry merges action input validators", async () => {
             kind: "command",
             channels: ["api"],
             surfaces: ["app"],
-            consoleUsersOnly: false,
             inputValidator: [
               {
                 schema: Type.Object(
@@ -184,7 +181,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                consoleUsersOnly: false,
                 inputValidator: { schema: createPassThroughSchema() },
                 idempotency: "optional",
                 audit: {
@@ -210,7 +206,6 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                consoleUsersOnly: false,
                 inputValidator: { schema: createPassThroughSchema() },
                 idempotency: "optional",
                 audit: {
@@ -245,7 +240,6 @@ test("action registry rejects invalid version requests", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app"],
-            consoleUsersOnly: false,
             inputValidator: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
@@ -283,50 +277,40 @@ test("action registry rejects invalid version requests", async () => {
   );
 });
 
-test("action registry enforces consoleUsersOnly for non-operator actors", async () => {
-  const registry = createActionRegistry({
-    contributors: [
-      {
-        contributorId: "tests.internal",
-        domain: "settings",
-        actions: [
+test("action registry rejects deprecated consoleUsersOnly field", () => {
+  assert.throws(
+    () =>
+      createActionRegistry({
+        contributors: [
           {
-            id: "settings.internal.ping",
-            version: 1,
+            contributorId: "tests.internal",
             domain: "settings",
-            kind: "query",
-            channels: ["api", "internal"],
-            surfaces: ["app"],
-            consoleUsersOnly: true,
-            inputValidator: { schema: createPassThroughSchema() },
-            idempotency: "none",
-            audit: {
-              actionName: "settings.internal.ping"
-            },
-            observability: {},
-            async execute() {
-              return { ok: true };
-            }
+            actions: [
+              {
+                id: "settings.internal.ping",
+                version: 1,
+                domain: "settings",
+                kind: "query",
+                channels: ["api", "internal"],
+                surfaces: ["app"],
+                consoleUsersOnly: true,
+                inputValidator: { schema: createPassThroughSchema() },
+                idempotency: "none",
+                audit: {
+                  actionName: "settings.internal.ping"
+                },
+                observability: {},
+                async execute() {
+                  return { ok: true };
+                }
+              }
+            ]
           }
         ]
-      }
-    ]
-  });
-
-  await assert.rejects(
-    () =>
-      registry.execute({
-        actionId: "settings.internal.ping",
-        context: {
-          channel: "api",
-          surface: "app",
-          actor: { id: "user-1" },
-          permissions: []
-        }
       }),
     (error) => {
-      assert.equal(error.code, "ACTION_CONSOLE_USERS_ONLY_FORBIDDEN");
-      return true;
+      assert.equal(error?.code, "ACTION_DEFINITION_INVALID");
+      return String(error?.message || "").includes("consoleUsersOnly is not supported");
     }
   );
 });
@@ -345,7 +329,6 @@ test("action registry enforces action-level permissions", async () => {
             kind: "command",
             channels: ["api", "internal"],
             surfaces: ["app"],
-            consoleUsersOnly: false,
             permission: {
               require: "all",
               permissions: ["workspace.settings.update"]

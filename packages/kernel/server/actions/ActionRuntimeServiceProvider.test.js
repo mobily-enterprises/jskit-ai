@@ -73,6 +73,7 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(app.singletons.has("actionExecutor"), true);
   assert.equal(typeof app.action, "function");
   assert.equal(typeof app.actions, "function");
+  assert.equal(typeof app.actionSurfaceSource, "function");
   assert.equal(typeof app.service, "function");
 
   const api = app.make("runtime.actions");
@@ -105,7 +106,6 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "enabled",
-      consoleUsersOnly: false,
       dependencies: {
         echoService: "test.echo.service"
       },
@@ -154,7 +154,6 @@ test("ActionRuntimeServiceProvider resolves surfacesFrom from appConfig when Sur
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "enabled",
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "test.surfaces.from.appconfig" },
@@ -168,6 +167,42 @@ test("ActionRuntimeServiceProvider resolves surfacesFrom from appConfig when Sur
   const actionExecutor = app.make("actionExecutor");
   const definition = actionExecutor.getDefinition("test.surfaces.from.appconfig");
   assert.deepEqual(definition.surfaces, ["home", "console"]);
+});
+
+test("ActionRuntimeServiceProvider materializes custom surfacesFrom aliases registered via app.actionSurfaceSource", async () => {
+  const app = createSingletonApp();
+  const provider = new ActionRuntimeServiceProvider();
+  provider.register(app);
+
+  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+    listEnabledSurfaceIds() {
+      return ["home", "app", "admin", "console"];
+    }
+  }));
+
+  app.actionSurfaceSource("workspace", () => ["app", "admin"]);
+
+  app.actions([
+    {
+      id: "test.workspace.alias",
+      domain: "workspace",
+      version: 1,
+      kind: "query",
+      channels: ["internal"],
+      surfacesFrom: "workspace",
+      inputValidator: EMPTY_INPUT_VALIDATOR,
+      idempotency: "none",
+      audit: { actionName: "test.workspace.alias" },
+      observability: {},
+      async execute() {
+        return { ok: true };
+      }
+    }
+  ]);
+
+  const actionExecutor = app.make("actionExecutor");
+  const definition = actionExecutor.getDefinition("test.workspace.alias");
+  assert.deepEqual(definition?.surfaces, ["app", "admin"]);
 });
 
 test("ActionRuntimeServiceProvider does not infer service method bindings from action source", () => {
@@ -189,7 +224,6 @@ test("ActionRuntimeServiceProvider does not infer service method bindings from a
       kind: "command",
       channels: ["internal"],
       surfaces: ["admin"],
-      consoleUsersOnly: false,
       dependencies: {
         customerService: "test.customer.service"
       },
@@ -226,7 +260,6 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "alpha.one" },
@@ -244,7 +277,6 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "beta.one" },
@@ -285,7 +317,6 @@ test("action runtime execute merges static and per-execution dependencies", asyn
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      consoleUsersOnly: false,
       dependencies: {
         staticService: "test.static.service"
       },
@@ -333,7 +364,6 @@ test("app.actions accepts custom action domains", () => {
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "custom.domain.check" },
@@ -361,7 +391,6 @@ test("app.action registers a single action with default contributor id", () => {
     kind: "query",
     channels: ["internal"],
     surfaces: ["app"],
-    consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     idempotency: "none",
     audit: { actionName: "test.single" },
@@ -405,7 +434,6 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "test.empty-input" },
@@ -473,7 +501,6 @@ test("app.actions rejects invalid domain identifiers", () => {
           kind: "query",
           channels: ["internal"],
           surfaces: ["app"],
-          consoleUsersOnly: false,
           inputValidator: EMPTY_INPUT_VALIDATOR,
           idempotency: "none",
           audit: { actionName: "invalid.domain" },
@@ -506,7 +533,6 @@ test("app.actions rejects unsupported surfacesFrom aliases", () => {
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "workspace",
-      consoleUsersOnly: false,
       inputValidator: EMPTY_INPUT_VALIDATOR,
       idempotency: "none",
       audit: { actionName: "workspace.alias.invalid" },
@@ -517,5 +543,8 @@ test("app.actions rejects unsupported surfacesFrom aliases", () => {
     }
   ]);
 
-  assert.throws(() => app.make("actionExecutor"), /must be one of: enabled, console/);
+  assert.throws(
+    () => app.make("actionExecutor"),
+    /references unknown surface source "workspace". Register it via app.actionSurfaceSource\(\)\./
+  );
 });

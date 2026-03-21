@@ -11,7 +11,6 @@ const accountNotificationsActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },

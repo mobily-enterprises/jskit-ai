@@ -51,26 +51,6 @@ function ensureActionSurfaceAllowed(definition, context) {
   }
 }
 
-function ensureActionConsoleUsersOnlyAllowed(definition, context) {
-  if (definition?.consoleUsersOnly !== true) {
-    return;
-  }
-
-  const actorIsOperator =
-    context?.actor?.isOperator === true ||
-    hasPermission(context?.permissions, "console.operator");
-
-  if (!actorIsOperator) {
-    throw createActionRuntimeError(403, "Forbidden.", {
-      code: "ACTION_CONSOLE_USERS_ONLY_FORBIDDEN",
-      details: {
-        actionId: definition?.id,
-        consoleUsersOnly: true
-      }
-    });
-  }
-}
-
 function toPositiveInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -367,7 +347,6 @@ const __testables = {
 export {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
-  ensureActionConsoleUsersOnlyAllowed,
   ensureActionPermissionAllowed,
   normalizeActionInput,
   normalizeActionOutput,

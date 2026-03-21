@@ -94,13 +94,7 @@ function createSurfacePathHelpers(options = {}) {
   }
 
   const apiBasePath = normalizePathname(options?.apiBasePath || "/api");
-  const routeConfig = {
-    loginPath: "/login",
-    resetPasswordPath: "/reset-password",
-    accountSettingsPath: "/account/settings",
-    invitationsPath: "/invitations",
-    ...options?.routes
-  };
+  const routeConfig = options?.routes && typeof options.routes === "object" && !Array.isArray(options.routes) ? options.routes : {};
 
   function normalizeSurface(surface) {
     return normalizeSurfaceId(surface);
@@ -210,50 +204,49 @@ function createSurfacePathHelpers(options = {}) {
     return normalizePathname(`${routeBase}${normalizedPath}`);
   }
 
+  function normalizeOptionalRoutePath(path) {
+    const normalizedPath = String(path || "").trim();
+    if (!normalizedPath) {
+      return "";
+    }
+
+    return normalizePathname(normalizedPath);
+  }
+
   function createSurfacePaths(surface) {
     const normalizedSurface = normalizeSurface(surface);
     const routeBase = resolveSurfaceRouteBase(normalizedSurface);
 
     const rootPath = routeBase || "/";
-    const loginPath = withSurfaceRouteBase(normalizedSurface, routeConfig.loginPath);
-    const resetPasswordPath = withSurfaceRouteBase(normalizedSurface, routeConfig.resetPasswordPath);
-    const accountSettingsPath = withSurfaceRouteBase(normalizedSurface, routeConfig.accountSettingsPath);
-    const invitationsPath = withSurfaceRouteBase(normalizedSurface, routeConfig.invitationsPath);
-    const publicAuthPaths = new Set([loginPath, resetPasswordPath]);
-
-    function isPublicAuthPath(pathname) {
-      return publicAuthPaths.has(normalizePathname(pathname));
+    const namedPaths = {};
+    for (const [routeName, routePath] of Object.entries(routeConfig)) {
+      const normalizedRouteName = String(routeName || "").trim();
+      if (!normalizedRouteName) {
+        continue;
+      }
+      const normalizedRoutePath = normalizeOptionalRoutePath(routePath);
+      if (!normalizedRoutePath) {
+        continue;
+      }
+      namedPaths[normalizedRouteName] = withSurfaceRouteBase(normalizedSurface, normalizedRoutePath);
     }
 
-    function isLoginPath(pathname) {
-      return normalizePathname(pathname) === loginPath;
-    }
-
-    function isResetPasswordPath(pathname) {
-      return normalizePathname(pathname) === resetPasswordPath;
-    }
-
-    function isAccountSettingsPath(pathname) {
-      return normalizePathname(pathname) === accountSettingsPath;
-    }
-
-    function isInvitationsPath(pathname) {
-      return normalizePathname(pathname) === invitationsPath;
-    }
+    const frozenNamedPaths = Object.freeze({
+      ...namedPaths
+    });
 
     return {
       surface: normalizedSurface,
       routeBase,
       rootPath,
-      loginPath,
-      resetPasswordPath,
-      accountSettingsPath,
-      invitationsPath,
-      isPublicAuthPath,
-      isLoginPath,
-      isResetPasswordPath,
-      isAccountSettingsPath,
-      isInvitationsPath
+      namedPaths: frozenNamedPaths,
+      isNamedPath(routeName, pathname) {
+        const normalizedRouteName = String(routeName || "").trim();
+        if (!normalizedRouteName || !Object.hasOwn(frozenNamedPaths, normalizedRouteName)) {
+          return false;
+        }
+        return normalizePathname(pathname) === frozenNamedPaths[normalizedRouteName];
+      }
     };
   }
 

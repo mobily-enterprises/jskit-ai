@@ -27,7 +27,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authRegisterCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -44,7 +43,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authLoginPasswordCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -61,7 +59,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authLoginOtpRequestCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -78,7 +75,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -95,7 +91,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: [authLoginOAuthStartCommand.operation.paramsValidator, authLoginOAuthStartCommand.operation.queryValidator],
     idempotency: "none",
     audit: {
@@ -112,7 +107,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -129,7 +123,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authPasswordResetRequestCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -146,7 +139,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -163,7 +155,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: authPasswordResetCommand.operation.bodyValidator,
     idempotency: "none",
     audit: {
@@ -180,7 +171,6 @@ const authActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     outputValidator: {
       schema: {
@@ -220,7 +210,6 @@ const authActions = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     inputValidator: EMPTY_INPUT_VALIDATOR,
     idempotency: "none",
     audit: {

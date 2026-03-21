@@ -1,12 +1,10 @@
 import * as apiPaths from "../../shared/surface/apiPaths.js";
-import * as appSurfaces from "../../shared/surface/appSurfaces.js";
 import * as paths from "../../shared/surface/paths.js";
 import * as registry from "../../shared/surface/registry.js";
 import { escapeRegExp } from "../../shared/surface/escapeRegExp.js";
 
 const SURFACE_ROUTING_API = Object.freeze({
   apiPaths: Object.freeze({ ...apiPaths }),
-  appSurfaces: Object.freeze({ ...appSurfaces }),
   paths: Object.freeze({ ...paths }),
   registry: Object.freeze({ ...registry }),
   escapeRegExp

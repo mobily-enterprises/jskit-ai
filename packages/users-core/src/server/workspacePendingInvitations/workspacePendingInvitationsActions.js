@@ -12,7 +12,6 @@ const workspacePendingInvitationsActions = Object.freeze([
     kind: "query",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
@@ -37,7 +36,6 @@ const workspacePendingInvitationsActions = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    consoleUsersOnly: false,
     permission: {
       require: "authenticated"
     },
