@@ -1,6 +1,6 @@
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { OWNER_ROLE_ID, createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function createService({
   workspaceMembershipsRepository,
@@ -21,30 +21,21 @@ function createService({
     ? [...resolvedRoleCatalog.assignableRoleIds]
     : [];
 
-  function cloneRoleCatalog() {
-    return {
-      collaborationEnabled: resolvedRoleCatalog.collaborationEnabled === true,
-      defaultInviteRole: String(resolvedRoleCatalog.defaultInviteRole || ""),
-      roles: Array.isArray(resolvedRoleCatalog.roles)
-        ? resolvedRoleCatalog.roles.map((role) => ({
-            id: String(role?.id || "").trim().toLowerCase(),
-            assignable: role?.assignable === true,
-            permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
-          }))
-        : [],
-      assignableRoleIds: [...assignableRoleIds]
-    };
-  }
-
   function withRoleCatalog(payload = {}) {
     return {
       ...payload,
-      roleCatalog: cloneRoleCatalog()
+      roleCatalog: cloneWorkspaceRoleCatalog({
+        ...resolvedRoleCatalog,
+        assignableRoleIds
+      })
     };
   }
 
   async function listRoles(options = {}) {
-    return cloneRoleCatalog();
+    return cloneWorkspaceRoleCatalog({
+      ...resolvedRoleCatalog,
+      assignableRoleIds
+    });
   }
 
   async function listMembersPayload(workspace, options = {}) {

@@ -83,6 +83,23 @@ function createWorkspaceRoleCatalog(appConfig = {}) {
   });
 }
 
+function cloneWorkspaceRoleCatalog(roleCatalog = null) {
+  const source = asRecord(roleCatalog);
+
+  return {
+    collaborationEnabled: source.collaborationEnabled === true,
+    defaultInviteRole: String(source.defaultInviteRole || ""),
+    roles: Array.isArray(source.roles)
+      ? source.roles.map((role) => ({
+          id: normalizeRoleId(role?.id),
+          assignable: role?.assignable === true,
+          permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
+        }))
+      : [],
+    assignableRoleIds: Array.isArray(source.assignableRoleIds) ? [...source.assignableRoleIds] : []
+  };
+}
+
 function listRoleDescriptors(appConfig = {}) {
   const roleCatalog = createWorkspaceRoleCatalog(appConfig);
   return roleCatalog.roles.map((role) => ({
@@ -114,5 +131,6 @@ export {
   resolveRolePermissions,
   listRoleDescriptors,
   createWorkspaceRoleCatalog,
+  cloneWorkspaceRoleCatalog,
   hasPermission
 };

@@ -1,7 +1,7 @@
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { workspaceSettingsFields } from "../../shared/resources/workspaceSettingsFields.js";
-import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function resolveWorkspaceSettingsFieldKeys() {
   return workspaceSettingsFields.map((field) => field.key);
@@ -17,23 +17,6 @@ function createService({
   }
   const resolvedRoleCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : createWorkspaceRoleCatalog();
   const invitesAvailable = workspaceInvitationsEnabled === true;
-
-  function cloneRoleCatalog() {
-    return {
-      collaborationEnabled: resolvedRoleCatalog.collaborationEnabled === true,
-      defaultInviteRole: String(resolvedRoleCatalog.defaultInviteRole || ""),
-      roles: Array.isArray(resolvedRoleCatalog.roles)
-        ? resolvedRoleCatalog.roles.map((role) => ({
-            id: String(role?.id || "").trim().toLowerCase(),
-            assignable: role?.assignable === true,
-            permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
-          }))
-        : [],
-      assignableRoleIds: Array.isArray(resolvedRoleCatalog.assignableRoleIds)
-        ? [...resolvedRoleCatalog.assignableRoleIds]
-        : []
-    };
-  }
 
   async function getWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
@@ -56,7 +39,7 @@ function createService({
         ownerUserId: Number(workspace.ownerUserId)
       },
       settings,
-      roleCatalog: cloneRoleCatalog()
+      roleCatalog: cloneWorkspaceRoleCatalog(resolvedRoleCatalog)
     };
   }
 
