@@ -2,7 +2,9 @@ import { Type } from "typebox";
 import { createOperationMessages } from "../operationMessages.js";
 import {
   createCursorListValidator,
-  normalizeObjectInput
+  normalizeObjectInput,
+  normalizeSettingsFieldInput,
+  normalizeSettingsFieldOutput
 } from "@jskit-ai/kernel/shared/validators";
 import { consoleSettingsFields } from "./consoleSettingsFields.js";
 
@@ -46,17 +48,7 @@ function buildConsoleSettingsPatchSchema() {
 }
 
 function normalizeConsoleSettingsInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-  for (const field of consoleSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
-    }
-    normalized[field.key] = field.normalizeInput(source[field.key], {
-      payload: source
-    });
-  }
-  return normalized;
+  return normalizeSettingsFieldInput(payload, consoleSettingsFields);
 }
 
 const consoleSettingsOutputValidator = Object.freeze({
@@ -66,21 +58,9 @@ const consoleSettingsOutputValidator = Object.freeze({
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
     const settingsSource = normalizeObjectInput(source.settings);
-    const settings = {};
-
-    for (const field of consoleSettingsFields) {
-      const rawValue = Object.hasOwn(settingsSource, field.key)
-        ? settingsSource[field.key]
-        : field.resolveDefault({
-            settings: settingsSource
-          });
-      settings[field.key] = field.normalizeOutput(rawValue, {
-        settings: settingsSource
-      });
-    }
 
     return {
-      settings
+      settings: normalizeSettingsFieldOutput(settingsSource, consoleSettingsFields)
     };
   }
 });

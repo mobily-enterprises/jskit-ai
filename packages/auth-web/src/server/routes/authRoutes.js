@@ -1,15 +1,17 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
-import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
-import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
-import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
-import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
-import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
-import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
-import { authLogoutCommand } from "@jskit-ai/auth-core/shared/commands/authLogoutCommand";
-import { authSessionReadCommand } from "@jskit-ai/auth-core/shared/commands/authSessionReadCommand";
+import {
+  authRegisterCommand,
+  authLoginPasswordCommand,
+  authLoginOtpRequestCommand,
+  authLoginOtpVerifyCommand,
+  authLoginOAuthStartCommand,
+  authLoginOAuthCompleteCommand,
+  authPasswordResetRequestCommand,
+  authPasswordRecoveryCompleteCommand,
+  authPasswordResetCommand,
+  authLogoutCommand,
+  authSessionReadCommand
+} from "@jskit-ai/auth-core/shared/commands";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
 function buildRoutes(controller) {

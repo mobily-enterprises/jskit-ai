@@ -14,23 +14,7 @@ const DEFAULT_MENU_FALLBACK = Object.freeze({
   icon: "$menu"
 });
 
-function normalizeAction(action, fallback) {
-  const source = normalizeObject(action);
-  const fallbackSource = normalizeObject(fallback);
-  const label = String(source.label || fallbackSource.label || "").trim();
-  if (!label) {
-    return null;
-  }
-
-  return {
-    label,
-    to: String(source.to || fallbackSource.to || "").trim(),
-    variant: String(source.variant || fallbackSource.variant || "text").trim(),
-    color: String(source.color || fallbackSource.color || "secondary").trim()
-  };
-}
-
-function normalizeMenuItem(item, fallback) {
+function normalizeLabeledItem(item, fallback, buildItem) {
   const source = normalizeObject(item);
   const fallbackSource = normalizeObject(fallback);
   const label = String(source.label || fallbackSource.label || "").trim();
@@ -38,16 +22,41 @@ function normalizeMenuItem(item, fallback) {
     return null;
   }
 
-  return {
-    label,
-    to: String(source.to || fallbackSource.to || "").trim() || "/",
-    icon: String(source.icon || fallbackSource.icon || "$menu").trim() || "$menu"
-  };
+  if (typeof buildItem !== "function") {
+    return null;
+  }
+
+  return buildItem({
+    source,
+    fallbackSource,
+    label
+  });
+}
+
+function normalizeAction(action, fallback) {
+  return normalizeLabeledItem(action, fallback, ({ source, fallbackSource, label }) => {
+    return {
+      label,
+      to: String(source.to || fallbackSource.to || "").trim(),
+      variant: String(source.variant || fallbackSource.variant || "text").trim(),
+      color: String(source.color || fallbackSource.color || "secondary").trim()
+    };
+  });
+}
+
+function normalizeMenuItem(item, fallback) {
+  return normalizeLabeledItem(item, fallback, ({ source, fallbackSource, label }) => {
+    return {
+      label,
+      to: String(source.to || fallbackSource.to || "").trim() || "/",
+      icon: String(source.icon || fallbackSource.icon || "$menu").trim() || "$menu"
+    };
+  });
 }
 
 function normalizeActionList(actions) {
-  const source = Array.isArray(actions) ? actions : [];
-  return source
+  const sourceActions = Array.isArray(actions) ? actions : [];
+  return sourceActions
     .map((item) => normalizeAction(item, DEFAULT_ACTION_FALLBACK))
     .filter(Boolean);
 }

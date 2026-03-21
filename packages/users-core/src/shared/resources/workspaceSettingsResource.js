@@ -2,7 +2,8 @@ import { Type } from "typebox";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   normalizeObjectInput,
-  createCursorListValidator
+  createCursorListValidator,
+  normalizeSettingsFieldInput
 } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
 import {
@@ -57,19 +58,7 @@ function buildResponseRecordSchema() {
 }
 
 function normalizeInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-
-  for (const field of workspaceSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
-    }
-    normalized[field.key] = field.normalizeInput(source[field.key], {
-      payload: source
-    });
-  }
-
-  return normalized;
+  return normalizeSettingsFieldInput(payload, workspaceSettingsFields);
 }
 
 function normalizeOutput(payload = {}) {

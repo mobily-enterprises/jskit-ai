@@ -5,6 +5,7 @@ export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 export { mergeValidators } from "./mergeValidators.js";
 export { nestValidator } from "./nestValidator.js";
 export { recordIdParamsValidator, positiveIntegerValidator } from "./recordIdParamsValidator.js";
+export { normalizeSettingsFieldInput, normalizeSettingsFieldOutput } from "./settingsFieldNormalization.js";
 export {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,

@@ -1,5 +1,9 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
+import {
+  normalizeObjectInput,
+  normalizeSettingsFieldInput,
+  normalizeSettingsFieldOutput
+} from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
@@ -42,35 +46,14 @@ function createPromptSettingsResource({
   );
 
   function normalizeInput(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {};
-    for (const field of fields) {
-      if (!Object.hasOwn(source, field.key)) {
-        continue;
-      }
-      normalized[field.key] = field.normalizeInput(source[field.key], {
-        payload: source
-      });
-    }
-    return normalized;
+    return normalizeSettingsFieldInput(payload, fields);
   }
 
   function normalizeOutput(payload = {}) {
     const source = normalizeObjectInput(payload);
     const settingsSource = normalizeObjectInput(source.settings);
-    const settings = {};
-    for (const field of fields) {
-      const rawValue = Object.hasOwn(settingsSource, field.key)
-        ? settingsSource[field.key]
-        : field.resolveDefault({
-            settings: settingsSource
-          });
-      settings[field.key] = field.normalizeOutput(rawValue, {
-        settings: settingsSource
-      });
-    }
     return {
-      settings
+      settings: normalizeSettingsFieldOutput(settingsSource, fields)
     };
   }
 

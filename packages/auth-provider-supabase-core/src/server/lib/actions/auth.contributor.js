@@ -1,15 +1,17 @@
 import {
   EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
-import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
-import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
-import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
-import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
-import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
-import { authPasswordRecoveryCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
-import { authPasswordResetCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
+import {
+  authRegisterCommand,
+  authLoginPasswordCommand,
+  authLoginOtpRequestCommand,
+  authLoginOtpVerifyCommand,
+  authLoginOAuthStartCommand,
+  authLoginOAuthCompleteCommand,
+  authPasswordResetRequestCommand,
+  authPasswordRecoveryCompleteCommand,
+  authPasswordResetCommand
+} from "@jskit-ai/auth-core/shared/commands";
 
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;

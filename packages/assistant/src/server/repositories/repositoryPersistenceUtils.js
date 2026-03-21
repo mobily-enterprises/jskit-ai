@@ -1,19 +1,4 @@
-function parseJsonObject(value) {
-  if (value == null) {
-    return {};
-  }
-
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    return parsed;
-  } catch {
-    return {};
-  }
-}
+import { parseJsonObject } from "../../shared/support/jsonObject.js";
 
 function stringifyJsonObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

@@ -41,4 +41,5 @@ export {
   normalizeConversationStatus
 } from "./support/conversationStatus.js";
 
+export { parseJsonObject } from "./support/jsonObject.js";
 export { toPositiveInteger } from "./support/positiveInteger.js";

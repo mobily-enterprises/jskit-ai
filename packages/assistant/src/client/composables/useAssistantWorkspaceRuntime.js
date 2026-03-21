@@ -16,6 +16,7 @@ import {
   assistantWorkspaceScopeQueryKey,
   normalizeAssistantStreamEventType,
   normalizeConversationStatus as normalizeAssistantConversationStatus,
+  parseJsonObject,
   toPositiveInteger
 } from "../../shared/index.js";
 import { assistantHttpClient } from "../lib/assistantHttpClient.js";
@@ -119,20 +120,7 @@ function formatConversationStartedAt(value) {
 }
 
 function parseToolResultPayload(value) {
-  if (!value) {
-    return {};
-  }
-
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    return parsed;
-  } catch {
-    return {};
-  }
+  return parseJsonObject(value);
 }
 
 function buildHistory(messages) {
