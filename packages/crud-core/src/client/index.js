@@ -1,5 +1,5 @@
 export {
-  DEFAULT_CRUD_VISIBILITY,
+  DEFAULT_CRUD_OWNERSHIP_FILTER,
   resolveCrudClientConfig,
   crudListQueryKey,
   crudViewQueryKey,

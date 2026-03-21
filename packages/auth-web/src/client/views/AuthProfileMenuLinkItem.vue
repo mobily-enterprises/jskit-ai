@@ -63,7 +63,7 @@ const resolvedIcon = computed(() => {
   }
 
   if (normalizedLabel.includes("settings") || normalizedTarget.includes("/settings")) {
-    if (normalizedTarget.includes("/account/settings")) {
+    if (normalizedTarget.includes("/account")) {
       return mdiAccountCogOutline;
     }
     return mdiCogOutline;

@@ -117,7 +117,11 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
     normalizedLabel.includes("account") ||
     normalizedPathname.includes("/account")
   ) {
-    if (normalizedLabel.includes("settings") || normalizedPathname.includes("/settings")) {
+    if (
+      normalizedLabel.includes("settings") ||
+      normalizedPathname.includes("/settings") ||
+      normalizedPathname === "/account"
+    ) {
       return mdiAccountCogOutline;
     }
     return mdiAccountCircleOutline;

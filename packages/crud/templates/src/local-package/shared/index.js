@@ -1,6 +1,6 @@
 export { crudResource } from "./${option:namespace|singular|camel}Resource.js";
 export {
-  CRUD_MODULE_VISIBILITY_AUTO,
+  CRUD_MODULE_OWNERSHIP_FILTER_AUTO,
   crudModuleConfig,
   resolveCrudModulePolicy,
   resolveCrudModulePolicyFromAppConfig,

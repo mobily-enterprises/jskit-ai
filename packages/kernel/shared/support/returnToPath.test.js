@@ -54,9 +54,9 @@ test("normalizeReturnToPath rejects blocked paths, invalid schemes, and untruste
   assert.equal(normalizeReturnToPath("javascript:alert(1)", {
     fallback: "/"
   }), "/");
-  assert.equal(normalizeReturnToPath("/account/settings", {
+  assert.equal(normalizeReturnToPath("/account", {
     fallback: "/",
-    blockedPathnames: ["account/settings"]
+    blockedPathnames: ["account"]
   }), "/");
 });
 

@@ -35,5 +35,5 @@ test("resolveAccountSettingsPathFromPlacementContext uses account surface route 
     }
   };
 
-  assert.equal(resolveAccountSettingsPathFromPlacementContext(context), "/profile/settings");
+  assert.equal(resolveAccountSettingsPathFromPlacementContext(context), "/profile");
 });

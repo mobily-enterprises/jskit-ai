@@ -20,8 +20,8 @@ import {
 } from "./workspaceSurfaceContext.js";
 
 const ACCOUNT_SURFACE_ID = "account";
-const ACCOUNT_SETTINGS_SUFFIX = "/settings";
-const ACCOUNT_SETTINGS_FALLBACK_PATH = "/account/settings";
+const ACCOUNT_SETTINGS_SUFFIX = "/";
+const ACCOUNT_SETTINGS_FALLBACK_PATH = "/account";
 
 function normalizeWorkspaceSuffix(suffix) {
   const rawSuffix = String(suffix || "/").trim();

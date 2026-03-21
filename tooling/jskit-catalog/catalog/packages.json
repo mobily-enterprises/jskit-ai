@@ -39,12 +39,12 @@
             "promptLabel": "AI timeout (ms)",
             "promptHint": "Abort AI requests after this many milliseconds."
           },
-          "surface": {
+          "surfaces": {
             "required": true,
             "inputType": "text",
             "defaultValue": "admin",
-            "promptLabel": "Target workspace surface",
-            "promptHint": "Workspace surface id for assistant page + menu placement (for example: admin or app)."
+            "promptLabel": "Target workspace surfaces",
+            "promptHint": "Comma-separated workspace surface ids for assistant page + menu placement (for example: admin,app)."
           }
         },
         "dependsOn": [
@@ -165,7 +165,7 @@
             },
             {
               "from": "templates/src/pages/admin/workspace/assistant/index.vue",
-              "toSurface": "${option:surface|lower}",
+              "toSurface": "${option:surfaces|lower}",
               "toSurfacePath": "workspace/assistant/index.vue",
               "reason": "Install assistant workspace page scaffold.",
               "category": "assistant",
@@ -182,27 +182,10 @@
           "text": [
             {
               "op": "append-text",
-              "file": "config/public.js",
-              "position": "bottom",
-              "skipIfContains": "jskit:assistant.workspace-surface",
-              "value": "\n// jskit:assistant.workspace-surface\nconfig.assistant = config.assistant || {};\nconfig.assistant.workspaceSurfaceId = \"${option:surface|lower}\";\n",
-              "reason": "Persist assistant workspace surface id for server-side route/action surface resolution.",
-              "category": "assistant",
-              "id": "assistant-config-workspace-surface",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
-            },
-            {
-              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"assistant.workspace.menu\"",
-              "value": "\naddPlacement({\n  id: \"assistant.workspace.menu\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Assistant\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"/workspace/assistant\",\n    nonWorkspaceSuffix: \"/workspace/assistant\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\n(() => {\n  const assistantWorkspaceSurfaceIds = \"${option:surfaces|lower}\"\n    .split(\",\")\n    .map((entry) => String(entry || \"\").trim().toLowerCase())\n    .filter(Boolean);\n\n  addPlacement({\n    id: \"assistant.workspace.menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: assistantWorkspaceSurfaceIds.length > 0 ? assistantWorkspaceSurfaceIds : [\"*\"],\n    order: 310,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"Assistant\",\n      workspaceSuffix: \"/workspace/assistant\",\n      nonWorkspaceSuffix: \"/workspace/assistant\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n})();\n",
               "reason": "Append assistant menu placement into app-owned placement registry.",
               "category": "assistant",
               "id": "assistant-placement-menu",
@@ -219,7 +202,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"assistant.workspace.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
               "reason": "Append assistant workspace settings form into app-owned settings placements.",
               "category": "assistant",
               "id": "assistant-workspace-settings-form-placement",
@@ -236,7 +219,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"assistant.console.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"console\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append assistant console settings form into app-owned settings placements.",
               "category": "assistant",
               "id": "assistant-console-settings-form-placement"
@@ -331,7 +314,6 @@
         "capabilities": {
           "provides": [
             "auth.access",
-            "auth.rbac",
             "auth.policy"
           ],
           "requires": []
@@ -343,10 +325,6 @@
               {
                 "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
                 "export": "AccessCoreServiceProvider"
-              },
-              {
-                "entrypoint": "src/server/providers/RbacServiceProvider.js",
-                "export": "RbacServiceProvider"
               },
               {
                 "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
@@ -361,10 +339,6 @@
                 "export": "AccessCoreClientProvider"
               },
               {
-                "entrypoint": "src/client/providers/RbacClientProvider.js",
-                "export": "RbacClientProvider"
-              },
-              {
                 "entrypoint": "src/client/providers/FastifyAuthPolicyClientProvider.js",
                 "export": "FastifyAuthPolicyClientProvider"
               }
@@ -376,11 +350,11 @@
             "surfaces": [
               {
                 "subpath": "./client",
-                "summary": "Exports client auth access APIs plus AccessCoreClientProvider/RbacClientProvider/FastifyAuthPolicyClientProvider."
+                "summary": "Exports client auth access APIs plus AccessCoreClientProvider/FastifyAuthPolicyClientProvider."
               },
               {
                 "subpath": "./server",
-                "summary": "Exports server auth access, RBAC, and Fastify auth policy providers plus server auth utility modules."
+                "summary": "Exports server auth access and Fastify auth policy providers plus server auth utility modules."
               },
               {
                 "subpath": "./shared",
@@ -389,8 +363,7 @@
             ],
             "containerTokens": {
               "server": [
-                "auth.access",
-                "auth.rbac"
+                "auth.access"
               ],
               "client": [
                 "auth.access.client"
@@ -487,12 +460,16 @@
           "apiSummary": {
             "surfaces": [
               {
-                "subpath": "./server",
-                "summary": "Exports Supabase auth provider service providers and supporting server auth library modules."
+                "subpath": "./server/providers/AuthSupabaseServiceProvider",
+                "summary": "Exports the Supabase auth provider service provider."
+              },
+              {
+                "subpath": "./server/providers/AuthProviderServiceProvider",
+                "summary": "Exports the generic auth provider registration service provider."
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports server-side Supabase auth service and action contributor helpers."
+                "summary": "Exports curated server-side Supabase auth service helpers."
               },
               {
                 "subpath": "./client",
@@ -704,7 +681,8 @@
               {
                 "id": "auth.login",
                 "path": "/auth/login",
-                "scope": "global",
+                "scope": "surface",
+                "surface": "auth",
                 "name": "auth-login",
                 "componentKey": "auth-login",
                 "autoRegister": false,
@@ -716,7 +694,8 @@
               {
                 "id": "auth.signout",
                 "path": "/auth/signout",
-                "scope": "global",
+                "scope": "surface",
+                "surface": "auth",
                 "name": "auth-signout",
                 "componentKey": "auth-signout",
                 "autoRegister": false,
@@ -728,7 +707,8 @@
               {
                 "id": "auth.default-login",
                 "path": "/auth/default-login",
-                "scope": "global",
+                "scope": "surface",
+                "surface": "auth",
                 "name": "auth-default-login",
                 "componentKey": "auth-default-login",
                 "autoRegister": true,
@@ -743,7 +723,8 @@
             "placements": {
               "outlets": [
                 {
-                  "slot": "avatar.primary-menu",
+                  "host": "auth-profile-menu",
+                  "position": "primary-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -753,16 +734,22 @@
               "contributions": [
                 {
                   "id": "auth.profile.widget",
-                  "slot": "app.top-right",
-                  "surface": "*",
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 1000,
                   "componentToken": "auth.web.profile.widget",
                   "source": "mutations.text#auth-web-placement-block"
                 },
                 {
                   "id": "auth.profile.menu.sign-in",
-                  "slot": "avatar.primary-menu",
-                  "surface": "*",
+                  "host": "auth-profile-menu",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 200,
                   "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated !== true",
@@ -770,8 +757,11 @@
                 },
                 {
                   "id": "auth.profile.menu.sign-out",
-                  "slot": "avatar.primary-menu",
-                  "surface": "*",
+                  "host": "auth-profile-menu",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 1000,
                   "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true",
@@ -817,14 +807,14 @@
             {
               "from": "templates/src/pages/auth/login.vue",
               "to": "src/pages/auth/login.vue",
-              "reason": "Provide a global /auth/login wrapper that renders the package login view.",
+              "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
               "category": "auth-web",
               "id": "auth-page-login"
             },
             {
               "from": "templates/src/pages/auth/signout.vue",
               "to": "src/pages/auth/signout.vue",
-              "reason": "Provide a global /auth/signout wrapper that renders the package sign-out view.",
+              "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
               "category": "auth-web",
               "id": "auth-page-signout"
             }
@@ -832,10 +822,20 @@
           "text": [
             {
               "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.surfaceDefinitions.auth = {",
+              "value": "\nconfig.surfaceDefinitions.auth = {\n  id: \"auth\",\n  label: \"Auth\",\n  pagesRoot: \"auth\",\n  enabled: true,\n  requiresAuth: false,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
+              "reason": "Register auth surface definition in public surface config.",
+              "category": "auth-web",
+              "id": "auth-web-surface-config-auth"
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"auth.profile.widget\"",
-              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append auth profile placement entries into app-owned placement registry.",
               "category": "auth-web",
               "id": "auth-web-placement-block"
@@ -852,7 +852,7 @@
         "packageId": "@jskit-ai/crud",
         "version": "0.1.0",
         "installationMode": "clone-only",
-        "description": "Admin CRUD module with server routes, actions, persistence, and client pages.",
+        "description": "CRUD module with server routes, actions, persistence, and client pages.",
         "options": {
           "namespace": {
             "required": true,
@@ -861,19 +861,31 @@
             "promptLabel": "CRUD namespace",
             "promptHint": "Required slug (example: customers, appointments, vendors)."
           },
-          "visibility": {
+          "surface": {
             "required": true,
             "inputType": "text",
-            "defaultValue": "workspace",
-            "promptLabel": "Route visibility",
-            "promptHint": "public | workspace | user | workspace_user"
+            "defaultFromConfig": "surfaceDefaultId",
+            "promptLabel": "Target surface",
+            "promptHint": "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+          },
+          "ownership-filter": {
+            "required": true,
+            "inputType": "text",
+            "defaultValue": "auto",
+            "promptLabel": "Ownership filter",
+            "promptHint": "auto | public | user | workspace | workspace_user"
           },
           "directory-prefix": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Page directory prefix",
-            "promptHint": "Optional path under src/pages/admin (example: crm or ops/team-a)."
+            "promptHint": "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
+          }
+        },
+        "optionPolicies": {
+          "surfaceVisibility": {
+            "visibilityOption": "ownership-filter"
           }
         },
         "dependsOn": [
@@ -1096,11 +1108,11 @@
             },
             {
               "from": "templates/src/pages/admin/crud/index.vue",
-              "toSurface": "admin",
+              "toSurface": "${option:surface|lower}",
               "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/index.vue",
-              "reason": "Install admin CRUD list page scaffold.",
+              "reason": "Install CRUD list page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-index",
+              "id": "crud-page-surface-crud-index",
               "when": {
                 "config": "tenancyMode",
                 "in": [
@@ -1111,11 +1123,11 @@
             },
             {
               "from": "templates/src/pages/admin/crud/new.vue",
-              "toSurface": "admin",
+              "toSurface": "${option:surface|lower}",
               "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/new.vue",
-              "reason": "Install admin CRUD create page scaffold.",
+              "reason": "Install CRUD create page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-new",
+              "id": "crud-page-surface-crud-new",
               "when": {
                 "config": "tenancyMode",
                 "in": [
@@ -1126,11 +1138,11 @@
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/index.vue",
-              "toSurface": "admin",
+              "toSurface": "${option:surface|lower}",
               "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/index.vue",
-              "reason": "Install admin CRUD detail page scaffold.",
+              "reason": "Install CRUD detail page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-view",
+              "id": "crud-page-surface-crud-view",
               "when": {
                 "config": "tenancyMode",
                 "in": [
@@ -1141,11 +1153,11 @@
             },
             {
               "from": "templates/src/pages/admin/crud/[recordId]/edit.vue",
-              "toSurface": "admin",
+              "toSurface": "${option:surface|lower}",
               "toSurfacePath": "${option:directory-prefix|pathprefix}${option:namespace|kebab}/[recordId]/edit.vue",
-              "reason": "Install admin CRUD edit page scaffold.",
+              "reason": "Install CRUD edit page scaffold.",
               "category": "crud",
-              "id": "crud-page-admin-crud-edit",
+              "id": "crud-page-surface-crud-edit",
               "when": {
                 "config": "tenancyMode",
                 "in": [
@@ -1161,8 +1173,8 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}",
-              "value": "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    slot: \"app.primary-menu\",\n    surface: \"admin\",\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"admin\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
-              "reason": "Append admin Crud menu placement into app-owned placement registry.",
+              "value": "\n// jskit:crud.menu:${option:namespace|kebab}:${option:directory-prefix|path}\nimport { crudModuleConfig as crud${option:namespace|pascal}ModuleConfig } from \"@local/${option:namespace|kebab}/shared\";\n{\n  const crudNamespace = \"${option:namespace|kebab}\";\n\n  addPlacement({\n    id: \"crud.\" + crudNamespace + \".menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 150,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath,\n      nonWorkspaceSuffix: crud${option:namespace|pascal}ModuleConfig.relativePath\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+              "reason": "Append CRUD menu placement into app-owned placement registry.",
               "category": "crud",
               "id": "crud-placement-menu",
               "when": {
@@ -1184,7 +1196,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
         "version": "0.1.0",
-        "description": "Shared CRUD client helpers used by CRUD modules.",
+        "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
           "@jskit-ai/kernel",
           "@jskit-ai/realtime",
@@ -1714,6 +1726,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
+              "@jskit-ai/kernel": "0.1.0",
               "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
@@ -1811,8 +1824,11 @@
               "contributions": [
                 {
                   "id": "realtime.connection.indicator",
-                  "slot": "app.top-right",
-                  "surface": "*",
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 950,
                   "componentToken": "realtime.web.connection.indicator",
                   "source": "mutations.text#realtime-placement-indicator"
@@ -1862,7 +1878,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"realtime.connection.indicator\"",
-              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  slot: \"app.top-right\",\n  surface: \"*\",\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
               "reason": "Append realtime connection indicator placement into app-owned placement registry.",
               "category": "realtime-web",
               "id": "realtime-placement-indicator"
@@ -1929,28 +1945,32 @@
             "placements": {
               "outlets": [
                 {
-                  "slot": "app.top-left",
+                  "host": "shell-layout",
+                  "position": "top-left",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "slot": "app.top-right",
+                  "host": "shell-layout",
+                  "position": "top-right",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "slot": "app.primary-menu",
+                  "host": "shell-layout",
+                  "position": "primary-menu",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "slot": "app.secondary-menu",
+                  "host": "shell-layout",
+                  "position": "secondary-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -1988,6 +2008,13 @@
               "id": "shell-web-app-root"
             },
             {
+              "from": "templates/src/components/ShellLayout.vue",
+              "to": "src/components/ShellLayout.vue",
+              "reason": "Install app-owned shell layout component so apps can customize structure and slots.",
+              "category": "shell-web",
+              "id": "shell-web-component-shell-layout"
+            },
+            {
               "from": "templates/src/error.js",
               "to": "src/error.js",
               "reason": "Install app-owned error runtime policy and presenter config scaffold.",
@@ -2002,7 +2029,15 @@
               "id": "shell-web-placement-registry"
             },
             {
-              "from": "templates/src/pages/index.vue",
+              "from": "templates/src/pages/home.vue",
+              "toSurface": "home",
+              "toSurfaceRoot": true,
+              "reason": "Install shell-driven home wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-home-wrapper"
+            },
+            {
+              "from": "templates/src/pages/home/index.vue",
               "toSurface": "home",
               "toSurfacePath": "index.vue",
               "reason": "Install shell-driven home surface starter page.",
@@ -2146,7 +2181,7 @@
               },
               {
                 "subpath": "./shared",
-                "summary": "Exports shared users/workspace role and settings defaults."
+                "summary": "Exports shared users/workspace role and settings utilities."
               },
               {
                 "subpath": "./client",
@@ -2309,6 +2344,7 @@
               "@jskit-ai/http-runtime": "0.1.0",
               "@jskit-ai/kernel": "0.1.0",
               "@fastify/multipart": "^9.4.0",
+              "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
             "dev": {}
@@ -2371,6 +2407,14 @@
               "reason": "Install app-owned user settings field definitions.",
               "category": "users-core",
               "id": "users-core-app-owned-user-settings-fields"
+            },
+            {
+              "from": "templates/config/workspaceRoles.js",
+              "to": "config/workspaceRoles.js",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned workspace role catalog in a dedicated config file.",
+              "category": "users-core",
+              "id": "users-core-app-owned-workspace-roles-config"
             }
           ],
           "text": [
@@ -2436,9 +2480,49 @@
             {
               "op": "append-text",
               "file": "config/public.js",
+              "position": "top",
+              "skipIfContains": "import { workspaceRoles } from \"./workspaceRoles.js\";",
+              "value": "import { workspaceRoles } from \"./workspaceRoles.js\";\n",
+              "reason": "Load app-owned workspace role catalog from dedicated config file.",
+              "category": "users-core",
+              "id": "users-core-workspace-roles-public-import"
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "top",
+              "skipIfContains": "import { surfaceAccessPolicies } from \"./surfaceAccessPolicies.js\";",
+              "value": "import { surfaceAccessPolicies } from \"./surfaceAccessPolicies.js\";\n",
+              "reason": "Load app-owned surface access policy catalog from dedicated config file.",
+              "category": "users-core",
+              "id": "users-core-surface-access-policies-public-import"
+            },
+            {
+              "op": "append-text",
+              "file": "config/surfaceAccessPolicies.js",
+              "position": "top",
+              "skipIfContains": "export const surfaceAccessPolicies = {};",
+              "value": "export const surfaceAccessPolicies = {};\n\n",
+              "reason": "Initialize app-owned surface access policy config if missing.",
+              "category": "users-core",
+              "id": "users-core-surface-access-policies-config-init"
+            },
+            {
+              "op": "append-text",
+              "file": "config/surfaceAccessPolicies.js",
+              "position": "bottom",
+              "skipIfContains": "surfaceAccessPolicies.workspace_member = {",
+              "value": "\nsurfaceAccessPolicies.workspace_member = {\n  requireAuth: true,\n  requireWorkspaceMembership: true\n};\n",
+              "reason": "Register workspace-member surface access policy for workspace surfaces.",
+              "category": "users-core",
+              "id": "users-core-surface-access-policies-workspace-member"
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.surfaceDefinitions.app = {",
-              "value": "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true\n};\n",
+              "value": "\nconfig.surfaceDefinitions.app = {\n  id: \"app\",\n  label: \"App\",\n  pagesRoot: \"w/[workspaceSlug]\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true,\n  accessPolicyId: \"workspace_member\",\n  origin: \"\"\n};\n\nconfig.surfaceDefinitions.admin = {\n  id: \"admin\",\n  label: \"Admin\",\n  pagesRoot: \"w/[workspaceSlug]/admin\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: true,\n  accessPolicyId: \"workspace_member\",\n  origin: \"\"\n};\n",
               "reason": "Append workspace surface topology when tenancy enables workspace routing.",
               "category": "users-core",
               "id": "users-core-surface-config-workspace",
@@ -2455,10 +2539,30 @@
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.workspaceSwitching =",
-              "value": "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvites = true;\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
+              "value": "\nconfig.workspaceSwitching = true;\nconfig.workspaceInvitations = {\n  enabled: true,\n  allowInPersonalMode: true\n};\nconfig.assistantEnabled = false;\nconfig.assistantRequiredPermission = \"\";\nconfig.socialEnabled = false;\nconfig.socialFederationEnabled = false;\n",
               "reason": "Append default public users/workspace feature toggles into app-owned config.",
               "category": "users-core",
               "id": "users-core-public-config"
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.workspaceRoles = workspaceRoles;",
+              "value": "\nconfig.workspaceRoles = workspaceRoles;\n",
+              "reason": "Bind app-owned workspace role catalog onto public config.",
+              "category": "users-core",
+              "id": "users-core-workspace-roles-public-config"
+            },
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.surfaceAccessPolicies = surfaceAccessPolicies;",
+              "value": "\nconfig.surfaceAccessPolicies = surfaceAccessPolicies;\n",
+              "reason": "Bind app-owned surface access policies onto public config.",
+              "category": "users-core",
+              "id": "users-core-surface-access-policies-public-config"
             },
             {
               "op": "append-text",
@@ -2588,6 +2692,10 @@
                 "summary": "Exports surface/workspace path resolver composable."
               },
               {
+                "subpath": "./client/composables/useAccountSettingsRuntime",
+                "summary": "Exports account settings runtime composable for app-owned settings UI."
+              },
+              {
                 "subpath": "./client/composables/useWorkspaceRouteContext",
                 "summary": "Exports workspace route context composable."
               },
@@ -2606,7 +2714,6 @@
                 "users.web.profile.menu.surface-switch-item",
                 "users.web.workspace-settings.menu-item",
                 "users.web.workspace-members.menu-item",
-                "users.web.account-settings.element",
                 "users.web.profile.element",
                 "users.web.members-admin.element",
                 "users.web.workspace-settings.element",
@@ -2618,28 +2725,24 @@
             "placements": {
               "outlets": [
                 {
-                  "slot": "workspace.primary-menu",
+                  "host": "workspace-tools",
+                  "position": "primary-menu",
                   "surfaces": [
                     "admin"
                   ],
                   "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
                 },
                 {
-                  "slot": "account.settings.forms",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "source": "templates/src/pages/account/settings/index.vue"
-                },
-                {
-                  "slot": "workspace.settings.forms",
+                  "host": "workspace-settings",
+                  "position": "forms",
                   "surfaces": [
                     "admin"
                   ],
                   "source": "templates/src/pages/admin/workspace/settings/index.vue"
                 },
                 {
-                  "slot": "console.settings.forms",
+                  "host": "console-settings",
+                  "position": "forms",
                   "surfaces": [
                     "console"
                   ],
@@ -2649,17 +2752,35 @@
               "contributions": [
                 {
                   "id": "users.workspace.selector",
-                  "slot": "app.top-left",
-                  "surface": "*",
+                  "host": "shell-layout",
+                  "position": "top-left",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 200,
                   "componentToken": "users.web.workspace.selector",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
+                  "id": "users.account.invites.cue",
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "order": 850,
+                  "componentToken": "local.main.account.pending-invites.cue",
+                  "when": "auth.authenticated === true",
+                  "source": "mutations.text#users-web-placement-block"
+                },
+                {
                   "id": "users.profile.menu.surface-switch",
-                  "slot": "avatar.primary-menu",
-                  "surface": "*",
+                  "host": "auth-profile-menu",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 100,
                   "componentToken": "users.web.profile.menu.surface-switch-item",
                   "when": "auth.authenticated === true",
@@ -2667,8 +2788,11 @@
                 },
                 {
                   "id": "users.profile.menu.settings",
-                  "slot": "avatar.primary-menu",
-                  "surface": "*",
+                  "host": "auth-profile-menu",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
                   "order": 500,
                   "componentToken": "users.web.shell.menu-link-item",
                   "when": "auth.authenticated === true",
@@ -2676,50 +2800,56 @@
                 },
                 {
                   "id": "users.workspace.tools.widget",
-                  "slot": "app.top-right",
-                  "surface": "admin",
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "admin"
+                  ],
                   "order": 900,
                   "componentToken": "users.web.workspace.tools.widget",
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
                   "id": "users.workspace.menu.workspace-settings",
-                  "slot": "workspace.primary-menu",
-                  "surface": "admin",
+                  "host": "workspace-tools",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "admin"
+                  ],
                   "order": 100,
                   "componentToken": "users.web.workspace-settings.menu-item",
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
                   "id": "users.workspace.menu.members",
-                  "slot": "workspace.primary-menu",
-                  "surface": "admin",
+                  "host": "workspace-tools",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "admin"
+                  ],
                   "order": 200,
                   "componentToken": "users.web.workspace-members.menu-item",
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
                   "id": "users.console.menu.settings",
-                  "slot": "app.primary-menu",
-                  "surface": "console",
+                  "host": "shell-layout",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "console"
+                  ],
                   "order": 100,
                   "componentToken": "users.web.shell.menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-console-settings-placement"
                 },
                 {
-                  "id": "users.account.settings.form",
-                  "slot": "account.settings.forms",
-                  "surface": "*",
-                  "order": 100,
-                  "componentToken": "users.web.account-settings.element",
-                  "when": "auth.authenticated === true",
-                  "source": "mutations.text#users-web-account-settings-form-placement"
-                },
-                {
                   "id": "users.workspace.settings.form",
-                  "slot": "workspace.settings.forms",
-                  "surface": "admin",
+                  "host": "workspace-settings",
+                  "position": "forms",
+                  "surfaces": [
+                    "admin"
+                  ],
                   "order": 100,
                   "componentToken": "users.web.workspace-settings.element",
                   "source": "mutations.text#users-web-workspace-settings-form-placement"
@@ -2753,11 +2883,81 @@
           "procfile": {},
           "files": [
             {
-              "from": "templates/src/pages/account/settings/index.vue",
-              "to": "src/pages/account/settings/index.vue",
-              "reason": "Install app-owned account settings page scaffold for users-web profile/settings UI.",
+              "from": "templates/src/pages/account/index.vue",
+              "to": "src/pages/account/index.vue",
+              "reason": "Install app-owned account surface root page scaffold.",
               "category": "users-web",
-              "id": "users-web-page-account-settings"
+              "id": "users-web-page-account-root"
+            },
+            {
+              "from": "templates/src/components/account/settings/AccountSettingsClientElement.vue",
+              "to": "src/components/account/settings/AccountSettingsClientElement.vue",
+              "reason": "Install app-owned account settings container component scaffold.",
+              "category": "users-web",
+              "id": "users-web-component-account-settings-root"
+            },
+            {
+              "from": "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
+              "to": "src/components/account/settings/AccountSettingsProfileSection.vue",
+              "reason": "Install app-owned account settings profile section scaffold.",
+              "category": "users-web",
+              "id": "users-web-component-account-settings-profile"
+            },
+            {
+              "from": "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
+              "to": "src/components/account/settings/AccountSettingsPreferencesSection.vue",
+              "reason": "Install app-owned account settings preferences section scaffold.",
+              "category": "users-web",
+              "id": "users-web-component-account-settings-preferences"
+            },
+            {
+              "from": "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
+              "to": "src/components/account/settings/AccountSettingsNotificationsSection.vue",
+              "reason": "Install app-owned account settings notifications section scaffold.",
+              "category": "users-web",
+              "id": "users-web-component-account-settings-notifications"
+            },
+            {
+              "from": "templates/src/components/account/settings/AccountSettingsInvitesSection.vue",
+              "to": "src/components/account/settings/AccountSettingsInvitesSection.vue",
+              "reason": "Install app-owned account settings invites section scaffold.",
+              "category": "users-web",
+              "id": "users-web-component-account-settings-invites"
+            },
+            {
+              "from": "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
+              "to": "packages/main/src/client/components/AccountPendingInvitesCue.vue",
+              "reason": "Install app-owned account pending invites cue component scaffold.",
+              "category": "users-web",
+              "id": "users-web-main-component-account-pending-invites-cue"
+            },
+            {
+              "from": "templates/src/components/WorkspaceNotFoundCard.vue",
+              "to": "src/components/WorkspaceNotFoundCard.vue",
+              "reason": "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
+              "category": "users-web",
+              "id": "users-web-component-workspace-not-found-card",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
+            },
+            {
+              "from": "templates/src/composables/useWorkspaceNotFoundState.js",
+              "to": "src/composables/useWorkspaceNotFoundState.js",
+              "reason": "Install app-owned workspace bootstrap status composable for workspace-dependent surfaces.",
+              "category": "users-web",
+              "id": "users-web-composable-workspace-not-found-state",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspace"
+                ]
+              }
             },
             {
               "from": "templates/src/surfaces/app/root.vue",
@@ -2856,30 +3056,25 @@
               "reason": "Install console settings page scaffold for users-web console UI.",
               "category": "users-web",
               "id": "users-web-page-console-settings"
-            },
-            {
-              "from": "templates/src/pages/workspaces/index.vue",
-              "toSurface": "home",
-              "toSurfacePath": "workspaces/index.vue",
-              "reason": "Install workspace chooser and invitation acceptance page scaffold for users-web workspace UI.",
-              "category": "users-web",
-              "id": "users-web-page-workspaces",
-              "when": {
-                "config": "tenancyMode",
-                "in": [
-                  "personal",
-                  "workspace"
-                ]
-              }
             }
           ],
           "text": [
             {
               "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.surfaceDefinitions.account = {",
+              "value": "\nconfig.surfaceDefinitions.account = {\n  id: \"account\",\n  label: \"Account\",\n  pagesRoot: \"account\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
+              "reason": "Register account surface definition in public surface config.",
+              "category": "users-web",
+              "id": "users-web-surface-config-account"
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.workspace.selector\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  slot: \"app.top-left\",\n  surface: \"*\",\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  slot: \"app.top-right\",\n  surface: \"admin\",\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  slot: \"workspace.primary-menu\",\n  surface: \"admin\",\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
               "reason": "Append users-web placement entries into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-placement-block",
@@ -2893,10 +3088,30 @@
             },
             {
               "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "top",
+              "skipIfContains": "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";",
+              "value": "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";\n",
+              "reason": "Bind app-owned account pending invites cue component into local main client provider imports.",
+              "category": "users-web",
+              "id": "users-web-main-client-provider-account-invites-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "bottom",
+              "skipIfContains": "registerMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);",
+              "value": "\nregisterMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);\n",
+              "reason": "Bind app-owned account pending invites cue component token into local main client provider registry.",
+              "category": "users-web",
+              "id": "users-web-main-client-provider-account-invites-register"
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.profile.menu.surface-switch\"",
-              "value": "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web profile surface switch placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-surface-switch-placement"
@@ -2906,7 +3121,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.profile.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  slot: \"avatar.primary-menu\",\n  surface: \"*\",\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-settings-placement"
@@ -2916,7 +3131,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.console.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  slot: \"app.primary-menu\",\n  surface: \"console\",\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web console settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-console-settings-placement"
@@ -2925,18 +3140,8 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"users.account.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"users.account.settings.form\",\n  slot: \"account.settings.forms\",\n  surface: \"*\",\n  order: 100,\n  componentToken: \"users.web.account-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append users-web account settings form placement into app-owned placement registry.",
-              "category": "users-web",
-              "id": "users-web-account-settings-form-placement"
-            },
-            {
-              "op": "append-text",
-              "file": "src/placement.js",
-              "position": "bottom",
               "skipIfContains": "id: \"users.workspace.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  slot: \"workspace.settings.forms\",\n  surface: \"admin\",\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
               "reason": "Append users-web workspace settings form placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-workspace-settings-form-placement",

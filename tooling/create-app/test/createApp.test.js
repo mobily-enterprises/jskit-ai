@@ -514,6 +514,8 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
     const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
+    const accountRootPage = await readFile(path.join(appRoot, "src/pages/account/index.vue"), "utf8");
+    await assert.rejects(access(path.join(appRoot, "src/pages/account/settings/index.vue")), /ENOENT/);
     const accountSettingsClientElement = await readFile(
       path.join(appRoot, "src/components/account/settings/AccountSettingsClientElement.vue"),
       "utf8"
@@ -545,6 +547,7 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.account = \{/);
+    assert.match(accountRootPage, /<AccountSettingsClientElement \/>/);
     assert.match(accountSettingsClientElement, /useRoute, useRouter/);
     assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
     assert.match(placement, /id:\s*"users\.account\.invites\.cue"/);

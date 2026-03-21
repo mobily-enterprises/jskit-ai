@@ -22,7 +22,7 @@ test("resolveSurfaceSwitchIcon prefers explicit icon and maps known surfaces", (
 });
 
 test("resolveMenuLinkIcon resolves settings/login fallbacks and generic default", () => {
-  assert.equal(resolveMenuLinkIcon({ to: "/account/settings" }), mdiAccountCogOutline);
+  assert.equal(resolveMenuLinkIcon({ to: "/account" }), mdiAccountCogOutline);
   assert.equal(resolveMenuLinkIcon({ label: "Sign in" }), mdiLogin);
   assert.equal(resolveMenuLinkIcon({ label: "Go to admin" }), mdiShieldCrownOutline);
   assert.equal(resolveMenuLinkIcon({ label: "Workspace", to: "/w/acme" }), mdiViewDashboardOutline);

@@ -5,7 +5,7 @@ import {
 } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecord } from "../support/runtimeNormalization.js";
 
-function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account/settings", allowedOrigins = [] } = {}) {
+function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {}) {
   return normalizeSharedReturnToPath(value, {
     fallback,
     allowedOrigins,

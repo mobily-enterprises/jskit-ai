@@ -10,7 +10,10 @@ import { TENANCY_MODE_NONE } from "@jskit-ai/users-core/shared/tenancyProfile";
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "../composables/usePaths.js";
-import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
+import {
+  resolveSurfaceSwitchTargetsFromPlacementContext,
+  surfaceRequiresWorkspaceFromPlacementContext
+} from "../lib/workspaceSurfaceContext.js";
 import {
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
@@ -71,7 +74,13 @@ const workspaceSwitchSurfaceId = computed(() => {
   ) {
     return normalizedCurrentSurfaceId;
   }
-  return targetSurfaceId.value;
+
+  if (targetSurfaceId.value) {
+    return targetSurfaceId.value;
+  }
+
+  const targets = resolveSurfaceSwitchTargetsFromPlacementContext(placementContext.value, normalizedCurrentSurfaceId);
+  return String(targets.workspaceSurfaceId || "").trim().toLowerCase();
 });
 
 const routeWorkspaceSlug = computed(() => {

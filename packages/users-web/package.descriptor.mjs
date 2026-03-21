@@ -256,11 +256,11 @@ export default Object.freeze({
     procfile: {},
     files: [
       {
-        from: "templates/src/pages/account/settings/index.vue",
-        to: "src/pages/account/settings/index.vue",
-        reason: "Install app-owned account settings page scaffold for users-web profile/settings UI.",
+        from: "templates/src/pages/account/index.vue",
+        to: "src/pages/account/index.vue",
+        reason: "Install app-owned account surface root page scaffold.",
         category: "users-web",
-        id: "users-web-page-account-settings"
+        id: "users-web-page-account-root"
       },
       {
         from: "templates/src/components/account/settings/AccountSettingsClientElement.vue",
@@ -471,7 +471,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"

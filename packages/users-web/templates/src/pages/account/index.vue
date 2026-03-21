@@ -13,5 +13,5 @@
 </template>
 
 <script setup>
-import AccountSettingsClientElement from "../../../components/account/settings/AccountSettingsClientElement.vue";
+import AccountSettingsClientElement from "../../components/account/settings/AccountSettingsClientElement.vue";
 </script>

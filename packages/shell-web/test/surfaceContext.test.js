@@ -149,11 +149,11 @@ test("resolveSurfaceNavigationTargetFromPlacementContext resolves cross-origin t
   };
 
   const sameOriginTarget = resolveSurfaceNavigationTargetFromPlacementContext(context, {
-    path: "/account/settings",
+    path: "/account",
     currentOrigin: "https://www.example.com"
   });
   assert.deepEqual(sameOriginTarget, {
-    href: "/account/settings",
+    href: "/account",
     sameOrigin: true,
     surfaceId: "account",
     external: false

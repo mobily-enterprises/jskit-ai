@@ -37,6 +37,10 @@ function resolveWorkspaceSlug(value, fallback = "") {
   return normalizeText(unref(fallback));
 }
 
+function resolveDefaultSurfaceIdFromPlacementContext(placementContext = null) {
+  return resolveSurfaceId(placementContext?.surfaceConfig?.defaultSurfaceId, "");
+}
+
 function usePaths({ routeContext: sourceRouteContext = null } = {}) {
   const routeContext = sourceRouteContext || useWorkspaceRouteContext();
   const workspaceLinkResolver = useWorkspaceLinkResolver();
@@ -44,7 +48,9 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
 
   function page(relativePath = "/", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
-    const surface = resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value);
+    const surface =
+      resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value) ||
+      resolveDefaultSurfaceIdFromPlacementContext(routeContext.placementContext.value);
     if (!surface) {
       return "";
     }
@@ -60,7 +66,9 @@ function usePaths({ routeContext: sourceRouteContext = null } = {}) {
 
   function api(relativePath = "", options = {}) {
     const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
-    const surface = resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value);
+    const surface =
+      resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value) ||
+      resolveDefaultSurfaceIdFromPlacementContext(routeContext.placementContext.value);
     const suffix = normalizePathSuffix(relativePath);
     const workspaceScoped = surfaceRequiresWorkspaceFromPlacementContext(routeContext.placementContext.value, surface);
 

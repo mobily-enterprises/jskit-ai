@@ -115,8 +115,8 @@ const isVisible = computed(() => {
 const resolvedTo = computed(() => {
   const hasAccountSurface = Boolean(resolveSurfaceDefinitionFromPlacementContext(placementContext.value, "account"));
   const accountSettingsPath = hasAccountSurface
-    ? resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/settings")
-    : "/account/settings";
+    ? resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
+    : "/account";
   const accountSettingsNavigation = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
     path: accountSettingsPath,
     surfaceId: "account"
