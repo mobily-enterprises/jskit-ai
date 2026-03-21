@@ -3,7 +3,7 @@ import {
   normalizeSeverity,
   normalizeText
 } from "./normalize.js";
-import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 
 const PRESENTATION_CHANNELS = Object.freeze(["snackbar", "banner", "dialog"]);
 const SINGLETON_CHANNELS = new Set(["banner"]);
@@ -34,6 +34,7 @@ function createErrorPresentationStore({
   now = () => Date.now()
 } = {}) {
   const listeners = new Set();
+  const subscribe = createListenerSubscription(listeners);
   const channelState = createEmptyChannelState();
   let sequence = 0;
   let revision = 0;
@@ -65,10 +66,6 @@ function createErrorPresentationStore({
         // Ignore store listener failures so one broken consumer does not break the runtime.
       }
     }
-  }
-
-  function subscribe(listener) {
-    return subscribeListener(listeners, listener);
   }
 
   function present(channel, payload = {}) {

@@ -9,6 +9,7 @@ import {
   shouldRetryTransientQueryFailure,
   transientQueryRetryDelay
 } from "@jskit-ai/kernel/shared/support";
+import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import {
   createDefaultErrorPolicy
@@ -61,22 +62,7 @@ function createShellWebQueryClient() {
 }
 
 function createProviderLogger(app) {
-  return Object.freeze({
-    warn: (...args) => {
-      if (isRecord(app) && typeof app.warn === "function") {
-        app.warn(...args);
-        return;
-      }
-      console.warn(...args);
-    },
-    error: (...args) => {
-      if (isRecord(app) && typeof app.error === "function") {
-        app.error(...args);
-        return;
-      }
-      console.error(...args);
-    }
-  });
+  return createSharedProviderLogger(isRecord(app) ? app : null);
 }
 
 function isMissingDynamicModule(error, moduleSpecifier) {

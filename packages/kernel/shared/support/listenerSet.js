@@ -13,4 +13,14 @@ function subscribeListener(listeners, listener) {
   };
 }
 
-export { subscribeListener };
+function createListenerSubscription(listeners) {
+  if (!(listeners instanceof Set)) {
+    throw new TypeError("createListenerSubscription requires a Set.");
+  }
+
+  return function subscribe(listener) {
+    return subscribeListener(listeners, listener);
+  };
+}
+
+export { subscribeListener, createListenerSubscription };

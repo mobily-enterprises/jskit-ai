@@ -1,7 +1,8 @@
 import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
-import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { normalizePathname as normalizeSurfacePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -27,13 +28,11 @@ function asGlobalObject() {
 
 function normalizePathname(pathname, fallback = "/") {
   const raw = String(pathname || "").trim();
-  if (!raw || !raw.startsWith("/")) {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) {
     return fallback;
   }
-  if (raw.startsWith("//")) {
-    return fallback;
-  }
-  return raw;
+
+  return normalizeSurfacePathname(raw);
 }
 
 function normalizeLoginRoute(loginRoute, fallback = DEFAULT_LOGIN_ROUTE) {
@@ -336,6 +335,7 @@ function createAuthGuardRuntime({
   let activeRefreshPromise = null;
   let listenersInstalled = false;
   const listeners = new Set();
+  const subscribe = createListenerSubscription(listeners);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -349,10 +349,6 @@ function createAuthGuardRuntime({
 
   function getState() {
     return authState;
-  }
-
-  function subscribe(listener) {
-    return subscribeListener(listeners, listener);
   }
 
   async function refresh({ sessionPath: nextSessionPath } = {}) {

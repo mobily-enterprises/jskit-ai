@@ -248,6 +248,7 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, shall
 import { createComponentInteractionEmitter } from "@jskit-ai/kernel/client";
 import {
   normalizeObject,
+  normalizeText,
   normalizeOneOf
 } from "@jskit-ai/kernel/shared/support/normalize";
 import { renderMarkdownToSafeHtml } from "../lib/markdownRenderer.js";
@@ -412,10 +413,6 @@ const rootClasses = computed(() => {
   }
   return classes;
 });
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
 
 function formatConversationStartedAt(value) {
   const formatter = meta?.formatConversationStartedAt;

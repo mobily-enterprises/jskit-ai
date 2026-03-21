@@ -1,5 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   registerDomainEventListener,
   resolveServiceRegistrations
@@ -85,40 +86,7 @@ function parseCookieHeader(value = "") {
 function createProviderLogger(scope, { debugEnabled = false } = {}) {
   const logger =
     scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Logger) ? scope.make(KERNEL_TOKENS.Logger) : null;
-
-  return Object.freeze({
-    debug: (...args) => {
-      if (debugEnabled !== true) {
-        return;
-      }
-      if (logger && typeof logger.info === "function") {
-        logger.info(...args);
-        return;
-      }
-      console.info(...args);
-    },
-    info: (...args) => {
-      if (logger && typeof logger.info === "function") {
-        logger.info(...args);
-        return;
-      }
-      console.info(...args);
-    },
-    warn: (...args) => {
-      if (logger && typeof logger.warn === "function") {
-        logger.warn(...args);
-        return;
-      }
-      console.warn(...args);
-    },
-    error: (...args) => {
-      if (logger && typeof logger.error === "function") {
-        logger.error(...args);
-        return;
-      }
-      console.error(...args);
-    }
-  });
+  return createSharedProviderLogger(logger, { debugEnabled });
 }
 
 function parseDebugFlag(value, fallback = null) {

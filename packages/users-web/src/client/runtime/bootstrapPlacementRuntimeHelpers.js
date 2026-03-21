@@ -1,4 +1,7 @@
 import {
+  createProviderLogger as createSharedProviderLogger
+} from "@jskit-ai/kernel/shared/support/providerLogger";
+import {
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
 } from "@jskit-ai/shell-web/client/placement";
@@ -11,15 +14,7 @@ import {
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
 
 function createProviderLogger(app) {
-  return Object.freeze({
-    warn: (...args) => {
-      if (app && typeof app.warn === "function") {
-        app.warn(...args);
-        return;
-      }
-      console.warn(...args);
-    }
-  });
+  return createSharedProviderLogger(app);
 }
 
 function resolveRouteState(placementRuntime, router) {

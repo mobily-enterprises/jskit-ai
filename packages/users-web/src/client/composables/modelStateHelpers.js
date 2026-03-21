@@ -1,3 +1,5 @@
+import { watch } from "vue";
+
 function isObjectLike(value) {
   return value !== null && typeof value === "object";
 }
@@ -43,7 +45,46 @@ function restoreModelSnapshot(model, snapshot) {
   }
 }
 
+function watchResourceModelState({
+  resource,
+  model,
+  mapLoadedToModel,
+  resolveMapContext = null
+} = {}) {
+  const modelSnapshot = captureModelSnapshot(model);
+
+  watch(
+    () => resource?.query?.isPending?.value,
+    (isPending) => {
+      if (!isPending || !modelSnapshot) {
+        return;
+      }
+
+      restoreModelSnapshot(model, modelSnapshot);
+    },
+    {
+      immediate: true
+    }
+  );
+
+  watch(
+    () => resource?.data?.value,
+    (payload) => {
+      if (!payload || typeof mapLoadedToModel !== "function") {
+        return;
+      }
+
+      const context = typeof resolveMapContext === "function" ? resolveMapContext() : {};
+      mapLoadedToModel(model, payload, context);
+    },
+    {
+      immediate: true
+    }
+  );
+}
+
 export {
   captureModelSnapshot,
-  restoreModelSnapshot
+  restoreModelSnapshot,
+  watchResourceModelState
 };

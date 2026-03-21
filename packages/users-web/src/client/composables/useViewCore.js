@@ -1,5 +1,5 @@
-import { computed, watch } from "vue";
-import { captureModelSnapshot, restoreModelSnapshot } from "./modelStateHelpers.js";
+import { computed } from "vue";
+import { watchResourceModelState } from "./modelStateHelpers.js";
 
 function normalizeStatusList(value) {
   if (Array.isArray(value)) {
@@ -18,37 +18,16 @@ function useViewCore({
   notFoundMessage = "Record not found."
 } = {}) {
   const statusList = normalizeStatusList(notFoundStatuses);
-  const modelSnapshot = captureModelSnapshot(model);
-
-  watch(
-    () => resource?.query?.isPending?.value,
-    (isPending) => {
-      if (!isPending || !modelSnapshot) {
-        return;
-      }
-
-      restoreModelSnapshot(model, modelSnapshot);
-    },
-    {
-      immediate: true
-    }
-  );
-
-  watch(
-    () => resource?.data?.value,
-    (payload) => {
-      if (!payload || typeof mapLoadedToModel !== "function") {
-        return;
-      }
-
-      mapLoadedToModel(model, payload, {
+  watchResourceModelState({
+    resource,
+    model,
+    mapLoadedToModel,
+    resolveMapContext() {
+      return {
         resource
-      });
-    },
-    {
-      immediate: true
+      };
     }
-  );
+  });
 
   const data = resource?.data;
   const record = computed(() => (model !== undefined ? model : data?.value));

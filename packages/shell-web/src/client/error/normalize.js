@@ -1,14 +1,15 @@
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  isRecord,
+  normalizeText as normalizeKernelText
+} from "@jskit-ai/kernel/shared/support/normalize";
 
 const ERROR_CHANNELS = Object.freeze(["snackbar", "banner", "dialog", "silent"]);
 const ERROR_SEVERITIES = Object.freeze(["info", "success", "warning", "error", "critical"]);
 
 function normalizeText(value, fallback = "") {
-  const normalized = String(value || "").trim();
-  if (normalized) {
-    return normalized;
-  }
-  return String(fallback || "").trim();
+  return normalizeKernelText(value, {
+    fallback: String(fallback || "").trim()
+  });
 }
 
 function normalizeChannel(value, fallback = "") {

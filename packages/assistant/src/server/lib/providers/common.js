@@ -1,5 +1,9 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeArray,
+  normalizeObject,
+  normalizeText
+} from "@jskit-ai/kernel/shared/support/normalize";
 
 const SUPPORTED_AI_PROVIDERS = Object.freeze(["openai", "deepseek", "anthropic"]);
 const SUPPORTED_AI_PROVIDER_SET = new Set(SUPPORTED_AI_PROVIDERS);
@@ -80,18 +84,6 @@ function createProviderRequestError({ status = 500, code = "assistant_provider_f
   return new AppError(safeStatus, normalizedMessage, {
     code: normalizedCode
   });
-}
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : [];
 }
 
 function normalizeContentText(content) {

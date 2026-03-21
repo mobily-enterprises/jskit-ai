@@ -1,5 +1,6 @@
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   CLIENT_MODULE_ENV_TOKEN,
   CLIENT_MODULE_VUE_APP_TOKEN
@@ -19,42 +20,6 @@ const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   createSocketIoClient,
   disconnectSocketIoClient
 });
-
-function createProviderLogger(app, { debugEnabled = false } = {}) {
-  return Object.freeze({
-    debug: (...args) => {
-      if (debugEnabled !== true) {
-        return;
-      }
-      if (app && typeof app.info === "function") {
-        app.info(...args);
-        return;
-      }
-      console.info(...args);
-    },
-    info: (...args) => {
-      if (app && typeof app.info === "function") {
-        app.info(...args);
-        return;
-      }
-      console.info(...args);
-    },
-    warn: (...args) => {
-      if (app && typeof app.warn === "function") {
-        app.warn(...args);
-        return;
-      }
-      console.warn(...args);
-    },
-    error: (...args) => {
-      if (app && typeof app.error === "function") {
-        app.error(...args);
-        return;
-      }
-      console.error(...args);
-    }
-  });
-}
 
 function resolveRealtimeClientConfig(app) {
   const appConfig = app && typeof app.has === "function" && app.has("appConfig") ? normalizeObject(app.make("appConfig")) : {};
@@ -115,7 +80,7 @@ class RealtimeClientProvider {
     }
 
     const realtimeClientConfig = resolveRealtimeClientConfig(app);
-    const logger = createProviderLogger(app, {
+    const logger = createSharedProviderLogger(app, {
       debugEnabled: realtimeClientConfig.debugEnabled
     });
     const socket = app.make(REALTIME_SOCKET_CLIENT_TOKEN);

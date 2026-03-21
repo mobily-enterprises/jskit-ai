@@ -6,7 +6,7 @@ import {
   normalizeSeverity,
   normalizeText
 } from "./normalize.js";
-import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { createDefaultErrorPolicy } from "./policy.js";
 
 function createRuntimeLogger(logger = null) {
@@ -109,6 +109,7 @@ function createErrorRuntime({
   const runtimeLogger = createRuntimeLogger(logger);
   const byPresenterId = new Map();
   const listeners = new Set();
+  const subscribe = createListenerSubscription(listeners);
   const dedupeWindowByKey = new Map();
   let activePolicy = typeof policy === "function" ? policy : createDefaultErrorPolicy();
   let activeAppDefaultPresenterId = normalizeText(defaultPresenterId);
@@ -176,10 +177,6 @@ function createErrorRuntime({
 
     activeAppDefaultPresenterId = normalized;
     return activeAppDefaultPresenterId;
-  }
-
-  function subscribe(listener) {
-    return subscribeListener(listeners, listener);
   }
 
   function notify(event = {}) {

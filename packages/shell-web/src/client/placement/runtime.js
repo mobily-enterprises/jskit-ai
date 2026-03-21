@@ -3,7 +3,7 @@ import {
   WEB_PLACEMENT_SURFACE_ANY
 } from "./tokens.js";
 import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
-import { subscribeListener } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
@@ -228,6 +228,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
   const invalidComponentTokens = new Set();
   const failedTokens = new Set();
   const listeners = new Set();
+  const subscribe = createListenerSubscription(listeners);
   let placementDefinitions = Object.freeze([]);
   let sharedContext = Object.freeze({});
   let revision = 0;
@@ -299,10 +300,6 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       source
     });
     return sharedContext;
-  }
-
-  function subscribe(listener) {
-    return subscribeListener(listeners, listener);
   }
 
   function getRevision() {
