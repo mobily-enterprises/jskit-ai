@@ -1,11 +1,8 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import {
-  ACCOUNT_SETTINGS_CHANGED_EVENT,
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "../../shared/events/usersEvents.js";
 import { createService as createAccountPreferencesService } from "./accountPreferencesService.js";
 import { accountPreferencesActions } from "./accountPreferencesActions.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
+import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
 const USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN = "users.accountPreferences.service";
 
@@ -24,30 +21,7 @@ function registerAccountPreferences(app) {
       }),
     {
       events: deepFreeze({
-        updatePreferences: [
-          {
-            type: "entity.changed",
-            source: "account",
-            entity: "settings",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: ACCOUNT_SETTINGS_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-            realtime: {
-              event: USERS_BOOTSTRAP_CHANGED_EVENT,
-              audience: "actor_user"
-            }
-          }
-        ]
+        updatePreferences: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS
       })
     }
   );

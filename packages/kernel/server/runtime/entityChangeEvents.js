@@ -1,4 +1,4 @@
-import { normalizeObject, normalizeOpaqueId, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
 import { resolveServiceContext } from "./serviceAuthorization.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
@@ -150,8 +150,8 @@ function createEntityChangePublisher({
       throw new TypeError("publishEntityChange operation must be one of: created, updated, deleted.");
     }
 
-    const normalizedEntityId = normalizePositiveInteger(entityId);
-    if (normalizedEntityId < 1) {
+    const normalizedEntityId = normalizeOpaqueId(entityId);
+    if (normalizedEntityId == null) {
       return null;
     }
 

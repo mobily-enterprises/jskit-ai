@@ -1,9 +1,5 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import {
-  ACCOUNT_SETTINGS_CHANGED_EVENT,
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "../../shared/events/usersEvents.js";
 import { createService as createAccountProfileService } from "./accountProfileService.js";
 import { createService as createAvatarStorageService } from "./avatarStorageService.js";
 import { createService as createAvatarService } from "./avatarService.js";
@@ -13,32 +9,9 @@ import {
   USERS_AVATAR_STORAGE_SERVICE_TOKEN,
   USERS_AVATAR_SERVICE_TOKEN
 } from "../common/diTokens.js";
+import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
 const USERS_ACCOUNT_PROFILE_SERVICE_TOKEN = "users.accountProfile.service";
-const ACCOUNT_PROFILE_CHANGE_EVENTS = deepFreeze([
-  {
-    type: "entity.changed",
-    source: "account",
-    entity: "settings",
-    operation: "updated",
-    entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-    realtime: {
-      event: ACCOUNT_SETTINGS_CHANGED_EVENT,
-      audience: "actor_user"
-    }
-  },
-  {
-    type: "entity.changed",
-    source: "users",
-    entity: "bootstrap",
-    operation: "updated",
-    entityId: ({ options }) => Number(options?.context?.actor?.id || 0),
-    realtime: {
-      event: USERS_BOOTSTRAP_CHANGED_EVENT,
-      audience: "actor_user"
-    }
-  }
-]);
 
 function registerAccountProfile(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
@@ -69,9 +42,9 @@ function registerAccountProfile(app) {
       }),
     {
       events: deepFreeze({
-        updateProfile: ACCOUNT_PROFILE_CHANGE_EVENTS,
-        uploadAvatar: ACCOUNT_PROFILE_CHANGE_EVENTS,
-        deleteAvatar: ACCOUNT_PROFILE_CHANGE_EVENTS
+        updateProfile: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+        uploadAvatar: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+        deleteAvatar: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS
       })
     }
   );

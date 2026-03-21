@@ -43,6 +43,42 @@ test("entity change publisher emits normalized event payload", async () => {
   assert.equal(published.length, 1);
 });
 
+test("entity change publisher accepts opaque entity identifiers", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "crud",
+    entity: "record"
+  });
+
+  const payload = await publishEntityChange("updated", "record_4f5d2f6a-607e-4b4b-9bfa-4f8c2b1d3c8e");
+
+  assert.equal(payload?.entityId, "record_4f5d2f6a-607e-4b4b-9bfa-4f8c2b1d3c8e");
+  assert.equal(published.length, 1);
+});
+
+test("entity change publisher ignores missing entity identifiers", async () => {
+  const published = [];
+  const publishEntityChange = createEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "crud",
+    entity: "record"
+  });
+
+  const payload = await publishEntityChange("updated", null);
+
+  assert.equal(payload, null);
+  assert.equal(published.length, 0);
+});
+
 test("entity change publisher infers scoped owner from service context when visibility owner ids are missing", async () => {
   const published = [];
   const publishEntityChange = createEntityChangePublisher({
