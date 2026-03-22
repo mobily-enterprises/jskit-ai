@@ -7,6 +7,7 @@ import {
   normalizeDatabaseClient,
   toKnexClientId
 } from "../../shared/databaseClient.js";
+import { resolveDatabaseConnectionFromEnvironment } from "../../shared/databaseConnection.js";
 
 const DATABASE_RUNTIME_TOKEN = "runtime.database";
 const DATABASE_DRIVER_TOKEN = "runtime.database.driver";
@@ -40,22 +41,6 @@ function resolveDriverDialectId(driver) {
     });
   }
   return "";
-}
-
-function resolveRequiredEnvString(env, key) {
-  const value = normalizeText(env?.[key]);
-  if (!value) {
-    throw new Error(`${key} is required for database runtime.`);
-  }
-  return value;
-}
-
-function resolvePort(value, fallbackPort) {
-  const parsed = Number.parseInt(normalizeText(value), 10);
-  if (Number.isInteger(parsed) && parsed > 0) {
-    return parsed;
-  }
-  return fallbackPort;
 }
 
 function loadKnexFactory() {
@@ -142,16 +127,14 @@ function createKnexConfig(scope) {
 
   const client = toKnexClientId(dialectId);
   const defaultPort = dialectId === "pg" ? 5432 : 3306;
+  const connection = resolveDatabaseConnectionFromEnvironment(env, {
+    defaultPort,
+    context: "database runtime"
+  });
 
   return {
     client,
-    connection: {
-      host: normalizeText(env.DB_HOST) || "localhost",
-      port: resolvePort(env.DB_PORT, defaultPort),
-      database: resolveRequiredEnvString(env, "DB_NAME"),
-      user: resolveRequiredEnvString(env, "DB_USER"),
-      password: String(env.DB_PASSWORD ?? "")
-    }
+    connection
   };
 }
 

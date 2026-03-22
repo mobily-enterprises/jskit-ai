@@ -57,6 +57,47 @@ function createKnexStub() {
   };
 }
 
+async function withAppRootKnexStub(callback) {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-db-runtime-test-"));
+  const knexPackageDir = path.join(appRoot, "node_modules", "knex");
+  await mkdir(knexPackageDir, { recursive: true });
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "runtime-app", private: true }), "utf8");
+  await writeFile(
+    path.join(knexPackageDir, "package.json"),
+    JSON.stringify({
+      name: "knex",
+      version: "0.0.0-test",
+      main: "index.js",
+      type: "commonjs"
+    }),
+    "utf8"
+  );
+  await writeFile(
+    path.join(knexPackageDir, "index.js"),
+    [
+      "module.exports = function knex(config) {",
+      "  return {",
+      "    __source: 'app-root-knex',",
+      "    __config: config,",
+      "    transaction: async function transaction(callback) {",
+      "      return callback({ trxId: 'trx-app-root' });",
+      "    }",
+      "  };",
+      "};",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(appRoot);
+    await callback();
+  } finally {
+    process.chdir(previousCwd);
+  }
+}
+
 test("DatabaseRuntimeServiceProvider registers runtime api", () => {
   const app = createSingletonApp();
   const provider = new DatabaseRuntimeServiceProvider();
@@ -112,41 +153,7 @@ test("DatabaseRuntimeServiceProvider driver token throws when multiple drivers a
 });
 
 test("DatabaseRuntimeServiceProvider resolves knex from app root package context", async () => {
-  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-db-runtime-test-"));
-  const knexPackageDir = path.join(appRoot, "node_modules", "knex");
-  await mkdir(knexPackageDir, { recursive: true });
-  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "runtime-app", private: true }), "utf8");
-  await writeFile(
-    path.join(knexPackageDir, "package.json"),
-    JSON.stringify({
-      name: "knex",
-      version: "0.0.0-test",
-      main: "index.js",
-      type: "commonjs"
-    }),
-    "utf8"
-  );
-  await writeFile(
-    path.join(knexPackageDir, "index.js"),
-    [
-      "module.exports = function knex(config) {",
-      "  return {",
-      "    __source: 'app-root-knex',",
-      "    __config: config,",
-      "    transaction: async function transaction(callback) {",
-      "      return callback({ trxId: 'trx-app-root' });",
-      "    }",
-      "  };",
-      "};",
-      ""
-    ].join("\n"),
-    "utf8"
-  );
-
-  const previousCwd = process.cwd();
-  try {
-    process.chdir(appRoot);
-
+  await withAppRootKnexStub(async () => {
     const app = createSingletonApp();
     app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
     app.instance(KERNEL_TOKENS.Env, {
@@ -168,7 +175,27 @@ test("DatabaseRuntimeServiceProvider resolves knex from app root package context
     assert.equal(knex.__config.connection.database, "appdb");
     assert.equal(knex.__config.connection.user, "appuser");
     assert.equal(knex.__config.connection.password, "apppass");
-  } finally {
-    process.chdir(previousCwd);
-  }
+  });
+});
+
+test("DatabaseRuntimeServiceProvider resolves knex config from DATABASE_URL when DB_* vars are omitted", async () => {
+  await withAppRootKnexStub(async () => {
+    const app = createSingletonApp();
+    app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
+    app.instance(KERNEL_TOKENS.Env, {
+      DATABASE_URL: "mysql://urluser:urlpass@db.url.local:3308/url_db_name"
+    });
+
+    const provider = new DatabaseRuntimeServiceProvider();
+    provider.register(app);
+
+    const knex = app.make(KERNEL_TOKENS.Knex);
+    assert.equal(knex.__source, "app-root-knex");
+    assert.equal(knex.__config.client, "mysql2");
+    assert.equal(knex.__config.connection.host, "db.url.local");
+    assert.equal(knex.__config.connection.port, 3308);
+    assert.equal(knex.__config.connection.database, "url_db_name");
+    assert.equal(knex.__config.connection.user, "urluser");
+    assert.equal(knex.__config.connection.password, "urlpass");
+  });
 });

@@ -2,25 +2,10 @@ import path from "node:path";
 import dotenv from "dotenv";
 import {
   normalizeText,
-  normalizeDatabaseClient,
-  toKnexClientId
-} from "@jskit-ai/database-runtime/shared/databaseClient";
-
-function resolveRequiredEnvString(env, key) {
-  const value = normalizeText(env[key]);
-  if (!value) {
-    throw new Error(`${key} is required.`);
-  }
-  return value;
-}
-
-function resolvePort(value, fallbackPort) {
-  const parsed = Number.parseInt(normalizeText(value), 10);
-  if (Number.isInteger(parsed) && parsed > 0) {
-    return parsed;
-  }
-  return fallbackPort;
-}
+  toKnexClientId,
+  resolveDatabaseClientFromEnvironment,
+  resolveDatabaseConnectionFromEnvironment
+} from "@jskit-ai/database-runtime/shared";
 
 const appRoot = process.cwd();
 dotenv.config({
@@ -28,20 +13,17 @@ dotenv.config({
   quiet: true
 });
 
-const dialectId = normalizeDatabaseClient(process.env.DB_CLIENT);
+const dialectId = resolveDatabaseClientFromEnvironment(process.env);
 const client = toKnexClientId(dialectId);
 const defaultPort = dialectId === "pg" ? 5432 : 3306;
 const migrationsDirectory = path.resolve(appRoot, normalizeText(process.env.DB_MIGRATIONS_DIR) || "migrations");
 
 export default {
   client,
-  connection: {
-    host: normalizeText(process.env.DB_HOST) || "localhost",
-    port: resolvePort(process.env.DB_PORT, defaultPort),
-    database: resolveRequiredEnvString(process.env, "DB_NAME"),
-    user: resolveRequiredEnvString(process.env, "DB_USER"),
-    password: String(process.env.DB_PASSWORD ?? "")
-  },
+  connection: resolveDatabaseConnectionFromEnvironment(process.env, {
+    defaultPort,
+    context: "knex migrations"
+  }),
   migrations: {
     directory: migrationsDirectory,
     extension: "cjs"
