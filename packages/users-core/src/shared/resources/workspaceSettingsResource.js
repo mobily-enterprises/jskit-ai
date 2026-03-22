@@ -4,6 +4,7 @@ import {
   normalizeObjectInput,
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
 import { createWorkspaceRoleCatalog } from "../roles.js";
 
@@ -60,19 +61,7 @@ function buildResponseRecordSchema() {
 }
 
 function normalizeInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-
-  for (const field of workspaceSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
-    }
-    normalized[field.key] = field.normalizeInput(source[field.key], {
-      payload: source
-    });
-  }
-
-  return normalized;
+  return normalizeSettingsFieldInput(payload, workspaceSettingsFields);
 }
 
 function normalizeOutput(payload = {}) {

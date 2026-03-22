@@ -4,6 +4,7 @@ import {
   createCursorListValidator,
   normalizeObjectInput
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { consoleSettingsFields } from "./consoleSettingsFields.js";
 
 function buildCreateSchema() {
@@ -46,17 +47,7 @@ function buildConsoleSettingsPatchSchema() {
 }
 
 function normalizeConsoleSettingsInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-  for (const field of consoleSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
-    }
-    normalized[field.key] = field.normalizeInput(source[field.key], {
-      payload: source
-    });
-  }
-  return normalized;
+  return normalizeSettingsFieldInput(payload, consoleSettingsFields);
 }
 
 const consoleSettingsOutputValidator = Object.freeze({

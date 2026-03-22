@@ -5,6 +5,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
+import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { userProfileResource } from "./userProfileResource.js";
 import {
   USER_SETTINGS_SECTIONS,
@@ -49,20 +50,8 @@ function buildSectionOutputSchema(section) {
   return Type.Object(properties, { additionalProperties: false });
 }
 
-function normalizeUserSettingsInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-
-  for (const field of userSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
-    }
-    normalized[field.key] = field.normalizeInput(source[field.key], {
-      payload: source
-    });
-  }
-
-  return normalized;
+function normalizeInput(payload = {}) {
+  return normalizeSettingsFieldInput(payload, userSettingsFields);
 }
 
 function normalizeSectionOutput(section, sectionSource = {}, settings = {}) {
@@ -147,14 +136,14 @@ const preferencesUpdateBodyValidator = Object.freeze({
   get schema() {
     return buildPreferencesUpdateBodySchema();
   },
-  normalize: normalizeUserSettingsInput
+  normalize: normalizeInput
 });
 
 const notificationsUpdateBodyValidator = Object.freeze({
   get schema() {
     return buildNotificationsUpdateBodySchema();
   },
-  normalize: normalizeUserSettingsInput
+  normalize: normalizeInput
 });
 
 function normalizeOAuthProviderParams(payload = {}) {
@@ -341,7 +330,7 @@ const userSettingsResource = Object.freeze({
         get schema() {
           return buildUserSettingsCreateBodySchema();
         },
-        normalize: normalizeUserSettingsInput
+        normalize: normalizeInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
@@ -352,7 +341,7 @@ const userSettingsResource = Object.freeze({
         get schema() {
           return buildUserSettingsCreateBodySchema();
         },
-        normalize: normalizeUserSettingsInput
+        normalize: normalizeInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
@@ -363,7 +352,7 @@ const userSettingsResource = Object.freeze({
         get schema() {
           return buildUserSettingsPatchBodySchema();
         },
-        normalize: normalizeUserSettingsInput
+        normalize: normalizeInput
       }),
       outputValidator: userSettingsOutputValidator
     }),
