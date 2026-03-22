@@ -24,7 +24,6 @@ const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
   "@jskit-ai/jskit-cli",
   "@vitejs/plugin-vue",
   "eslint",
-  "unplugin-vue-router",
   "vite",
   "vitest"
 ]);

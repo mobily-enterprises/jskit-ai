@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import VueRouter from "unplugin-vue-router/vite";
+import VueRouter from "vue-router/vite";
 import { createJskitClientBootstrapPlugin } from "@jskit-ai/kernel/client/vite";
 import { loadViteDevProxyEntries, toPositiveInt } from "./vite.shared.mjs";
 
