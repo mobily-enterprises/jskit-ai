@@ -56,6 +56,6 @@ export {
   resolveMembershipStatus,
   normalizeMembershipForAccess,
   mapMembershipSummary,
-  normalizePermissions: normalizePermissionList,
+  normalizePermissionList as normalizePermissions,
   createMembershipIndexes
 };
