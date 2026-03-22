@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: users-core-console-owner
-
 /**
  * @param {import('knex').Knex} knex
  */

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.14",
+  "version": "0.1.17",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -21,7 +21,7 @@
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/users-core": "0.1.10",
+    "@jskit-ai/users-core": "0.1.13",
     "@jskit-ai/realtime": "0.1.8",
     "@jskit-ai/http-runtime": "0.1.8",
     "@jskit-ai/kernel": "0.1.8",

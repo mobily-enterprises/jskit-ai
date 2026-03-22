@@ -417,7 +417,10 @@ function createCommandHandlers(deps) {
     if (resolvedPackageId) {
       const packageEntry = packageRegistry.get(resolvedPackageId);
       const descriptor = packageEntry.descriptor;
-      const fileWriteGroups = buildFileWriteGroups(ensureArray(ensureObject(descriptor.mutations).files));
+      const fileWriteGroups = buildFileWriteGroups(
+        ensureArray(ensureObject(descriptor.mutations).files),
+        { packageId: descriptor.packageId }
+      );
       const fileWriteCount = fileWriteGroups.reduce((total, group) => total + ensureArray(group.files).length, 0);
       const capabilities = ensureObject(descriptor.capabilities);
       const runtime = ensureObject(descriptor.runtime);

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.14",
+  version: "0.1.17",
   description: "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
   options: {
     "ai-provider": {
@@ -110,14 +110,14 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/assistant": "0.1.14",
+        "@jskit-ai/assistant": "0.1.17",
         "@jskit-ai/auth-core": "0.1.8",
         "@jskit-ai/database-runtime": "0.1.8",
         "@jskit-ai/http-runtime": "0.1.8",
         "@jskit-ai/kernel": "0.1.8",
         "@jskit-ai/realtime": "0.1.8",
-        "@jskit-ai/users-core": "0.1.10",
-        "@jskit-ai/users-web": "0.1.14",
+        "@jskit-ai/users-core": "0.1.13",
+        "@jskit-ai/users-web": "0.1.17",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",
         "marked": "^17.0.4",
@@ -136,7 +136,6 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/assistant_transcripts_initial.cjs",
         toDir: "migrations",
-        slug: "assistant_transcripts_initial",
         extension: ".cjs",
         reason: "Install assistant conversation/message schema migration.",
         category: "assistant",
@@ -146,7 +145,6 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/assistant_settings_initial.cjs",
         toDir: "migrations",
-        slug: "assistant_settings_initial",
         extension: ".cjs",
         reason: "Install assistant settings schema migration.",
         category: "assistant",

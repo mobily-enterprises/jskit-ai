@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.10",
+  version: "0.1.13",
   description: "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",
@@ -229,7 +229,6 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/users_core_initial.cjs",
         toDir: "migrations",
-        slug: "users_core_initial",
         extension: ".cjs",
         reason: "Install users/workspace core schema migration.",
         category: "migration",
@@ -239,7 +238,6 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/users_core_profile_username.cjs",
         toDir: "migrations",
-        slug: "users_core_profile_username",
         extension: ".cjs",
         reason: "Install users profile username migration.",
         category: "migration",
@@ -249,7 +247,6 @@ export default Object.freeze({
         op: "install-migration",
         from: "templates/migrations/users_core_console_owner.cjs",
         toDir: "migrations",
-        slug: "users_core_console_owner",
         extension: ".cjs",
         reason: "Install users/workspace console owner migration.",
         category: "migration",

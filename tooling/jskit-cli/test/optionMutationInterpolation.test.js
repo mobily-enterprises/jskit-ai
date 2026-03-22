@@ -68,7 +68,7 @@ test("add package applies option interpolation and conditional file mutations", 
     );
     await writeFile(
       path.join(packageRoot, "templates", "migration.cjs"),
-      "// JSKIT_MIGRATION_ID: demo_${option:namespace|snake|default(default)}\nmodule.exports = \"${option:visibility}\";\n",
+      "module.exports = \"${option:visibility}\";\n",
       "utf8"
     );
     await writeFile(
@@ -136,7 +136,6 @@ test("add package applies option interpolation and conditional file mutations", 
         op: "install-migration",
         from: "templates/migration.cjs",
         toDir: "migrations",
-        slug: "demo_\${option:namespace|snake|default(default)}",
         id: "demo-\${option:namespace|kebab|default(default)}"
       }
     ]
@@ -173,17 +172,448 @@ test("add package applies option interpolation and conditional file mutations", 
     const prefixedContent = await readFile(prefixedFile, "utf8");
     assert.equal(prefixedContent, "prefixed namespace=client-profiles prefix=crm/team-alpha\n");
 
-    const migrationDirectory = path.join(appRoot, "migrations");
-    const migrationFiles = await readdir(migrationDirectory);
+    const migrationsDirectory = path.join(appRoot, "migrations");
+    const migrationFiles = (await readdir(migrationsDirectory))
+      .filter((entry) => /^\d{14}_demo-client-profiles\.cjs$/.test(entry))
+      .sort();
     assert.equal(migrationFiles.length, 1);
-    assert.match(migrationFiles[0], /_demo_client_profiles\.cjs$/);
-
-    const migrationContent = await readFile(path.join(migrationDirectory, migrationFiles[0]), "utf8");
-    assert.match(migrationContent, /JSKIT_MIGRATION_ID: demo_client_profiles/);
+    const migrationPath = path.join(migrationsDirectory, migrationFiles[0]);
+    const migrationContent = await readFile(migrationPath, "utf8");
     assert.match(migrationContent, /module\.exports = "public";/);
+
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", "@demo/option-feature", "--no-install"]
+    });
+    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
+
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    const installedPackage = lock?.installedPackages?.["@demo/option-feature"];
+    const managedMigrations = Array.isArray(installedPackage?.managed?.migrations)
+      ? installedPackage.managed.migrations
+      : [];
+    assert.equal(managedMigrations.length, 1);
+    assert.equal(managedMigrations[0].id, "demo-client-profiles");
+    assert.match(String(managedMigrations[0].path || ""), /^migrations\/\d{14}_demo-client-profiles\.cjs$/);
+    assert.match(String(managedMigrations[0].hash || ""), /^[a-f0-9]{64}$/);
 
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(appPackageJson.dependencies["@demo/generated-client-profiles"], "1.2.3");
+  });
+});
+
+test("update package fails when an install-migration source changes for the same id", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "migration-immutability-app");
+    await createMinimalApp(appRoot, { name: "migration-immutability-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "migration-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/migration-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.migration\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "templates", "migration.cjs"),
+      "module.exports = \"v1\";\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/migration-feature",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        id: "demo-migration-immutability"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-feature", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    await writeFile(
+      path.join(packageRoot, "templates", "migration.cjs"),
+      "module.exports = \"v2\";\n",
+      "utf8"
+    );
+
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", "@demo/migration-feature", "--no-install"]
+    });
+    assert.equal(updateResult.status, 1);
+    assert.match(String(updateResult.stderr || ""), /migration demo-migration-immutability changed after install/i);
+  });
+});
+
+test("remove then re-add package reuses existing timestamped migration by id", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "migration-readd-app");
+    await createMinimalApp(appRoot, { name: "migration-readd-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "migration-readd");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/migration-readd",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.migration.readd\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"v1\";\n", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/migration-readd",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        id: "demo-migration-readd"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-readd", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const lockPath = path.join(appRoot, ".jskit", "lock.json");
+    const lockAfterFirstAdd = JSON.parse(await readFile(lockPath, "utf8"));
+    const firstMigrationPath =
+      lockAfterFirstAdd?.installedPackages?.["@demo/migration-readd"]?.managed?.migrations?.[0]?.path || "";
+    assert.match(String(firstMigrationPath), /^migrations\/\d{14}_demo-migration-readd\.cjs$/);
+
+    const removeResult = runCli({
+      cwd: appRoot,
+      args: ["remove", "package", "@demo/migration-readd", "--no-install"]
+    });
+    assert.equal(removeResult.status, 0, String(removeResult.stderr || ""));
+
+    const readdResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-readd", "--no-install"]
+    });
+    assert.equal(readdResult.status, 0, String(readdResult.stderr || ""));
+
+    const lockAfterReadd = JSON.parse(await readFile(lockPath, "utf8"));
+    const managedMigrations = Array.isArray(
+      lockAfterReadd?.installedPackages?.["@demo/migration-readd"]?.managed?.migrations
+    )
+      ? lockAfterReadd.installedPackages["@demo/migration-readd"].managed.migrations
+      : [];
+    assert.equal(managedMigrations.length, 1);
+    assert.equal(managedMigrations[0].id, "demo-migration-readd");
+    assert.equal(managedMigrations[0].path, firstMigrationPath);
+    assert.equal(managedMigrations[0].skipped, true);
+
+    const migrationFiles = (await readdir(path.join(appRoot, "migrations")))
+      .filter((entry) => /_demo-migration-readd\.cjs$/.test(entry))
+      .sort();
+    assert.equal(migrationFiles.length, 1);
+  });
+});
+
+test("add package fails when install-migration is missing id", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "migration-id-required-app");
+    await createMinimalApp(appRoot, { name: "migration-id-required-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "migration-id-required");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/migration-id-required",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.migration.required\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/migration-id-required",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-id-required", "--no-install"]
+    });
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /install-migration.*requires "id"/i);
+  });
+});
+
+test("add package fails when install-migration id is not lowercase-safe", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "migration-id-case-app");
+    await createMinimalApp(appRoot, { name: "migration-id-case-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "migration-id-case");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/migration-id-case",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.migration.case\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/migration-id-case",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        id: "Demo-Migration"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-id-case", "--no-install"]
+    });
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /install-migration mutation.*id.*must match/i);
+  });
+});
+
+test("update package rejects managed migration paths outside app root", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "migration-path-hardening-app");
+    await createMinimalApp(appRoot, { name: "migration-path-hardening-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "migration-path-hardening");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/migration-path-hardening",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.migration.path\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/migration-path-hardening",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        id: "demo-migration-path-hardening"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/migration-path-hardening", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const lockPath = path.join(appRoot, ".jskit", "lock.json");
+    const lock = JSON.parse(await readFile(lockPath, "utf8"));
+    lock.installedPackages["@demo/migration-path-hardening"].managed.migrations[0].path = "../outside.cjs";
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", "@demo/migration-path-hardening", "--no-install"]
+    });
+    assert.equal(updateResult.status, 1);
+    assert.match(
+      String(updateResult.stderr || ""),
+      /managed migration path.*(safe relative path|stay within app root)/i
+    );
   });
 });
 

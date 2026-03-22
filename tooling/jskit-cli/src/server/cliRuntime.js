@@ -101,7 +101,6 @@ function normalizeFileMutationRecord(value) {
     toSurfacePath: String(record.toSurfacePath || "").trim(),
     toSurfaceRoot: record.toSurfaceRoot === true,
     toDir: String(record.toDir || "").trim(),
-    slug: String(record.slug || "").trim(),
     extension: normalizeMutationExtension(record.extension),
     preserveOnRemove: record.preserveOnRemove === true,
     id: String(record.id || "").trim(),
@@ -262,14 +261,14 @@ function shouldApplyMutationWhen(
   return true;
 }
 
-function buildFileWriteGroups(fileMutations) {
+function buildFileWriteGroups(fileMutations, { packageId = "" } = {}) {
   const groups = [];
   const groupsByKey = new Map();
 
   for (const mutation of ensureArray(fileMutations)) {
     const normalized = normalizeFileMutationRecord(mutation);
     if (normalized.op === "install-migration") {
-      if (!normalized.from || !normalized.slug) {
+      if (!normalized.from || !normalized.id) {
         continue;
       }
     } else if (!normalized.from || (!normalized.to && !normalized.toSurface)) {
@@ -312,7 +311,12 @@ function buildFileWriteGroups(fileMutations) {
       const extension = normalized.extension || ".cjs";
       group.files.push({
         from: normalized.from,
-        to: `${toDir}/<timestamp>_${normalized.slug}${extension}`
+        to: buildManagedMigrationRelativePathLabel({
+          toDir,
+          packageId,
+          migrationId: normalized.id,
+          extension
+        })
       });
       continue;
     }
@@ -334,29 +338,6 @@ function hashBuffer(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-function formatMigrationTimestamp(date = new Date()) {
-  const source = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
-  const year = source.getUTCFullYear();
-  const month = String(source.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(source.getUTCDate()).padStart(2, "0");
-  const hours = String(source.getUTCHours()).padStart(2, "0");
-  const minutes = String(source.getUTCMinutes()).padStart(2, "0");
-  const seconds = String(source.getUTCSeconds()).padStart(2, "0");
-  return `${year}${month}${day}${hours}${minutes}${seconds}`;
-}
-
-function normalizeMigrationSlug(value, packageId) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  if (!normalized) {
-    throw createCliError(`Invalid install-migration mutation in ${packageId}: \"slug\" is required.`);
-  }
-  return normalized;
-}
-
 function normalizeMigrationExtension(value = "", fallback = ".cjs") {
   const normalizedFallback = String(fallback || ".cjs").trim() || ".cjs";
   const raw = String(value || "").trim();
@@ -367,46 +348,174 @@ function normalizeMigrationExtension(value = "", fallback = ".cjs") {
   return candidate.toLowerCase();
 }
 
-const JSKIT_MIGRATION_ID_PATTERN = /JSKIT_MIGRATION_ID:\s*([A-Za-z0-9._-]+)/i;
+const MIGRATION_ID_PATTERN = /^[a-z0-9._-]+$/;
 
-function extractMigrationIdFromSource(source) {
-  const content = String(source || "");
-  const match = content.match(JSKIT_MIGRATION_ID_PATTERN);
-  if (!match) {
-    return "";
+function normalizeMigrationId(value, packageId) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    throw createCliError(`Invalid install-migration mutation in ${packageId}: \"id\" is required.`);
   }
-  return String(match[1] || "").trim();
+  if (!MIGRATION_ID_PATTERN.test(normalized)) {
+    throw createCliError(
+      `Invalid install-migration mutation in ${packageId}: "id" must match ${MIGRATION_ID_PATTERN.source}.`
+    );
+  }
+  return normalized;
 }
 
-async function findExistingMigrationById({ appRoot, migrationsDirectory, migrationId }) {
-  const normalizedMigrationId = String(migrationId || "").trim();
-  if (!normalizedMigrationId) {
+function resolveAppRelativePathWithinRoot(appRoot, relativePath, contextLabel = "path") {
+  const normalized = normalizeRelativePosixPath(String(relativePath || "").trim());
+  if (!normalized) {
+    throw createCliError(`Invalid ${contextLabel}: path is required.`);
+  }
+  const segments = normalized.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw createCliError(`Invalid ${contextLabel}: path must be a safe relative path.`);
+  }
+
+  const appRootAbsolute = path.resolve(appRoot);
+  const absolutePath = path.resolve(appRootAbsolute, normalized);
+  const relativeFromRoot = path.relative(appRootAbsolute, absolutePath);
+  if (
+    relativeFromRoot === ".." ||
+    relativeFromRoot.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeFromRoot)
+  ) {
+    throw createCliError(`Invalid ${contextLabel}: path must stay within app root.`);
+  }
+
+  return {
+    relativePath: normalized,
+    absolutePath
+  };
+}
+
+function normalizeMigrationDirectory(value, packageId) {
+  const normalized = normalizeRelativePosixPath(String(value || "").trim() || "migrations");
+  if (!normalized) {
+    throw createCliError(`Invalid install-migration mutation in ${packageId}: "toDir" cannot be empty.`);
+  }
+
+  const segments = normalized.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw createCliError(`Invalid install-migration mutation in ${packageId}: "toDir" must be a safe relative path.`);
+  }
+
+  return segments.join("/");
+}
+
+function formatMigrationTimestamp(date = new Date()) {
+  const source = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const year = String(source.getUTCFullYear()).padStart(4, "0");
+  const month = String(source.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(source.getUTCDate()).padStart(2, "0");
+  const hour = String(source.getUTCHours()).padStart(2, "0");
+  const minute = String(source.getUTCMinutes()).padStart(2, "0");
+  const second = String(source.getUTCSeconds()).padStart(2, "0");
+  return `${year}${month}${day}${hour}${minute}${second}`;
+}
+
+function buildManagedMigrationFileName({ packageId = "", migrationId = "", extension = ".cjs", timestamp = "" } = {}) {
+  const normalizedMigrationId = normalizeMigrationId(migrationId, packageId);
+  const normalizedExtension = normalizeMigrationExtension(extension, ".cjs");
+  const normalizedTimestamp = String(timestamp || "").trim();
+  if (!/^\d{14}$/.test(normalizedTimestamp)) {
+    throw createCliError(
+      `Invalid install-migration mutation in ${packageId}: timestamp must be a 14-digit UTC string (YYYYMMDDHHmmss).`
+    );
+  }
+  return `${normalizedTimestamp}_${normalizedMigrationId}${normalizedExtension}`;
+}
+
+function buildManagedMigrationRelativePath({ toDir = "migrations", packageId = "", migrationId = "", extension = ".cjs", timestamp = "" } = {}) {
+  const normalizedDirectory = normalizeMigrationDirectory(toDir, packageId);
+  const fileName = buildManagedMigrationFileName({
+    packageId,
+    migrationId,
+    extension,
+    timestamp
+  });
+  return path.posix.join(normalizedDirectory, fileName);
+}
+
+function buildManagedMigrationRelativePathLabel({ toDir = "migrations", migrationId = "", extension = ".cjs" } = {}) {
+  const directory = normalizeRelativePosixPath(String(toDir || "").trim() || "migrations") || "migrations";
+  const id = String(migrationId || "<migration-id>").trim() || "<migration-id>";
+  const rawExtension = String(extension || ".cjs").trim() || ".cjs";
+  const ext = rawExtension.startsWith(".") ? rawExtension : `.${rawExtension}`;
+  return `${directory}/<timestamp>_${id}${ext}`.replace(/\/{2,}/g, "/");
+}
+
+async function findExistingManagedMigrationPathById({
+  appRoot,
+  toDir = "migrations",
+  packageId = "",
+  migrationId = "",
+  extension = ".cjs"
+} = {}) {
+  const normalizedDirectory = normalizeMigrationDirectory(toDir, packageId);
+  const resolvedDirectory = resolveAppRelativePathWithinRoot(
+    appRoot,
+    normalizedDirectory,
+    `${packageId} migration directory for ${migrationId}`
+  );
+  if (!(await fileExists(resolvedDirectory.absolutePath))) {
     return null;
   }
 
-  const absoluteDirectory = path.join(appRoot, migrationsDirectory);
-  if (!(await fileExists(absoluteDirectory))) {
-    return null;
-  }
+  const normalizedMigrationId = normalizeMigrationId(migrationId, packageId);
+  const normalizedExtension = normalizeMigrationExtension(extension, ".cjs");
+  const suffix = `_${normalizedMigrationId}${normalizedExtension}`;
+  const entries = await readdir(resolvedDirectory.absolutePath, { withFileTypes: true }).catch(() => []);
+  const matches = [];
 
-  const entries = await readdir(absoluteDirectory, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
     if (!entry.isFile()) {
       continue;
     }
-    const absolutePath = path.join(absoluteDirectory, entry.name);
-    const fileContent = await readFile(absolutePath, "utf8").catch(() => "");
-    const fileMigrationId = extractMigrationIdFromSource(fileContent);
-    if (!fileMigrationId || fileMigrationId !== normalizedMigrationId) {
+    const fileName = String(entry.name || "").trim();
+    if (!fileName.endsWith(suffix)) {
       continue;
     }
-
-    return {
-      path: normalizeRelativePath(appRoot, absolutePath)
-    };
+    const timestamp = fileName.slice(0, fileName.length - suffix.length);
+    if (!/^\d{14}$/.test(timestamp)) {
+      continue;
+    }
+    matches.push({
+      relativePath: path.posix.join(resolvedDirectory.relativePath, fileName),
+      absolutePath: path.join(resolvedDirectory.absolutePath, fileName)
+    });
   }
 
-  return null;
+  matches.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  if (matches.length > 1) {
+    throw createCliError(
+      `${packageId}: found multiple migration files for ${normalizedMigrationId} in ${resolvedDirectory.relativePath}. Keep one file for this migration id.`
+    );
+  }
+  return matches[0] || null;
+}
+
+function upsertManagedMigrationRecord(managedMigrations, record) {
+  const records = ensureArray(managedMigrations);
+  const normalizedId = String(ensureObject(record).id || "").trim();
+  if (!normalizedId) {
+    return;
+  }
+
+  const nextRecord = {
+    ...ensureObject(record),
+    id: normalizedId
+  };
+  const existingIndex = records.findIndex(
+    (entry) => String(ensureObject(entry).id || "").trim() === normalizedId
+  );
+  if (existingIndex >= 0) {
+    records[existingIndex] = nextRecord;
+    return;
+  }
+
+  records.push(nextRecord);
 }
 
 function toScopedPackageId(input) {
@@ -1055,6 +1164,28 @@ function normalizePackageInstallationMode(rawValue, descriptorPath) {
   return normalized;
 }
 
+function validateInstallMigrationMutationShape(descriptor, descriptorPath) {
+  const packageId = String(ensureObject(descriptor).packageId || "").trim() || "unknown-package";
+  const mutations = ensureObject(ensureObject(descriptor).mutations);
+  const files = ensureArray(mutations.files);
+  for (const fileMutation of files) {
+    const normalized = normalizeFileMutationRecord(fileMutation);
+    if (normalized.op !== "install-migration") {
+      continue;
+    }
+    if (!normalized.from) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: install-migration in ${packageId} requires "from".`
+      );
+    }
+    if (!normalized.id) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: install-migration in ${packageId} requires "id".`
+      );
+    }
+  }
+}
+
 function validatePackageDescriptorShape(descriptor, descriptorPath) {
   const normalized = ensureObject(descriptor);
   const packageId = String(normalized.packageId || "").trim();
@@ -1077,6 +1208,8 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
       `Invalid package descriptor at ${descriptorPath}: runtime.server.providers or runtime.client.providers must be declared.`
     );
   }
+
+  validateInstallMigrationMutationShape(normalized, descriptorPath);
 
   return {
     ...normalized,
@@ -1105,6 +1238,8 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   if (!version) {
     throw createCliError(`Invalid app-local package descriptor at ${descriptorPath}: missing version.`);
   }
+
+  validateInstallMigrationMutationShape(normalized, descriptorPath);
 
   return {
     ...normalized,
@@ -3430,7 +3565,7 @@ async function cleanupMaterializedPackageRoots() {
 
 function interpolateFileMutationRecord(mutation, options, packageId) {
   const mutationKey = String(
-    mutation?.id || mutation?.slug || mutation?.to || mutation?.toSurface || mutation?.from || "files"
+    mutation?.id || mutation?.to || mutation?.toSurface || mutation?.from || "files"
   ).trim();
   const interpolate = (value, field) =>
     interpolateOptionValue(String(value || ""), options, packageId, `${mutationKey}.${field}`);
@@ -3442,7 +3577,6 @@ function interpolateFileMutationRecord(mutation, options, packageId) {
     toSurface: interpolate(mutation.toSurface, "toSurface"),
     toSurfacePath: interpolate(mutation.toSurfacePath, "toSurfacePath"),
     toDir: interpolate(mutation.toDir, "toDir"),
-    slug: interpolate(mutation.slug, "slug"),
     extension: interpolate(mutation.extension, "extension"),
     id: interpolate(mutation.id, "id"),
     category: interpolate(mutation.category, "category"),
@@ -3642,6 +3776,16 @@ async function applyFileMutations(
   touchedFiles,
   warnings = []
 ) {
+  const managedMigrationById = new Map();
+  for (const managedMigrationValue of ensureArray(managedMigrations)) {
+    const managedMigration = ensureObject(managedMigrationValue);
+    const migrationId = String(managedMigration.id || "").trim();
+    if (!migrationId) {
+      continue;
+    }
+    managedMigrationById.set(migrationId, managedMigration);
+  }
+
   for (const mutationValue of fileMutations) {
     const normalizedMutation = normalizeFileMutationRecord(mutationValue);
     const requiresConfigContext = Boolean(normalizedMutation.when?.config || normalizedMutation.toSurface);
@@ -3673,8 +3817,8 @@ async function applyFileMutations(
       if (!from) {
         throw createCliError(`Invalid install-migration mutation in ${packageEntry.packageId}: \"from\" is required.`);
       }
+      const migrationId = normalizeMigrationId(mutation.id, packageEntry.packageId);
 
-      const slug = normalizeMigrationSlug(mutation.slug, packageEntry.packageId);
       const sourcePath = path.join(packageEntry.rootDir, from);
       if (!(await fileExists(sourcePath))) {
         throw createCliError(`Missing migration template source ${sourcePath} for ${packageEntry.packageId}.`);
@@ -3682,65 +3826,138 @@ async function applyFileMutations(
 
       const sourceContent = await readFile(sourcePath, "utf8");
       const renderedSourceContent = sourceContent.includes("${")
-        ? interpolateOptionValue(sourceContent, options, packageEntry.packageId, `${mutation.id || slug}.source`)
+        ? interpolateOptionValue(sourceContent, options, packageEntry.packageId, `${mutation.id || from}.source`)
         : sourceContent;
       const sourceExtension = normalizeMigrationExtension(path.extname(from), ".cjs");
       const extension = normalizeMigrationExtension(mutation.extension, sourceExtension);
-      const migrationId =
-        String(mutation.id || "").trim() ||
-        extractMigrationIdFromSource(renderedSourceContent) ||
-        `${packageEntry.packageId}:${slug}`;
-      const existingMigration = await findExistingMigrationById({
-        appRoot,
-        migrationsDirectory: toDir,
-        migrationId
-      });
+      const sourceHash = hashBuffer(Buffer.from(renderedSourceContent, "utf8"));
 
-      if (existingMigration) {
-        warnings.push(
-          `${packageEntry.packageId}: skipped migration ${migrationId} (already installed at ${existingMigration.path}).`
+      const existingManagedRecord = managedMigrationById.get(migrationId);
+      if (existingManagedRecord) {
+        const existingManagedPath = normalizeRelativePosixPath(String(existingManagedRecord.path || "").trim());
+        if (!existingManagedPath) {
+          throw createCliError(
+            `${packageEntry.packageId}: managed migration ${migrationId} is missing path in lock.`
+          );
+        }
+        const resolvedManagedPath = resolveAppRelativePathWithinRoot(
+          appRoot,
+          existingManagedPath,
+          `${packageEntry.packageId} managed migration path for ${migrationId}`
         );
-        managedMigrations.push({
+        const relativePath = resolvedManagedPath.relativePath;
+        const absolutePath = resolvedManagedPath.absolutePath;
+        let existingSourceHash = String(existingManagedRecord.hash || "").trim();
+        if (!existingSourceHash && existingManagedPath && (await fileExists(absolutePath))) {
+          const existingSource = await readFile(absolutePath);
+          existingSourceHash = hashBuffer(existingSource);
+        }
+
+        if (existingSourceHash && existingSourceHash !== sourceHash) {
+          throw createCliError(
+            `${packageEntry.packageId}: migration ${migrationId} changed after install. Keep migrations immutable and create a new migration id.`
+          );
+        }
+
+        if (!(await fileExists(absolutePath))) {
+          await mkdir(path.dirname(absolutePath), { recursive: true });
+          await writeFile(absolutePath, renderedSourceContent, "utf8");
+          touchedFiles.add(relativePath);
+        }
+
+        const nextManagedRecord = {
+          ...existingManagedRecord,
           id: migrationId,
-          path: existingMigration.path,
+          path: relativePath,
+          hash: sourceHash,
           skipped: true,
-          reason: mutation.reason,
-          category: mutation.category
-        });
+          reason: mutation.reason || String(existingManagedRecord.reason || ""),
+          category: mutation.category || String(existingManagedRecord.category || "")
+        };
+        managedMigrationById.set(migrationId, nextManagedRecord);
+        upsertManagedMigrationRecord(managedMigrations, nextManagedRecord);
+        warnings.push(
+          `${packageEntry.packageId}: skipped migration ${migrationId} (already managed at ${nextManagedRecord.path}).`
+        );
         continue;
       }
 
-      const migrationsDirectoryAbsolute = path.join(appRoot, toDir);
-      await mkdir(migrationsDirectoryAbsolute, { recursive: true });
-
-      const baseNow = Date.now();
-      let targetPath = "";
-      let offsetSeconds = 0;
-      while (offsetSeconds < 86400) {
-        const timestamp = formatMigrationTimestamp(new Date(baseNow + offsetSeconds * 1000));
-        const fileName = `${timestamp}_${slug}${extension}`;
-        const candidatePath = path.join(migrationsDirectoryAbsolute, fileName);
-        if (!(await fileExists(candidatePath))) {
-          targetPath = candidatePath;
-          break;
+      const existingPathById = await findExistingManagedMigrationPathById({
+        appRoot,
+        toDir,
+        packageId: packageEntry.packageId,
+        migrationId,
+        extension
+      });
+      if (existingPathById) {
+        const existingSource = await readFile(existingPathById.absolutePath);
+        const existingSourceHash = hashBuffer(existingSource);
+        if (existingSourceHash !== sourceHash) {
+          throw createCliError(
+            `${packageEntry.packageId}: migration ${migrationId} changed after install. Keep migrations immutable and create a new migration id.`
+          );
         }
-        offsetSeconds += 1;
+        const nextManagedRecord = {
+          id: migrationId,
+          path: existingPathById.relativePath,
+          hash: sourceHash,
+          skipped: true,
+          reason: mutation.reason,
+          category: mutation.category
+        };
+        managedMigrationById.set(migrationId, nextManagedRecord);
+        upsertManagedMigrationRecord(managedMigrations, nextManagedRecord);
+        warnings.push(
+          `${packageEntry.packageId}: skipped migration ${migrationId} (already exists at ${nextManagedRecord.path}).`
+        );
+        continue;
+      }
+
+      const baseNowMs = Date.now();
+      let targetPath = null;
+      for (let secondOffset = 0; secondOffset < 86400; secondOffset += 1) {
+        const timestamp = formatMigrationTimestamp(new Date(baseNowMs + secondOffset * 1000));
+        const candidateRelativePath = buildManagedMigrationRelativePath({
+          toDir,
+          packageId: packageEntry.packageId,
+          migrationId,
+          extension,
+          timestamp
+        });
+        const candidatePath = resolveAppRelativePathWithinRoot(
+          appRoot,
+          candidateRelativePath,
+          `${packageEntry.packageId} migration path for ${migrationId}`
+        );
+        if (await fileExists(candidatePath.absolutePath)) {
+          continue;
+        }
+        targetPath = candidatePath;
+        break;
       }
 
       if (!targetPath) {
-        throw createCliError(`Unable to allocate migration filename for ${packageEntry.packageId}:${migrationId}.`);
+        throw createCliError(
+          `${packageEntry.packageId}: unable to allocate migration filename for ${migrationId} in ${toDir}.`
+        );
       }
 
-      await writeFile(targetPath, renderedSourceContent, "utf8");
-      const relativePath = normalizeRelativePath(appRoot, targetPath);
+      const relativePath = targetPath.relativePath;
+      const absolutePath = targetPath.absolutePath;
+      await mkdir(path.dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, renderedSourceContent, "utf8");
       touchedFiles.add(relativePath);
-      managedMigrations.push({
+
+      const nextManagedRecord = {
         id: migrationId,
         path: relativePath,
+        hash: sourceHash,
         skipped: false,
         reason: mutation.reason,
         category: mutation.category
-      });
+      };
+      managedMigrationById.set(migrationId, nextManagedRecord);
+      upsertManagedMigrationRecord(managedMigrations, nextManagedRecord);
       continue;
     }
 
@@ -4136,6 +4353,7 @@ async function applyPackageInstall({
   });
 
   const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
+  managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
   const cloneOnlyPackage = isCloneOnlyPackageEntry(packageEntry);
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);

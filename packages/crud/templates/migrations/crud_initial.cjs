@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: crud_initial_${option:namespace}
-
 const RAW_NAMESPACE = "${option:namespace}";
 
 function resolveTableName() {

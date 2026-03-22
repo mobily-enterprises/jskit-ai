@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: assistant-settings-initial-schema
-
 /**
  * @param {import('knex').Knex} knex
  */

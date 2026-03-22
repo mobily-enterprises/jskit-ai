@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: assistant_transcripts_initial
-
 exports.up = async function up(knex) {
   const hasConversationsTable = await knex.schema.hasTable("ai_conversations");
   if (!hasConversationsTable) {

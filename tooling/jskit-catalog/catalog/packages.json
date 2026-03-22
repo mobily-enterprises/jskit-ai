@@ -6,11 +6,11 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.14",
+      "version": "0.1.17",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.14",
+        "version": "0.1.17",
         "description": "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
         "options": {
           "ai-provider": {
@@ -121,14 +121,14 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant": "0.1.14",
+              "@jskit-ai/assistant": "0.1.17",
               "@jskit-ai/auth-core": "0.1.8",
               "@jskit-ai/database-runtime": "0.1.8",
               "@jskit-ai/http-runtime": "0.1.8",
               "@jskit-ai/kernel": "0.1.8",
               "@jskit-ai/realtime": "0.1.8",
-              "@jskit-ai/users-core": "0.1.10",
-              "@jskit-ai/users-web": "0.1.14",
+              "@jskit-ai/users-core": "0.1.13",
+              "@jskit-ai/users-web": "0.1.17",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "marked": "^17.0.4",
@@ -147,7 +147,6 @@
               "op": "install-migration",
               "from": "templates/migrations/assistant_transcripts_initial.cjs",
               "toDir": "migrations",
-              "slug": "assistant_transcripts_initial",
               "extension": ".cjs",
               "reason": "Install assistant conversation/message schema migration.",
               "category": "assistant",
@@ -157,7 +156,6 @@
               "op": "install-migration",
               "from": "templates/migrations/assistant_settings_initial.cjs",
               "toDir": "migrations",
-              "slug": "assistant_settings_initial",
               "extension": ".cjs",
               "reason": "Install assistant settings schema migration.",
               "category": "assistant",
@@ -860,11 +858,11 @@
     },
     {
       "packageId": "@jskit-ai/crud",
-      "version": "0.1.14",
+      "version": "0.1.17",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud",
-        "version": "0.1.14",
+        "version": "0.1.17",
         "installationMode": "clone-only",
         "description": "CRUD module with server routes, actions, persistence, and client pages.",
         "options": {
@@ -964,14 +962,14 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.8",
-              "@jskit-ai/crud-core": "0.1.14",
+              "@jskit-ai/crud-core": "0.1.17",
               "@jskit-ai/database-runtime": "0.1.8",
               "@jskit-ai/http-runtime": "0.1.8",
               "@jskit-ai/kernel": "0.1.8",
               "@jskit-ai/realtime": "0.1.8",
               "@jskit-ai/shell-web": "0.1.8",
-              "@jskit-ai/users-core": "0.1.10",
-              "@jskit-ai/users-web": "0.1.14",
+              "@jskit-ai/users-core": "0.1.13",
+              "@jskit-ai/users-web": "0.1.17",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
               "@tanstack/vue-query": "5.92.12",
               "typebox": "^1.0.81",
@@ -988,7 +986,6 @@
               "op": "install-migration",
               "from": "templates/migrations/crud_initial.cjs",
               "toDir": "migrations",
-              "slug": "crud_initial_${option:namespace|snake}",
               "extension": ".cjs",
               "reason": "Install CRUD schema migration.",
               "category": "crud",
@@ -1205,11 +1202,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.14",
+      "version": "0.1.17",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.14",
+        "version": "0.1.17",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
           "@jskit-ai/kernel",
@@ -1234,7 +1231,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.14"
+              "@jskit-ai/crud-core": "0.1.17"
             },
             "dev": {}
           },
@@ -2148,11 +2145,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.10",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.10",
+        "version": "0.1.13",
         "description": "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
         "dependsOn": [
           "@jskit-ai/auth-core",
@@ -2379,7 +2376,6 @@
               "op": "install-migration",
               "from": "templates/migrations/users_core_initial.cjs",
               "toDir": "migrations",
-              "slug": "users_core_initial",
               "extension": ".cjs",
               "reason": "Install users/workspace core schema migration.",
               "category": "migration",
@@ -2389,7 +2385,6 @@
               "op": "install-migration",
               "from": "templates/migrations/users_core_profile_username.cjs",
               "toDir": "migrations",
-              "slug": "users_core_profile_username",
               "extension": ".cjs",
               "reason": "Install users profile username migration.",
               "category": "migration",
@@ -2399,7 +2394,6 @@
               "op": "install-migration",
               "from": "templates/migrations/users_core_console_owner.cjs",
               "toDir": "migrations",
-              "slug": "users_core_console_owner",
               "extension": ".cjs",
               "reason": "Install users/workspace console owner migration.",
               "category": "migration",
@@ -2621,11 +2615,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.14",
+      "version": "0.1.17",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.14",
+        "version": "0.1.17",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
         "dependsOn": [
           "@jskit-ai/http-runtime",
@@ -2893,7 +2887,7 @@
               "@jskit-ai/realtime": "0.1.8",
               "@jskit-ai/kernel": "0.1.8",
               "@jskit-ai/shell-web": "0.1.8",
-              "@jskit-ai/users-core": "0.1.10",
+              "@jskit-ai/users-core": "0.1.13",
               "vuetify": "^4.0.0"
             },
             "dev": {}

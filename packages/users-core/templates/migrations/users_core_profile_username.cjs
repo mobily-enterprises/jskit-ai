@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: users-core-profile-username
-
 const USERNAME_MAX_LENGTH = 120;
 
 function normalizeUsername(value) {

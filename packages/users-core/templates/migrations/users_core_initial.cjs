@@ -1,5 +1,3 @@
-// JSKIT_MIGRATION_ID: users-core-initial-schema
-
 /**
  * @param {import('knex').Knex} knex
  */
