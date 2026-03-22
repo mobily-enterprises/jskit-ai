@@ -59,6 +59,9 @@ function useAccountSettingsRuntime() {
   const vuetifyTheme = useTheme();
 
   const accountSettingsQueryKey = ["users-web", "settings", "account"];
+  const accountProfileWriteQueryKey = ["users-web", "settings", "account-profile-write"];
+  const accountPreferencesWriteQueryKey = ["users-web", "settings", "account-preferences-write"];
+  const accountNotificationsWriteQueryKey = ["users-web", "settings", "account-notifications-write"];
   const pendingInvitesQueryKey = ["users-web", "settings", "pending-invites"];
   const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
   const OWNERSHIP_PUBLIC = USERS_ROUTE_VISIBILITY_PUBLIC;
@@ -251,7 +254,7 @@ function useAccountSettingsRuntime() {
     ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userProfileResource,
     apiSuffix: "/settings/profile",
-    queryKeyFactory: () => accountSettingsQueryKey,
+    queryKeyFactory: () => accountProfileWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
     fallbackSaveError: "Unable to update profile.",
@@ -293,7 +296,7 @@ function useAccountSettingsRuntime() {
     ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userSettingsResource,
     apiSuffix: "/settings/preferences",
-    queryKeyFactory: () => accountSettingsQueryKey,
+    queryKeyFactory: () => accountPreferencesWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
     fallbackSaveError: "Unable to update preferences.",
@@ -325,7 +328,7 @@ function useAccountSettingsRuntime() {
     ownershipFilter: OWNERSHIP_PUBLIC,
     resource: userSettingsResource,
     apiSuffix: "/settings/notifications",
-    queryKeyFactory: () => accountSettingsQueryKey,
+    queryKeyFactory: () => accountNotificationsWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
     fallbackSaveError: "Unable to update notifications.",

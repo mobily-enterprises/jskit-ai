@@ -4,6 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/packageIdHelpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,7 @@ function parseArgs(argv) {
   const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
   const options = {
     since: "",
+    only: [],
     registry: DEFAULT_REGISTRY,
     tag: DEFAULT_TAG,
     access: DEFAULT_ACCESS,
@@ -44,13 +46,38 @@ function parseArgs(argv) {
     }
 
     if (argument === "--since") {
+      if (options.only.length > 0) {
+        throw new Error("--since cannot be combined with --only.");
+      }
       options.since = String(argv[index + 1] || "").trim();
       index += 1;
       continue;
     }
 
     if (argument.startsWith("--since=")) {
+      if (options.only.length > 0) {
+        throw new Error("--since cannot be combined with --only.");
+      }
       options.since = argument.slice("--since=".length).trim();
+      continue;
+    }
+
+    if (argument === "--only") {
+      const value = String(argv[index + 1] || "").trim();
+      if (!value) {
+        throw new Error("--only requires at least one package name.");
+      }
+      options.only.push(...parseOnlyPackages(value));
+      index += 1;
+      continue;
+    }
+
+    if (argument.startsWith("--only=")) {
+      const value = argument.slice("--only=".length).trim();
+      if (!value) {
+        throw new Error("--only requires at least one package name.");
+      }
+      options.only.push(...parseOnlyPackages(value));
       continue;
     }
 
@@ -102,6 +129,11 @@ function parseArgs(argv) {
   }
 
   options.registry = normalizeRegistryUrl(options.registry || DEFAULT_REGISTRY);
+  options.only = Array.from(new Set(options.only));
+
+  if (options.only.length > 0 && options.since) {
+    throw new Error("--since cannot be combined with --only.");
+  }
 
   if (!options.tag) {
     throw new Error("Missing --tag value.");
@@ -112,6 +144,17 @@ function parseArgs(argv) {
   }
 
   return options;
+}
+
+function parseOnlyPackages(value) {
+  const tokens = String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (tokens.length < 1) {
+    throw new Error("--only requires at least one package name.");
+  }
+  return tokens;
 }
 
 function parsePositiveInteger(value, flagName) {
@@ -426,8 +469,10 @@ function serializeJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun }) {
-  for (const record of records) {
+async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun, onlyMode = false }) {
+  const recordsToProcess = onlyMode ? records.filter((record) => publishSet.has(record.name)) : records;
+
+  for (const record of recordsToProcess) {
     const packageJson = record.packageJson;
     let changed = false;
     let dependencyChanged = false;
@@ -460,7 +505,7 @@ async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions
       }
     }
 
-    if (dependencyChanged && !publishSet.has(record.name)) {
+    if (!onlyMode && dependencyChanged && !publishSet.has(record.name)) {
       throw new Error(
         `Internal dependency version changed for ${record.name} but package is not marked for publish. Expand dependency closure.`
       );
@@ -497,8 +542,10 @@ function updateDescriptorVersion(text, nextVersion) {
   return text.replace(versionPattern, `$1${nextVersion}$3`);
 }
 
-async function updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun }) {
-  for (const record of records) {
+async function updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun, onlyMode = false }) {
+  const recordsToProcess = onlyMode ? records.filter((record) => publishSet.has(record.name)) : records;
+
+  for (const record of recordsToProcess) {
     if (!record.descriptorPath) {
       continue;
     }
@@ -518,7 +565,7 @@ async function updateWorkspaceDescriptorFiles(records, publishSet, nextVersions,
       continue;
     }
 
-    if (!publishSet.has(record.name)) {
+    if (!onlyMode && !publishSet.has(record.name)) {
       throw new Error(
         `Descriptor dependency versions changed for ${record.name} but package is not marked for publish. Expand dependency closure.`
       );
@@ -753,7 +800,12 @@ async function publishPackages({
   }
 }
 
-function runCatalogBuild({ dryRun }) {
+function runCatalogBuild({ dryRun, enabled = true }) {
+  if (!enabled) {
+    process.stdout.write("Catalog build skipped.\n");
+    return;
+  }
+
   if (dryRun) {
     process.stdout.write("[dry-run] npm run catalog:build\n");
     return;
@@ -779,24 +831,37 @@ async function main() {
 
   await loadDescriptors(records);
   const reverseGraph = buildReverseDependencyGraph(records);
+  const recordByName = new Map(records.map((record) => [record.name, record]));
+  const onlyMode = options.only.length > 0;
 
-  const changedFiles = collectChangedFiles({ since: options.since, forceAll: options.forceAll });
-  if (changedFiles.length === 0) {
-    process.stdout.write("No workspace changes detected. Nothing to publish.\n");
-    return;
-  }
+  let publishSet = new Set();
+  if (onlyMode) {
+    for (const packageToken of options.only) {
+      const packageName = resolvePackageIdInput(packageToken, recordByName);
+      if (!packageName) {
+        throw new Error(`Unknown package in --only: ${packageToken}`);
+      }
+      publishSet.add(packageName);
+    }
+  } else {
+    const changedFiles = collectChangedFiles({ since: options.since, forceAll: options.forceAll });
+    if (changedFiles.length === 0) {
+      process.stdout.write("No workspace changes detected. Nothing to publish.\n");
+      return;
+    }
 
-  const changedPackages = resolveChangedPackages(records, changedFiles);
-  if (changedPackages.size === 0) {
-    process.stdout.write("No package-level changes detected. Nothing to publish.\n");
-    return;
-  }
+    const changedPackages = resolveChangedPackages(records, changedFiles);
+    if (changedPackages.size === 0) {
+      process.stdout.write("No package-level changes detected. Nothing to publish.\n");
+      return;
+    }
 
-  let publishSet = expandToDependents(changedPackages, reverseGraph);
+    publishSet = expandToDependents(changedPackages, reverseGraph);
 
-  const hasCatalogPackage = records.some((record) => record.name === "@jskit-ai/jskit-catalog");
-  if (hasCatalogPackage) {
-    publishSet = expandToDependents(new Set([...publishSet, "@jskit-ai/jskit-catalog"]), reverseGraph);
+    const hasCatalogPackage = records.some((record) => record.name === "@jskit-ai/jskit-catalog");
+    if (hasCatalogPackage) {
+      publishSet = expandToDependents(new Set([...publishSet, "@jskit-ai/jskit-catalog"]), reverseGraph);
+    }
   }
 
   let { currentVersions, nextVersions } = computeVersionMaps(records, publishSet);
@@ -808,10 +873,19 @@ async function main() {
   }
   process.stdout.write(`Publish concurrency: ${options.publishConcurrency}\n`);
 
-  await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
-  await updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
+  await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, {
+    dryRun: options.dryRun,
+    onlyMode
+  });
+  await updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, {
+    dryRun: options.dryRun,
+    onlyMode
+  });
 
-  runCatalogBuild({ dryRun: options.dryRun });
+  runCatalogBuild({
+    dryRun: options.dryRun,
+    enabled: !onlyMode || publishSet.has("@jskit-ai/jskit-catalog")
+  });
 
   if (options.dryRun) {
     process.stdout.write("Dry-run complete. No files published.\n");
