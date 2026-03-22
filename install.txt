@@ -1,3 +1,5 @@
+LOCAL: Full app form template
+
 npx @jskit-ai/create-app dogandgroom --tenancy-mode personal --target . --title "Dog and Groom"
 npm install
 npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
@@ -10,5 +12,76 @@ npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepsee
 npx jskit add package @jskit-ai/crud --namespace contacts --surface admin --no-install
 npm install
 npm run db:migrate
+
+
+Updating one module:
+
+  1. Publish @jskit-ai/auth-web to npm.
+  2. In the app repo, run jskit:update (or otherwise bump deps).
+  3. Commit package.json + package-lock.json.
+  4. git push dokku main to trigger rebuild/deploy.
+
+
+
+
+Install app on Dokku:
+• # ========= LOCAL (new app) =========
+  cd ~/Development/current/newapp
+
+  npm run jskit:update
+  npm install
+  git add package.json package-lock.json .jskit/lock.json
+  git commit -m "Prepare production deploy"
+
+  # ========= SERVER (dokku) =========
+  ssh root@www.appgenius.biz
+
+  dokku apps:create newapp
+  dokku domains:set newapp newapp.appgenius.biz
+
+  # link shared services
+  dokku mariadb:link jskit-value-app-db newapp
+  dokku redis:link jskit-value-app-redis newapp
+
+  # create dedicated schema inside shared mariadb service
+  dokku mariadb:enter jskit-value-app-db
+  mariadb -uroot -p"$MYSQL_ROOT_PASSWORD"
+  CREATE DATABASE IF NOT EXISTS newapp_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  GRANT ALL PRIVILEGES ON newapp_db.* TO 'mariadb'@'%';
+  FLUSH PRIVILEGES;
+  exit
+  exit
+
+  # keep DATABASE_URL from link, set only schema override and app env
+  dokku config:unset newapp DB_HOST DB_PORT DB_USER DB_PASSWORD
+  dokku config:set --no-restart newapp \
+    DB_NAME=newapp_db \
+    APP_PUBLIC_URL=https://newapp.appgenius.biz \
+    NODE_ENV=production \
+    TRUST_PROXY=true \
+    AUTH_PROVIDER=supabase \
+    AUTH_SUPABASE_URL=https://YOUR-PROJECT.supabase.co \
+    AUTH_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_KEY \
+    AI_PROVIDER=deepseek \
+    AI_API_KEY=YOUR_AI_KEY \
+    RATE_LIMIT_MODE=redis \
+    REDIS_NAMESPACE=newapp:production
+
+  exit
+
+  # ========= LOCAL deploy =========
+  cd ~/Development/current/newapp
+  git remote add dokku root@www.appgenius.biz:newapp 2>/dev/null || true
+  git push dokku main
+
+  # ========= SERVER post-deploy =========
+  ssh root@www.appgenius.biz "dokku run newapp npm run db:migrate"
+  ssh root@www.appgenius.biz "dokku letsencrypt:enable newapp"
+
+  # ========= VERIFY =========
+  ssh root@www.appgenius.biz "dokku ps:report newapp"
+  ssh root@www.appgenius.biz "dokku logs newapp -n 120 --quiet"
+  curl -I https://newapp.appgenius.biz
+
 
 

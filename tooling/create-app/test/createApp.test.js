@@ -77,6 +77,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(readme, /npx jskit add auth-base --no-install/);
     assert.doesNotMatch(readme, /-w apps/);
 
+    const appJson = JSON.parse(await readFile(path.join(appRoot, "app.json"), "utf8"));
+    assert.equal(appJson.name, "sample-app");
+    assert.equal(appJson.healthchecks.web[0].path, "/api/health");
+    assert.equal(appJson.healthchecks.web[0].type, "startup");
+
     const gitignore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
     assert.match(gitignore, /node_modules\//);
 
