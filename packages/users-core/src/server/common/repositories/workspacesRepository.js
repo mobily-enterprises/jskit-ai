@@ -6,12 +6,7 @@ import {
   nowDb,
   isDuplicateEntryError
 } from "./repositoryUtils.js";
-import {
-  coerceWorkspaceColor,
-  coerceWorkspaceSecondaryColor,
-  coerceWorkspaceSurfaceColor,
-  coerceWorkspaceSurfaceVariantColor
-} from "../../../shared/settings.js";
+import { coerceWorkspaceColor } from "../../../shared/settings.js";
 
 function mapRow(row) {
   if (!row) {
@@ -27,15 +22,6 @@ function mapRow(row) {
     isPersonal: Boolean(row.is_personal),
     avatarUrl: row.avatar_url ? normalizeText(row.avatar_url) : "",
     color,
-    secondaryColor: coerceWorkspaceSecondaryColor(row.secondary_color, {
-      color
-    }),
-    surfaceColor: coerceWorkspaceSurfaceColor(row.surface_color, {
-      color
-    }),
-    surfaceVariantColor: coerceWorkspaceSurfaceVariantColor(row.surface_variant_color, {
-      color
-    }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
     deletedAt: toNullableIso(row.deleted_at)
@@ -67,10 +53,7 @@ function createRepository(knex) {
       "w.owner_user_id",
       "w.is_personal",
       client.raw("COALESCE(ws.avatar_url, w.avatar_url) as avatar_url"),
-      client.raw("COALESCE(ws.color, w.color) as color"),
-      client.raw("COALESCE(ws.secondary_color, ws.color, w.color) as secondary_color"),
-      client.raw("COALESCE(ws.surface_color, ws.color, w.color) as surface_color"),
-      client.raw("COALESCE(ws.surface_variant_color, ws.color, w.color) as surface_variant_color"),
+      "w.color",
       "w.created_at",
       "w.updated_at",
       "w.deleted_at"

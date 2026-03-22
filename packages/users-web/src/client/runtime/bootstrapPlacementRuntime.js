@@ -12,6 +12,7 @@ import {
 } from "../lib/bootstrap.js";
 import { normalizePermissionList } from "../lib/permissions.js";
 import {
+  persistBootstrapThemePreference,
   resolveBootstrapThemeName,
   setVuetifyPrimaryColorOverride,
   resolveVuetifyThemeController,
@@ -202,6 +203,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     try {
       const nextThemeName = resolveBootstrapThemeName(payload);
       setVuetifyThemeName(themeController, nextThemeName);
+      persistBootstrapThemePreference(payload);
     } catch (error) {
       runtimeLogger.warn(
         {

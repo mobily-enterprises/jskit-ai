@@ -1,21 +1,15 @@
 import {
   coerceWorkspaceColor,
-  coerceWorkspaceSecondaryColor,
-  coerceWorkspaceSurfaceColor,
-  coerceWorkspaceSurfaceVariantColor
+  resolveWorkspaceThemePalettes
 } from "../../../shared/settings.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 function mapWorkspaceSummary(workspace, membership) {
-  const color = coerceWorkspaceColor(workspace.color);
   return {
     id: Number(workspace.id),
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name),
-    color,
-    secondaryColor: coerceWorkspaceSecondaryColor(workspace.secondaryColor, { color }),
-    surfaceColor: coerceWorkspaceSurfaceColor(workspace.surfaceColor, { color }),
-    surfaceVariantColor: coerceWorkspaceSurfaceVariantColor(workspace.surfaceVariantColor, { color }),
+    color: coerceWorkspaceColor(workspace.color),
     avatarUrl: normalizeText(workspace.avatarUrl),
     roleId: normalizeLowerText(membership?.roleId || "member") || "member",
     isAccessible: normalizeLowerText(membership?.status || "active") === "active"
@@ -26,13 +20,18 @@ function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEna
   const source = workspaceSettings && typeof workspaceSettings === "object" ? workspaceSettings : {};
   const invitesAvailable = workspaceInvitationsEnabled === true;
   const invitesEnabled = invitesAvailable && source.invitesEnabled !== false;
-  const color = coerceWorkspaceColor(source.color);
+  const themePalettes = resolveWorkspaceThemePalettes(source);
+
   return {
     name: normalizeText(source.name),
-    color,
-    secondaryColor: coerceWorkspaceSecondaryColor(source.secondaryColor, { color }),
-    surfaceColor: coerceWorkspaceSurfaceColor(source.surfaceColor, { color }),
-    surfaceVariantColor: coerceWorkspaceSurfaceVariantColor(source.surfaceVariantColor, { color }),
+    lightPrimaryColor: themePalettes.light.color,
+    lightSecondaryColor: themePalettes.light.secondaryColor,
+    lightSurfaceColor: themePalettes.light.surfaceColor,
+    lightSurfaceVariantColor: themePalettes.light.surfaceVariantColor,
+    darkPrimaryColor: themePalettes.dark.color,
+    darkSecondaryColor: themePalettes.dark.secondaryColor,
+    darkSurfaceColor: themePalettes.dark.surfaceColor,
+    darkSurfaceVariantColor: themePalettes.dark.surfaceVariantColor,
     avatarUrl: normalizeText(source.avatarUrl),
     invitesEnabled,
     invitesAvailable,

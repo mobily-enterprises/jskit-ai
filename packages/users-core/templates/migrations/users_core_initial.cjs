@@ -25,7 +25,7 @@ exports.up = async function up(knex) {
     table.integer("owner_user_id").unsigned().notNullable().references("id").inTable("user_profiles").onDelete("CASCADE");
     table.boolean("is_personal").notNullable().defaultTo(true);
     table.string("avatar_url", 512).notNullable().defaultTo("");
-    table.string("color", 7).notNullable().defaultTo("#2F5D9E");
+    table.string("color", 7).notNullable().defaultTo("#1867C0");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("deleted_at", { useTz: false }).nullable();
@@ -46,10 +46,14 @@ exports.up = async function up(knex) {
     table.integer("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
     table.string("name", 160).notNullable().defaultTo("Workspace");
     table.string("avatar_url", 512).notNullable().defaultTo("");
-    table.string("color", 7).notNullable().defaultTo("#2F5D9E");
-    table.string("secondary_color", 7).notNullable().defaultTo("#224372");
-    table.string("surface_color", 7).notNullable().defaultTo("#F0F4F8");
-    table.string("surface_variant_color", 7).notNullable().defaultTo("#E2E8F1");
+    table.string("light_primary_color", 7).notNullable().defaultTo("#1867C0");
+    table.string("light_secondary_color", 7).notNullable().defaultTo("#48A9A6");
+    table.string("light_surface_color", 7).notNullable().defaultTo("#FFFFFF");
+    table.string("light_surface_variant_color", 7).notNullable().defaultTo("#424242");
+    table.string("dark_primary_color", 7).notNullable().defaultTo("#2196F3");
+    table.string("dark_secondary_color", 7).notNullable().defaultTo("#54B6B2");
+    table.string("dark_surface_color", 7).notNullable().defaultTo("#212121");
+    table.string("dark_surface_variant_color", 7).notNullable().defaultTo("#C8C8C8");
     table.boolean("invites_enabled").notNullable().defaultTo(true);
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "../test-support/registerDefaultSettingsFields.js";
-import { resolveWorkspaceThemePalette } from "../src/shared/settings.js";
+import { resolveWorkspaceThemePalettes } from "../src/shared/settings.js";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 
 function authorizedOptions(permissions = []) {
@@ -16,8 +16,8 @@ function authorizedOptions(permissions = []) {
 }
 
 function createFixture({ workspaceInvitationsEnabled = true } = {}) {
-  const defaultTheme = resolveWorkspaceThemePalette({
-    color: "#0F6B54"
+  const defaultTheme = resolveWorkspaceThemePalettes({
+    lightPrimaryColor: "#0F6B54"
   });
   const state = {
     settingsPatch: null,
@@ -27,15 +27,19 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
       name: "TonyMobily3",
       ownerUserId: 9,
       avatarUrl: "",
-      color: defaultTheme.color
+      color: defaultTheme.light.color
     },
     settings: {
       name: "TonyMobily3",
       avatarUrl: "",
-      color: defaultTheme.color,
-      secondaryColor: defaultTheme.secondaryColor,
-      surfaceColor: defaultTheme.surfaceColor,
-      surfaceVariantColor: defaultTheme.surfaceVariantColor,
+      lightPrimaryColor: defaultTheme.light.color,
+      lightSecondaryColor: defaultTheme.light.secondaryColor,
+      lightSurfaceColor: defaultTheme.light.surfaceColor,
+      lightSurfaceVariantColor: defaultTheme.light.surfaceVariantColor,
+      darkPrimaryColor: defaultTheme.dark.color,
+      darkSecondaryColor: defaultTheme.dark.secondaryColor,
+      darkSurfaceColor: defaultTheme.dark.surfaceColor,
+      darkSurfaceVariantColor: defaultTheme.dark.surfaceVariantColor,
       invitesEnabled: true
     }
   };
@@ -73,10 +77,14 @@ test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEn
   assert.deepEqual(response.settings, {
     name: "TonyMobily3",
     avatarUrl: "",
-    color: "#0F6B54",
-    secondaryColor: "#0B4D3C",
-    surfaceColor: "#EEF5F3",
-    surfaceVariantColor: "#DDEAE7",
+    lightPrimaryColor: "#0F6B54",
+    lightSecondaryColor: "#48A9A6",
+    lightSurfaceColor: "#FFFFFF",
+    lightSurfaceVariantColor: "#424242",
+    darkPrimaryColor: "#2196F3",
+    darkSecondaryColor: "#54B6B2",
+    darkSurfaceColor: "#212121",
+    darkSurfaceVariantColor: "#C8C8C8",
     invitesEnabled: true,
     invitesAvailable: true,
     invitesEffective: true
@@ -102,10 +110,14 @@ test("workspaceSettingsService.updateWorkspaceSettings writes editable fields th
   assert.deepEqual(response.settings, {
     name: "New Name",
     avatarUrl: "",
-    color: "#0F6B54",
-    secondaryColor: "#0B4D3C",
-    surfaceColor: "#EEF5F3",
-    surfaceVariantColor: "#DDEAE7",
+    lightPrimaryColor: "#0F6B54",
+    lightSecondaryColor: "#48A9A6",
+    lightSurfaceColor: "#FFFFFF",
+    lightSurfaceVariantColor: "#424242",
+    darkPrimaryColor: "#2196F3",
+    darkSecondaryColor: "#54B6B2",
+    darkSurfaceColor: "#212121",
+    darkSurfaceVariantColor: "#C8C8C8",
     invitesEnabled: false,
     invitesAvailable: true,
     invitesEffective: false
@@ -125,10 +137,14 @@ test("workspaceSettingsService disables invite settings in output when app polic
   assert.deepEqual(response.settings, {
     name: "TonyMobily3",
     avatarUrl: "",
-    color: "#0F6B54",
-    secondaryColor: "#0B4D3C",
-    surfaceColor: "#EEF5F3",
-    surfaceVariantColor: "#DDEAE7",
+    lightPrimaryColor: "#0F6B54",
+    lightSecondaryColor: "#48A9A6",
+    lightSurfaceColor: "#FFFFFF",
+    lightSurfaceVariantColor: "#424242",
+    darkPrimaryColor: "#2196F3",
+    darkSecondaryColor: "#54B6B2",
+    darkSurfaceColor: "#212121",
+    darkSurfaceVariantColor: "#C8C8C8",
     invitesEnabled: false,
     invitesAvailable: false,
     invitesEffective: false

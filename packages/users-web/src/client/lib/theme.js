@@ -4,6 +4,7 @@ import { resolveWorkspaceThemePalette } from "@jskit-ai/users-core/shared/settin
 const THEME_PREFERENCE_LIGHT = "light";
 const THEME_PREFERENCE_DARK = "dark";
 const THEME_PREFERENCE_SYSTEM = "system";
+const THEME_PREFERENCE_STORAGE_KEY = "jskit.themePreference";
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const WORKSPACE_THEME_NAME_LIGHT = "workspace-light";
 const WORKSPACE_THEME_NAME_DARK = "workspace-dark";
@@ -41,15 +42,80 @@ function resolveThemeNameForPreference(themePreference, options = {}) {
   return resolveSystemThemeName(options);
 }
 
+function resolveThemePreferenceStorage(options = {}) {
+  const customStorage = options && typeof options === "object" ? options.storage : null;
+  if (customStorage && typeof customStorage === "object") {
+    return customStorage;
+  }
+
+  if (typeof window !== "object" || !window) {
+    return null;
+  }
+
+  let storage = null;
+  try {
+    storage = window.localStorage;
+  } catch {
+    return null;
+  }
+  if (!storage || typeof storage !== "object") {
+    return null;
+  }
+  return storage;
+}
+
+function readPersistedThemePreference(options = {}) {
+  const storage = resolveThemePreferenceStorage(options);
+  if (!storage || typeof storage.getItem !== "function") {
+    return THEME_PREFERENCE_SYSTEM;
+  }
+
+  try {
+    const value = storage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+    return normalizeThemePreference(value);
+  } catch {
+    return THEME_PREFERENCE_SYSTEM;
+  }
+}
+
+function persistThemePreference(themePreference, options = {}) {
+  const storage = resolveThemePreferenceStorage(options);
+  if (!storage || typeof storage.setItem !== "function") {
+    return false;
+  }
+
+  const normalizedPreference = normalizeThemePreference(themePreference);
+  try {
+    storage.setItem(THEME_PREFERENCE_STORAGE_KEY, normalizedPreference);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveBootstrapThemePreference(payload = {}, options = {}) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const session = source.session && typeof source.session === "object" ? source.session : {};
+  if (session.authenticated === true) {
+    const userSettings = source.userSettings && typeof source.userSettings === "object" ? source.userSettings : {};
+    return normalizeThemePreference(userSettings.theme);
+  }
+
+  return readPersistedThemePreference(options);
+}
+
 function resolveBootstrapThemeName(payload = {}, options = {}) {
+  return resolveThemeNameForPreference(resolveBootstrapThemePreference(payload, options), options);
+}
+
+function persistBootstrapThemePreference(payload = {}, options = {}) {
   const source = payload && typeof payload === "object" ? payload : {};
   const session = source.session && typeof source.session === "object" ? source.session : {};
   if (session.authenticated !== true) {
-    return THEME_PREFERENCE_LIGHT;
+    return false;
   }
 
-  const userSettings = source.userSettings && typeof source.userSettings === "object" ? source.userSettings : {};
-  return resolveThemeNameForPreference(userSettings.theme, options);
+  return persistThemePreference(resolveBootstrapThemePreference(payload, options), options);
 }
 
 function resolveVuetifyThemeController(vueApp) {
@@ -175,8 +241,7 @@ function composeWorkspaceThemeDefinition(baseThemeDefinition, palette) {
       primary: palette.color,
       secondary: palette.secondaryColor,
       surface: palette.surfaceColor,
-      "surface-variant": palette.surfaceVariantColor,
-      background: palette.backgroundColor
+      "surface-variant": palette.surfaceVariantColor
     }
   };
 }
@@ -235,9 +300,10 @@ function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
     return false;
   }
 
-  const palette = resolveWorkspaceThemePalette(source);
-  const nextLightTheme = composeWorkspaceThemeDefinition(baseLightTheme, palette);
-  const nextDarkTheme = composeWorkspaceThemeDefinition(baseDarkTheme, palette);
+  const lightPalette = resolveWorkspaceThemePalette(source, { mode: THEME_PREFERENCE_LIGHT });
+  const darkPalette = resolveWorkspaceThemePalette(source, { mode: THEME_PREFERENCE_DARK });
+  const nextLightTheme = composeWorkspaceThemeDefinition(baseLightTheme, lightPalette);
+  const nextDarkTheme = composeWorkspaceThemeDefinition(baseDarkTheme, darkPalette);
   const nextThemeName =
     normalizedThemeName === THEME_PREFERENCE_DARK ? WORKSPACE_THEME_NAME_DARK : WORKSPACE_THEME_NAME_LIGHT;
 
@@ -255,6 +321,10 @@ function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
 export {
   hexColorToRgb,
   normalizeThemePreference,
+  persistBootstrapThemePreference,
+  persistThemePreference,
+  readPersistedThemePreference,
+  resolveBootstrapThemePreference,
   resolveThemeNameForPreference,
   resolveBootstrapThemeName,
   resolveVuetifyThemeController,

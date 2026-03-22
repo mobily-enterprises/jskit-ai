@@ -50,53 +50,127 @@
 
               <v-col cols="12">
                 <div class="text-subtitle-2 mb-2">Theme colors</div>
-                <v-row dense>
+                <v-row dense class="mb-2">
+                  <v-col cols="12">
+                    <div class="text-caption text-medium-emphasis mb-2">Light palette</div>
+                  </v-col>
                   <v-col cols="12" md="3">
                     <v-text-field
-                      v-model="workspaceForm.color"
+                      v-model="workspaceForm.lightPrimaryColor"
                       label="Primary"
                       type="color"
                       variant="outlined"
                       density="comfortable"
                       :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-                      :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
+                      :error-messages="
+                        addEdit.fieldErrors.lightPrimaryColor ? [addEdit.fieldErrors.lightPrimaryColor] : []
+                      "
                     />
                   </v-col>
 
                   <v-col cols="12" md="3">
                     <v-text-field
-                      v-model="workspaceForm.secondaryColor"
+                      v-model="workspaceForm.lightSecondaryColor"
                       label="Secondary"
                       type="color"
                       variant="outlined"
                       density="comfortable"
                       :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-                      :error-messages="addEdit.fieldErrors.secondaryColor ? [addEdit.fieldErrors.secondaryColor] : []"
+                      :error-messages="
+                        addEdit.fieldErrors.lightSecondaryColor ? [addEdit.fieldErrors.lightSecondaryColor] : []
+                      "
                     />
                   </v-col>
 
                   <v-col cols="12" md="3">
                     <v-text-field
-                      v-model="workspaceForm.surfaceColor"
+                      v-model="workspaceForm.lightSurfaceColor"
                       label="Surface"
                       type="color"
                       variant="outlined"
                       density="comfortable"
                       :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-                      :error-messages="addEdit.fieldErrors.surfaceColor ? [addEdit.fieldErrors.surfaceColor] : []"
+                      :error-messages="
+                        addEdit.fieldErrors.lightSurfaceColor ? [addEdit.fieldErrors.lightSurfaceColor] : []
+                      "
                     />
                   </v-col>
 
                   <v-col cols="12" md="3">
                     <v-text-field
-                      v-model="workspaceForm.surfaceVariantColor"
+                      v-model="workspaceForm.lightSurfaceVariantColor"
                       label="Surface variant"
                       type="color"
                       variant="outlined"
                       density="comfortable"
                       :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
                       :error-messages="
-                        addEdit.fieldErrors.surfaceVariantColor ? [addEdit.fieldErrors.surfaceVariantColor] : []
+                        addEdit.fieldErrors.lightSurfaceVariantColor
+                          ? [addEdit.fieldErrors.lightSurfaceVariantColor]
+                          : []
+                      "
+                    />
+                  </v-col>
+                </v-row>
+
+                <v-row dense>
+                  <v-col cols="12">
+                    <div class="text-caption text-medium-emphasis mb-2">Dark palette</div>
+                  </v-col>
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.darkPrimaryColor"
+                      label="Primary"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="
+                        addEdit.fieldErrors.darkPrimaryColor ? [addEdit.fieldErrors.darkPrimaryColor] : []
+                      "
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.darkSecondaryColor"
+                      label="Secondary"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="
+                        addEdit.fieldErrors.darkSecondaryColor ? [addEdit.fieldErrors.darkSecondaryColor] : []
+                      "
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.darkSurfaceColor"
+                      label="Surface"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="
+                        addEdit.fieldErrors.darkSurfaceColor ? [addEdit.fieldErrors.darkSurfaceColor] : []
+                      "
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.darkSurfaceVariantColor"
+                      label="Surface variant"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="
+                        addEdit.fieldErrors.darkSurfaceVariantColor
+                          ? [addEdit.fieldErrors.darkSurfaceVariantColor]
+                          : []
                       "
                     />
                   </v-col>
@@ -140,8 +214,9 @@ import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources
 import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
-  DEFAULT_WORKSPACE_COLOR,
-  resolveWorkspaceThemePalette
+  DEFAULT_WORKSPACE_DARK_PALETTE,
+  DEFAULT_WORKSPACE_LIGHT_PALETTE,
+  resolveWorkspaceThemePalettes
 } from "@jskit-ai/users-core/shared/settings";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAddEdit } from "../composables/useAddEdit.js";
@@ -152,16 +227,16 @@ import { arePermissionListsEqual, normalizePermissionList } from "../lib/permiss
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
-const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalette({
-  color: DEFAULT_WORKSPACE_COLOR
-});
-
 const workspaceForm = reactive({
   name: "",
-  color: DEFAULT_WORKSPACE_COLOR,
-  secondaryColor: DEFAULT_WORKSPACE_THEME.secondaryColor,
-  surfaceColor: DEFAULT_WORKSPACE_THEME.surfaceColor,
-  surfaceVariantColor: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
+  lightPrimaryColor: DEFAULT_WORKSPACE_LIGHT_PALETTE.color,
+  lightSecondaryColor: DEFAULT_WORKSPACE_LIGHT_PALETTE.secondaryColor,
+  lightSurfaceColor: DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceColor,
+  lightSurfaceVariantColor: DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceVariantColor,
+  darkPrimaryColor: DEFAULT_WORKSPACE_DARK_PALETTE.color,
+  darkSecondaryColor: DEFAULT_WORKSPACE_DARK_PALETTE.secondaryColor,
+  darkSurfaceColor: DEFAULT_WORKSPACE_DARK_PALETTE.surfaceColor,
+  darkSurfaceVariantColor: DEFAULT_WORKSPACE_DARK_PALETTE.surfaceVariantColor,
   avatarUrl: "",
   invitesEnabled: false,
   invitesAvailable: false
@@ -195,12 +270,16 @@ function toWorkspaceSettingsSnapshot(settings = null) {
     return "";
   }
 
-  const normalized = resolveWorkspaceThemePalette(settings);
+  const normalized = resolveWorkspaceThemePalettes(settings);
   return JSON.stringify({
-    color: normalized.color,
-    secondaryColor: normalized.secondaryColor,
-    surfaceColor: normalized.surfaceColor,
-    surfaceVariantColor: normalized.surfaceVariantColor,
+    lightPrimaryColor: normalized.light.color,
+    lightSecondaryColor: normalized.light.secondaryColor,
+    lightSurfaceColor: normalized.light.surfaceColor,
+    lightSurfaceVariantColor: normalized.light.surfaceVariantColor,
+    darkPrimaryColor: normalized.dark.color,
+    darkSecondaryColor: normalized.dark.secondaryColor,
+    darkSurfaceColor: normalized.dark.surfaceColor,
+    darkSurfaceVariantColor: normalized.dark.surfaceVariantColor,
     invitesEnabled: settings.invitesEnabled !== false,
     invitesAvailable: settings.invitesAvailable !== false
   });
@@ -267,7 +346,18 @@ const addEdit = useAddEdit({
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-settings-view",
   fallbackLoadError: "Unable to load workspace settings.",
-  fieldErrorKeys: ["name", "avatarUrl", "color", "secondaryColor", "surfaceColor", "surfaceVariantColor"],
+  fieldErrorKeys: [
+    "name",
+    "avatarUrl",
+    "lightPrimaryColor",
+    "lightSecondaryColor",
+    "lightSurfaceColor",
+    "lightSurfaceVariantColor",
+    "darkPrimaryColor",
+    "darkSecondaryColor",
+    "darkSurfaceColor",
+    "darkSurfaceVariantColor"
+  ],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
     matches: matchesWorkspaceRealtime
@@ -281,23 +371,31 @@ const addEdit = useAddEdit({
     }),
   mapLoadedToModel: (model, payload = {}) => {
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    const normalizedTheme = resolveWorkspaceThemePalette(settings);
+    const normalizedTheme = resolveWorkspaceThemePalettes(settings);
 
     model.name = String(settings.name || "");
-    model.color = normalizedTheme.color;
-    model.secondaryColor = normalizedTheme.secondaryColor;
-    model.surfaceColor = normalizedTheme.surfaceColor;
-    model.surfaceVariantColor = normalizedTheme.surfaceVariantColor;
+    model.lightPrimaryColor = normalizedTheme.light.color;
+    model.lightSecondaryColor = normalizedTheme.light.secondaryColor;
+    model.lightSurfaceColor = normalizedTheme.light.surfaceColor;
+    model.lightSurfaceVariantColor = normalizedTheme.light.surfaceVariantColor;
+    model.darkPrimaryColor = normalizedTheme.dark.color;
+    model.darkSecondaryColor = normalizedTheme.dark.secondaryColor;
+    model.darkSurfaceColor = normalizedTheme.dark.surfaceColor;
+    model.darkSurfaceVariantColor = normalizedTheme.dark.surfaceVariantColor;
     model.avatarUrl = String(settings.avatarUrl || "");
     model.invitesEnabled = settings.invitesEnabled !== false;
     model.invitesAvailable = settings.invitesAvailable !== false;
   },
   buildRawPayload: (model) => ({
     name: model.name,
-    color: model.color,
-    secondaryColor: model.secondaryColor,
-    surfaceColor: model.surfaceColor,
-    surfaceVariantColor: model.surfaceVariantColor,
+    lightPrimaryColor: model.lightPrimaryColor,
+    lightSecondaryColor: model.lightSecondaryColor,
+    lightSurfaceColor: model.lightSurfaceColor,
+    lightSurfaceVariantColor: model.lightSurfaceVariantColor,
+    darkPrimaryColor: model.darkPrimaryColor,
+    darkSecondaryColor: model.darkSecondaryColor,
+    darkSurfaceColor: model.darkSurfaceColor,
+    darkSurfaceVariantColor: model.darkSurfaceVariantColor,
     avatarUrl: model.avatarUrl,
     invitesEnabled: model.invitesEnabled
   }),

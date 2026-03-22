@@ -4,10 +4,9 @@
 import { Type } from "typebox";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
-  coerceWorkspaceColor,
-  coerceWorkspaceSecondaryColor,
-  coerceWorkspaceSurfaceColor,
-  coerceWorkspaceSurfaceVariantColor
+  DEFAULT_WORKSPACE_DARK_PALETTE,
+  DEFAULT_WORKSPACE_LIGHT_PALETTE,
+  coerceWorkspaceThemeColor
 } from "@jskit-ai/users-core/shared/settings";
 import {
   defineField,
@@ -32,10 +31,6 @@ function normalizeAvatarUrl(value) {
 function normalizeHexColor(value) {
   const color = normalizeText(value);
   return /^#[0-9A-Fa-f]{6}$/.test(color) ? color.toUpperCase() : null;
-}
-
-function resolveThemeBaseColor({ workspace = {}, settings = {} } = {}) {
-  return normalizeText(settings.color || workspace.color);
 }
 
 resetWorkspaceSettingsFields();
@@ -78,101 +73,163 @@ defineField({
 });
 
 defineField({
-  key: "color",
-  dbColumn: "color",
+  key: "lightPrimaryColor",
+  dbColumn: "light_primary_color",
   required: true,
   inputSchema: Type.String({
     minLength: 7,
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Workspace color is required.",
-      pattern: "Workspace color must be a hex color like #2F5D9E.",
-      default: "Workspace color must be a hex color like #2F5D9E."
+      required: "Light primary color is required.",
+      pattern: "Light primary color must be a hex color like #1867C0.",
+      default: "Light primary color must be a hex color like #1867C0."
     }
   }),
   outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
   normalizeInput: normalizeHexColor,
-  normalizeOutput: (value) => coerceWorkspaceColor(value),
-  resolveDefault: ({ workspace = {} } = {}) => coerceWorkspaceColor(workspace.color)
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_LIGHT_PALETTE.color),
+  resolveDefault: () => DEFAULT_WORKSPACE_LIGHT_PALETTE.color
 });
 
 defineField({
-  key: "secondaryColor",
-  dbColumn: "secondary_color",
+  key: "lightSecondaryColor",
+  dbColumn: "light_secondary_color",
   required: true,
   inputSchema: Type.String({
     minLength: 7,
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Secondary color is required.",
-      pattern: "Secondary color must be a hex color like #224372.",
-      default: "Secondary color must be a hex color like #224372."
+      required: "Light secondary color is required.",
+      pattern: "Light secondary color must be a hex color like #48A9A6.",
+      default: "Light secondary color must be a hex color like #48A9A6."
     }
   }),
   outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
   normalizeInput: normalizeHexColor,
-  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSecondaryColor(value, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    }),
-  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSecondaryColor(workspace.secondaryColor, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    })
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_LIGHT_PALETTE.secondaryColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_LIGHT_PALETTE.secondaryColor
 });
 
 defineField({
-  key: "surfaceColor",
-  dbColumn: "surface_color",
+  key: "lightSurfaceColor",
+  dbColumn: "light_surface_color",
   required: true,
   inputSchema: Type.String({
     minLength: 7,
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Surface color is required.",
-      pattern: "Surface color must be a hex color like #F0F4F8.",
-      default: "Surface color must be a hex color like #F0F4F8."
+      required: "Light surface color is required.",
+      pattern: "Light surface color must be a hex color like #FFFFFF.",
+      default: "Light surface color must be a hex color like #FFFFFF."
     }
   }),
   outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
   normalizeInput: normalizeHexColor,
-  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSurfaceColor(value, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    }),
-  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSurfaceColor(workspace.surfaceColor, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    })
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceColor
 });
 
 defineField({
-  key: "surfaceVariantColor",
-  dbColumn: "surface_variant_color",
+  key: "lightSurfaceVariantColor",
+  dbColumn: "light_surface_variant_color",
   required: true,
   inputSchema: Type.String({
     minLength: 7,
     maxLength: 7,
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      required: "Surface variant color is required.",
-      pattern: "Surface variant color must be a hex color like #E2E8F1.",
-      default: "Surface variant color must be a hex color like #E2E8F1."
+      required: "Light surface variant color is required.",
+      pattern: "Light surface variant color must be a hex color like #424242.",
+      default: "Light surface variant color must be a hex color like #424242."
     }
   }),
   outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
   normalizeInput: normalizeHexColor,
-  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSurfaceVariantColor(value, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    }),
-  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
-    coerceWorkspaceSurfaceVariantColor(workspace.surfaceVariantColor, {
-      color: resolveThemeBaseColor({ workspace, settings })
-    })
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceVariantColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceVariantColor
+});
+
+defineField({
+  key: "darkPrimaryColor",
+  dbColumn: "dark_primary_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark primary color is required.",
+      pattern: "Dark primary color must be a hex color like #2196F3.",
+      default: "Dark primary color must be a hex color like #2196F3."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_DARK_PALETTE.color),
+  resolveDefault: () => DEFAULT_WORKSPACE_DARK_PALETTE.color
+});
+
+defineField({
+  key: "darkSecondaryColor",
+  dbColumn: "dark_secondary_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark secondary color is required.",
+      pattern: "Dark secondary color must be a hex color like #54B6B2.",
+      default: "Dark secondary color must be a hex color like #54B6B2."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_DARK_PALETTE.secondaryColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_DARK_PALETTE.secondaryColor
+});
+
+defineField({
+  key: "darkSurfaceColor",
+  dbColumn: "dark_surface_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark surface color is required.",
+      pattern: "Dark surface color must be a hex color like #212121.",
+      default: "Dark surface color must be a hex color like #212121."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_DARK_PALETTE.surfaceColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_DARK_PALETTE.surfaceColor
+});
+
+defineField({
+  key: "darkSurfaceVariantColor",
+  dbColumn: "dark_surface_variant_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark surface variant color is required.",
+      pattern: "Dark surface variant color must be a hex color like #C8C8C8.",
+      default: "Dark surface variant color must be a hex color like #C8C8C8."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value) => coerceWorkspaceThemeColor(value, DEFAULT_WORKSPACE_DARK_PALETTE.surfaceVariantColor),
+  resolveDefault: () => DEFAULT_WORKSPACE_DARK_PALETTE.surfaceVariantColor
 });
 
 defineField({

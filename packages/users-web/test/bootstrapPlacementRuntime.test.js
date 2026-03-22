@@ -478,10 +478,23 @@ test("bootstrap placement runtime refetches when auth context changes", async ()
   assert.deepEqual(fetchCalls, ["acme", "acme"]);
 });
 
-test("bootstrap placement runtime forces light theme for unauthenticated bootstrap payloads", async () => {
+test("bootstrap placement runtime applies persisted theme preference for unauthenticated bootstrap payloads", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/auth/login");
   const themeController = createVuetifyThemeController("dark");
+  const storage = new Map();
+  storage.set("jskit.themePreference", "dark");
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, value);
+      }
+    }
+  };
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
@@ -499,8 +512,16 @@ test("bootstrap placement runtime forces light theme for unauthenticated bootstr
     }
   });
 
-  await runtime.initialize();
-  assert.equal(themeController.global.name.value, "light");
+  try {
+    await runtime.initialize();
+    assert.equal(themeController.global.name.value, "dark");
+  } finally {
+    if (typeof originalWindow === "undefined") {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
+  }
 });
 
 test("bootstrap placement runtime reapplies theme when bootstrap payload changes", async () => {
@@ -563,12 +584,21 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
           authenticated: true,
           userId: 1
         },
+        workspaceSettings: {
+          lightPrimaryColor: "#CC3344",
+          lightSecondaryColor: "#884455",
+          lightSurfaceColor: "#F4F4F4",
+          lightSurfaceVariantColor: "#444444",
+          darkPrimaryColor: "#BB2233",
+          darkSecondaryColor: "#557799",
+          darkSurfaceColor: "#202020",
+          darkSurfaceVariantColor: "#A0A0A0"
+        },
         workspaces: [
           {
             id: 1,
             slug: "acme",
-            name: "Acme Workspace",
-            color: "#CC3344"
+            name: "Acme Workspace"
           }
         ],
         permissions: []
@@ -578,7 +608,12 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
 
   await runtime.initialize();
   const palette = resolveWorkspaceThemePalette({
-    color: "#CC3344"
+    lightPrimaryColor: "#CC3344",
+    lightSecondaryColor: "#884455",
+    lightSurfaceColor: "#F4F4F4",
+    lightSurfaceVariantColor: "#444444"
+  }, {
+    mode: "light"
   });
   assert.equal(themeController.global.name.value, "workspace-light");
   assert.equal(themeController.themes.value["workspace-light"].colors.primary, palette.color);
@@ -588,7 +623,6 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
     themeController.themes.value["workspace-light"].colors["surface-variant"],
     palette.surfaceVariantColor
   );
-  assert.equal(themeController.themes.value["workspace-light"].colors.background, palette.backgroundColor);
 
   router.currentRoute.value.path = "/home";
   router.currentRoute.value.fullPath = "/home";

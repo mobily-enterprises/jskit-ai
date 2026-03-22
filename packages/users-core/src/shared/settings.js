@@ -1,5 +1,22 @@
-const DEFAULT_WORKSPACE_COLOR = "#2F5D9E";
+const WORKSPACE_THEME_MODE_LIGHT = "light";
+const WORKSPACE_THEME_MODE_DARK = "dark";
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
+const DEFAULT_WORKSPACE_LIGHT_PALETTE = Object.freeze({
+  color: "#1867C0",
+  secondaryColor: "#48A9A6",
+  surfaceColor: "#FFFFFF",
+  surfaceVariantColor: "#424242"
+});
+
+const DEFAULT_WORKSPACE_DARK_PALETTE = Object.freeze({
+  color: "#2196F3",
+  secondaryColor: "#54B6B2",
+  surfaceColor: "#212121",
+  surfaceVariantColor: "#C8C8C8"
+});
+
+const DEFAULT_WORKSPACE_COLOR = DEFAULT_WORKSPACE_LIGHT_PALETTE.color;
 
 const DEFAULT_USER_SETTINGS = Object.freeze({
   theme: "system",
@@ -25,124 +42,95 @@ function normalizeWorkspaceHexColor(value) {
   return normalized.toUpperCase();
 }
 
-function clampChannel(value) {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  if (value < 0) {
-    return 0;
-  }
-  if (value > 255) {
-    return 255;
-  }
-  return Math.round(value);
-}
-
-function toHexChannel(value) {
-  return clampChannel(value).toString(16).padStart(2, "0").toUpperCase();
-}
-
-function parseHexColor(value) {
-  const normalized = normalizeWorkspaceHexColor(value);
-  if (!normalized) {
-    return null;
-  }
-  return {
-    red: Number.parseInt(normalized.slice(1, 3), 16),
-    green: Number.parseInt(normalized.slice(3, 5), 16),
-    blue: Number.parseInt(normalized.slice(5, 7), 16)
-  };
-}
-
-function mixHexColors(baseColor, mixColor, mixRatio = 0) {
-  const base = parseHexColor(baseColor);
-  const mixed = parseHexColor(mixColor);
-  if (!base || !mixed) {
-    return "";
-  }
-
-  const ratio = Math.min(1, Math.max(0, Number(mixRatio) || 0));
-  const keepRatio = 1 - ratio;
-  return `#${toHexChannel(base.red * keepRatio + mixed.red * ratio)}${toHexChannel(
-    base.green * keepRatio + mixed.green * ratio
-  )}${toHexChannel(base.blue * keepRatio + mixed.blue * ratio)}`;
-}
-
 function coerceWorkspaceColor(value) {
   return normalizeWorkspaceHexColor(value) || DEFAULT_WORKSPACE_COLOR;
 }
 
-function deriveWorkspaceSecondaryColor(workspaceColor = DEFAULT_WORKSPACE_COLOR) {
-  return mixHexColors(coerceWorkspaceColor(workspaceColor), "#000000", 0.28) || "#224372";
+function normalizeWorkspaceThemeMode(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === WORKSPACE_THEME_MODE_DARK) {
+    return WORKSPACE_THEME_MODE_DARK;
+  }
+  return WORKSPACE_THEME_MODE_LIGHT;
 }
 
-function deriveWorkspaceSurfaceColor(workspaceColor = DEFAULT_WORKSPACE_COLOR) {
-  return mixHexColors(coerceWorkspaceColor(workspaceColor), "#FFFFFF", 0.93) || "#F0F4F8";
+function resolveWorkspaceThemeDefaultPalette(mode = WORKSPACE_THEME_MODE_LIGHT) {
+  const normalizedMode = normalizeWorkspaceThemeMode(mode);
+  return normalizedMode === WORKSPACE_THEME_MODE_DARK
+    ? DEFAULT_WORKSPACE_DARK_PALETTE
+    : DEFAULT_WORKSPACE_LIGHT_PALETTE;
 }
 
-function deriveWorkspaceSurfaceVariantColor(workspaceColor = DEFAULT_WORKSPACE_COLOR) {
-  return mixHexColors(coerceWorkspaceColor(workspaceColor), "#FFFFFF", 0.86) || "#E2E8F1";
+function coerceWorkspaceThemeColor(value, fallbackColor = DEFAULT_WORKSPACE_COLOR) {
+  return normalizeWorkspaceHexColor(value) || normalizeWorkspaceHexColor(fallbackColor) || DEFAULT_WORKSPACE_COLOR;
 }
 
-function deriveWorkspaceBackgroundColor(workspaceColor = DEFAULT_WORKSPACE_COLOR) {
-  const surfaceColor = deriveWorkspaceSurfaceColor(workspaceColor);
-  return mixHexColors(surfaceColor, "#FFFFFF", 0.45) || "#F4FAF8";
+function coerceWorkspaceSecondaryColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {}) {
+  return coerceWorkspaceThemeColor(value, resolveWorkspaceThemeDefaultPalette(mode).secondaryColor);
 }
 
-function coerceWorkspaceSecondaryColor(value, { color = DEFAULT_WORKSPACE_COLOR } = {}) {
-  return normalizeWorkspaceHexColor(value) || deriveWorkspaceSecondaryColor(color);
+function coerceWorkspaceSurfaceColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {}) {
+  return coerceWorkspaceThemeColor(value, resolveWorkspaceThemeDefaultPalette(mode).surfaceColor);
 }
 
-function coerceWorkspaceSurfaceColor(value, { color = DEFAULT_WORKSPACE_COLOR } = {}) {
-  return normalizeWorkspaceHexColor(value) || deriveWorkspaceSurfaceColor(color);
+function coerceWorkspaceSurfaceVariantColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {}) {
+  return coerceWorkspaceThemeColor(value, resolveWorkspaceThemeDefaultPalette(mode).surfaceVariantColor);
 }
 
-function coerceWorkspaceSurfaceVariantColor(value, { color = DEFAULT_WORKSPACE_COLOR } = {}) {
-  return normalizeWorkspaceHexColor(value) || deriveWorkspaceSurfaceVariantColor(color);
-}
-
-function coerceWorkspaceBackgroundColor(value, { color = DEFAULT_WORKSPACE_COLOR } = {}) {
-  return normalizeWorkspaceHexColor(value) || deriveWorkspaceBackgroundColor(color);
-}
-
-function resolveWorkspaceThemePalette(input = {}) {
+function resolveWorkspaceThemePalette(input = {}, { mode = WORKSPACE_THEME_MODE_LIGHT } = {}) {
   const source = input && typeof input === "object" ? input : {};
-  const color = coerceWorkspaceColor(source.color);
-  const secondaryColor = coerceWorkspaceSecondaryColor(source.secondaryColor, {
-    color
-  });
-  const surfaceColor = coerceWorkspaceSurfaceColor(source.surfaceColor, {
-    color
-  });
-  const surfaceVariantColor = coerceWorkspaceSurfaceVariantColor(source.surfaceVariantColor, {
-    color
-  });
-  const backgroundColor = coerceWorkspaceBackgroundColor(source.backgroundColor, {
-    color
-  });
+  const normalizedMode = normalizeWorkspaceThemeMode(mode);
+  const paletteDefaults = resolveWorkspaceThemeDefaultPalette(normalizedMode);
+
+  if (normalizedMode === WORKSPACE_THEME_MODE_DARK) {
+    return Object.freeze({
+      color: coerceWorkspaceThemeColor(source.darkPrimaryColor, paletteDefaults.color),
+      secondaryColor: coerceWorkspaceThemeColor(source.darkSecondaryColor, paletteDefaults.secondaryColor),
+      surfaceColor: coerceWorkspaceThemeColor(source.darkSurfaceColor, paletteDefaults.surfaceColor),
+      surfaceVariantColor: coerceWorkspaceThemeColor(
+        source.darkSurfaceVariantColor,
+        paletteDefaults.surfaceVariantColor
+      )
+    });
+  }
 
   return Object.freeze({
-    color,
-    secondaryColor,
-    surfaceColor,
-    surfaceVariantColor,
-    backgroundColor
+    color: coerceWorkspaceThemeColor(source.lightPrimaryColor, paletteDefaults.color),
+    secondaryColor: coerceWorkspaceThemeColor(source.lightSecondaryColor, paletteDefaults.secondaryColor),
+    surfaceColor: coerceWorkspaceThemeColor(source.lightSurfaceColor, paletteDefaults.surfaceColor),
+    surfaceVariantColor: coerceWorkspaceThemeColor(
+      source.lightSurfaceVariantColor,
+      paletteDefaults.surfaceVariantColor
+    )
+  });
+}
+
+function resolveWorkspaceThemePalettes(input = {}) {
+  return Object.freeze({
+    light: resolveWorkspaceThemePalette(input, {
+      mode: WORKSPACE_THEME_MODE_LIGHT
+    }),
+    dark: resolveWorkspaceThemePalette(input, {
+      mode: WORKSPACE_THEME_MODE_DARK
+    })
   });
 }
 
 export {
+  DEFAULT_WORKSPACE_DARK_PALETTE,
+  DEFAULT_WORKSPACE_LIGHT_PALETTE,
   DEFAULT_WORKSPACE_COLOR,
   DEFAULT_USER_SETTINGS,
-  coerceWorkspaceBackgroundColor,
   coerceWorkspaceColor,
+  coerceWorkspaceThemeColor,
   coerceWorkspaceSecondaryColor,
   coerceWorkspaceSurfaceColor,
   coerceWorkspaceSurfaceVariantColor,
-  deriveWorkspaceBackgroundColor,
-  deriveWorkspaceSecondaryColor,
-  deriveWorkspaceSurfaceColor,
-  deriveWorkspaceSurfaceVariantColor,
-  mixHexColors,
   normalizeWorkspaceHexColor,
+  normalizeWorkspaceThemeMode,
+  resolveWorkspaceThemeDefaultPalette,
+  resolveWorkspaceThemePalettes,
+  WORKSPACE_THEME_MODE_DARK,
+  WORKSPACE_THEME_MODE_LIGHT,
   resolveWorkspaceThemePalette
 };

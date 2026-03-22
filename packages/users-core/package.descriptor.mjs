@@ -436,7 +436,7 @@ export default Object.freeze({
         file: "config/server.js",
         position: "bottom",
         skipIfContains: "config.workspaceColor =",
-        value: "\nconfig.workspaceColor = \"indigo\";\n",
+        value: "\nconfig.workspaceColor = \"#1867C0\";\n",
         reason: "Append default server-only users/workspace settings into app-owned config.",
         category: "users-core",
         id: "users-core-server-config"

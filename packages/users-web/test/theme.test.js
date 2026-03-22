@@ -5,6 +5,10 @@ import { resolveWorkspaceThemePalette } from "@jskit-ai/users-core/shared/settin
 import {
   hexColorToRgb,
   normalizeThemePreference,
+  persistBootstrapThemePreference,
+  persistThemePreference,
+  readPersistedThemePreference,
+  resolveBootstrapThemePreference,
   resolveThemeNameForPreference,
   resolveBootstrapThemeName,
   resolveVuetifyThemeController,
@@ -60,16 +64,23 @@ test("resolveThemeNameForPreference resolves system using explicit prefersDark",
   assert.equal(resolveThemeNameForPreference("light", { prefersDark: true }), "light");
 });
 
-test("resolveBootstrapThemeName keeps unauthenticated payload in light theme", () => {
+test("resolveBootstrapThemeName uses persisted preference for unauthenticated payloads", () => {
+  const storage = new Map();
+  storage.set("jskit.themePreference", "dark");
+
   assert.equal(
-    resolveBootstrapThemeName(
-      {
-        session: { authenticated: false },
-        userSettings: { theme: "dark" }
+    resolveBootstrapThemeName({
+      session: { authenticated: false },
+      userSettings: { theme: "light" }
+    }, {
+      storage: {
+        getItem(key) {
+          return storage.get(key) || null;
+        }
       },
-      { prefersDark: true }
-    ),
-    "light"
+      prefersDark: false
+    }),
+    "dark"
   );
 });
 
@@ -94,6 +105,45 @@ test("resolveBootstrapThemeName uses authenticated user preference", () => {
     ),
     "dark"
   );
+});
+
+test("theme preference persistence helpers normalize values", () => {
+  const storage = new Map();
+  const storageAdapter = {
+    getItem(key) {
+      return storage.get(key) || null;
+    },
+    setItem(key, value) {
+      storage.set(key, value);
+    }
+  };
+
+  assert.equal(readPersistedThemePreference({ storage: storageAdapter }), "system");
+  assert.equal(persistThemePreference(" DARK ", { storage: storageAdapter }), true);
+  assert.equal(readPersistedThemePreference({ storage: storageAdapter }), "dark");
+
+  assert.equal(
+    resolveBootstrapThemePreference(
+      {
+        session: { authenticated: false }
+      },
+      { storage: storageAdapter }
+    ),
+    "dark"
+  );
+  assert.equal(
+    persistBootstrapThemePreference(
+      {
+        session: { authenticated: true },
+        userSettings: {
+          theme: "light"
+        }
+      },
+      { storage: storageAdapter }
+    ),
+    true
+  );
+  assert.equal(readPersistedThemePreference({ storage: storageAdapter }), "light");
 });
 
 test("resolveVuetifyThemeController reads theme controller from Vue app provides", () => {
@@ -126,27 +176,45 @@ test("hexColorToRgb returns Vuetify rgb tuple and rejects invalid values", () =>
 
 test("setVuetifyPrimaryColorOverride mutates workspace themes and restores base theme names", () => {
   const themeController = createVuetifyThemeController("light");
-  const expectedPalette = resolveWorkspaceThemePalette({
-    color: "#CC3344"
+  const themeInput = {
+    lightPrimaryColor: "#CC3344",
+    lightSecondaryColor: "#884455",
+    lightSurfaceColor: "#F4F4F4",
+    lightSurfaceVariantColor: "#444444",
+    darkPrimaryColor: "#BB2233",
+    darkSecondaryColor: "#557799",
+    darkSurfaceColor: "#202020",
+    darkSurfaceVariantColor: "#A0A0A0"
+  };
+  const expectedLightPalette = resolveWorkspaceThemePalette(themeInput, {
+    mode: "light"
+  });
+  const expectedDarkPalette = resolveWorkspaceThemePalette(themeInput, {
+    mode: "dark"
   });
 
-  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), true);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, themeInput), true);
   assert.equal(themeController.global.name.value, "workspace-light");
-  assert.equal(themeController.themes.value["workspace-light"].colors.primary, expectedPalette.color);
-  assert.equal(themeController.themes.value["workspace-light"].colors.secondary, expectedPalette.secondaryColor);
-  assert.equal(themeController.themes.value["workspace-light"].colors.surface, expectedPalette.surfaceColor);
+  assert.equal(themeController.themes.value["workspace-light"].colors.primary, expectedLightPalette.color);
+  assert.equal(themeController.themes.value["workspace-light"].colors.secondary, expectedLightPalette.secondaryColor);
+  assert.equal(themeController.themes.value["workspace-light"].colors.surface, expectedLightPalette.surfaceColor);
   assert.equal(
     themeController.themes.value["workspace-light"].colors["surface-variant"],
-    expectedPalette.surfaceVariantColor
+    expectedLightPalette.surfaceVariantColor
   );
-  assert.equal(themeController.themes.value["workspace-light"].colors.background, expectedPalette.backgroundColor);
 
-  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), false);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, themeInput), false);
 
   assert.equal(setVuetifyThemeName(themeController, "dark"), true);
-  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), true);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, themeInput), true);
   assert.equal(themeController.global.name.value, "workspace-dark");
-  assert.equal(themeController.themes.value["workspace-dark"].colors.primary, expectedPalette.color);
+  assert.equal(themeController.themes.value["workspace-dark"].colors.primary, expectedDarkPalette.color);
+  assert.equal(themeController.themes.value["workspace-dark"].colors.secondary, expectedDarkPalette.secondaryColor);
+  assert.equal(themeController.themes.value["workspace-dark"].colors.surface, expectedDarkPalette.surfaceColor);
+  assert.equal(
+    themeController.themes.value["workspace-dark"].colors["surface-variant"],
+    expectedDarkPalette.surfaceVariantColor
+  );
 
   assert.equal(setVuetifyPrimaryColorOverride(themeController, null), true);
   assert.equal(themeController.global.name.value, "dark");

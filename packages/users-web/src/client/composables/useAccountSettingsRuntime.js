@@ -12,6 +12,7 @@ import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userP
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
 import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
+  persistThemePreference,
   resolveThemeNameForPreference,
   setVuetifyThemeName
 } from "../lib/theme.js";
@@ -151,6 +152,7 @@ function useAccountSettingsRuntime() {
   function applyThemePreference(themePreference) {
     const themeName = resolveThemeNameForPreference(themePreference);
     setVuetifyThemeName(vuetifyTheme, themeName);
+    persistThemePreference(themePreference);
   }
 
   function applyAvatarData(avatar) {

@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "../test-support/registerDefaultSettingsFields.js";
-import { resolveWorkspaceThemePalette } from "../src/shared/settings.js";
+import { resolveWorkspaceThemePalettes } from "../src/shared/settings.js";
 import { createRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
 function createDefaultWorkspaceSettings() {
   return true;
 }
 
-const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalette({
-  color: "#2F5D9E"
-});
+const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalettes({});
 
 function createKnexStub(rowOverrides = {}) {
   const state = {
@@ -20,10 +18,14 @@ function createKnexStub(rowOverrides = {}) {
       workspace_id: 1,
       name: "Workspace",
       avatar_url: "",
-      color: "#2F5D9E",
-      secondary_color: DEFAULT_WORKSPACE_THEME.secondaryColor,
-      surface_color: DEFAULT_WORKSPACE_THEME.surfaceColor,
-      surface_variant_color: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
+      light_primary_color: DEFAULT_WORKSPACE_THEME.light.color,
+      light_secondary_color: DEFAULT_WORKSPACE_THEME.light.secondaryColor,
+      light_surface_color: DEFAULT_WORKSPACE_THEME.light.surfaceColor,
+      light_surface_variant_color: DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor,
+      dark_primary_color: DEFAULT_WORKSPACE_THEME.dark.color,
+      dark_secondary_color: DEFAULT_WORKSPACE_THEME.dark.secondaryColor,
+      dark_surface_color: DEFAULT_WORKSPACE_THEME.dark.surfaceColor,
+      dark_surface_variant_color: DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor,
       invites_enabled: 1,
       created_at: "2026-03-09 00:26:35.710",
       updated_at: "2026-03-09 00:26:35.710",
@@ -41,10 +43,14 @@ function createKnexStub(rowOverrides = {}) {
           workspace_id: payload.workspace_id,
           name: payload.name,
           avatar_url: payload.avatar_url,
-          color: payload.color,
-          secondary_color: payload.secondary_color,
-          surface_color: payload.surface_color,
-          surface_variant_color: payload.surface_variant_color,
+          light_primary_color: payload.light_primary_color,
+          light_secondary_color: payload.light_secondary_color,
+          light_surface_color: payload.light_surface_color,
+          light_surface_variant_color: payload.light_surface_variant_color,
+          dark_primary_color: payload.dark_primary_color,
+          dark_secondary_color: payload.dark_secondary_color,
+          dark_surface_color: payload.dark_surface_color,
+          dark_surface_variant_color: payload.dark_surface_variant_color,
           invites_enabled: payload.invites_enabled,
           created_at: "2026-03-10 00:00:00.000",
           updated_at: "2026-03-10 00:00:00.000"
@@ -69,17 +75,29 @@ function createKnexStub(rowOverrides = {}) {
             if (Object.hasOwn(payload, "avatar_url")) {
               state.row.avatar_url = payload.avatar_url;
             }
-            if (Object.hasOwn(payload, "color")) {
-              state.row.color = payload.color;
+            if (Object.hasOwn(payload, "light_primary_color")) {
+              state.row.light_primary_color = payload.light_primary_color;
             }
-            if (Object.hasOwn(payload, "secondary_color")) {
-              state.row.secondary_color = payload.secondary_color;
+            if (Object.hasOwn(payload, "light_secondary_color")) {
+              state.row.light_secondary_color = payload.light_secondary_color;
             }
-            if (Object.hasOwn(payload, "surface_color")) {
-              state.row.surface_color = payload.surface_color;
+            if (Object.hasOwn(payload, "light_surface_color")) {
+              state.row.light_surface_color = payload.light_surface_color;
             }
-            if (Object.hasOwn(payload, "surface_variant_color")) {
-              state.row.surface_variant_color = payload.surface_variant_color;
+            if (Object.hasOwn(payload, "light_surface_variant_color")) {
+              state.row.light_surface_variant_color = payload.light_surface_variant_color;
+            }
+            if (Object.hasOwn(payload, "dark_primary_color")) {
+              state.row.dark_primary_color = payload.dark_primary_color;
+            }
+            if (Object.hasOwn(payload, "dark_secondary_color")) {
+              state.row.dark_secondary_color = payload.dark_secondary_color;
+            }
+            if (Object.hasOwn(payload, "dark_surface_color")) {
+              state.row.dark_surface_color = payload.dark_surface_color;
+            }
+            if (Object.hasOwn(payload, "dark_surface_variant_color")) {
+              state.row.dark_surface_variant_color = payload.dark_surface_variant_color;
             }
             if (Object.hasOwn(payload, "updated_at")) {
               state.row.updated_at = payload.updated_at;
@@ -106,10 +124,14 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
     workspaceId: 1,
     name: "Workspace",
     avatarUrl: "",
-    color: "#2F5D9E",
-    secondaryColor: DEFAULT_WORKSPACE_THEME.secondaryColor,
-    surfaceColor: DEFAULT_WORKSPACE_THEME.surfaceColor,
-    surfaceVariantColor: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
+    lightPrimaryColor: DEFAULT_WORKSPACE_THEME.light.color,
+    lightSecondaryColor: DEFAULT_WORKSPACE_THEME.light.secondaryColor,
+    lightSurfaceColor: DEFAULT_WORKSPACE_THEME.light.surfaceColor,
+    lightSurfaceVariantColor: DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor,
+    darkPrimaryColor: DEFAULT_WORKSPACE_THEME.dark.color,
+    darkSecondaryColor: DEFAULT_WORKSPACE_THEME.dark.secondaryColor,
+    darkSurfaceColor: DEFAULT_WORKSPACE_THEME.dark.surfaceColor,
+    darkSurfaceVariantColor: DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor,
     invitesEnabled: true,
     createdAt: "2026-03-08T16:26:35.710Z",
     updatedAt: "2026-03-08T16:26:35.710Z"
@@ -142,17 +164,31 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   assert.equal(state.insertedRow.workspace_id, 5);
   assert.equal(state.insertedRow.name, "Workspace");
   assert.equal(state.insertedRow.avatar_url, "");
-  assert.equal(state.insertedRow.color, "#2F5D9E");
-  assert.equal(state.insertedRow.secondary_color, DEFAULT_WORKSPACE_THEME.secondaryColor);
-  assert.equal(state.insertedRow.surface_color, DEFAULT_WORKSPACE_THEME.surfaceColor);
-  assert.equal(state.insertedRow.surface_variant_color, DEFAULT_WORKSPACE_THEME.surfaceVariantColor);
+  assert.equal(state.insertedRow.light_primary_color, DEFAULT_WORKSPACE_THEME.light.color);
+  assert.equal(state.insertedRow.light_secondary_color, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
+  assert.equal(state.insertedRow.light_surface_color, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
+  assert.equal(
+    state.insertedRow.light_surface_variant_color,
+    DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor
+  );
+  assert.equal(state.insertedRow.dark_primary_color, DEFAULT_WORKSPACE_THEME.dark.color);
+  assert.equal(state.insertedRow.dark_secondary_color, DEFAULT_WORKSPACE_THEME.dark.secondaryColor);
+  assert.equal(state.insertedRow.dark_surface_color, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
+  assert.equal(
+    state.insertedRow.dark_surface_variant_color,
+    DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor
+  );
   assert.equal(state.insertedRow.invites_enabled, false);
   assert.equal(record.name, "Workspace");
   assert.equal(record.avatarUrl, "");
-  assert.equal(record.color, "#2F5D9E");
-  assert.equal(record.secondaryColor, DEFAULT_WORKSPACE_THEME.secondaryColor);
-  assert.equal(record.surfaceColor, DEFAULT_WORKSPACE_THEME.surfaceColor);
-  assert.equal(record.surfaceVariantColor, DEFAULT_WORKSPACE_THEME.surfaceVariantColor);
+  assert.equal(record.lightPrimaryColor, DEFAULT_WORKSPACE_THEME.light.color);
+  assert.equal(record.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
+  assert.equal(record.lightSurfaceColor, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
+  assert.equal(record.lightSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor);
+  assert.equal(record.darkPrimaryColor, DEFAULT_WORKSPACE_THEME.dark.color);
+  assert.equal(record.darkSecondaryColor, DEFAULT_WORKSPACE_THEME.dark.secondaryColor);
+  assert.equal(record.darkSurfaceColor, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
+  assert.equal(record.darkSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor);
   assert.equal(record.invitesEnabled, false);
 });
 
@@ -165,15 +201,15 @@ test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates name/avata
   const updated = await repository.updateSettingsByWorkspaceId(1, {
     name: "New name",
     avatarUrl: "https://example.com/avatar.png",
-    color: "#123abc"
+    lightPrimaryColor: "#123abc"
   });
 
   assert.equal(state.updatePayload.name, "New name");
   assert.equal(state.updatePayload.avatar_url, "https://example.com/avatar.png");
-  assert.equal(state.updatePayload.color, "#123ABC");
+  assert.equal(state.updatePayload.light_primary_color, "#123ABC");
   assert.equal(updated.name, "New name");
   assert.equal(updated.avatarUrl, "https://example.com/avatar.png");
-  assert.equal(updated.color, "#123ABC");
+  assert.equal(updated.lightPrimaryColor, "#123ABC");
 });
 
 test("workspaceSettingsRepository can be constructed without validating app config shape", () => {
