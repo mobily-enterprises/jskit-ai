@@ -15,7 +15,6 @@ const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 const DEFAULT_TAG = "latest";
 const DEFAULT_ACCESS = "public";
 const DEFAULT_PUBLISH_CONCURRENCY = 20;
-const CREATE_APP_TEMPLATE_PACKAGE_JSON_REL = "tooling/create-app/templates/base-shell/package.json";
 
 function parseArgs(argv) {
   const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
@@ -534,56 +533,6 @@ async function updateWorkspaceDescriptorFiles(records, publishSet, nextVersions,
   }
 }
 
-function updatePackageJsonDependencyMap(jsonObject, nextVersions) {
-  let changed = false;
-
-  for (const field of DEPENDENCY_FIELDS) {
-    const fieldValue = jsonObject?.[field];
-    if (!fieldValue || typeof fieldValue !== "object") {
-      continue;
-    }
-
-    for (const dependencyName of Object.keys(fieldValue)) {
-      if (!nextVersions.has(dependencyName)) {
-        continue;
-      }
-      const nextVersion = nextVersions.get(dependencyName);
-      if (fieldValue[dependencyName] === nextVersion) {
-        continue;
-      }
-      fieldValue[dependencyName] = nextVersion;
-      changed = true;
-    }
-  }
-
-  return changed;
-}
-
-async function wouldCreateAppTemplateChange(nextVersions) {
-  const templatePath = path.join(REPO_ROOT, CREATE_APP_TEMPLATE_PACKAGE_JSON_REL);
-  const templateJson = await readJsonFile(templatePath);
-  const snapshot = JSON.parse(JSON.stringify(templateJson));
-  const changed = updatePackageJsonDependencyMap(snapshot, nextVersions);
-  return changed;
-}
-
-async function updateCreateAppTemplatePackageJson(nextVersions, { dryRun }) {
-  const templatePath = path.join(REPO_ROOT, CREATE_APP_TEMPLATE_PACKAGE_JSON_REL);
-  const templateJson = await readJsonFile(templatePath);
-  const changed = updatePackageJsonDependencyMap(templateJson, nextVersions);
-
-  if (!changed) {
-    return;
-  }
-
-  if (dryRun) {
-    process.stdout.write(`[dry-run] update ${CREATE_APP_TEMPLATE_PACKAGE_JSON_REL}\n`);
-    return;
-  }
-
-  await writeFile(templatePath, serializeJson(templateJson), "utf8");
-}
-
 function topologicalPublishOrder(records, publishSet) {
   const { inDegree, adjacency } = buildPublishGraph(records, publishSet);
   const queue = Array.from(inDegree.entries())
@@ -852,16 +801,6 @@ async function main() {
 
   let { currentVersions, nextVersions } = computeVersionMaps(records, publishSet);
 
-  const createAppPackageName = "@jskit-ai/create-app";
-  const hasCreateAppPackage = records.some((record) => record.name === createAppPackageName);
-  if (hasCreateAppPackage) {
-    const templateWillChange = await wouldCreateAppTemplateChange(nextVersions);
-    if (templateWillChange && !publishSet.has(createAppPackageName)) {
-      publishSet = expandToDependents(new Set([...publishSet, createAppPackageName]), reverseGraph);
-      ({ currentVersions, nextVersions } = computeVersionMaps(records, publishSet));
-    }
-  }
-
   const publishOrder = topologicalPublishOrder(records, publishSet);
   process.stdout.write("Release plan:\n");
   for (const packageName of publishOrder) {
@@ -871,7 +810,6 @@ async function main() {
 
   await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
   await updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
-  await updateCreateAppTemplatePackageJson(nextVersions, { dryRun: options.dryRun });
 
   runCatalogBuild({ dryRun: options.dryRun });
 

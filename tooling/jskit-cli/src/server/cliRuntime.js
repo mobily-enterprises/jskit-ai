@@ -1545,13 +1545,28 @@ function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } 
 
   const descriptorVersion = String(packageEntry?.version || "").trim();
   if (descriptorVersion) {
-    return descriptorVersion;
+    return normalizeJskitDependencySpecifier(packageEntry?.packageId, descriptorVersion);
   }
   const packageJsonVersion = String(packageEntry?.packageJson?.version || "").trim();
   if (packageJsonVersion) {
-    return packageJsonVersion;
+    return normalizeJskitDependencySpecifier(packageEntry?.packageId, packageJsonVersion);
   }
   throw createCliError(`Unable to resolve dependency specifier for ${String(packageEntry?.packageId || "unknown package")}.`);
+}
+
+function normalizeJskitDependencySpecifier(packageId, dependencySpecifier) {
+  const normalizedPackageId = String(packageId || "").trim();
+  const normalizedSpecifier = String(dependencySpecifier || "").trim();
+  if (!normalizedSpecifier || !normalizedPackageId.startsWith("@jskit-ai/")) {
+    return normalizedSpecifier;
+  }
+
+  const semverMatch = /^(\d+)\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?$/.exec(normalizedSpecifier);
+  if (!semverMatch) {
+    return normalizedSpecifier;
+  }
+
+  return `${semverMatch[1]}.x`;
 }
 
 function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
@@ -4161,7 +4176,8 @@ async function applyPackageInstall({
     const resolvedValue = localPackage
       ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingRuntimeDependencyValue })
       : String(dependencyVersion);
-    const applied = applyPackageJsonField(appPackageJson, "dependencies", dependencyId, resolvedValue);
+    const normalizedResolvedValue = normalizeJskitDependencySpecifier(dependencyId, resolvedValue);
+    const applied = applyPackageJsonField(appPackageJson, "dependencies", dependencyId, normalizedResolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.dependencies[dependencyId] = applied.managed;
       touchedFiles.add("package.json");
@@ -4192,7 +4208,8 @@ async function applyPackageInstall({
     const resolvedValue = localPackage
       ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingDevDependencyValue })
       : String(dependencyVersion);
-    const applied = applyPackageJsonField(appPackageJson, "devDependencies", dependencyId, resolvedValue);
+    const normalizedResolvedValue = normalizeJskitDependencySpecifier(dependencyId, resolvedValue);
+    const applied = applyPackageJsonField(appPackageJson, "devDependencies", dependencyId, normalizedResolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.devDependencies[dependencyId] = applied.managed;
       touchedFiles.add("package.json");
@@ -4210,7 +4227,13 @@ async function applyPackageInstall({
     const selfDependencyValue = resolvePackageDependencySpecifier(packageEntry, {
       existingValue: existingSelfDependencyValue
     });
-    const selfApplied = applyPackageJsonField(appPackageJson, "dependencies", packageEntry.packageId, selfDependencyValue);
+    const normalizedSelfDependencyValue = normalizeJskitDependencySpecifier(packageEntry.packageId, selfDependencyValue);
+    const selfApplied = applyPackageJsonField(
+      appPackageJson,
+      "dependencies",
+      packageEntry.packageId,
+      normalizedSelfDependencyValue
+    );
     if (selfApplied.changed) {
       managedRecord.managed.packageJson.dependencies[packageEntry.packageId] = selfApplied.managed;
       touchedFiles.add("package.json");

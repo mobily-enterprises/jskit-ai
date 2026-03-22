@@ -34,25 +34,43 @@ readarray -t dev_packages < <(
   ' "$PACKAGE_JSON_PATH"
 )
 
-runtime_specs=()
-for package_name in "${runtime_packages[@]}"; do
-  runtime_specs+=("${package_name}@latest")
-done
-
-dev_specs=()
-for package_name in "${dev_packages[@]}"; do
-  dev_specs+=("${package_name}@latest")
-done
-
 registry_args=()
 if [[ -n "$JSKIT_REGISTRY" ]]; then
   registry_args+=(--registry "$JSKIT_REGISTRY")
 fi
 
-if (( ${#runtime_specs[@]} == 0 && ${#dev_specs[@]} == 0 )); then
+if (( ${#runtime_packages[@]} == 0 && ${#dev_packages[@]} == 0 )); then
   echo "[jskit:update] no @jskit-ai packages found in dependencies."
   exit 0
 fi
+
+resolve_major_range() {
+  local package_name="$1"
+  local latest_version
+  if ! latest_version="$(npm view "${registry_args[@]}" "$package_name" version)"; then
+    echo "[jskit:update] failed to resolve latest version for $package_name." >&2
+    exit 1
+  fi
+  latest_version="$(printf "%s" "$latest_version" | tr -d '[:space:]')"
+
+  if [[ ! "$latest_version" =~ ^([0-9]+)\.[0-9]+\.[0-9]+([.+-][0-9A-Za-z.-]+)?$ ]]; then
+    echo "[jskit:update] invalid latest version for $package_name: $latest_version" >&2
+    exit 1
+  fi
+
+  local major="${BASH_REMATCH[1]}"
+  printf "%s.x" "$major"
+}
+
+runtime_specs=()
+for package_name in "${runtime_packages[@]}"; do
+  runtime_specs+=("${package_name}@$(resolve_major_range "$package_name")")
+done
+
+dev_specs=()
+for package_name in "${dev_packages[@]}"; do
+  dev_specs+=("${package_name}@$(resolve_major_range "$package_name")")
+done
 
 if (( ${#runtime_specs[@]} > 0 )); then
   echo "[jskit:update] updating runtime packages: ${runtime_specs[*]}"

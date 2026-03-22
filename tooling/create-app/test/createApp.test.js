@@ -61,7 +61,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
-    assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.\d+\.\d+$/);
+    assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
@@ -612,6 +612,9 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.equal(packageJson.scripts["server:auth"], "SERVER_SURFACE=auth node ./bin/server.js");
     assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
     assert.equal(packageJson.scripts["build:auth"], "VITE_SURFACE=auth vite build");
+    assert.match(packageJson.dependencies["@jskit-ai/auth-provider-supabase-core"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/auth-core"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/auth-web"], /^\d+\.x$/);
 
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
