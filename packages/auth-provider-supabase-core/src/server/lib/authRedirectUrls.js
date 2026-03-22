@@ -27,6 +27,16 @@ function parseHttpUrl(rawValue, variableName) {
   return parsedUrl;
 }
 
+function createAppBaseUrl(appPublicUrl) {
+  const baseUrl = parseHttpUrl(String(appPublicUrl || "").trim(), "APP_PUBLIC_URL");
+  if (!baseUrl.pathname.endsWith("/")) {
+    baseUrl.pathname = `${baseUrl.pathname}/`;
+  }
+  baseUrl.search = "";
+  baseUrl.hash = "";
+  return baseUrl;
+}
+
 function buildPasswordResetRedirectUrl(options) {
   const appPublicUrl = String(options.appPublicUrl || "").trim();
 
@@ -34,13 +44,7 @@ function buildPasswordResetRedirectUrl(options) {
     throw new Error("APP_PUBLIC_URL is required to build password reset links.");
   }
 
-  const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
-  if (!baseUrl.pathname.endsWith("/")) {
-    baseUrl.pathname = `${baseUrl.pathname}/`;
-  }
-  baseUrl.search = "";
-  baseUrl.hash = "";
-  return new URL(PASSWORD_RESET_PATH, baseUrl).toString();
+  return new URL(PASSWORD_RESET_PATH, createAppBaseUrl(appPublicUrl)).toString();
 }
 
 function buildOtpLoginRedirectUrl(options) {
@@ -51,13 +55,7 @@ function buildOtpLoginRedirectUrl(options) {
     throw new Error("APP_PUBLIC_URL is required to build OTP login redirects.");
   }
 
-  const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
-  if (!baseUrl.pathname.endsWith("/")) {
-    baseUrl.pathname = `${baseUrl.pathname}/`;
-  }
-  baseUrl.search = "";
-  baseUrl.hash = "";
-  const redirectUrl = new URL(OAUTH_LOGIN_PATH, baseUrl);
+  const redirectUrl = new URL(OAUTH_LOGIN_PATH, createAppBaseUrl(appPublicUrl));
   if (returnTo) {
     redirectUrl.searchParams.set("returnTo", returnTo);
   }
@@ -91,14 +89,7 @@ function buildOAuthRedirectUrl(options) {
     throw new Error("OAuth callback path is required.");
   }
 
-  const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
-  if (!baseUrl.pathname.endsWith("/")) {
-    baseUrl.pathname = `${baseUrl.pathname}/`;
-  }
-  baseUrl.search = "";
-  baseUrl.hash = "";
-
-  const redirectUrl = new URL(callbackPath, baseUrl);
+  const redirectUrl = new URL(callbackPath, createAppBaseUrl(appPublicUrl));
   redirectUrl.searchParams.set(OAUTH_QUERY_PARAM_PROVIDER, provider);
   redirectUrl.searchParams.set(OAUTH_QUERY_PARAM_INTENT, intent);
   if (returnTo) {
@@ -125,6 +116,7 @@ function buildOAuthLinkRedirectUrl(options) {
 
 export {
   parseHttpUrl,
+  createAppBaseUrl,
   buildPasswordResetRedirectUrl,
   buildOtpLoginRedirectUrl,
   normalizeOAuthIntent,

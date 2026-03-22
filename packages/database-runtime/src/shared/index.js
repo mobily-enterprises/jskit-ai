@@ -33,7 +33,8 @@ export {
   normalizeIdList,
   normalizeCountRow,
   parseJsonValue,
-  toDbJson
+  toDbJson,
+  runInTransaction
 } from "./repositoryOptions.js";
 export {
   normalizeBatchSize,

@@ -1,4 +1,9 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import {
+  requireAuthUser,
+  requireAuthUserSession,
+  requireNoFieldErrors
+} from "./flowGuards.js";
 
 function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
   const normalized = String(value || "").trim();
@@ -65,9 +70,7 @@ function createAccountFlows(deps) {
     ensureConfigured();
 
     const parsed = validators.registerInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     const response = await supabase.auth.signUp({
@@ -110,9 +113,7 @@ function createAccountFlows(deps) {
     ensureConfigured();
 
     const parsed = validators.loginInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     const response = await supabase.auth.signInWithPassword({
@@ -120,11 +121,9 @@ function createAccountFlows(deps) {
       password: parsed.password
     });
 
-    if (response.error || !response.data?.user || !response.data?.session) {
-      throw mapAuthError(response.error, 401);
-    }
+    const { user, session } = requireAuthUserSession(response, mapAuthError, 401);
 
-    const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
+    const profile = await syncProfileFromSupabaseUser(user, parsed.email);
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
       throw new AppError(401, "Invalid email or password.");
@@ -132,7 +131,7 @@ function createAccountFlows(deps) {
 
     return {
       profile,
-      session: response.data.session
+      session
     };
   }
 
@@ -140,9 +139,7 @@ function createAccountFlows(deps) {
     ensureConfigured();
 
     const parsed = validators.forgotPasswordInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const emailRedirectTo = resolveOtpEmailRedirectTo(payload?.returnTo);
     const supabase = getSupabaseClient();
@@ -191,9 +188,7 @@ function createAccountFlows(deps) {
     ensureConfigured();
 
     const parsed = parseOtpLoginVerifyPayload(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     let response;
@@ -214,15 +209,13 @@ function createAccountFlows(deps) {
       throw mapOtpVerifyError(error);
     }
 
-    if (response.error || !response.data?.session || !response.data?.user) {
-      throw mapOtpVerifyError(response.error);
-    }
+    const { user, session } = requireAuthUserSession(response, mapOtpVerifyError);
 
-    const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email || parsed.email);
+    const profile = await syncProfileFromSupabaseUser(user, user.email || parsed.email);
 
     return {
       profile,
-      session: response.data.session
+      session
     };
   }
 
@@ -252,11 +245,9 @@ function createAccountFlows(deps) {
       throw mapProfileUpdateError(error);
     }
 
-    if (updateResponse.error || !updateResponse.data?.user) {
-      throw mapProfileUpdateError(updateResponse.error);
-    }
+    const { user } = requireAuthUser(updateResponse, mapProfileUpdateError);
 
-    const profile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    const profile = await syncProfileFromSupabaseUser(user, user.email);
 
     return {
       profile,

@@ -167,6 +167,7 @@
 
 <script setup>
 import { computed, toRefs, unref } from "vue";
+import { formatDateTime as formatKernelDateTime } from "@jskit-ai/kernel/shared/support";
 import { requireBoolean, requireFunction, requireRecord } from "../support/contractGuards.js";
 
 const props = defineProps({
@@ -327,13 +328,7 @@ function formatDateTime(value) {
   if (typeof options.value.formatDateTime === "function") {
     return options.value.formatDateTime(value);
   }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
+  return formatKernelDateTime(value);
 }
 
 function showOwnerChip(member) {

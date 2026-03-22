@@ -1,4 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import {
+  requireAuthUser,
+  requireAuthSession,
+  requireAuthUserSession,
+  requireNoFieldErrors
+} from "./flowGuards.js";
 
 function createPasswordSecurityFlows(deps) {
   const {
@@ -33,9 +39,7 @@ function createPasswordSecurityFlows(deps) {
     ensureConfigured();
 
     const parsed = validators.forgotPasswordInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     const options = { redirectTo: passwordResetRedirectUrl };
@@ -62,9 +66,7 @@ function createPasswordSecurityFlows(deps) {
     ensureConfigured();
 
     const parsed = validatePasswordRecoveryPayload(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     let response;
@@ -91,16 +93,12 @@ function createPasswordSecurityFlows(deps) {
       throw mapRecoveryError(response.error);
     }
 
-    /* c8 ignore next 3 -- defensive against malformed SDK responses without explicit error payload. */
-    if (!response.data?.session || !response.data?.user) {
-      throw new AppError(401, "Recovery link is invalid or has expired.");
-    }
-
-    const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
+    const { user, session } = requireAuthUserSession(response, () => new AppError(401, "Recovery link is invalid or has expired."));
+    const profile = await syncProfileFromSupabaseUser(user, user.email);
 
     return {
       profile,
-      session: response.data.session
+      session
     };
   }
 
@@ -108,9 +106,7 @@ function createPasswordSecurityFlows(deps) {
     ensureConfigured();
 
     const parsed = validators.resetPasswordInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
-    }
+    requireNoFieldErrors(parsed, validationError);
 
     const supabase = getSupabaseClient();
     const sessionResponse = await setSessionFromRequestCookies(request, {
@@ -134,11 +130,9 @@ function createPasswordSecurityFlows(deps) {
       throw mapPasswordUpdateError(error);
     }
 
-    if (updateResponse.error || !updateResponse.data?.user) {
-      throw mapPasswordUpdateError(updateResponse.error);
-    }
+    const { user } = requireAuthUser(updateResponse, mapPasswordUpdateError);
 
-    const updatedProfile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    const updatedProfile = await syncProfileFromSupabaseUser(user, user.email);
     await setPasswordSetupRequiredForUserId(updatedProfile.id, false);
   }
 
@@ -170,9 +164,7 @@ function createPasswordSecurityFlows(deps) {
         throw mapCurrentPasswordError(error);
       }
 
-      if (verifyResponse.error || !verifyResponse.data?.session) {
-        throw mapCurrentPasswordError(verifyResponse.error);
-      }
+      requireAuthSession(verifyResponse, mapCurrentPasswordError);
     }
 
     let updateResponse;
@@ -184,11 +176,9 @@ function createPasswordSecurityFlows(deps) {
       throw mapPasswordUpdateError(error);
     }
 
-    if (updateResponse.error || !updateResponse.data?.user) {
-      throw mapPasswordUpdateError(updateResponse.error);
-    }
+    const { user } = requireAuthUser(updateResponse, mapPasswordUpdateError);
 
-    const profile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    const profile = await syncProfileFromSupabaseUser(user, user.email);
     await setPasswordSetupRequiredForUserId(profile.id, false);
 
     return {

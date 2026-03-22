@@ -1,5 +1,6 @@
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import {
   parseJsonObject,
   stringifyJsonObject,
@@ -135,11 +136,7 @@ function createMessagesRepository(knex) {
   }
 
   async function transaction(callback) {
-    if (typeof knex.transaction !== "function") {
-      return callback(knex);
-    }
-
-    return knex.transaction(callback);
+    return runInTransaction(knex, callback);
   }
 
   return Object.freeze({

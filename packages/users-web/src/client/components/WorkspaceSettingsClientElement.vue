@@ -102,7 +102,7 @@ import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { findWorkspaceBySlug, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { arePermissionListsEqual, normalizePermissionList } from "../lib/permissions.js";
-import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
+import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
@@ -180,9 +180,7 @@ watch(
   { immediate: true }
 );
 
-function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
-  return matchesCurrentWorkspaceEvent(payload, routeContext.workspaceSlugFromRoute.value);
-}
+const matchesWorkspaceRealtime = createWorkspaceRealtimeMatcher(routeContext.workspaceSlugFromRoute);
 
 const addEdit = useAddEdit({
   ownershipFilter: OWNERSHIP_WORKSPACE,
@@ -197,7 +195,7 @@ const addEdit = useAddEdit({
   fieldErrorKeys: ["name", "avatarUrl", "color"],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-    matches: isCurrentWorkspaceRealtimeEvent
+    matches: matchesWorkspaceRealtime
   },
   model: workspaceForm,
   parseInput: (rawPayload) =>

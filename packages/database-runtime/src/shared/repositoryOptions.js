@@ -182,6 +182,20 @@ function toDbJson(value) {
   return JSON.stringify(value);
 }
 
+async function runInTransaction(knex, callback) {
+  if (typeof callback !== "function") {
+    throw new TypeError("runInTransaction requires callback.");
+  }
+  if (!knex || typeof knex !== "function") {
+    throw new TypeError("runInTransaction requires knex client.");
+  }
+
+  if (typeof knex.transaction !== "function") {
+    return callback(knex);
+  }
+  return knex.transaction(callback);
+}
+
 export {
   resolveQueryOptions,
   resolveRepoClient,
@@ -196,5 +210,6 @@ export {
   normalizeIdList,
   normalizeCountRow,
   parseJsonValue,
-  toDbJson
+  toDbJson,
+  runInTransaction
 };

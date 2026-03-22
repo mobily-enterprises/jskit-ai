@@ -7,7 +7,9 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/composables/*": "./src/client/composables/*.js",
+    "./client/composables/createCrudClientSupport": "./src/client/composables/createCrudClientSupport.js",
+    "./client/composables/crudClientSupportHelpers": "./src/client/composables/crudClientSupportHelpers.js",
+    "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js"
   },
   "dependencies": {

@@ -20,6 +20,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
+import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
 import { useCommand } from "../composables/useCommand.js";
 import { useList } from "../composables/useList.js";
@@ -29,7 +30,7 @@ import { useAccess } from "../composables/useAccess.js";
 import { useUiFeedback } from "../composables/useUiFeedback.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { matchesCurrentWorkspaceEvent } from "../support/realtimeWorkspace.js";
+import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 import {
   WORKSPACE_SETTINGS_CHANGED_EVENT,
@@ -53,11 +54,7 @@ const options = reactive({
   inviteRoleOptions: [],
   memberRoleOptions: [],
   formatDateTime(value) {
-    const parsedDate = new Date(value);
-    if (Number.isNaN(parsedDate.getTime())) {
-      return "unknown";
-    }
-    return parsedDate.toLocaleString();
+    return formatDateTime(value);
   }
 });
 
@@ -106,9 +103,7 @@ const access = useAccess({
   placementSource: "users-web.workspace-members-view"
 });
 
-function isCurrentWorkspaceRealtimeEvent({ payload = {} } = {}) {
-  return matchesCurrentWorkspaceEvent(payload, workspaceSlugFromRoute.value);
-}
+const matchesWorkspaceRealtime = createWorkspaceRealtimeMatcher(workspaceSlugFromRoute);
 
 const canViewMembers = computed(() => {
   return access.canAny(["workspace.members.view", "workspace.members.manage"]);
@@ -280,7 +275,7 @@ const workspaceSettingsView = useView({
   viewPermissions: ["workspace.members.invite"],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
-    matches: isCurrentWorkspaceRealtimeEvent
+    matches: matchesWorkspaceRealtime
   },
   fallbackLoadError: "Unable to load workspace settings."
 });
@@ -301,7 +296,7 @@ const workspaceMembersList = useList({
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_MEMBERS_CHANGED_EVENT,
-    matches: isCurrentWorkspaceRealtimeEvent
+    matches: matchesWorkspaceRealtime
   },
   selectItems: (payload) => normalizeMembers(payload?.members),
   fallbackLoadError: "Unable to load workspace members."
@@ -315,7 +310,7 @@ const workspaceInvitesList = useList({
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
     event: WORKSPACE_INVITES_CHANGED_EVENT,
-    matches: isCurrentWorkspaceRealtimeEvent
+    matches: matchesWorkspaceRealtime
   },
   selectItems: (payload) => normalizeInvites(payload?.invites),
   fallbackLoadError: "Unable to load workspace invites."

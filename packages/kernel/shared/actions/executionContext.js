@@ -27,10 +27,6 @@ function normalizeActor(actor) {
   return source;
 }
 
-function normalizeMembership(membership) {
-  return copyRecord(membership);
-}
-
 function normalizeTimeMeta(timeMeta) {
   const source = timeMeta && typeof timeMeta === "object" ? timeMeta : {};
   const nowValue = source.now instanceof Date ? source.now : new Date();
@@ -44,7 +40,6 @@ function normalizeTimeMeta(timeMeta) {
 
 const RESERVED_CONTEXT_KEYS = new Set([
   "actor",
-  "membership",
   "permissions",
   "surface",
   "channel",
@@ -70,7 +65,6 @@ function normalizeExecutionContext(context = {}) {
   return Object.freeze({
     ...passthrough,
     actor: normalizeActor(source.actor),
-    membership: normalizeMembership(source.membership),
     permissions: normalizePermissionList(source.permissions),
     surface: normalizeLowerText(source.surface),
     channel: normalizeLowerText(source.channel) || "internal",
@@ -85,7 +79,6 @@ const __testables = {
   normalizePermissions: normalizePermissionList,
   copyRecord,
   normalizeActor,
-  normalizeMembership,
   normalizeRequestMeta,
   normalizeTimeMeta
 };

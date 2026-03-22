@@ -9,7 +9,8 @@
     "./client": "./src/client/index.js",
     "./server/CrudServiceProvider": "./src/server/CrudServiceProvider.js",
     "./shared": "./src/shared/index.js",
-    "./shared/crud/*": "./src/shared/crud/*.js"
+    "./shared/crud/crudModuleConfig": "./src/shared/crud/crudModuleConfig.js",
+    "./shared/crud/crudResource": "./src/shared/crud/crudResource.js"
   },
   "dependencies": {
     "@jskit-ai/crud-core": "0.1.0",
