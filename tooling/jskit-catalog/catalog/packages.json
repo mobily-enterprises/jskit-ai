@@ -6,11 +6,11 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.10",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.10",
+        "version": "0.1.13",
         "description": "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
         "options": {
           "ai-provider": {
@@ -121,14 +121,14 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant": "0.1.10",
+              "@jskit-ai/assistant": "0.1.13",
               "@jskit-ai/auth-core": "0.1.8",
               "@jskit-ai/database-runtime": "0.1.8",
               "@jskit-ai/http-runtime": "0.1.8",
               "@jskit-ai/kernel": "0.1.8",
               "@jskit-ai/realtime": "0.1.8",
               "@jskit-ai/users-core": "0.1.10",
-              "@jskit-ai/users-web": "0.1.10",
+              "@jskit-ai/users-web": "0.1.13",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "marked": "^17.0.4",
@@ -537,6 +537,16 @@
               "reason": "Configure application public URL for auth redirect flows.",
               "category": "runtime-config",
               "id": "auth-app-public-url"
+            },
+            {
+              "op": "append-text",
+              "file": "config/server.js",
+              "position": "bottom",
+              "skipIfContains": "config.auth = {",
+              "value": "\nconfig.auth = {\n  oauth: {\n    providers: [],\n    defaultProvider: \"\"\n  }\n};\n",
+              "reason": "Append app-owned OAuth provider visibility config for stock auth screens.",
+              "category": "runtime-config",
+              "id": "auth-oauth-app-config"
             }
           ]
         }
@@ -786,7 +796,11 @@
             "dev": {}
           },
           "packageJson": {
-            "scripts": {}
+            "scripts": {
+              "server:auth": "SERVER_SURFACE=auth node ./bin/server.js",
+              "dev:auth": "VITE_SURFACE=auth vite",
+              "build:auth": "VITE_SURFACE=auth vite build"
+            }
           },
           "procfile": {},
           "files": [
@@ -846,11 +860,11 @@
     },
     {
       "packageId": "@jskit-ai/crud",
-      "version": "0.1.10",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud",
-        "version": "0.1.10",
+        "version": "0.1.13",
         "installationMode": "clone-only",
         "description": "CRUD module with server routes, actions, persistence, and client pages.",
         "options": {
@@ -950,14 +964,14 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.8",
-              "@jskit-ai/crud-core": "0.1.10",
+              "@jskit-ai/crud-core": "0.1.13",
               "@jskit-ai/database-runtime": "0.1.8",
               "@jskit-ai/http-runtime": "0.1.8",
               "@jskit-ai/kernel": "0.1.8",
               "@jskit-ai/realtime": "0.1.8",
               "@jskit-ai/shell-web": "0.1.8",
               "@jskit-ai/users-core": "0.1.10",
-              "@jskit-ai/users-web": "0.1.10",
+              "@jskit-ai/users-web": "0.1.13",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
               "@tanstack/vue-query": "5.92.12",
               "typebox": "^1.0.81",
@@ -1191,11 +1205,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.10",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.10",
+        "version": "0.1.13",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
           "@jskit-ai/kernel",
@@ -1220,7 +1234,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.10"
+              "@jskit-ai/crud-core": "0.1.13"
             },
             "dev": {}
           },
@@ -2350,7 +2364,14 @@
             "dev": {}
           },
           "packageJson": {
-            "scripts": {}
+            "scripts": {
+              "server:app": "SERVER_SURFACE=app node ./bin/server.js",
+              "server:admin": "SERVER_SURFACE=admin node ./bin/server.js",
+              "dev:app": "VITE_SURFACE=app vite",
+              "dev:admin": "VITE_SURFACE=admin vite",
+              "build:app": "VITE_SURFACE=app vite build",
+              "build:admin": "VITE_SURFACE=admin vite build"
+            }
           },
           "procfile": {},
           "files": [
@@ -2600,11 +2621,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.10",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.10",
+        "version": "0.1.13",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
         "dependsOn": [
           "@jskit-ai/http-runtime",
@@ -2878,7 +2899,11 @@
             "dev": {}
           },
           "packageJson": {
-            "scripts": {}
+            "scripts": {
+              "server:account": "SERVER_SURFACE=account node ./bin/server.js",
+              "dev:account": "VITE_SURFACE=account vite",
+              "build:account": "VITE_SURFACE=account vite build"
+            }
           },
           "procfile": {},
           "files": [

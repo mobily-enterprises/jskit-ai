@@ -5,7 +5,8 @@ const THEME_PREFERENCE_LIGHT = "light";
 const THEME_PREFERENCE_DARK = "dark";
 const THEME_PREFERENCE_SYSTEM = "system";
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-const WORKSPACE_PRIMARY_OVERRIDE_STYLE_ID = "jskit-users-web-workspace-primary-override";
+const WORKSPACE_THEME_NAME_LIGHT = "workspace-light";
+const WORKSPACE_THEME_NAME_DARK = "workspace-dark";
 
 function normalizeThemePreference(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -100,16 +101,6 @@ function normalizeHexColor(value = "") {
   return normalized.toUpperCase();
 }
 
-function resolveDocumentObject(documentRef = null) {
-  if (documentRef && typeof documentRef === "object") {
-    return documentRef;
-  }
-  if (typeof document === "object" && document) {
-    return document;
-  }
-  return null;
-}
-
 function hexColorToRgb(value = "") {
   const normalized = normalizeHexColor(value);
   if (!normalized) {
@@ -122,59 +113,143 @@ function hexColorToRgb(value = "") {
   return `${red},${green},${blue}`;
 }
 
-function resolveWorkspacePrimaryOverrideStyleElement(doc = null) {
-  if (!doc || typeof doc.getElementById !== "function") {
+function resolveVuetifyThemeDefinitions(themeController) {
+  if (!themeController || typeof themeController !== "object") {
     return null;
   }
-  return doc.getElementById(WORKSPACE_PRIMARY_OVERRIDE_STYLE_ID);
+  const themes = themeController.themes?.value;
+  if (!themes || typeof themes !== "object") {
+    return null;
+  }
+  return themes;
 }
 
-function ensureWorkspacePrimaryOverrideStyleElement(doc = null) {
-  if (!doc || typeof doc !== "object") {
-    return null;
+function normalizeThemeColors(colors) {
+  const source = colors && typeof colors === "object" ? colors : {};
+  const normalized = {};
+  for (const [key, value] of Object.entries(source)) {
+    normalized[String(key)] = String(value);
   }
-  const existing = resolveWorkspacePrimaryOverrideStyleElement(doc);
-  if (existing) {
-    return existing;
-  }
-  if (!doc.head || typeof doc.createElement !== "function" || typeof doc.head.appendChild !== "function") {
-    return null;
-  }
-  const styleElement = doc.createElement("style");
-  styleElement.id = WORKSPACE_PRIMARY_OVERRIDE_STYLE_ID;
-  doc.head.appendChild(styleElement);
-  return styleElement;
+  return normalized;
 }
 
-function setVuetifyPrimaryColorOverride(themeInput = null, { documentRef = null } = {}) {
-  const doc = resolveDocumentObject(documentRef);
-  if (!doc) {
+function normalizeWorkspaceBaseThemeName(themeName = "") {
+  const normalized = String(themeName || "").trim().toLowerCase();
+  if (normalized === WORKSPACE_THEME_NAME_LIGHT) {
+    return THEME_PREFERENCE_LIGHT;
+  }
+  if (normalized === WORKSPACE_THEME_NAME_DARK) {
+    return THEME_PREFERENCE_DARK;
+  }
+  if (normalized === THEME_PREFERENCE_DARK) {
+    return THEME_PREFERENCE_DARK;
+  }
+  return THEME_PREFERENCE_LIGHT;
+}
+
+function areThemeColorsEqual(leftColors = {}, rightColors = {}) {
+  const leftEntries = Object.entries(leftColors);
+  const rightEntries = Object.entries(rightColors);
+  if (leftEntries.length !== rightEntries.length) {
     return false;
   }
-  const source = themeInput && typeof themeInput === "object" ? themeInput : null;
-  const nextPalette = source ? resolveWorkspaceThemePalette(source) : null;
-  const existingStyleElement = resolveWorkspacePrimaryOverrideStyleElement(doc);
-  if (!nextPalette) {
-    if (!existingStyleElement) {
+
+  for (const [key, value] of leftEntries) {
+    if (!Object.hasOwn(rightColors, key)) {
       return false;
     }
-    if (typeof existingStyleElement.remove === "function") {
-      existingStyleElement.remove();
-      return true;
+    if (String(rightColors[key]) !== String(value)) {
+      return false;
     }
+  }
+  return true;
+}
+
+function composeWorkspaceThemeDefinition(baseThemeDefinition, palette) {
+  const baseTheme = baseThemeDefinition && typeof baseThemeDefinition === "object" ? baseThemeDefinition : {};
+  const baseColors = normalizeThemeColors(baseTheme.colors);
+  return {
+    ...baseTheme,
+    colors: {
+      ...baseColors,
+      primary: palette.color,
+      secondary: palette.secondaryColor,
+      surface: palette.surfaceColor,
+      "surface-variant": palette.surfaceVariantColor,
+      background: palette.backgroundColor
+    }
+  };
+}
+
+function upsertThemeDefinition(themeDefinitions, themeName, nextDefinition) {
+  const currentDefinition =
+    themeDefinitions[themeName] && typeof themeDefinitions[themeName] === "object" ? themeDefinitions[themeName] : null;
+  const currentColors = normalizeThemeColors(currentDefinition?.colors);
+  const nextColors = normalizeThemeColors(nextDefinition?.colors);
+  const sameDarkFlag = Boolean(currentDefinition?.dark) === Boolean(nextDefinition?.dark);
+  if (sameDarkFlag && areThemeColorsEqual(currentColors, nextColors)) {
+    return false;
+  }
+  themeDefinitions[themeName] = nextDefinition;
+  return true;
+}
+
+function setVuetifyPrimaryColorOverride(themeController, themeInput = null) {
+  if (
+    !themeController ||
+    typeof themeController !== "object" ||
+    !themeController.global ||
+    !themeController.global.name
+  ) {
     return false;
   }
 
-  const styleElement = existingStyleElement || ensureWorkspacePrimaryOverrideStyleElement(doc);
-  if (!styleElement) {
+  const themeDefinitions = resolveVuetifyThemeDefinitions(themeController);
+  if (!themeDefinitions) {
     return false;
   }
-  const nextCssText = `.v-theme--light, .v-theme--dark {\n  --v-theme-primary: ${hexColorToRgb(nextPalette.color)};\n  --v-theme-secondary: ${hexColorToRgb(nextPalette.secondaryColor)};\n  --v-theme-surface: ${hexColorToRgb(nextPalette.surfaceColor)};\n  --v-theme-surface-variant: ${hexColorToRgb(nextPalette.surfaceVariantColor)};\n  --v-theme-background: ${hexColorToRgb(nextPalette.backgroundColor)};\n}`;
-  if (String(styleElement.textContent || "") === nextCssText) {
+
+  const currentThemeName = String(themeController.global.name.value || "").trim();
+  const normalizedBaseThemeName = normalizeWorkspaceBaseThemeName(currentThemeName);
+  const normalizedThemeName =
+    normalizedBaseThemeName === THEME_PREFERENCE_DARK ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
+  const source = themeInput && typeof themeInput === "object" ? themeInput : null;
+
+  if (!source) {
+    if (currentThemeName === normalizedThemeName) {
+      return false;
+    }
+    themeController.global.name.value = normalizedThemeName;
+    return true;
+  }
+
+  const baseLightTheme =
+    themeDefinitions[THEME_PREFERENCE_LIGHT] && typeof themeDefinitions[THEME_PREFERENCE_LIGHT] === "object"
+      ? themeDefinitions[THEME_PREFERENCE_LIGHT]
+      : null;
+  const baseDarkTheme =
+    themeDefinitions[THEME_PREFERENCE_DARK] && typeof themeDefinitions[THEME_PREFERENCE_DARK] === "object"
+      ? themeDefinitions[THEME_PREFERENCE_DARK]
+      : null;
+  if (!baseLightTheme || !baseDarkTheme) {
     return false;
   }
-  styleElement.textContent = nextCssText;
-  return true;
+
+  const palette = resolveWorkspaceThemePalette(source);
+  const nextLightTheme = composeWorkspaceThemeDefinition(baseLightTheme, palette);
+  const nextDarkTheme = composeWorkspaceThemeDefinition(baseDarkTheme, palette);
+  const nextThemeName =
+    normalizedThemeName === THEME_PREFERENCE_DARK ? WORKSPACE_THEME_NAME_DARK : WORKSPACE_THEME_NAME_LIGHT;
+
+  let changed = false;
+  changed = upsertThemeDefinition(themeDefinitions, WORKSPACE_THEME_NAME_LIGHT, nextLightTheme) || changed;
+  changed = upsertThemeDefinition(themeDefinitions, WORKSPACE_THEME_NAME_DARK, nextDarkTheme) || changed;
+  if (themeController.global.name.value !== nextThemeName) {
+    themeController.global.name.value = nextThemeName;
+    changed = true;
+  }
+
+  return changed;
 }
 
 export {

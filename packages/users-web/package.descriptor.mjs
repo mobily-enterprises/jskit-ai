@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.10",
+  version: "0.1.13",
   description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
   dependsOn: [
     "@jskit-ai/http-runtime",

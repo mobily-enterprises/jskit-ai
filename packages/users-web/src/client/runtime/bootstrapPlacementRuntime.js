@@ -241,9 +241,13 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   }
 
   function applyWorkspaceColorFromPlacementContext(reason = "manual") {
+    const themeController = getVuetifyThemeController();
+    if (!themeController) {
+      return;
+    }
     try {
       const workspaceTheme = resolveWorkspaceThemeForCurrentRoute();
-      setVuetifyPrimaryColorOverride(workspaceTheme);
+      setVuetifyPrimaryColorOverride(themeController, workspaceTheme);
     } catch (error) {
       runtimeLogger.warn(
         {

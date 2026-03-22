@@ -41,31 +41,7 @@ const vuetify = createVuetify({
   components,
   directives,
   theme: {
-    defaultTheme: "light",
-    themes: {
-      light: {
-        colors: {
-          primary: "#0f6b54",
-          secondary: "#3f5150",
-          background: "#eef3ee",
-          surface: "#f7fbf6",
-          "surface-variant": "#dfe8df",
-          "on-surface-variant": "#3b4c44",
-          error: "#9f1d1d"
-        }
-      },
-      dark: {
-        colors: {
-          primary: "#6fd0b5",
-          secondary: "#9db2af",
-          background: "#0f1715",
-          surface: "#16211e",
-          "surface-variant": "#253430",
-          "on-surface-variant": "#c5d6d2",
-          error: "#ffb4ab"
-        }
-      }
-    }
+    defaultTheme: "light"
   },
   icons: {
     defaultSet: "mdi",

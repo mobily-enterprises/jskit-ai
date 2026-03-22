@@ -200,6 +200,30 @@ function createVuetifyThemeController(initial = "light") {
       name: {
         value: initial
       }
+    },
+    themes: {
+      value: {
+        light: {
+          dark: false,
+          colors: {
+            primary: "#0f6b54",
+            secondary: "#3f5150",
+            background: "#eef3ee",
+            surface: "#f7fbf6",
+            "surface-variant": "#dfe8df"
+          }
+        },
+        dark: {
+          dark: true,
+          colors: {
+            primary: "#6fd0b5",
+            secondary: "#9db2af",
+            background: "#0f1715",
+            surface: "#16211e",
+            "surface-variant": "#253430"
+          }
+        }
+      }
     }
   };
 }
@@ -212,56 +236,6 @@ function createVueAppWithThemeController(themeController) {
       }
     }
   };
-}
-
-function createThemeOverrideDocumentStub() {
-  let styleElement = null;
-
-  return {
-    head: {
-      appendChild(element) {
-        styleElement = element;
-      }
-    },
-    createElement() {
-      return {
-        id: "",
-        textContent: "",
-        remove() {
-          styleElement = null;
-        }
-      };
-    },
-    getElementById(id) {
-      if (id !== "jskit-users-web-workspace-primary-override") {
-        return null;
-      }
-      return styleElement;
-    }
-  };
-}
-
-function hexColorToRgb(value = "") {
-  const normalized = String(value || "").trim();
-  if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
-    return "";
-  }
-
-  const red = Number.parseInt(normalized.slice(1, 3), 16);
-  const green = Number.parseInt(normalized.slice(3, 5), 16);
-  const blue = Number.parseInt(normalized.slice(5, 7), 16);
-  return `${red},${green},${blue}`;
-}
-
-function buildWorkspaceOverrideCss(themeInput = {}) {
-  const palette = resolveWorkspaceThemePalette(themeInput);
-  return `.v-theme--light, .v-theme--dark {\n  --v-theme-primary: ${hexColorToRgb(
-    palette.color
-  )};\n  --v-theme-secondary: ${hexColorToRgb(palette.secondaryColor)};\n  --v-theme-surface: ${hexColorToRgb(
-    palette.surfaceColor
-  )};\n  --v-theme-surface-variant: ${hexColorToRgb(
-    palette.surfaceVariantColor
-  )};\n  --v-theme-background: ${hexColorToRgb(palette.backgroundColor)};\n}`;
 }
 
 test("bootstrap placement runtime writes user/workspace/permissions into placement context", async () => {
@@ -566,67 +540,63 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
   });
 
   await runtime.initialize();
-  assert.equal(themeController.global.name.value, "dark");
+  assert.equal(themeController.global.name.value, "workspace-dark");
 
   socket.emit(USERS_BOOTSTRAP_CHANGED_EVENT, {});
   await flushTasks();
-  assert.equal(themeController.global.name.value, "light");
+  assert.equal(themeController.global.name.value, "workspace-light");
 });
 
-test("bootstrap placement runtime applies workspace color to Vuetify primary and clears it off workspace routes", async () => {
-  const previousDocument = globalThis.document;
-  const documentStub = createThemeOverrideDocumentStub();
-  globalThis.document = documentStub;
-
-  try {
-    const placementRuntime = createPlacementRuntimeStub();
-    const router = createRouterStub("/w/acme/dashboard");
-    const runtime = createBootstrapPlacementRuntime({
-      app: createAppStub({
-        [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-        [CLIENT_MODULE_ROUTER_TOKEN]: router
-      }),
-      fetchBootstrap: async (workspaceSlug) => {
-        return {
-          session: {
-            authenticated: true,
-            userId: 1
-          },
-          workspaces: [
-            {
-              id: 1,
-              slug: "acme",
-              name: "Acme Workspace",
-              color: "#CC3344"
-            }
-          ],
-          permissions: []
-        };
-      }
-    });
-
-    await runtime.initialize();
-    assert.equal(
-      String(documentStub.getElementById("jskit-users-web-workspace-primary-override")?.textContent || ""),
-      buildWorkspaceOverrideCss({
-        color: "#CC3344"
-      })
-    );
-
-    router.currentRoute.value.path = "/home";
-    router.currentRoute.value.fullPath = "/home";
-    router.emitAfterEach();
-    await flushTasks();
-    await flushTasks();
-
-    assert.equal(documentStub.getElementById("jskit-users-web-workspace-primary-override"), null);
-  } finally {
-    if (typeof previousDocument === "undefined") {
-      delete globalThis.document;
-    } else {
-      globalThis.document = previousDocument;
+test("bootstrap placement runtime applies workspace palette via Vuetify workspace themes and clears it off workspace routes", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const themeController = createVuetifyThemeController("light");
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router,
+      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+    }),
+    fetchBootstrap: async (workspaceSlug) => {
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        workspaces: [
+          {
+            id: 1,
+            slug: "acme",
+            name: "Acme Workspace",
+            color: "#CC3344"
+          }
+        ],
+        permissions: []
+      };
     }
-  }
+  });
+
+  await runtime.initialize();
+  const palette = resolveWorkspaceThemePalette({
+    color: "#CC3344"
+  });
+  assert.equal(themeController.global.name.value, "workspace-light");
+  assert.equal(themeController.themes.value["workspace-light"].colors.primary, palette.color);
+  assert.equal(themeController.themes.value["workspace-light"].colors.secondary, palette.secondaryColor);
+  assert.equal(themeController.themes.value["workspace-light"].colors.surface, palette.surfaceColor);
+  assert.equal(
+    themeController.themes.value["workspace-light"].colors["surface-variant"],
+    palette.surfaceVariantColor
+  );
+  assert.equal(themeController.themes.value["workspace-light"].colors.background, palette.backgroundColor);
+
+  router.currentRoute.value.path = "/home";
+  router.currentRoute.value.fullPath = "/home";
+  router.emitAfterEach();
+  await flushTasks();
+  await flushTasks();
+
+  assert.equal(themeController.global.name.value, "light");
 });
 
 test("bootstrap placement runtime marks workspace slug as not_found and clears workspace context on 404", async () => {

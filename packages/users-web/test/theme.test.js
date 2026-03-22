@@ -12,15 +12,38 @@ import {
   setVuetifyThemeName
 } from "../src/client/lib/theme.js";
 
-function buildWorkspaceOverrideCss(themeInput = {}) {
-  const palette = resolveWorkspaceThemePalette(themeInput);
-  return `.v-theme--light, .v-theme--dark {\n  --v-theme-primary: ${hexColorToRgb(
-    palette.color
-  )};\n  --v-theme-secondary: ${hexColorToRgb(palette.secondaryColor)};\n  --v-theme-surface: ${hexColorToRgb(
-    palette.surfaceColor
-  )};\n  --v-theme-surface-variant: ${hexColorToRgb(
-    palette.surfaceVariantColor
-  )};\n  --v-theme-background: ${hexColorToRgb(palette.backgroundColor)};\n}`;
+function createVuetifyThemeController(initialTheme = "light") {
+  return {
+    global: {
+      name: {
+        value: initialTheme
+      }
+    },
+    themes: {
+      value: {
+        light: {
+          dark: false,
+          colors: {
+            primary: "#0f6b54",
+            secondary: "#3f5150",
+            background: "#eef3ee",
+            surface: "#f7fbf6",
+            "surface-variant": "#dfe8df"
+          }
+        },
+        dark: {
+          dark: true,
+          colors: {
+            primary: "#6fd0b5",
+            secondary: "#9db2af",
+            background: "#0f1715",
+            surface: "#16211e",
+            "surface-variant": "#253430"
+          }
+        }
+      }
+    }
+  };
 }
 
 test("normalizeThemePreference accepts known preferences and falls back to system", () => {
@@ -74,13 +97,7 @@ test("resolveBootstrapThemeName uses authenticated user preference", () => {
 });
 
 test("resolveVuetifyThemeController reads theme controller from Vue app provides", () => {
-  const themeController = {
-    global: {
-      name: {
-        value: "light"
-      }
-    }
-  };
+  const themeController = createVuetifyThemeController("light");
   const vueApp = {
     _context: {
       provides: {
@@ -94,13 +111,7 @@ test("resolveVuetifyThemeController reads theme controller from Vue app provides
 });
 
 test("setVuetifyThemeName updates only when the value changes", () => {
-  const themeController = {
-    global: {
-      name: {
-        value: "light"
-      }
-    }
-  };
+  const themeController = createVuetifyThemeController("light");
 
   assert.equal(setVuetifyThemeName(themeController, "light"), false);
   assert.equal(setVuetifyThemeName(themeController, "dark"), true);
@@ -113,44 +124,31 @@ test("hexColorToRgb returns Vuetify rgb tuple and rejects invalid values", () =>
   assert.equal(hexColorToRgb("invalid"), "");
 });
 
-test("setVuetifyPrimaryColorOverride writes and removes workspace override stylesheet", () => {
-  const styleElement = {
-    id: "",
-    textContent: "",
-    removeCalled: false,
-    remove() {
-      this.removeCalled = true;
-      documentStub._styleElement = null;
-    }
-  };
-  const documentStub = {
-    _styleElement: null,
-    head: {
-      appendChild(element) {
-        documentStub._styleElement = element;
-      }
-    },
-    createElement() {
-      return styleElement;
-    },
-    getElementById(id) {
-      if (id !== "jskit-users-web-workspace-primary-override") {
-        return null;
-      }
-      return documentStub._styleElement;
-    }
-  };
+test("setVuetifyPrimaryColorOverride mutates workspace themes and restores base theme names", () => {
+  const themeController = createVuetifyThemeController("light");
+  const expectedPalette = resolveWorkspaceThemePalette({
+    color: "#CC3344"
+  });
 
-  assert.equal(setVuetifyPrimaryColorOverride({ color: "#CC3344" }, { documentRef: documentStub }), true);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), true);
+  assert.equal(themeController.global.name.value, "workspace-light");
+  assert.equal(themeController.themes.value["workspace-light"].colors.primary, expectedPalette.color);
+  assert.equal(themeController.themes.value["workspace-light"].colors.secondary, expectedPalette.secondaryColor);
+  assert.equal(themeController.themes.value["workspace-light"].colors.surface, expectedPalette.surfaceColor);
   assert.equal(
-    styleElement.textContent,
-    buildWorkspaceOverrideCss({
-      color: "#CC3344"
-    })
+    themeController.themes.value["workspace-light"].colors["surface-variant"],
+    expectedPalette.surfaceVariantColor
   );
+  assert.equal(themeController.themes.value["workspace-light"].colors.background, expectedPalette.backgroundColor);
 
-  assert.equal(setVuetifyPrimaryColorOverride({ color: "#CC3344" }, { documentRef: documentStub }), false);
-  assert.equal(setVuetifyPrimaryColorOverride("", { documentRef: documentStub }), true);
-  assert.equal(styleElement.removeCalled, true);
-  assert.equal(setVuetifyPrimaryColorOverride("", { documentRef: documentStub }), false);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), false);
+
+  assert.equal(setVuetifyThemeName(themeController, "dark"), true);
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, { color: "#CC3344" }), true);
+  assert.equal(themeController.global.name.value, "workspace-dark");
+  assert.equal(themeController.themes.value["workspace-dark"].colors.primary, expectedPalette.color);
+
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, null), true);
+  assert.equal(themeController.global.name.value, "dark");
+  assert.equal(setVuetifyPrimaryColorOverride(themeController, null), false);
 });

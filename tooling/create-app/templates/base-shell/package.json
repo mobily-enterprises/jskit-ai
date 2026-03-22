@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.8",
-    "@jskit-ai/jskit-cli": "0.2.10",
+    "@jskit-ai/jskit-cli": "0.2.13",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "unplugin-vue-router": "^0.19.2",
