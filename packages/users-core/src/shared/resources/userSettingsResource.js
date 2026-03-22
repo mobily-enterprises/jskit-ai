@@ -1,11 +1,11 @@
 import { Type } from "typebox";
 import {
   createCursorListValidator,
-  normalizeObjectInput
+  normalizeObjectInput,
+  normalizeSettingsFieldInput
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
-import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { userProfileResource } from "./userProfileResource.js";
 import {
   USER_SETTINGS_SECTIONS,
