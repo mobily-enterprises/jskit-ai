@@ -292,7 +292,7 @@ function toggleConfirmPasswordVisibility() {
 <style scoped>
 .login-main {
   background-color: rgb(var(--v-theme-background));
-  background-image: radial-gradient(circle at 15% 12%, rgba(0, 107, 83, 0.12), transparent 32%);
+  background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
 }
 
 .auth-card {
@@ -305,37 +305,37 @@ function toggleConfirmPasswordVisibility() {
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #395447;
+  color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
 .auth-title {
   margin: 0 0 8px;
   font-size: clamp(28px, 3vw, 32px);
   line-height: 1.2;
-  color: #1d2c24;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .mode-switch {
   border-radius: 12px;
-  background-color: rgba(57, 84, 71, 0.08);
+  background-color: rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .email-confirmation-state {
   border-radius: 12px;
-  border: 1px solid rgba(57, 84, 71, 0.2);
-  background: rgba(57, 84, 71, 0.07);
+  border: 1px solid rgba(var(--v-theme-primary), 0.34);
+  background: rgba(var(--v-theme-primary), 0.12);
   padding: 16px;
 }
 
 .email-confirmation-message {
-  color: #1d2c24;
+  color: rgb(var(--v-theme-on-surface));
   line-height: 1.5;
 }
 
 .remembered-account {
   border-radius: 12px;
-  border: 1px solid rgba(57, 84, 71, 0.2);
-  background: rgba(57, 84, 71, 0.07);
+  border: 1px solid rgba(var(--v-theme-primary), 0.34);
+  background: rgba(var(--v-theme-primary), 0.12);
   padding: 12px 14px;
 }
 
@@ -347,13 +347,13 @@ function toggleConfirmPasswordVisibility() {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #1d2c24;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .remembered-email {
   margin: 2px 0 0;
   font-size: 12px;
-  color: rgba(29, 44, 36, 0.72);
+  color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
 .oauth-provider-button {

@@ -49,7 +49,7 @@ const { status, errorMessage, retrySignOut, goToLogin } = useDefaultSignOutView(
 <style scoped>
 .signout-main {
   background-color: rgb(var(--v-theme-background));
-  background-image: radial-gradient(circle at 15% 12%, rgba(0, 107, 83, 0.12), transparent 32%);
+  background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
 }
 
 .signout-card {

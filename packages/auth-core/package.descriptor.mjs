@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-core",
-  "version": "0.1.11",
+  "version": "0.1.14",
   "dependsOn": [
     "@jskit-ai/value-app-config-shared"
   ],
@@ -68,7 +68,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/kernel": "0.1.11",
+        "@jskit-ai/kernel": "0.1.14",
         "@fastify/cookie": "^11.0.2",
         "@fastify/csrf-protection": "^7.1.0",
         "@fastify/rate-limit": "^10.3.0"
@@ -80,16 +80,6 @@ export default Object.freeze({
     },
     "procfile": {},
     "files": [],
-    "text": [
-      {
-        "file": ".env",
-        "op": "upsert-env",
-        "key": "AUTH_PROFILE_MODE",
-        "value": "standalone",
-        "reason": "Default auth profile mode to standalone when users-core is not installed.",
-        "category": "runtime-config",
-        "id": "auth-profile-mode"
-      }
-    ]
+    "text": []
   }
 });

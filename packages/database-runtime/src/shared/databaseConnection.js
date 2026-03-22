@@ -100,13 +100,14 @@ function resolveDatabaseConnectionFromEnvironment(
   const hasDbPassword = Object.prototype.hasOwnProperty.call(source, "DB_PASSWORD");
   const password = hasDbPassword ? String(source.DB_PASSWORD ?? "") : String(parsedUrl?.password || "");
 
-  return Object.freeze({
+  // Knex may redefine connection.password as a hidden property; keep this mutable.
+  return {
     host,
     port,
     database,
     user,
     password
-  });
+  };
 }
 
 export {

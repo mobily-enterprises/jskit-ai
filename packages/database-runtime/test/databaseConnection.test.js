@@ -58,3 +58,16 @@ test("resolveDatabaseConnectionFromEnvironment keeps explicit DB_* values over D
   assert.equal(connection.password, "explicit_pass");
 });
 
+test("resolveDatabaseConnectionFromEnvironment returns mutable connection fields for knex", () => {
+  const connection = resolveDatabaseConnectionFromEnvironment({
+    DATABASE_URL: "mysql://urluser:urlpass@db.url.local:3308/url_db_name"
+  }, {
+    defaultPort: 3306,
+    context: "database runtime"
+  });
+
+  assert.equal(Object.isFrozen(connection), false);
+  const descriptor = Object.getOwnPropertyDescriptor(connection, "password");
+  assert.equal(descriptor?.configurable, true);
+  assert.equal(descriptor?.writable, true);
+});
