@@ -27,7 +27,7 @@ exports.up = async function up(knex) {
     table.integer("owner_user_id").unsigned().notNullable().references("id").inTable("user_profiles").onDelete("CASCADE");
     table.boolean("is_personal").notNullable().defaultTo(true);
     table.string("avatar_url", 512).notNullable().defaultTo("");
-    table.string("color", 7).notNullable().defaultTo("#0F6B54");
+    table.string("color", 7).notNullable().defaultTo("#2F5D9E");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("deleted_at", { useTz: false }).nullable();
@@ -48,7 +48,10 @@ exports.up = async function up(knex) {
     table.integer("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
     table.string("name", 160).notNullable().defaultTo("Workspace");
     table.string("avatar_url", 512).notNullable().defaultTo("");
-    table.string("color", 7).notNullable().defaultTo("#0F6B54");
+    table.string("color", 7).notNullable().defaultTo("#2F5D9E");
+    table.string("secondary_color", 7).notNullable().defaultTo("#224372");
+    table.string("surface_color", 7).notNullable().defaultTo("#F0F4F8");
+    table.string("surface_variant_color", 7).notNullable().defaultTo("#E2E8F1");
     table.boolean("invites_enabled").notNullable().defaultTo(true);
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());

@@ -251,7 +251,11 @@ export default Object.freeze({
       dev: {}
     },
     packageJson: {
-      scripts: {}
+      scripts: {
+        "server:account": "SERVER_SURFACE=account node ./bin/server.js",
+        "dev:account": "VITE_SURFACE=account vite",
+        "build:account": "VITE_SURFACE=account vite build"
+      }
     },
     procfile: {},
     files: [

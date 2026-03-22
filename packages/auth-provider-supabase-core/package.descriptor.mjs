@@ -132,6 +132,16 @@ export default Object.freeze({
         "reason": "Configure application public URL for auth redirect flows.",
         "category": "runtime-config",
         "id": "auth-app-public-url"
+      },
+      {
+        "op": "append-text",
+        "file": "config/server.js",
+        "position": "bottom",
+        "skipIfContains": "config.auth = {",
+        "value": "\nconfig.auth = {\n  oauth: {\n    providers: [],\n    defaultProvider: \"\"\n  }\n};\n",
+        "reason": "Append app-owned OAuth provider visibility config for stock auth screens.",
+        "category": "runtime-config",
+        "id": "auth-oauth-app-config"
       }
     ]
   }

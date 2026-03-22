@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "../test-support/registerDefaultSettingsFields.js";
+import { resolveWorkspaceThemePalette } from "../src/shared/settings.js";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 
 function authorizedOptions(permissions = []) {
@@ -15,6 +16,9 @@ function authorizedOptions(permissions = []) {
 }
 
 function createFixture({ workspaceInvitationsEnabled = true } = {}) {
+  const defaultTheme = resolveWorkspaceThemePalette({
+    color: "#0F6B54"
+  });
   const state = {
     settingsPatch: null,
     workspace: {
@@ -23,12 +27,15 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
       name: "TonyMobily3",
       ownerUserId: 9,
       avatarUrl: "",
-      color: "#0F6B54"
+      color: defaultTheme.color
     },
     settings: {
       name: "TonyMobily3",
       avatarUrl: "",
-      color: "#0F6B54",
+      color: defaultTheme.color,
+      secondaryColor: defaultTheme.secondaryColor,
+      surfaceColor: defaultTheme.surfaceColor,
+      surfaceVariantColor: defaultTheme.surfaceVariantColor,
       invitesEnabled: true
     }
   };
@@ -67,6 +74,9 @@ test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEn
     name: "TonyMobily3",
     avatarUrl: "",
     color: "#0F6B54",
+    secondaryColor: "#0B4D3C",
+    surfaceColor: "#EEF5F3",
+    surfaceVariantColor: "#DDEAE7",
     invitesEnabled: true,
     invitesAvailable: true,
     invitesEffective: true
@@ -93,6 +103,9 @@ test("workspaceSettingsService.updateWorkspaceSettings writes editable fields th
     name: "New Name",
     avatarUrl: "",
     color: "#0F6B54",
+    secondaryColor: "#0B4D3C",
+    surfaceColor: "#EEF5F3",
+    surfaceVariantColor: "#DDEAE7",
     invitesEnabled: false,
     invitesAvailable: true,
     invitesEffective: false
@@ -113,6 +126,9 @@ test("workspaceSettingsService disables invite settings in output when app polic
     name: "TonyMobily3",
     avatarUrl: "",
     color: "#0F6B54",
+    secondaryColor: "#0B4D3C",
+    surfaceColor: "#EEF5F3",
+    surfaceVariantColor: "#DDEAE7",
     invitesEnabled: false,
     invitesAvailable: false,
     invitesEffective: false

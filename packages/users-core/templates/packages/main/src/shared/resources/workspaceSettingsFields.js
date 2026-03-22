@@ -3,7 +3,12 @@
 
 import { Type } from "typebox";
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { coerceWorkspaceColor } from "@jskit-ai/users-core/shared/settings";
+import {
+  coerceWorkspaceColor,
+  coerceWorkspaceSecondaryColor,
+  coerceWorkspaceSurfaceColor,
+  coerceWorkspaceSurfaceVariantColor
+} from "@jskit-ai/users-core/shared/settings";
 import {
   defineField,
   resetWorkspaceSettingsFields
@@ -27,6 +32,10 @@ function normalizeAvatarUrl(value) {
 function normalizeHexColor(value) {
   const color = normalizeText(value);
   return /^#[0-9A-Fa-f]{6}$/.test(color) ? color.toUpperCase() : null;
+}
+
+function resolveThemeBaseColor({ workspace = {}, settings = {} } = {}) {
+  return normalizeText(settings.color || workspace.color);
 }
 
 resetWorkspaceSettingsFields();
@@ -78,14 +87,92 @@ defineField({
     pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
       required: "Workspace color is required.",
-      pattern: "Workspace color must be a hex color like #0F6B54.",
-      default: "Workspace color must be a hex color like #0F6B54."
+      pattern: "Workspace color must be a hex color like #2F5D9E.",
+      default: "Workspace color must be a hex color like #2F5D9E."
     }
   }),
   outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
   normalizeInput: normalizeHexColor,
   normalizeOutput: (value) => coerceWorkspaceColor(value),
   resolveDefault: ({ workspace = {} } = {}) => coerceWorkspaceColor(workspace.color)
+});
+
+defineField({
+  key: "secondaryColor",
+  dbColumn: "secondary_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Secondary color is required.",
+      pattern: "Secondary color must be a hex color like #224372.",
+      default: "Secondary color must be a hex color like #224372."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSecondaryColor(value, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    }),
+  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSecondaryColor(workspace.secondaryColor, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    })
+});
+
+defineField({
+  key: "surfaceColor",
+  dbColumn: "surface_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Surface color is required.",
+      pattern: "Surface color must be a hex color like #F0F4F8.",
+      default: "Surface color must be a hex color like #F0F4F8."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSurfaceColor(value, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    }),
+  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSurfaceColor(workspace.surfaceColor, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    })
+});
+
+defineField({
+  key: "surfaceVariantColor",
+  dbColumn: "surface_variant_color",
+  required: true,
+  inputSchema: Type.String({
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Surface variant color is required.",
+      pattern: "Surface variant color must be a hex color like #E2E8F1.",
+      default: "Surface variant color must be a hex color like #E2E8F1."
+    }
+  }),
+  outputSchema: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
+  normalizeInput: normalizeHexColor,
+  normalizeOutput: (value, { workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSurfaceVariantColor(value, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    }),
+  resolveDefault: ({ workspace = {}, settings = {} } = {}) =>
+    coerceWorkspaceSurfaceVariantColor(workspace.surfaceVariantColor, {
+      color: resolveThemeBaseColor({ workspace, settings })
+    })
 });
 
 defineField({

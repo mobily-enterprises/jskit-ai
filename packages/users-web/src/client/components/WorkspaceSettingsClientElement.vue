@@ -23,7 +23,7 @@
           <v-form @submit.prevent="addEdit.submit" novalidate>
             <v-progress-linear v-if="addEdit.isRefetching" indeterminate class="mb-4" />
             <v-row>
-              <v-col cols="12" md="5">
+              <v-col cols="12" md="6">
                 <v-text-field
                   v-model="workspaceForm.name"
                   label="Workspace name"
@@ -34,19 +34,7 @@
                 />
               </v-col>
 
-              <v-col cols="12" md="2">
-                <v-text-field
-                  v-model="workspaceForm.color"
-                  label="Workspace color"
-                  type="color"
-                  variant="outlined"
-                  density="comfortable"
-                  :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-                  :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
-                />
-              </v-col>
-
-              <v-col cols="12" md="5">
+              <v-col cols="12" md="6">
                 <v-text-field
                   v-model="workspaceForm.avatarUrl"
                   label="Workspace avatar URL"
@@ -58,6 +46,61 @@
                   persistent-hint
                   :error-messages="addEdit.fieldErrors.avatarUrl ? [addEdit.fieldErrors.avatarUrl] : []"
                 />
+              </v-col>
+
+              <v-col cols="12">
+                <div class="text-subtitle-2 mb-2">Theme colors</div>
+                <v-row dense>
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.color"
+                      label="Primary"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.secondaryColor"
+                      label="Secondary"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="addEdit.fieldErrors.secondaryColor ? [addEdit.fieldErrors.secondaryColor] : []"
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.surfaceColor"
+                      label="Surface"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="addEdit.fieldErrors.surfaceColor ? [addEdit.fieldErrors.surfaceColor] : []"
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="workspaceForm.surfaceVariantColor"
+                      label="Surface variant"
+                      type="color"
+                      variant="outlined"
+                      density="comfortable"
+                      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+                      :error-messages="
+                        addEdit.fieldErrors.surfaceVariantColor ? [addEdit.fieldErrors.surfaceVariantColor] : []
+                      "
+                    />
+                  </v-col>
+                </v-row>
               </v-col>
 
               <v-col cols="12" md="6" class="d-flex align-center">
@@ -96,6 +139,10 @@ import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validato
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
 import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import {
+  DEFAULT_WORKSPACE_COLOR,
+  resolveWorkspaceThemePalette
+} from "@jskit-ai/users-core/shared/settings";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { useBootstrapQuery } from "../composables/useBootstrapQuery.js";
@@ -105,11 +152,16 @@ import { arePermissionListsEqual, normalizePermissionList } from "../lib/permiss
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalette({
+  color: DEFAULT_WORKSPACE_COLOR
+});
 
 const workspaceForm = reactive({
   name: "",
   color: DEFAULT_WORKSPACE_COLOR,
+  secondaryColor: DEFAULT_WORKSPACE_THEME.secondaryColor,
+  surfaceColor: DEFAULT_WORKSPACE_THEME.surfaceColor,
+  surfaceVariantColor: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
   avatarUrl: "",
   invitesEnabled: false,
   invitesAvailable: false
@@ -138,6 +190,22 @@ function toWorkspaceListSnapshot(list = []) {
   return JSON.stringify(normalizeWorkspaceList(list));
 }
 
+function toWorkspaceSettingsSnapshot(settings = null) {
+  if (!settings || typeof settings !== "object") {
+    return "";
+  }
+
+  const normalized = resolveWorkspaceThemePalette(settings);
+  return JSON.stringify({
+    color: normalized.color,
+    secondaryColor: normalized.secondaryColor,
+    surfaceColor: normalized.surfaceColor,
+    surfaceVariantColor: normalized.surfaceVariantColor,
+    invitesEnabled: settings.invitesEnabled !== false,
+    invitesAvailable: settings.invitesAvailable !== false
+  });
+}
+
 function applyShellWorkspaceContext(payload = {}) {
   const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
   const currentWorkspace = findWorkspaceBySlug(
@@ -154,14 +222,21 @@ function applyShellWorkspaceContext(payload = {}) {
   const sameWorkspace = toWorkspaceEntrySnapshot(currentContext.workspace) === toWorkspaceEntrySnapshot(currentWorkspace);
   const sameWorkspaces =
     toWorkspaceListSnapshot(currentContext.workspaces) === toWorkspaceListSnapshot(availableWorkspaces);
+  const sameWorkspaceSettings =
+    toWorkspaceSettingsSnapshot(currentContext.workspaceSettings) ===
+    toWorkspaceSettingsSnapshot(payload?.workspaceSettings);
 
-  if (samePermissions && sameWorkspace && sameWorkspaces) {
+  if (samePermissions && sameWorkspace && sameWorkspaces && sameWorkspaceSettings) {
     return;
   }
 
   mergePlacementContext(
     {
       workspace: currentWorkspace,
+      workspaceSettings:
+        payload?.workspaceSettings && typeof payload.workspaceSettings === "object"
+          ? payload.workspaceSettings
+          : null,
       workspaces: availableWorkspaces,
       permissions
     },
@@ -192,7 +267,7 @@ const addEdit = useAddEdit({
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-settings-view",
   fallbackLoadError: "Unable to load workspace settings.",
-  fieldErrorKeys: ["name", "avatarUrl", "color"],
+  fieldErrorKeys: ["name", "avatarUrl", "color", "secondaryColor", "surfaceColor", "surfaceVariantColor"],
   realtime: {
     event: WORKSPACE_SETTINGS_CHANGED_EVENT,
     matches: matchesWorkspaceRealtime
@@ -206,9 +281,13 @@ const addEdit = useAddEdit({
     }),
   mapLoadedToModel: (model, payload = {}) => {
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+    const normalizedTheme = resolveWorkspaceThemePalette(settings);
 
     model.name = String(settings.name || "");
-    model.color = String(settings.color || DEFAULT_WORKSPACE_COLOR);
+    model.color = normalizedTheme.color;
+    model.secondaryColor = normalizedTheme.secondaryColor;
+    model.surfaceColor = normalizedTheme.surfaceColor;
+    model.surfaceVariantColor = normalizedTheme.surfaceVariantColor;
     model.avatarUrl = String(settings.avatarUrl || "");
     model.invitesEnabled = settings.invitesEnabled !== false;
     model.invitesAvailable = settings.invitesAvailable !== false;
@@ -216,6 +295,9 @@ const addEdit = useAddEdit({
   buildRawPayload: (model) => ({
     name: model.name,
     color: model.color,
+    secondaryColor: model.secondaryColor,
+    surfaceColor: model.surfaceColor,
+    surfaceVariantColor: model.surfaceVariantColor,
     avatarUrl: model.avatarUrl,
     invitesEnabled: model.invitesEnabled
   }),

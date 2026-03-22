@@ -231,7 +231,11 @@ export default Object.freeze({
       "dev": {}
     },
     "packageJson": {
-      "scripts": {}
+      "scripts": {
+        "server:auth": "SERVER_SURFACE=auth node ./bin/server.js",
+        "dev:auth": "VITE_SURFACE=auth vite",
+        "build:auth": "VITE_SURFACE=auth vite build"
+      }
     },
     "procfile": {},
     "files": [

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "../test-support/registerDefaultSettingsFields.js";
+import { resolveWorkspaceThemePalette } from "../src/shared/settings.js";
 import { createRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
 function createDefaultWorkspaceSettings() {
   return true;
 }
+
+const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalette({
+  color: "#2F5D9E"
+});
 
 function createKnexStub(rowOverrides = {}) {
   const state = {
@@ -15,7 +20,10 @@ function createKnexStub(rowOverrides = {}) {
       workspace_id: 1,
       name: "Workspace",
       avatar_url: "",
-      color: "#0F6B54",
+      color: "#2F5D9E",
+      secondary_color: DEFAULT_WORKSPACE_THEME.secondaryColor,
+      surface_color: DEFAULT_WORKSPACE_THEME.surfaceColor,
+      surface_variant_color: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
       invites_enabled: 1,
       created_at: "2026-03-09 00:26:35.710",
       updated_at: "2026-03-09 00:26:35.710",
@@ -34,6 +42,9 @@ function createKnexStub(rowOverrides = {}) {
           name: payload.name,
           avatar_url: payload.avatar_url,
           color: payload.color,
+          secondary_color: payload.secondary_color,
+          surface_color: payload.surface_color,
+          surface_variant_color: payload.surface_variant_color,
           invites_enabled: payload.invites_enabled,
           created_at: "2026-03-10 00:00:00.000",
           updated_at: "2026-03-10 00:00:00.000"
@@ -61,6 +72,15 @@ function createKnexStub(rowOverrides = {}) {
             if (Object.hasOwn(payload, "color")) {
               state.row.color = payload.color;
             }
+            if (Object.hasOwn(payload, "secondary_color")) {
+              state.row.secondary_color = payload.secondary_color;
+            }
+            if (Object.hasOwn(payload, "surface_color")) {
+              state.row.surface_color = payload.surface_color;
+            }
+            if (Object.hasOwn(payload, "surface_variant_color")) {
+              state.row.surface_variant_color = payload.surface_variant_color;
+            }
             if (Object.hasOwn(payload, "updated_at")) {
               state.row.updated_at = payload.updated_at;
             }
@@ -86,7 +106,10 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
     workspaceId: 1,
     name: "Workspace",
     avatarUrl: "",
-    color: "#0F6B54",
+    color: "#2F5D9E",
+    secondaryColor: DEFAULT_WORKSPACE_THEME.secondaryColor,
+    surfaceColor: DEFAULT_WORKSPACE_THEME.surfaceColor,
+    surfaceVariantColor: DEFAULT_WORKSPACE_THEME.surfaceVariantColor,
     invitesEnabled: true,
     createdAt: "2026-03-08T16:26:35.710Z",
     updatedAt: "2026-03-08T16:26:35.710Z"
@@ -119,11 +142,17 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   assert.equal(state.insertedRow.workspace_id, 5);
   assert.equal(state.insertedRow.name, "Workspace");
   assert.equal(state.insertedRow.avatar_url, "");
-  assert.equal(state.insertedRow.color, "#0F6B54");
+  assert.equal(state.insertedRow.color, "#2F5D9E");
+  assert.equal(state.insertedRow.secondary_color, DEFAULT_WORKSPACE_THEME.secondaryColor);
+  assert.equal(state.insertedRow.surface_color, DEFAULT_WORKSPACE_THEME.surfaceColor);
+  assert.equal(state.insertedRow.surface_variant_color, DEFAULT_WORKSPACE_THEME.surfaceVariantColor);
   assert.equal(state.insertedRow.invites_enabled, false);
   assert.equal(record.name, "Workspace");
   assert.equal(record.avatarUrl, "");
-  assert.equal(record.color, "#0F6B54");
+  assert.equal(record.color, "#2F5D9E");
+  assert.equal(record.secondaryColor, DEFAULT_WORKSPACE_THEME.secondaryColor);
+  assert.equal(record.surfaceColor, DEFAULT_WORKSPACE_THEME.surfaceColor);
+  assert.equal(record.surfaceVariantColor, DEFAULT_WORKSPACE_THEME.surfaceVariantColor);
   assert.equal(record.invitesEnabled, false);
 });
 

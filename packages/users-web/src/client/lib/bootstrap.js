@@ -26,6 +26,9 @@ function normalizeWorkspaceEntry(entry) {
     slug,
     name: String(entry.name || slug).trim() || slug,
     color: String(entry.color || "").trim(),
+    secondaryColor: String(entry.secondaryColor || "").trim(),
+    surfaceColor: String(entry.surfaceColor || "").trim(),
+    surfaceVariantColor: String(entry.surfaceVariantColor || "").trim(),
     avatarUrl: String(entry.avatarUrl || "").trim(),
     roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
     isAccessible: entry.isAccessible !== false

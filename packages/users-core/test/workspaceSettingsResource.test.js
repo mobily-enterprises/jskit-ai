@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import "../test-support/registerDefaultSettingsFields.js";
+import { resolveWorkspaceThemePalette } from "../src/shared/settings.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
@@ -48,6 +49,9 @@ test("workspace settings patch body normalizes valid payload before validation",
     name: "  Team Mercury  ",
     avatarUrl: "https://example.com/avatar.png",
     color: "#0f6b54",
+    secondaryColor: "#0b4d3c",
+    surfaceColor: "#eef5f3",
+    surfaceVariantColor: "#ddeae7",
     invitesEnabled: false
   });
 
@@ -57,6 +61,9 @@ test("workspace settings patch body normalizes valid payload before validation",
     name: "Team Mercury",
     avatarUrl: "https://example.com/avatar.png",
     color: "#0F6B54",
+    secondaryColor: "#0B4D3C",
+    surfaceColor: "#EEF5F3",
+    surfaceVariantColor: "#DDEAE7",
     invitesEnabled: false
   });
 });
@@ -89,10 +96,16 @@ test("workspace settings create body requires full-write fields", () => {
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.color, "Workspace color is required.");
+  assert.equal(parsed.fieldErrors.secondaryColor, "Secondary color is required.");
+  assert.equal(parsed.fieldErrors.surfaceColor, "Surface color is required.");
+  assert.equal(parsed.fieldErrors.surfaceVariantColor, "Surface variant color is required.");
   assert.equal(parsed.fieldErrors.invitesEnabled, "invitesEnabled is required.");
 });
 
 test("workspace settings output normalizes raw service payloads", () => {
+  const expectedTheme = resolveWorkspaceThemePalette({
+    color: "#0F6B54"
+  });
   const normalized = workspaceSettingsResource.operations.view.outputValidator.normalize({
     workspace: {
       id: "7",
@@ -118,6 +131,9 @@ test("workspace settings output normalizes raw service payloads", () => {
       name: "Mercury Workspace",
       avatarUrl: "https://example.com/avatar.png",
       color: "#0F6B54",
+      secondaryColor: expectedTheme.secondaryColor,
+      surfaceColor: expectedTheme.surfaceColor,
+      surfaceVariantColor: expectedTheme.surfaceVariantColor,
       invitesEnabled: false,
       invitesAvailable: true,
       invitesEffective: false

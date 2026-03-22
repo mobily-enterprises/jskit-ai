@@ -20,6 +20,35 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
+function normalizeRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeOAuthProviderConfigList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return splitCsv(value);
+  }
+
+  return [];
+}
+
+function resolveOAuthConfigFromAppConfig(appConfig) {
+  const source = normalizeRecord(appConfig);
+  const auth = normalizeRecord(source.auth);
+  const oauth = normalizeRecord(auth.oauth);
+
+  return {
+    oauthProviders: normalizeOAuthProviderConfigList(oauth.providers),
+    oauthDefaultProvider: String(oauth.defaultProvider || "").trim()
+  };
+}
+
 function resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {}) {
   const surfaceDefinitions =
     appConfig && typeof appConfig === "object" && appConfig.surfaceDefinitions && typeof appConfig.surfaceDefinitions === "object"
@@ -31,8 +60,12 @@ function resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {
   });
 }
 
-function resolveAuthProviderConfig(env) {
+function resolveAuthProviderConfig(env, appConfig = {}) {
   const source = env && typeof env === "object" ? env : {};
+  const oauthConfigFromApp = resolveOAuthConfigFromAppConfig(appConfig);
+  const oauthProvidersFromEnv = splitCsv(source.AUTH_OAUTH_PROVIDERS);
+  const oauthDefaultProviderFromEnv = String(source.AUTH_OAUTH_DEFAULT_PROVIDER || "").trim();
+
   return {
     id: "supabase",
     supabaseUrl: String(source.AUTH_SUPABASE_URL || source.SUPABASE_URL || "").trim(),
@@ -40,8 +73,9 @@ function resolveAuthProviderConfig(env) {
       source.AUTH_SUPABASE_PUBLISHABLE_KEY || source.SUPABASE_PUBLISHABLE_KEY || ""
     ).trim(),
     jwtAudience: String(source.AUTH_JWT_AUDIENCE || "authenticated").trim(),
-    oauthProviders: splitCsv(source.AUTH_OAUTH_PROVIDERS),
-    oauthDefaultProvider: String(source.AUTH_OAUTH_DEFAULT_PROVIDER || "").trim()
+    oauthProviders:
+      oauthProvidersFromEnv.length > 0 ? oauthProvidersFromEnv : oauthConfigFromApp.oauthProviders,
+    oauthDefaultProvider: oauthDefaultProviderFromEnv || oauthConfigFromApp.oauthDefaultProvider
   };
 }
 
@@ -138,7 +172,7 @@ class AuthSupabaseServiceProvider {
           ...envFromDependencies
         };
         const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
-        const authProvider = resolveAuthProviderConfig(env);
+        const authProvider = resolveAuthProviderConfig(env, appConfig);
         const repositories = resolveOptionalRepositories(scope);
         const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
         if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {

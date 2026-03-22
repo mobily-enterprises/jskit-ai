@@ -43,13 +43,21 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
-    assert.equal(packageJson.scripts["dev:account"], "VITE_SURFACE=account vite");
-    assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
-    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
-    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    assert.equal(packageJson.scripts["dev:account"], undefined);
+    assert.equal(packageJson.scripts["dev:auth"], undefined);
+    assert.equal(packageJson.scripts["dev:app"], undefined);
+    assert.equal(packageJson.scripts["dev:admin"], undefined);
     assert.equal(packageJson.scripts["server:all"], "node ./bin/server.js");
     assert.equal(packageJson.scripts["server:home"], "SERVER_SURFACE=home node ./bin/server.js");
+    assert.equal(packageJson.scripts["server:account"], undefined);
+    assert.equal(packageJson.scripts["server:auth"], undefined);
+    assert.equal(packageJson.scripts["server:app"], undefined);
+    assert.equal(packageJson.scripts["server:admin"], undefined);
     assert.equal(packageJson.scripts["build:all"], "vite build");
+    assert.equal(packageJson.scripts["build:account"], undefined);
+    assert.equal(packageJson.scripts["build:auth"], undefined);
+    assert.equal(packageJson.scripts["build:app"], undefined);
+    assert.equal(packageJson.scripts["build:admin"], undefined);
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
@@ -451,8 +459,8 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
-    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
-    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    assert.equal(packageJson.scripts["dev:app"], undefined);
+    assert.equal(packageJson.scripts["dev:admin"], undefined);
   });
 });
 
@@ -518,6 +526,7 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
       path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
       "utf8"
     );
+    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     const accountPendingInvitesCue = await readFile(
       path.join(appRoot, "packages/main/src/client/components/AccountPendingInvitesCue.vue"),
       "utf8"
@@ -551,6 +560,12 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
       /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
     );
     assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
+    assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");
+    assert.equal(packageJson.scripts["server:app"], "SERVER_SURFACE=app node ./bin/server.js");
+    assert.equal(packageJson.scripts["server:admin"], "SERVER_SURFACE=admin node ./bin/server.js");
+    assert.equal(packageJson.scripts["dev:account"], "VITE_SURFACE=account vite");
+    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
+    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
   });
 });
 
@@ -593,6 +608,10 @@ test("generated app supports shell + auth progressive installation", async () =>
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
+    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(packageJson.scripts["server:auth"], "SERVER_SURFACE=auth node ./bin/server.js");
+    assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
+    assert.equal(packageJson.scripts["build:auth"], "VITE_SURFACE=auth vite build");
 
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);

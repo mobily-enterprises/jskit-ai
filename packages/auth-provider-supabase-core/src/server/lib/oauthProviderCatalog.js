@@ -25,7 +25,7 @@ const SUPABASE_OAUTH_PROVIDER_METADATA = Object.freeze({
   zoom: Object.freeze({ id: "zoom", label: "Zoom" })
 });
 
-const DEFAULT_SUPABASE_OAUTH_PROVIDER_IDS = Object.freeze(["google"]);
+const DEFAULT_SUPABASE_OAUTH_PROVIDER_IDS = Object.freeze([]);
 
 function normalizeProviderLabel(value, fallback) {
   const normalized = String(value || "").trim();

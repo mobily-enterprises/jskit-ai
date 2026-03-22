@@ -94,8 +94,8 @@
                 density="comfortable"
                 :autocomplete="isRegister ? 'new-password' : 'current-password'"
                 :error-messages="passwordErrorMessages"
-                :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                @click:append-inner="showPassword = !showPassword"
+                :append-inner-icon="showPassword ? mdiEyeOff : mdiEye"
+                @click:append-inner="togglePasswordVisibility"
                 @blur="passwordTouched = true"
                 class="mb-3"
               />
@@ -109,8 +109,8 @@
                 density="comfortable"
                 autocomplete="new-password"
                 :error-messages="confirmPasswordErrorMessages"
-                :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                @click:append-inner="showConfirmPassword = !showConfirmPassword"
+                :append-inner-icon="showConfirmPassword ? mdiEyeOff : mdiEye"
+                @click:append-inner="toggleConfirmPasswordVisibility"
                 @blur="confirmPasswordTouched = true"
                 class="mb-3"
               />
@@ -205,6 +205,7 @@
 <script setup>
 import { onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
+import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
@@ -278,6 +279,14 @@ const {
   startOAuthSignIn,
   oauthProviderButtonLabel
 } = actions;
+
+function togglePasswordVisibility() {
+  showPassword.value = !showPassword.value;
+}
+
+function toggleConfirmPasswordVisibility() {
+  showConfirmPassword.value = !showConfirmPassword.value;
+}
 </script>
 
 <style scoped>

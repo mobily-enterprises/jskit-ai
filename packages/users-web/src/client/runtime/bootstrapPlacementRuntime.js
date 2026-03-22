@@ -13,6 +13,7 @@ import {
 import { normalizePermissionList } from "../lib/permissions.js";
 import {
   resolveBootstrapThemeName,
+  setVuetifyPrimaryColorOverride,
   resolveVuetifyThemeController,
   setVuetifyThemeName
 } from "../lib/theme.js";
@@ -132,6 +133,10 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   function writePlacementContext(payload = {}, state = {}, source = BOOTSTRAP_PLACEMENT_SOURCE) {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
     const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, state.workspaceSlug);
+    const workspaceSettings =
+      payload?.workspaceSettings && typeof payload.workspaceSettings === "object"
+        ? payload.workspaceSettings
+        : null;
     const permissions = normalizePermissionList(payload?.permissions);
     const user = resolvePlacementUserFromBootstrapPayload(payload, state.context?.user);
     const workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
@@ -140,6 +145,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     placementRuntime.setContext(
       {
         workspace: currentWorkspace,
+        workspaceSettings,
         workspaces: availableWorkspaces,
         permissions,
         user,
@@ -152,12 +158,14 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       }
     );
     routeGuards.enforceSurfaceAccessForCurrentRoute();
+    applyWorkspaceColorFromPlacementContext("write");
   }
 
   function clearPlacementContext(source = BOOTSTRAP_PLACEMENT_SOURCE) {
     placementRuntime.setContext(
       {
         workspace: null,
+        workspaceSettings: null,
         workspaces: [],
         permissions: [],
         user: null,
@@ -170,6 +178,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       }
     );
     routeGuards.enforceSurfaceAccessForCurrentRoute();
+    applyWorkspaceColorFromPlacementContext("clear");
   }
 
   function getVuetifyThemeController() {
@@ -204,6 +213,48 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     }
   }
 
+  function resolveWorkspaceThemeForCurrentRoute() {
+    const routeState = resolveRouteState(placementRuntime, router);
+    if (!routeState.workspaceSlug) {
+      return null;
+    }
+
+    const context = placementRuntime.getContext();
+    const workspaceSettings =
+      context?.workspaceSettings && typeof context.workspaceSettings === "object"
+        ? context.workspaceSettings
+        : null;
+    if (workspaceSettings) {
+      return workspaceSettings;
+    }
+
+    const workspace = context?.workspace && typeof context.workspace === "object" ? context.workspace : null;
+    if (!workspace) {
+      return null;
+    }
+    const workspaceSlug = normalizeWorkspaceSlugKey(workspace.slug);
+    if (!workspaceSlug || workspaceSlug !== normalizeWorkspaceSlugKey(routeState.workspaceSlug)) {
+      return null;
+    }
+
+    return workspace;
+  }
+
+  function applyWorkspaceColorFromPlacementContext(reason = "manual") {
+    try {
+      const workspaceTheme = resolveWorkspaceThemeForCurrentRoute();
+      setVuetifyPrimaryColorOverride(workspaceTheme);
+    } catch (error) {
+      runtimeLogger.warn(
+        {
+          reason,
+          error: String(error?.message || error || "unknown error")
+        },
+        "users-web bootstrap workspace color apply failed."
+      );
+    }
+  }
+
   async function refresh(reason = "manual") {
     if (shutdownRequested) {
       return;
@@ -220,6 +271,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
 
       writePlacementContext(payload, stateAtStart, source);
       applyThemeFromBootstrapPayload(payload, reason);
+      applyWorkspaceColorFromPlacementContext(reason);
       if (stateAtStart.workspaceSlug) {
         const sessionAuthenticated = payload?.session?.authenticated === true;
         if (!sessionAuthenticated) {
@@ -321,6 +373,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         }
       }, "init");
     }
+    applyWorkspaceColorFromPlacementContext("init");
 
     if (typeof placementRuntime.subscribe === "function") {
       const unsubscribePlacement = placementRuntime.subscribe((event = {}) => {
@@ -329,6 +382,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         }
 
         const nextContext = placementRuntime.getContext();
+        applyWorkspaceColorFromPlacementContext("context");
         const nextSignature = resolveAuthSignature(nextContext);
         if (nextSignature === authSignature) {
           return;

@@ -155,3 +155,81 @@ test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", asyn
 
   assert.throws(() => app.make("authService"), /Unsupported AUTH_PROFILE_MODE/);
 });
+
+test("auth supabase provider reads oauth providers from appConfig.auth.oauth", async () => {
+  const app = createApplication();
+  app.instance("appConfig", {
+    ...createAppConfigFixture(),
+    auth: {
+      oauth: {
+        providers: ["github"],
+        defaultProvider: "github"
+      }
+    }
+  });
+  app.instance(KERNEL_TOKENS.Env, {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "standalone",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance(KERNEL_TOKENS.Logger, {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  const authService = app.make("authService");
+  const catalog = authService.getOAuthProviderCatalog();
+  assert.deepEqual(catalog.providers.map((provider) => provider.id), ["github"]);
+  assert.equal(catalog.defaultProvider, "github");
+});
+
+test("auth supabase provider lets env oauth settings override appConfig.auth.oauth", async () => {
+  const app = createApplication();
+  app.instance("appConfig", {
+    ...createAppConfigFixture(),
+    auth: {
+      oauth: {
+        providers: ["github"],
+        defaultProvider: "github"
+      }
+    }
+  });
+  app.instance(KERNEL_TOKENS.Env, {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_OAUTH_PROVIDERS: "google",
+    AUTH_OAUTH_DEFAULT_PROVIDER: "google",
+    AUTH_PROFILE_MODE: "standalone",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance(KERNEL_TOKENS.Logger, {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  const authService = app.make("authService");
+  const catalog = authService.getOAuthProviderCatalog();
+  assert.deepEqual(catalog.providers.map((provider) => provider.id), ["google"]);
+  assert.equal(catalog.defaultProvider, "google");
+});
