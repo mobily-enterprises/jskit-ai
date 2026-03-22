@@ -37,7 +37,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
-    assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
+    assert.equal(packageJson.scripts.preinstall, undefined);
+    assert.equal(packageJson.scripts["verdaccio:reset:publish"], undefined);
     assert.equal(packageJson.scripts.postinstall, undefined);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
@@ -52,22 +53,15 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
-    assert.equal(packageJson.dependencies["@jskit-ai/http-runtime"], "0.1.0");
+    assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.\d+\.\d+$/);
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
-    const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");
-    assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
-    assert.match(devBootstrapScript, /DOKKU_APP_NAME/);
-    assert.match(devBootstrapScript, /JSKIT_GITHUB_TARBALL_URL/);
-    assert.match(devBootstrapScript, /curl -fsSL/);
-    assert.doesNotMatch(devBootstrapScript, /Development\/current\/jskit-ai/);
     const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
     assert.doesNotMatch(linkLocalScript, /Development\/current\/jskit-ai/);
-    const verdaccioScript = await readFile(
-      path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh"),
-      "utf8"
-    );
-    assert.doesNotMatch(verdaccioScript, /Development\/current\/jskit-ai/);
+    await assert.rejects(access(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "scripts/just_run_verde")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "scripts/verdaccio/config.yaml")), /ENOENT/);
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
@@ -247,9 +241,8 @@ test("base-shell scripts do not hardcode machine-specific jskit paths", async ()
   const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const baseScriptsDir = path.join(packageRoot, "templates/base-shell/scripts");
   const scriptPaths = [
-    path.join(baseScriptsDir, "dev-bootstrap-jskit.sh"),
     path.join(baseScriptsDir, "link-local-jskit-packages.sh"),
-    path.join(baseScriptsDir, "verdaccio-reset-and-publish-packages.sh")
+    path.join(baseScriptsDir, "update-jskit-packages.sh")
   ];
 
   for (const scriptPath of scriptPaths) {

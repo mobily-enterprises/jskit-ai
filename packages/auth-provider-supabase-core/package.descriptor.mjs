@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-supabase-core",
-  "version": "0.1.0",
+  "version": "0.1.8",
   "options": {
     "auth-supabase-url": {
       "required": true,
@@ -83,8 +83,8 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/auth-core": "0.1.0",
-        "@jskit-ai/kernel": "0.1.0",
+        "@jskit-ai/auth-core": "0.1.8",
+        "@jskit-ai/kernel": "0.1.8",
         "dotenv": "^16.4.5",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud",
-  version: "0.1.0",
+  version: "0.1.10",
   installationMode: "clone-only",
   description: "CRUD module with server routes, actions, persistence, and client pages.",
   options: {
@@ -95,15 +95,15 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.0",
-        "@jskit-ai/crud-core": "0.1.0",
-        "@jskit-ai/database-runtime": "0.1.0",
-        "@jskit-ai/http-runtime": "0.1.0",
-        "@jskit-ai/kernel": "0.1.0",
-        "@jskit-ai/realtime": "0.1.0",
-        "@jskit-ai/shell-web": "0.1.0",
-        "@jskit-ai/users-core": "0.1.0",
-        "@jskit-ai/users-web": "0.1.0",
+        "@jskit-ai/auth-core": "0.1.8",
+        "@jskit-ai/crud-core": "0.1.10",
+        "@jskit-ai/database-runtime": "0.1.8",
+        "@jskit-ai/http-runtime": "0.1.8",
+        "@jskit-ai/kernel": "0.1.8",
+        "@jskit-ai/realtime": "0.1.8",
+        "@jskit-ai/shell-web": "0.1.8",
+        "@jskit-ai/users-core": "0.1.10",
+        "@jskit-ai/users-web": "0.1.10",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
         "@tanstack/vue-query": "5.92.12",
         "typebox": "^1.0.81",

@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/create-app",
-  "version": "0.1.0",
+  "version": "0.1.12",
   "dependsOn": [],
   "capabilities": {
     "provides": [
@@ -19,10 +19,6 @@ export default Object.freeze({
     },
     "procfile": {},
     "files": [
-      {
-        "from": "templates/base-shell/app.scripts.config.mjs",
-        "to": "base-shell/app.scripts.config.mjs"
-      },
       {
         "from": "templates/base-shell/bin/server.js",
         "to": "base-shell/bin/server.js"

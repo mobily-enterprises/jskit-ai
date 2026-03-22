@@ -1,7 +1,6 @@
 import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { materializeWorkspaceActionSurfacesFromAppConfig } from "@jskit-ai/users-core/server/support/workspaceActionSurfaces";
 import { createRepository as createConversationsRepository } from "./repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "./repositories/messagesRepository.js";
 import { createRepository as createAssistantSettingsRepository } from "./repositories/assistantSettingsRepository.js";
@@ -161,15 +160,14 @@ class AssistantServiceProvider {
       }
     );
 
-    const appConfig = typeof app.has === "function" && app.has("appConfig") ? normalizeObject(app.make("appConfig")) : {};
     app.actions(
-      materializeWorkspaceActionSurfacesFromAppConfig(withActionDefaults(assistantActions, {
+      withActionDefaults(assistantActions, {
         domain: "assistant",
         dependencies: {
           chatService: ASSISTANT_CHAT_SERVICE_TOKEN,
           assistantSettingsService: ASSISTANT_SETTINGS_SERVICE_TOKEN
         }
-      }), { appConfig })
+      })
     );
   }
 

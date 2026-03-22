@@ -15,7 +15,7 @@ Focus for this chapter:
 
 Source of truth:
 
-- `docs/examples/manifest.json` chapter `6`
+- `docs/examples/06.kernel-client-api/src/client/index.js`
 - `packages/kernel/client/index.js`
 - `packages/kernel/client/*`
 

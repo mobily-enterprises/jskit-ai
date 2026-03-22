@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile, cp } from "node:fs/pro
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,14 +14,19 @@ const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies"
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 const DEFAULT_TAG = "latest";
 const DEFAULT_ACCESS = "public";
+const DEFAULT_PUBLISH_CONCURRENCY = 20;
 const CREATE_APP_TEMPLATE_PACKAGE_JSON_REL = "tooling/create-app/templates/base-shell/package.json";
 
 function parseArgs(argv) {
+  const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
   const options = {
     since: "",
     registry: DEFAULT_REGISTRY,
     tag: DEFAULT_TAG,
     access: DEFAULT_ACCESS,
+    publishConcurrency: Number.isInteger(envPublishConcurrency) && envPublishConcurrency > 0
+      ? envPublishConcurrency
+      : DEFAULT_PUBLISH_CONCURRENCY,
     dryRun: false,
     forceAll: false
   };
@@ -83,6 +88,17 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (argument === "--publish-concurrency") {
+      options.publishConcurrency = parsePositiveInteger(argv[index + 1], "--publish-concurrency");
+      index += 1;
+      continue;
+    }
+
+    if (argument.startsWith("--publish-concurrency=")) {
+      options.publishConcurrency = parsePositiveInteger(argument.slice("--publish-concurrency=".length), "--publish-concurrency");
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${argument}`);
   }
 
@@ -97,6 +113,14 @@ function parseArgs(argv) {
   }
 
   return options;
+}
+
+function parsePositiveInteger(value, flagName) {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${flagName} must be a positive integer.`);
+  }
+  return parsed;
 }
 
 function normalizeRegistryUrl(registry) {
@@ -561,31 +585,7 @@ async function updateCreateAppTemplatePackageJson(nextVersions, { dryRun }) {
 }
 
 function topologicalPublishOrder(records, publishSet) {
-  const recordByName = new Map(records.map((record) => [record.name, record]));
-  const inDegree = new Map();
-  const adjacency = new Map();
-
-  for (const packageName of publishSet) {
-    inDegree.set(packageName, 0);
-    adjacency.set(packageName, new Set());
-  }
-
-  for (const packageName of publishSet) {
-    const record = recordByName.get(packageName);
-    if (!record) {
-      continue;
-    }
-
-    for (const dependencyName of record.packageJsonLocalDeps) {
-      if (!publishSet.has(dependencyName)) {
-        continue;
-      }
-
-      adjacency.get(dependencyName).add(packageName);
-      inDegree.set(packageName, (inDegree.get(packageName) || 0) + 1);
-    }
-  }
-
+  const { inDegree, adjacency } = buildPublishGraph(records, publishSet);
   const queue = Array.from(inDegree.entries())
     .filter(([, degree]) => degree === 0)
     .map(([name]) => name)
@@ -613,6 +613,34 @@ function topologicalPublishOrder(records, publishSet) {
   }
 
   return ordered;
+}
+
+function buildPublishGraph(records, publishSet) {
+  const recordByName = new Map(records.map((record) => [record.name, record]));
+  const inDegree = new Map();
+  const adjacency = new Map();
+
+  for (const packageName of publishSet) {
+    inDegree.set(packageName, 0);
+    adjacency.set(packageName, new Set());
+  }
+
+  for (const packageName of publishSet) {
+    const record = recordByName.get(packageName);
+    if (!record) {
+      continue;
+    }
+
+    for (const dependencyName of record.packageJsonLocalDeps) {
+      if (!publishSet.has(dependencyName)) {
+        continue;
+      }
+
+      adjacency.get(dependencyName).add(packageName);
+      inDegree.set(packageName, (inDegree.get(packageName) || 0) + 1);
+    }
+  }
+  return { inDegree, adjacency };
 }
 
 async function createNpmUserConfig({ registry, token, dryRun }) {
@@ -664,7 +692,7 @@ async function withPublishDirectory(record, callback) {
   }
 }
 
-function runPublishCommand({ cwd, npmUserConfigPath, registry, tag, access }) {
+async function runPublishCommand({ cwd, npmUserConfigPath, registry, tag, access }) {
   const args = [
     "publish",
     "--registry",
@@ -678,14 +706,101 @@ function runPublishCommand({ cwd, npmUserConfigPath, registry, tag, access }) {
     npmUserConfigPath
   ];
 
-  const result = spawnSync("npm", args, {
-    cwd,
-    stdio: "inherit",
-    env: process.env
-  });
+  await new Promise((resolve, reject) => {
+    const child = spawn("npm", args, {
+      cwd,
+      stdio: "inherit",
+      env: process.env
+    });
 
-  if (result.status !== 0) {
-    throw new Error(`npm publish failed in ${cwd}`);
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`npm publish failed in ${cwd} (code=${code}, signal=${signal || "none"})`));
+    });
+  });
+}
+
+async function publishPackages({
+  records,
+  publishSet,
+  nextVersions,
+  npmUserConfigPath,
+  registry,
+  tag,
+  access,
+  publishConcurrency
+}) {
+  const recordByName = new Map(records.map((record) => [record.name, record]));
+  const { inDegree, adjacency } = buildPublishGraph(records, publishSet);
+  const ready = Array.from(inDegree.entries())
+    .filter(([, degree]) => degree === 0)
+    .map(([name]) => name)
+    .sort();
+
+  const running = new Map();
+  let completed = 0;
+
+  const launchPublish = (packageName) => {
+    const record = recordByName.get(packageName);
+    if (!record) {
+      throw new Error(`Missing record for ${packageName}`);
+    }
+
+    process.stdout.write(`Publishing ${packageName}@${nextVersions.get(packageName)}...\n`);
+    const task = (async () => {
+      await withPublishDirectory(record, async (publishDir) => {
+        await runPublishCommand({
+          cwd: publishDir,
+          npmUserConfigPath,
+          registry,
+          tag,
+          access
+        });
+      });
+      process.stdout.write(`Published ${packageName}@${nextVersions.get(packageName)}\n`);
+      return packageName;
+    })();
+
+    const tracked = task.then(
+      (name) => ({ status: "fulfilled", name }),
+      (error) => ({ status: "rejected", name: packageName, error })
+    );
+    running.set(packageName, tracked);
+  };
+
+  while (completed < publishSet.size) {
+    while (running.size < publishConcurrency && ready.length > 0) {
+      const packageName = ready.shift();
+      launchPublish(packageName);
+    }
+
+    if (running.size === 0) {
+      throw new Error("Publish scheduler deadlocked: no runnable packages remain.");
+    }
+
+    const result = await Promise.race(running.values());
+    running.delete(result.name);
+
+    if (result.status === "rejected") {
+      throw result.error;
+    }
+
+    completed += 1;
+    for (const dependentName of Array.from(adjacency.get(result.name) || []).sort()) {
+      const remainingDeps = (inDegree.get(dependentName) || 0) - 1;
+      inDegree.set(dependentName, remainingDeps);
+      if (remainingDeps === 0) {
+        ready.push(dependentName);
+      }
+    }
+    ready.sort();
   }
 }
 
@@ -752,6 +867,7 @@ async function main() {
   for (const packageName of publishOrder) {
     process.stdout.write(`- ${packageName}: ${currentVersions.get(packageName)} -> ${nextVersions.get(packageName)}\n`);
   }
+  process.stdout.write(`Publish concurrency: ${options.publishConcurrency}\n`);
 
   await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
   await updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun: options.dryRun });
@@ -771,25 +887,16 @@ async function main() {
   });
 
   try {
-    const recordByName = new Map(records.map((record) => [record.name, record]));
-
-    for (const packageName of publishOrder) {
-      const record = recordByName.get(packageName);
-      if (!record) {
-        throw new Error(`Missing record for ${packageName}`);
-      }
-
-      process.stdout.write(`Publishing ${packageName}@${nextVersions.get(packageName)}...\n`);
-      await withPublishDirectory(record, async (publishDir) => {
-        runPublishCommand({
-          cwd: publishDir,
-          npmUserConfigPath,
-          registry: options.registry,
-          tag: options.tag,
-          access: options.access
-        });
-      });
-    }
+    await publishPackages({
+      records,
+      publishSet,
+      nextVersions,
+      npmUserConfigPath,
+      registry: options.registry,
+      tag: options.tag,
+      access: options.access,
+      publishConcurrency: options.publishConcurrency
+    });
   } finally {
     if (npmUserConfigPath) {
       await rm(path.dirname(npmUserConfigPath), { recursive: true, force: true });

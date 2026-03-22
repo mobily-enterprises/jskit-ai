@@ -5,6 +5,7 @@ import {
   createCursorListValidator,
   normalizeSettingsFieldInput
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
 import {
   createWorkspaceRoleCatalogOutputSchema,

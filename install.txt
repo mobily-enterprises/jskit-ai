@@ -1,0 +1,14 @@
+npx @jskit-ai/create-app dogandgroom --tenancy-mode personal --target . --title "Dog and Groom"
+npm install
+npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
+npx jskit add package shell-web --no-install
+npx jskit add package auth-web --no-install
+npx jskit add package database-runtime-mysql --no-install
+npx jskit add package users-web --no-install
+npx jskit add package realtime --no-install
+npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek --no-install
+npx jskit add package @jskit-ai/crud --namespace contacts --surface admin --no-install
+npm install
+npm run db:migrate
+
+

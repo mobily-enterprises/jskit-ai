@@ -272,6 +272,42 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
   assert.equal(context.pendingInvitesCount, 2);
 });
 
+test("bootstrap placement runtime resolves workspace slug from pathname when surface config is missing", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  placementRuntime.setContext({}, { replace: true, source: "test.clear" });
+  const router = createRouterStub("/w/acme/admin");
+  const fetchCalls = [];
+  const runtime = createBootstrapPlacementRuntime({
+    app: createAppStub({
+      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
+      [CLIENT_MODULE_ROUTER_TOKEN]: router
+    }),
+    fetchBootstrap: async (workspaceSlug) => {
+      fetchCalls.push(workspaceSlug);
+      return {
+        session: {
+          authenticated: true,
+          userId: 1
+        },
+        profile: {
+          displayName: "User",
+          email: "user@example.com",
+          avatar: {
+            effectiveUrl: ""
+          }
+        },
+        workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+        permissions: ["workspace.settings.view"]
+      };
+    }
+  });
+
+  await runtime.initialize();
+
+  assert.deepEqual(fetchCalls, ["acme"]);
+  assert.deepEqual(placementRuntime.getContext().permissions, ["workspace.settings.view"]);
+});
+
 test("bootstrap placement runtime does not mutate placement auth context", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   placementRuntime.setContext(

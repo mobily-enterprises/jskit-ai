@@ -6,6 +6,7 @@ import {
   normalizeSettingsFieldInput,
   normalizeSettingsFieldOutput
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSettingsFieldInput } from "./normalizeSettingsFieldInput.js";
 import { consoleSettingsFields } from "./consoleSettingsFields.js";
 
 function buildCreateSchema() {
