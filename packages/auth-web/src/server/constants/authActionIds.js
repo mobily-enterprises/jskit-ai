@@ -1,5 +1,6 @@
 const AUTH_ACTION_IDS = Object.freeze({
   REGISTER: "auth.register",
+  REGISTER_CONFIRMATION_RESEND: "auth.register.confirmation.resend",
   LOGIN_PASSWORD: "auth.login.password",
   LOGIN_OTP_REQUEST: "auth.login.otp.request",
   LOGIN_OTP_VERIFY: "auth.login.otp.verify",

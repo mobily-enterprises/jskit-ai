@@ -56,6 +56,12 @@ test("auth route provider registers routes and executes login/logout handlers", 
   app.instance("authService", authService);
   app.instance("actionExecutor", {
     async execute({ actionId }) {
+      if (actionId === "auth.register.confirmation.resend") {
+        return {
+          ok: true,
+          message: "If an account exists for that email, a confirmation email has been sent."
+        };
+      }
       if (actionId === "auth.login.password") {
         return {
           session: { access_token: "a", refresh_token: "r" },
@@ -87,6 +93,15 @@ test("auth route provider registers routes and executes login/logout handlers", 
   await loginRoute.handler({ body: { email: "ada@example.com", password: "pass" } }, loginReply);
   assert.equal(loginReply.statusCode, 200);
   assert.equal(loginReply.payload.username, "Ada");
+
+  const resendConfirmationRoute = fastify.routes.find(
+    (route) => route.method === "POST" && route.url === "/api/register/confirmation/resend"
+  );
+  assert.ok(resendConfirmationRoute);
+  const resendConfirmationReply = createReplyStub();
+  await resendConfirmationRoute.handler({ body: { email: "ada@example.com" } }, resendConfirmationReply);
+  assert.equal(resendConfirmationReply.statusCode, 200);
+  assert.equal(resendConfirmationReply.payload.ok, true);
 
   const logoutRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/logout");
   assert.ok(logoutRoute);

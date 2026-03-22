@@ -47,8 +47,13 @@ function mapAuthError(error, fallbackStatus) {
     return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
   }
 
+  const statusFromError = Number(error?.status || error?.statusCode);
   const message = sanitizeAuthMessage(error?.message, "Authentication failed.");
   const lower = message.toLowerCase();
+
+  if (statusFromError === 429 || lower.includes("rate limit")) {
+    return new AppError(429, "Too many authentication attempts. Please wait and try again.");
+  }
 
   if (lower.includes("already registered") || lower.includes("already been registered")) {
     return new AppError(409, "Email is already registered.");
@@ -89,7 +94,11 @@ function mapAuthError(error, fallbackStatus) {
     return new AppError(409, "This sign-in method is not currently linked.");
   }
 
-  const status = Number.isInteger(Number(fallbackStatus)) ? Number(fallbackStatus) : 400;
+  const status = Number.isInteger(statusFromError)
+    ? statusFromError
+    : Number.isInteger(Number(fallbackStatus))
+      ? Number(fallbackStatus)
+      : 400;
   if (status >= 500) {
     return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
   }

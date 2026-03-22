@@ -15,6 +15,7 @@ test("authApi exposes the expected methods and request routes", async () => {
   assert.deepEqual(Object.keys(api), [
     "session",
     "register",
+    "resendRegisterConfirmation",
     "login",
     "requestOtp",
     "verifyOtp",
@@ -27,14 +28,17 @@ test("authApi exposes the expected methods and request routes", async () => {
   ]);
 
   await api.session();
+  await api.resendRegisterConfirmation({ email: "x@example.com" });
   await api.login({ email: "x@example.com" });
   await api.logout();
 
   assert.equal(calls[0].url, "/api/session");
-  assert.equal(calls[1].url, "/api/login");
+  assert.equal(calls[1].url, "/api/register/confirmation/resend");
   assert.equal(calls[1].options.method, "POST");
-  assert.equal(calls[2].url, "/api/logout");
+  assert.equal(calls[2].url, "/api/login");
   assert.equal(calls[2].options.method, "POST");
+  assert.equal(calls[3].url, "/api/logout");
+  assert.equal(calls[3].options.method, "POST");
 });
 
 test("authApi oauthStartUrl builds provider path with optional returnTo", () => {

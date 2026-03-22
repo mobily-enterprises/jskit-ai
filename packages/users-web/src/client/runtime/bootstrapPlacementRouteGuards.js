@@ -1,7 +1,8 @@
 import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
-  resolveSurfaceRootPathFromPlacementContext
+  resolveSurfaceRootPathFromPlacementContext,
+  resolveRuntimePathname
 } from "@jskit-ai/shell-web/client/placement";
 import {
   extractWorkspaceSlugFromSurfacePathname,
@@ -17,7 +18,6 @@ import {
 } from "./bootstrapPlacementRuntimeConstants.js";
 import {
   isGuardDenied,
-  normalizeGuardPathname,
   normalizeSearch,
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,
@@ -36,7 +36,7 @@ function createBootstrapPlacementRouteGuards({
 
   function resolveNormalizedSurfaceState(pathname = "/", search = "") {
     const context = placementRuntime.getContext();
-    const normalizedPathname = normalizeGuardPathname(pathname);
+    const normalizedPathname = resolveRuntimePathname(pathname);
     const normalizedSearch = normalizeSearch(search);
     const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, normalizedPathname) || "")
       .trim()
@@ -77,7 +77,7 @@ function createBootstrapPlacementRouteGuards({
       search: surfaceState.normalizedSearch,
       surfaceId: surfaceState.surfaceId,
       workspaceSlug,
-      workspaceRootPath: normalizeGuardPathname(
+      workspaceRootPath: resolveRuntimePathname(
         resolveSurfaceWorkspacePathFromPlacementContext(surfaceState.context, surfaceState.surfaceId, workspaceSlug, "/")
       ),
       workspaceBootstrapStatus: String(getWorkspaceBootstrapStatus(workspaceSlug) || "")
@@ -126,12 +126,12 @@ function createBootstrapPlacementRouteGuards({
       if (!fallbackWorkspaceSlug) {
         return "/";
       }
-      return normalizeGuardPathname(
+      return resolveRuntimePathname(
         resolveSurfaceWorkspacePathFromPlacementContext(context, fallbackSurfaceId, fallbackWorkspaceSlug, "/")
       );
     }
 
-    const fallbackPath = normalizeGuardPathname(resolveSurfaceRootPathFromPlacementContext(context, fallbackSurfaceId));
+    const fallbackPath = resolveRuntimePathname(resolveSurfaceRootPathFromPlacementContext(context, fallbackSurfaceId));
     if (fallbackPath.includes(":")) {
       return "/";
     }
@@ -214,7 +214,7 @@ function createBootstrapPlacementRouteGuards({
 
     const currentRoute = router.currentRoute?.value || {};
     const currentFullPath = String(currentRoute.fullPath || "").trim();
-    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentComparablePath = currentFullPath || currentPath;
     if (currentComparablePath === normalizedTargetPath) {
       return;
@@ -233,7 +233,7 @@ function createBootstrapPlacementRouteGuards({
     }
 
     const currentRoute = router.currentRoute?.value || {};
-    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
     const workspaceState = resolveWorkspaceRouteState(currentPath, currentSearch);
     if (!workspaceState || workspaceState.workspaceSlug !== normalizedWorkspaceSlug) {
@@ -260,7 +260,7 @@ function createBootstrapPlacementRouteGuards({
     }
 
     const currentRoute = router.currentRoute?.value || {};
-    const currentPath = normalizeGuardPathname(currentRoute.path || "/");
+    const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
     const surfaceDecision = resolveSurfaceAccessGuardDecision(currentPath, currentSearch, {
       allowOnUnknown: false
@@ -299,7 +299,7 @@ function createBootstrapPlacementRouteGuards({
         return baseOutcome;
       }
 
-      const pathname = normalizeGuardPathname(context?.location?.pathname || context?.to?.path || "/");
+      const pathname = resolveRuntimePathname(context?.location?.pathname || context?.to?.path || "/");
       const search = normalizeSearch(context?.location?.search || resolveSearchFromFullPath(context?.to?.fullPath || ""));
       const workspaceDecision = resolveWorkspaceGuardDecision(pathname, search);
       if (workspaceDecision) {

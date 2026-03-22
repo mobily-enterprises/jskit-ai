@@ -6,6 +6,7 @@ import { AUTH_PATHS, buildAuthOauthStartPath } from "../src/shared/authPaths.js"
 test("AUTH_PATHS defines canonical auth endpoint paths", () => {
   assert.equal(Object.isFrozen(AUTH_PATHS), true);
   assert.equal(AUTH_PATHS.LOGIN, "/api/login");
+  assert.equal(AUTH_PATHS.REGISTER_CONFIRMATION_RESEND, "/api/register/confirmation/resend");
   assert.equal(AUTH_PATHS.LOGOUT, "/api/logout");
   assert.equal(AUTH_PATHS.SESSION, "/api/session");
   assert.equal(AUTH_PATHS.OAUTH_START_TEMPLATE, "/api/oauth/:provider/start");

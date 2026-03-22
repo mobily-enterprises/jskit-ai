@@ -11,6 +11,25 @@ const DEFAULT_LOGIN_ROUTE = "/auth/login";
 const DEFAULT_REFRESH_ON_FOREGROUND = false;
 const DEFAULT_REFRESH_ON_RECONNECT = false;
 const DEFAULT_REALTIME_REFRESH_EVENTS = Object.freeze(["users.bootstrap.changed", "auth.session.changed"]);
+const OAUTH_QUERY_PARAM_RETURN_TO = "returnTo";
+const OAUTH_CALLBACK_PARAM_KEYS = Object.freeze([
+  "code",
+  "access_token",
+  "refresh_token",
+  "provider_token",
+  "expires_in",
+  "expires_at",
+  "token_type",
+  "state",
+  "sb",
+  "type",
+  "error",
+  "error_code",
+  "error_description",
+  "errorCode",
+  "errorDescription",
+  "token_hash"
+]);
 const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
@@ -247,6 +266,60 @@ function normalizeRuntimePath(value, fallback) {
   return raw || fallback;
 }
 
+function hasOAuthCallbackParams({ search = "", hash = "" } = {}) {
+  const searchParams = new URLSearchParams(String(search || ""));
+  const hashParams = new URLSearchParams(String(hash || "").replace(/^#/, ""));
+  return OAUTH_CALLBACK_PARAM_KEYS.some((key) => searchParams.has(key) || hashParams.has(key));
+}
+
+function stripOAuthCallbackParamsFromSearch(search = "") {
+  const params = new URLSearchParams(String(search || ""));
+  OAUTH_CALLBACK_PARAM_KEYS.forEach((key) => {
+    params.delete(key);
+  });
+  params.delete(OAUTH_QUERY_PARAM_RETURN_TO);
+  return params;
+}
+
+function redirectOAuthCallbackToLoginRoute(loginRoute) {
+  if (
+    typeof window !== "object" ||
+    !window ||
+    !window.location ||
+    typeof window.location.replace !== "function"
+  ) {
+    return false;
+  }
+
+  const normalizedLoginRoute = normalizeLoginRoute(loginRoute, DEFAULT_LOGIN_ROUTE);
+  if (isExternalLinkTarget(normalizedLoginRoute)) {
+    return false;
+  }
+
+  const currentPathname = normalizePathname(window.location.pathname || "", "/");
+  const loginPathname = normalizePathname(normalizedLoginRoute, DEFAULT_LOGIN_ROUTE);
+  if (currentPathname === loginPathname) {
+    return false;
+  }
+
+  const currentSearch = String(window.location.search || "");
+  const currentHash = String(window.location.hash || "");
+  if (!hasOAuthCallbackParams({ search: currentSearch, hash: currentHash })) {
+    return false;
+  }
+
+  const returnToParams = stripOAuthCallbackParamsFromSearch(currentSearch);
+  const returnToQuery = returnToParams.toString();
+  const returnTo = `${currentPathname}${returnToQuery ? `?${returnToQuery}` : ""}`;
+
+  const nextParams = new URLSearchParams(currentSearch);
+  nextParams.set(OAUTH_QUERY_PARAM_RETURN_TO, returnTo);
+  const nextQuery = nextParams.toString();
+  const nextPath = `${loginPathname}${nextQuery ? `?${nextQuery}` : ""}${currentHash}`;
+  window.location.replace(nextPath);
+  return true;
+}
+
 function asEventTarget(value) {
   if (!value || typeof value !== "object") {
     return null;
@@ -383,6 +456,10 @@ function createAuthGuardRuntime({
   async function initialize({ sessionPath: nextSessionPath, loginRoute: nextLoginRoute } = {}) {
     currentSessionPath = normalizeRuntimePath(nextSessionPath, currentSessionPath);
     currentLoginRoute = normalizeLoginRoute(nextLoginRoute, currentLoginRoute);
+    if (redirectOAuthCallbackToLoginRoute(currentLoginRoute)) {
+      return authState;
+    }
+
     installGuardEvaluator({
       loginRoute: currentLoginRoute,
       getAuthState: () => authState

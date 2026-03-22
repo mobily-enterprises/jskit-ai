@@ -51,13 +51,18 @@ test("auth-web removes legacy client wrapper modules", () => {
   }
 });
 
-test("auth-web runtime/useLoginView delegates to useDefaultLoginView", () => {
+test("auth-web runtime/useLoginView composes login view state, validation, and actions", () => {
   const runtimeUseLoginViewPath = fileURLToPath(new URL("../src/client/runtime/useLoginView.js", import.meta.url));
   const runtimeUseLoginViewSource = readFileSync(runtimeUseLoginViewPath, "utf8");
 
-  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useDefaultLoginView\s*\}\s+from\s+"..\/composables\/useDefaultLoginView\.js";/);
-  assert.match(runtimeUseLoginViewSource, /function\s+useLoginView\s*\(\)\s*\{\s*return\s+useDefaultLoginView\(\);\s*\}/);
-  assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView,\s*useDefaultLoginView\s*\};/);
+  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewState\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewState\.js";/);
+  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewValidation\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewValidation\.js";/);
+  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewActions\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewActions\.js";/);
+  assert.match(runtimeUseLoginViewSource, /const\s+state\s*=\s*useLoginViewState\(/);
+  assert.match(runtimeUseLoginViewSource, /const\s+validation\s*=\s*useLoginViewValidation\(\s*\{\s*state\s*\}\s*\)/);
+  assert.match(runtimeUseLoginViewSource, /const\s+actions\s*=\s*useLoginViewActions\(/);
+  assert.doesNotMatch(runtimeUseLoginViewSource, /useDefaultLoginView/);
+  assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView\s*\};/);
 });
 
 test("auth-web package exports only minimal client runtime/view subpaths", () => {

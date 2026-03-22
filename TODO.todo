@@ -127,15 +127,19 @@ THEN:
   X Re-add icons
 
   X Final DESLOP
-  - Publish NPM packages
-  - Final deslop ticket
+  X Publish NPM packages
+  X Final deslop ticket
+
+
   - FINAL STEP: Do infrastructure deploy, easy way
 
   22/03 AM Chiara
   24/03 AM Daniela
-  24/03 AM Guido
+  24/03 02 Guido
   26/03 AM Tony
   27/03 15 Stefano
+  28/03 17 Massimo
+  
 
   
   LATER, PORT OVER:

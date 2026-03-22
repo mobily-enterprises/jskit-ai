@@ -31,6 +31,7 @@
     "./shared/inviteTokens": "./src/shared/inviteTokens.js",
     "./shared/commands": "./src/shared/commands/index.js",
     "./shared/commands/authRegisterCommand": "./src/shared/commands/authRegisterCommand.js",
+    "./shared/commands/authRegisterConfirmationResendCommand": "./src/shared/commands/authRegisterConfirmationResendCommand.js",
     "./shared/commands/authLoginPasswordCommand": "./src/shared/commands/authLoginPasswordCommand.js",
     "./shared/commands/authLoginOtpRequestCommand": "./src/shared/commands/authLoginOtpRequestCommand.js",
     "./shared/commands/authLoginOtpVerifyCommand": "./src/shared/commands/authLoginOtpVerifyCommand.js",

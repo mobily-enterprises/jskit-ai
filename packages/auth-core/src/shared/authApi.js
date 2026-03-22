@@ -8,6 +8,9 @@ function createApi({ request }) {
     register(payload) {
       return request(AUTH_PATHS.REGISTER, { method: "POST", body: payload });
     },
+    resendRegisterConfirmation(payload) {
+      return request(AUTH_PATHS.REGISTER_CONFIRMATION_RESEND, { method: "POST", body: payload });
+    },
     login(payload) {
       return request(AUTH_PATHS.LOGIN, { method: "POST", body: payload });
     },

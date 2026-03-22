@@ -105,6 +105,50 @@ test("auth guard runtime keeps previous auth state on transient refresh failure"
   assert.equal(placementRuntime.setCalls.length, setCallCountBeforeTransientFailure);
 });
 
+test("auth guard runtime redirects callback hashes on non-login routes to /auth/login", async () => {
+  const originalWindow = globalThis.window;
+  let redirectedTo = "";
+  globalThis.window = {
+    location: {
+      pathname: "/home",
+      search: "",
+      hash: "#access_token=access&refresh_token=refresh",
+      replace(target) {
+        redirectedTo = String(target || "");
+      }
+    }
+  };
+
+  try {
+    const placementRuntime = createPlacementRuntimeStub();
+    let fetchCalls = 0;
+    const runtime = createAuthGuardRuntime({
+      placementRuntime,
+      fetchImplementation: async () => {
+        fetchCalls += 1;
+        return {
+          ok: true,
+          async json() {
+            return {
+              authenticated: false
+            };
+          }
+        };
+      }
+    });
+
+    const state = await runtime.initialize();
+    assert.equal(state.authenticated, false);
+    assert.equal(fetchCalls, 0);
+    assert.equal(
+      redirectedTo,
+      "/auth/login?returnTo=%2Fhome#access_token=access&refresh_token=refresh"
+    );
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
 test("auth guard runtime only updates placement auth context", async () => {
   const placementRuntime = createPlacementRuntimeStub({
     user: {

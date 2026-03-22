@@ -1,5 +1,3 @@
-import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
-
 function resolveMembershipRoleId(membershipLike) {
   return String(membershipLike?.roleId || "").trim();
 }
@@ -25,8 +23,12 @@ function normalizeMembershipForAccess(membershipLike) {
   };
 }
 
-function mapMembershipSummary(membershipLike) {
-  return normalizeMembershipForAccess(membershipLike);
+function normalizePermissions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(value.map((permission) => String(permission || "").trim()).filter(Boolean)));
 }
 
 function createMembershipIndexes(memberships) {
@@ -55,7 +57,6 @@ export {
   resolveMembershipRoleId,
   resolveMembershipStatus,
   normalizeMembershipForAccess,
-  mapMembershipSummary,
-  normalizePermissionList as normalizePermissions,
+  normalizePermissions,
   createMembershipIndexes
 };

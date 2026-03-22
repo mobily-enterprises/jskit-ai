@@ -106,7 +106,6 @@ function validatePasswordRecoveryPayload(payload) {
 }
 
 function parseOAuthCompletePayload(payload = {}, options = {}) {
-  const provider = normalizeOAuthProviderInput(payload.provider || options.defaultProvider, options);
   const code = String(payload.code || "").trim();
   const accessToken = String(payload.accessToken || "").trim();
   const refreshToken = String(payload.refreshToken || "").trim();
@@ -137,6 +136,10 @@ function parseOAuthCompletePayload(payload = {}, options = {}) {
   applySessionPairValidation(accessToken, refreshToken, fieldErrors);
 
   const hasSessionPair = Boolean(accessToken && refreshToken);
+  const provider =
+    !hasSessionPair || code || errorCode
+      ? normalizeOAuthProviderInput(payload.provider || options.defaultProvider, options)
+      : null;
 
   if (!code && !errorCode && !hasSessionPair) {
     fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";

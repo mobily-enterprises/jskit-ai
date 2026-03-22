@@ -152,7 +152,7 @@ const oauthCompleteResponseValidator = Object.freeze({
   schema: Type.Object(
     {
       ok: Type.Boolean(),
-      provider: oauthProviderValidator.schema,
+      provider: Type.Optional(oauthProviderValidator.schema),
       username: Type.String({ minLength: 1, maxLength: 120 }),
       email: authEmailValidator.schema
     },

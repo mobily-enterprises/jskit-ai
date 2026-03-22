@@ -3,6 +3,7 @@ import {
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import {
   authRegisterCommand,
+  authRegisterConfirmationResendCommand,
   authLoginPasswordCommand,
   authLoginOtpRequestCommand,
   authLoginOtpVerifyCommand,
@@ -37,6 +38,22 @@ const authActions = Object.freeze([
     observability: {},
     async execute(input, _context, deps) {
       return deps.authService.register(input);
+    }
+  },
+  {
+    id: "auth.register.confirmation.resend",
+    version: 1,
+    kind: "command",
+    channels: ["api", "internal"],
+    surfacesFrom: "enabled",
+    inputValidator: authRegisterConfirmationResendCommand.operation.bodyValidator,
+    idempotency: "none",
+    audit: {
+      actionName: "auth.register.confirmation.resend"
+    },
+    observability: {},
+    async execute(input, _context, deps) {
+      return deps.authService.resendRegisterConfirmation(input);
     }
   },
   {

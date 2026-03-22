@@ -4,10 +4,6 @@ import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNo
 import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
 import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../roles.js";
-import {
-  createWorkspaceRoleCatalogOutputSchema,
-  hasWorkspaceRoleCatalog
-} from "./workspaceRoleCatalogSchema.js";
 
 const workspaceSummaryOutputSchema = Type.Object(
   {
@@ -94,10 +90,14 @@ function normalizeWorkspaceOutputEnvelope(
   const workspace = normalizeWorkspaceAdminSummary(source.workspace);
   const items = Array.isArray(source[itemsKey]) ? source[itemsKey] : [];
   const roleCatalog = normalizeObjectInput(source.roleCatalog);
+  const hasRoleCatalog =
+    Array.isArray(roleCatalog.roles) &&
+    roleCatalog.roles.length > 0 &&
+    Array.isArray(roleCatalog.assignableRoleIds);
   const normalized = {
     workspace,
     [itemsKey]: items.map((item) => normalizeItem(item, workspace)),
-    roleCatalog: hasWorkspaceRoleCatalog(roleCatalog) ? roleCatalog : createWorkspaceRoleCatalog()
+    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
   };
 
   if (includeInviteTokenPreview && Object.hasOwn(source, "inviteTokenPreview")) {
@@ -123,7 +123,15 @@ function normalizeWorkspaceInvitesOutput(payload = {}) {
 }
 
 const workspaceRoleCatalogOutputValidator = Object.freeze({
-  schema: createWorkspaceRoleCatalogOutputSchema(Type)
+  schema: Type.Object(
+    {
+      collaborationEnabled: Type.Boolean(),
+      defaultInviteRole: Type.String(),
+      roles: Type.Array(Type.Object({}, { additionalProperties: true })),
+      assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
+    },
+    { additionalProperties: true }
+  )
 });
 
 const workspaceMembersOutputValidator = Object.freeze({

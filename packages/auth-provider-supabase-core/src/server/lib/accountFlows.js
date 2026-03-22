@@ -66,6 +66,19 @@ function createAccountFlows(deps) {
     }
   }
 
+  function resolveRegisterEmailRedirectTo() {
+    if (typeof buildOtpLoginRedirectUrl === "function") {
+      try {
+        return buildOtpLoginRedirectUrl({
+          appPublicUrl
+        });
+      } catch {
+        // Fall through to the pre-built URL fallback below.
+      }
+    }
+    return otpLoginRedirectUrl;
+  }
+
   async function register(payload) {
     ensureConfigured();
 
@@ -77,6 +90,7 @@ function createAccountFlows(deps) {
       email: parsed.email,
       password: parsed.password,
       options: {
+        emailRedirectTo: resolveRegisterEmailRedirectTo(),
         data: {
           display_name: displayNameFromEmail(parsed.email)
         }
@@ -84,7 +98,7 @@ function createAccountFlows(deps) {
     });
 
     if (response.error) {
-      throw mapAuthError(response.error, 400);
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
 
     if (!response.data?.user) {
@@ -106,6 +120,55 @@ function createAccountFlows(deps) {
       requiresEmailConfirmation: false,
       profile,
       session: response.data.session
+    };
+  }
+
+  async function resendRegisterConfirmation(payload) {
+    ensureConfigured();
+
+    const parsed = validators.forgotPasswordInput(payload);
+    requireNoFieldErrors(parsed, validationError);
+
+    const supabase = getSupabaseClient();
+    const emailRedirectTo = resolveRegisterEmailRedirectTo();
+    let response;
+    try {
+      response = await supabase.auth.resend({
+        type: "signup",
+        email: parsed.email,
+        options: {
+          emailRedirectTo
+        }
+      });
+    } catch (error) {
+      if (isTransientSupabaseError(error)) {
+        throw mapAuthError(error, 503);
+      }
+
+      return {
+        ok: true,
+        message: "If an account exists for that email, a confirmation email has been sent."
+      };
+    }
+
+    if (response.error) {
+      if (isTransientSupabaseError(response.error)) {
+        throw mapAuthError(response.error, 503);
+      }
+
+      if (isUserNotFoundLikeAuthError(response.error)) {
+        return {
+          ok: true,
+          message: "If an account exists for that email, a confirmation email has been sent."
+        };
+      }
+
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+
+    return {
+      ok: true,
+      message: "If an account exists for that email, a confirmation email has been sent."
     };
   }
 
@@ -257,6 +320,7 @@ function createAccountFlows(deps) {
 
   return {
     register,
+    resendRegisterConfirmation,
     login,
     requestOtpLogin,
     verifyOtpLogin,

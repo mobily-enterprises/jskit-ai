@@ -1,4 +1,5 @@
 export { authRegisterCommand } from "./authRegisterCommand.js";
+export { authRegisterConfirmationResendCommand } from "./authRegisterConfirmationResendCommand.js";
 export { authLoginPasswordCommand } from "./authLoginPasswordCommand.js";
 export { authLoginOtpRequestCommand } from "./authLoginOtpRequestCommand.js";
 export { authLoginOtpVerifyCommand } from "./authLoginOtpVerifyCommand.js";

@@ -12,7 +12,6 @@ import {
 const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
   fields: {
     provider: {
-      required: "OAuth provider is required.",
       pattern: "OAuth provider id is invalid.",
       default: "OAuth provider id is invalid."
     },
@@ -31,7 +30,7 @@ const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
 const authLoginOAuthCompleteBodyValidator = Object.freeze({
   schema: Type.Object(
     {
-      provider: oauthProviderValidator.schema,
+      provider: Type.Optional(oauthProviderValidator.schema),
       code: Type.Optional(authRecoveryTokenValidator.schema),
       accessToken: Type.Optional(authAccessTokenValidator.schema),
       refreshToken: Type.Optional(authRefreshTokenValidator.schema),

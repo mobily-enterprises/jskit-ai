@@ -69,6 +69,7 @@ test("auth supabase provider registers authService and contributes auth actions 
   const definitions = actionExecutor.listDefinitions();
   assert.equal(Array.isArray(definitions), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
+  assert.equal(definitions.some((definition) => definition.id === "auth.register.confirmation.resend"), true);
   const sessionRead = definitions.find((definition) => definition.id === "auth.session.read");
   assert.deepEqual(sessionRead?.surfaces, ["home", "console"]);
 });

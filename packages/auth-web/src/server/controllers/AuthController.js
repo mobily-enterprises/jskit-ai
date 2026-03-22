@@ -35,6 +35,12 @@ class AuthController {
     });
   }
 
+  async resendRegisterConfirmation(request, reply) {
+    const payload = request.body || {};
+    const result = await this.service.resendRegisterConfirmation(request, payload);
+    reply.code(200).send(result);
+  }
+
   async login(request, reply) {
     const payload = request.body || {};
     const result = await this.service.login(request, payload);

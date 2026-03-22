@@ -560,7 +560,7 @@ function createService(options) {
     };
   }
 
-  const { register, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
+  const { register, resendRegisterConfirmation, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
     ensureConfigured,
     validators,
     validationError,
@@ -797,6 +797,7 @@ function createService(options) {
 
   return {
     register,
+    resendRegisterConfirmation,
     login,
     requestOtpLogin,
     verifyOtpLogin,

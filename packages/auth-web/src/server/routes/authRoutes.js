@@ -1,6 +1,7 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import {
   authRegisterCommand,
+  authRegisterConfirmationResendCommand,
   authLoginPasswordCommand,
   authLoginOtpRequestCommand,
   authLoginOtpVerifyCommand,
@@ -42,6 +43,27 @@ function buildRoutes(controller) {
         timeWindow: "1 minute"
       },
       handler: handler("register")
+    },
+    {
+      path: AUTH_PATHS.REGISTER_CONFIRMATION_RESEND,
+      method: "POST",
+      auth: "public",
+      meta: {
+        tags: ["auth"],
+        summary: "Resend sign-up email confirmation"
+      },
+      bodyValidator: authRegisterConfirmationResendCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
+        {
+          200: authRegisterConfirmationResendCommand.operation.responseValidator
+        },
+        { includeValidation400: true }
+      ),
+      rateLimit: {
+        max: 5,
+        timeWindow: "1 minute"
+      },
+      handler: handler("resendRegisterConfirmation")
     },
     {
       path: AUTH_PATHS.LOGIN,

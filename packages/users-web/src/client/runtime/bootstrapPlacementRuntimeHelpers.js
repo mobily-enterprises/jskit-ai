@@ -1,5 +1,5 @@
 import {
-  createProviderLogger
+  createProviderLogger as createSharedProviderLogger
 } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   resolveRuntimePathname,
@@ -13,6 +13,10 @@ import {
   normalizeWorkspaceBootstrapStatusValue
 } from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
+
+function createProviderLogger(app) {
+  return createSharedProviderLogger(app);
+}
 
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
@@ -49,10 +53,6 @@ function resolveSearchFromFullPath(fullPath = "") {
   const hashStart = normalizedFullPath.indexOf("#", queryStart);
   const search = hashStart < 0 ? normalizedFullPath.slice(queryStart) : normalizedFullPath.slice(queryStart, hashStart);
   return normalizeSearch(search);
-}
-
-function normalizeGuardPathname(pathname = "/") {
-  return resolveRuntimePathname(pathname);
 }
 
 function isGuardDenied(outcome) {
@@ -137,7 +137,6 @@ export {
   createProviderLogger,
   fetchBootstrapPayload,
   isGuardDenied,
-  normalizeGuardPathname,
   normalizeSearch,
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,

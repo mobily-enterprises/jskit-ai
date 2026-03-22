@@ -1,7 +1,13 @@
-import { normalizeUniqueTextList } from "../support/normalize.js";
-
 function normalizeRequiredFieldList(value) {
-  return Object.freeze(normalizeUniqueTextList(value));
+  if (!Array.isArray(value)) {
+    return Object.freeze([]);
+  }
+
+  const normalized = value
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+
+  return Object.freeze(Array.from(new Set(normalized)));
 }
 
 function deriveRequiredFieldsFromSchema(schema) {
