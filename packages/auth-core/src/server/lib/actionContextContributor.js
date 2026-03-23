@@ -1,4 +1,3 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 
 function createAuthActionContextContributor() {

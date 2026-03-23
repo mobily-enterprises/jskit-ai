@@ -1,4 +1,4 @@
-import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { ensureNonEmptyText, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
 import { normalizeMiddlewareStack as normalizeSharedMiddlewareStack } from "./routeSupport.js";

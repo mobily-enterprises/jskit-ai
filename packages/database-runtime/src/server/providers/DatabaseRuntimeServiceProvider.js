@@ -3,7 +3,6 @@ import { symlinkSafeRequire } from "@jskit-ai/kernel/server/support";
 import * as databaseRuntime from "../../shared/index.js";
 import { createTransactionManager } from "../../shared/transactionManager.js";
 import {
-  normalizeText,
   normalizeDatabaseClient,
   toKnexClientId
 } from "../../shared/databaseClient.js";

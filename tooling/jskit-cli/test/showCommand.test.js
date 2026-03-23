@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import path from "node:path";
 import test from "node:test";
 import { createCliRunner } from "../../testUtils/runCli.js";
@@ -14,7 +15,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   });
 
   assert.equal(result.status, 0, String(result.stderr || ""));
-  const stdout = String(result.stdout || "");
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
   assert.match(stdout, /File writes \(/);
   assert.match(stdout, /UI routes \(/);
   assert.match(stdout, /\/auth\/login \((surface|global)\) \[advisory\] Public login route for authentication flows\. \(id:auth\.login\)/);
@@ -51,7 +52,7 @@ test("show package --details renders expanded capability graph details", () => {
   });
 
   assert.equal(result.status, 0, String(result.stderr || ""));
-  const stdout = String(result.stdout || "");
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
   assert.match(stdout, /Capability details:/);
   assert.match(stdout, /Provides detail \(/);
   assert.match(stdout, /Requires detail \(/);
@@ -69,7 +70,7 @@ test("show package --debug-exports includes re-export provenance details", () =>
   });
 
   assert.equal(result.status, 0, String(result.stderr || ""));
-  const stdout = String(result.stdout || "");
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
   assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /re-export sources:/);
   assert.match(stdout, /named re-exports \(\d+\):/);

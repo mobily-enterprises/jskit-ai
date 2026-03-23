@@ -2135,11 +2135,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.23",
+      "version": "0.1.26",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.23",
+        "version": "0.1.26",
         "description": "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
         "dependsOn": [
           "@jskit-ai/auth-core",
@@ -2399,6 +2399,15 @@
               "id": "users-core-workspace-settings-single-name-source"
             },
             {
+              "op": "install-migration",
+              "from": "templates/migrations/users_core_workspaces_drop_color.cjs",
+              "toDir": "migrations",
+              "extension": ".cjs",
+              "reason": "Drop legacy workspaces.color now that workspace theme colors live in workspace_settings.",
+              "category": "migration",
+              "id": "users-core-workspaces-drop-color"
+            },
+            {
               "from": "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",
               "to": "packages/main/src/shared/resources/workspaceSettingsFields.js",
               "preserveOnRemove": true,
@@ -2614,11 +2623,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.27",
+      "version": "0.1.31",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.27",
+        "version": "0.1.31",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
         "dependsOn": [
           "@jskit-ai/http-runtime",
@@ -2886,7 +2895,7 @@
               "@jskit-ai/realtime": "0.1.16",
               "@jskit-ai/kernel": "0.1.17",
               "@jskit-ai/shell-web": "0.1.16",
-              "@jskit-ai/users-core": "0.1.23",
+              "@jskit-ai/users-core": "0.1.26",
               "vuetify": "^4.0.0"
             },
             "dev": {}

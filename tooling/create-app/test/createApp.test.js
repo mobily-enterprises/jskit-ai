@@ -274,7 +274,8 @@ test("create-app interactive flow captures initial bundle selection in guidance"
       "",
       "",
       "",
-      "auth"
+      "auth",
+      "workspaces"
     ];
     const askedPrompts = [];
     const readlineFactory = () => ({
@@ -300,9 +301,12 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     const stderr = stderrCapture.read();
     assert.equal(exitCode, 0, stderr);
     assert.deepEqual(answers, []);
-    assert.ok(askedPrompts.length >= 6);
+    assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework bundle commands \(auth\):/);
     assert.match(stdout, /npx jskit add auth-base --no-install/);
+
+    const publicConfig = await readFile(path.join(cwd, "interactive-app/config/public.js"), "utf8");
+    assert.match(publicConfig, /config\.tenancyMode = "workspaces";/);
   });
 });
 

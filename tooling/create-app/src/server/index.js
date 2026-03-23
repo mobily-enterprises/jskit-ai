@@ -468,13 +468,36 @@ async function collectInteractiveOptions({
       }
     }
 
+    let tenancyMode = String(parsed.tenancyMode || "").trim();
+    if (tenancyMode) {
+      tenancyMode = normalizeTenancyMode(tenancyMode, { showUsage: false });
+    }
+    while (true) {
+      const candidate = await askQuestion(
+        readline,
+        "Tenancy mode (none|personal|workspaces, optional)",
+        tenancyMode
+      );
+      if (!candidate) {
+        tenancyMode = null;
+        break;
+      }
+      try {
+        tenancyMode = normalizeTenancyMode(candidate, { showUsage: false });
+        break;
+      } catch (error) {
+        stderr.write(`Error: ${error?.message || String(error)}\n`);
+      }
+    }
+
     return {
       appName,
       appTitle,
       target,
       template,
       force,
-      initialBundles
+      initialBundles,
+      tenancyMode
     };
   } finally {
     readline.close();

@@ -1,6 +1,5 @@
 import {
-  ShellWebClientProvider,
-  SHELL_WEB_QUERY_CLIENT_TOKEN
+  ShellWebClientProvider
 } from "./providers/ShellWebClientProvider.js";
 
 export {
