@@ -36,10 +36,6 @@ function normalizeWorkspaceInput(payload = {}) {
   if (Object.hasOwn(source, "avatarUrl")) {
     normalized.avatarUrl = normalizeWorkspaceAvatarUrl(source.avatarUrl);
   }
-  if (Object.hasOwn(source, "color")) {
-    const color = normalizeText(source.color);
-    normalized.color = /^#[0-9A-Fa-f]{6}$/.test(color) ? color.toUpperCase() : null;
-  }
   if (Object.hasOwn(source, "isPersonal")) {
     normalized.isPersonal = source.isPersonal === true;
   }
@@ -55,8 +51,7 @@ function normalizeWorkspaceOutput(payload = {}) {
     slug: normalizeLowerText(source.slug),
     name: normalizeText(source.name),
     ownerUserId: Number(source.ownerUserId),
-    avatarUrl: normalizeText(source.avatarUrl),
-    color: normalizeText(source.color).toUpperCase()
+    avatarUrl: normalizeText(source.avatarUrl)
   };
 }
 
@@ -67,7 +62,6 @@ function normalizeWorkspaceListItemOutput(payload = {}) {
     id: Number(source.id),
     slug: normalizeLowerText(source.slug),
     name: normalizeText(source.name),
-    color: normalizeText(source.color).toUpperCase(),
     avatarUrl: normalizeText(source.avatarUrl),
     roleId: normalizeLowerText(source.roleId || "member") || "member",
     isAccessible: source.isAccessible !== false
@@ -80,8 +74,7 @@ const responseRecordSchema = Type.Object(
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
     ownerUserId: Type.Integer({ minimum: 1 }),
-    avatarUrl: Type.String(),
-    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" })
+    avatarUrl: Type.String()
   },
   { additionalProperties: false }
 );
@@ -91,7 +84,6 @@ const listItemSchema = Type.Object(
     id: Type.Integer({ minimum: 1 }),
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    color: Type.String({ minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" }),
     avatarUrl: Type.String(),
     roleId: Type.String({ minLength: 1 }),
     isAccessible: Type.Boolean()
@@ -116,17 +108,6 @@ const patchRequestBodySchema = Type.Object(
         messages: {
           pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
           default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
-        }
-      })
-    ),
-    color: Type.Optional(
-      Type.String({
-        minLength: 7,
-        maxLength: 7,
-        pattern: "^#[0-9A-Fa-f]{6}$",
-        messages: {
-          pattern: "Workspace color must be a hex color like #1867C0.",
-          default: "Workspace color must be a hex color like #1867C0."
         }
       })
     )

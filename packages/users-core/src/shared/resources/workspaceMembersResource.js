@@ -11,8 +11,7 @@ const workspaceSummaryOutputSchema = Type.Object(
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1 }),
     ownerUserId: Type.Integer({ minimum: 1 }),
-    avatarUrl: Type.String(),
-    color: Type.String({ minLength: 1 })
+    avatarUrl: Type.String()
   },
   { additionalProperties: false }
 );
@@ -49,8 +48,7 @@ function normalizeWorkspaceAdminSummary(workspace) {
     slug: normalizeText(source.slug),
     name: normalizeText(source.name),
     ownerUserId: Number(source.ownerUserId),
-    avatarUrl: normalizeText(source.avatarUrl),
-    color: normalizeText(source.color)
+    avatarUrl: normalizeText(source.avatarUrl)
   };
 }
 

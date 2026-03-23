@@ -1455,7 +1455,7 @@ function createCommandHandlers(deps) {
         io.stdout.write(`- ${touchedFile}\n`);
       }
       io.stdout.write(`Lock file: ${normalizeRelativePath(appRoot, lockPath)}\n`);
-      if (migrationWarnings.length > 0) {
+      if (options.verbose && migrationWarnings.length > 0) {
         io.stdout.write(`Warnings (${migrationWarnings.length}):\n`);
         for (const warning of migrationWarnings) {
           io.stdout.write(`- ${warning}\n`);

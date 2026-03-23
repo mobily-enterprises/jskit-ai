@@ -6,13 +6,11 @@ import {
   nowDb,
   isDuplicateEntryError
 } from "./repositoryUtils.js";
-import { coerceWorkspaceColor } from "../../../shared/settings.js";
 
 function mapRow(row) {
   if (!row) {
     return null;
   }
-  const color = coerceWorkspaceColor(row.color);
 
   return {
     id: Number(row.id),
@@ -21,7 +19,6 @@ function mapRow(row) {
     ownerUserId: Number(row.owner_user_id),
     isPersonal: Boolean(row.is_personal),
     avatarUrl: row.avatar_url ? normalizeText(row.avatar_url) : "",
-    color,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
     deletedAt: toNullableIso(row.deleted_at)
@@ -53,7 +50,6 @@ function createRepository(knex) {
       "w.owner_user_id",
       "w.is_personal",
       "w.avatar_url",
-      "w.color",
       "w.created_at",
       "w.updated_at",
       "w.deleted_at"
@@ -107,7 +103,6 @@ function createRepository(knex) {
       owner_user_id: Number(source.ownerUserId),
       is_personal: source.isPersonal ? 1 : 0,
       avatar_url: normalizeText(source.avatarUrl),
-      color: coerceWorkspaceColor(source.color),
       created_at: nowDb(),
       updated_at: nowDb(),
       deleted_at: null
@@ -145,9 +140,6 @@ function createRepository(knex) {
     }
     if (Object.hasOwn(source, "avatarUrl")) {
       dbPatch.avatar_url = normalizeText(source.avatarUrl);
-    }
-    if (Object.hasOwn(source, "color")) {
-      dbPatch.color = coerceWorkspaceColor(source.color);
     }
 
     await client("workspaces").where({ id: Number(workspaceId) }).update(dbPatch);

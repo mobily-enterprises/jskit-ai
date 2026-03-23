@@ -33,7 +33,7 @@ async function createMinimalApp(appRoot) {
       'config.surfaceModeAll = "all";',
       'config.surfaceDefaultId = "home";',
       "config.surfaceDefinitions = {};",
-      'config.surfaceDefinitions.home = { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false };',
+      'config.surfaceDefinitions.home = { id: "home", pagesRoot: "home", enabled: true, requiresAuth: false, requiresWorkspace: false };',
       'config.surfaceDefinitions.console = { id: "console", pagesRoot: "console", enabled: true, requiresAuth: true, requiresWorkspace: false };',
       ""
     ].join("\n"),

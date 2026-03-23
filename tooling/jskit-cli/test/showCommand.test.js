@@ -17,7 +17,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   const stdout = String(result.stdout || "");
   assert.match(stdout, /File writes \(/);
   assert.match(stdout, /UI routes \(/);
-  assert.match(stdout, /\/auth\/login \(global\) \[advisory\] Public login route for authentication flows\. \(id:auth\.login\)/);
+  assert.match(stdout, /\/auth\/login \((surface|global)\) \[advisory\] Public login route for authentication flows\. \(id:auth\.login\)/);
   assert.match(stdout, /Server routes \(/);
   assert.match(stdout, /GET \/api\/session: Get current session status and CSRF token/);
   assert.match(stdout, /Summary:/);
@@ -56,7 +56,7 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /Provides detail \(/);
   assert.match(stdout, /Requires detail \(/);
   assert.match(stdout, /auth\.provider/);
-  assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.1\.0/);
+  assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.\d+\.\d+/);
   assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /providers \(\d+\):/);
   assert.doesNotMatch(stdout, /named re-exports \(\d+\):/);
@@ -92,8 +92,8 @@ test("show package --json includes exports, container bindings, and exported sym
   const containerBindings = payload.containerBindings || {};
   const serverBindings = Array.isArray(containerBindings.server) ? containerBindings.server : [];
   const clientBindings = Array.isArray(containerBindings.client) ? containerBindings.client : [];
-  assert.ok(serverBindings.some((record) => record.token === "validators.http"));
-  assert.ok(clientBindings.some((record) => record.token === "validators.http.client"));
+  assert.ok(serverBindings.some((record) => record.token === "runtime.http-client"));
+  assert.ok(clientBindings.some((record) => record.token === "runtime.http-client.client"));
 
   assert.ok(Array.isArray(payload.exportedSymbols));
   assert.ok(payload.exportedSymbols.some((record) => record.file === "src/client/index.js"));

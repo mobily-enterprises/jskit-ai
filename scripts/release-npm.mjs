@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile, cp } from "node:fs/pro
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/packageIdHelpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,7 +20,6 @@ const DEFAULT_PUBLISH_CONCURRENCY = 20;
 function parseArgs(argv) {
   const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
   const options = {
-    since: "",
     only: [],
     registry: DEFAULT_REGISTRY,
     tag: DEFAULT_TAG,
@@ -28,8 +27,7 @@ function parseArgs(argv) {
     publishConcurrency: Number.isInteger(envPublishConcurrency) && envPublishConcurrency > 0
       ? envPublishConcurrency
       : DEFAULT_PUBLISH_CONCURRENCY,
-    dryRun: false,
-    forceAll: false
+    dryRun: false
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -37,28 +35,6 @@ function parseArgs(argv) {
 
     if (argument === "--dry-run") {
       options.dryRun = true;
-      continue;
-    }
-
-    if (argument === "--force-all") {
-      options.forceAll = true;
-      continue;
-    }
-
-    if (argument === "--since") {
-      if (options.only.length > 0) {
-        throw new Error("--since cannot be combined with --only.");
-      }
-      options.since = String(argv[index + 1] || "").trim();
-      index += 1;
-      continue;
-    }
-
-    if (argument.startsWith("--since=")) {
-      if (options.only.length > 0) {
-        throw new Error("--since cannot be combined with --only.");
-      }
-      options.since = argument.slice("--since=".length).trim();
       continue;
     }
 
@@ -130,11 +106,6 @@ function parseArgs(argv) {
 
   options.registry = normalizeRegistryUrl(options.registry || DEFAULT_REGISTRY);
   options.only = Array.from(new Set(options.only));
-
-  if (options.only.length > 0 && options.since) {
-    throw new Error("--since cannot be combined with --only.");
-  }
-
   if (!options.tag) {
     throw new Error("Missing --tag value.");
   }
@@ -172,62 +143,6 @@ function normalizeRegistryUrl(registry) {
   }
   const withScheme = /^[a-z]+:\/\//i.test(value) ? value : `https://${value}`;
   return withScheme.replace(/\/+$/, "");
-}
-
-function runGit(args, { allowFailure = false } = {}) {
-  try {
-    return execFileSync("git", args, {
-      cwd: REPO_ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-  } catch (error) {
-    if (allowFailure) {
-      return "";
-    }
-    const stderr = String(error?.stderr || "").trim();
-    throw new Error(stderr || `git ${args.join(" ")} failed`);
-  }
-}
-
-function uniqueNonEmptyLines(value) {
-  const set = new Set();
-  for (const rawLine of String(value || "").split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) {
-      continue;
-    }
-    set.add(line.replace(/^\.\//, ""));
-  }
-  return Array.from(set.values());
-}
-
-function collectChangedFiles({ since, forceAll }) {
-  if (forceAll) {
-    return ["*FORCE_ALL*"];
-  }
-
-  if (since) {
-    const diff = runGit(["diff", "--name-only", `${since}...HEAD`, "--", ...WORKSPACE_ROOTS], { allowFailure: false });
-    return uniqueNonEmptyLines(diff);
-  }
-
-  const unstaged = runGit(["diff", "--name-only", "--", ...WORKSPACE_ROOTS], { allowFailure: true });
-  const staged = runGit(["diff", "--name-only", "--cached", "--", ...WORKSPACE_ROOTS], { allowFailure: true });
-  const untracked = runGit(["ls-files", "--others", "--exclude-standard", "--", ...WORKSPACE_ROOTS], { allowFailure: true });
-
-  const changed = new Set();
-  for (const line of uniqueNonEmptyLines(unstaged)) {
-    changed.add(line);
-  }
-  for (const line of uniqueNonEmptyLines(staged)) {
-    changed.add(line);
-  }
-  for (const line of uniqueNonEmptyLines(untracked)) {
-    changed.add(line);
-  }
-
-  return Array.from(changed.values());
 }
 
 async function fileExists(absolutePath) {
@@ -378,74 +293,15 @@ async function loadDescriptors(records) {
   }
 }
 
-function buildReverseDependencyGraph(records) {
-  const recordByName = new Map(records.map((record) => [record.name, record]));
-  const localNames = new Set(recordByName.keys());
-  const reverse = new Map();
-
-  for (const name of localNames) {
-    reverse.set(name, new Set());
-  }
-
+function hydrateLocalDependencyMaps(records) {
+  const localNames = new Set(records.map((record) => record.name));
   for (const record of records) {
     const packageJsonDeps = collectPackageJsonLocalDeps(record.packageJson, localNames);
     const descriptorDeps = collectDescriptorLocalDeps(record.descriptor, localNames);
 
     record.packageJsonLocalDeps = packageJsonDeps;
     record.descriptorLocalDeps = descriptorDeps;
-
-    const combinedDeps = new Set([...packageJsonDeps, ...descriptorDeps]);
-
-    for (const dependencyName of combinedDeps) {
-      if (dependencyName === record.name) {
-        continue;
-      }
-      reverse.get(dependencyName)?.add(record.name);
-    }
   }
-
-  return reverse;
-}
-
-function resolveChangedPackages(records, changedFiles) {
-  if (changedFiles.includes("*FORCE_ALL*")) {
-    return new Set(records.map((record) => record.name));
-  }
-
-  const changed = new Set();
-  for (const file of changedFiles) {
-    const normalized = toPosixPath(file.replace(/^\.\//, ""));
-    for (const record of records) {
-      if (normalized === record.relativeDir || normalized.startsWith(`${record.relativeDir}/`)) {
-        changed.add(record.name);
-      }
-    }
-  }
-
-  return changed;
-}
-
-function expandToDependents(seedSet, reverseGraph) {
-  const expanded = new Set(seedSet);
-  const queue = Array.from(seedSet.values());
-
-  while (queue.length > 0) {
-    const packageName = queue.shift();
-    const dependents = reverseGraph.get(packageName);
-    if (!dependents) {
-      continue;
-    }
-
-    for (const dependentName of dependents) {
-      if (expanded.has(dependentName)) {
-        continue;
-      }
-      expanded.add(dependentName);
-      queue.push(dependentName);
-    }
-  }
-
-  return expanded;
 }
 
 function computeVersionMaps(records, publishSet) {
@@ -830,7 +686,7 @@ async function main() {
   }
 
   await loadDescriptors(records);
-  const reverseGraph = buildReverseDependencyGraph(records);
+  hydrateLocalDependencyMaps(records);
   const recordByName = new Map(records.map((record) => [record.name, record]));
   const onlyMode = options.only.length > 0;
 
@@ -844,24 +700,7 @@ async function main() {
       publishSet.add(packageName);
     }
   } else {
-    const changedFiles = collectChangedFiles({ since: options.since, forceAll: options.forceAll });
-    if (changedFiles.length === 0) {
-      process.stdout.write("No workspace changes detected. Nothing to publish.\n");
-      return;
-    }
-
-    const changedPackages = resolveChangedPackages(records, changedFiles);
-    if (changedPackages.size === 0) {
-      process.stdout.write("No package-level changes detected. Nothing to publish.\n");
-      return;
-    }
-
-    publishSet = expandToDependents(changedPackages, reverseGraph);
-
-    const hasCatalogPackage = records.some((record) => record.name === "@jskit-ai/jskit-catalog");
-    if (hasCatalogPackage) {
-      publishSet = expandToDependents(new Set([...publishSet, "@jskit-ai/jskit-catalog"]), reverseGraph);
-    }
+    publishSet = new Set(records.map((record) => record.name));
   }
 
   let { currentVersions, nextVersions } = computeVersionMaps(records, publishSet);

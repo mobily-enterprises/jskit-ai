@@ -42,8 +42,7 @@ function createFixture() {
     slug: "tonymobily3",
     name: "TonyMobily3",
     ownerUserId: 9,
-    avatarUrl: "",
-    color: "#0F6B54"
+    avatarUrl: ""
   };
 
   const service = createService({
@@ -248,8 +247,7 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
     slug: "tonymobily3",
     name: "TonyMobily3",
     ownerUserId: 9,
-    avatarUrl: "",
-    color: "#0F6B54"
+    avatarUrl: ""
   });
   assert.equal(response.members.length, 1);
   assert.equal(response.members[0].displayName, "Alice");
@@ -278,8 +276,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
     slug: "tonymobily3",
     name: "TonyMobily3",
     ownerUserId: 9,
-    avatarUrl: "",
-    color: "#0F6B54"
+    avatarUrl: ""
   };
   const service = createService({
     workspaceMembershipsRepository: {
@@ -349,8 +346,7 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
     slug: "tonymobily3",
     name: "TonyMobily3",
     ownerUserId: 9,
-    avatarUrl: "",
-    color: "#0F6B54"
+    avatarUrl: ""
   };
   const service = createService({
     workspaceMembershipsRepository: {

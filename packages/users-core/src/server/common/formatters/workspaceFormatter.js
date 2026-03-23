@@ -1,7 +1,4 @@
-import {
-  coerceWorkspaceColor,
-  resolveWorkspaceThemePalettes
-} from "../../../shared/settings.js";
+import { resolveWorkspaceThemePalettes } from "../../../shared/settings.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 
 function mapWorkspaceSummary(workspace, membership) {
@@ -9,7 +6,6 @@ function mapWorkspaceSummary(workspace, membership) {
     id: Number(workspace.id),
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name),
-    color: coerceWorkspaceColor(workspace.color),
     avatarUrl: normalizeText(workspace.avatarUrl),
     roleId: normalizeLowerText(membership?.roleId || "member") || "member",
     isAccessible: normalizeLowerText(membership?.status || "active") === "active"

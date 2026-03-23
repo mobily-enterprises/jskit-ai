@@ -31,8 +31,7 @@ function createWorkspaceServiceFixture({
     name: "TonyMobily3",
     ownerUserId: 7,
     isPersonal: true,
-    avatarUrl: "",
-    color: "#0F6B54"
+    avatarUrl: ""
   }
 } = {}) {
   const calls = {
@@ -96,7 +95,6 @@ function createWorkspaceServiceFixture({
             slug: "tonymobily3",
             name: "TonyMobily3",
             avatarUrl: "",
-            color: "#0F6B54",
             roleId: "owner",
             membershipStatus: "active"
           },
@@ -105,7 +103,6 @@ function createWorkspaceServiceFixture({
             slug: "pending-workspace",
             name: "Pending Workspace",
             avatarUrl: "",
-            color: "#0F6B54",
             roleId: "member",
             membershipStatus: "pending"
           }
@@ -121,8 +118,7 @@ function createWorkspaceServiceFixture({
           name: String(payload.name || ""),
           ownerUserId: Number(payload.ownerUserId),
           isPersonal: payload.isPersonal === true,
-          avatarUrl: String(payload.avatarUrl || ""),
-          color: String(payload.color || "#0F6B54")
+          avatarUrl: String(payload.avatarUrl || "")
         };
         workspaceBySlug.set(String(inserted.slug).trim().toLowerCase(), inserted);
         return inserted;
@@ -142,9 +138,6 @@ function createWorkspaceServiceFixture({
           }
           if (Object.hasOwn(patch, "avatarUrl")) {
             updated.avatarUrl = String(patch.avatarUrl || "");
-          }
-          if (Object.hasOwn(patch, "color")) {
-            updated.color = String(patch.color || "#0F6B54");
           }
           workspaceBySlug.set(slug, updated);
           return {
@@ -227,7 +220,6 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "chiaramobily",
         name: "Chiara Personal",
         avatarUrl: "",
-        color: "#0F6B54",
         roleId: "owner",
         membershipStatus: "active"
       },
@@ -236,7 +228,6 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "tonymobily",
         name: "Tony Workspace",
         avatarUrl: "",
-        color: "#0F6B54",
         roleId: "member",
         membershipStatus: "active"
       },
@@ -245,7 +236,6 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "pending-workspace",
         name: "Pending Workspace",
         avatarUrl: "",
-        color: "#0F6B54",
         roleId: "member",
         membershipStatus: "pending"
       }
@@ -379,8 +369,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug allows personal tena
       name: "My Personal",
       ownerUserId: 7,
       isPersonal: true,
-      avatarUrl: "",
-      color: "#0F6B54"
+      avatarUrl: ""
     },
     additionalWorkspaces: [
       {
@@ -389,8 +378,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug allows personal tena
         name: "Team Alpha",
         ownerUserId: 99,
         isPersonal: false,
-        avatarUrl: "",
-        color: "#0F6B54"
+        avatarUrl: ""
       }
     ]
   });
@@ -429,8 +417,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
           name: "TonyMobily",
           ownerUserId: 7,
           isPersonal: true,
-          avatarUrl: "",
-          color: "#0F6B54"
+          avatarUrl: ""
         };
       },
       async findPersonalByOwnerUserId() {
@@ -515,8 +502,7 @@ test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from 
         name: "Team Alpha",
         ownerUserId: 99,
         isPersonal: false,
-        avatarUrl: "",
-        color: "#0F6B54"
+        avatarUrl: ""
       }
     ]
   });
@@ -546,13 +532,11 @@ test("workspaceService.updateWorkspaceForAuthenticatedUser updates workspace pro
     "tonymobily3",
     {
       name: "Updated Workspace",
-      avatarUrl: "https://example.com/acme.png",
-      color: "#123ABC"
+      avatarUrl: "https://example.com/acme.png"
     }
   );
 
   assert.equal(calls.updateById, 1);
   assert.equal(workspace.name, "Updated Workspace");
   assert.equal(workspace.avatarUrl, "https://example.com/acme.png");
-  assert.equal(workspace.color, "#123ABC");
 });

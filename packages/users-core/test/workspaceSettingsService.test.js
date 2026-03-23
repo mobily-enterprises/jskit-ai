@@ -25,8 +25,7 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
       id: 7,
       slug: "tonymobily3",
       name: "TonyMobily3",
-      ownerUserId: 9,
-      color: defaultTheme.light.color
+      ownerUserId: 9
     },
     settings: {
       lightPrimaryColor: defaultTheme.light.color,

@@ -471,7 +471,7 @@ test("workspace route handlers build action input from request.input", async () 
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme" },
-        body: { name: "Acme", avatarUrl: "https://example.com/acme.png", color: "#0F6B54" }
+        body: { name: "Acme", avatarUrl: "https://example.com/acme.png" }
       },
       executeAction
     }),
@@ -482,7 +482,7 @@ test("workspace route handlers build action input from request.input", async () 
     actionId: "workspace.workspaces.update",
     input: {
       workspaceSlug: "acme",
-      patch: { name: "Acme", avatarUrl: "https://example.com/acme.png", color: "#0F6B54" }
+      patch: { name: "Acme", avatarUrl: "https://example.com/acme.png" }
     }
   });
 });

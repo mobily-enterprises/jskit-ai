@@ -47,18 +47,6 @@
               />
             </v-col>
 
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model="workspaceProfileForm.color"
-                label="Accent color"
-                type="color"
-                variant="outlined"
-                density="comfortable"
-                :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
-                :error-messages="addEdit.fieldErrors.color ? [addEdit.fieldErrors.color] : []"
-              />
-            </v-col>
-
             <v-col cols="12" class="d-flex align-center justify-end ga-3">
               <v-btn
                 v-if="addEdit.canSave"
@@ -83,7 +71,6 @@ import { computed, reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { workspaceResource } from "@jskit-ai/users-core/shared/resources/workspaceResource";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { DEFAULT_WORKSPACE_LIGHT_PALETTE } from "@jskit-ai/users-core/shared/settings";
 import { useAddEdit } from "../composables/useAddEdit.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
@@ -91,21 +78,20 @@ const emit = defineEmits(["saved"]);
 
 const workspaceProfileForm = reactive({
   name: "",
-  avatarUrl: "",
-  color: DEFAULT_WORKSPACE_LIGHT_PALETTE.color
+  avatarUrl: ""
 });
 
 const addEdit = useAddEdit({
   ownershipFilter: USERS_ROUTE_VISIBILITY_WORKSPACE,
   resource: workspaceResource,
-  apiSuffix: "",
+  apiSuffix: "/",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") =>
     buildWorkspaceQueryKey("profile", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
   placementSource: "users-web.workspace-profile-view",
   fallbackLoadError: "Unable to load workspace profile.",
-  fieldErrorKeys: ["name", "avatarUrl", "color"],
+  fieldErrorKeys: ["name", "avatarUrl"],
   model: workspaceProfileForm,
   parseInput: (rawPayload) =>
     validateOperationSection({
@@ -116,12 +102,10 @@ const addEdit = useAddEdit({
   mapLoadedToModel: (model, payload = {}) => {
     model.name = String(payload?.name || "");
     model.avatarUrl = String(payload?.avatarUrl || "");
-    model.color = String(payload?.color || DEFAULT_WORKSPACE_LIGHT_PALETTE.color).toUpperCase();
   },
   buildRawPayload: (model) => ({
     name: model.name,
-    avatarUrl: model.avatarUrl,
-    color: model.color
+    avatarUrl: model.avatarUrl
   }),
   onSaveSuccess: async () => {
     emit("saved");

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.23",
+  version: "0.1.26",
   description: "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",
@@ -260,6 +260,15 @@ export default Object.freeze({
         reason: "Remove workspace_settings name/avatar fields so workspace identity data comes from workspaces only.",
         category: "migration",
         id: "users-core-workspace-settings-single-name-source"
+      },
+      {
+        op: "install-migration",
+        from: "templates/migrations/users_core_workspaces_drop_color.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        reason: "Drop legacy workspaces.color now that workspace theme colors live in workspace_settings.",
+        category: "migration",
+        id: "users-core-workspaces-drop-color"
       },
       {
         from: "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",

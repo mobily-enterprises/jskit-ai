@@ -135,6 +135,7 @@ test("migrations changed generates only migrations for changed installed package
       args: ["migrations", "changed"]
     });
     assert.equal(migrationsChangedResult.status, 0, String(migrationsChangedResult.stderr || ""));
+    assert.doesNotMatch(String(migrationsChangedResult.stdout || ""), /skipped migration/i);
 
     assert.equal(await readFile(generatedPath, "utf8"), "generated-v1\n");
 
@@ -158,5 +159,12 @@ test("migrations changed generates only migrations for changed installed package
     const secondRunPayload = JSON.parse(String(secondRun.stdout || "{}"));
     assert.deepEqual(secondRunPayload.requestedPackages, []);
     assert.deepEqual(secondRunPayload.touchedFiles, []);
+
+    const verboseRun = runCli({
+      cwd: appRoot,
+      args: ["migrations", "all", "--verbose"]
+    });
+    assert.equal(verboseRun.status, 0, String(verboseRun.stderr || ""));
+    assert.match(String(verboseRun.stdout || ""), /skipped migration/i);
   });
 });

@@ -44,6 +44,7 @@ function parseArgs(argv, { createCliError } = {}) {
         expanded: false,
         details: false,
         debugExports: false,
+        verbose: false,
         json: false,
         all: false,
         help: true,
@@ -67,6 +68,7 @@ function parseArgs(argv, { createCliError } = {}) {
     expanded: false,
     details: false,
     debugExports: false,
+    verbose: false,
     json: false,
     all: false,
     help: false,
@@ -99,6 +101,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--debug-exports") {
       options.debugExports = true;
+      continue;
+    }
+    if (token === "--verbose") {
+      options.verbose = true;
       continue;
     }
     if (token === "--json") {
@@ -181,6 +187,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --expanded                   Show expanded/transitive package ids\n");
   stream.write("  --details                    Show extra capability detail in show output\n");
   stream.write("  --debug-exports              Show export provenance/re-export source details in show output\n");
+  stream.write("  --verbose                    Show verbose informational diagnostics\n");
   stream.write("  --<option> <value>           Package option (for packages requiring input)\n");
   stream.write("  --json                       Print structured output\n");
   stream.write("  -h, --help                   Show help\n");

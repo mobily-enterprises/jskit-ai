@@ -4,7 +4,6 @@ import {
   TENANCY_MODE_NONE,
   resolveTenancyProfile
 } from "../../../shared/tenancyProfile.js";
-import { coerceWorkspaceColor } from "../../../shared/settings.js";
 import {
   resolveRolePermissions
 } from "../../../shared/roles.js";
@@ -84,7 +83,6 @@ function createService({
   const resolvedTenancyProfile = resolveTenancyProfile(appConfig);
   const resolvedTenancyMode = resolvedTenancyProfile.mode;
   const workspacePolicy = resolvedTenancyProfile.workspace;
-  const resolvedWorkspaceColor = coerceWorkspaceColor(appConfig.workspaceColor);
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let suffix = 0;
     while (suffix < 1000) {
@@ -125,8 +123,7 @@ function createService({
         name: buildWorkspaceName(normalizedUser),
         ownerUserId: normalizedUser.id,
         isPersonal: true,
-        avatarUrl: "",
-        color: resolvedWorkspaceColor
+        avatarUrl: ""
       },
       options
     );
@@ -194,8 +191,7 @@ function createService({
         name: createInput.name,
         ownerUserId: normalizedUser.id,
         isPersonal: false,
-        avatarUrl: "",
-        color: resolvedWorkspaceColor
+        avatarUrl: ""
       },
       options
     );
