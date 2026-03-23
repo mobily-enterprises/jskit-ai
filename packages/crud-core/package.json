@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/kernel": "0.1.15",
-    "@jskit-ai/realtime": "0.1.15",
-    "@jskit-ai/shell-web": "0.1.15",
-    "@jskit-ai/users-web": "0.1.25"
+    "@jskit-ai/kernel": "0.1.17",
+    "@jskit-ai/realtime": "0.1.16",
+    "@jskit-ai/shell-web": "0.1.16",
+    "@jskit-ai/users-web": "0.1.27"
   }
 }
