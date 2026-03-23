@@ -1,3 +1,8 @@
+- Make tickets for every item of this TODO
+- Make it impossible to commit to main without a PR
+- Delete this todo
+- Start a more vigorous software development process, no more "WIP"
+
 X Add client-server shared code
 X User screen and user configuration
 X Major tidying up, avoid repeated code, best way to write tests 
@@ -131,8 +136,8 @@ THEN:
   X Final deslop ticket
 
 
-  - FINAL STEP: Do infrastructure deploy, easy way
-
+  X FINAL STEP: Do infrastructure deploy, easy way !!!!! DONE!
+  
   22/03 AM Chiara
   24/03 AM Daniela
   24/03 02 Guido
