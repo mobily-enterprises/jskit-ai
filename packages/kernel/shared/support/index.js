@@ -1,7 +1,7 @@
 export { isRecord } from "./normalize.js";
 export { pickOwnProperties } from "./pickOwnProperties.js";
 export { formatDateTime } from "./formatDateTime.js";
-export { appendQueryString } from "./queryPath.js";
+export { appendQueryString, splitPathQueryAndHash } from "./queryPath.js";
 export { normalizePermissionList, hasPermission } from "./permissions.js";
 export {
   normalizeReturnToPath,

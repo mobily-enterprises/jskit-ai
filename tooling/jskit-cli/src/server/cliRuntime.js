@@ -4298,6 +4298,79 @@ async function applyPackagePositioning({
   return managedRecord;
 }
 
+async function applyPackageMigrationsOnly({
+  packageEntry,
+  packageOptions,
+  appRoot,
+  lock,
+  touchedFiles
+}) {
+  const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
+  if (Object.keys(existingInstall).length < 1) {
+    throw createCliError(`Package is not installed: ${packageEntry.packageId}`);
+  }
+
+  const existingManaged = ensureObject(existingInstall.managed);
+  const existingPackageJsonManaged = ensureObject(existingManaged.packageJson);
+  const nextManaged = {
+    packageJson: {
+      dependencies: cloneManagedMap(existingPackageJsonManaged.dependencies),
+      devDependencies: cloneManagedMap(existingPackageJsonManaged.devDependencies),
+      scripts: cloneManagedMap(existingPackageJsonManaged.scripts)
+    },
+    text: cloneManagedMap(existingManaged.text),
+    vite: cloneManagedMap(existingManaged.vite),
+    files: cloneManagedArray(existingManaged.files),
+    migrations: cloneManagedArray(existingManaged.migrations)
+  };
+
+  const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
+  const packageEntryForMutations =
+    templateRoot === packageEntry.rootDir
+      ? packageEntry
+      : {
+          ...packageEntry,
+          rootDir: templateRoot
+        };
+  const mutations = ensureObject(packageEntry.descriptor.mutations);
+  const migrationFileMutations = ensureArray(mutations.files).filter((mutationValue) => {
+    const normalized = normalizeFileMutationRecord(mutationValue);
+    const operation = String(normalized.op || "copy-file").trim();
+    return operation === "install-migration";
+  });
+  const mutationWarnings = [];
+
+  if (migrationFileMutations.length > 0) {
+    await applyFileMutations(
+      packageEntryForMutations,
+      packageOptions,
+      appRoot,
+      migrationFileMutations,
+      [],
+      nextManaged.migrations,
+      touchedFiles,
+      mutationWarnings
+    );
+  }
+
+  const managedRecord = {
+    ...existingInstall,
+    packageId: packageEntry.packageId,
+    source: resolveManagedSourceRecord(packageEntry, existingInstall),
+    managed: nextManaged,
+    options: {
+      ...ensureObject(packageOptions)
+    },
+    migrationSyncVersion: packageEntry.version,
+    installedAt: String(existingInstall.installedAt || new Date().toISOString())
+  };
+  lock.installedPackages[packageEntry.packageId] = managedRecord;
+  if (mutationWarnings.length > 0) {
+    managedRecord.warnings = mutationWarnings;
+  }
+  return managedRecord;
+}
+
 async function applyPackageInstall({
   packageEntry,
   packageOptions,
@@ -4462,6 +4535,7 @@ async function applyPackageInstall({
   if (cloneOnlyPackage) {
     delete lock.installedPackages[packageEntry.packageId];
   } else {
+    managedRecord.migrationSyncVersion = packageEntry.version;
     lock.installedPackages[packageEntry.packageId] = managedRecord;
   }
   if (mutationWarnings.length > 0) {
@@ -4522,6 +4596,7 @@ const commandHandlers = createCommandHandlers(
     validatePlannedCapabilityClosure,
     resolvePackageOptions,
     applyPackageInstall,
+    applyPackageMigrationsOnly,
     applyPackagePositioning,
     adoptAppLocalPackageDependencies,
     loadAppPackageJson,

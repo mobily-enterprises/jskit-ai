@@ -46,8 +46,6 @@ function parseBody(operation, payload = {}) {
 
 test("workspace settings patch body normalizes valid payload before validation", () => {
   const parsed = parseBody(workspaceSettingsResource.operations.patch, {
-    name: "  Team Mercury  ",
-    avatarUrl: "https://example.com/avatar.png",
     lightPrimaryColor: "#0f6b54",
     lightSecondaryColor: "#0b4d3c",
     lightSurfaceColor: "#eef5f3",
@@ -62,8 +60,6 @@ test("workspace settings patch body normalizes valid payload before validation",
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
   assert.deepEqual(parsed.value, {
-    name: "Team Mercury",
-    avatarUrl: "https://example.com/avatar.png",
     lightPrimaryColor: "#0F6B54",
     lightSecondaryColor: "#0B4D3C",
     lightSurfaceColor: "#EEF5F3",
@@ -76,31 +72,18 @@ test("workspace settings patch body normalizes valid payload before validation",
   });
 });
 
-test("workspace settings patch body validates avatar URL protocol", () => {
+test("workspace settings patch body ignores unknown fields after normalization", () => {
   const parsed = parseBody(workspaceSettingsResource.operations.patch, {
-    avatarUrl: "ftp://example.com/avatar.png"
+    avatarUrl: "https://example.com/avatar.png"
   });
 
-  assert.equal(parsed.ok, false);
-  assert.equal(
-    parsed.fieldErrors.avatarUrl,
-    "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
-  );
-});
-
-test("workspace settings patch body keeps max-length name rule", () => {
-  const parsed = parseBody(workspaceSettingsResource.operations.patch, {
-    name: "x".repeat(161)
-  });
-
-  assert.equal(parsed.ok, false);
-  assert.equal(parsed.fieldErrors.name, "Workspace name must be at most 160 characters.");
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.fieldErrors, {});
+  assert.deepEqual(parsed.value, {});
 });
 
 test("workspace settings create body requires full-write fields", () => {
-  const parsed = parseBody(workspaceSettingsResource.operations.create, {
-    name: "Mercury Workspace"
-  });
+  const parsed = parseBody(workspaceSettingsResource.operations.create, {});
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.lightPrimaryColor, "Light primary color is required.");
@@ -125,8 +108,6 @@ test("workspace settings output normalizes raw service payloads", () => {
       ownerUserId: "9"
     },
     settings: {
-      name: "  Mercury Workspace  ",
-      avatarUrl: "  https://example.com/avatar.png  ",
       lightPrimaryColor: "#0f6b54",
       invitesEnabled: false
     },
@@ -140,8 +121,6 @@ test("workspace settings output normalizes raw service payloads", () => {
       ownerUserId: 9
     },
     settings: {
-      name: "Mercury Workspace",
-      avatarUrl: "https://example.com/avatar.png",
       lightPrimaryColor: "#0F6B54",
       lightSecondaryColor: expectedTheme.light.secondaryColor,
       lightSurfaceColor: expectedTheme.light.surfaceColor,

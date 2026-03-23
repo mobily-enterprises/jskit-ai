@@ -14,6 +14,24 @@ function splitPathAndHash(path = "") {
   };
 }
 
+function splitPathQueryAndHash(path = "") {
+  const { pathWithoutHash, hash } = splitPathAndHash(path);
+  const queryIndex = pathWithoutHash.indexOf("?");
+  if (queryIndex < 0) {
+    return {
+      pathname: pathWithoutHash,
+      queryString: "",
+      hash
+    };
+  }
+
+  return {
+    pathname: pathWithoutHash.slice(0, queryIndex),
+    queryString: pathWithoutHash.slice(queryIndex + 1),
+    hash
+  };
+}
+
 function appendQueryString(path = "", queryString = "") {
   const normalizedPath = String(path || "").trim();
   if (!normalizedPath) {
@@ -30,4 +48,4 @@ function appendQueryString(path = "", queryString = "") {
   return `${pathWithoutHash}${separator}${normalizedQuery}${hash}`;
 }
 
-export { appendQueryString };
+export { appendQueryString, splitPathQueryAndHash };

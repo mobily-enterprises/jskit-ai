@@ -205,6 +205,16 @@ function createService({
     return inserted;
   }
 
+  async function getWorkspaceForAuthenticatedUser(user, workspaceSlug, options = {}) {
+    const workspaceContext = await resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options);
+    return workspaceContext.workspace;
+  }
+
+  async function updateWorkspaceForAuthenticatedUser(user, workspaceSlug, patch = {}, options = {}) {
+    const workspaceContext = await resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options);
+    return workspacesRepository.updateById(workspaceContext.workspace.id, patch, options);
+  }
+
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const normalizedUser = authenticatedUserValidator.normalize(user);
     if (!normalizedUser) {
@@ -261,6 +271,8 @@ function createService({
     ensurePersonalWorkspaceForUser,
     provisionWorkspaceForNewUser,
     createWorkspaceForAuthenticatedUser,
+    getWorkspaceForAuthenticatedUser,
+    updateWorkspaceForAuthenticatedUser,
     listWorkspacesForUser,
     listWorkspacesForAuthenticatedUser,
     resolveWorkspaceContextForUserBySlug

@@ -23,7 +23,6 @@ function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEna
   const themePalettes = resolveWorkspaceThemePalettes(source);
 
   return {
-    name: normalizeText(source.name),
     lightPrimaryColor: themePalettes.light.color,
     lightSecondaryColor: themePalettes.light.secondaryColor,
     lightSurfaceColor: themePalettes.light.surfaceColor,
@@ -32,7 +31,6 @@ function mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEna
     darkSecondaryColor: themePalettes.dark.secondaryColor,
     darkSurfaceColor: themePalettes.dark.surfaceColor,
     darkSurfaceVariantColor: themePalettes.dark.surfaceVariantColor,
-    avatarUrl: normalizeText(source.avatarUrl),
     invitesEnabled,
     invitesAvailable,
     invitesEffective: invitesAvailable && invitesEnabled

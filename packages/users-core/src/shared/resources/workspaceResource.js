@@ -5,6 +5,21 @@ import {
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 
+function normalizeWorkspaceAvatarUrl(value) {
+  const avatarUrl = normalizeText(value);
+  if (!avatarUrl) {
+    return "";
+  }
+  if (!avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://")) {
+    return null;
+  }
+  try {
+    return new URL(avatarUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 function normalizeWorkspaceInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};
@@ -19,7 +34,7 @@ function normalizeWorkspaceInput(payload = {}) {
     normalized.ownerUserId = Number(source.ownerUserId);
   }
   if (Object.hasOwn(source, "avatarUrl")) {
-    normalized.avatarUrl = normalizeText(source.avatarUrl);
+    normalized.avatarUrl = normalizeWorkspaceAvatarUrl(source.avatarUrl);
   }
   if (Object.hasOwn(source, "color")) {
     const color = normalizeText(source.color);
@@ -92,6 +107,33 @@ const createRequestBodySchema = Type.Object(
   { additionalProperties: false }
 );
 
+const patchRequestBodySchema = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    avatarUrl: Type.Optional(
+      Type.String({
+        pattern: "^(https?://.+)?$",
+        messages: {
+          pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
+          default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+        }
+      })
+    ),
+    color: Type.Optional(
+      Type.String({
+        minLength: 7,
+        maxLength: 7,
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        messages: {
+          pattern: "Workspace color must be a hex color like #1867C0.",
+          default: "Workspace color must be a hex color like #1867C0."
+        }
+      })
+    )
+  },
+  { additionalProperties: false }
+);
+
 const responseRecordValidator = Object.freeze({
   schema: responseRecordSchema,
   normalize: normalizeWorkspaceOutput
@@ -138,7 +180,7 @@ const resource = {
     patch: {
       method: "PATCH",
       bodyValidator: {
-        schema: Type.Partial(createRequestBodySchema, { additionalProperties: false }),
+        schema: patchRequestBodySchema,
         normalize: normalizeWorkspaceInput
       },
       outputValidator: responseRecordValidator

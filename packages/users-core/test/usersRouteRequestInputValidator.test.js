@@ -126,6 +126,10 @@ test("workspace and settings routes attach only the shared transport normalizers
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
   });
+  const workspacePatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace"
+  });
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -156,6 +160,7 @@ test("workspace and settings routes attach only the shared transport normalizers
   });
 
   assert.equal(typeof workspaceSettings?.paramsValidator?.normalize, "function");
+  assert.equal(typeof workspacePatch?.bodyValidator?.normalize, "function");
   assert.equal(typeof workspaceSettingsPatch?.bodyValidator?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.paramsValidator?.normalize, "function");
   assert.equal(typeof workspaceMemberRole?.bodyValidator?.normalize, "function");
@@ -167,8 +172,16 @@ test("workspace and settings routes attach only the shared transport normalizers
   assert.equal(typeof consoleSettingsPatch?.bodyValidator?.normalize, "function");
 });
 
-test("workspace settings routes mount one canonical workspace endpoint", async () => {
+test("workspace core/settings routes mount one canonical workspace endpoint", async () => {
   const routes = await registerRoutes();
+  const workspace = findRoute(routes, {
+    method: "GET",
+    path: "/api/w/:workspaceSlug/workspace"
+  });
+  const workspacePatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace"
+  });
   const workspaceSettings = findRoute(routes, {
     method: "GET",
     path: "/api/w/:workspaceSlug/workspace/settings"
@@ -186,6 +199,11 @@ test("workspace settings routes mount one canonical workspace endpoint", async (
     path: "/api/console/w/:workspaceSlug/workspace/settings"
   });
 
+  assert.ok(workspace);
+  assert.equal(workspace?.visibility, "workspace");
+  assert.equal(workspacePatch?.visibility, "workspace");
+  assert.equal(workspace?.surface, "");
+  assert.equal(workspacePatch?.surface, "");
   assert.ok(workspaceSettings);
   assert.equal(workspaceSettings?.visibility, "workspace");
   assert.equal(workspaceSettingsPatch?.visibility, "workspace");
@@ -205,6 +223,8 @@ test("users-core boot skips workspace routes when workspace policy is disabled",
 
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(routes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" }), null);
+  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
 });
@@ -242,11 +262,21 @@ test("users-core route registration follows tenancy mode matrix", async () => {
 
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(noneRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" }), null);
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
 
   assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
   assert.equal(findRoute(personalRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(
+    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" })?.path,
+    "/api/w/:workspaceSlug/workspace"
+  );
+  assert.equal(
+    findRoute(personalRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" })?.path,
+    "/api/w/:workspaceSlug/workspace"
+  );
   assert.equal(
     findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
     "/api/w/:workspaceSlug/workspace/settings"
@@ -258,6 +288,14 @@ test("users-core route registration follows tenancy mode matrix", async () => {
 
   assert.equal(findRoute(workspaceRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
   assert.equal(findRoute(workspaceRoutes, { method: "POST", path: "/api/workspaces" }), null);
+  assert.equal(
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" })?.path,
+    "/api/w/:workspaceSlug/workspace"
+  );
+  assert.equal(
+    findRoute(workspaceRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" })?.path,
+    "/api/w/:workspaceSlug/workspace"
+  );
   assert.equal(
     findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
     "/api/w/:workspaceSlug/workspace/settings"
@@ -404,7 +442,7 @@ test("workspace settings route handlers build action input from request.input", 
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme" },
-        body: { name: "Acme Workspace" }
+        body: { lightPrimaryColor: "#0F6B54" }
       },
       executeAction
     }),
@@ -413,7 +451,39 @@ test("workspace settings route handlers build action input from request.input", 
 
   assert.deepEqual(calls[0], {
     actionId: "workspace.settings.update",
-    input: { workspaceSlug: "acme", patch: { name: "Acme Workspace" } }
+    input: { workspaceSlug: "acme", patch: { lightPrimaryColor: "#0F6B54" } }
+  });
+});
+
+test("workspace route handlers build action input from request.input", async () => {
+  const routes = await registerRoutes();
+  const workspacePatch = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/w/:workspaceSlug/workspace"
+  });
+  const calls = [];
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
+
+  await workspacePatch.handler(
+    createActionRequest({
+      input: {
+        params: { workspaceSlug: "acme" },
+        body: { name: "Acme", avatarUrl: "https://example.com/acme.png", color: "#0F6B54" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0], {
+    actionId: "workspace.workspaces.update",
+    input: {
+      workspaceSlug: "acme",
+      patch: { name: "Acme", avatarUrl: "https://example.com/acme.png", color: "#0F6B54" }
+    }
   });
 });
 

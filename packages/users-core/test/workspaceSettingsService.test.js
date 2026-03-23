@@ -26,12 +26,9 @@ function createFixture({ workspaceInvitationsEnabled = true } = {}) {
       slug: "tonymobily3",
       name: "TonyMobily3",
       ownerUserId: 9,
-      avatarUrl: "",
       color: defaultTheme.light.color
     },
     settings: {
-      name: "TonyMobily3",
-      avatarUrl: "",
       lightPrimaryColor: defaultTheme.light.color,
       lightSecondaryColor: defaultTheme.light.secondaryColor,
       lightSurfaceColor: defaultTheme.light.surfaceColor,
@@ -75,8 +72,6 @@ test("workspaceSettingsService.getWorkspaceSettings returns the stored invitesEn
   );
 
   assert.deepEqual(response.settings, {
-    name: "TonyMobily3",
-    avatarUrl: "",
     lightPrimaryColor: "#0F6B54",
     lightSecondaryColor: "#48A9A6",
     lightSurfaceColor: "#FFFFFF",
@@ -97,19 +92,15 @@ test("workspaceSettingsService.updateWorkspaceSettings writes editable fields th
   const response = await service.updateWorkspaceSettings(
     state.workspace,
     {
-      name: "New Name",
       invitesEnabled: false
     },
     authorizedOptions(["workspace.settings.update"])
   );
 
   assert.deepEqual(state.settingsPatch, {
-    name: "New Name",
     invitesEnabled: false
   });
   assert.deepEqual(response.settings, {
-    name: "New Name",
-    avatarUrl: "",
     lightPrimaryColor: "#0F6B54",
     lightSecondaryColor: "#48A9A6",
     lightSurfaceColor: "#FFFFFF",
@@ -135,8 +126,6 @@ test("workspaceSettingsService disables invite settings in output when app polic
   );
 
   assert.deepEqual(response.settings, {
-    name: "TonyMobily3",
-    avatarUrl: "",
     lightPrimaryColor: "#0F6B54",
     lightSecondaryColor: "#48A9A6",
     lightSurfaceColor: "#FFFFFF",

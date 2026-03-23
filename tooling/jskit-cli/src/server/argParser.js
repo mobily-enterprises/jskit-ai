@@ -4,6 +4,7 @@ const KNOWN_COMMANDS = new Set([
   "list",
   "show",
   "view",
+  "migrations",
   "add",
   "position",
   "update",
@@ -165,6 +166,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  position element <packageId> Re-apply positioning mutations for one installed package\n");
   stream.write("  show <id>                    Show details for bundle id or package id\n");
   stream.write("  view <id>                    Alias of show <id>\n");
+  stream.write("  migrations <scope>           Generate managed migrations only (scope: all | changed | package <packageId>)\n");
   stream.write("  update package <packageId>   Re-apply one installed package\n");
   stream.write("  remove package <packageId>   Remove one installed package\n");
   stream.write("  doctor                       Validate lockfile + managed files\n");

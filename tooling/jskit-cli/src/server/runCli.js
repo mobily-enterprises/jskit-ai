@@ -48,6 +48,14 @@ function createRunCli({
       if (command === "show") {
         return await commandHandlers.commandShow({ positional, options, stdout });
       }
+      if (command === "migrations") {
+        return await commandHandlers.commandMigrations({
+          positional,
+          options,
+          cwd,
+          io: { stdin, stdout, stderr }
+        });
+      }
       if (command === "add") {
         return await commandHandlers.commandAdd({
           positional,

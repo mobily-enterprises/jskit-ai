@@ -33,6 +33,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "normalizeReturnToPath",
       "pickOwnProperties",
       "resolveAllowedOriginsFromPlacementContext",
+      "splitPathQueryAndHash",
       "shouldRetryTransientQueryFailure",
       "transientQueryRetryDelay"
     ])

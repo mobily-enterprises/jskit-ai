@@ -40,3 +40,13 @@ test("workspace directory actions use the canonical workspace list resource outp
   assert.ok(listAction);
   assert.equal(listAction.outputValidator, workspaceResource.operations.list.outputValidator);
 });
+
+test("workspace directory read/update actions use canonical workspace resource validators", () => {
+  const readAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.read");
+  const updateAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.update");
+
+  assert.ok(readAction);
+  assert.ok(updateAction);
+  assert.equal(readAction.outputValidator, workspaceResource.operations.view.outputValidator);
+  assert.equal(updateAction.outputValidator, workspaceResource.operations.patch.outputValidator);
+});

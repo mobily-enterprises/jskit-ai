@@ -3,6 +3,7 @@ import {
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
+import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspaceDirectoryActions = Object.freeze([
@@ -58,6 +59,73 @@ const workspaceDirectoryActions = Object.freeze([
         }),
         nextCursor: null
       };
+    }
+  },
+  {
+    id: "workspace.workspaces.read",
+    version: 1,
+    kind: "query",
+    channels: ["api", "automation", "internal"],
+    surfacesFrom: "workspace",
+    permission: {
+      require: "any",
+      permissions: ["workspace.settings.view", "workspace.settings.update"]
+    },
+    inputValidator: workspaceSlugParamsValidator,
+    outputValidator: workspaceResource.operations.view.outputValidator,
+    idempotency: "none",
+    audit: {
+      actionName: "workspace.workspaces.read"
+    },
+    observability: {},
+    async execute(input, context, deps) {
+      return deps.workspaceService.getWorkspaceForAuthenticatedUser(
+        resolveActionUser(context, input),
+        input.workspaceSlug,
+        {
+          request: resolveRequest(context),
+          context
+        }
+      );
+    }
+  },
+  {
+    id: "workspace.workspaces.update",
+    version: 1,
+    kind: "command",
+    channels: ["api", "assistant_tool", "automation", "internal"],
+    surfacesFrom: "workspace",
+    permission: {
+      require: "all",
+      permissions: ["workspace.settings.update"]
+    },
+    inputValidator: [
+      workspaceSlugParamsValidator,
+      {
+        patch: workspaceResource.operations.patch.bodyValidator
+      }
+    ],
+    outputValidator: workspaceResource.operations.patch.outputValidator,
+    idempotency: "optional",
+    audit: {
+      actionName: "workspace.workspaces.update"
+    },
+    observability: {},
+    extensions: {
+      assistant: {
+        description: "Update workspace profile fields."
+      }
+    },
+    async execute(input, context, deps) {
+      return deps.workspaceService.updateWorkspaceForAuthenticatedUser(
+        resolveActionUser(context, input),
+        input.workspaceSlug,
+        input.patch,
+        {
+          request: resolveRequest(context),
+          context
+        }
+      );
     }
   }
 ]);

@@ -29,3 +29,21 @@ test("resolveApiBasePath resolves workspace and non-workspace API base paths", (
     "/api/customers"
   );
 });
+
+test("resolveApiBasePath preserves query strings and hash fragments", () => {
+  assert.equal(
+    resolveApiBasePath({
+      surfaceRequiresWorkspace: true,
+      relativePath: "/customers?search=buddy#top"
+    }),
+    "/api/w/:workspaceSlug/workspace/customers?search=buddy#top"
+  );
+
+  assert.equal(
+    resolveApiBasePath({
+      surfaceRequiresWorkspace: false,
+      relativePath: "/?cursor=2"
+    }),
+    "/api?cursor=2"
+  );
+});

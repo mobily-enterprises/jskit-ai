@@ -16,8 +16,6 @@ function createKnexStub(rowOverrides = {}) {
     updatePayload: null,
     row: {
       workspace_id: 1,
-      name: "Workspace",
-      avatar_url: "",
       light_primary_color: DEFAULT_WORKSPACE_THEME.light.color,
       light_secondary_color: DEFAULT_WORKSPACE_THEME.light.secondaryColor,
       light_surface_color: DEFAULT_WORKSPACE_THEME.light.surfaceColor,
@@ -41,8 +39,6 @@ function createKnexStub(rowOverrides = {}) {
         state.insertedRow = { ...payload };
         state.row = {
           workspace_id: payload.workspace_id,
-          name: payload.name,
-          avatar_url: payload.avatar_url,
           light_primary_color: payload.light_primary_color,
           light_secondary_color: payload.light_secondary_color,
           light_surface_color: payload.light_surface_color,
@@ -68,12 +64,6 @@ function createKnexStub(rowOverrides = {}) {
             state.updatePayload = payload;
             if (Object.hasOwn(payload, "invites_enabled")) {
               state.row.invites_enabled = payload.invites_enabled;
-            }
-            if (Object.hasOwn(payload, "name")) {
-              state.row.name = payload.name;
-            }
-            if (Object.hasOwn(payload, "avatar_url")) {
-              state.row.avatar_url = payload.avatar_url;
             }
             if (Object.hasOwn(payload, "light_primary_color")) {
               state.row.light_primary_color = payload.light_primary_color;
@@ -122,8 +112,6 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
 
   assert.deepEqual(record, {
     workspaceId: 1,
-    name: "Workspace",
-    avatarUrl: "",
     lightPrimaryColor: DEFAULT_WORKSPACE_THEME.light.color,
     lightSecondaryColor: DEFAULT_WORKSPACE_THEME.light.secondaryColor,
     lightSurfaceColor: DEFAULT_WORKSPACE_THEME.light.surfaceColor,
@@ -162,8 +150,6 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   const record = await repository.ensureForWorkspaceId(5);
 
   assert.equal(state.insertedRow.workspace_id, 5);
-  assert.equal(state.insertedRow.name, "Workspace");
-  assert.equal(state.insertedRow.avatar_url, "");
   assert.equal(state.insertedRow.light_primary_color, DEFAULT_WORKSPACE_THEME.light.color);
   assert.equal(state.insertedRow.light_secondary_color, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
   assert.equal(state.insertedRow.light_surface_color, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
@@ -179,8 +165,6 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
     DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor
   );
   assert.equal(state.insertedRow.invites_enabled, false);
-  assert.equal(record.name, "Workspace");
-  assert.equal(record.avatarUrl, "");
   assert.equal(record.lightPrimaryColor, DEFAULT_WORKSPACE_THEME.light.color);
   assert.equal(record.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
   assert.equal(record.lightSurfaceColor, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
@@ -192,23 +176,17 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   assert.equal(record.invitesEnabled, false);
 });
 
-test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates name/avatar/color columns", async () => {
+test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace settings columns", async () => {
   const { knexStub, state } = createKnexStub();
   const repository = createRepository(knexStub, {
     defaultInvitesEnabled: true
   });
 
   const updated = await repository.updateSettingsByWorkspaceId(1, {
-    name: "New name",
-    avatarUrl: "https://example.com/avatar.png",
     lightPrimaryColor: "#123abc"
   });
 
-  assert.equal(state.updatePayload.name, "New name");
-  assert.equal(state.updatePayload.avatar_url, "https://example.com/avatar.png");
   assert.equal(state.updatePayload.light_primary_color, "#123ABC");
-  assert.equal(updated.name, "New name");
-  assert.equal(updated.avatarUrl, "https://example.com/avatar.png");
   assert.equal(updated.lightPrimaryColor, "#123ABC");
 });
 

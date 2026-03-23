@@ -1,11 +1,16 @@
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { splitPathQueryAndHash } from "@jskit-ai/kernel/shared/support";
 
 const USERS_PUBLIC_API_BASE_PATH = "/api";
 const USERS_WORKSPACE_API_BASE_PATH = "/api/w/:workspaceSlug/workspace";
 
 function normalizeApiRelativePath(relativePath = "/") {
-  const normalizedPath = normalizePathname(relativePath);
-  return normalizedPath || "/";
+  const { pathname, queryString, hash } = splitPathQueryAndHash(relativePath);
+  const normalizedPath = normalizePathname(pathname || "/") || "/";
+  const normalizedQueryString = String(queryString || "").trim().replace(/^\?+/, "");
+  const normalizedHash = String(hash || "").trim();
+  const querySuffix = normalizedQueryString ? `?${normalizedQueryString}` : "";
+  return `${normalizedPath}${querySuffix}${normalizedHash}`;
 }
 
 function normalizeSurfaceWorkspaceRequirement(value = false) {
@@ -20,6 +25,10 @@ function resolveApiBasePath({ surfaceRequiresWorkspace = false, relativePath = "
 
   if (normalizedRelativePath === "/") {
     return basePath;
+  }
+
+  if (normalizedRelativePath.startsWith("/?") || normalizedRelativePath.startsWith("/#")) {
+    return `${basePath}${normalizedRelativePath.slice(1)}`;
   }
 
   return `${basePath}${normalizedRelativePath}`;

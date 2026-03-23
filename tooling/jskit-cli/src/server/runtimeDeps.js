@@ -21,6 +21,7 @@ function createCommandHandlerDeps(deps = {}) {
     validatePlannedCapabilityClosure: deps.validatePlannedCapabilityClosure,
     resolvePackageOptions: deps.resolvePackageOptions,
     applyPackageInstall: deps.applyPackageInstall,
+    applyPackageMigrationsOnly: deps.applyPackageMigrationsOnly,
     applyPackagePositioning: deps.applyPackagePositioning,
     adoptAppLocalPackageDependencies: deps.adoptAppLocalPackageDependencies,
     loadAppPackageJson: deps.loadAppPackageJson,

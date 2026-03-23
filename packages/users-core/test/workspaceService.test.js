@@ -39,6 +39,7 @@ function createWorkspaceServiceFixture({
     findPersonalByOwnerUserId: 0,
     listForUserId: 0,
     insert: 0,
+    updateById: 0,
     ensureOwnerMembership: 0
   };
   let nextWorkspaceId = 10;
@@ -125,6 +126,32 @@ function createWorkspaceServiceFixture({
         };
         workspaceBySlug.set(String(inserted.slug).trim().toLowerCase(), inserted);
         return inserted;
+      },
+      async updateById(workspaceId, patch) {
+        calls.updateById += 1;
+        const targetId = Number(workspaceId);
+        for (const [slug, workspace] of workspaceBySlug.entries()) {
+          if (Number(workspace.id) !== targetId) {
+            continue;
+          }
+          const updated = {
+            ...workspace
+          };
+          if (Object.hasOwn(patch, "name")) {
+            updated.name = String(patch.name || "");
+          }
+          if (Object.hasOwn(patch, "avatarUrl")) {
+            updated.avatarUrl = String(patch.avatarUrl || "");
+          }
+          if (Object.hasOwn(patch, "color")) {
+            updated.color = String(patch.color || "#0F6B54");
+          }
+          workspaceBySlug.set(slug, updated);
+          return {
+            ...updated
+          };
+        }
+        return null;
       }
     },
     workspaceMembershipsRepository: {
@@ -477,4 +504,55 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions
   );
 
   assert.deepEqual(context.permissions, ["workspace.settings.update"]);
+});
+
+test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from slug context", async () => {
+  const { service } = createWorkspaceServiceFixture({
+    additionalWorkspaces: [
+      {
+        id: 42,
+        slug: "team-alpha",
+        name: "Team Alpha",
+        ownerUserId: 99,
+        isPersonal: false,
+        avatarUrl: "",
+        color: "#0F6B54"
+      }
+    ]
+  });
+
+  const workspace = await service.getWorkspaceForAuthenticatedUser(
+    {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    "team-alpha"
+  );
+
+  assert.equal(workspace.slug, "team-alpha");
+  assert.equal(workspace.name, "Team Alpha");
+});
+
+test("workspaceService.updateWorkspaceForAuthenticatedUser updates workspace profile fields", async () => {
+  const { service, calls } = createWorkspaceServiceFixture();
+
+  const workspace = await service.updateWorkspaceForAuthenticatedUser(
+    {
+      id: 7,
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    "tonymobily3",
+    {
+      name: "Updated Workspace",
+      avatarUrl: "https://example.com/acme.png",
+      color: "#123ABC"
+    }
+  );
+
+  assert.equal(calls.updateById, 1);
+  assert.equal(workspace.name, "Updated Workspace");
+  assert.equal(workspace.avatarUrl, "https://example.com/acme.png");
+  assert.equal(workspace.color, "#123ABC");
 });

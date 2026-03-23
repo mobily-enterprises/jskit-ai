@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.20",
+  version: "0.1.22",
   description: "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",
@@ -206,7 +206,7 @@ export default Object.freeze({
         "@jskit-ai/auth-core": "0.1.15",
         "@jskit-ai/database-runtime": "0.1.16",
         "@jskit-ai/http-runtime": "0.1.15",
-        "@jskit-ai/kernel": "0.1.15",
+        "@jskit-ai/kernel": "0.1.16",
         "@fastify/multipart": "^9.4.0",
         "@fastify/type-provider-typebox": "^6.1.0",
         "typebox": "^1.0.81"
@@ -251,6 +251,15 @@ export default Object.freeze({
         reason: "Install users/workspace console owner migration.",
         category: "migration",
         id: "users-core-console-owner-schema"
+      },
+      {
+        op: "install-migration",
+        from: "templates/migrations/users_core_workspace_settings_single_name_source.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        reason: "Remove workspace_settings name/avatar fields so workspace identity data comes from workspaces only.",
+        category: "migration",
+        id: "users-core-workspace-settings-single-name-source"
       },
       {
         from: "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",

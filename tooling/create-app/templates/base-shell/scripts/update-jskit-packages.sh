@@ -4,6 +4,27 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_JSON_PATH="$APP_ROOT/package.json"
 JSKIT_REGISTRY="${JSKIT_REGISTRY:-}"
+NPM_DRY_RUN="${npm_config_dry_run:-}"
+
+dry_run_enabled=false
+normalized_npm_dry_run="$(printf "%s" "$NPM_DRY_RUN" | tr '[:upper:]' '[:lower:]')"
+if [[ "$normalized_npm_dry_run" == "1" || "$normalized_npm_dry_run" == "true" ]]; then
+  dry_run_enabled=true
+fi
+
+for arg in "$@"; do
+  if [[ "$arg" == "--dry-run" ]]; then
+    dry_run_enabled=true
+  elif [[ "$arg" == "--no-dry-run" ]]; then
+    dry_run_enabled=false
+  fi
+done
+
+install_args=()
+if [[ "$dry_run_enabled" == "true" ]]; then
+  install_args+=(--dry-run)
+  echo "[jskit:update] dry-run mode enabled."
+fi
 
 if [[ ! -f "$PACKAGE_JSON_PATH" ]]; then
   echo "[jskit:update] package.json not found: $PACKAGE_JSON_PATH" >&2
@@ -76,7 +97,7 @@ if (( ${#runtime_specs[@]} > 0 )); then
   echo "[jskit:update] updating runtime packages: ${runtime_specs[*]}"
   (
     cd "$APP_ROOT"
-    npm install --save-exact "${registry_args[@]}" "${runtime_specs[@]}"
+    npm install --save-exact "${registry_args[@]}" "${install_args[@]}" "${runtime_specs[@]}"
   )
 fi
 
@@ -84,7 +105,15 @@ if (( ${#dev_specs[@]} > 0 )); then
   echo "[jskit:update] updating dev packages: ${dev_specs[*]}"
   (
     cd "$APP_ROOT"
-    npm install --save-dev --save-exact "${registry_args[@]}" "${dev_specs[@]}"
+    npm install --save-dev --save-exact "${registry_args[@]}" "${install_args[@]}" "${dev_specs[@]}"
+  )
+fi
+
+if [[ "$dry_run_enabled" != "true" ]]; then
+  echo "[jskit:update] generating managed migrations for changed packages."
+  (
+    cd "$APP_ROOT"
+    npx jskit migrations changed --no-install
   )
 fi
 

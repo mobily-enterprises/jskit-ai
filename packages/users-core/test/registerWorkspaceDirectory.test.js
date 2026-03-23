@@ -22,5 +22,10 @@ test("registerWorkspaceDirectory registers workspace directory actions without r
   const app = createAppDouble();
 
   registerWorkspaceDirectory(app);
-  assert.deepEqual(listActionIds(app), ["workspace.workspaces.create", "workspace.workspaces.list"]);
+  assert.deepEqual(listActionIds(app), [
+    "workspace.workspaces.create",
+    "workspace.workspaces.list",
+    "workspace.workspaces.read",
+    "workspace.workspaces.update"
+  ]);
 });

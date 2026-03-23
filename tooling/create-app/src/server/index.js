@@ -611,7 +611,7 @@ export async function runCli(
       } else {
         stdout.write("First of all run npm install.:\n");
         stdout.write("Then add framework capabilities:\n");
-        stdout.write("- npx jskit add package shell-web --no-install\n");
+        stdout.write("- npx jskit add auth-base --no-install\n");
         stdout.write("- npx jskit list\n");
         stdout.write("Run server and client to see it in action:\n");
         stdout.write("- npm run dev\n");
