@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import "../test-support/registerDefaultSettingsFields.js";
+import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { resolveWorkspaceThemePalettes } from "../src/shared/settings.js";
 import { createRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
@@ -9,6 +10,7 @@ function createDefaultWorkspaceSettings() {
 }
 
 const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalettes({});
+const STUB_CREATED_AT = "2026-03-09 00:26:35.710";
 
 function createKnexStub(rowOverrides = {}) {
   const state = {
@@ -25,8 +27,8 @@ function createKnexStub(rowOverrides = {}) {
       dark_surface_color: DEFAULT_WORKSPACE_THEME.dark.surfaceColor,
       dark_surface_variant_color: DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor,
       invites_enabled: 1,
-      created_at: "2026-03-09 00:26:35.710",
-      updated_at: "2026-03-09 00:26:35.710",
+      created_at: STUB_CREATED_AT,
+      updated_at: STUB_CREATED_AT,
       ...rowOverrides
     }
   };
@@ -121,8 +123,8 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
     darkSurfaceColor: DEFAULT_WORKSPACE_THEME.dark.surfaceColor,
     darkSurfaceVariantColor: DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor,
     invitesEnabled: true,
-    createdAt: "2026-03-08T16:26:35.710Z",
-    updatedAt: "2026-03-08T16:26:35.710Z"
+    createdAt: toIsoString(STUB_CREATED_AT),
+    updatedAt: toIsoString(STUB_CREATED_AT)
   });
 });
 
