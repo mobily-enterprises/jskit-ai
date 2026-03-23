@@ -9,7 +9,7 @@ import { shellQuote } from "./cliEntrypoint.js";
 const DEFAULT_TEMPLATE = "base-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
-const TENANCY_MODES = new Set(["none", "personal", "workspace"]);
+const TENANCY_MODES = new Set(["none", "personal", "workspaces"]);
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
@@ -43,7 +43,7 @@ function normalizeTenancyMode(value, { showUsage = true } = {}) {
   }
 
   throw createCliError(
-    `Invalid --tenancy-mode value "${value}". Expected one of: none, personal, workspace.`,
+    `Invalid --tenancy-mode value "${value}". Expected one of: none, personal, workspaces.`,
     { showUsage }
   );
 }
@@ -221,7 +221,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
-  stream.write("  --tenancy-mode <mode>  Optional config seed: none | personal | workspace\n");
+  stream.write("  --tenancy-mode <mode>  Optional config seed: none | personal | workspaces\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
   stream.write("  --interactive      Prompt for app values instead of passing all flags\n");

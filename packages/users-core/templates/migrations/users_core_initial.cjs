@@ -2,7 +2,7 @@
  * @param {import('knex').Knex} knex
  */
 exports.up = async function up(knex) {
-  await knex.schema.createTable("user_profiles", (table) => {
+  await knex.schema.createTable("users", (table) => {
     table.increments("id").primary();
     table.string("auth_provider", 64).notNullable();
     table.string("auth_provider_user_id", 191).notNullable();
@@ -13,16 +13,16 @@ exports.up = async function up(knex) {
     table.string("avatar_version", 64).nullable();
     table.timestamp("avatar_updated_at", { useTz: false }).nullable();
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
-    table.unique(["auth_provider", "auth_provider_user_id"], "uq_user_profiles_identity");
-    table.unique(["email"], "uq_user_profiles_email");
-    table.unique(["username"], "uq_user_profiles_username");
+    table.unique(["auth_provider", "auth_provider_user_id"], "uq_users_identity");
+    table.unique(["email"], "uq_users_email");
+    table.unique(["username"], "uq_users_username");
   });
 
   await knex.schema.createTable("workspaces", (table) => {
     table.increments("id").primary();
     table.string("slug", 120).notNullable().unique();
     table.string("name", 160).notNullable();
-    table.integer("owner_user_id").unsigned().notNullable().references("id").inTable("user_profiles").onDelete("CASCADE");
+    table.integer("owner_user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
     table.boolean("is_personal").notNullable().defaultTo(true);
     table.string("avatar_url", 512).notNullable().defaultTo("");
     table.string("color", 7).notNullable().defaultTo("#1867C0");
@@ -34,7 +34,7 @@ exports.up = async function up(knex) {
   await knex.schema.createTable("workspace_memberships", (table) => {
     table.increments("id").primary();
     table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
-    table.integer("user_id").unsigned().notNullable().references("id").inTable("user_profiles").onDelete("CASCADE");
+    table.integer("user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
     table.string("role_id", 64).notNullable().defaultTo("member");
     table.string("status", 32).notNullable().defaultTo("active");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
@@ -66,7 +66,7 @@ exports.up = async function up(knex) {
     table.string("role_id", 64).notNullable().defaultTo("member");
     table.string("status", 32).notNullable().defaultTo("pending");
     table.string("token_hash", 191).notNullable();
-    table.integer("invited_by_user_id").unsigned().nullable().references("id").inTable("user_profiles").onDelete("SET NULL");
+    table.integer("invited_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
     table.timestamp("expires_at", { useTz: false }).nullable();
     table.timestamp("accepted_at", { useTz: false }).nullable();
     table.timestamp("revoked_at", { useTz: false }).nullable();
@@ -77,7 +77,7 @@ exports.up = async function up(knex) {
   });
 
   await knex.schema.createTable("user_settings", (table) => {
-    table.integer("user_id").unsigned().primary().references("id").inTable("user_profiles").onDelete("CASCADE");
+    table.integer("user_id").unsigned().primary().references("id").inTable("users").onDelete("CASCADE");
     table.integer("last_active_workspace_id").unsigned().nullable().references("id").inTable("workspaces").onDelete("SET NULL");
     table.string("theme", 32).notNullable().defaultTo("system");
     table.string("locale", 24).notNullable().defaultTo("en");
@@ -119,5 +119,5 @@ exports.down = async function down(knex) {
   await knex.schema.dropTableIfExists("workspace_settings");
   await knex.schema.dropTableIfExists("workspace_memberships");
   await knex.schema.dropTableIfExists("workspaces");
-  await knex.schema.dropTableIfExists("user_profiles");
+  await knex.schema.dropTableIfExists("users");
 };

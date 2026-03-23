@@ -159,7 +159,7 @@ export default Object.freeze({
         id: "assistant-page-admin-workspace-assistant-index",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       }
     ],
@@ -176,7 +176,7 @@ export default Object.freeze({
         id: "assistant-placement-menu",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -191,7 +191,7 @@ export default Object.freeze({
         id: "assistant-workspace-settings-form-placement",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -238,7 +238,7 @@ export default Object.freeze({
         id: "assistant-workspace-settings-field-definition",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {

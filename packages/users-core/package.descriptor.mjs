@@ -397,7 +397,7 @@ export default Object.freeze({
         id: "users-core-surface-config-workspace",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {

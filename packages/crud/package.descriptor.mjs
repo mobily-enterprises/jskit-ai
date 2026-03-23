@@ -260,7 +260,7 @@ export default Object.freeze({
         id: "crud-page-surface-crud-index",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -272,7 +272,7 @@ export default Object.freeze({
         id: "crud-page-surface-crud-new",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -284,7 +284,7 @@ export default Object.freeze({
         id: "crud-page-surface-crud-view",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -296,7 +296,7 @@ export default Object.freeze({
         id: "crud-page-surface-crud-edit",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       }
     ],
@@ -313,7 +313,7 @@ export default Object.freeze({
         id: "crud-placement-menu",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       }
     ]

@@ -93,7 +93,7 @@ function createDuplicateEmailConflictError() {
 async function resolveUniqueUsername(client, baseUsername, { excludeUserId = 0 } = {}) {
   for (let suffix = 0; suffix < 1000; suffix += 1) {
     const candidate = buildUsernameCandidate(baseUsername, suffix);
-    const existing = await client("user_profiles").where({ username: candidate }).first();
+    const existing = await client("users").where({ username: candidate }).first();
     if (!existing || Number(existing.id) === Number(excludeUserId || 0)) {
       return candidate;
     }
@@ -109,7 +109,7 @@ function createRepository(knex) {
 
   async function findById(userId, options = {}) {
     const client = options?.trx || knex;
-    const row = await client("user_profiles").where({ id: userId }).first();
+    const row = await client("users").where({ id: userId }).first();
     return mapProfileRow(row);
   }
 
@@ -120,7 +120,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const row = await client("user_profiles")
+    const row = await client("users")
       .where({
         auth_provider: identity.provider,
         auth_provider_user_id: identity.providerUserId
@@ -131,7 +131,7 @@ function createRepository(knex) {
 
   async function updateDisplayNameById(userId, displayName, options = {}) {
     const client = options?.trx || knex;
-    await client("user_profiles")
+    await client("users")
       .where({ id: userId })
       .update({
         display_name: normalizeText(displayName)
@@ -141,7 +141,7 @@ function createRepository(knex) {
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
     const client = options?.trx || knex;
-    await client("user_profiles")
+    await client("users")
       .where({ id: userId })
       .update({
         avatar_storage_key: avatar.avatarStorageKey || null,
@@ -154,7 +154,7 @@ function createRepository(knex) {
 
   async function clearAvatarById(userId, options = {}) {
     const client = options?.trx || knex;
-    await client("user_profiles")
+    await client("users")
       .where({ id: userId })
       .update({
         avatar_storage_key: null,
@@ -183,7 +183,7 @@ function createRepository(knex) {
         auth_provider: identity.provider,
         auth_provider_user_id: identity.providerUserId
       };
-      const existing = await trx("user_profiles").where(where).first();
+      const existing = await trx("users").where(where).first();
 
       try {
         if (existing) {
@@ -191,14 +191,14 @@ function createRepository(knex) {
           const username = existingUsername || (await resolveUniqueUsername(trx, requestedUsername || usernameBaseFromEmail(email), {
             excludeUserId: existing.id
           }));
-          await trx("user_profiles").where({ id: existing.id }).update({
+          await trx("users").where({ id: existing.id }).update({
             email,
             display_name: displayName,
             username
           });
         } else {
           const username = await resolveUniqueUsername(trx, requestedUsername || usernameBaseFromEmail(email));
-          await trx("user_profiles").insert({
+          await trx("users").insert({
             auth_provider: identity.provider,
             auth_provider_user_id: identity.providerUserId,
             email,
@@ -218,7 +218,7 @@ function createRepository(knex) {
         }
       }
 
-      const reloaded = await trx("user_profiles").where(where).first();
+      const reloaded = await trx("users").where(where).first();
       return mapProfileRow(reloaded);
     };
 

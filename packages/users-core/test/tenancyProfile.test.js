@@ -3,12 +3,12 @@ import test from "node:test";
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
+  TENANCY_MODE_WORKSPACES,
   WORKSPACE_SLUG_POLICY_NONE,
   WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
   WORKSPACE_SLUG_POLICY_USER_SELECTED,
   resolveTenancyProfile,
-  isWorkspaceTenancyMode
+  isWorkspacesTenancyMode
 } from "../src/shared/tenancyProfile.js";
 
 test("resolveTenancyProfile returns mode-specific workspace policy matrix", () => {
@@ -34,9 +34,9 @@ test("resolveTenancyProfile returns mode-specific workspace policy matrix", () =
     }
   });
 
-  const workspaceProfile = resolveTenancyProfile({ tenancyMode: TENANCY_MODE_WORKSPACE });
+  const workspaceProfile = resolveTenancyProfile({ tenancyMode: TENANCY_MODE_WORKSPACES });
   assert.deepEqual(workspaceProfile, {
-    mode: TENANCY_MODE_WORKSPACE,
+    mode: TENANCY_MODE_WORKSPACES,
     workspace: {
       enabled: true,
       autoProvision: false,
@@ -46,15 +46,15 @@ test("resolveTenancyProfile returns mode-specific workspace policy matrix", () =
   });
 });
 
-test("isWorkspaceTenancyMode is true only for workspace mode", () => {
-  assert.equal(isWorkspaceTenancyMode(TENANCY_MODE_WORKSPACE), true);
-  assert.equal(isWorkspaceTenancyMode(TENANCY_MODE_PERSONAL), false);
-  assert.equal(isWorkspaceTenancyMode(TENANCY_MODE_NONE), false);
+test("isWorkspacesTenancyMode is true only for workspace mode", () => {
+  assert.equal(isWorkspacesTenancyMode(TENANCY_MODE_WORKSPACES), true);
+  assert.equal(isWorkspacesTenancyMode(TENANCY_MODE_PERSONAL), false);
+  assert.equal(isWorkspacesTenancyMode(TENANCY_MODE_NONE), false);
 });
 
 test("resolveTenancyProfile allows explicit workspace self-create policy override", () => {
   const workspaceProfile = resolveTenancyProfile({
-    tenancyMode: TENANCY_MODE_WORKSPACE,
+    tenancyMode: TENANCY_MODE_WORKSPACES,
     tenancyPolicy: {
       workspace: {
         allowSelfCreate: true
@@ -62,6 +62,6 @@ test("resolveTenancyProfile allows explicit workspace self-create policy overrid
     }
   });
 
-  assert.equal(workspaceProfile.mode, TENANCY_MODE_WORKSPACE);
+  assert.equal(workspaceProfile.mode, TENANCY_MODE_WORKSPACES);
   assert.equal(workspaceProfile.workspace.allowSelfCreate, true);
 });

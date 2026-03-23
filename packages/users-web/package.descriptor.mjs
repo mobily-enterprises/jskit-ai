@@ -316,7 +316,7 @@ export default Object.freeze({
         id: "users-web-component-workspace-not-found-card",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -327,7 +327,7 @@ export default Object.freeze({
         id: "users-web-composable-workspace-not-found-state",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -339,7 +339,7 @@ export default Object.freeze({
         id: "users-web-page-app-wrapper",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -351,7 +351,7 @@ export default Object.freeze({
         id: "users-web-page-app-index",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -363,7 +363,7 @@ export default Object.freeze({
         id: "users-web-page-admin-wrapper",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -375,7 +375,7 @@ export default Object.freeze({
         id: "users-web-page-admin-index",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -387,7 +387,7 @@ export default Object.freeze({
         id: "users-web-page-admin-members",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -399,7 +399,7 @@ export default Object.freeze({
         id: "users-web-page-admin-workspace-settings",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -434,7 +434,7 @@ export default Object.freeze({
         id: "users-web-placement-block",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       },
       {
@@ -503,7 +503,7 @@ export default Object.freeze({
         id: "users-web-workspace-settings-form-placement",
         when: {
           config: "tenancyMode",
-          in: ["personal", "workspace"]
+          in: ["personal", "workspaces"]
         }
       }
     ]

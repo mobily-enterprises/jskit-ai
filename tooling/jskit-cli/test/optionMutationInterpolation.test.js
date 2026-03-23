@@ -117,7 +117,7 @@ test("add package applies option interpolation and conditional file mutations", 
         to: "src/generated/\${option:namespace|kebab|default(default)}/workspace.txt",
         when: {
           option: "visibility",
-          in: ["workspace"]
+          in: ["workspaces"]
         }
       },
       {
@@ -625,7 +625,7 @@ test("add package evaluates when.config conditions from app config", async () =>
     await mkdir(path.join(appRoot, "config"), { recursive: true });
     await writeFile(
       path.join(appRoot, "config", "public.js"),
-      "export const config = { tenancyMode: \"workspace\" };\n",
+      "export const config = { tenancyMode: \"workspaces\" };\n",
       "utf8"
     );
 
@@ -680,7 +680,7 @@ test("add package evaluates when.config conditions from app config", async () =>
         to: "src/generated/workspace.txt",
         when: {
           config: "tenancyMode",
-          in: ["workspace"]
+          in: ["workspaces"]
         }
       },
       {

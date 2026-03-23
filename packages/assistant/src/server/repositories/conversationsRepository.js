@@ -44,7 +44,7 @@ function normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimi
 function createConversationBaseQuery(client) {
   return client("ai_conversations as c")
     .leftJoin("workspaces as w", "w.id", "c.workspace_id")
-    .leftJoin("user_profiles as u", "u.id", "c.created_by_user_id")
+    .leftJoin("users as u", "u.id", "c.created_by_user_id")
     .select(
       "c.*",
       client.raw("COALESCE(w.slug, '') AS workspace_slug"),

@@ -1,7 +1,7 @@
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
+  TENANCY_MODE_WORKSPACES,
   normalizeTenancyMode
 } from "./tenancyMode.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -56,18 +56,18 @@ function resolveTenancyProfile(appConfig = {}) {
   });
 }
 
-function isWorkspaceTenancyMode(value = "") {
-  return normalizeTenancyMode(value) === TENANCY_MODE_WORKSPACE;
+function isWorkspacesTenancyMode(value = "") {
+  return normalizeTenancyMode(value) === TENANCY_MODE_WORKSPACES;
 }
 
 export {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
+  TENANCY_MODE_WORKSPACES,
   normalizeTenancyMode,
   WORKSPACE_SLUG_POLICY_NONE,
   WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
   WORKSPACE_SLUG_POLICY_USER_SELECTED,
   resolveTenancyProfile,
-  isWorkspaceTenancyMode
+  isWorkspacesTenancyMode
 };

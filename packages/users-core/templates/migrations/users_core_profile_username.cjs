@@ -42,37 +42,37 @@ function resolveUniqueUsername(baseUsername, usedUsernames) {
  * @param {import('knex').Knex} knex
  */
 exports.up = async function up(knex) {
-  const hasUserProfilesTable = await knex.schema.hasTable("user_profiles");
-  if (!hasUserProfilesTable) {
+  const hasUsersTable = await knex.schema.hasTable("users");
+  if (!hasUsersTable) {
     return;
   }
 
-  const hasUsername = await knex.schema.hasColumn("user_profiles", "username");
+  const hasUsername = await knex.schema.hasColumn("users", "username");
   if (hasUsername) {
     return;
   }
 
-  await knex.schema.alterTable("user_profiles", (table) => {
+  await knex.schema.alterTable("users", (table) => {
     table.string("username", USERNAME_MAX_LENGTH).nullable();
   });
 
-  const profiles = await knex("user_profiles").select(["id", "email"]).orderBy("id", "asc");
+  const profiles = await knex("users").select(["id", "email"]).orderBy("id", "asc");
   const usedUsernames = new Set();
 
   for (const profile of profiles) {
     const nextUsername = resolveUniqueUsername(usernameBaseFromEmail(profile.email), usedUsernames);
     usedUsernames.add(nextUsername);
-    await knex("user_profiles").where({ id: Number(profile.id) }).update({
+    await knex("users").where({ id: Number(profile.id) }).update({
       username: nextUsername
     });
   }
 
-  await knex.schema.alterTable("user_profiles", (table) => {
+  await knex.schema.alterTable("users", (table) => {
     table.string("username", USERNAME_MAX_LENGTH).notNullable().alter();
   });
 
-  await knex.schema.alterTable("user_profiles", (table) => {
-    table.unique(["username"], "uq_user_profiles_username");
+  await knex.schema.alterTable("users", (table) => {
+    table.unique(["username"], "uq_users_username");
   });
 };
 
@@ -80,17 +80,17 @@ exports.up = async function up(knex) {
  * @param {import('knex').Knex} knex
  */
 exports.down = async function down(knex) {
-  const hasUserProfilesTable = await knex.schema.hasTable("user_profiles");
-  if (!hasUserProfilesTable) {
+  const hasUsersTable = await knex.schema.hasTable("users");
+  if (!hasUsersTable) {
     return;
   }
 
-  const hasUsername = await knex.schema.hasColumn("user_profiles", "username");
+  const hasUsername = await knex.schema.hasColumn("users", "username");
   if (!hasUsername) {
     return;
   }
 
-  await knex.schema.alterTable("user_profiles", (table) => {
+  await knex.schema.alterTable("users", (table) => {
     table.dropColumn("username");
   });
 };

@@ -19,7 +19,7 @@ function createWorkspaceRoles() {
 }
 
 function createWorkspaceServiceFixture({
-  tenancyMode = "workspace",
+  tenancyMode = "workspaces",
   tenancyPolicy = {},
   workspaceRoles = createWorkspaceRoles(),
   additionalWorkspaces = [],
@@ -177,7 +177,7 @@ test("workspaceService.listWorkspacesForUser returns only accessible workspaces"
 
 test("workspaceService.listWorkspacesForUser no longer provisions personal workspace in workspace mode", async () => {
   const { service, calls } = createWorkspaceServiceFixture({
-    tenancyMode: "workspace",
+    tenancyMode: "workspaces",
     personalWorkspace: null
   });
 
@@ -260,7 +260,7 @@ test("workspaceService.provisionWorkspaceForNewUser provisions personal workspac
 
 test("workspaceService.provisionWorkspaceForNewUser is a no-op outside personal tenancy", async () => {
   const { service, calls } = createWorkspaceServiceFixture({
-    tenancyMode: "workspace"
+    tenancyMode: "workspaces"
   });
 
   const result = await service.provisionWorkspaceForNewUser({
@@ -275,7 +275,7 @@ test("workspaceService.provisionWorkspaceForNewUser is a no-op outside personal 
 
 test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal workspace in workspace tenancy", async () => {
   const { service, calls, insertedPayloads } = createWorkspaceServiceFixture({
-    tenancyMode: "workspace",
+    tenancyMode: "workspaces",
     tenancyPolicy: {
       workspace: {
         allowSelfCreate: true
@@ -304,7 +304,7 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
 
 test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation when self-create policy is disabled", async () => {
   const { service } = createWorkspaceServiceFixture({
-    tenancyMode: "workspace"
+    tenancyMode: "workspaces"
   });
 
   await assert.rejects(

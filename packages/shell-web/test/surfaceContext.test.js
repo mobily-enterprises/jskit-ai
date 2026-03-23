@@ -26,12 +26,12 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
       }
     },
     {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   );
 
   assert.equal(surfaceConfig.defaultSurfaceId, "app");
-  assert.equal(surfaceConfig.tenancyMode, "workspace");
+  assert.equal(surfaceConfig.tenancyMode, "workspaces");
   assert.deepEqual(surfaceConfig.enabledSurfaceIds, ["app", "admin"]);
   assert.deepEqual(surfaceConfig.surfacesById.admin, {
     id: "admin",
@@ -52,7 +52,7 @@ test("buildSurfaceConfigContext normalizes runtime definitions for placement con
 test("readPlacementSurfaceConfig normalizes malformed context data", () => {
   const context = {
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: " ADMIN ",
       enabledSurfaceIds: ["admin", "app", "app"],
       surfacesById: {
@@ -78,7 +78,7 @@ test("readPlacementSurfaceConfig normalizes malformed context data", () => {
 test("surface path helpers compose root and prefixed surface routes", () => {
   const context = {
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       enabledSurfaceIds: ["app", "home", "console"],
       surfacesById: {
         app: {

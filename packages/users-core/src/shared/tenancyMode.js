@@ -1,11 +1,11 @@
 const TENANCY_MODE_NONE = "none";
 const TENANCY_MODE_PERSONAL = "personal";
-const TENANCY_MODE_WORKSPACE = "workspace";
+const TENANCY_MODE_WORKSPACES = "workspaces";
 
 const TENANCY_MODES = Object.freeze([
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE
+  TENANCY_MODE_WORKSPACES
 ]);
 
 function normalizeTenancyMode(value = "") {
@@ -28,7 +28,7 @@ function isTenancyMode(value = "") {
 export {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
+  TENANCY_MODE_WORKSPACES,
   TENANCY_MODES,
   normalizeTenancyMode,
   isTenancyMode

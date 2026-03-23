@@ -4,7 +4,7 @@ import {
 } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
-import { TENANCY_MODE_WORKSPACE, resolveTenancyProfile } from "../shared/tenancyProfile.js";
+import { TENANCY_MODE_WORKSPACES, resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
 import { createWorkspaceActionContextContributor } from "./common/contributors/workspaceActionContextContributor.js";
@@ -59,7 +59,7 @@ function registerWorkspaceCore(app) {
   });
 
   app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
-    return scope.make(USERS_TENANCY_PROFILE_TOKEN).mode === TENANCY_MODE_WORKSPACE;
+    return scope.make(USERS_TENANCY_PROFILE_TOKEN).mode === TENANCY_MODE_WORKSPACES;
   });
 
   app.singleton(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN, (scope) => {

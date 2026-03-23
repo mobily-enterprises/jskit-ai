@@ -229,10 +229,10 @@ test("users-core route registration follows tenancy mode matrix", async () => {
     tenancyMode: "personal"
   });
   const workspaceRoutes = await registerRoutesForMode({
-    tenancyMode: "workspace"
+    tenancyMode: "workspaces"
   });
   const workspaceSelfCreateRoutes = await registerRoutesForMode({
-    tenancyMode: "workspace",
+    tenancyMode: "workspaces",
     tenancyPolicy: {
       workspace: {
         allowSelfCreate: true

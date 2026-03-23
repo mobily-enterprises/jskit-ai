@@ -5,7 +5,7 @@ import { resolveSurfaceLinkTarget } from "../src/client/lib/surfaceLinkTarget.js
 function createPlacementContext() {
   return {
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: "app",
       enabledSurfaceIds: ["app", "admin", "console"],
       surfacesById: {

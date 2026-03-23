@@ -62,7 +62,7 @@ test("workspace bootstrap contributor passes actor context to pending invites se
     },
     workspaceInvitationsEnabled: true,
     appConfig: {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   });
 
@@ -251,7 +251,7 @@ test("workspace bootstrap contributor resolves workspace slug from bootstrap que
     },
     workspaceInvitationsEnabled: true,
     appConfig: {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   });
 
@@ -314,7 +314,7 @@ test("workspace bootstrap contributor returns global payload with requestedWorks
     },
     workspaceInvitationsEnabled: true,
     appConfig: {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   });
 
@@ -386,7 +386,7 @@ test("workspace bootstrap contributor returns requestedWorkspace=not_found when 
     },
     workspaceInvitationsEnabled: false,
     appConfig: {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   });
 
@@ -439,7 +439,7 @@ test("workspace bootstrap contributor returns requestedWorkspace=unauthenticated
     },
     workspaceInvitationsEnabled: false,
     appConfig: {
-      tenancyMode: "workspace"
+      tenancyMode: "workspaces"
     }
   });
 

@@ -35,7 +35,7 @@ function createPlacementRuntimeStub() {
   const setCalls = [];
   let context = Object.freeze({
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: "app",
       enabledSurfaceIds: ["app", "admin", "home"],
       surfacesById: {
@@ -1006,7 +1006,7 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
       }
     },
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: "home",
       enabledSurfaceIds: ["home", "console"],
       surfacesById: {

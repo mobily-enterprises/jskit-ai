@@ -471,7 +471,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
 test("users-web workspace tenancy mode installs workspace surfaces and wrappers", async () => {
   await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["users-workspace-app", "--tenancy-mode", "workspace"] });
+    const createResult = runCli({ cwd, args: ["users-workspace-app", "--tenancy-mode", "workspaces"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "users-workspace-app");
@@ -582,7 +582,7 @@ test("generated app supports shell + auth progressive installation", async () =>
     const appRoot = path.join(cwd, "shell-auth-app");
     const publicConfigPath = path.join(appRoot, "config/public.js");
     const publicConfig = await readFile(publicConfigPath, "utf8");
-    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspace";\n`, "utf8");
+    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspaces";\n`, "utf8");
 
     const addProviderResult = runJskit({
       cwd: appRoot,

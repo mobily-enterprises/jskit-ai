@@ -116,7 +116,7 @@ function createRepository(knex) {
   async function listActiveByWorkspaceId(workspaceId, options = {}) {
     const client = options?.trx || knex;
     const rows = await client("workspace_memberships as wm")
-      .join("user_profiles as up", "up.id", "wm.user_id")
+      .join("users as up", "up.id", "wm.user_id")
       .where({ "wm.workspace_id": Number(workspaceId), "wm.status": "active" })
       .orderBy("up.display_name", "asc")
       .select([

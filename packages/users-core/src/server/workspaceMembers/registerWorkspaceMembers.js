@@ -35,7 +35,7 @@ const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
     }
 
     const row = await knex("workspace_invites as wi")
-      .join("user_profiles as up", "up.email", "wi.email")
+      .join("users as up", "up.email", "wi.email")
       .where("wi.id", inviteId)
       .first("up.id as user_id");
 

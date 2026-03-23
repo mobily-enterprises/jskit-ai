@@ -5,7 +5,7 @@ import { resolveShellLinkPath } from "../src/client/navigation/linkResolver.js";
 function createPlacementContext() {
   return {
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: "app",
       enabledSurfaceIds: ["app", "admin", "console"],
       surfacesById: {

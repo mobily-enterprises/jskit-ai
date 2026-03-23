@@ -35,7 +35,7 @@ function createPlacementContext({
       }
     },
     surfaceConfig: {
-      tenancyMode: "workspace",
+      tenancyMode: "workspaces",
       defaultSurfaceId: "app",
       enabledSurfaceIds: ["home", "app", "admin", "console"],
       surfacesById: {

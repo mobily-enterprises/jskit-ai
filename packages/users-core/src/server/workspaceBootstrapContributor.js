@@ -4,7 +4,7 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actio
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACE,
+  TENANCY_MODE_WORKSPACES,
   WORKSPACE_SLUG_POLICY_NONE,
   WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
   WORKSPACE_SLUG_POLICY_USER_SELECTED,
@@ -164,7 +164,7 @@ function normalizeSlugPolicy(value = "") {
 }
 
 function isSupportedTenancyMode(value = "") {
-  return value === TENANCY_MODE_NONE || value === TENANCY_MODE_PERSONAL || value === TENANCY_MODE_WORKSPACE;
+  return value === TENANCY_MODE_NONE || value === TENANCY_MODE_PERSONAL || value === TENANCY_MODE_WORKSPACES;
 }
 
 function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
