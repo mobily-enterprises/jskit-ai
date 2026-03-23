@@ -678,6 +678,23 @@ function runCatalogBuild({ dryRun, enabled = true }) {
   }
 }
 
+function refreshPackageLock({ dryRun }) {
+  if (dryRun) {
+    process.stdout.write("[dry-run] npm install --package-lock-only\n");
+    return;
+  }
+
+  const result = spawnSync("npm", ["install", "--package-lock-only"], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+    env: process.env
+  });
+
+  if (result.status !== 0) {
+    throw new Error("package-lock refresh failed.");
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const records = await discoverWorkspacePackages();
@@ -720,6 +737,8 @@ async function main() {
     dryRun: options.dryRun,
     onlyMode
   });
+
+  refreshPackageLock({ dryRun: options.dryRun });
 
   runCatalogBuild({
     dryRun: options.dryRun,
