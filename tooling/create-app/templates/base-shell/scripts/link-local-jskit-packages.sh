@@ -15,16 +15,27 @@ is_valid_jskit_repo_root() {
   [[ -d "$candidate_root/packages" && -d "$candidate_root/packages/kernel" && -d "$candidate_root/tooling" ]]
 }
 
+to_absolute_dir() {
+  local candidate_dir="$1"
+  (cd "$candidate_dir" && pwd)
+}
+
 resolve_local_repo_root() {
   if [[ -n "${JSKIT_REPO_ROOT:-}" ]]; then
+    if [[ -d "$JSKIT_REPO_ROOT" ]]; then
+      to_absolute_dir "$JSKIT_REPO_ROOT"
+      return 0
+    fi
     echo "$JSKIT_REPO_ROOT"
     return 0
   fi
 
-  local current_dir="$APP_ROOT"
+  local current_dir
+  current_dir="$(dirname "$APP_ROOT")"
   while true; do
-    if is_valid_jskit_repo_root "$current_dir"; then
-      echo "$current_dir"
+    local candidate_root="$current_dir/jskit-ai"
+    if is_valid_jskit_repo_root "$candidate_root"; then
+      to_absolute_dir "$candidate_root"
       return 0
     fi
     if [[ "$current_dir" == "/" ]]; then
