@@ -1,0 +1,11 @@
+{
+  "name": "@jskit-ai/ui-generator",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"
+  }
+}

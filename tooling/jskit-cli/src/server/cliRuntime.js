@@ -95,6 +95,20 @@ function normalizeMutationExtension(value) {
   return `.${extension}`;
 }
 
+function normalizeTemplateContextRecord(value) {
+  const record = ensureObject(value);
+  const entrypoint = String(record.entrypoint || "").trim();
+  const exportName = String(record.export || "").trim();
+  if (!entrypoint && !exportName) {
+    return null;
+  }
+
+  return Object.freeze({
+    entrypoint,
+    export: exportName || "buildTemplateContext"
+  });
+}
+
 function normalizeFileMutationRecord(value) {
   const record = ensureObject(value);
   const op = String(record.op || "copy-file").trim().toLowerCase() || "copy-file";
@@ -111,6 +125,7 @@ function normalizeFileMutationRecord(value) {
     id: String(record.id || "").trim(),
     category: String(record.category || "").trim(),
     reason: String(record.reason || "").trim(),
+    templateContext: normalizeTemplateContextRecord(record.templateContext),
     when: normalizeMutationWhen(record.when)
   };
 }
@@ -3544,18 +3559,132 @@ function interpolateFileMutationRecord(mutation, options, packageId) {
     extension: interpolate(mutation.extension, "extension"),
     id: interpolate(mutation.id, "id"),
     category: interpolate(mutation.category, "category"),
-    reason: interpolate(mutation.reason, "reason")
+    reason: interpolate(mutation.reason, "reason"),
+    templateContext: mutation.templateContext
+      ? {
+          entrypoint: interpolate(mutation.templateContext.entrypoint, "templateContext.entrypoint"),
+          export: interpolate(mutation.templateContext.export, "templateContext.export")
+        }
+      : null
   };
 }
 
-async function copyTemplateFile(sourcePath, targetPath, options, packageId, interpolationKey) {
+function applyTemplateContextReplacements(sourceContent, replacements) {
+  let output = String(sourceContent || "");
+  for (const [placeholder, value] of Object.entries(ensureObject(replacements))) {
+    const normalizedPlaceholder = String(placeholder || "");
+    if (!normalizedPlaceholder) {
+      continue;
+    }
+    output = output.split(normalizedPlaceholder).join(String(value == null ? "" : value));
+  }
+  return output;
+}
+
+async function copyTemplateFile(
+  sourcePath,
+  targetPath,
+  options,
+  packageId,
+  interpolationKey,
+  templateContextReplacements = null
+) {
   const sourceContent = await readFile(sourcePath, "utf8");
-  const renderedContent = sourceContent.includes("${")
+  let renderedContent = sourceContent.includes("${")
     ? interpolateOptionValue(sourceContent, options, packageId, interpolationKey)
     : sourceContent;
+  if (templateContextReplacements) {
+    renderedContent = applyTemplateContextReplacements(renderedContent, templateContextReplacements);
+  }
 
   await mkdir(path.dirname(targetPath), { recursive: true });
   await writeFile(targetPath, renderedContent, "utf8");
+}
+
+async function resolveTemplateContextReplacementsForMutation({
+  packageEntry,
+  mutation,
+  options,
+  appRoot,
+  sourcePath,
+  targetPaths
+} = {}) {
+  const templateContext = ensureObject(mutation?.templateContext);
+  const hasTemplateContext = Object.keys(templateContext).length > 0;
+  const entrypoint = String(templateContext.entrypoint || "").trim();
+  if (!hasTemplateContext) {
+    return null;
+  }
+  if (!entrypoint) {
+    throw createCliError(
+      `Invalid files mutation in ${packageEntry.packageId}: templateContext.entrypoint is required when templateContext is set.`
+    );
+  }
+  const exportName = String(templateContext.export || "").trim() || "buildTemplateContext";
+  const resolvedEntrypointPath = resolveAppRelativePathWithinRoot(
+    packageEntry.rootDir,
+    entrypoint,
+    `${packageEntry.packageId} files mutation templateContext.entrypoint`
+  );
+  const absoluteEntrypointPath = resolvedEntrypointPath.absolutePath;
+  if (!(await fileExists(absoluteEntrypointPath))) {
+    throw createCliError(
+      `Invalid files mutation in ${packageEntry.packageId}: templateContext.entrypoint not found at ${entrypoint}.`
+    );
+  }
+
+  let moduleNamespace = null;
+  try {
+    moduleNamespace = await import(`${pathToFileURL(absoluteEntrypointPath).href}?t=${Date.now()}_${Math.random()}`);
+  } catch (error) {
+    throw createCliError(
+      `Unable to load templateContext entrypoint ${entrypoint} for ${packageEntry.packageId}: ${String(error?.message || error || "unknown error")}`
+    );
+  }
+
+  const resolver = moduleNamespace?.[exportName];
+  if (typeof resolver !== "function") {
+    throw createCliError(
+      `Invalid files mutation in ${packageEntry.packageId}: templateContext export "${exportName}" is not a function.`
+    );
+  }
+
+  let replacements = null;
+  try {
+    replacements = await resolver({
+      packageId: packageEntry.packageId,
+      packageRoot: packageEntry.rootDir,
+      appRoot,
+      options: Object.freeze({ ...ensureObject(options) }),
+      mutation: Object.freeze({ ...ensureObject(mutation) }),
+      sourcePath,
+      targetPaths: Object.freeze([...ensureArray(targetPaths)])
+    });
+  } catch (error) {
+    throw createCliError(
+      `templateContext export "${exportName}" failed for ${packageEntry.packageId}: ${String(error?.message || error || "unknown error")}`
+    );
+  }
+
+  if (replacements == null) {
+    return null;
+  }
+  if (!replacements || typeof replacements !== "object" || Array.isArray(replacements)) {
+    throw createCliError(
+      `Invalid files mutation in ${packageEntry.packageId}: templateContext export "${exportName}" must return an object map of placeholder replacements.`
+    );
+  }
+
+  const normalizedReplacements = {};
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    const normalizedPlaceholder = String(placeholder || "").trim();
+    if (!normalizedPlaceholder) {
+      continue;
+    }
+    normalizedReplacements[normalizedPlaceholder] = String(value == null ? "" : value);
+  }
+
+  return Object.freeze(normalizedReplacements);
 }
 
 function normalizeSurfaceIdForMutation(value = "") {
@@ -3738,8 +3867,10 @@ async function applyFileMutations(
   managedFiles,
   managedMigrations,
   touchedFiles,
-  warnings = []
+  warnings = [],
+  precomputedTemplateContextByMutationIndex = null
 ) {
+  const mutationList = ensureArray(fileMutations);
   const managedMigrationById = new Map();
   for (const managedMigrationValue of ensureArray(managedMigrations)) {
     const managedMigration = ensureObject(managedMigrationValue);
@@ -3750,7 +3881,7 @@ async function applyFileMutations(
     managedMigrationById.set(migrationId, managedMigration);
   }
 
-  for (const mutationValue of fileMutations) {
+  for (const [mutationIndex, mutationValue] of mutationList.entries()) {
     const normalizedMutation = normalizeFileMutationRecord(mutationValue);
     const requiresConfigContext = Boolean(normalizedMutation.when?.config || normalizedMutation.toSurface);
     const configContext = requiresConfigContext ? await loadMutationWhenConfigContext(appRoot) : {};
@@ -3956,6 +4087,19 @@ async function applyFileMutations(
           configContext
         })
       : [path.join(appRoot, to)];
+    const hasPrecomputedTemplateContext =
+      precomputedTemplateContextByMutationIndex instanceof Map &&
+      precomputedTemplateContextByMutationIndex.has(mutationIndex);
+    const templateContextReplacements = hasPrecomputedTemplateContext
+      ? precomputedTemplateContextByMutationIndex.get(mutationIndex)
+      : await resolveTemplateContextReplacementsForMutation({
+          packageEntry,
+          mutation,
+          options,
+          appRoot,
+          sourcePath,
+          targetPaths
+        });
     for (const targetPath of targetPaths) {
       const previous = await readFileBufferIfExists(targetPath);
       await copyTemplateFile(
@@ -3963,7 +4107,8 @@ async function applyFileMutations(
         targetPath,
         options,
         packageEntry.packageId,
-        `${mutation.id || to || from}.source`
+        `${mutation.id || to || from}.source`,
+        templateContextReplacements
       );
       const nextBuffer = await readFile(targetPath);
 
@@ -3980,6 +4125,82 @@ async function applyFileMutations(
       touchedFiles.add(normalizeRelativePath(appRoot, targetPath));
     }
   }
+}
+
+async function preflightFileMutationTemplateContexts(
+  packageEntry,
+  options,
+  appRoot,
+  fileMutations
+) {
+  const mutationList = ensureArray(fileMutations);
+  const replacementsByMutationIndex = new Map();
+
+  for (const [mutationIndex, mutationValue] of mutationList.entries()) {
+    const normalizedMutation = normalizeFileMutationRecord(mutationValue);
+    const requiresConfigContext = Boolean(normalizedMutation.when?.config || normalizedMutation.toSurface);
+    const configContext = requiresConfigContext ? await loadMutationWhenConfigContext(appRoot) : {};
+    if (
+      !shouldApplyMutationWhen(normalizedMutation.when, {
+        options,
+        configContext,
+        packageId: packageEntry.packageId,
+        mutationContext: "files mutation"
+      })
+    ) {
+      continue;
+    }
+
+    const mutation = interpolateFileMutationRecord(normalizedMutation, options, packageEntry.packageId);
+    const templateContext = ensureObject(mutation.templateContext);
+    if (Object.keys(templateContext).length < 1) {
+      continue;
+    }
+
+    const operation = mutation.op || "copy-file";
+    if (operation !== "copy-file") {
+      continue;
+    }
+
+    const from = mutation.from;
+    const to = mutation.to;
+    const toSurface = mutation.toSurface;
+    if (to && toSurface) {
+      throw createCliError(
+        `Invalid files mutation in ${packageEntry.packageId}: "to" and "toSurface" cannot both be set.`
+      );
+    }
+    if (!from || (!to && !toSurface)) {
+      throw createCliError(
+        `Invalid files mutation in ${packageEntry.packageId}: "from" plus one destination ("to" or "toSurface") are required.`
+      );
+    }
+
+    const sourcePath = path.join(packageEntry.rootDir, from);
+    if (!(await fileExists(sourcePath))) {
+      throw createCliError(`Missing template source ${sourcePath} for ${packageEntry.packageId}.`);
+    }
+
+    const targetPaths = toSurface
+      ? resolveSurfaceTargetPathsForMutation({
+          appRoot,
+          packageId: packageEntry.packageId,
+          mutation,
+          configContext
+        })
+      : [path.join(appRoot, to)];
+    const replacements = await resolveTemplateContextReplacementsForMutation({
+      packageEntry,
+      mutation,
+      options,
+      appRoot,
+      sourcePath,
+      targetPaths
+    });
+    replacementsByMutationIndex.set(mutationIndex, replacements);
+  }
+
+  return replacementsByMutationIndex;
 }
 
 async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
@@ -4394,6 +4615,7 @@ async function applyPackageInstall({
   const cloneOnlyPackage = isCloneOnlyPackageEntry(packageEntry);
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
+  const fileMutations = ensureArray(mutations.files);
   const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
   const packageEntryForMutations =
     templateRoot === packageEntry.rootDir
@@ -4402,6 +4624,14 @@ async function applyPackageInstall({
           ...packageEntry,
           rootDir: templateRoot
         };
+
+  const precomputedTemplateContextByMutationIndex = await preflightFileMutationTemplateContexts(
+    packageEntryForMutations,
+    packageOptions,
+    appRoot,
+    fileMutations
+  );
+
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
   const devDependencies = ensureObject(mutationDependencies.dev);
@@ -4507,11 +4737,12 @@ async function applyPackageInstall({
     packageEntryForMutations,
     packageOptions,
     appRoot,
-    ensureArray(mutations.files),
+    fileMutations,
     managedRecord.managed.files,
     managedRecord.managed.migrations,
     touchedFiles,
-    mutationWarnings
+    mutationWarnings,
+    precomputedTemplateContextByMutationIndex
   );
 
   await applyTextMutations(
