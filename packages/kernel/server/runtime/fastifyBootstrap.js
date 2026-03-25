@@ -1,10 +1,7 @@
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { ActionRuntimeError } from "../../shared/actions/actionDefinitions.js";
 import { normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { isAppError } from "./errors.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
-
-const API_ERROR_HANDLER_MARKER_TOKEN = "kernel.runtime.apiErrorHandlerRegistered";
 
 function resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {}) {
   const normalizedConfiguredLevel = String(configuredLevel || "")
@@ -228,8 +225,8 @@ function registerApiErrorHandler(
 function ensureApiErrorHandling(
   app,
   {
-    fastifyToken = KERNEL_TOKENS.Fastify,
-    markerToken = API_ERROR_HANDLER_MARKER_TOKEN,
+    fastifyToken = "jskit.fastify",
+    markerToken = "kernel.runtime.apiErrorHandlerRegistered",
     isAppError: isAppErrorOverride,
     autoRegister = true,
     ...handlerOptions
@@ -243,7 +240,7 @@ function ensureApiErrorHandling(
     return false;
   }
 
-  const normalizedMarkerToken = String(markerToken || "").trim() || API_ERROR_HANDLER_MARKER_TOKEN;
+  const normalizedMarkerToken = String(markerToken || "").trim() || "kernel.runtime.apiErrorHandlerRegistered";
   if (app.has(normalizedMarkerToken)) {
     return false;
   }

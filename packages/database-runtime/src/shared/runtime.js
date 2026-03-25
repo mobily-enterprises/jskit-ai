@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createTransactionManager } from "./transactionManager.js";
 import { DatabaseRuntimeError } from "./runtimeErrors.js";
 
@@ -21,24 +20,24 @@ function ensureKnexInterface(knex) {
 }
 
 function ensureKnexBinding(app, knex) {
-  if (!app.has(KERNEL_TOKENS.Knex)) {
-    app.instance(KERNEL_TOKENS.Knex, knex);
+  if (!app.has("jskit.database.knex")) {
+    app.instance("jskit.database.knex", knex);
     return;
   }
 
-  const existingKnex = app.make(KERNEL_TOKENS.Knex);
+  const existingKnex = app.make("jskit.database.knex");
   if (existingKnex !== knex) {
     throw new DatabaseRuntimeError("registerDatabaseRuntime received knex that differs from existing Knex binding.");
   }
 }
 
 function ensureTransactionManagerBinding(app) {
-  if (app.has(KERNEL_TOKENS.TransactionManager)) {
+  if (app.has("jskit.database.transactionManager")) {
     return;
   }
 
-  app.singleton(KERNEL_TOKENS.TransactionManager, (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+  app.singleton("jskit.database.transactionManager", (scope) => {
+    const knex = scope.make("jskit.database.knex");
     return createTransactionManager({ knex });
   });
 }
@@ -51,8 +50,8 @@ function registerDatabaseRuntime(app, { knex } = {}) {
   ensureTransactionManagerBinding(app);
 
   return {
-    knex: app.make(KERNEL_TOKENS.Knex),
-    transactionManager: app.make(KERNEL_TOKENS.TransactionManager)
+    knex: app.make("jskit.database.knex"),
+    transactionManager: app.make("jskit.database.transactionManager")
   };
 }
 

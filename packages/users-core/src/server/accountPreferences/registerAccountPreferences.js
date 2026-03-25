@@ -4,15 +4,13 @@ import { accountPreferencesActions } from "./accountPreferencesActions.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
-const USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN = "users.accountPreferences.service";
-
 function registerAccountPreferences(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerAccountPreferences requires application singleton()/service()/actions().");
   }
 
   app.service(
-    USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN,
+    "users.accountPreferences.service",
     (scope) =>
       createAccountPreferencesService({
         userSettingsRepository: scope.make("userSettingsRepository"),
@@ -30,7 +28,7 @@ function registerAccountPreferences(app) {
     withActionDefaults(accountPreferencesActions, {
       domain: "settings",
       dependencies: {
-        accountPreferencesService: USERS_ACCOUNT_PREFERENCES_SERVICE_TOKEN
+        accountPreferencesService: "users.accountPreferences.service"
       }
     })
   );

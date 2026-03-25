@@ -44,10 +44,6 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./server/diTokens",
-          summary: "App-local CRUD public server DI token constants."
-        },
-        {
           subpath: "./server/actionIds",
           summary: "App-local CRUD public action identifiers."
         },

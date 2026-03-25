@@ -1,5 +1,3 @@
-import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
-
 function resolveRequestRuntimeId({ request = null, requestIdResolver = null } = {}) {
   if (typeof requestIdResolver === "function") {
     const resolvedByResolver = String(requestIdResolver(request) || "").trim();
@@ -44,10 +42,10 @@ function attachRequestScope({
     return null;
   }
 
-  scope.instance(KERNEL_TOKENS.Request, request);
-  scope.instance(KERNEL_TOKENS.Reply, reply);
-  scope.instance(KERNEL_TOKENS.RequestId, runtimeRequestId);
-  scope.instance(KERNEL_TOKENS.RequestScope, scope);
+  scope.instance("jskit.http.request", request);
+  scope.instance("jskit.http.reply", reply);
+  scope.instance("jskit.http.requestId", runtimeRequestId);
+  scope.instance("jskit.http.requestScope", scope);
 
   if (request && typeof request === "object") {
     request[normalizeRequestScopeProperty(requestScopeProperty)] = scope;

@@ -4,14 +4,6 @@ import { isRecord } from "../shared/support/normalize.js";
 import { normalizeDescriptorClientProviders, normalizeDescriptorUiRoutes } from "./descriptorSections.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
-const CLIENT_MODULE_RUNTIME_APP_TOKEN = Symbol.for("jskit.client.runtime.app");
-const CLIENT_MODULE_ROUTER_TOKEN = Symbol.for("jskit.client.router");
-const CLIENT_MODULE_VUE_APP_TOKEN = Symbol.for("jskit.client.vue.app");
-const CLIENT_MODULE_ENV_TOKEN = Symbol.for("jskit.client.env");
-const CLIENT_MODULE_SURFACE_RUNTIME_TOKEN = Symbol.for("jskit.client.surface.runtime");
-const CLIENT_MODULE_SURFACE_MODE_TOKEN = Symbol.for("jskit.client.surface.mode");
-const CLIENT_MODULE_LOGGER_TOKEN = Symbol.for("jskit.client.logger");
-
 function normalizePackageId(value) {
   return String(value || "").trim();
 }
@@ -501,13 +493,13 @@ function createClientRuntimeApp({
     strict: true
   });
 
-  runtimeApp.instance(CLIENT_MODULE_RUNTIME_APP_TOKEN, runtimeApp);
-  runtimeApp.instance(CLIENT_MODULE_ROUTER_TOKEN, router || null);
-  runtimeApp.instance(CLIENT_MODULE_VUE_APP_TOKEN, app || null);
-  runtimeApp.instance(CLIENT_MODULE_ENV_TOKEN, isRecord(env) ? { ...env } : {});
-  runtimeApp.instance(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN, surfaceRuntime || null);
-  runtimeApp.instance(CLIENT_MODULE_SURFACE_MODE_TOKEN, String(surfaceMode || "").trim());
-  runtimeApp.instance(CLIENT_MODULE_LOGGER_TOKEN, logger);
+  runtimeApp.instance("jskit.client.runtime.app", runtimeApp);
+  runtimeApp.instance("jskit.client.router", router || null);
+  runtimeApp.instance("jskit.client.vue.app", app || null);
+  runtimeApp.instance("jskit.client.env", isRecord(env) ? { ...env } : {});
+  runtimeApp.instance("jskit.client.surface.runtime", surfaceRuntime || null);
+  runtimeApp.instance("jskit.client.surface.mode", String(surfaceMode || "").trim());
+  runtimeApp.instance("jskit.client.logger", logger);
 
   return runtimeApp;
 }
@@ -661,10 +653,4 @@ async function bootClientModules({
   });
 }
 
-export {
-  CLIENT_MODULE_ROUTER_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN,
-  CLIENT_MODULE_ENV_TOKEN,
-  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
-  bootClientModules
-};
+export { bootClientModules };

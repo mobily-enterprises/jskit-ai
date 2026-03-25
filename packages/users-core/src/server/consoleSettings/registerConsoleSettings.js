@@ -1,5 +1,4 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { CONSOLE_SETTINGS_CHANGED_EVENT } from "../../shared/events/usersEvents.js";
 import { createService as createConsoleSettingsService } from "./consoleSettingsService.js";
 import { createService as createConsoleService } from "./consoleService.js";
 import { consoleSettingsActions } from "./consoleSettingsActions.js";
@@ -35,7 +34,7 @@ function registerConsoleSettings(app) {
             operation: "updated",
             entityId: 1,
             realtime: Object.freeze({
-              event: CONSOLE_SETTINGS_CHANGED_EVENT,
+              event: "console.settings.changed",
               audience: "all_users"
             })
           })

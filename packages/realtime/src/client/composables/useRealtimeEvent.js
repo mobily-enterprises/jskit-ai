@@ -1,6 +1,5 @@
 import { inject, onBeforeUnmount, ref, unref, watch } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { REALTIME_SOCKET_CLIENT_INJECTION_KEY } from "../tokens.js";
 
 const EMPTY_REALTIME_SOCKET = Object.freeze({
   on() {},
@@ -31,7 +30,7 @@ function resolveEventName(value) {
 }
 
 function useRealtimeSocket({ required = false } = {}) {
-  const socket = inject(REALTIME_SOCKET_CLIENT_INJECTION_KEY, null);
+  const socket = inject("jskit.realtime.runtime.client.socket", null);
   if (isRealtimeSocket(socket)) {
     return socket;
   }

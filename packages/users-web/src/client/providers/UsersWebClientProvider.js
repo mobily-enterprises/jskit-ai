@@ -9,20 +9,8 @@ import ProfileClientElement from "../components/ProfileClientElement.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
 import WorkspaceSettingsClientElement from "../components/WorkspaceSettingsClientElement.vue";
 import {
-  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN,
   createBootstrapPlacementRuntime
 } from "../runtime/bootstrapPlacementRuntime.js";
-
-const USERS_WEB_WORKSPACE_SELECTOR_TOKEN = "users.web.workspace.selector";
-const USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN = "users.web.workspace.tools.widget";
-const USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN = "users.web.shell.menu-link-item";
-const USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN = "users.web.shell.surface-aware-menu-link-item";
-const USERS_WEB_PROFILE_SURFACE_SWITCH_MENU_ITEM_TOKEN = "users.web.profile.menu.surface-switch-item";
-const USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN = "users.web.workspace-settings.menu-item";
-const USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN = "users.web.workspace-members.menu-item";
-const USERS_WEB_PROFILE_ELEMENT_TOKEN = "users.web.profile.element";
-const USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN = "users.web.members-admin.element";
-const USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN = "users.web.workspace-settings.element";
 
 class UsersWebClientProvider {
   static id = "users.web.client";
@@ -33,17 +21,17 @@ class UsersWebClientProvider {
       throw new Error("UsersWebClientProvider requires application singleton().");
     }
 
-    app.singleton(USERS_WEB_WORKSPACE_SELECTOR_TOKEN, () => UsersWorkspaceSelector);
-    app.singleton(USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN, () => UsersWorkspaceToolsWidget);
-    app.singleton(USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN, () => UsersShellMenuLinkItem);
-    app.singleton(USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN, () => UsersSurfaceAwareMenuLinkItem);
-    app.singleton(USERS_WEB_PROFILE_SURFACE_SWITCH_MENU_ITEM_TOKEN, () => UsersProfileSurfaceSwitchMenuItem);
-    app.singleton(USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN, () => UsersWorkspaceSettingsMenuItem);
-    app.singleton(USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN, () => UsersWorkspaceMembersMenuItem);
-    app.singleton(USERS_WEB_PROFILE_ELEMENT_TOKEN, () => ProfileClientElement);
-    app.singleton(USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN, () => MembersAdminClientElement);
-    app.singleton(USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN, () => WorkspaceSettingsClientElement);
-    app.singleton(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN, (scope) => createBootstrapPlacementRuntime({ app: scope }));
+    app.singleton("users.web.workspace.selector", () => UsersWorkspaceSelector);
+    app.singleton("users.web.workspace.tools.widget", () => UsersWorkspaceToolsWidget);
+    app.singleton("users.web.shell.menu-link-item", () => UsersShellMenuLinkItem);
+    app.singleton("users.web.shell.surface-aware-menu-link-item", () => UsersSurfaceAwareMenuLinkItem);
+    app.singleton("users.web.profile.menu.surface-switch-item", () => UsersProfileSurfaceSwitchMenuItem);
+    app.singleton("users.web.workspace-settings.menu-item", () => UsersWorkspaceSettingsMenuItem);
+    app.singleton("users.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
+    app.singleton("users.web.profile.element", () => ProfileClientElement);
+    app.singleton("users.web.members-admin.element", () => MembersAdminClientElement);
+    app.singleton("users.web.workspace-settings.element", () => WorkspaceSettingsClientElement);
+    app.singleton("users.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
   }
 
   async boot(app) {
@@ -51,7 +39,7 @@ class UsersWebClientProvider {
       throw new Error("UsersWebClientProvider requires application make().");
     }
 
-    const runtime = app.make(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN);
+    const runtime = app.make("users.web.bootstrap-placement.runtime");
     if (runtime && typeof runtime.initialize === "function") {
       await runtime.initialize();
     }
@@ -62,24 +50,11 @@ class UsersWebClientProvider {
       return;
     }
 
-    const runtime = app.make(USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN);
+    const runtime = app.make("users.web.bootstrap-placement.runtime");
     if (runtime && typeof runtime.shutdown === "function") {
       runtime.shutdown();
     }
   }
 }
 
-export {
-  UsersWebClientProvider,
-  USERS_WEB_WORKSPACE_SELECTOR_TOKEN,
-  USERS_WEB_WORKSPACE_TOOLS_WIDGET_TOKEN,
-  USERS_WEB_SHELL_MENU_LINK_ITEM_TOKEN,
-  USERS_WEB_SURFACE_AWARE_MENU_LINK_ITEM_TOKEN,
-  USERS_WEB_PROFILE_SURFACE_SWITCH_MENU_ITEM_TOKEN,
-  USERS_WEB_WORKSPACE_SETTINGS_MENU_ITEM_TOKEN,
-  USERS_WEB_WORKSPACE_MEMBERS_MENU_ITEM_TOKEN,
-  USERS_WEB_PROFILE_ELEMENT_TOKEN,
-  USERS_WEB_MEMBERS_ADMIN_ELEMENT_TOKEN,
-  USERS_WEB_WORKSPACE_SETTINGS_ELEMENT_TOKEN,
-  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN
-};
+export { UsersWebClientProvider };

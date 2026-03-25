@@ -40,7 +40,7 @@ export default Object.freeze({
       containerTokens: {
         server: [
           "runtime.storage",
-          "KERNEL_TOKENS.Storage"
+          "jskit.storage"
         ],
         client: []
       }

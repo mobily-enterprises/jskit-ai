@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { symlinkSafeRequire } from "@jskit-ai/kernel/server/support";
 import * as databaseRuntime from "../../shared/index.js";
 import { createTransactionManager } from "../../shared/transactionManager.js";
@@ -8,17 +7,12 @@ import {
 } from "../../shared/databaseClient.js";
 import { resolveDatabaseConnectionFromEnvironment } from "../../shared/databaseConnection.js";
 
-const DATABASE_RUNTIME_TOKEN = "runtime.database";
-const DATABASE_DRIVER_TOKEN = "runtime.database.driver";
-const MYSQL_DRIVER_TOKEN = "runtime.database.driver.mysql";
-const POSTGRES_DRIVER_TOKEN = "runtime.database.driver.postgres";
-
 const DATABASE_RUNTIME_SERVER_API = Object.freeze({
   ...databaseRuntime
 });
 
 function resolveDatabaseEnv(scope) {
-  const envFromScope = scope?.has?.(KERNEL_TOKENS.Env) ? scope.make(KERNEL_TOKENS.Env) : {};
+  const envFromScope = scope?.has?.("jskit.env") ? scope.make("jskit.env") : {};
   const source = envFromScope && typeof envFromScope === "object" ? envFromScope : {};
   return {
     ...process.env,
@@ -93,12 +87,12 @@ function resolveRegisteredDriver(scope) {
 function resolveRegisteredDrivers(scope) {
   const drivers = [];
 
-  if (scope.has(MYSQL_DRIVER_TOKEN)) {
-    drivers.push(scope.make(MYSQL_DRIVER_TOKEN));
+  if (scope.has("runtime.database.driver.mysql")) {
+    drivers.push(scope.make("runtime.database.driver.mysql"));
   }
 
-  if (scope.has(POSTGRES_DRIVER_TOKEN)) {
-    drivers.push(scope.make(POSTGRES_DRIVER_TOKEN));
+  if (scope.has("runtime.database.driver.postgres")) {
+    drivers.push(scope.make("runtime.database.driver.postgres"));
   }
 
   return drivers;
@@ -144,26 +138,26 @@ function createKnexInstance(scope) {
 }
 
 class DatabaseRuntimeServiceProvider {
-  static id = DATABASE_RUNTIME_TOKEN;
+  static id = "runtime.database";
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
       throw new Error("DatabaseRuntimeServiceProvider requires application singleton()/has().");
     }
 
-    app.singleton(DATABASE_RUNTIME_TOKEN, () => DATABASE_RUNTIME_SERVER_API);
+    app.singleton("runtime.database", () => DATABASE_RUNTIME_SERVER_API);
 
-    if (!app.has(DATABASE_DRIVER_TOKEN)) {
-      app.singleton(DATABASE_DRIVER_TOKEN, (scope) => resolveSingleRegisteredDriver(scope));
+    if (!app.has("runtime.database.driver")) {
+      app.singleton("runtime.database.driver", (scope) => resolveSingleRegisteredDriver(scope));
     }
 
-    if (!app.has(KERNEL_TOKENS.Knex)) {
-      app.singleton(KERNEL_TOKENS.Knex, (scope) => createKnexInstance(scope));
+    if (!app.has("jskit.database.knex")) {
+      app.singleton("jskit.database.knex", (scope) => createKnexInstance(scope));
     }
 
-    if (!app.has(KERNEL_TOKENS.TransactionManager)) {
-      app.singleton(KERNEL_TOKENS.TransactionManager, (scope) => {
-        const knex = scope.make(KERNEL_TOKENS.Knex);
+    if (!app.has("jskit.database.transactionManager")) {
+      app.singleton("jskit.database.transactionManager", (scope) => {
+        const knex = scope.make("jskit.database.knex");
         return createTransactionManager({ knex });
       });
     }

@@ -6,7 +6,5 @@ export { useAssistantWorkspaceRuntime } from "./composables/useAssistantWorkspac
 export { assistantHttpClient } from "./lib/assistantHttpClient.js";
 export { createAssistantWorkspaceApi, buildStreamEventError } from "./lib/assistantApi.js";
 export {
-  AssistantWebClientProvider,
-  ASSISTANT_CONSOLE_SETTINGS_ELEMENT_TOKEN,
-  ASSISTANT_WORKSPACE_SETTINGS_ELEMENT_TOKEN
+  AssistantWebClientProvider
 } from "./providers/AssistantWebClientProvider.js";

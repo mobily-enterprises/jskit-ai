@@ -7,7 +7,6 @@
     "./client": "./src/client/index.js",
     "./client/*": "./src/client/*.vue",
     "./client/clientSupport": "./src/client/clientSupport.js",
-    "./server/diTokens": "./src/server/diTokens.js",
     "./server/actionIds": "./src/server/actionIds.js",
     "./shared": "./src/shared/index.js"
   }

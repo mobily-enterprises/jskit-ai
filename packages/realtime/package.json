@@ -8,13 +8,11 @@
   "exports": {
     "./server/RealtimeServiceProvider": "./src/server/RealtimeServiceProvider.js",
     "./server/runtime": "./src/server/runtime.js",
-    "./server/tokens": "./src/server/tokens.js",
     "./client": "./src/client/RealtimeClientProvider.js",
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
     "./client/listeners": "./src/client/listeners.js",
     "./client/composables/useRealtimeEvent": "./src/client/composables/useRealtimeEvent.js",
-    "./client/runtime": "./src/client/runtime.js",
-    "./client/tokens": "./src/client/tokens.js"
+    "./client/runtime": "./src/client/runtime.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

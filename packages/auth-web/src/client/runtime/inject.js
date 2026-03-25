@@ -1,6 +1,5 @@
 import { inject } from "vue";
 import { isAuthGuardRuntime } from "./authGuardRuntime.js";
-import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "./tokens.js";
 
 const EMPTY_AUTH_GUARD_STATE = Object.freeze({
   authenticated: false,
@@ -25,7 +24,7 @@ const EMPTY_AUTH_GUARD_RUNTIME = Object.freeze({
 });
 
 function useAuthGuardRuntime({ required = false } = {}) {
-  const runtime = inject(AUTH_GUARD_RUNTIME_INJECTION_KEY, null);
+  const runtime = inject("jskit.auth-web.runtime.auth-guard.client", null);
   if (isAuthGuardRuntime(runtime)) {
     return runtime;
   }

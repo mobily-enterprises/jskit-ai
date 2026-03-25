@@ -1,11 +1,4 @@
 import {
-  CLIENT_MODULE_ROUTER_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN
-} from "@jskit-ai/kernel/client/moduleBootstrap";
-import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/placement";
-import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
-import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
-import {
   findWorkspaceBySlug,
   normalizeWorkspaceList,
   resolvePlacementUserFromBootstrapPayload
@@ -20,8 +13,6 @@ import {
 } from "../lib/theme.js";
 import { createBootstrapPlacementRouteGuards } from "./bootstrapPlacementRouteGuards.js";
 import {
-  BOOTSTRAP_PLACEMENT_SOURCE,
-  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN,
   WORKSPACE_BOOTSTRAP_STATUS_ERROR,
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
@@ -44,7 +35,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
     throw new Error("createBootstrapPlacementRuntime requires application has()/make().");
   }
-  if (!app.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN)) {
+  if (!app.has("runtime.web-placement.client")) {
     throw new Error("createBootstrapPlacementRuntime requires shell-web placement runtime.");
   }
   if (typeof fetchBootstrap !== "function") {
@@ -52,12 +43,12 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   }
 
   const runtimeLogger = logger || createProviderLogger(app);
-  const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
-  const router = app.has(CLIENT_MODULE_ROUTER_TOKEN) ? app.make(CLIENT_MODULE_ROUTER_TOKEN) : null;
+  const placementRuntime = app.make("runtime.web-placement.client");
+  const router = app.has("jskit.client.router") ? app.make("jskit.client.router") : null;
   let vuetifyThemeController = resolveVuetifyThemeController(
-    app.has(CLIENT_MODULE_VUE_APP_TOKEN) ? app.make(CLIENT_MODULE_VUE_APP_TOKEN) : null
+    app.has("jskit.client.vue.app") ? app.make("jskit.client.vue.app") : null
   );
-  const socket = app.has(REALTIME_SOCKET_CLIENT_TOKEN) ? app.make(REALTIME_SOCKET_CLIENT_TOKEN) : null;
+  const socket = app.has("runtime.realtime.client.socket") ? app.make("runtime.realtime.client.socket") : null;
   const cleanup = [];
   let refreshQueue = Promise.resolve();
   let shutdownRequested = false;
@@ -78,7 +69,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     routeGuards.shutdown();
   });
 
-  function setWorkspaceBootstrapStatus(workspaceSlug = "", status = "", source = BOOTSTRAP_PLACEMENT_SOURCE) {
+  function setWorkspaceBootstrapStatus(workspaceSlug = "", status = "", source = "users-web.bootstrap-placement") {
     const workspaceSlugKey = normalizeWorkspaceSlugKey(workspaceSlug);
     const normalizedStatus = normalizeWorkspaceBootstrapStatus(status);
     if (!workspaceSlugKey || !normalizedStatus) {
@@ -103,7 +94,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     const payload = Object.freeze({
       workspaceSlug: workspaceSlugKey,
       status: normalizedStatus,
-      source: String(source || BOOTSTRAP_PLACEMENT_SOURCE).trim() || BOOTSTRAP_PLACEMENT_SOURCE
+      source: String(source || "users-web.bootstrap-placement").trim() || "users-web.bootstrap-placement"
     });
     for (const listener of workspaceBootstrapStatusListeners) {
       try {
@@ -131,7 +122,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     };
   }
 
-  function writePlacementContext(payload = {}, state = {}, source = BOOTSTRAP_PLACEMENT_SOURCE) {
+  function writePlacementContext(payload = {}, state = {}, source = "users-web.bootstrap-placement") {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
     const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, state.workspaceSlug);
     const workspaceSettings =
@@ -162,7 +153,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     applyWorkspaceColorFromPlacementContext("write");
   }
 
-  function clearPlacementContext(source = BOOTSTRAP_PLACEMENT_SOURCE) {
+  function clearPlacementContext(source = "users-web.bootstrap-placement") {
     placementRuntime.setContext(
       {
         workspace: null,
@@ -186,11 +177,11 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     if (vuetifyThemeController) {
       return vuetifyThemeController;
     }
-    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+    if (!app.has("jskit.client.vue.app")) {
       return null;
     }
 
-    vuetifyThemeController = resolveVuetifyThemeController(app.make(CLIENT_MODULE_VUE_APP_TOKEN));
+    vuetifyThemeController = resolveVuetifyThemeController(app.make("jskit.client.vue.app"));
     return vuetifyThemeController;
   }
 
@@ -267,7 +258,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     }
 
     const stateAtStart = resolveRouteState(placementRuntime, router);
-    const source = `${BOOTSTRAP_PLACEMENT_SOURCE}.${String(reason || "manual").trim() || "manual"}`;
+    const source = `users-web.bootstrap-placement.${String(reason || "manual").trim() || "manual"}`;
     try {
       const payload = await fetchBootstrap(stateAtStart.workspaceSlug);
       const stateAtApply = resolveRouteState(placementRuntime, router);
@@ -433,10 +424,10 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       const handleBootstrapChanged = () => {
         void queueRefresh("realtime");
       };
-      socket.on(USERS_BOOTSTRAP_CHANGED_EVENT, handleBootstrapChanged);
+      socket.on("users.bootstrap.changed", handleBootstrapChanged);
       cleanup.push(() => {
         if (typeof socket.off === "function") {
-          socket.off(USERS_BOOTSTRAP_CHANGED_EVENT, handleBootstrapChanged);
+          socket.off("users.bootstrap.changed", handleBootstrapChanged);
         }
       });
     }
@@ -463,7 +454,6 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
 }
 
 export {
-  USERS_WEB_BOOTSTRAP_PLACEMENT_RUNTIME_TOKEN,
   WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,

@@ -13,7 +13,7 @@ import {
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-latest";
 const DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com";
-const DEFAULT_ANTHROPIC_MAX_TOKENS = 4096;
+const DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT = 4096;
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
 
 function normalizeTemperature(value, fallback = 0.2) {
@@ -250,7 +250,7 @@ async function fetchAnthropicMessage({
 
   const requestPayload = {
     model,
-    max_tokens: DEFAULT_ANTHROPIC_MAX_TOKENS,
+    max_tokens: DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT,
     messages,
     temperature: normalizeTemperature(temperature)
   };

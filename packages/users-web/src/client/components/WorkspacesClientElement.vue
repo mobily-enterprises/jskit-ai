@@ -12,11 +12,6 @@ import { useView } from "../composables/useView.js";
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeQueryInvalidation } from "../composables/useRealtimeQueryInvalidation.js";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
-import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT,
-  WORKSPACES_CHANGED_EVENT,
-  WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { normalizePendingInvite } from "../composables/accountSettingsRuntimeHelpers.js";
 
@@ -55,7 +50,7 @@ const bootstrapView = useView({
   apiSuffix: "/bootstrap",
   queryKeyFactory: () => bootstrapQueryKey,
   realtime: {
-    event: WORKSPACE_SETTINGS_CHANGED_EVENT
+    event: "workspace.settings.changed"
   },
   fallbackLoadError: "Unable to load workspaces.",
   model: bootstrapModel,
@@ -112,12 +107,12 @@ const createWorkspaceCommand = useCommand({
 });
 
 useRealtimeQueryInvalidation({
-  event: WORKSPACES_CHANGED_EVENT,
+  event: "workspaces.changed",
   queryKey: bootstrapQueryKey
 });
 
 useRealtimeQueryInvalidation({
-  event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT,
+  event: "workspace.invitations.pending.changed",
   queryKey: bootstrapQueryKey
 });
 

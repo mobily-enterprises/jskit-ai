@@ -1,15 +1,10 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
-import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT
-} from "../../shared/events/usersEvents.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
 import { workspaceSettingsActions } from "./workspaceSettingsActions.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
-import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 
 function resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {}) {
@@ -28,7 +23,7 @@ function registerWorkspaceSettings(app) {
   }
 
   app.singleton("workspaceSettingsRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     const appConfig = resolveAppConfig(scope);
     return createWorkspaceSettingsRepository(knex, {
       defaultInvitesEnabled: resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig)
@@ -40,7 +35,7 @@ function registerWorkspaceSettings(app) {
     (scope) =>
       createWorkspaceSettingsService({
         workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
-        workspaceInvitationsEnabled: scope.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN),
+        workspaceInvitationsEnabled: scope.make("users.workspace.invitations.enabled"),
         roleCatalog: createWorkspaceRoleCatalog(resolveAppConfig(scope))
       }),
     {
@@ -48,7 +43,7 @@ function registerWorkspaceSettings(app) {
         updateWorkspaceSettings: createWorkspaceEntityAndBootstrapEvents({
           workspaceEntity: "settings",
           workspaceOperation: "updated",
-          workspaceRealtimeEvent: WORKSPACE_SETTINGS_CHANGED_EVENT
+          workspaceRealtimeEvent: "workspace.settings.changed"
         })
       })
     }

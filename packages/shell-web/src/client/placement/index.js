@@ -1,8 +1,4 @@
 export {
-  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN
-} from "./tokens.js";
-
-export {
   createPlacementRegistry
 } from "./registry.js";
 

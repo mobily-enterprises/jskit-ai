@@ -3,7 +3,7 @@ import { mergeValidators } from "../../../shared/validators/mergeValidators.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 
-const ROUTE_VALIDATOR_SYMBOL = Symbol.for("@jskit-ai/kernel/http/routeValidator");
+const ROUTE_VALIDATOR_SYMBOL = "@jskit-ai/kernel/http/routeValidator";
 const VALIDATOR_OPTION_KEYS = Object.freeze([
   "meta",
   "bodyValidator",

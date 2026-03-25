@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
@@ -25,14 +24,14 @@ function createAppConfigFixture() {
 test("auth supabase provider registers authService and contributes auth actions in users mode", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},
@@ -77,14 +76,14 @@ test("auth supabase provider registers authService and contributes auth actions 
 test("auth supabase provider registers authService in standalone mode without users.profile.sync.service", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},
@@ -105,14 +104,14 @@ test("auth supabase provider registers authService in standalone mode without us
 test("auth supabase provider requires users.profile.sync.service when AUTH_PROFILE_MODE=users", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},
@@ -132,14 +131,14 @@ test("auth supabase provider requires users.profile.sync.service when AUTH_PROFI
 test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_PROFILE_MODE: "invalid",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},
@@ -167,14 +166,14 @@ test("auth supabase provider reads oauth providers from appConfig.auth.oauth", a
       }
     }
   });
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},
@@ -205,7 +204,7 @@ test("auth supabase provider lets env oauth settings override appConfig.auth.oau
       }
     }
   });
-  app.instance(KERNEL_TOKENS.Env, {
+  app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_OAUTH_PROVIDERS: "google",
@@ -214,7 +213,7 @@ test("auth supabase provider lets env oauth settings override appConfig.auth.oau
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
-  app.instance(KERNEL_TOKENS.Logger, {
+  app.instance("jskit.logger", {
     info() {},
     warn() {},
     error() {},

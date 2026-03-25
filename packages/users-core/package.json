@@ -11,7 +11,6 @@
     "./server/support/resolveWorkspace": "./src/server/support/resolveWorkspace.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./shared/settings": "./src/shared/settings.js",
-    "./shared/events/usersEvents": "./src/shared/events/usersEvents.js",
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/usersVisibility": "./src/shared/support/usersVisibility.js",
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",

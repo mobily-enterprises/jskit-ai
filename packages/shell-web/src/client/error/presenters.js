@@ -1,10 +1,5 @@
 import { normalizeText } from "./normalize.js";
 
-const MATERIAL_SNACKBAR_PRESENTER_ID = "material.snackbar";
-const MATERIAL_BANNER_PRESENTER_ID = "material.banner";
-const MATERIAL_DIALOG_PRESENTER_ID = "material.dialog";
-const MODULE_DEFAULT_PRESENTER_ID = MATERIAL_SNACKBAR_PRESENTER_ID;
-
 function createStoreBackedPresenter({
   id,
   channel,
@@ -43,7 +38,7 @@ function createStoreBackedPresenter({
 
 function createMaterialSnackbarPresenter({ store } = {}) {
   return createStoreBackedPresenter({
-    id: MATERIAL_SNACKBAR_PRESENTER_ID,
+    id: "material.snackbar",
     channel: "snackbar",
     store,
     defaultPersist: false
@@ -52,7 +47,7 @@ function createMaterialSnackbarPresenter({ store } = {}) {
 
 function createMaterialBannerPresenter({ store } = {}) {
   return createStoreBackedPresenter({
-    id: MATERIAL_BANNER_PRESENTER_ID,
+    id: "material.banner",
     channel: "banner",
     store,
     defaultPersist: true
@@ -61,7 +56,7 @@ function createMaterialBannerPresenter({ store } = {}) {
 
 function createMaterialDialogPresenter({ store } = {}) {
   return createStoreBackedPresenter({
-    id: MATERIAL_DIALOG_PRESENTER_ID,
+    id: "material.dialog",
     channel: "dialog",
     store,
     defaultPersist: true
@@ -77,10 +72,6 @@ function createDefaultMaterialErrorPresenters({ store } = {}) {
 }
 
 export {
-  MATERIAL_SNACKBAR_PRESENTER_ID,
-  MATERIAL_BANNER_PRESENTER_ID,
-  MATERIAL_DIALOG_PRESENTER_ID,
-  MODULE_DEFAULT_PRESENTER_ID,
   createStoreBackedPresenter,
   createMaterialSnackbarPresenter,
   createMaterialBannerPresenter,

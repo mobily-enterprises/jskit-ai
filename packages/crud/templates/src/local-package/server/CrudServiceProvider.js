@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository } from "./repository.js";
@@ -12,12 +11,6 @@ import {
   crudModuleConfig,
   resolveCrudModulePolicyFromAppConfig
 } from "../shared/moduleConfig.js";
-import {
-  NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN,
-  NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN
-} from "./diTokens.js";
-
-const NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID = NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN;
 const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = "crud_${option:namespace|snake}";
 
 function resolveCrudPolicyFromApp(app) {
@@ -28,7 +21,7 @@ function resolveCrudPolicyFromApp(app) {
 }
 
 class ${option:namespace|pascal}ServiceProvider {
-  static id = NAMESPACE_${option:namespace|snake|upper}_PROVIDER_ID;
+  static id = "crud.${option:namespace|snake}";
 
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "users.core"];
 
@@ -39,18 +32,18 @@ class ${option:namespace|pascal}ServiceProvider {
 
     const crudPolicy = resolveCrudPolicyFromApp(app);
 
-    app.singleton(NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN, (scope) => {
-      const knex = scope.make(KERNEL_TOKENS.Knex);
+    app.singleton("repository.${option:namespace|snake}", (scope) => {
+      const knex = scope.make("jskit.database.knex");
       return createRepository(knex, {
         tableName: NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME
       });
     });
 
     app.service(
-      NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN,
+      "crud.${option:namespace|snake}",
       (scope) => {
         return createService({
-          ${option:namespace|camel}Repository: scope.make(NAMESPACE_${option:namespace|snake|upper}_REPOSITORY_TOKEN)
+          ${option:namespace|camel}Repository: scope.make("repository.${option:namespace|snake}")
         });
       },
       {
@@ -66,7 +59,7 @@ class ${option:namespace|pascal}ServiceProvider {
         {
           domain: "crud",
           dependencies: {
-            ${option:namespace|camel}Service: NAMESPACE_${option:namespace|snake|upper}_SERVICE_TOKEN
+            ${option:namespace|camel}Service: "crud.${option:namespace|snake}"
           }
         }
       )

@@ -1,5 +1,4 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 
@@ -8,7 +7,7 @@ function bootWorkspacePendingInvitations(app) {
     throw new Error("bootWorkspacePendingInvitations requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
 
   router.register(
     "GET",

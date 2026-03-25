@@ -1,7 +1,5 @@
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { assertTaggableApp } from "./primitives.js";
 
-const ACTION_SURFACE_SOURCE_REGISTRY_TOKEN = Symbol.for("jskit.runtime.actions.surfaceSourceRegistry");
 const ACTION_SURFACE_SOURCE_NAME_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
 function normalizeSurfaceIdValue(value) {
@@ -22,11 +20,11 @@ function resolveSurfaceRuntime(scope) {
     throw new Error("Action definition materialization requires scope.has()/make().");
   }
 
-  if (!scope.has(KERNEL_TOKENS.SurfaceRuntime)) {
-    throw new Error("Action definition surfacesFrom requires KERNEL_TOKENS.SurfaceRuntime.");
+  if (!scope.has("jskit.surface.runtime")) {
+    throw new Error("Action definition surfacesFrom requires jskit.surface.runtime.");
   }
 
-  return scope.make(KERNEL_TOKENS.SurfaceRuntime);
+  return scope.make("jskit.surface.runtime");
 }
 
 function resolveEnabledSurfaceIds(surfaceRuntime) {
@@ -104,10 +102,10 @@ function resolveActionSurfaceSourceRegistry(scope) {
   if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
     throw new Error("Action surface source resolution requires scope.has()/make().");
   }
-  if (!scope.has(ACTION_SURFACE_SOURCE_REGISTRY_TOKEN)) {
+  if (!scope.has("jskit.runtime.actions.surfaceSourceRegistry")) {
     throw new Error("Action surface source registry is not registered.");
   }
-  return scope.make(ACTION_SURFACE_SOURCE_REGISTRY_TOKEN);
+  return scope.make("jskit.runtime.actions.surfaceSourceRegistry");
 }
 
 function resolveActionSurfaceSourceIds(scope, sourceName, { context = "action.surfacesFrom" } = {}) {
@@ -141,8 +139,8 @@ function ensureActionSurfaceSourceRegistry(app) {
     throw new Error("ensureActionSurfaceSourceRegistry requires app.has().");
   }
 
-  if (!app.has(ACTION_SURFACE_SOURCE_REGISTRY_TOKEN)) {
-    app.singleton(ACTION_SURFACE_SOURCE_REGISTRY_TOKEN, () => createActionSurfaceSourceRegistry());
+  if (!app.has("jskit.runtime.actions.surfaceSourceRegistry")) {
+    app.singleton("jskit.runtime.actions.surfaceSourceRegistry", () => createActionSurfaceSourceRegistry());
   }
   installActionSurfaceSourceRegistrationApi(app);
 }

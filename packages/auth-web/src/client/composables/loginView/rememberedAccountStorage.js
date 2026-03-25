@@ -1,7 +1,5 @@
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
 
-const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
-
 function resolveLocalStorage() {
   if (typeof window === "undefined" || !window.localStorage) {
     return null;
@@ -42,7 +40,7 @@ function readRememberedAccountHint() {
   }
 
   try {
-    const rawValue = storage.getItem(REMEMBERED_ACCOUNT_STORAGE_KEY);
+    const rawValue = storage.getItem("auth.rememberedAccount");
     if (!rawValue) {
       return null;
     }
@@ -61,7 +59,7 @@ function writeRememberedAccountHint(hint) {
 
   try {
     storage.setItem(
-      REMEMBERED_ACCOUNT_STORAGE_KEY,
+      "auth.rememberedAccount",
       JSON.stringify({
         email: hint.email,
         displayName: hint.displayName,
@@ -81,7 +79,7 @@ function clearRememberedAccountHint() {
   }
 
   try {
-    storage.removeItem(REMEMBERED_ACCOUNT_STORAGE_KEY);
+    storage.removeItem("auth.rememberedAccount");
   } catch {
     // best effort only
   }

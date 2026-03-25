@@ -1,14 +1,9 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
 import { authActions } from "../lib/actions/auth.contributor.js";
-
-const AUTH_SESSION_EVENTS_SERVICE_TOKEN = "auth.session.events.service";
-const AUTH_SESSION_CHANGED_EVENT = "auth.session.changed";
-const USERS_BOOTSTRAP_CHANGED_EVENT = "users.bootstrap.changed";
 const AUTH_PROFILE_MODE_STANDALONE = "standalone";
 const AUTH_PROFILE_MODE_USERS = "users";
 const SUPPORTED_AUTH_PROFILE_MODES = Object.freeze([AUTH_PROFILE_MODE_STANDALONE, AUTH_PROFILE_MODE_USERS]);
@@ -129,11 +124,11 @@ const fallbackStandaloneProfileSyncService = createStandaloneProfileSyncService(
 
 function resolveCommonDependencies(scope) {
   const dependencies = {};
-  if (scope.has(KERNEL_TOKENS.Env)) {
-    dependencies.env = scope.make(KERNEL_TOKENS.Env);
+  if (scope.has("jskit.env")) {
+    dependencies.env = scope.make("jskit.env");
   }
-  if (scope.has(KERNEL_TOKENS.Logger)) {
-    dependencies.logger = scope.make(KERNEL_TOKENS.Logger);
+  if (scope.has("jskit.logger")) {
+    dependencies.logger = scope.make("jskit.logger");
   }
   return dependencies;
 }
@@ -204,7 +199,7 @@ class AuthSupabaseServiceProvider {
     }
 
     app.service(
-      AUTH_SESSION_EVENTS_SERVICE_TOKEN,
+      "auth.session.events.service",
       () => createAuthSessionEventsService(),
       {
         events: {
@@ -216,7 +211,7 @@ class AuthSupabaseServiceProvider {
               operation: "updated",
               entityId: ({ result }) => result?.id,
               realtime: {
-                event: AUTH_SESSION_CHANGED_EVENT,
+                event: "auth.session.changed",
                 audience: "actor_user"
               }
             },
@@ -227,7 +222,7 @@ class AuthSupabaseServiceProvider {
               operation: "updated",
               entityId: ({ result }) => result?.id,
               realtime: {
-                event: USERS_BOOTSTRAP_CHANGED_EVENT,
+                event: "users.bootstrap.changed",
                 audience: "actor_user"
               }
             }
@@ -241,7 +236,7 @@ class AuthSupabaseServiceProvider {
         domain: "auth",
         dependencies: {
           authService: "authService",
-          authSessionEventsService: AUTH_SESSION_EVENTS_SERVICE_TOKEN
+          authSessionEventsService: "auth.session.events.service"
         }
       })
     );

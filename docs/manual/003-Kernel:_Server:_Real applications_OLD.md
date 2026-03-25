@@ -82,7 +82,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage1MonolithProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage1MonolithProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
@@ -96,7 +95,7 @@ class Stage1MonolithProvider {
   register() {}
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const contacts = [];
 
     const validateContact = (normalized) => {
@@ -547,7 +546,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage2ControllerProvider.js`
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage2ControllerProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage2 } from "../controllers/ContactControllerStage2.js";
 import {
   contactByIdGetRouteContract,
@@ -565,7 +563,7 @@ class Stage2ControllerProvider {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_2_CONTROLLER);
 
     router.register(
@@ -873,7 +871,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage3ServiceProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage3ServiceProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import {
@@ -901,7 +898,7 @@ class Stage3ServiceProvider {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_3_CONTROLLER);
 
     router.register(
@@ -1247,7 +1244,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage4RepositoryProvider.js`
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage4RepositoryProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage4 } from "../controllers/ContactControllerStage4.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
@@ -1279,7 +1275,7 @@ class Stage4RepositoryProvider {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_4_CONTROLLER);
 
     router.register(
@@ -1458,7 +1454,7 @@ We now need the code that actually implements the repository.
 
 Why define both a token and a repository contract?
 
-- token (`CONTACT_REPOSITORY_TOKEN`) is the container key used by app wiring
+- token (`"docs.examples.03.contacts.repository"`) is the container key used by app wiring
 - contract class (`ContactRepository`) is the code-level interface that defines required methods
 - together they decouple usage from implementation, so you can swap implementations without touching controller/action code
 - tests can bind fakes/stubs to the same token, while production can bind database-backed implementations
@@ -1467,8 +1463,6 @@ Use `docs/examples/03.real-app/src/server/repositories/ContactRepository.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" repository="ContactRepository" lang="js" -->
 ```js
-const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
-
 class ContactRepository {
   findById(_id) {
     throw new Error("ContactRepository.findById must be implemented.");
@@ -1487,7 +1481,7 @@ class ContactRepository {
   }
 }
 
-export { CONTACT_REPOSITORY_TOKEN, ContactRepository };
+export { ContactRepository };
 ```
 <!-- /DOCS:EXAMPLE -->
 
@@ -1632,7 +1626,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage5ActionProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage5ActionProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage5 } from "../controllers/ContactControllerStage5.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
@@ -1697,7 +1690,7 @@ class Stage5ActionProvider {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_5_CONTROLLER);
 
     router.register(
@@ -2199,7 +2192,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage6LayeredProvider.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage6LayeredProvider" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage6 } from "../controllers/ContactControllerStage6.js";
 import { ContactQualificationService } from "../services/ContactQualificationService.js";
 import { InMemoryContactRepository } from "../repositories/InMemoryContactRepository.js";
@@ -2268,7 +2260,7 @@ class Stage6LayeredProvider {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_6_CONTROLLER);
 
     router.register(
@@ -2846,7 +2838,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage8ErrorErgonomicsProvide
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage8ErrorErgonomicsProvider" lang="js" -->
 ```js
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -2932,13 +2923,13 @@ class Stage8ErrorErgonomicsProvider {
 
   boot(app) {
     if (!app.has(STAGE_8_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
+      registerApiErrorHandler(app.make("jskit.fastify"), {
         isAppError
       });
       app.instance(STAGE_8_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_8_CONTROLLER);
 
     router.register(
@@ -3273,9 +3264,6 @@ Use `docs/examples/03.real-app/src/server/support/stage9Middleware.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/stage9Middleware.js" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-
-const STAGE_9_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage9.requestContext";
 
 async function requireRequestScopeMiddleware(request, reply) {
   if (!request?.scope || typeof request.scope.make !== "function") {
@@ -3292,8 +3280,8 @@ async function attachRequestContextMiddleware(request) {
     return;
   }
 
-  const requestId = scope.make(KERNEL_TOKENS.RequestId);
-  scope.instance(STAGE_9_REQUEST_CONTEXT_TOKEN, {
+  const requestId = scope.make("jskit.http.requestId");
+  scope.instance("docs.examples.03.stage9.requestContext", {
     requestId,
     receivedAt: new Date().toISOString()
   });
@@ -3324,7 +3312,7 @@ const stage9ContactsMiddleware = Object.freeze([
 ]);
 
 export {
-  STAGE_9_REQUEST_CONTEXT_TOKEN,
+  "docs.examples.03.stage9.requestContext",
   requireRequestScopeMiddleware,
   attachRequestContextMiddleware,
   requirePartnerConsentMiddleware,
@@ -3340,8 +3328,7 @@ Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage9.js
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage9" lang="js" -->
 ```js
 import { BaseController } from "@jskit-ai/kernel/server/http";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { STAGE_9_REQUEST_CONTEXT_TOKEN } from "../support/stage9Middleware.js";
+import { "docs.examples.03.stage9.requestContext" } from "../support/stage9Middleware.js";
 
 class ContactControllerStage9 extends BaseController {
   constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction }) {
@@ -3361,13 +3348,13 @@ class ContactControllerStage9 extends BaseController {
       return;
     }
 
-    const requestId = scope.make(KERNEL_TOKENS.RequestId);
+    const requestId = scope.make("jskit.http.requestId");
     if (requestId) {
       reply.header("x-request-id", requestId);
     }
 
-    const context = scope.has(STAGE_9_REQUEST_CONTEXT_TOKEN)
-      ? scope.make(STAGE_9_REQUEST_CONTEXT_TOKEN)
+    const context = scope.has("docs.examples.03.stage9.requestContext")
+      ? scope.make("docs.examples.03.stage9.requestContext")
       : null;
 
     if (context?.receivedAt) {
@@ -3410,7 +3397,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage9RuntimeContextProvider
 ```js
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -3509,13 +3495,13 @@ class Stage9RuntimeContextProvider {
 
   boot(app) {
     if (!app.has(STAGE_9_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
+      registerApiErrorHandler(app.make("jskit.fastify"), {
         isAppError
       });
       app.instance(STAGE_9_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_9_CONTROLLER);
 
     const sharedOptions = {
@@ -3752,9 +3738,6 @@ Use `docs/examples/03.real-app/src/server/support/stage10Middleware.js`:
 
 <!-- DOCS:EXAMPLE package="03.real-app" file="src/server/support/stage10Middleware.js" lang="js" -->
 ```js
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-
-const STAGE_10_REQUEST_CONTEXT_TOKEN = "docs.examples.03.stage10.requestContext";
 
 async function requireRequestScopeMiddleware(request, reply) {
   if (!request?.scope || typeof request.scope.make !== "function") {
@@ -3771,8 +3754,8 @@ async function attachRequestContextMiddleware(request) {
     return;
   }
 
-  const requestId = scope.make(KERNEL_TOKENS.RequestId);
-  scope.instance(STAGE_10_REQUEST_CONTEXT_TOKEN, {
+  const requestId = scope.make("jskit.http.requestId");
+  scope.instance("docs.examples.03.stage10.requestContext", {
     requestId,
     receivedAt: new Date().toISOString()
   });
@@ -3803,7 +3786,7 @@ const stage10ContactsMiddleware = Object.freeze([
 ]);
 
 export {
-  STAGE_10_REQUEST_CONTEXT_TOKEN,
+  "docs.examples.03.stage10.requestContext",
   requireRequestScopeMiddleware,
   attachRequestContextMiddleware,
   requirePartnerConsentMiddleware,
@@ -3819,8 +3802,7 @@ Use `docs/examples/03.real-app/src/server/controllers/ContactControllerStage10.j
 <!-- DOCS:EXAMPLE package="03.real-app" controller="ContactControllerStage10" lang="js" -->
 ```js
 import { BaseController } from "@jskit-ai/kernel/server/http";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { STAGE_10_REQUEST_CONTEXT_TOKEN } from "../support/stage10Middleware.js";
+import { "docs.examples.03.stage10.requestContext" } from "../support/stage10Middleware.js";
 
 class ContactControllerStage10 extends BaseController {
   constructor({ createContactIntakeAction, previewContactFollowupAction, getContactByIdAction, contactsConfig }) {
@@ -3849,13 +3831,13 @@ class ContactControllerStage10 extends BaseController {
       return;
     }
 
-    const requestId = scope.make(KERNEL_TOKENS.RequestId);
+    const requestId = scope.make("jskit.http.requestId");
     if (requestId) {
       reply.header("x-request-id", requestId);
     }
 
-    const context = scope.has(STAGE_10_REQUEST_CONTEXT_TOKEN)
-      ? scope.make(STAGE_10_REQUEST_CONTEXT_TOKEN)
+    const context = scope.has("docs.examples.03.stage10.requestContext")
+      ? scope.make("docs.examples.03.stage10.requestContext")
       : null;
 
     if (context?.receivedAt) {
@@ -3900,7 +3882,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvide
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -3944,7 +3925,7 @@ class Stage10ConfigContractProvider {
   static id = "docs.examples.03.stage10";
 
   register(app) {
-    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
+    const env = app.has("jskit.env") ? app.make("jskit.env") : process.env;
     const config = contactsModuleConfig.resolve({
       env
     });
@@ -4002,13 +3983,13 @@ class Stage10ConfigContractProvider {
 
   boot(app) {
     if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
+      registerApiErrorHandler(app.make("jskit.fastify"), {
         isAppError
       });
       app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {
@@ -4175,7 +4156,6 @@ Use `docs/examples/03.real-app/src/server/providers/Stage10ConfigContractProvide
 <!-- DOCS:EXAMPLE package="03.real-app" provider="Stage10ConfigContractProvider" lang="js" -->
 ```js
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   isAppError,
   registerApiErrorHandler
@@ -4219,7 +4199,7 @@ class Stage10ConfigContractProvider {
   static id = "docs.examples.03.stage10";
 
   register(app) {
-    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : process.env;
+    const env = app.has("jskit.env") ? app.make("jskit.env") : process.env;
     const config = contactsModuleConfig.resolve({
       env
     });
@@ -4277,13 +4257,13 @@ class Stage10ConfigContractProvider {
 
   boot(app) {
     if (!app.has(STAGE_10_ERROR_HANDLER_MARKER)) {
-      registerApiErrorHandler(app.make(KERNEL_TOKENS.Fastify), {
+      registerApiErrorHandler(app.make("jskit.fastify"), {
         isAppError
       });
       app.instance(STAGE_10_ERROR_HANDLER_MARKER, true);
     }
 
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_10_CONTROLLER);
 
     const sharedOptions = {
@@ -4354,7 +4334,7 @@ By this point, the module is a proper composition root:
 - request pipeline ergonomics are handled through `input` normalization into `request.input`
 - domain validation is explicit in actions/services, using domain error classes
 - global HTTP error mapping is centralized with `registerApiErrorHandler(...)`
-- runtime context is request-scoped (`request.scope`, `KERNEL_TOKENS.RequestId`, and scoped context instances)
+- runtime context is request-scoped (`request.scope`, `"jskit.http.requestId"`, and scoped context instances)
 - middleware reuse is declarative at provider route registration
 - startup config contracts are validated once at boot with `defineModuleConfig(...)`
 - persistence validation stays in repository/storage invariants

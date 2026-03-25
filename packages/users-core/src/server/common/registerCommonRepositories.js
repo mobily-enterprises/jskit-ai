@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { createRepository as createUserProfilesRepository } from "./repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "./repositories/userSettingsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./repositories/workspacesRepository.js";
@@ -12,32 +11,32 @@ function registerCommonRepositories(app) {
   }
 
   app.singleton("userProfilesRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createUserProfilesRepository(knex);
   });
 
   app.singleton("userSettingsRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createUserSettingsRepository(knex);
   });
 
   app.singleton("workspacesRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createWorkspacesRepository(knex);
   });
 
   app.singleton("workspaceMembershipsRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createWorkspaceMembershipsRepository(knex);
   });
 
   app.singleton("workspaceInvitesRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createWorkspaceInvitesRepository(knex);
   });
 
   app.singleton("consoleSettingsRepository", (scope) => {
-    const knex = scope.make(KERNEL_TOKENS.Knex);
+    const knex = scope.make("jskit.database.knex");
     return createConsoleSettingsRepository(knex);
   });
 }

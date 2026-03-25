@@ -1,7 +1,6 @@
-const ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT = "assistant.console.settings.changed";
-const ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT = "assistant.workspace.settings.changed";
+const assistantSettingsEvents = Object.freeze({
+  consoleSettingsChanged: "assistant.console.settings.changed",
+  workspaceSettingsChanged: "assistant.workspace.settings.changed"
+});
 
-export {
-  ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT,
-  ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT
-};
+export { assistantSettingsEvents };

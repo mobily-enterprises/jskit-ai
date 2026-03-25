@@ -1,5 +1,5 @@
 import { normalizeObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
-import { isContainerToken } from "../../shared/support/tokens.js";
+import { isContainerToken } from "../../shared/support/containerToken.js";
 import { createEntityChangePublisher } from "../runtime/entityChangeEvents.js";
 import {
   assertTaggableApp,
@@ -8,8 +8,6 @@ import {
   resolveTaggedEntries
 } from "./primitives.js";
 
-const SERVICE_REGISTRATION_TAG = Symbol.for("jskit.runtime.services.registrations");
-const ENTITY_CHANGED_EVENT_TYPE = "entity.changed";
 const DEFAULT_REALTIME_AUDIENCE = "event_scope";
 let SERVICE_REGISTRATION_INDEX = 0;
 
@@ -28,8 +26,8 @@ function createServiceRegistrationToken() {
 
 function normalizeServiceEventType(value, { context = "service event" } = {}) {
   const normalizedType = normalizeText(value).toLowerCase();
-  if (normalizedType !== ENTITY_CHANGED_EVENT_TYPE) {
-    throw new TypeError(`${context}.type must be "${ENTITY_CHANGED_EVENT_TYPE}".`);
+  if (normalizedType !== "entity.changed") {
+    throw new TypeError(`${context}.type must be "entity.changed".`);
   }
   return normalizedType;
 }
@@ -173,7 +171,7 @@ function normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata)
     for (const [index, entry] of normalizedEntries.entries()) {
       if (!entry.source || !entry.entity) {
         throw new TypeError(
-          `service metadata.events.${methodName}[${index}] requires source and entity for "${ENTITY_CHANGED_EVENT_TYPE}".`
+          `service metadata.events.${methodName}[${index}] requires source and entity for "entity.changed".`
         );
       }
     }
@@ -374,13 +372,13 @@ function normalizeServiceRegistration(value = {}) {
 }
 
 function registerServiceRegistration(app, token, factory) {
-  registerTaggedSingleton(app, token, factory, SERVICE_REGISTRATION_TAG, {
+  registerTaggedSingleton(app, token, factory, "jskit.runtime.services.registrations", {
     context: "registerServiceRegistration"
   });
 }
 
 function resolveServiceRegistrations(scope) {
-  return resolveTaggedEntries(scope, SERVICE_REGISTRATION_TAG)
+  return resolveTaggedEntries(scope, "jskit.runtime.services.registrations")
     .map((entry) => normalizeObject(entry))
     .filter((entry) => Object.keys(entry).length > 0)
     .sort((left, right) => String(left.serviceToken || "").localeCompare(String(right.serviceToken || "")));
@@ -422,7 +420,6 @@ function installServiceRegistrationApi(app) {
 }
 
 export {
-  SERVICE_REGISTRATION_TAG,
   normalizeServiceRegistration,
   materializeServiceRegistration,
   registerServiceRegistration,

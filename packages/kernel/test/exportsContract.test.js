@@ -20,7 +20,13 @@ const SCANNED_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".vue"
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage"]);
 const EXCLUDED_USAGE_PATH_SEGMENTS = new Set(["test", "tests", "__tests__", "test-support"]);
 const TEST_FILENAME_PATTERN = /\.(test|spec)\.[A-Za-z0-9]+$/;
-const EXPORTED_UNUSED_ALLOWLIST = new Set(["./_testable"]);
+const EXPORTED_UNUSED_ALLOWLIST = new Set([
+  "./_testable",
+  // Used by generated app bootstrap code emitted from kernel client vite plugin.
+  "./client/moduleBootstrap",
+  // Intentionally retained as an explicit low-level kernel API subpath.
+  "./shared/support/tokens"
+]);
 
 function normalizeSlash(value) {
   return String(value || "").replace(/\\/g, "/");

@@ -3,8 +3,7 @@ import {
 } from "./providers/ShellWebClientProvider.js";
 
 export {
-  ShellWebClientProvider,
-  SHELL_WEB_QUERY_CLIENT_TOKEN
+  ShellWebClientProvider
 } from "./providers/ShellWebClientProvider.js";
 
 export { default as ShellLayout } from "./components/ShellLayout.vue";

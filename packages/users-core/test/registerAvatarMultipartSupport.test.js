@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerAvatarMultipartSupport } from "../src/server/accountProfile/registerAvatarMultipartSupport.js";
 
 function createAppStub({ hasFastify = true, fastify = null } = {}) {
@@ -13,13 +12,13 @@ function createAppStub({ hasFastify = true, fastify = null } = {}) {
 
   return {
     has(token) {
-      if (token === KERNEL_TOKENS.Fastify) {
+      if (token === "jskit.fastify") {
         return hasFastify;
       }
       return false;
     },
     make(token) {
-      if (token === KERNEL_TOKENS.Fastify) {
+      if (token === "jskit.fastify") {
         return resolvedFastify;
       }
       return null;

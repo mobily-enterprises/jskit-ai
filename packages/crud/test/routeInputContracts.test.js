@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerRoutes } from "../src/server/registerRoutes.js";
 
 function createReplyDouble() {
@@ -36,7 +35,7 @@ test("crud routes build create/update action input with explicit payload and pat
   };
   const app = {
     make(token) {
-      if (token !== KERNEL_TOKENS.HttpRouter) {
+      if (token !== "jskit.http.router") {
         throw new Error(`Unexpected token: ${String(token)}`);
       }
       return router;
@@ -112,7 +111,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   };
   const app = {
     make(token) {
-      if (token !== KERNEL_TOKENS.HttpRouter) {
+      if (token !== "jskit.http.router") {
         throw new Error(`Unexpected token: ${String(token)}`);
       }
       return router;
@@ -171,7 +170,7 @@ test("crud routes normalize route ownership filter values before registering vis
   };
   const app = {
     make(token) {
-      if (token !== KERNEL_TOKENS.HttpRouter) {
+      if (token !== "jskit.http.router") {
         throw new Error(`Unexpected token: ${String(token)}`);
       }
       return router;

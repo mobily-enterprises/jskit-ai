@@ -32,11 +32,6 @@ import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContex
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
-import {
-  WORKSPACE_SETTINGS_CHANGED_EVENT,
-  WORKSPACE_MEMBERS_CHANGED_EVENT,
-  WORKSPACE_INVITES_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
 const forms = reactive({
@@ -274,7 +269,7 @@ const workspaceSettingsView = useView({
     buildWorkspaceQueryKey("settings", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.invite"],
   realtime: {
-    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+    event: "workspace.settings.changed",
     matches: matchesWorkspaceRealtime
   },
   fallbackLoadError: "Unable to load workspace settings."
@@ -295,7 +290,7 @@ const workspaceMembersList = useList({
     buildWorkspaceQueryKey("members", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
-    event: WORKSPACE_MEMBERS_CHANGED_EVENT,
+    event: "workspace.members.changed",
     matches: matchesWorkspaceRealtime
   },
   selectItems: (payload) => normalizeMembers(payload?.members),
@@ -309,7 +304,7 @@ const workspaceInvitesList = useList({
     buildWorkspaceQueryKey("invites", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.manage"],
   realtime: {
-    event: WORKSPACE_INVITES_CHANGED_EVENT,
+    event: "workspace.invites.changed",
     matches: matchesWorkspaceRealtime
   },
   selectItems: (payload) => normalizeInvites(payload?.invites),

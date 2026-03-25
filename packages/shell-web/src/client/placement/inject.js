@@ -4,7 +4,6 @@ import {
   onMounted,
   shallowRef
 } from "vue";
-import { WEB_PLACEMENT_RUNTIME_INJECTION_KEY } from "./tokens.js";
 
 const EMPTY_WEB_PLACEMENT_RUNTIME = Object.freeze({
   getContext() {
@@ -37,7 +36,7 @@ const EMPTY_WEB_PLACEMENT_CONTEXT = Object.freeze({
 });
 
 function useWebPlacementRuntime({ required = false } = {}) {
-  const runtime = inject(WEB_PLACEMENT_RUNTIME_INJECTION_KEY, null);
+  const runtime = inject("jskit.shell-web.runtime.web-placement.client", null);
   if (runtime && typeof runtime.getPlacements === "function") {
     return runtime;
   }

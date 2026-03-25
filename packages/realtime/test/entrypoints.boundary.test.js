@@ -6,8 +6,6 @@ import * as serverRuntimeApi from "../src/server/runtime.js";
 import * as clientApi from "../src/client/RealtimeClientProvider.js";
 import * as clientRuntimeApi from "../src/client/runtime.js";
 import * as clientListenerApi from "../src/client/listeners.js";
-import * as serverTokens from "../src/server/tokens.js";
-import * as clientTokens from "../src/client/tokens.js";
 
 test("server entrypoint exports provider only", () => {
   assert.equal(typeof serverApi.RealtimeServiceProvider, "function");
@@ -17,15 +15,6 @@ test("server entrypoint exports provider only", () => {
 test("client entrypoint exports provider only", () => {
   assert.equal(typeof clientApi.RealtimeClientProvider, "function");
   assert.deepEqual(Object.keys(clientApi).sort(), ["RealtimeClientProvider"]);
-});
-
-test("token entrypoints export runtime token constants", () => {
-  assert.equal(serverTokens.REALTIME_RUNTIME_SERVER_TOKEN, "runtime.realtime");
-  assert.equal(serverTokens.REALTIME_SOCKET_IO_SERVER_TOKEN, "runtime.realtime.io");
-  assert.equal(clientTokens.REALTIME_RUNTIME_CLIENT_TOKEN, "runtime.realtime.client");
-  assert.equal(clientTokens.REALTIME_SOCKET_CLIENT_TOKEN, "runtime.realtime.client.socket");
-  assert.equal(typeof clientTokens.REALTIME_SOCKET_CLIENT_INJECTION_KEY, "symbol");
-  assert.equal(typeof clientTokens.REALTIME_CLIENT_LISTENER_TAG, "symbol");
 });
 
 test("server runtime entrypoint exports server-only helpers", () => {

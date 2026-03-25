@@ -1,5 +1,4 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   workspaceSlugParamsValidator
@@ -50,7 +49,7 @@ function registerRoutes(app) {
     throw new Error("registerRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const visibility = "workspace";
   const workspaceRouteSurfaceConfig = resolveAssistantWorkspaceRouteSurfaceConfig(app);
   const workspaceRouteSurfaceId = workspaceRouteSurfaceConfig.fallbackSurfaceId;

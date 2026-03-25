@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { mainHelloSchema } from "../../shared/schemas/mainHelloSchema.js";
 
 class MainHelloProvider {
@@ -7,7 +6,7 @@ class MainHelloProvider {
   register() {}
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
 
     router.get(
       "/api/docs/ch01/hello",

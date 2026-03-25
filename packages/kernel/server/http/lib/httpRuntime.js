@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { normalizeObject } from "../../../shared/support/normalize.js";
 import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
@@ -13,8 +12,8 @@ function registerHttpRuntime(app, options = {}) {
 
   const runtimeOptions = normalizeObject(options);
   const {
-    fastifyToken = KERNEL_TOKENS.Fastify,
-    routerToken = KERNEL_TOKENS.HttpRouter,
+    fastifyToken = "jskit.fastify",
+    routerToken = "jskit.http.router",
     autoRegisterApiErrorHandling = true,
     apiErrorHandling = {},
     ...routeRegistrationOptions
@@ -55,13 +54,13 @@ function createHttpRuntime(
   }
 
   const runtimeRouter = router || createRouter();
-  app.singleton(KERNEL_TOKENS.HttpRouter, () => runtimeRouter);
+  app.singleton("jskit.http.router", () => runtimeRouter);
 
   if (fastify) {
-    app.instance(KERNEL_TOKENS.Fastify, fastify);
+    app.instance("jskit.fastify", fastify);
     if (autoRegisterApiErrorHandling !== false) {
       ensureApiErrorHandling(app, {
-        fastifyToken: KERNEL_TOKENS.Fastify,
+        fastifyToken: "jskit.fastify",
         ...normalizeObject(apiErrorHandling)
       });
     }

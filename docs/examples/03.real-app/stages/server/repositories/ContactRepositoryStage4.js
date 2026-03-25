@@ -1,5 +1,3 @@
-const CONTACT_REPOSITORY_TOKEN = "docs.examples.03.contacts.repository";
-
 class ContactRepositoryStage4 {
   findById(_id) {
     throw new Error("ContactRepositoryStage4.findById must be implemented.");
@@ -18,4 +16,4 @@ class ContactRepositoryStage4 {
   }
 }
 
-export { CONTACT_REPOSITORY_TOKEN, ContactRepositoryStage4 };
+export { ContactRepositoryStage4 };

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   BaseRepository,
   buildPaginationMeta,
@@ -94,5 +93,5 @@ test("registerDatabaseRuntime binds knex and transaction manager tokens", () => 
   const runtime = registerDatabaseRuntime(app, { knex });
   assert.strictEqual(runtime.knex, knex);
   assert.equal(typeof runtime.transactionManager.inTransaction, "function");
-  assert.strictEqual(app.make(KERNEL_TOKENS.Knex), knex);
+  assert.strictEqual(app.make("jskit.database.knex"), knex);
 });

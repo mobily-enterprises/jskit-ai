@@ -1,20 +1,9 @@
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
-import {
-  CLIENT_MODULE_ENV_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN
-} from "@jskit-ai/kernel/client/moduleBootstrap";
 import { resolveClientBootstrapDebugEnabled } from "@jskit-ai/kernel/client";
 import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
-import {
-  REALTIME_RUNTIME_CLIENT_TOKEN,
-  REALTIME_SOCKET_CLIENT_TOKEN,
-  REALTIME_SOCKET_CLIENT_INJECTION_KEY
-} from "./tokens.js";
 import { resolveRealtimeClientListeners } from "./listeners.js";
-
-const REALTIME_CONNECTION_INDICATOR_COMPONENT_TOKEN = "realtime.web.connection.indicator";
 
 const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   createSocketIoClient,
@@ -23,7 +12,7 @@ const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
 
 function resolveRealtimeClientConfig(app) {
   const appConfig = app && typeof app.has === "function" && app.has("appConfig") ? normalizeObject(app.make("appConfig")) : {};
-  const env = app && typeof app.has === "function" && app.has(CLIENT_MODULE_ENV_TOKEN) ? normalizeObject(app.make(CLIENT_MODULE_ENV_TOKEN)) : {};
+  const env = app && typeof app.has === "function" && app.has("jskit.client.env") ? normalizeObject(app.make("jskit.client.env")) : {};
   const realtime = normalizeObject(appConfig.realtime);
   const realtimeClient = normalizeObject(appConfig.realtimeClient);
   const url = normalizeText(realtimeClient.url);
@@ -55,17 +44,17 @@ function resolveRealtimeClientConfig(app) {
 }
 
 class RealtimeClientProvider {
-  static id = REALTIME_RUNTIME_CLIENT_TOKEN;
+  static id = "runtime.realtime.client";
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {
       throw new Error("RealtimeClientProvider requires application singleton().");
     }
 
-    app.singleton(REALTIME_RUNTIME_CLIENT_TOKEN, () => REALTIME_RUNTIME_CLIENT_API);
-    app.singleton(REALTIME_CONNECTION_INDICATOR_COMPONENT_TOKEN, () => RealtimeConnectionIndicator);
-    app.singleton(REALTIME_SOCKET_CLIENT_TOKEN, (scope) => {
-      const realtimeRuntime = scope.make(REALTIME_RUNTIME_CLIENT_TOKEN);
+    app.singleton("runtime.realtime.client", () => REALTIME_RUNTIME_CLIENT_API);
+    app.singleton("realtime.web.connection.indicator", () => RealtimeConnectionIndicator);
+    app.singleton("runtime.realtime.client.socket", (scope) => {
+      const realtimeRuntime = scope.make("runtime.realtime.client");
       const realtimeClientConfig = resolveRealtimeClientConfig(scope);
       return realtimeRuntime.createSocketIoClient({
         url: realtimeClientConfig.url,
@@ -83,7 +72,7 @@ class RealtimeClientProvider {
     const logger = createSharedProviderLogger(app, {
       debugEnabled: realtimeClientConfig.debugEnabled
     });
-    const socket = app.make(REALTIME_SOCKET_CLIENT_TOKEN);
+    const socket = app.make("runtime.realtime.client.socket");
     const listeners = resolveRealtimeClientListeners(app);
     const detach = [];
 
@@ -230,15 +219,15 @@ class RealtimeClientProvider {
     this.socket = socket;
     this.detach = detach;
 
-    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+    if (!app.has("jskit.client.vue.app")) {
       return;
     }
 
-    const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
+    const vueApp = app.make("jskit.client.vue.app");
     if (!vueApp || typeof vueApp.provide !== "function") {
       return;
     }
-    vueApp.provide(REALTIME_SOCKET_CLIENT_INJECTION_KEY, socket);
+    vueApp.provide("jskit.realtime.runtime.client.socket", socket);
   }
 
   shutdown(app) {
@@ -258,7 +247,7 @@ class RealtimeClientProvider {
     }
 
     const runtimeApi =
-      app && typeof app.make === "function" ? app.make(REALTIME_RUNTIME_CLIENT_TOKEN) : REALTIME_RUNTIME_CLIENT_API;
+      app && typeof app.make === "function" ? app.make("runtime.realtime.client") : REALTIME_RUNTIME_CLIENT_API;
     runtimeApi.disconnectSocketIoClient(this.socket);
     this.socket = null;
   }

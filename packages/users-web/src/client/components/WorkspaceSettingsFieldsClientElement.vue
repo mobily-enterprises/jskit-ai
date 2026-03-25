@@ -170,7 +170,6 @@
 import { computed, reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { workspaceSettingsResource } from "@jskit-ai/users-core/shared/resources/workspaceSettingsResource";
-import { WORKSPACE_SETTINGS_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
   DEFAULT_WORKSPACE_DARK_PALETTE,
@@ -221,7 +220,7 @@ const addEdit = useAddEdit({
     "darkSurfaceVariantColor"
   ],
   realtime: {
-    event: WORKSPACE_SETTINGS_CHANGED_EVENT,
+    event: "workspace.settings.changed",
     matches: matchesWorkspaceRealtime
   },
   model: workspaceSettingsForm,

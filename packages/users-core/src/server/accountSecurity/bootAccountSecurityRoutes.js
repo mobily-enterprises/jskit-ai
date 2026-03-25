@@ -1,6 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 function bootAccountSecurityRoutes(app) {
@@ -8,7 +7,7 @@ function bootAccountSecurityRoutes(app) {
     throw new Error("bootAccountSecurityRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const authService = app.make("authService");
 
   router.register(

@@ -8,7 +8,6 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./server/AssistantServiceProvider": "./src/server/AssistantServiceProvider.js",
-    "./server/diTokens": "./src/server/diTokens.js",
     "./server/actionIds": "./src/server/actionIds.js",
     "./shared": "./src/shared/index.js"
   },

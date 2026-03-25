@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
-import { AUTH_POLICY_CONTEXT_RESOLVER_TOKEN } from "../src/server/lib/tokens.js";
 import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/FastifyAuthPolicyServiceProvider.js";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 
 test("FastifyAuthPolicyServiceProvider registers auth policy plugin through provider boot", async () => {
   const { fastify, state } = createFakeFastifyPolicyRuntime();
   const bag = new Map([
-    [KERNEL_TOKENS.Fastify, fastify],
-    [KERNEL_TOKENS.Env, { NODE_ENV: "test" }],
-    [KERNEL_TOKENS.Logger, console],
+    ["jskit.fastify", fastify],
+    ["jskit.env", { NODE_ENV: "test" }],
+    ["jskit.logger", console],
     [
       "authService",
       {
@@ -52,9 +50,9 @@ test("FastifyAuthPolicyServiceProvider registers auth policy plugin through prov
 test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolver", async () => {
   const { fastify, state } = createFakeFastifyPolicyRuntime();
   const bag = new Map([
-    [KERNEL_TOKENS.Fastify, fastify],
-    [KERNEL_TOKENS.Env, { NODE_ENV: "test" }],
-    [KERNEL_TOKENS.Logger, console],
+    ["jskit.fastify", fastify],
+    ["jskit.env", { NODE_ENV: "test" }],
+    ["jskit.logger", console],
     [
       "authService",
       {
@@ -68,7 +66,7 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
       }
     ],
     [
-      AUTH_POLICY_CONTEXT_RESOLVER_TOKEN,
+      "auth.policy.contextResolver",
       async ({ actor, request }) => ({
         workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
         membership: { roleId: "member" },

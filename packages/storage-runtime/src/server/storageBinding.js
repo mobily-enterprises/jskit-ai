@@ -3,7 +3,6 @@ import path from "node:path";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 import memoryDriver from "unstorage/drivers/memory";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 
 const STORAGE_DRIVER_ENV_KEY = "JSKIT_STORAGE_DRIVER";
 const STORAGE_FS_BASE_PATH_ENV_KEY = "JSKIT_STORAGE_FS_BASE_PATH";
@@ -25,7 +24,7 @@ function resolveFsBasePath(fsBasePath, { rootDir } = {}) {
 }
 
 function createStorageBinding(scope, { rootDir = process.cwd() } = {}) {
-  const env = scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Env) ? scope.make(KERNEL_TOKENS.Env) : {};
+  const env = scope && typeof scope.has === "function" && scope.has("jskit.env") ? scope.make("jskit.env") : {};
   const driver = normalizeStorageDriver(env?.[STORAGE_DRIVER_ENV_KEY]);
 
   if (driver === "memory") {

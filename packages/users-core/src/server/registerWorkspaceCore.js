@@ -1,4 +1,3 @@
-import { AUTH_POLICY_CONTEXT_RESOLVER_TOKEN } from "@jskit-ai/auth-core/server/lib/tokens";
 import {
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
@@ -11,17 +10,7 @@ import { createWorkspaceActionContextContributor } from "./common/contributors/w
 import { createWorkspaceRouteVisibilityResolver } from "./common/contributors/workspaceRouteVisibilityResolver.js";
 import { createWorkspaceAuthPolicyContextResolver } from "./common/contributors/workspaceAuthPolicyContextResolver.js";
 import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
-import {
-  USERS_PROFILE_SYNC_SERVICE_TOKEN,
-  USERS_TENANCY_PROFILE_TOKEN,
-  USERS_WORKSPACE_ENABLED_TOKEN,
-  USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN,
-  USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN,
-  USERS_WORKSPACE_TENANCY_ENABLED_TOKEN
-} from "./common/diTokens.js";
 
-const USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN = "users.core.workspace.actionContextContributor";
-const USERS_WORKSPACE_VISIBILITY_RESOLVER_TOKEN = "users.core.workspace.routeVisibilityResolver";
 
 function registerWorkspaceCore(app) {
   if (!app || typeof app.singleton !== "function") {
@@ -38,54 +27,54 @@ function registerWorkspaceCore(app) {
     });
   });
 
-  app.singleton(USERS_PROFILE_SYNC_SERVICE_TOKEN, (scope) => {
+  app.singleton("users.profile.sync.service", (scope) => {
     return createAuthProfileSyncService({
       userProfilesRepository: scope.make("userProfilesRepository"),
       workspaceProvisioningService: scope.make("users.workspace.service")
     });
   });
 
-  app.singleton(USERS_TENANCY_PROFILE_TOKEN, (scope) => {
+  app.singleton("users.tenancy.profile", (scope) => {
     const appConfig = resolveAppConfig(scope);
     return resolveTenancyProfile(appConfig);
   });
 
-  app.singleton(USERS_WORKSPACE_ENABLED_TOKEN, (scope) => {
-    return scope.make(USERS_TENANCY_PROFILE_TOKEN).workspace.enabled === true;
+  app.singleton("users.workspace.enabled", (scope) => {
+    return scope.make("users.tenancy.profile").workspace.enabled === true;
   });
 
-  app.singleton(USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN, (scope) => {
-    return scope.make(USERS_TENANCY_PROFILE_TOKEN).workspace.allowSelfCreate === true;
+  app.singleton("users.workspace.self-create.enabled", (scope) => {
+    return scope.make("users.tenancy.profile").workspace.allowSelfCreate === true;
   });
 
-  app.singleton(USERS_WORKSPACE_TENANCY_ENABLED_TOKEN, (scope) => {
-    return scope.make(USERS_TENANCY_PROFILE_TOKEN).mode === TENANCY_MODE_WORKSPACES;
+  app.singleton("users.workspace.tenancy.enabled", (scope) => {
+    return scope.make("users.tenancy.profile").mode === TENANCY_MODE_WORKSPACES;
   });
 
-  app.singleton(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN, (scope) => {
+  app.singleton("users.workspace.invitations.enabled", (scope) => {
     const appConfig = resolveAppConfig(scope);
-    const tenancyProfile = scope.make(USERS_TENANCY_PROFILE_TOKEN);
+    const tenancyProfile = scope.make("users.tenancy.profile");
     return resolveWorkspaceInvitationsPolicy({
       appConfig,
       tenancyProfile
     }).enabled;
   });
 
-  registerActionContextContributor(app, USERS_WORKSPACE_CONTEXT_CONTRIBUTOR_TOKEN, (scope) => {
+  registerActionContextContributor(app, "users.core.workspace.actionContextContributor", (scope) => {
     return createWorkspaceActionContextContributor({
       workspaceService: scope.make("users.workspace.service")
     });
   });
 
-  if (typeof app.has !== "function" || !app.has(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN)) {
-    app.singleton(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN, (scope) =>
+  if (typeof app.has !== "function" || !app.has("auth.policy.contextResolver")) {
+    app.singleton("auth.policy.contextResolver", (scope) =>
       createWorkspaceAuthPolicyContextResolver({
         workspaceService: scope.make("users.workspace.service")
       })
     );
   }
 
-  registerRouteVisibilityResolver(app, USERS_WORKSPACE_VISIBILITY_RESOLVER_TOKEN, (scope) =>
+  registerRouteVisibilityResolver(app, "users.core.workspace.routeVisibilityResolver", (scope) =>
     createWorkspaceRouteVisibilityResolver({
       workspaceService: scope.make("users.workspace.service")
     })

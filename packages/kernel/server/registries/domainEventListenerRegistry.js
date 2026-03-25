@@ -1,8 +1,6 @@
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
-const DOMAIN_EVENT_LISTENER_TAG = Symbol.for("jskit.runtime.domainEvent.listeners");
-
 function normalizeDomainEventListener(entry) {
   if (typeof entry === "function") {
     return {
@@ -24,13 +22,13 @@ function normalizeDomainEventListener(entry) {
 }
 
 function registerDomainEventListener(app, token, factory) {
-  registerTaggedSingleton(app, token, factory, DOMAIN_EVENT_LISTENER_TAG, {
+  registerTaggedSingleton(app, token, factory, "jskit.runtime.domainEvent.listeners", {
     context: "registerDomainEventListener"
   });
 }
 
 function resolveDomainEventListeners(scope) {
-  return resolveTaggedEntries(scope, DOMAIN_EVENT_LISTENER_TAG)
+  return resolveTaggedEntries(scope, "jskit.runtime.domainEvent.listeners")
     .map((entry) => normalizeDomainEventListener(entry))
     .filter(Boolean);
 }
@@ -54,7 +52,6 @@ function createDomainEvents(scope) {
 }
 
 export {
-  DOMAIN_EVENT_LISTENER_TAG,
   registerDomainEventListener,
   resolveDomainEventListeners,
   createDomainEvents

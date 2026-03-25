@@ -8,7 +8,6 @@ const ASSISTANT_STREAM_EVENT_TYPES = Object.freeze({
   DONE: "done"
 });
 
-const ASSISTANT_TRANSCRIPT_CHANGED_EVENT = "assistant.transcript.changed";
 const STREAM_EVENT_TYPE_SET = new Set(Object.values(ASSISTANT_STREAM_EVENT_TYPES));
 
 function normalizeAssistantStreamEventType(value, fallback = "") {
@@ -26,6 +25,5 @@ function normalizeAssistantStreamEventType(value, fallback = "") {
 
 export {
   ASSISTANT_STREAM_EVENT_TYPES,
-  ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
   normalizeAssistantStreamEventType
 };

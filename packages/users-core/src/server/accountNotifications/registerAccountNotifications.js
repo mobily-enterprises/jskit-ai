@@ -4,15 +4,13 @@ import { accountNotificationsActions } from "./accountNotificationsActions.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
-const USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN = "users.accountNotifications.service";
-
 function registerAccountNotifications(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
     throw new Error("registerAccountNotifications requires application singleton()/service()/actions().");
   }
 
   app.service(
-    USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN,
+    "users.accountNotifications.service",
     (scope) =>
       createAccountNotificationsService({
         userSettingsRepository: scope.make("userSettingsRepository"),
@@ -30,7 +28,7 @@ function registerAccountNotifications(app) {
     withActionDefaults(accountNotificationsActions, {
       domain: "settings",
       dependencies: {
-        accountNotificationsService: USERS_ACCOUNT_NOTIFICATIONS_SERVICE_TOKEN
+        accountNotificationsService: "users.accountNotifications.service"
       }
     })
   );

@@ -1,7 +1,6 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "../../shared/validators/inputNormalization.js";
 import { AUTH_POLICY_PUBLIC } from "../../shared/support/policies.js";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { resolveBootstrapPayload } from "../registries/bootstrapPayloadContributorRegistry.js";
 
 const bootstrapQueryValidator = Object.freeze({
@@ -15,7 +14,7 @@ const bootstrapOutputValidator = Object.freeze({
 });
 
 function bootBootstrapRoutes(app) {
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
 
   router.register(
     "GET",

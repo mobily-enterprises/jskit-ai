@@ -1,7 +1,3 @@
-import {
-  WEB_PLACEMENT_CONTEXT_CONTRIBUTOR_TAG,
-  WEB_PLACEMENT_SURFACE_ANY
-} from "./tokens.js";
 import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -25,6 +21,7 @@ function ensureArray(value) {
 
 const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
 const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
+const WEB_PLACEMENT_SURFACE_ANY = "*";
 const NOOP = () => {};
 
 function isPlacementDebugEnabled() {
@@ -107,7 +104,7 @@ function matchesSurface(placementSurfaces, requestedSurface) {
 }
 
 function resolveContextContributors(app, baseContext = {}, logger) {
-  const contributors = app.resolveTag(WEB_PLACEMENT_CONTEXT_CONTRIBUTOR_TAG);
+  const contributors = app.resolveTag("web-placement.context.client");
   let merged = {};
 
   for (const contributor of ensureArray(contributors)) {

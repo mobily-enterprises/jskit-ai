@@ -1,22 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
 
 import { RealtimeServiceProvider } from "../src/server/RealtimeServiceProvider.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
 import { registerRealtimeClientListener } from "../src/client/listeners.js";
-import {
-  REALTIME_RUNTIME_SERVER_TOKEN,
-  REALTIME_SOCKET_IO_SERVER_TOKEN
-} from "../src/server/tokens.js";
-import {
-  REALTIME_RUNTIME_CLIENT_TOKEN,
-  REALTIME_SOCKET_CLIENT_TOKEN
-} from "../src/client/tokens.js";
-
-const DOMAIN_EVENT_LISTENER_TAG = Symbol.for("jskit.runtime.domainEvent.listeners");
 
 function normalizeDomainEventListener(entry) {
   if (typeof entry === "function") {
@@ -40,7 +29,8 @@ function createDomainEvents(scope) {
   return Object.freeze({
     async publish(event = {}) {
       const payload = event && typeof event === "object" && !Array.isArray(event) ? event : {};
-      const listeners = typeof scope?.resolveTag === "function" ? scope.resolveTag(DOMAIN_EVENT_LISTENER_TAG) : [];
+      const listeners =
+        typeof scope?.resolveTag === "function" ? scope.resolveTag("jskit.runtime.domainEvent.listeners") : [];
       for (const listenerEntry of listeners) {
         const listener = normalizeDomainEventListener(listenerEntry);
         if (!listener) {
@@ -104,23 +94,23 @@ function createSingletonApp() {
 
 test("RealtimeServiceProvider registers runtime realtime server api", () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
   const provider = new RealtimeServiceProvider();
   provider.register(app);
 
-  assert.equal(app.singletons.has(REALTIME_RUNTIME_SERVER_TOKEN), true);
-  assert.equal(app.singletons.has(REALTIME_SOCKET_IO_SERVER_TOKEN), true);
+  assert.equal(app.singletons.has("runtime.realtime"), true);
+  assert.equal(app.singletons.has("runtime.realtime.io"), true);
 
-  const api = app.make(REALTIME_RUNTIME_SERVER_TOKEN);
+  const api = app.make("runtime.realtime");
   assert.equal(typeof api.createSocketIoServer, "function");
   assert.equal(typeof api.closeSocketIoServer, "function");
 });
 
 test("RealtimeServiceProvider boot starts socket io and shutdown closes it", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
 
@@ -128,7 +118,7 @@ test("RealtimeServiceProvider boot starts socket io and shutdown closes it", asy
   provider.register(app);
   provider.boot(app);
 
-  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const io = app.make("runtime.realtime.io");
   assert.equal(Boolean(io), true);
   assert.equal(typeof io.on, "function");
 
@@ -140,10 +130,10 @@ test("RealtimeClientProvider registers runtime realtime client api", () => {
   const provider = new RealtimeClientProvider();
   provider.register(app);
 
-  assert.equal(app.singletons.has(REALTIME_RUNTIME_CLIENT_TOKEN), true);
-  assert.equal(app.singletons.has(REALTIME_SOCKET_CLIENT_TOKEN), true);
+  assert.equal(app.singletons.has("runtime.realtime.client"), true);
+  assert.equal(app.singletons.has("runtime.realtime.client.socket"), true);
   assert.equal(app.singletons.has("realtime.web.connection.indicator"), true);
-  const api = app.make(REALTIME_RUNTIME_CLIENT_TOKEN);
+  const api = app.make("runtime.realtime.client");
   assert.equal(typeof api.createSocketIoClient, "function");
   assert.equal(typeof api.disconnectSocketIoClient, "function");
 });
@@ -182,7 +172,7 @@ test("RealtimeClientProvider boots socket listeners and disconnects on shutdown"
   };
 
   let disconnectCalls = 0;
-  app.instance(REALTIME_RUNTIME_CLIENT_TOKEN, {
+  app.instance("runtime.realtime.client", {
     createSocketIoClient() {
       return socket;
     },
@@ -223,7 +213,7 @@ test("RealtimeClientProvider boots socket listeners and disconnects on shutdown"
 
 test("RealtimeServiceProvider bridges service event metadata to socket emissions", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
   app.singleton("authService", () => ({
@@ -268,7 +258,7 @@ test("RealtimeServiceProvider bridges service event metadata to socket emissions
   provider.register(app);
   await provider.boot(app);
 
-  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const io = app.make("runtime.realtime.io");
   const emitted = [];
   io.to = (room) => {
     return {
@@ -303,7 +293,7 @@ test("RealtimeServiceProvider bridges service event metadata to socket emissions
 
 test("RealtimeServiceProvider resolves custom audience callback", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
   app.singleton("authService", () => ({
@@ -351,7 +341,7 @@ test("RealtimeServiceProvider resolves custom audience callback", async () => {
   provider.register(app);
   await provider.boot(app);
 
-  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const io = app.make("runtime.realtime.io");
   const emitted = [];
   io.to = (room) => {
     return {
@@ -389,7 +379,7 @@ test("RealtimeServiceProvider resolves custom audience callback", async () => {
 
 test("RealtimeServiceProvider merges custom realtime payload with canonical domain event fields", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
   app.singleton("authService", () => ({
@@ -438,7 +428,7 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
   provider.register(app);
   await provider.boot(app);
 
-  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const io = app.make("runtime.realtime.io");
   const emitted = [];
   io.to = (room) => {
     return {
@@ -486,7 +476,7 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
 
 test("RealtimeServiceProvider emits only the matching dispatcher event for each service method event", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Fastify, {
+  app.instance("jskit.fastify", {
     server: createServer()
   });
   app.singleton("authService", () => ({
@@ -542,7 +532,7 @@ test("RealtimeServiceProvider emits only the matching dispatcher event for each 
   provider.register(app);
   await provider.boot(app);
 
-  const io = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+  const io = app.make("runtime.realtime.io");
   const emitted = [];
   io.to = (room) => {
     return {
