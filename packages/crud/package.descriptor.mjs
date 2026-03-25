@@ -87,7 +87,7 @@ export default Object.freeze({
         }
       ],
       containerTokens: {
-        server: ["crud.<namespace>.repository", "crud.<namespace>.service"],
+        server: [],
         client: []
       }
     }

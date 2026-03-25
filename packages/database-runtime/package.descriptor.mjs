@@ -46,7 +46,9 @@ export default Object.freeze({
       containerTokens: {
         server: [
           "runtime.database",
-          "runtime.database.driver"
+          "runtime.database.driver",
+          "jskit.database.knex",
+          "jskit.database.transactionManager"
         ],
         client: []
       }

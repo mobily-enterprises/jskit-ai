@@ -55,11 +55,9 @@ export default Object.freeze({
       ],
       "containerTokens": {
         "server": [
-          "validators.http",
           "runtime.http-client"
         ],
         "client": [
-          "validators.http.client",
           "runtime.http-client.client"
         ]
       }

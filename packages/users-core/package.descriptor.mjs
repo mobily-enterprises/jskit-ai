@@ -53,15 +53,7 @@ export default Object.freeze({
         }
       ],
       containerTokens: {
-        server: [
-          "users.core",
-          "users.profile.sync.service",
-          "users.workspace.service",
-          "users.workspace.members.service",
-          "users.workspace.settings.service",
-          "users.settings.service",
-          "users.console.settings.service"
-        ],
+        server: [],
         client: []
       }
     },

@@ -73,8 +73,7 @@ export default Object.freeze({
       ],
       "containerTokens": {
         "server": [
-          "authService",
-          "auth.provider.supabase.actionContributor"
+          "authService"
         ],
         "client": []
       }
