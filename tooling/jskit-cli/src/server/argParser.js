@@ -44,6 +44,7 @@ function parseArgs(argv, { createCliError } = {}) {
         expanded: false,
         details: false,
         debugExports: false,
+        checkDiLabels: false,
         verbose: false,
         json: false,
         all: false,
@@ -68,6 +69,7 @@ function parseArgs(argv, { createCliError } = {}) {
     expanded: false,
     details: false,
     debugExports: false,
+    checkDiLabels: false,
     verbose: false,
     json: false,
     all: false,
@@ -101,6 +103,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--debug-exports") {
       options.debugExports = true;
+      continue;
+    }
+    if (token === "--check-di-labels") {
+      options.checkDiLabels = true;
       continue;
     }
     if (token === "--verbose") {
@@ -187,6 +193,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --expanded                   Show expanded/transitive package ids\n");
   stream.write("  --details                    Show extra capability detail in show output\n");
   stream.write("  --debug-exports              Show export provenance/re-export source details in show output\n");
+  stream.write("  --check-di-labels            (lint-descriptors) verify DI labels used by providers match descriptor container tokens\n");
   stream.write("  --verbose                    Show verbose informational diagnostics\n");
   stream.write("  --<option> <value>           Package option (for packages requiring input)\n");
   stream.write("  --json                       Print structured output\n");

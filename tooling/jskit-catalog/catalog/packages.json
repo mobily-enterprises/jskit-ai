@@ -104,11 +104,10 @@
             ],
             "containerTokens": {
               "server": [
-                "assistant.chat.service",
-                "assistant.settings.service",
-                "assistant.transcript.service",
+                "assistant.ai.client",
                 "assistant.conversation.repository",
                 "assistant.message.repository",
+                "assistant.service.tool-catalog",
                 "assistant.settings.repository"
               ],
               "client": [
@@ -466,8 +465,7 @@
             ],
             "containerTokens": {
               "server": [
-                "authService",
-                "auth.provider.supabase.actionContributor"
+                "authService"
               ],
               "client": []
             }
@@ -940,10 +938,7 @@
               }
             ],
             "containerTokens": {
-              "server": [
-                "crud.<namespace>.repository",
-                "crud.<namespace>.service"
-              ],
+              "server": [],
               "client": []
             }
           }
@@ -1277,7 +1272,9 @@
             "containerTokens": {
               "server": [
                 "runtime.database",
-                "runtime.database.driver"
+                "runtime.database.driver",
+                "jskit.database.knex",
+                "jskit.database.transactionManager"
               ],
               "client": []
             }
@@ -1707,11 +1704,9 @@
             ],
             "containerTokens": {
               "server": [
-                "validators.http",
                 "runtime.http-client"
               ],
               "client": [
-                "validators.http.client",
                 "runtime.http-client.client"
               ]
             }
@@ -1803,7 +1798,8 @@
             ],
             "containerTokens": {
               "server": [
-                "runtime.realtime"
+                "runtime.realtime",
+                "runtime.realtime.io"
               ],
               "client": [
                 "runtime.realtime.client",
@@ -1931,7 +1927,8 @@
               "client": [
                 "runtime.web-placement.client",
                 "runtime.web-error.client",
-                "runtime.web-error.presentation-store.client"
+                "runtime.web-error.presentation-store.client",
+                "shell.web.query-client"
               ]
             }
           },
@@ -2416,15 +2413,7 @@
               }
             ],
             "containerTokens": {
-              "server": [
-                "users.core",
-                "users.profile.sync.service",
-                "users.workspace.service",
-                "users.workspace.members.service",
-                "users.workspace.settings.service",
-                "users.settings.service",
-                "users.console.settings.service"
-              ],
+              "server": [],
               "client": []
             }
           },

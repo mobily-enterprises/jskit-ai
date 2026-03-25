@@ -64,7 +64,8 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
-          "runtime.realtime"
+          "runtime.realtime",
+          "runtime.realtime.io"
         ],
         client: [
           "runtime.realtime.client",

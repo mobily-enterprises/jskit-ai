@@ -93,11 +93,10 @@ export default Object.freeze({
       ],
       containerTokens: {
         server: [
-          "assistant.chat.service",
-          "assistant.settings.service",
-          "assistant.transcript.service",
+          "assistant.ai.client",
           "assistant.conversation.repository",
           "assistant.message.repository",
+          "assistant.service.tool-catalog",
           "assistant.settings.repository"
         ],
         client: [

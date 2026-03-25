@@ -45,7 +45,8 @@ export default Object.freeze({
         client: [
           "runtime.web-placement.client",
           "runtime.web-error.client",
-          "runtime.web-error.presentation-store.client"
+          "runtime.web-error.presentation-store.client",
+          "shell.web.query-client"
         ]
       }
     },

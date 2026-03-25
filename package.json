@@ -7,6 +7,7 @@
     "app:create:interactive": "node ./tooling/create-app/bin/jskit-create-app.js --interactive",
     "lint": "eslint packages tooling scripts --max-warnings=0",
     "verify": "npm run lint && npm run jskit -- lint-descriptors && npm run catalog:build && npm --workspaces --if-present test",
+    "check:di-labels": "npm run jskit -- lint-descriptors --check-di-labels",
     "jskit": "node ./tooling/jskit-cli/bin/jskit.js",
     "release": "node ./scripts/release-npm.mjs",
     "catalog:build": "npm run --workspace tooling/jskit-catalog catalog:build",
