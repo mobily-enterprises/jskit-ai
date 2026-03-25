@@ -2,14 +2,12 @@ import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService as createAccountSecurityService } from "./accountSecurityService.js";
 import { accountSecurityActions } from "./accountSecurityActions.js";
 
-const USERS_ACCOUNT_SECURITY_SERVICE_TOKEN = "users.accountSecurity.service";
-
 function registerAccountSecurity(app) {
   if (!app || typeof app.singleton !== "function" || typeof app.actions !== "function") {
     throw new Error("registerAccountSecurity requires application singleton()/actions().");
   }
 
-  app.singleton(USERS_ACCOUNT_SECURITY_SERVICE_TOKEN, (scope) => {
+  app.singleton("users.accountSecurity.service", (scope) => {
     const authService = scope.has("authService") ? scope.make("authService") : null;
     return createAccountSecurityService({
       userSettingsRepository: scope.make("userSettingsRepository"),
@@ -22,7 +20,7 @@ function registerAccountSecurity(app) {
     withActionDefaults(accountSecurityActions, {
       domain: "settings",
       dependencies: {
-        accountSecurityService: USERS_ACCOUNT_SECURITY_SERVICE_TOKEN
+        accountSecurityService: "users.accountSecurity.service"
       }
     })
   );

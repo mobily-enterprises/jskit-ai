@@ -28,7 +28,6 @@ import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import { matchesCurrentWorkspaceEvent } from "@jskit-ai/users-web/client/support/realtimeWorkspace";
 import AssistantSettingsFormCard from "./AssistantSettingsFormCard.vue";
 import { assistantWorkspaceSettingsResource } from "../../shared/assistantSettingsResource.js";
-import { ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT } from "../../shared/settingsEvents.js";
 
 const form = reactive({
   appSurfacePrompt: ""
@@ -47,7 +46,7 @@ const addEdit = useAddEdit({
   fallbackSaveError: "Unable to update assistant workspace settings.",
   fieldErrorKeys: ["appSurfacePrompt"],
   realtime: {
-    event: ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT,
+    event: "assistant.workspace.settings.changed",
     matches: ({ payload = {}, routeContext = {} } = {}) =>
       matchesCurrentWorkspaceEvent(payload, routeContext?.workspaceSlugFromRoute?.value)
   },

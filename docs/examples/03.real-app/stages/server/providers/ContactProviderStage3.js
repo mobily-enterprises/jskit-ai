@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { ContactControllerStage3 } from "../controllers/ContactControllerStage3.js";
 import { ContactQualificationServiceStage3 } from "../services/ContactQualificationServiceStage3.js";
 import {
@@ -26,7 +25,7 @@ class ContactProviderStage3 {
   }
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const controller = app.make(STAGE_3_CONTROLLER);
 
     router.register(

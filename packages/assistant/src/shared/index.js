@@ -15,7 +15,6 @@ export {
 
 export {
   ASSISTANT_STREAM_EVENT_TYPES,
-  ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
   normalizeAssistantStreamEventType
 } from "./streamEvents.js";
 
@@ -32,8 +31,7 @@ export {
 } from "./assistantSettingsResource.js";
 
 export {
-  ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT,
-  ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT
+  assistantSettingsEvents
 } from "./settingsEvents.js";
 
 export {

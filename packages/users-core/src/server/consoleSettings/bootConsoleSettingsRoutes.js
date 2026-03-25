@@ -1,5 +1,4 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
 function bootConsoleSettingsRoutes(app) {
@@ -7,7 +6,7 @@ function bootConsoleSettingsRoutes(app) {
     throw new Error("bootConsoleSettingsRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
 
   router.register(
     "GET",

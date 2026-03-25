@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 
@@ -49,7 +48,7 @@ async function registerRoutes({
   };
 
   const bindings = new Map([
-    [KERNEL_TOKENS.HttpRouter, router],
+    ["jskit.http.router", router],
     ["authService", authService],
     [
       "users.accountProfile.service",

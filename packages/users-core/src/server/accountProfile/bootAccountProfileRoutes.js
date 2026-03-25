@@ -1,18 +1,16 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
-import { USERS_ACCOUNT_PROFILE_SERVICE_TOKEN } from "./registerAccountProfile.js";
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
     throw new Error("bootAccountProfileRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const authService = app.make("authService");
-  const accountProfileService = app.make(USERS_ACCOUNT_PROFILE_SERVICE_TOKEN);
+  const accountProfileService = app.make("users.accountProfile.service");
 
   router.register(
     "GET",

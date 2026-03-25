@@ -11,7 +11,6 @@ Use these folders:
 - `routes/`: shared route schema maps used by more than one route adapter.
 
 Keep these files here:
-- `diTokens.js`: shared DI tokens used across slices.
 - `registerCommonRepositories.js`: shared repository bindings.
 - `registerSharedApi.js`: shared API metadata registration.
 

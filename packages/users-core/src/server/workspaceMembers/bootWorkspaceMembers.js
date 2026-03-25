@@ -1,8 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
-import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 import {
   routeParamsValidator,
   workspaceSlugParamsValidator
@@ -14,11 +12,11 @@ function bootWorkspaceMembers(app) {
     throw new Error("bootWorkspaceMembers requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
   const workspaceInvitationsEnabled =
-    typeof app.has === "function" && app.has(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN)
-      ? app.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true
+    typeof app.has === "function" && app.has("users.workspace.invitations.enabled")
+      ? app.make("users.workspace.invitations.enabled") === true
       : false;
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
 

@@ -2,7 +2,6 @@ import { ActionRuntimeServiceProvider } from "../actions/ActionRuntimeServicePro
 import { ServerRuntimeCoreServiceProvider } from "../runtime/ServerRuntimeCoreServiceProvider.js";
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { readLockFromApp } from "./providerRuntime/lockfile.js";
 import {
   collectGlobalUiPaths,
@@ -27,8 +26,8 @@ async function createProviderRuntimeApp({
     profile
   });
 
-  app.instance(KERNEL_TOKENS.Env, env && typeof env === "object" ? { ...env } : {});
-  app.instance(KERNEL_TOKENS.Logger, logger || console);
+  app.instance("jskit.env", env && typeof env === "object" ? { ...env } : {});
+  app.instance("jskit.logger", logger || console);
 
   let httpRuntime = null;
   if (fastify && typeof fastify.route === "function") {

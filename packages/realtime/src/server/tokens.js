@@ -1,7 +1,0 @@
-const REALTIME_RUNTIME_SERVER_TOKEN = "runtime.realtime";
-const REALTIME_SOCKET_IO_SERVER_TOKEN = "runtime.realtime.io";
-
-export {
-  REALTIME_RUNTIME_SERVER_TOKEN,
-  REALTIME_SOCKET_IO_SERVER_TOKEN
-};

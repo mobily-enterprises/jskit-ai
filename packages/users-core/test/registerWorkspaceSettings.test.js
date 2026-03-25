@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { registerWorkspaceSettings } from "../src/server/workspaceSettings/registerWorkspaceSettings.js";
-import {
-  USERS_BOOTSTRAP_CHANGED_EVENT,
-  WORKSPACE_SETTINGS_CHANGED_EVENT
-} from "../src/shared/events/usersEvents.js";
 
 test("registerWorkspaceSettings registers workspace settings service realtime event metadata", () => {
   const singletonBindings = new Map();
@@ -36,9 +32,9 @@ test("registerWorkspaceSettings registers workspace settings service realtime ev
   assert.equal(serviceCalls.length, 1);
   assert.equal(serviceCalls[0].token, "users.workspace.settings.service");
   assert.equal(typeof serviceCalls[0].factory, "function");
-  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.event, WORKSPACE_SETTINGS_CHANGED_EVENT);
+  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.event, "workspace.settings.changed");
   assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[0]?.realtime?.audience, "event_scope");
-  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.event, USERS_BOOTSTRAP_CHANGED_EVENT);
+  assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.event, "users.bootstrap.changed");
   assert.equal(serviceCalls[0].metadata?.events?.updateWorkspaceSettings?.[1]?.realtime?.audience, "event_scope");
   assert.equal(actionCalls.length, 1);
 });

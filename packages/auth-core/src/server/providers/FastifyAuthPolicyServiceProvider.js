@@ -1,13 +1,8 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { authPolicyPlugin } from "../lib/plugin.js";
-import { AUTH_POLICY_CONTEXT_RESOLVER_TOKEN } from "../lib/tokens.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
 import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
-
-const AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN = "auth.policy.actionContextContributor";
-const AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN = "auth.policy.routeVisibilityResolver";
 
 function parseBoolean(value, fallback = false) {
   const raw = String(value || "").trim().toLowerCase();
@@ -48,21 +43,21 @@ class FastifyAuthPolicyServiceProvider {
     }
 
     if (
-      !app.has(AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN) &&
+      !app.has("auth.policy.actionContextContributor") &&
       typeof app.singleton === "function" &&
       typeof app.tag === "function"
     ) {
-      registerActionContextContributor(app, AUTH_ACTION_CONTEXT_CONTRIBUTOR_TOKEN, () =>
+      registerActionContextContributor(app, "auth.policy.actionContextContributor", () =>
         createAuthActionContextContributor()
       );
     }
 
     if (
-      !app.has(AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN) &&
+      !app.has("auth.policy.routeVisibilityResolver") &&
       typeof app.singleton === "function" &&
       typeof app.tag === "function"
     ) {
-      registerRouteVisibilityResolver(app, AUTH_ROUTE_VISIBILITY_RESOLVER_TOKEN, () =>
+      registerRouteVisibilityResolver(app, "auth.policy.routeVisibilityResolver", () =>
         createAuthRouteVisibilityResolver()
       );
     }
@@ -76,17 +71,17 @@ class FastifyAuthPolicyServiceProvider {
       throw new Error("FastifyAuthPolicyServiceProvider requires authService binding.");
     }
 
-    const env = app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};
-    const fastify = app.make(KERNEL_TOKENS.Fastify);
+    const env = app.has("jskit.env") ? app.make("jskit.env") : {};
+    const fastify = app.make("jskit.fastify");
     const authService = app.make("authService");
     const resolveContext =
-      typeof app.has === "function" && app.has(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN)
-        ? app.make(AUTH_POLICY_CONTEXT_RESOLVER_TOKEN)
+      typeof app.has === "function" && app.has("auth.policy.contextResolver")
+        ? app.make("auth.policy.contextResolver")
         : null;
 
     if (resolveContext != null && typeof resolveContext !== "function") {
       throw new Error(
-        `FastifyAuthPolicyServiceProvider requires ${AUTH_POLICY_CONTEXT_RESOLVER_TOKEN} to be a function when provided.`
+        "FastifyAuthPolicyServiceProvider requires auth.policy.contextResolver to be a function when provided."
       );
     }
 

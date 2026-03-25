@@ -1,16 +1,14 @@
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { normalizeContributorEntry, registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
-const BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.bootstrap.payloadContributors");
-
 function registerBootstrapPayloadContributor(app, token, factory) {
-  registerTaggedSingleton(app, token, factory, BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG, {
+  registerTaggedSingleton(app, token, factory, "jskit.runtime.bootstrap.payloadContributors", {
     context: "registerBootstrapPayloadContributor"
   });
 }
 
 function resolveBootstrapPayloadContributors(scope) {
-  return resolveTaggedEntries(scope, BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG)
+  return resolveTaggedEntries(scope, "jskit.runtime.bootstrap.payloadContributors")
     .map((entry) => normalizeContributorEntry(entry))
     .filter(Boolean);
 }
@@ -34,7 +32,6 @@ async function resolveBootstrapPayload(scope, context = {}) {
 }
 
 export {
-  BOOTSTRAP_PAYLOAD_CONTRIBUTOR_TAG,
   registerBootstrapPayloadContributor,
   resolveBootstrapPayloadContributors,
   resolveBootstrapPayload

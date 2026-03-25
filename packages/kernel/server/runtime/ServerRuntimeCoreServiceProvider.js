@@ -17,7 +17,6 @@ import * as serviceAuthorization from "./serviceAuthorization.js";
 import * as serviceRegistration from "../registries/serviceRegistrationRegistry.js";
 import * as entityChangeEvents from "./entityChangeEvents.js";
 import * as securityAudit from "./securityAudit.js";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 
 const SERVER_RUNTIME_CORE_API = Object.freeze({
   apiRouteRegistration: Object.freeze({ ...apiRouteRegistration }),
@@ -56,7 +55,7 @@ class ServerRuntimeCoreServiceProvider {
   }
 
   boot(app) {
-    if (app.has(KERNEL_TOKENS.HttpRouter)) {
+    if (app.has("jskit.http.router")) {
       bootstrapRoutes.bootBootstrapRoutes(app);
     }
   }

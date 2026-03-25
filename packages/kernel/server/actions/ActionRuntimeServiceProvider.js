@@ -4,8 +4,8 @@ import { createNoopIdempotencyAdapter } from "../../shared/actions/idempotency.j
 import { createNoopObservabilityAdapter } from "../../shared/actions/observability.js";
 import { createActionRegistry } from "../../shared/actions/registry.js";
 import { createSurfaceRuntime } from "../../shared/surface/runtime.js";
+import { isContainerToken } from "../../shared/support/containerToken.js";
 import { normalizeObject } from "../../shared/support/normalize.js";
-import { KERNEL_TOKENS, isContainerToken } from "../../shared/support/tokens.js";
 import { installServiceRegistrationApi } from "../registries/serviceRegistrationRegistry.js";
 import {
   ensureActionSurfaceSourceRegistry,
@@ -24,9 +24,6 @@ const ACTION_RUNTIME_API = Object.freeze({
   createNoopAuditAdapter,
   createNoopObservabilityAdapter
 });
-const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
-const ACTION_CONTEXT_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contextContributors");
-const LOGGER_TOKEN = Symbol.for("jskit.logger");
 let ACTION_RUNTIME_CONTRIBUTOR_INDEX = 0;
 
 function createSurfaceRuntimeFromAppConfig(scope) {
@@ -36,7 +33,7 @@ function createSurfaceRuntimeFromAppConfig(scope) {
 
   if (!scope.has("appConfig")) {
     throw new Error(
-      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when KERNEL_TOKENS.SurfaceRuntime is not registered."
+      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when jskit.surface.runtime is not registered."
     );
   }
 
@@ -44,7 +41,7 @@ function createSurfaceRuntimeFromAppConfig(scope) {
   const surfaceDefinitions = normalizeObject(appConfig.surfaceDefinitions);
   if (Object.keys(surfaceDefinitions).length < 1) {
     throw new Error(
-      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when KERNEL_TOKENS.SurfaceRuntime is not registered."
+      "ActionRuntimeServiceProvider requires appConfig.surfaceDefinitions when jskit.surface.runtime is not registered."
     );
   }
 
@@ -74,13 +71,13 @@ function normalizeDependencyMap(value, { context = "action dependencies" } = {})
 }
 
 function resolveActionContributors(scope) {
-  return resolveRegistryTaggedEntries(scope, ACTION_RUNTIME_CONTRIBUTOR_TAG).filter(
+  return resolveRegistryTaggedEntries(scope, "jskit.runtime.actions.contributors").filter(
     (entry) => entry && typeof entry === "object" && !Array.isArray(entry)
   );
 }
 
 function resolveActionContextContributors(scope) {
-  return resolveRegistryTaggedEntries(scope, ACTION_CONTEXT_CONTRIBUTOR_TAG)
+  return resolveRegistryTaggedEntries(scope, "jskit.runtime.actions.contextContributors")
     .map((entry) => normalizeContributorEntry(entry))
     .filter(Boolean);
 }
@@ -187,7 +184,7 @@ function registerActionDefinition(app, actionSpec, { context = "app.action" } = 
         actions: Object.freeze([action])
       };
     },
-    ACTION_RUNTIME_CONTRIBUTOR_TAG,
+    "jskit.runtime.actions.contributors",
     { context }
   );
 }
@@ -256,7 +253,7 @@ function registerActionContextContributor(app, token, factory) {
     app,
     token,
     factory,
-    ACTION_CONTEXT_CONTRIBUTOR_TAG,
+    "jskit.runtime.actions.contextContributors",
     { context: "registerActionContextContributor" }
   );
 }
@@ -273,8 +270,8 @@ class ActionRuntimeServiceProvider {
     ensureActionSurfaceSourceRegistry(app);
     installServiceRegistrationApi(app);
 
-    if (!app.has(KERNEL_TOKENS.SurfaceRuntime)) {
-      app.singleton(KERNEL_TOKENS.SurfaceRuntime, (scope) => createSurfaceRuntimeFromAppConfig(scope));
+    if (!app.has("jskit.surface.runtime")) {
+      app.singleton("jskit.surface.runtime", (scope) => createSurfaceRuntimeFromAppConfig(scope));
     }
 
     app.singleton("runtime.actions", () => ACTION_RUNTIME_API);
@@ -286,7 +283,7 @@ class ActionRuntimeServiceProvider {
           idempotencyAdapter: createNoopIdempotencyAdapter(),
           auditAdapter: createNoopAuditAdapter(),
           observabilityAdapter: createNoopObservabilityAdapter(),
-          logger: scope.has(LOGGER_TOKEN) ? scope.make(LOGGER_TOKEN) : console
+          logger: scope.has("jskit.logger") ? scope.make("jskit.logger") : console
         });
       });
     }
@@ -300,8 +297,6 @@ class ActionRuntimeServiceProvider {
 }
 
 export {
-  ACTION_RUNTIME_CONTRIBUTOR_TAG,
-  ACTION_CONTEXT_CONTRIBUTOR_TAG,
   resolveActionContributors,
   resolveActionContextContributors,
   registerActionContextContributor,

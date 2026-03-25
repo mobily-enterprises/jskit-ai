@@ -4,7 +4,6 @@ import { resolveWorkspaceThemePalette } from "@jskit-ai/users-core/shared/settin
 const THEME_PREFERENCE_LIGHT = "light";
 const THEME_PREFERENCE_DARK = "dark";
 const THEME_PREFERENCE_SYSTEM = "system";
-const THEME_PREFERENCE_STORAGE_KEY = "jskit.themePreference";
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const WORKSPACE_THEME_NAME_LIGHT = "workspace-light";
 const WORKSPACE_THEME_NAME_DARK = "workspace-dark";
@@ -71,7 +70,7 @@ function readPersistedThemePreference(options = {}) {
   }
 
   try {
-    const value = storage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+    const value = storage.getItem("jskit.themePreference");
     return normalizeThemePreference(value);
   } catch {
     return THEME_PREFERENCE_SYSTEM;
@@ -86,7 +85,7 @@ function persistThemePreference(themePreference, options = {}) {
 
   const normalizedPreference = normalizeThemePreference(themePreference);
   try {
-    storage.setItem(THEME_PREFERENCE_STORAGE_KEY, normalizedPreference);
+    storage.setItem("jskit.themePreference", normalizedPreference);
     return true;
   } catch {
     return false;

@@ -1,8 +1,7 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { resolveGlobalArrayRegistry } from "./resolveGlobalArrayRegistry.js";
 
-const WORKSPACE_SETTINGS_FIELDS_REGISTRY_KEY = Symbol.for("jskit.users-core.workspaceSettingsFields");
-const workspaceSettingsFields = resolveGlobalArrayRegistry(WORKSPACE_SETTINGS_FIELDS_REGISTRY_KEY);
+const workspaceSettingsFields = resolveGlobalArrayRegistry("jskit.users-core.workspaceSettingsFields");
 
 function defineField(field = {}) {
   const key = normalizeText(field.key);

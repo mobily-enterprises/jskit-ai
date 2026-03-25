@@ -1,8 +1,3 @@
-import {
-  CLIENT_MODULE_ROUTER_TOKEN,
-  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN
-} from "@jskit-ai/kernel/client/moduleBootstrap";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
   isRecord,
@@ -18,8 +13,7 @@ import {
   createDefaultMaterialErrorPresenters,
   createMaterialBannerPresenter,
   createMaterialDialogPresenter,
-  createMaterialSnackbarPresenter,
-  MODULE_DEFAULT_PRESENTER_ID
+  createMaterialSnackbarPresenter
 } from "../error/presenters.js";
 import {
   createErrorRuntime
@@ -27,26 +21,12 @@ import {
 import {
   createErrorPresentationStore
 } from "../error/store.js";
-import {
-  SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN,
-  SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY,
-  SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN,
-  SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY
-} from "../error/tokens.js";
-import {
-  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
-  WEB_PLACEMENT_RUNTIME_INJECTION_KEY
-} from "../placement/tokens.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
 const APP_ERROR_MODULE_SPECIFIER = "/src/error.js";
-const SURFACE_CONTEXT_SOURCE = "shell-web.surface-config";
-const SHELL_WEB_QUERY_CLIENT_TOKEN = "shell.web.query-client";
-const VUE_ERROR_SOURCE = "shell-web.vue.error-handler";
-const ROUTER_ERROR_SOURCE = "shell-web.router.on-error";
 
 function createShellWebQueryClient() {
   return new QueryClient({
@@ -107,7 +87,7 @@ async function loadAppPlacementDefinitions(logger) {
 function createErrorConfigToolkit(errorRuntime) {
   return Object.freeze({
     createDefaultErrorPolicy,
-    moduleDefaultPresenterId: MODULE_DEFAULT_PRESENTER_ID,
+    moduleDefaultPresenterId: "material.snackbar",
     presenterFactories: Object.freeze({
       createMaterialSnackbarPresenter,
       createMaterialBannerPresenter,
@@ -186,7 +166,7 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
   vueApp.config.errorHandler = (error, instance, info) => {
     try {
       errorRuntime.report({
-        source: VUE_ERROR_SOURCE,
+        source: "shell-web.vue.error-handler",
         message: String(error?.message || "Unexpected UI error."),
         cause: error,
         severity: "error",
@@ -198,7 +178,7 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
     } catch (reportError) {
       logger.error(
         {
-          source: VUE_ERROR_SOURCE,
+          source: "shell-web.vue.error-handler",
           error: String(reportError?.message || reportError || "unknown error")
         },
         "Shell web error runtime failed to report a Vue error."
@@ -212,11 +192,11 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
 }
 
 function installRouterErrorBridge(app, errorRuntime, logger) {
-  if (!app.has(CLIENT_MODULE_ROUTER_TOKEN)) {
+  if (!app.has("jskit.client.router")) {
     return;
   }
 
-  const router = app.make(CLIENT_MODULE_ROUTER_TOKEN);
+  const router = app.make("jskit.client.router");
   if (!router || typeof router.onError !== "function") {
     return;
   }
@@ -224,7 +204,7 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
   router.onError((error) => {
     try {
       errorRuntime.report({
-        source: ROUTER_ERROR_SOURCE,
+        source: "shell-web.router.on-error",
         message: String(error?.message || "Navigation failed."),
         cause: error,
         severity: "error",
@@ -235,7 +215,7 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
     } catch (reportError) {
       logger.error(
         {
-          source: ROUTER_ERROR_SOURCE,
+          source: "shell-web.router.on-error",
           error: String(reportError?.message || reportError || "unknown error")
         },
         "Shell web error runtime failed to report a router error."
@@ -253,16 +233,16 @@ class ShellWebClientProvider {
     }
 
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
-    app.singleton(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN, () => createWebPlacementRuntime({ app, logger }));
-    app.singleton(SHELL_WEB_QUERY_CLIENT_TOKEN, () => createShellWebQueryClient());
-    app.singleton(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN, () => createErrorPresentationStore());
-    app.singleton(SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN, (scope) =>
+    app.singleton("runtime.web-placement.client", () => createWebPlacementRuntime({ app, logger }));
+    app.singleton("shell.web.query-client", () => createShellWebQueryClient());
+    app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
+    app.singleton("runtime.web-error.client", (scope) =>
       createErrorRuntime({
         presenters: createDefaultMaterialErrorPresenters({
-          store: scope.make(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN)
+          store: scope.make("runtime.web-error.presentation-store.client")
         }),
         policy: createDefaultErrorPolicy(),
-        moduleDefaultPresenterId: MODULE_DEFAULT_PRESENTER_ID,
+        moduleDefaultPresenterId: "material.snackbar",
         logger
       })
     );
@@ -274,13 +254,13 @@ class ShellWebClientProvider {
     }
 
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
-    const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
+    const placementRuntime = app.make("runtime.web-placement.client");
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
       const placements = await loadAppPlacementDefinitions(logger);
       placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
       const appConfig = getClientAppConfig();
-      const surfaceRuntime = app.has(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
-        ? app.make(CLIENT_MODULE_SURFACE_RUNTIME_TOKEN)
+      const surfaceRuntime = app.has("jskit.client.surface.runtime")
+        ? app.make("jskit.client.surface.runtime")
         : null;
       const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
         tenancyMode: appConfig?.tenancyMode
@@ -295,32 +275,32 @@ class ShellWebClientProvider {
           surfaceAccessPolicies
         },
         {
-          source: SURFACE_CONTEXT_SOURCE
+          source: "shell-web.surface-config"
         }
       );
     }
 
-    const errorRuntime = app.make(SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN);
+    const errorRuntime = app.make("runtime.web-error.client");
     const errorConfig = await loadAppErrorConfig(logger, errorRuntime);
     applyAppErrorConfig(errorRuntime, errorConfig);
 
-    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+    if (!app.has("jskit.client.vue.app")) {
       return;
     }
 
-    const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
+    const vueApp = app.make("jskit.client.vue.app");
     if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
       return;
     }
 
     vueApp.use(VueQueryPlugin, {
-      queryClient: app.make(SHELL_WEB_QUERY_CLIENT_TOKEN)
+      queryClient: app.make("shell.web.query-client")
     });
-    vueApp.provide(WEB_PLACEMENT_RUNTIME_INJECTION_KEY, placementRuntime);
-    vueApp.provide(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY, errorRuntime);
+    vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
+    vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
     vueApp.provide(
-      SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY,
-      app.make(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN)
+      "jskit.shell-web.runtime.web-error.presentation-store.client",
+      app.make("runtime.web-error.presentation-store.client")
     );
 
     installVueErrorBridge(vueApp, errorRuntime, logger);
@@ -329,6 +309,5 @@ class ShellWebClientProvider {
 }
 
 export {
-  ShellWebClientProvider,
-  SHELL_WEB_QUERY_CLIENT_TOKEN
+  ShellWebClientProvider
 };

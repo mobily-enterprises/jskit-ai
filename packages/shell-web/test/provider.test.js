@@ -1,21 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ShellWebClientProvider } from "../src/client/providers/ShellWebClientProvider.js";
-import {
-  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
-  WEB_PLACEMENT_RUNTIME_INJECTION_KEY
-} from "../src/client/placement/tokens.js";
-import {
-  SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN,
-  SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY,
-  SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN,
-  SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY
-} from "../src/client/error/tokens.js";
-import {
-  CLIENT_MODULE_SURFACE_RUNTIME_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN
-} from "@jskit-ai/kernel/client/moduleBootstrap";
-
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 
 function setClientAppConfig(source = {}) {
@@ -53,19 +38,19 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
       singletons.set(token, factory);
     },
     has(token) {
-      if (token === CLIENT_MODULE_VUE_APP_TOKEN) {
+      if (token === "jskit.client.vue.app") {
         return true;
       }
-      if (token === CLIENT_MODULE_SURFACE_RUNTIME_TOKEN) {
+      if (token === "jskit.client.surface.runtime") {
         return Boolean(surfaceRuntime);
       }
       return singletons.has(token) || singletonInstances.has(token);
     },
     make(token) {
-      if (token === CLIENT_MODULE_VUE_APP_TOKEN) {
+      if (token === "jskit.client.vue.app") {
         return vueApp;
       }
-      if (token === CLIENT_MODULE_SURFACE_RUNTIME_TOKEN && surfaceRuntime) {
+      if (token === "jskit.client.surface.runtime" && surfaceRuntime) {
         return surfaceRuntime;
       }
       if (singletonInstances.has(token)) {
@@ -90,9 +75,9 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   const provider = new ShellWebClientProvider();
 
   provider.register(app);
-  assert.equal(app.singletons.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN), true);
-  assert.equal(app.singletons.has(SHELL_WEB_ERROR_RUNTIME_CLIENT_TOKEN), true);
-  assert.equal(app.singletons.has(SHELL_WEB_ERROR_PRESENTATION_STORE_CLIENT_TOKEN), true);
+  assert.equal(app.singletons.has("runtime.web-placement.client"), true);
+  assert.equal(app.singletons.has("runtime.web-error.client"), true);
+  assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
 
   await provider.boot(app);
   assert.equal(app.plugins.length, 1);
@@ -101,21 +86,21 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
 
   const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
 
-  assert.equal(providedByKey.has(WEB_PLACEMENT_RUNTIME_INJECTION_KEY), true);
-  assert.equal(providedByKey.has(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY), true);
-  assert.equal(providedByKey.has(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY), true);
+  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
+  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
+  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
-  const placementRuntime = providedByKey.get(WEB_PLACEMENT_RUNTIME_INJECTION_KEY);
+  const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
   assert.equal(typeof placementRuntime.getPlacements, "function");
   assert.equal(typeof placementRuntime.getContext, "function");
   assert.equal(typeof placementRuntime.setContext, "function");
   assert.equal(typeof placementRuntime.getContext().surfaceConfig, "object");
 
-  const errorRuntime = providedByKey.get(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY);
+  const errorRuntime = providedByKey.get("jskit.shell-web.runtime.web-error.client");
   assert.equal(typeof errorRuntime.report, "function");
   assert.equal(typeof errorRuntime.configure, "function");
 
-  const errorStore = providedByKey.get(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY);
+  const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
   assert.equal(typeof errorStore.getState, "function");
   assert.equal(typeof errorStore.present, "function");
 });
@@ -149,7 +134,7 @@ test("shell web client provider resolves surface config from client app config",
 
     await provider.boot(app);
 
-    const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
+    const placementRuntime = app.make("runtime.web-placement.client");
     const context = placementRuntime.getContext();
     assert.equal(context.surfaceConfig.tenancyMode, "workspaces");
     assert.equal(context.surfaceConfig.defaultSurfaceId, "app");

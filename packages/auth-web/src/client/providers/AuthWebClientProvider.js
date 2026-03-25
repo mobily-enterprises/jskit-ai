@@ -1,21 +1,9 @@
 import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
-import { CLIENT_MODULE_VUE_APP_TOKEN } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
-import {
-  WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN,
-  resolveSurfaceNavigationTargetFromPlacementContext
-} from "@jskit-ai/shell-web/client/placement";
-import {
-  AUTH_GUARD_RUNTIME_CLIENT_TOKEN,
-  AUTH_GUARD_RUNTIME_INJECTION_KEY
-} from "../runtime/tokens.js";
-
-const AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN = "auth.web.profile.widget";
-const AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN = "auth.web.profile.menu.link-item";
-const REALTIME_SOCKET_CLIENT_TOKEN = "runtime.realtime.client.socket";
+import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 class AuthWebClientProvider {
   static id = "auth.web.client";
@@ -27,15 +15,15 @@ class AuthWebClientProvider {
 
     app.singleton("auth.login.component", () => DefaultLoginView);
     app.singleton("auth.login.useLoginView", () => useLoginView);
-    app.singleton(AUTH_WEB_PROFILE_WIDGET_COMPONENT_TOKEN, () => AuthProfileWidget);
-    app.singleton(AUTH_WEB_PROFILE_MENU_LINK_ITEM_COMPONENT_TOKEN, () => AuthProfileMenuLinkItem);
-    app.singleton(AUTH_GUARD_RUNTIME_CLIENT_TOKEN, () => {
-      if (!app.has(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN)) {
+    app.singleton("auth.web.profile.widget", () => AuthProfileWidget);
+    app.singleton("auth.web.profile.menu.link-item", () => AuthProfileMenuLinkItem);
+    app.singleton("runtime.auth-guard.client", () => {
+      if (!app.has("runtime.web-placement.client")) {
         throw new Error("AuthWebClientProvider requires shell-web placement runtime.");
       }
 
-      const placementRuntime = app.make(WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN);
-      const realtimeSocket = app.has(REALTIME_SOCKET_CLIENT_TOKEN) ? app.make(REALTIME_SOCKET_CLIENT_TOKEN) : null;
+      const placementRuntime = app.make("runtime.web-placement.client");
+      const realtimeSocket = app.has("runtime.realtime.client.socket") ? app.make("runtime.realtime.client.socket") : null;
       const loginRouteTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementRuntime.getContext(), {
         path: "/auth/login",
         surfaceId: "auth"
@@ -53,19 +41,19 @@ class AuthWebClientProvider {
       throw new Error("AuthWebClientProvider requires application make().");
     }
 
-    const authGuardRuntime = app.make(AUTH_GUARD_RUNTIME_CLIENT_TOKEN);
+    const authGuardRuntime = app.make("runtime.auth-guard.client");
     await authGuardRuntime.initialize();
 
-    if (!app.has(CLIENT_MODULE_VUE_APP_TOKEN)) {
+    if (!app.has("jskit.client.vue.app")) {
       return;
     }
 
-    const vueApp = app.make(CLIENT_MODULE_VUE_APP_TOKEN);
+    const vueApp = app.make("jskit.client.vue.app");
     if (!vueApp || typeof vueApp.provide !== "function") {
       return;
     }
 
-    vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, authGuardRuntime);
+    vueApp.provide("jskit.auth-web.runtime.auth-guard.client", authGuardRuntime);
   }
 }
 

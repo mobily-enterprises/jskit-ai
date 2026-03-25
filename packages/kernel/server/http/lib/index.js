@@ -11,7 +11,6 @@ export {
   createHttpRuntime
 } from "./kernel.js";
 export {
-  ROUTE_VISIBILITY_RESOLVER_TAG,
   resolveRouteVisibilityResolvers,
   registerRouteVisibilityResolver,
   resolveRouteVisibilityContext

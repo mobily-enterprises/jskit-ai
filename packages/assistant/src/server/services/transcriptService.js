@@ -1,6 +1,5 @@
 import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { ASSISTANT_TRANSCRIPT_CHANGED_EVENT } from "../../shared/streamEvents.js";
 import { normalizeConversationStatus } from "../../shared/support/conversationStatus.js";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -19,7 +18,7 @@ const serviceEvents = Object.freeze({
       operation: ({ result }) => (result?.created === true ? "created" : "updated"),
       entityId: ({ result }) => result?.conversation?.id,
       realtime: Object.freeze({
-        event: ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
+        event: "assistant.transcript.changed",
         audience: "event_scope",
         payload: ({ result }) => ({
           conversationId: result?.conversation?.id || null
@@ -35,7 +34,7 @@ const serviceEvents = Object.freeze({
       operation: "updated",
       entityId: ({ result }) => result?.conversationId,
       realtime: Object.freeze({
-        event: ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
+        event: "assistant.transcript.changed",
         audience: "event_scope",
         payload: ({ result }) => ({
           conversationId: result?.conversationId || null
@@ -51,7 +50,7 @@ const serviceEvents = Object.freeze({
       operation: "updated",
       entityId: ({ result }) => result?.id,
       realtime: Object.freeze({
-        event: ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
+        event: "assistant.transcript.changed",
         audience: "event_scope",
         payload: ({ result }) => ({
           conversationId: result?.id || null

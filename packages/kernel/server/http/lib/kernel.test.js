@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import { KERNEL_TOKENS } from "../../../shared/support/tokens.js";
 import { registerActionContextContributor } from "../../actions/ActionRuntimeServiceProvider.js";
 import { createApplication } from "../../kernel/index.js";
 import { createRouter } from "./router.js";
@@ -59,16 +57,16 @@ test("registerRoutes attaches request scope and request context tokens", async (
         path: "/scope-check",
         middleware: [
           (request) => {
-            observed.middlewareRequest = request.scope.make(KERNEL_TOKENS.Request);
-            observed.middlewareReply = request.scope.make(KERNEL_TOKENS.Reply);
-            observed.middlewareRequestId = request.scope.make(KERNEL_TOKENS.RequestId);
-            observed.middlewareScope = request.scope.make(KERNEL_TOKENS.RequestScope);
+            observed.middlewareRequest = request.scope.make("jskit.http.request");
+            observed.middlewareReply = request.scope.make("jskit.http.reply");
+            observed.middlewareRequestId = request.scope.make("jskit.http.requestId");
+            observed.middlewareScope = request.scope.make("jskit.http.requestScope");
           }
         ],
         handler: async (request, reply) => {
           observed.handlerScope = request.scope;
-          observed.handlerRequest = request.scope.make(KERNEL_TOKENS.Request);
-          observed.handlerRequestId = request.scope.make(KERNEL_TOKENS.RequestId);
+          observed.handlerRequest = request.scope.make("jskit.http.request");
+          observed.handlerRequestId = request.scope.make("jskit.http.requestId");
           reply.code(200).send({ ok: true });
         }
       }
@@ -441,7 +439,7 @@ test("registerRoutes supports custom request scope property and requestId resolv
           assert.equal(Boolean(request.scope), false);
           assert.equal(Boolean(request.requestScope), true);
           assert.equal(request.requestScope.scopeId, "request:r-42");
-          assert.equal(request.requestScope.make(KERNEL_TOKENS.RequestId), "r-42");
+          assert.equal(request.requestScope.make("jskit.http.requestId"), "r-42");
           reply.code(200).send({ ok: true });
         }
       }
@@ -467,12 +465,12 @@ test("registerHttpRuntime passes app context so request scope is available", asy
   const router = createRouter();
 
   router.get("/runtime-scope", async (request, reply) => {
-    const requestId = request.scope.make(KERNEL_TOKENS.RequestId);
+    const requestId = request.scope.make("jskit.http.requestId");
     reply.code(200).send({ requestId });
   });
 
-  app.instance(KERNEL_TOKENS.Fastify, fastify);
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
 
   const registration = registerHttpRuntime(app);
   assert.equal(registration.routeCount, 1);
@@ -492,8 +490,8 @@ test("registerHttpRuntime installs API error handling once by default", () => {
   const fastify = createFastifyStub();
   const router = createRouter();
 
-  app.instance(KERNEL_TOKENS.Fastify, fastify);
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
 
   registerHttpRuntime(app);
   registerHttpRuntime(app);
@@ -507,8 +505,8 @@ test("registerHttpRuntime can disable automatic API error handling", () => {
   const fastify = createFastifyStub();
   const router = createRouter();
 
-  app.instance(KERNEL_TOKENS.Fastify, fastify);
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
 
   registerHttpRuntime(app, {
     autoRegisterApiErrorHandling: false
@@ -530,8 +528,8 @@ test("registerHttpRuntime resolves request action default surface from appConfig
     reply.code(200).send({ ok: true });
   });
 
-  app.instance(KERNEL_TOKENS.Fastify, fastify);
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
   app.instance("appConfig", {
     surfaceDefaultId: "home"
   });
@@ -621,8 +619,8 @@ test("registerHttpRuntime forwards middleware alias/group config to route execut
     }
   );
 
-  app.instance(KERNEL_TOKENS.Fastify, fastify);
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
 
   registerHttpRuntime(app, {
     middleware: {

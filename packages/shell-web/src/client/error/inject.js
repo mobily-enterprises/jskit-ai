@@ -4,10 +4,6 @@ import {
   onMounted,
   shallowRef
 } from "vue";
-import {
-  SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY,
-  SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY
-} from "./tokens.js";
 
 const EMPTY_PRESENTATION_STATE = Object.freeze({
   revision: 0,
@@ -83,7 +79,7 @@ const EMPTY_PRESENTATION_STORE = Object.freeze({
 });
 
 function useShellWebErrorRuntime({ required = false } = {}) {
-  const runtime = inject(SHELL_WEB_ERROR_RUNTIME_INJECTION_KEY, null);
+  const runtime = inject("jskit.shell-web.runtime.web-error.client", null);
   if (runtime && typeof runtime.report === "function") {
     return runtime;
   }
@@ -96,7 +92,7 @@ function useShellWebErrorRuntime({ required = false } = {}) {
 }
 
 function useShellWebErrorPresentationStore({ required = false } = {}) {
-  const store = inject(SHELL_WEB_ERROR_PRESENTATION_STORE_INJECTION_KEY, null);
+  const store = inject("jskit.shell-web.runtime.web-error.presentation-store.client", null);
   if (store && typeof store.getState === "function" && typeof store.subscribe === "function") {
     return store;
   }

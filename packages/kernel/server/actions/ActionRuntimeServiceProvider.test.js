@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import {
   EMPTY_INPUT_VALIDATOR,
   OBJECT_INPUT_VALIDATOR
@@ -71,7 +70,7 @@ test("ActionRuntimeServiceProvider registers runtime actions api and action exec
   assert.equal(app.singletons.has("runtime.actions"), true);
   assert.equal(app.singletons.has("actionRegistry"), true);
   assert.equal(app.singletons.has("actionExecutor"), true);
-  assert.equal(app.singletons.has(KERNEL_TOKENS.SurfaceRuntime), true);
+  assert.equal(app.singletons.has("jskit.surface.runtime"), true);
   assert.equal(typeof app.action, "function");
   assert.equal(typeof app.actions, "function");
   assert.equal(typeof app.actionSurfaceSource, "function");
@@ -87,7 +86,7 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin", "console"];
     }
@@ -175,7 +174,7 @@ test("ActionRuntimeServiceProvider materializes custom surfacesFrom aliases regi
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["home", "app", "admin", "console"];
     }
@@ -247,7 +246,7 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin", "console"];
     }
@@ -300,7 +299,7 @@ test("action runtime execute merges static and per-execution dependencies", asyn
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["app"];
     }
@@ -421,7 +420,7 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["app"];
     }
@@ -520,7 +519,7 @@ test("app.actions rejects unsupported surfacesFrom aliases", () => {
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
 
-  app.singleton(KERNEL_TOKENS.SurfaceRuntime, () => ({
+  app.singleton("jskit.surface.runtime", () => ({
     listEnabledSurfaceIds() {
       return ["app", "admin"];
     }

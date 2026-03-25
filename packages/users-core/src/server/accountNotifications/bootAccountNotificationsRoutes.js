@@ -1,5 +1,4 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
 function bootAccountNotificationsRoutes(app) {
@@ -7,7 +6,7 @@ function bootAccountNotificationsRoutes(app) {
     throw new Error("bootAccountNotificationsRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
 
   router.register(
     "PATCH",

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { registerRoutes } from "../src/server/registerRoutes.js";
 
 function createReplyDouble() {
@@ -36,7 +35,7 @@ test("assistant routes build list inputs with explicit query object", async () =
   };
   const app = {
     make(token) {
-      if (token !== KERNEL_TOKENS.HttpRouter) {
+      if (token !== "jskit.http.router") {
         throw new Error(`Unexpected token: ${String(token)}`);
       }
       return router;
@@ -198,7 +197,7 @@ test("assistant workspace routes use workspace default surface and honor x-jskit
       return token === "appConfig";
     },
     make(token) {
-      if (token === KERNEL_TOKENS.HttpRouter) {
+      if (token === "jskit.http.router") {
         return router;
       }
       if (token === "appConfig") {

@@ -8,8 +8,7 @@ const USER_SETTINGS_SECTIONS = Object.freeze({
 
 const USER_SETTINGS_SECTION_VALUES = Object.freeze(Object.values(USER_SETTINGS_SECTIONS));
 
-const USER_SETTINGS_FIELDS_REGISTRY_KEY = Symbol.for("jskit.users-core.userSettingsFields");
-const userSettingsFields = resolveGlobalArrayRegistry(USER_SETTINGS_FIELDS_REGISTRY_KEY);
+const userSettingsFields = resolveGlobalArrayRegistry("jskit.users-core.userSettingsFields");
 
 function defineField(field = {}) {
   const key = normalizeText(field.key);

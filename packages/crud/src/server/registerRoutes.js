@@ -1,6 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
@@ -63,7 +62,7 @@ function registerRoutes(
     throw new Error("registerRoutes requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const relativePath = requireRouteRelativePath(routeRelativePath);
   const routeBase = resolveApiBasePath({
     surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,

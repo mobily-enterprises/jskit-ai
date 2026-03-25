@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import {
   contactByIdGetRouteContract,
   contactIntakePostRouteContract,
@@ -12,7 +11,7 @@ class ContactProviderStage1 {
   register() {}
 
   boot(app) {
-    const router = app.make(KERNEL_TOKENS.HttpRouter);
+    const router = app.make("jskit.http.router");
     const contacts = [];
 
     const validateContact = (normalized) => {

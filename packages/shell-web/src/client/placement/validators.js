@@ -1,8 +1,6 @@
-import {
-  DEFAULT_WEB_PLACEMENT_ORDER,
-  WEB_PLACEMENT_SURFACE_ANY
-} from "./tokens.js";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+
+const WEB_PLACEMENT_SURFACE_ANY = "*";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {
@@ -53,7 +51,7 @@ function normalizePlacementSurface(value, { strict = false, source = "placement"
   return "";
 }
 
-function toInteger(value, fallback = DEFAULT_WEB_PLACEMENT_ORDER) {
+function toInteger(value, fallback = 1000) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return fallback;
@@ -182,7 +180,7 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     host,
     position,
     surfaces,
-    order: toInteger(value.order, DEFAULT_WEB_PLACEMENT_ORDER),
+    order: toInteger(value.order, 1000),
     componentToken,
     props,
     when,

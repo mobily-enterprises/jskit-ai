@@ -23,10 +23,6 @@ import { useAddEdit } from "./useAddEdit.js";
 import { useCommand } from "./useCommand.js";
 import { useView } from "./useView.js";
 import { usePaths } from "./usePaths.js";
-import {
-  ACCOUNT_SETTINGS_CHANGED_EVENT,
-  WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
-} from "@jskit-ai/users-core/shared/events/usersEvents";
 import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
 import {
   ACCOUNT_SETTINGS_DEFAULTS,
@@ -206,22 +202,22 @@ function useAccountSettingsRuntime() {
 
   const settingsView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
-    apiSuffix: "/settings",
-    queryKeyFactory: () => accountSettingsQueryKey,
-    realtime: {
-      event: ACCOUNT_SETTINGS_CHANGED_EVENT
-    },
+  apiSuffix: "/settings",
+  queryKeyFactory: () => accountSettingsQueryKey,
+  realtime: {
+    event: "account.settings.changed"
+  },
     fallbackLoadError: "Unable to load settings.",
     mapLoadedToModel: mapAccountSettingsPayload
   });
 
   const pendingInvitesView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
-    apiSuffix: "/bootstrap",
-    queryKeyFactory: () => pendingInvitesQueryKey,
-    realtime: {
-      event: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
-    },
+  apiSuffix: "/bootstrap",
+  queryKeyFactory: () => pendingInvitesQueryKey,
+  realtime: {
+    event: "workspace.invitations.pending.changed"
+  },
     fallbackLoadError: "Unable to load invitations.",
     model: pendingInvitesModel,
     mapLoadedToModel: (model, payload = {}) => {

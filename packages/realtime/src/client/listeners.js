@@ -1,5 +1,4 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { REALTIME_CLIENT_LISTENER_TAG } from "./tokens.js";
 
 function normalizeListenerEntries(value) {
   const queue = Array.isArray(value) ? [...value] : [value];
@@ -49,7 +48,7 @@ function registerRealtimeClientListener(app, token, factory) {
   }
 
   app.singleton(token, factory);
-  app.tag(token, REALTIME_CLIENT_LISTENER_TAG);
+  app.tag(token, "jskit.runtime.realtime.client.listeners");
 }
 
 function resolveRealtimeClientListeners(scope) {
@@ -57,7 +56,7 @@ function resolveRealtimeClientListeners(scope) {
     return [];
   }
 
-  return normalizeListenerEntries(scope.resolveTag(REALTIME_CLIENT_LISTENER_TAG))
+  return normalizeListenerEntries(scope.resolveTag("jskit.runtime.realtime.client.listeners"))
     .map((entry) => normalizeRealtimeClientListener(entry))
     .filter(Boolean);
 }

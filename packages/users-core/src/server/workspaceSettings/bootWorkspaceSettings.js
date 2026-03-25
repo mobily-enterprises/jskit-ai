@@ -1,5 +1,4 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
@@ -10,7 +9,7 @@ function bootWorkspaceSettings(app) {
     throw new Error("bootWorkspaceSettings requires application make().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
 

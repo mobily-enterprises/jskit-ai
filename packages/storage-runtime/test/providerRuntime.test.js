@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { StorageRuntimeServiceProvider } from "../src/server/providers/StorageRuntimeServiceProvider.js";
 
 function createSingletonApp() {
@@ -24,7 +23,7 @@ function createSingletonApp() {
 
 test("StorageRuntimeServiceProvider registers runtime storage api and storage binding", async () => {
   const app = createSingletonApp();
-  app.singleton(KERNEL_TOKENS.Env, () => ({
+  app.singleton("jskit.env", () => ({
     JSKIT_STORAGE_DRIVER: "memory"
   }));
 
@@ -32,12 +31,12 @@ test("StorageRuntimeServiceProvider registers runtime storage api and storage bi
   provider.register(app);
 
   assert.equal(app.has("runtime.storage"), true);
-  assert.equal(app.has(KERNEL_TOKENS.Storage), true);
+  assert.equal(app.has("jskit.storage"), true);
 
   const runtimeStorageApi = app.make("runtime.storage");
   assert.equal(typeof runtimeStorageApi.createStorageBinding, "function");
 
-  const storage = app.make(KERNEL_TOKENS.Storage);
+  const storage = app.make("jskit.storage");
   assert.equal(typeof storage.setItemRaw, "function");
   assert.equal(typeof storage.getItemRaw, "function");
 

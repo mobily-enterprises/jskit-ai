@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  CLIENT_MODULE_ROUTER_TOKEN,
-  CLIENT_MODULE_VUE_APP_TOKEN
-} from "@jskit-ai/kernel/client/moduleBootstrap";
-import { WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN } from "@jskit-ai/shell-web/client/placement";
-import { REALTIME_SOCKET_CLIENT_TOKEN } from "@jskit-ai/realtime/client/tokens";
-import { USERS_BOOTSTRAP_CHANGED_EVENT } from "@jskit-ai/users-core/shared/events/usersEvents";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/users-core/shared/settings";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import {
@@ -244,8 +237,8 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async (workspaceSlug) => {
       fetchCalls.push(workspaceSlug);
@@ -304,8 +297,8 @@ test("bootstrap placement runtime resolves workspace slug from pathname when sur
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async (workspaceSlug) => {
       fetchCalls.push(workspaceSlug);
@@ -348,8 +341,8 @@ test("bootstrap placement runtime does not mutate placement auth context", async
   const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -385,9 +378,9 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router,
-      [REALTIME_SOCKET_CLIENT_TOKEN]: socket
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router,
+      ["runtime.realtime.client.socket"]: socket
     }),
     fetchBootstrap: async (workspaceSlug) => {
       fetchCalls.push(workspaceSlug);
@@ -424,7 +417,7 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme", "zen"]);
 
-  socket.emit(USERS_BOOTSTRAP_CHANGED_EVENT, {});
+  socket.emit("users.bootstrap.changed", {});
   await flushTasks();
   assert.deepEqual(fetchCalls, ["acme", "zen", "zen"]);
 });
@@ -435,8 +428,8 @@ test("bootstrap placement runtime refetches when auth context changes", async ()
   const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async (workspaceSlug) => {
       fetchCalls.push(workspaceSlug);
@@ -497,9 +490,9 @@ test("bootstrap placement runtime applies persisted theme preference for unauthe
   };
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router,
-      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router,
+      ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
     }),
     fetchBootstrap: async () => {
       return {
@@ -532,10 +525,10 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
   let fetchCount = 0;
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router,
-      [REALTIME_SOCKET_CLIENT_TOKEN]: socket,
-      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router,
+      ["runtime.realtime.client.socket"]: socket,
+      ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
     }),
     fetchBootstrap: async (workspaceSlug) => {
       fetchCount += 1;
@@ -563,7 +556,7 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
   await runtime.initialize();
   assert.equal(themeController.global.name.value, "workspace-dark");
 
-  socket.emit(USERS_BOOTSTRAP_CHANGED_EVENT, {});
+  socket.emit("users.bootstrap.changed", {});
   await flushTasks();
   assert.equal(themeController.global.name.value, "workspace-light");
 });
@@ -574,9 +567,9 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
   const themeController = createVuetifyThemeController("light");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router,
-      [CLIENT_MODULE_VUE_APP_TOKEN]: createVueAppWithThemeController(themeController)
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router,
+      ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
     }),
     fetchBootstrap: async (workspaceSlug) => {
       return {
@@ -646,8 +639,8 @@ test("bootstrap placement runtime marks workspace slug as not_found and clears w
 
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: createRouterStub("/w/acme/dashboard")
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: createRouterStub("/w/acme/dashboard")
     }),
     fetchBootstrap: async () => {
       const error = new Error("Workspace not found.");
@@ -674,8 +667,8 @@ test("bootstrap placement runtime updates status per workspace slug across route
   const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async (workspaceSlug) => {
       if (workspaceSlug === "zen") {
@@ -721,8 +714,8 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
   const router = createRouterStub("/w/tonymobily");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -763,8 +756,8 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
   const router = createRouterStub("/w/missing");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -811,8 +804,8 @@ test("bootstrap placement runtime guard wrapper preserves delegated deny outcome
 
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -854,8 +847,8 @@ test("bootstrap placement runtime guard wrapper blocks forbidden workspace route
 
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -899,8 +892,8 @@ test("bootstrap placement runtime guard wrapper redirects nested not_found route
   const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       const error = new Error("Not found");
@@ -957,8 +950,8 @@ test("bootstrap placement runtime redirects admin nested route to admin root whe
   const router = createRouterStub("/w/acme/admin/workspace/settings");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       const error = new Error("Not found");
@@ -977,8 +970,8 @@ test("bootstrap placement runtime redirects forbidden workspace route to workspa
   const router = createRouterStub("/w/acme/admin/workspace/settings?tab=general");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       const error = new Error("Forbidden");
@@ -1032,8 +1025,8 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
   const router = createRouterStub("/console");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {
@@ -1059,8 +1052,8 @@ test("bootstrap placement runtime captures guard evaluator assignments after ini
   const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
-      [WEB_PLACEMENT_RUNTIME_CLIENT_TOKEN]: placementRuntime,
-      [CLIENT_MODULE_ROUTER_TOKEN]: router
+      ["runtime.web-placement.client"]: placementRuntime,
+      ["jskit.client.router"]: router
     }),
     fetchBootstrap: async () => {
       return {

@@ -1,13 +1,11 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import * as storageBinding from "../storageBinding.js";
 
-const STORAGE_RUNTIME_SERVER_TOKEN = "runtime.storage";
 const STORAGE_RUNTIME_SERVER_API = Object.freeze({
   ...storageBinding
 });
 
 class StorageRuntimeServiceProvider {
-  static id = STORAGE_RUNTIME_SERVER_TOKEN;
+  static id = "runtime.storage";
 
   static dependsOn = ["runtime.server"];
 
@@ -16,11 +14,11 @@ class StorageRuntimeServiceProvider {
       throw new Error("StorageRuntimeServiceProvider requires application singleton().");
     }
 
-    app.singleton(STORAGE_RUNTIME_SERVER_TOKEN, () => STORAGE_RUNTIME_SERVER_API);
-    app.singleton(KERNEL_TOKENS.Storage, (scope) => storageBinding.createStorageBinding(scope));
+    app.singleton("runtime.storage", () => STORAGE_RUNTIME_SERVER_API);
+    app.singleton("jskit.storage", (scope) => storageBinding.createStorageBinding(scope));
   }
 
   boot() {}
 }
 
-export { STORAGE_RUNTIME_SERVER_TOKEN, StorageRuntimeServiceProvider };
+export { StorageRuntimeServiceProvider };

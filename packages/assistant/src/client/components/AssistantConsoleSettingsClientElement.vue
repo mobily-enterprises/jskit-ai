@@ -27,7 +27,6 @@ import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validato
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import AssistantSettingsFormCard from "./AssistantSettingsFormCard.vue";
 import { assistantConsoleSettingsResource } from "../../shared/assistantSettingsResource.js";
-import { ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT } from "../../shared/settingsEvents.js";
 
 const form = reactive({
   workspaceSurfacePrompt: ""
@@ -47,7 +46,7 @@ const addEdit = useAddEdit({
   fallbackSaveError: "Unable to update assistant console settings.",
   fieldErrorKeys: ["workspaceSurfacePrompt"],
   realtime: {
-    event: ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT
+    event: "assistant.console.settings.changed"
   },
   model: form,
   parseInput: (rawPayload) =>

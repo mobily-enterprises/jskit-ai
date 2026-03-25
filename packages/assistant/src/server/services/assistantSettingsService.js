@@ -2,10 +2,6 @@ import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import {
-  ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT,
-  ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT
-} from "../../shared/settingsEvents.js";
 
 const serviceEvents = Object.freeze({
   updateConsoleSettings: Object.freeze([
@@ -16,7 +12,7 @@ const serviceEvents = Object.freeze({
       operation: "updated",
       entityId: 1,
       realtime: Object.freeze({
-        event: ASSISTANT_CONSOLE_SETTINGS_CHANGED_EVENT,
+        event: "assistant.console.settings.changed",
         audience: "all_users"
       })
     })
@@ -29,7 +25,7 @@ const serviceEvents = Object.freeze({
       operation: "updated",
       entityId: ({ args }) => args?.[0]?.id || null,
       realtime: Object.freeze({
-        event: ASSISTANT_WORKSPACE_SETTINGS_CHANGED_EVENT,
+        event: "assistant.workspace.settings.changed",
         audience: "event_scope",
         payload: ({ args }) => ({
           workspaceSlug: String(args?.[0]?.slug || "").trim()

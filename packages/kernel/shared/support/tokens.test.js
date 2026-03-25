@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isContainerToken } from "./tokens.js";
+import { isContainerToken } from "./containerToken.js";
 
 test("isContainerToken accepts valid container token types", () => {
   assert.equal(isContainerToken("appConfig"), true);
-  assert.equal(isContainerToken(Symbol.for("jskit.test")), true);
+  assert.equal(isContainerToken("jskit.test"), true);
   assert.equal(isContainerToken(() => {}), true);
 });
 

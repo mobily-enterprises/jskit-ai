@@ -1,4 +1,3 @@
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
@@ -12,16 +11,11 @@ import {
   configureSocketIoRedisAdapter,
   closeSocketIoRedisConnections
 } from "./runtime.js";
-import {
-  REALTIME_RUNTIME_SERVER_TOKEN,
-  REALTIME_SOCKET_IO_SERVER_TOKEN
-} from "./tokens.js";
 
 const REALTIME_RUNTIME_SERVER_API = Object.freeze({
   createSocketIoServer,
   closeSocketIoServer
 });
-const REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN = "runtime.realtime.domain-event-bridge";
 
 const REALTIME_ROOM_ALL_CLIENTS = "clients";
 const REALTIME_ROOM_ALL_USERS = "users";
@@ -85,7 +79,7 @@ function parseCookieHeader(value = "") {
 
 function createProviderLogger(scope, { debugEnabled = false } = {}) {
   const logger =
-    scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Logger) ? scope.make(KERNEL_TOKENS.Logger) : null;
+    scope && typeof scope.has === "function" && scope.has("jskit.logger") ? scope.make("jskit.logger") : null;
   return createSharedProviderLogger(logger, { debugEnabled });
 }
 
@@ -110,7 +104,7 @@ function parseDebugFlag(value, fallback = null) {
 
 function resolveRealtimeServerDebugEnabled(scope) {
   const appConfig = scope && typeof scope.has === "function" && scope.has("appConfig") ? scope.make("appConfig") : {};
-  const env = scope && typeof scope.has === "function" && scope.has(KERNEL_TOKENS.Env) ? scope.make(KERNEL_TOKENS.Env) : {};
+  const env = scope && typeof scope.has === "function" && scope.has("jskit.env") ? scope.make("jskit.env") : {};
   const realtime = appConfig && typeof appConfig === "object" ? appConfig.realtime : null;
 
   const envFlag = parseDebugFlag(env?.JSKIT_REALTIME_DEBUG);
@@ -383,12 +377,12 @@ async function resolveAudienceQueryRooms(userQuery, { scope, event, logger } = {
     return [];
   }
 
-  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function" || !scope.has(KERNEL_TOKENS.Knex)) {
+  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function" || !scope.has("jskit.database.knex")) {
     logger.warn("Realtime audience userQuery requires runtime database token.");
     return [];
   }
 
-  const knex = scope.make(KERNEL_TOKENS.Knex);
+  const knex = scope.make("jskit.database.knex");
   const queryResult = await userQuery({
     knex,
     event
@@ -493,7 +487,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
       socket.join(REALTIME_ROOM_ALL_CLIENTS);
       logger.debug(
         {
-          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          listenerId: "runtime.realtime.domain-event-bridge",
           stage: "socket.connection",
           room: REALTIME_ROOM_ALL_CLIENTS
         },
@@ -504,7 +498,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
       if (actorId < 1) {
         logger.debug(
           {
-            listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+            listenerId: "runtime.realtime.domain-event-bridge",
             stage: "socket.connection",
             authenticated: false
           },
@@ -520,7 +514,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
       socket.join(roomForUser(actorId));
       logger.debug(
         {
-          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          listenerId: "runtime.realtime.domain-event-bridge",
           stage: "socket.connection",
           actorId,
           joinedRooms: [REALTIME_ROOM_ALL_USERS, roomForUser(actorId)]
@@ -535,7 +529,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
       }
       logger.debug(
         {
-          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          listenerId: "runtime.realtime.domain-event-bridge",
           stage: "socket.connection",
           actorId,
           workspaceIds
@@ -545,7 +539,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
     } catch (error) {
       logger.warn(
         {
-          listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+          listenerId: "runtime.realtime.domain-event-bridge",
           error: String(error?.message || error || "unknown error")
         },
         "Realtime socket audience bootstrap failed."
@@ -555,30 +549,30 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
 }
 
 class RealtimeServiceProvider {
-  static id = REALTIME_RUNTIME_SERVER_TOKEN;
+  static id = "runtime.realtime";
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
       throw new Error("RealtimeServiceProvider requires application singleton()/tag().");
     }
 
-    app.singleton(REALTIME_RUNTIME_SERVER_TOKEN, () => REALTIME_RUNTIME_SERVER_API);
-    app.singleton(REALTIME_SOCKET_IO_SERVER_TOKEN, (scope) => {
-      const fastify = scope.make(KERNEL_TOKENS.Fastify);
+    app.singleton("runtime.realtime", () => REALTIME_RUNTIME_SERVER_API);
+    app.singleton("runtime.realtime.io", (scope) => {
+      const fastify = scope.make("jskit.fastify");
       return createSocketIoServer({
         fastify
       });
     });
 
-    registerDomainEventListener(app, REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN, (scope) => {
-      const io = scope.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+    registerDomainEventListener(app, "runtime.realtime.domain-event-bridge", (scope) => {
+      const io = scope.make("runtime.realtime.io");
       const realtimeDispatchIndex = buildRealtimeDispatchIndex(resolveServiceRegistrations(scope));
       const logger = createProviderLogger(scope, {
         debugEnabled: resolveRealtimeServerDebugEnabled(scope)
       });
 
       return {
-        listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+        listenerId: "runtime.realtime.domain-event-bridge",
         async handle(event = {}) {
           const serviceToken = normalizeText(event?.meta?.service?.token);
           const methodName = normalizeText(event?.meta?.service?.method);
@@ -586,7 +580,7 @@ class RealtimeServiceProvider {
           if (!serviceToken || !methodName) {
             logger.warn(
               {
-                listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+                listenerId: "runtime.realtime.domain-event-bridge",
                 reason: "missing-service-meta",
                 meta: event?.meta || null
               },
@@ -602,7 +596,7 @@ class RealtimeServiceProvider {
               : dispatchersForMethod;
           logger.debug(
             {
-              listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+              listenerId: "runtime.realtime.domain-event-bridge",
               serviceToken,
               methodName,
               emittedRealtimeEvent: emittedRealtimeEvent || null,
@@ -618,7 +612,7 @@ class RealtimeServiceProvider {
           if (dispatchers.length < 1) {
             logger.warn(
               {
-                listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+                listenerId: "runtime.realtime.domain-event-bridge",
                 serviceToken,
                 methodName,
                 emittedRealtimeEvent: emittedRealtimeEvent || null
@@ -648,7 +642,7 @@ class RealtimeServiceProvider {
 
             logger.debug(
               {
-                listenerId: REALTIME_DOMAIN_EVENT_BRIDGE_TOKEN,
+                listenerId: "runtime.realtime.domain-event-bridge",
                 socketEvent: dispatcher.event,
                 serviceToken,
                 methodName,
@@ -674,7 +668,7 @@ class RealtimeServiceProvider {
       throw new Error("RealtimeServiceProvider requires application make().");
     }
 
-    this.socketIoServer = app.make(REALTIME_SOCKET_IO_SERVER_TOKEN);
+    this.socketIoServer = app.make("runtime.realtime.io");
     const debugEnabled = resolveRealtimeServerDebugEnabled(app);
     const logger = createProviderLogger(app, {
       debugEnabled
@@ -688,7 +682,7 @@ class RealtimeServiceProvider {
     );
     registerRealtimeSocketAudienceBootstrap(app, this.socketIoServer, logger);
 
-    const env = typeof app.has === "function" && app.has(KERNEL_TOKENS.Env) ? app.make(KERNEL_TOKENS.Env) : {};
+    const env = typeof app.has === "function" && app.has("jskit.env") ? app.make("jskit.env") : {};
     const redisUrl = resolveRealtimeRedisUrl(env);
     this.redisConnection = await configureSocketIoRedisAdapter(this.socketIoServer, {
       redisUrl

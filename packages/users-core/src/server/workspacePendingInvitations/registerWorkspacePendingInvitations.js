@@ -1,17 +1,7 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createService } from "./workspacePendingInvitationsService.js";
 import { workspacePendingInvitationsActions } from "./workspacePendingInvitationsActions.js";
-import {
-  USERS_BOOTSTRAP_CHANGED_EVENT,
-  WORKSPACE_INVITES_CHANGED_EVENT,
-  WORKSPACE_MEMBERS_CHANGED_EVENT,
-  WORKSPACES_CHANGED_EVENT,
-  WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
-} from "../../shared/events/usersEvents.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
-import {
-  USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
-} from "../common/diTokens.js";
 
 function workspaceAudienceFromEntityId({ event } = {}) {
   const workspaceId = Number(event?.entityId);
@@ -60,12 +50,12 @@ function createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {})
     createActorUserEvent({
       source: "workspace",
       entity: "invitation",
-      realtimeEvent: WORKSPACE_PENDING_INVITATIONS_CHANGED_EVENT
+      realtimeEvent: "workspace.invitations.pending.changed"
     }),
     createActorUserEvent({
       source: "users",
       entity: "bootstrap",
-      realtimeEvent: USERS_BOOTSTRAP_CHANGED_EVENT
+      realtimeEvent: "users.bootstrap.changed"
     })
   ];
 
@@ -74,11 +64,11 @@ function createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {})
       createActorUserEvent({
         source: "workspace",
         entity: "directory",
-        realtimeEvent: WORKSPACES_CHANGED_EVENT
+        realtimeEvent: "workspaces.changed"
       }),
       createWorkspaceAudienceEvent({
         entity: "member",
-        realtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+        realtimeEvent: "workspace.members.changed"
       })
     );
   }
@@ -86,7 +76,7 @@ function createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {})
   events.push(
     createWorkspaceAudienceEvent({
       entity: "invite",
-      realtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT
+      realtimeEvent: "workspace.invites.changed"
     })
   );
 
@@ -99,7 +89,7 @@ function registerWorkspacePendingInvitations(app) {
   }
 
   app.service(
-    USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN,
+    "users.workspace.pending-invitations.service",
     (scope) =>
       createService({
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
@@ -119,7 +109,7 @@ function registerWorkspacePendingInvitations(app) {
     withActionDefaults(workspacePendingInvitationsActions, {
       domain: "workspace",
       dependencies: {
-        workspacePendingInvitationsService: USERS_WORKSPACE_PENDING_INVITATIONS_SERVICE_TOKEN
+        workspacePendingInvitationsService: "users.workspace.pending-invitations.service"
       }
     })
   );

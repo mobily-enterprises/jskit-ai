@@ -1,7 +1,3 @@
-import {
-  ACCOUNT_SETTINGS_CHANGED_EVENT,
-  USERS_BOOTSTRAP_CHANGED_EVENT
-} from "../../../shared/events/usersEvents.js";
 import { deepFreeze } from "./deepFreeze.js";
 
 function resolveActorScopedEntityId({ options } = {}) {
@@ -22,7 +18,7 @@ const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
     operation: "updated",
     entityId: resolveActorScopedEntityId,
     realtime: {
-      event: ACCOUNT_SETTINGS_CHANGED_EVENT,
+      event: "account.settings.changed",
       audience: "actor_user"
     }
   },
@@ -33,7 +29,7 @@ const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
     operation: "updated",
     entityId: resolveActorScopedEntityId,
     realtime: {
-      event: USERS_BOOTSTRAP_CHANGED_EVENT,
+      event: "users.bootstrap.changed",
       audience: "actor_user"
     }
   }
@@ -84,7 +80,7 @@ function createWorkspaceEntityAndBootstrapEvents({
       operation: "updated",
       entityId: bootstrapEntityId,
       realtime: {
-        event: USERS_BOOTSTRAP_CHANGED_EVENT,
+        event: "users.bootstrap.changed",
         audience: bootstrapAudience
       }
     }

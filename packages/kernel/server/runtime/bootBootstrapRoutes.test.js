@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createContainer } from "../container/index.js";
-import { KERNEL_TOKENS } from "../../shared/support/tokens.js";
 import { registerBootstrapPayloadContributor } from "../registries/bootstrapPayloadContributorRegistry.js";
 import { bootBootstrapRoutes, bootstrapQueryValidator } from "./bootBootstrapRoutes.js";
 
@@ -42,7 +41,7 @@ test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors
     }
   };
 
-  app.instance(KERNEL_TOKENS.HttpRouter, router);
+  app.instance("jskit.http.router", router);
   registerBootstrapPayloadContributor(app, "test.bootstrap.payload", () => ({
     contributorId: "test.bootstrap.payload",
     contribute({ query }) {

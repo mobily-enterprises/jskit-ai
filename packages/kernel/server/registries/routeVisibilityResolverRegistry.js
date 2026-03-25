@@ -4,8 +4,6 @@ import { ROUTE_VISIBILITY_PUBLIC } from "../../shared/support/policies.js";
 import { RouteRegistrationError } from "../http/lib/errors.js";
 import { registerTaggedSingleton, resolveTaggedEntries } from "./primitives.js";
 
-const ROUTE_VISIBILITY_RESOLVER_TAG = Symbol.for("jskit.runtime.http.visibilityResolvers");
-
 function normalizeRouteVisibilityResolver(entry) {
   if (typeof entry === "function") {
     return {
@@ -25,13 +23,13 @@ function normalizeRouteVisibilityResolver(entry) {
 }
 
 function resolveRouteVisibilityResolvers(scope) {
-  return resolveTaggedEntries(scope, ROUTE_VISIBILITY_RESOLVER_TAG)
+  return resolveTaggedEntries(scope, "jskit.runtime.http.visibilityResolvers")
     .map((entry) => normalizeRouteVisibilityResolver(entry))
     .filter(Boolean);
 }
 
 function registerRouteVisibilityResolver(app, token, factory) {
-  registerTaggedSingleton(app, token, factory, ROUTE_VISIBILITY_RESOLVER_TAG, {
+  registerTaggedSingleton(app, token, factory, "jskit.runtime.http.visibilityResolvers", {
     context: "registerRouteVisibilityResolver",
     ErrorType: RouteRegistrationError
   });
@@ -80,7 +78,6 @@ async function resolveRouteVisibilityContext({
 }
 
 export {
-  ROUTE_VISIBILITY_RESOLVER_TAG,
   resolveRouteVisibilityResolvers,
   registerRouteVisibilityResolver,
   resolveRouteVisibilityContext

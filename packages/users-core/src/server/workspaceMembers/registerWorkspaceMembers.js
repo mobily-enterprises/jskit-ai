@@ -1,17 +1,11 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
-import {
-  WORKSPACE_MEMBERS_CHANGED_EVENT,
-  WORKSPACE_INVITES_CHANGED_EVENT
-} from "../../shared/events/usersEvents.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
-import { USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN } from "../common/diTokens.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 
-const USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN = "users.workspace.members.service";
 
 function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
   const inviteExpiresInMs = Number(appConfig?.workspaceMembers?.defaults?.inviteExpiresInMs);
@@ -58,7 +52,7 @@ function registerWorkspaceMembers(app) {
   }
 
   app.service(
-    USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN,
+    "users.workspace.members.service",
     (scope) => {
       const appConfig = resolveAppConfig(scope);
       return createWorkspaceMembersService({
@@ -66,7 +60,7 @@ function registerWorkspaceMembers(app) {
         workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
         inviteExpiresInMs: resolveWorkspaceMembersInviteExpiresInMs(appConfig),
         roleCatalog: createWorkspaceRoleCatalog(appConfig),
-        workspaceInvitationsEnabled: scope.make(USERS_WORKSPACE_INVITATIONS_ENABLED_TOKEN) === true
+        workspaceInvitationsEnabled: scope.make("users.workspace.invitations.enabled") === true
       });
     },
     {
@@ -74,24 +68,24 @@ function registerWorkspaceMembers(app) {
         updateMemberRole: createWorkspaceEntityAndBootstrapEvents({
           workspaceEntity: "member",
           workspaceOperation: "updated",
-          workspaceRealtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+          workspaceRealtimeEvent: "workspace.members.changed"
         }),
         removeMember: createWorkspaceEntityAndBootstrapEvents({
           workspaceEntity: "member",
           workspaceOperation: "updated",
-          workspaceRealtimeEvent: WORKSPACE_MEMBERS_CHANGED_EVENT
+          workspaceRealtimeEvent: "workspace.members.changed"
         }),
         createInvite: createWorkspaceEntityAndBootstrapEvents({
           workspaceEntity: "invite",
           workspaceOperation: "created",
-          workspaceRealtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT,
+          workspaceRealtimeEvent: "workspace.invites.changed",
           bootstrapEntityId: ({ result }) => result?.createdInviteId,
           bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
         }),
         revokeInvite: createWorkspaceEntityAndBootstrapEvents({
           workspaceEntity: "invite",
           workspaceOperation: "updated",
-          workspaceRealtimeEvent: WORKSPACE_INVITES_CHANGED_EVENT,
+          workspaceRealtimeEvent: "workspace.invites.changed",
           bootstrapEntityId: ({ result }) => result?.revokedInviteId,
           bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
         })
@@ -103,7 +97,7 @@ function registerWorkspaceMembers(app) {
     withActionDefaults(workspaceMembersActions, {
       domain: "workspace",
       dependencies: {
-        workspaceMembersService: USERS_WORKSPACE_MEMBERS_SERVICE_TOKEN
+        workspaceMembersService: "users.workspace.members.service"
       }
     })
   );

@@ -9,7 +9,6 @@ import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePa
 import {
   MAX_INPUT_CHARS,
   ASSISTANT_STREAM_EVENT_TYPES,
-  ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
   MAX_HISTORY_MESSAGES,
   assistantConversationMessagesQueryKey,
   assistantConversationsListQueryKey,
@@ -27,7 +26,6 @@ const DEFAULT_HISTORY_PAGE_SIZE = 20;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
 const RESTORE_MESSAGES_PAGE = 1;
-const ACTIVE_CONVERSATION_STORAGE_PREFIX = "assistant.activeConversationId";
 
 function toNonNegativeInteger(value, fallback = 0) {
   const parsed = Number(value);
@@ -44,7 +42,7 @@ function buildActiveConversationStorageKey(workspaceSlug) {
     return "";
   }
 
-  return `${ACTIVE_CONVERSATION_STORAGE_PREFIX}:${normalizedWorkspaceSlug}`;
+  return `assistant.activeConversationId:${normalizedWorkspaceSlug}`;
 }
 
 function readStoredActiveConversationId(workspaceSlug) {
@@ -701,7 +699,7 @@ function useAssistantWorkspaceRuntime({ api = null } = {}) {
   }
 
   useRealtimeEvent({
-    event: ASSISTANT_TRANSCRIPT_CHANGED_EVENT,
+    event: "assistant.transcript.changed",
     enabled: computed(() => hasWorkspaceScope.value),
     matches({ payload }) {
       if (!payload || typeof payload !== "object") {

@@ -4,7 +4,6 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { DatabaseRuntimeServiceProvider } from "../src/server/providers/DatabaseRuntimeServiceProvider.js";
 
 function createSingletonApp() {
@@ -111,13 +110,13 @@ test("DatabaseRuntimeServiceProvider registers runtime api", () => {
 
 test("DatabaseRuntimeServiceProvider registers transaction manager when Knex is pre-bound", async () => {
   const app = createSingletonApp();
-  app.instance(KERNEL_TOKENS.Knex, createKnexStub());
+  app.instance("jskit.database.knex", createKnexStub());
 
   const provider = new DatabaseRuntimeServiceProvider();
   provider.register(app);
 
-  assert.equal(app.has(KERNEL_TOKENS.TransactionManager), true);
-  const transactionManager = app.make(KERNEL_TOKENS.TransactionManager);
+  assert.equal(app.has("jskit.database.transactionManager"), true);
+  const transactionManager = app.make("jskit.database.transactionManager");
   const result = await transactionManager.inTransaction(async (trx) => trx.trxId);
   assert.equal(result, "trx-1");
 });
@@ -156,7 +155,7 @@ test("DatabaseRuntimeServiceProvider resolves knex from app root package context
   await withAppRootKnexStub(async () => {
     const app = createSingletonApp();
     app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-    app.instance(KERNEL_TOKENS.Env, {
+    app.instance("jskit.env", {
       DB_HOST: "db.local",
       DB_PORT: "3307",
       DB_NAME: "appdb",
@@ -167,7 +166,7 @@ test("DatabaseRuntimeServiceProvider resolves knex from app root package context
     const provider = new DatabaseRuntimeServiceProvider();
     provider.register(app);
 
-    const knex = app.make(KERNEL_TOKENS.Knex);
+    const knex = app.make("jskit.database.knex");
     assert.equal(knex.__source, "app-root-knex");
     assert.equal(knex.__config.client, "mysql2");
     assert.equal(knex.__config.connection.host, "db.local");
@@ -182,14 +181,14 @@ test("DatabaseRuntimeServiceProvider resolves knex config from DATABASE_URL when
   await withAppRootKnexStub(async () => {
     const app = createSingletonApp();
     app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-    app.instance(KERNEL_TOKENS.Env, {
+    app.instance("jskit.env", {
       DATABASE_URL: "mysql://urluser:urlpass@db.url.local:3308/url_db_name"
     });
 
     const provider = new DatabaseRuntimeServiceProvider();
     provider.register(app);
 
-    const knex = app.make(KERNEL_TOKENS.Knex);
+    const knex = app.make("jskit.database.knex");
     assert.equal(knex.__source, "app-root-knex");
     assert.equal(knex.__config.client, "mysql2");
     assert.equal(knex.__config.connection.host, "db.url.local");

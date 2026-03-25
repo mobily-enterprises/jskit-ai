@@ -1,9 +1,5 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { KERNEL_TOKENS } from "@jskit-ai/kernel/shared/support/tokens";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
-import {
-  USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN
-} from "../common/diTokens.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
@@ -13,11 +9,11 @@ function bootWorkspaceDirectoryRoutes(app) {
     throw new Error("bootWorkspaceDirectoryRoutes requires application make()/has().");
   }
 
-  const router = app.make(KERNEL_TOKENS.HttpRouter);
+  const router = app.make("jskit.http.router");
   const appConfig = app.has("appConfig") ? app.make("appConfig") : {};
   const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
-  const workspaceSelfCreateEnabled = app.has(USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN)
-    ? app.make(USERS_WORKSPACE_SELF_CREATE_ENABLED_TOKEN) === true
+  const workspaceSelfCreateEnabled = app.has("users.workspace.self-create.enabled")
+    ? app.make("users.workspace.self-create.enabled") === true
     : false;
 
   if (workspaceSelfCreateEnabled) {
