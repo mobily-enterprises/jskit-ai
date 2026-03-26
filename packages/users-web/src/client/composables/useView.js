@@ -2,7 +2,7 @@ import { computed } from "vue";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useViewCore } from "./useViewCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
-import { useOperationScope } from "./internal/useOperationScope.js";
+import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 
 function useView({
@@ -20,9 +20,13 @@ function useView({
   notFoundMessage = "Record not found.",
   model,
   mapLoadedToModel,
-  realtime = null
+  realtime = null,
+  adapter = null
 } = {}) {
-  const operationScope = useOperationScope({
+  const operationAdapter = resolveOperationAdapter(adapter, {
+    context: "useView adapter"
+  });
+  const operationScope = operationAdapter.useOperationScope({
     ownershipFilter,
     surfaceId,
     access,

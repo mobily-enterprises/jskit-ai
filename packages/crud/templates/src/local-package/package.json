@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./client": "./src/client/index.js",
-    "./client/*": "./src/client/*.vue",
-    "./client/clientSupport": "./src/client/clientSupport.js",
     "./server/actionIds": "./src/server/actionIds.js",
     "./shared": "./src/shared/index.js"
   }

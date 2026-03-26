@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ref } from "vue";
+import { createAddEditUiRuntime } from "../src/client/composables/addEditUiRuntime.js";
+
+test("createAddEditUiRuntime resolves api/list/cancel paths from route params", () => {
+  const runtime = createAddEditUiRuntime({
+    recordIdParam: "addressId",
+    routeParams: ref({
+      contactId: "7",
+      addressId: "42"
+    }),
+    apiUrlTemplate: "/crud/contacts/:contactId/addresses/:addressId",
+    viewUrlTemplate: "../:addressId",
+    listUrlTemplate: ".."
+  });
+
+  assert.equal(runtime.recordId.value, "42");
+  assert.equal(runtime.apiSuffix.value, "/crud/contacts/7/addresses/42");
+  assert.equal(runtime.listUrl.value, "..");
+  assert.equal(runtime.cancelUrl.value, "../42");
+});
+
+test("createAddEditUiRuntime resolves view urls for saved payload ids with nested params", () => {
+  const runtime = createAddEditUiRuntime({
+    recordIdParam: "addressId",
+    routeParams: ref({
+      contactId: "7"
+    }),
+    viewUrlTemplate: "/contacts/:contactId/addresses/:addressId"
+  });
+
+  assert.equal(runtime.resolveSavedViewUrl({ id: 99 }), "/contacts/7/addresses/99");
+});
+
+test("createAddEditUiRuntime supports custom saved-record selector", () => {
+  const runtime = createAddEditUiRuntime({
+    recordIdParam: "addressId",
+    routeParams: ref({
+      contactId: "7"
+    }),
+    viewUrlTemplate: "/contacts/:contactId/addresses/:addressId",
+    saveRecordIdSelector: (payload = {}) => payload.uuid
+  });
+
+  assert.equal(runtime.resolveSavedViewUrl({ uuid: "abc-123" }), "/contacts/7/addresses/abc-123");
+});
+
+test("createAddEditUiRuntime validates route parameter names", () => {
+  assert.throws(
+    () =>
+      createAddEditUiRuntime({
+        recordIdParam: "record-id"
+      }),
+    /recordIdParam "record-id" is invalid/
+  );
+});

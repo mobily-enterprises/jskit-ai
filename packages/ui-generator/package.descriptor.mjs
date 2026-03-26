@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@jskit-ai/ui-generator",
   version: "0.1.0",
   installationMode: "clone-only",
-  description: "Generate app-local list/view UI scaffolds from resource validators.",
+  description: "Generate app-local CRUD UI scaffolds from resource validators.",
   options: {
     namespace: {
       required: true,
@@ -38,7 +38,14 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Operations",
-      promptHint: "Required: list, view, or list,view (comma-separated, no spaces recommended)."
+      promptHint: "Required comma-separated values from: list, view, new, edit."
+    },
+    "display-fields": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Display fields",
+      promptHint: "Optional comma-separated field keys to render (must exist in selected operation schemas)."
     },
     "api-path": {
       required: true,
@@ -59,7 +66,7 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "recordId",
       promptLabel: "Route id param",
-      promptHint: "Route param used by view pages (default: recordId)."
+      promptHint: "Route param used by view and edit pages (default: recordId)."
     },
     "directory-prefix": {
       required: false,
@@ -87,7 +94,7 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server/buildTemplateContext",
-          summary: "Builds deterministic template context values from resource list/view validators."
+          summary: "Builds deterministic template context values from selected resource operation validators."
         }
       ],
       containerTokens: {
@@ -109,71 +116,67 @@ export default Object.freeze({
     procfile: {},
     files: [
       {
-        from: "templates/src/pages/admin/ui-generator/uiSupport.js",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/uiSupport.js",
-        reason: "Install generated UI shared support helpers.",
-        category: "ui-generator",
-        id: "ui-generator-shared-support-${option:namespace|snake}",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildUiTemplateContext"
-        }
-      },
-      {
         from: "templates/src/pages/admin/ui-generator/ListElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/List${option:namespace|plural|pascal}Element.vue",
-        reason: "Install generated list element.",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/index.vue",
+        reason: "Install generated list page.",
         category: "ui-generator",
-        id: "ui-generator-list-element-${option:namespace|snake}",
+        id: "ui-generator-page-list-${option:namespace|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
         },
         when: {
           option: "operations",
-          in: ["list", "list,view", "view,list", "list, view", "view, list"]
+          in: ["list"]
         }
       },
       {
         from: "templates/src/pages/admin/ui-generator/ViewElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/View${option:namespace|singular|pascal}Element.vue",
-        reason: "Install generated view element.",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/index.vue",
+        reason: "Install generated view page.",
         category: "ui-generator",
-        id: "ui-generator-view-element-${option:namespace|snake}",
+        id: "ui-generator-page-view-${option:namespace|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
         },
         when: {
           option: "operations",
-          in: ["view", "list,view", "view,list", "list, view", "view, list"]
+          in: ["view"]
         }
       },
       {
-        from: "templates/src/pages/admin/ui-generator/index.vue",
+        from: "templates/src/pages/admin/ui-generator/NewElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/index.vue",
-        reason: "Install generated list page scaffold.",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/new.vue",
+        reason: "Install generated new page.",
         category: "ui-generator",
-        id: "ui-generator-page-list-${option:namespace|snake}",
+        id: "ui-generator-page-new-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
         when: {
           option: "operations",
-          in: ["list", "list,view", "view,list", "list, view", "view, list"]
+          in: ["new"]
         }
       },
       {
-        from: "templates/src/pages/admin/ui-generator/[recordId]/index.vue",
+        from: "templates/src/pages/admin/ui-generator/EditElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/index.vue",
-        reason: "Install generated view page scaffold.",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
+        reason: "Install generated edit page.",
         category: "ui-generator",
-        id: "ui-generator-page-view-${option:namespace|snake}",
+        id: "ui-generator-page-edit-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
         when: {
           option: "operations",
-          in: ["view", "list,view", "view,list", "list, view", "view, list"]
+          in: ["edit"]
         }
       }
     ],
@@ -190,7 +193,7 @@ export default Object.freeze({
         id: "ui-generator-placement-menu",
         when: {
           option: "operations",
-          in: ["list", "list,view", "view,list", "list, view", "view, list"]
+          in: ["list"]
         }
       }
     ]
