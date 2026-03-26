@@ -9,9 +9,7 @@ export default Object.freeze({
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/realtime",
-    "@jskit-ai/shell-web",
-    "@jskit-ai/users-core",
-    "@jskit-ai/users-web"
+    "@jskit-ai/users-core"
   ],
   capabilities: {
     provides: [
@@ -21,10 +19,7 @@ export default Object.freeze({
       "runtime.actions",
       "runtime.database",
       "auth.policy",
-      "users.core",
-      "users.web",
-      "runtime.web-placement",
-      "runtime.realtime.client"
+      "users.core"
     ]
   },
   runtime: {
@@ -35,9 +30,6 @@ export default Object.freeze({
           export: "${option:namespace|pascal}ServiceProvider"
         }
       ]
-    },
-    client: {
-      providers: []
     }
   },
   metadata: {
@@ -50,18 +42,13 @@ export default Object.freeze({
         {
           subpath: "./shared",
           summary: "App-local CRUD shared resource."
-        },
-        {
-          subpath: "./client/*",
-          summary: "App-local CRUD Vue client elements."
         }
       ],
       containerTokens: {
         server: [
           "repository.${option:namespace|snake}",
           "crud.${option:namespace|snake}"
-        ],
-        client: []
+        ]
       }
     }
   },

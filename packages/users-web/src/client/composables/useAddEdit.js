@@ -1,8 +1,10 @@
 import { computed, proxyRefs } from "vue";
+import { useRoute } from "vue-router";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useAddEditCore } from "./useAddEditCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
-import { useOperationScope } from "./internal/useOperationScope.js";
+import { resolveOperationAdapter } from "./operationAdapters.js";
+import { createAddEditUiRuntime } from "./addEditUiRuntime.js";
 import { useUiFeedback } from "./useUiFeedback.js";
 import { useFieldErrorBag } from "./useFieldErrorBag.js";
 import {
@@ -36,15 +38,38 @@ function useAddEdit({
   buildRawPayload,
   buildSavePayload,
   onSaveSuccess,
+  recordIdParam = "recordId",
+  routeParams = null,
+  routeRecordId = null,
+  apiUrlTemplate = "",
+  viewUrlTemplate = "",
+  listUrlTemplate = "",
+  saveRecordIdSelector = null,
   messages = {},
-  realtime = null
+  realtime = null,
+  adapter = null
 } = {}) {
-  const operationScope = useOperationScope({
+  const route = useRoute();
+  const addEditUiRuntime = createAddEditUiRuntime({
+    recordIdParam,
+    routeParams: routeParams ?? computed(() => route?.params || {}),
+    routeRecordId,
+    apiUrlTemplate,
+    viewUrlTemplate,
+    listUrlTemplate,
+    saveRecordIdSelector
+  });
+  const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
+  const effectiveApiSuffix = normalizedApiUrlTemplate ? addEditUiRuntime.apiSuffix : apiSuffix;
+  const operationAdapter = resolveOperationAdapter(adapter, {
+    context: "useAddEdit adapter"
+  });
+  const operationScope = operationAdapter.useOperationScope({
     ownershipFilter,
     surfaceId,
     access,
     placementSource,
-    apiSuffix,
+    apiSuffix: effectiveApiSuffix,
     model,
     readEnabled,
     queryKeyFactory,
@@ -128,7 +153,12 @@ function useAddEdit({
     messageType: addEdit.messageType,
     submit: addEdit.submit,
     refresh: endpointResource.reload,
-    resource: endpointResource
+    resource: endpointResource,
+    recordId: addEditUiRuntime.recordId,
+    listUrl: addEditUiRuntime.listUrl,
+    cancelUrl: addEditUiRuntime.cancelUrl,
+    resolveViewUrl: addEditUiRuntime.resolveViewUrl,
+    resolveSavedViewUrl: addEditUiRuntime.resolveSavedViewUrl
   });
 }
 

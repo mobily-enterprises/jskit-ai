@@ -1,8 +1,9 @@
 import { computed } from "vue";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
-import { useOperationScope } from "./internal/useOperationScope.js";
+import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
+import { createListUiRuntime } from "./listUiRuntime.js";
 
 function useList({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -19,9 +20,17 @@ function useList({
   selectItems,
   requestOptions,
   queryOptions,
-  realtime = null
+  realtime = null,
+  adapter = null,
+  recordIdParam = "recordId",
+  recordIdSelector = null,
+  viewUrlTemplate = "",
+  editUrlTemplate = ""
 } = {}) {
-  const operationScope = useOperationScope({
+  const operationAdapter = resolveOperationAdapter(adapter, {
+    context: "useList adapter"
+  });
+  const operationScope = operationAdapter.useOperationScope({
     ownershipFilter,
     surfaceId,
     access,
@@ -53,6 +62,15 @@ function useList({
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const loadError = operationScope.loadError(list.loadError);
   const isLoading = operationScope.isLoading(list.isLoading);
+  const listUiRuntime = createListUiRuntime({
+    items: list.items,
+    isInitialLoading,
+    recordIdParam,
+    recordIdSelector,
+    routeParams: computed(() => operationScope.routeContext.route?.params || {}),
+    viewUrlTemplate,
+    editUrlTemplate
+  });
   setupOperationErrorReporting({
     source: `${placementSource}.load`,
     loadError,
@@ -78,7 +96,14 @@ function useList({
     pages: list.pages,
     items: list.items,
     reload: list.reload,
-    loadMore: list.loadMore
+    loadMore: list.loadMore,
+    hasViewUrl: listUiRuntime.hasViewUrl,
+    hasEditUrl: listUiRuntime.hasEditUrl,
+    actionColumnCount: listUiRuntime.actionColumnCount,
+    showListSkeleton: listUiRuntime.showListSkeleton,
+    resolveRowKey: listUiRuntime.resolveRowKey,
+    resolveViewUrl: listUiRuntime.resolveViewUrl,
+    resolveEditUrl: listUiRuntime.resolveEditUrl
   });
 }
 

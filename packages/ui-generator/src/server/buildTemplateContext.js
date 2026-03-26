@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const DATE_FORMATS = new Set(["date", "date-time", "time"]);
-const ALLOWED_OPERATIONS = new Set(["list", "view"]);
+const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -14,6 +14,7 @@ function requireOption(options, optionName) {
   if (!value) {
     throw new Error(`ui-generator requires option "${optionName}".`);
   }
+
   return value;
 }
 
@@ -24,15 +25,13 @@ function parseOperationsOption(options) {
     .map((entry) => normalizeText(entry).toLowerCase())
     .filter(Boolean);
   if (operations.length < 1) {
-    throw new Error('ui-generator option "operations" must include at least one value: list or view.');
+    throw new Error('ui-generator option "operations" must include at least one value: list, view, new, or edit.');
   }
 
   const unique = new Set();
   for (const operation of operations) {
     if (!ALLOWED_OPERATIONS.has(operation)) {
-      throw new Error(
-        'ui-generator option "operations" supports only: list, view, list,view.'
-      );
+      throw new Error('ui-generator option "operations" supports only: list, view, new, edit.');
     }
     unique.add(operation);
   }
@@ -40,13 +39,60 @@ function parseOperationsOption(options) {
   return unique;
 }
 
+function parseDisplayFieldsOption(options) {
+  const rawValue = normalizeText(options?.["display-fields"]);
+  if (!rawValue) {
+    return Object.freeze([]);
+  }
+
+  const fieldKeys = rawValue
+    .split(",")
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+  if (fieldKeys.length < 1) {
+    throw new Error('ui-generator option "display-fields" must include at least one field key.');
+  }
+
+  const unique = [];
+  const seen = new Set();
+  for (const fieldKey of fieldKeys) {
+    if (seen.has(fieldKey)) {
+      continue;
+    }
+
+    seen.add(fieldKey);
+    unique.push(fieldKey);
+  }
+
+  return Object.freeze(unique);
+}
+
+function resolveResourceNamespaceOption(options = {}) {
+  const rawApiPath = normalizeText(options?.["api-path"]);
+  const apiPathSegments = rawApiPath
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .split("/")
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+
+  const apiPathNamespace = normalizeText(apiPathSegments[apiPathSegments.length - 1]);
+  const fallbackNamespace = normalizeText(options?.namespace).toLowerCase();
+  const resolvedNamespace = normalizeText(apiPathNamespace || fallbackNamespace || "crud").toLowerCase();
+  if (!resolvedNamespace) {
+    throw new Error('ui-generator could not resolve namespace from "api-path" or "namespace".');
+  }
+
+  return resolvedNamespace;
+}
+
 function resolveResourceModulePath(appRoot, resourceFile) {
   const normalizedFile = normalizeText(resourceFile);
   if (!normalizedFile) {
-    throw new Error("ui-generator requires option \"resource-file\".");
+    throw new Error('ui-generator requires option "resource-file".');
   }
   if (path.isAbsolute(normalizedFile)) {
-    throw new Error("ui-generator option \"resource-file\" must be a path relative to app root.");
+    throw new Error('ui-generator option "resource-file" must be a path relative to app root.');
   }
 
   const appRootAbsolute = path.resolve(String(appRoot || ""));
@@ -62,7 +108,7 @@ function resolveResourceModulePath(appRoot, resourceFile) {
     relativePath.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relativePath)
   ) {
-    throw new Error("ui-generator option \"resource-file\" must stay within app root.");
+    throw new Error('ui-generator option "resource-file" must stay within app root.');
   }
 
   return absolutePath;
@@ -102,6 +148,7 @@ function requireOperation(resource, operationName) {
   if (!operation || typeof operation !== "object" || Array.isArray(operation)) {
     throw new Error(`ui-generator resource is missing operations.${operationName}.`);
   }
+
   return operation;
 }
 
@@ -119,11 +166,26 @@ function requireOutputSchema(operation, operationName) {
   return schema;
 }
 
+function requireBodySchema(operation, operationName) {
+  const bodyValidator = operation?.bodyValidator;
+  if (!bodyValidator || typeof bodyValidator !== "object" || Array.isArray(bodyValidator)) {
+    throw new Error(`ui-generator resource operations.${operationName} is missing bodyValidator.`);
+  }
+
+  const schema = bodyValidator.schema;
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new Error(`ui-generator resource operations.${operationName}.bodyValidator is missing schema.`);
+  }
+
+  return schema;
+}
+
 function requireObjectProperties(schema, contextLabel) {
   const properties = schema?.properties;
   if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
     throw new Error(`ui-generator expected ${contextLabel} to be an object schema with properties.`);
   }
+
   return properties;
 }
 
@@ -148,12 +210,11 @@ function resolveSchemaType(schema) {
   const normalizedType = Array.isArray(rawType)
     ? normalizeText(rawType.find((entry) => normalizeText(entry).toLowerCase() !== "null"))
     : normalizeText(rawType);
-  const type = normalizedType.toLowerCase();
-  const format = normalizeText(source.format).toLowerCase();
 
   return {
-    type,
-    format
+    type: normalizedType.toLowerCase(),
+    format: normalizeText(source.format).toLowerCase(),
+    schema: source
   };
 }
 
@@ -169,7 +230,6 @@ function toFieldLabel(key) {
     .split(/\s+/)
     .map((entry) => normalizeText(entry))
     .filter(Boolean);
-
   if (words.length < 1) {
     return "Field";
   }
@@ -187,6 +247,7 @@ function createFieldDefinitions(properties = {}) {
     if (!key) {
       continue;
     }
+
     const schemaType = resolveSchemaType(schema);
     fields.push({
       key,
@@ -218,6 +279,7 @@ function toAccessorExpression(baseName, fieldKey) {
   if (JS_IDENTIFIER_PATTERN.test(key)) {
     return `${baseName}.${key}`;
   }
+
   return `${baseName}[${JSON.stringify(key)}]`;
 }
 
@@ -230,10 +292,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function stringifyLiteral(value) {
-  return JSON.stringify(String(value || ""));
-}
-
 function buildListHeaderColumns(fields) {
   return fields
     .map((field) => `                <th>${escapeHtml(field.label)}</th>`)
@@ -244,7 +302,7 @@ function buildListRowColumns(fields) {
   return fields
     .map(
       (field) =>
-        `                <td>{{ formatFieldValue(${toAccessorExpression("record", field.key)}, ${stringifyLiteral(field.type)}, ${stringifyLiteral(field.format)}) }}</td>`
+        `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`
     )
     .join("\n");
 }
@@ -254,10 +312,19 @@ function buildViewColumns(fields) {
     .map(
       (field) => `            <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ formatFieldValue(${toAccessorExpression("record", field.key)}, ${stringifyLiteral(field.type)}, ${stringifyLiteral(field.format)}) }}</div>
+              <div class="text-body-1">{{ ${toAccessorExpression("record", field.key)} }}</div>
             </v-col>`
     )
     .join("\n");
+}
+
+function resolveRecordChangedEventName(namespace = "") {
+  const normalizedNamespace = normalizeText(namespace).toLowerCase();
+  if (!normalizedNamespace) {
+    return "";
+  }
+
+  return `${normalizedNamespace.replace(/-/g, "_")}.record.changed`;
 }
 
 function resolveRecordIdExpression(fields) {
@@ -271,38 +338,179 @@ function resolveRecordIdExpression(fields) {
     normalizedFields[0] ||
     { key: "id" };
 
-  return toAccessorExpression("record", preferred.key);
+  return toAccessorExpression("item", preferred.key);
+}
+
+function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
+  const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
+  if (selectedFields.length < 1) {
+    return;
+  }
+
+  const availableFieldKeys = new Set(
+    (Array.isArray(fields) ? fields : [])
+      .map((field) => normalizeText(field?.key))
+      .filter(Boolean)
+  );
+
+  const invalidFieldKeys = selectedFields.filter((fieldKey) => !availableFieldKeys.has(fieldKey));
+  if (invalidFieldKeys.length < 1) {
+    return;
+  }
+
+  throw new Error(
+    `ui-generator option "display-fields" includes unsupported field(s) for operations.${operationName}: ${invalidFieldKeys.join(", ")}.`
+  );
+}
+
+function filterDisplayFields(selectedFieldKeys, fields) {
+  const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
+  const availableFields = Array.isArray(fields) ? fields : [];
+  if (selectedFields.length < 1) {
+    return availableFields;
+  }
+
+  const selectedFieldSet = new Set(selectedFields);
+  return availableFields.filter((field) => selectedFieldSet.has(normalizeText(field?.key)));
+}
+
+function resolveFormInputType(fieldType, fieldFormat) {
+  if (fieldType === "integer" || fieldType === "number") {
+    return "number";
+  }
+
+  if (DATE_FORMATS.has(fieldFormat)) {
+    return "date";
+  }
+
+  return "text";
+}
+
+function resolveFormFieldComponent(fieldType) {
+  if (fieldType === "boolean") {
+    return "switch";
+  }
+
+  return "text";
+}
+
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function createFormFieldDefinitions(properties = {}) {
+  const fields = [];
+
+  for (const [rawKey, schema] of Object.entries(properties)) {
+    const key = normalizeText(rawKey);
+    if (!key) {
+      continue;
+    }
+
+    const schemaType = resolveSchemaType(schema);
+    fields.push({
+      key,
+      label: toFieldLabel(key),
+      type: schemaType.type || "string",
+      format: schemaType.format || "",
+      inputType: resolveFormInputType(schemaType.type, schemaType.format),
+      component: resolveFormFieldComponent(schemaType.type),
+      maxLength: toPositiveInteger(schemaType.schema?.maxLength)
+    });
+  }
+
+  return fields;
+}
+
+function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  if (normalizedFields.length > 0) {
+    return normalizedFields;
+  }
+
+  return fallbackFields;
 }
 
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const selectedOperations = parseOperationsOption(options);
+  const selectedDisplayFields = parseDisplayFieldsOption(options);
+  const resourceNamespace = resolveResourceNamespaceOption(options);
+
+  const hasListOperation = selectedOperations.has("list");
+  const hasViewOperation = selectedOperations.has("view");
+  const hasNewOperation = selectedOperations.has("new");
+  const hasEditOperation = selectedOperations.has("edit");
+
   const resource = await loadResourceDefinition({ appRoot, options });
-  const listOperation = requireOperation(resource, "list");
-  const viewOperation = requireOperation(resource, "view");
 
-  const listOutputSchema = requireOutputSchema(listOperation, "list");
-  const viewOutputSchema = requireOutputSchema(viewOperation, "view");
+  let listFieldsAll = [];
+  if (hasListOperation) {
+    const listOperation = requireOperation(resource, "list");
+    const listOutputSchema = requireOutputSchema(listOperation, "list");
+    listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema));
+    validateDisplayFieldsForOperation(selectedDisplayFields, listFieldsAll, "list");
+  }
 
-  const listFields = createFieldDefinitions(resolveListItemProperties(listOutputSchema));
-  const viewFields = createFieldDefinitions(requireObjectProperties(viewOutputSchema, "operations.view output"));
-  const resolvedRecordIdExpression = resolveRecordIdExpression(listFields);
+  let viewFieldsAll = [];
+  if (hasViewOperation) {
+    const viewOperation = requireOperation(resource, "view");
+    const viewOutputSchema = requireOutputSchema(viewOperation, "view");
+    viewFieldsAll = createFieldDefinitions(requireObjectProperties(viewOutputSchema, "operations.view output"));
+    validateDisplayFieldsForOperation(selectedDisplayFields, viewFieldsAll, "view");
+  }
 
-  const dataColumnCount = Math.max(listFields.length, 1);
-  const primaryField =
-    viewFields.find((field) => field.key !== "id" && field.type === "string" && !DATE_FORMATS.has(field.format)) ||
-    viewFields[0] ||
-    { key: "id", type: "string", format: "" };
+  let createFieldsAll = [];
+  if (hasNewOperation) {
+    const createOperation = requireOperation(resource, "create");
+    const createBodySchema = requireBodySchema(createOperation, "create");
+    createFieldsAll = createFormFieldDefinitions(requireObjectProperties(createBodySchema, "operations.create body"));
+    validateDisplayFieldsForOperation(selectedDisplayFields, createFieldsAll, "create");
+  }
+
+  let editFieldsAll = [];
+  if (hasEditOperation) {
+    const patchOperation = requireOperation(resource, "patch");
+    const patchBodySchema = requireBodySchema(patchOperation, "patch");
+    editFieldsAll = createFormFieldDefinitions(requireObjectProperties(patchBodySchema, "operations.patch body"));
+    validateDisplayFieldsForOperation(selectedDisplayFields, editFieldsAll, "patch");
+  }
+
+  const listFields = hasListOperation
+    ? filterDisplayFields(selectedDisplayFields, ensureFields(listFieldsAll))
+    : createFieldDefinitions({});
+  const viewFields = hasViewOperation
+    ? filterDisplayFields(selectedDisplayFields, ensureFields(viewFieldsAll))
+    : createFieldDefinitions({});
+  const createFields = hasNewOperation
+    ? filterDisplayFields(selectedDisplayFields, createFieldsAll)
+    : [];
+  const editFields = hasEditOperation
+    ? filterDisplayFields(selectedDisplayFields, editFieldsAll)
+    : [];
+
+  const recordIdFields =
+    listFieldsAll.length > 0
+      ? listFieldsAll
+      : viewFieldsAll.length > 0
+        ? viewFieldsAll
+        : editFieldsAll.length > 0
+          ? editFieldsAll
+          : createFieldDefinitions({});
 
   return {
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
-    __JSKIT_UI_LIST_DATA_COLUMN_COUNT__: String(dataColumnCount),
-    __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolvedRecordIdExpression,
+    __JSKIT_UI_LIST_DATA_COLUMN_COUNT__: String(Math.max(listFields.length, 1)),
+    __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
-    __JSKIT_UI_VIEW_PRIMARY_ACCESSOR__: toAccessorExpression("record.value", primaryField.key),
-    __JSKIT_UI_VIEW_PRIMARY_TYPE__: stringifyLiteral(primaryField.type),
-    __JSKIT_UI_VIEW_PRIMARY_FORMAT__: stringifyLiteral(primaryField.format),
-    __JSKIT_UI_HAS_LIST_ROUTE__: selectedOperations.has("list") ? "true" : "false"
+    __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(resolveRecordChangedEventName(resourceNamespace)),
+    __JSKIT_UI_HAS_LIST_ROUTE__: hasListOperation ? "true" : "false",
+    __JSKIT_UI_HAS_VIEW_ROUTE__: hasViewOperation ? "true" : "false",
+    __JSKIT_UI_HAS_NEW_ROUTE__: hasNewOperation ? "true" : "false",
+    __JSKIT_UI_HAS_EDIT_ROUTE__: hasEditOperation ? "true" : "false",
+    __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
+    __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields)
   };
 }
 

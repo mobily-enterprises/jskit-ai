@@ -3,6 +3,7 @@ import { normalizeRouteVisibilityToken } from "@jskit-ai/kernel/shared/support/v
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 
 const DEFAULT_CRUD_OWNERSHIP_FILTER = "workspace";
+const ROUTE_PARAM_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 function requireCrudNamespace(namespace, { context = "resolveCrudClientConfig" } = {}) {
   const normalizedNamespace = normalizeLowerText(namespace);
@@ -40,11 +41,16 @@ function resolveCrudClientConfig(source = {}) {
     Object.hasOwn(payload, "relativePath") ? payload.relativePath : inferredRelativePath,
     { context: "resolveCrudClientConfig" }
   );
+  const apiRelativePath = normalizeRelativePath(
+    Object.hasOwn(payload, "apiRelativePath") ? payload.apiRelativePath : relativePath,
+    { context: "resolveCrudClientConfig" }
+  );
 
   return Object.freeze({
     namespace,
     ownershipFilter,
-    relativePath
+    relativePath,
+    apiRelativePath
   });
 }
 
@@ -97,6 +103,49 @@ function toRouteRecordId(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function normalizeCrudRouteParamName(value, { context = "normalizeCrudRouteParamName" } = {}) {
+  const normalizedValue = normalizeText(value);
+  if (!normalizedValue) {
+    throw new TypeError(`${context} requires a non-empty route parameter name.`);
+  }
+  if (!ROUTE_PARAM_NAME_PATTERN.test(normalizedValue)) {
+    throw new TypeError(
+      `${context} route parameter "${normalizedValue}" is invalid. Use letters, numbers, and underscores only.`
+    );
+  }
+
+  return normalizedValue;
+}
+
+function resolveCrudRecordPathTemplates(relativePath = "", recordIdParam = "recordId") {
+  const normalizedRelativePath = normalizeRelativePath(relativePath, {
+    context: "resolveCrudRecordPathTemplates"
+  });
+  const normalizedRecordIdParam = normalizeCrudRouteParamName(recordIdParam, {
+    context: "resolveCrudRecordPathTemplates"
+  });
+  const recordSegment = `:${normalizedRecordIdParam}`;
+
+  return Object.freeze({
+    viewPathTemplate: `${normalizedRelativePath}/${recordSegment}`,
+    editPathTemplate: `${normalizedRelativePath}/${recordSegment}/edit`
+  });
+}
+
+function resolveCrudRecordPathParams(recordIdLike = 0, recordIdParam = "recordId") {
+  const normalizedRecordIdParam = normalizeCrudRouteParamName(recordIdParam, {
+    context: "resolveCrudRecordPathParams"
+  });
+  const normalizedRecordId = toRouteRecordId(recordIdLike);
+  if (!normalizedRecordId) {
+    return Object.freeze({});
+  }
+
+  return Object.freeze({
+    [normalizedRecordIdParam]: String(normalizedRecordId)
+  });
+}
+
 export {
   DEFAULT_CRUD_OWNERSHIP_FILTER,
   requireCrudNamespace,
@@ -107,5 +156,8 @@ export {
   invalidateCrudQueries,
   crudListQueryKey,
   crudViewQueryKey,
-  toRouteRecordId
+  toRouteRecordId,
+  normalizeCrudRouteParamName,
+  resolveCrudRecordPathTemplates,
+  resolveCrudRecordPathParams
 };
