@@ -199,6 +199,44 @@ function normalizeWhenSourceValue(value) {
   return "";
 }
 
+function normalizeWhenComparisonValue(value) {
+  const normalizedValue = normalizeWhenSourceValue(value);
+  if (!normalizedValue.includes(",")) {
+    return normalizedValue;
+  }
+
+  return normalizedValue
+    .split(",")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean)
+    .join(",");
+}
+
+function splitWhenComparisonTokens(value) {
+  return normalizeWhenComparisonValue(value)
+    .split(",")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+function matchesWhenComparisonValue(optionValue, optionTokens, expectedValue) {
+  const expected = normalizeWhenComparisonValue(expectedValue);
+  if (!expected) {
+    return false;
+  }
+
+  const expectedTokens = splitWhenComparisonTokens(expected);
+  if (expectedTokens.length > 1) {
+    return optionValue === expected;
+  }
+
+  if (optionTokens.length > 1) {
+    return optionTokens.includes(expectedTokens[0]);
+  }
+
+  return optionValue === expectedTokens[0];
+}
+
 function resolveWhenConfigValue(configContext = {}, configPath = "") {
   const normalizedPath = String(configPath || "").trim();
   if (!normalizedPath) {
@@ -259,11 +297,12 @@ function shouldApplyMutationWhen(
   const sourceValue = optionName
     ? readObjectPath(options, optionName)
     : resolveWhenConfigValue(configContext, configPath);
-  const optionValue = normalizeWhenSourceValue(sourceValue);
-  const equals = String(when.equals || "").trim();
-  const notEquals = String(when.notEquals || "").trim();
-  const includes = ensureArray(when.includes).map((entry) => String(entry || "").trim()).filter(Boolean);
-  const excludes = ensureArray(when.excludes).map((entry) => String(entry || "").trim()).filter(Boolean);
+  const optionValue = normalizeWhenComparisonValue(sourceValue);
+  const optionTokens = splitWhenComparisonTokens(optionValue);
+  const equals = normalizeWhenComparisonValue(when.equals);
+  const notEquals = normalizeWhenComparisonValue(when.notEquals);
+  const includes = ensureArray(when.includes).map((entry) => normalizeWhenComparisonValue(entry)).filter(Boolean);
+  const excludes = ensureArray(when.excludes).map((entry) => normalizeWhenComparisonValue(entry)).filter(Boolean);
 
   if (equals && optionValue !== equals) {
     return false;
@@ -271,10 +310,10 @@ function shouldApplyMutationWhen(
   if (notEquals && optionValue === notEquals) {
     return false;
   }
-  if (includes.length > 0 && !includes.includes(optionValue)) {
+  if (includes.length > 0 && !includes.some((entry) => matchesWhenComparisonValue(optionValue, optionTokens, entry))) {
     return false;
   }
-  if (excludes.length > 0 && excludes.includes(optionValue)) {
+  if (excludes.length > 0 && excludes.some((entry) => matchesWhenComparisonValue(optionValue, optionTokens, entry))) {
     return false;
   }
 

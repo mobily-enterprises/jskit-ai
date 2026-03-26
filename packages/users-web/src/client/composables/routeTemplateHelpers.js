@@ -1,0 +1,59 @@
+import { asPlainObject } from "./scopeHelpers.js";
+
+const ROUTE_PARAM_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+function normalizeRouteParamName(value = "", { context = "users-web route param" } = {}) {
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedValue) {
+    throw new TypeError(`${context} must be a non-empty route parameter name.`);
+  }
+  if (!ROUTE_PARAM_NAME_PATTERN.test(normalizedValue)) {
+    throw new TypeError(
+      `${context} "${normalizedValue}" is invalid. Use letters, numbers, and underscores only.`
+    );
+  }
+
+  return normalizedValue;
+}
+
+function toRouteParamValue(value) {
+  if (Array.isArray(value)) {
+    return toRouteParamValue(value[0]);
+  }
+  if (value == null) {
+    return "";
+  }
+
+  return String(value).trim();
+}
+
+function resolveRouteTemplatePath(routeTemplate = "", params = {}) {
+  const normalizedTemplate = String(routeTemplate || "").trim();
+  if (!normalizedTemplate) {
+    return "";
+  }
+
+  const source = asPlainObject(params);
+  const missingParams = [];
+  const resolvedPath = normalizedTemplate.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, key) => {
+    const value = toRouteParamValue(source[key]);
+    if (!value) {
+      missingParams.push(key);
+      return `:${key}`;
+    }
+
+    return encodeURIComponent(value);
+  });
+
+  if (missingParams.length > 0) {
+    return "";
+  }
+
+  return resolvedPath;
+}
+
+export {
+  normalizeRouteParamName,
+  toRouteParamValue,
+  resolveRouteTemplatePath
+};
