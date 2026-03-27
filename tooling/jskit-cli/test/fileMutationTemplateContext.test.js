@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, constants as fsConstants, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -421,5 +421,106 @@ export { buildTemplateContext };
 
     assert.equal(await fileExists(path.join(appRoot, "src", "generated", "plain.txt")), false);
     assert.equal(await fileExists(path.join(appRoot, "src", "generated", "templated.txt")), false);
+  });
+});
+
+test("add package applies templateContext replacements to install-migration files", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "template-context-migration-app");
+    await createMinimalApp(appRoot, { name: "template-context-migration-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "template-context-migration-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/template-context-migration-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.template-context.migration\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "templateContext.js"),
+      `function buildTemplateContext() {
+  return {
+    "__TABLE_NAME__": "contacts_from_template_context"
+  };
+}
+
+export { buildTemplateContext };
+`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "templates", "migration.cjs"),
+      "module.exports = \"__TABLE_NAME__\";\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/template-context-migration-feature",
+  version: "0.1.0",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        id: "template-context-migration",
+        templateContext: {
+          entrypoint: "src/server/templateContext.js",
+          export: "buildTemplateContext"
+        }
+      }
+    ]
+  }
+});
+`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/template-context-migration-feature", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const migrationsDir = path.join(appRoot, "migrations");
+    const entries = await readdir(migrationsDir);
+    const migrationFile = entries.find((entry) => /^\d{14}_template-context-migration\.cjs$/.test(entry));
+    assert.ok(migrationFile, "Expected managed migration file to be generated.");
+
+    const migrationContent = await readFile(path.join(migrationsDir, migrationFile), "utf8");
+    assert.equal(migrationContent, "module.exports = \"contacts_from_template_context\";\n");
   });
 });

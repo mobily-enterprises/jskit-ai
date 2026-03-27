@@ -7,6 +7,7 @@ export default Object.freeze({
     "@jskit-ai/kernel",
     "@jskit-ai/realtime",
     "@jskit-ai/shell-web",
+    "@jskit-ai/users-core",
     "@jskit-ai/users-web"
   ],
   capabilities: {

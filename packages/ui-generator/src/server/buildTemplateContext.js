@@ -283,6 +283,18 @@ function toAccessorExpression(baseName, fieldKey) {
   return `${baseName}[${JSON.stringify(key)}]`;
 }
 
+function toOptionalAccessorExpression(baseName, fieldKey) {
+  const key = normalizeText(fieldKey);
+  if (!key) {
+    return baseName;
+  }
+  if (JS_IDENTIFIER_PATTERN.test(key)) {
+    return `${baseName}?.${key}`;
+  }
+
+  return `${baseName}?.[${JSON.stringify(key)}]`;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -312,7 +324,7 @@ function buildViewColumns(fields) {
     .map(
       (field) => `            <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ ${toAccessorExpression("record", field.key)} }}</div>
+              <div class="text-body-1">{{ ${toOptionalAccessorExpression("view.record.value", field.key)} }}</div>
             </v-col>`
     )
     .join("\n");
@@ -501,7 +513,6 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   return {
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
-    __JSKIT_UI_LIST_DATA_COLUMN_COUNT__: String(Math.max(listFields.length, 1)),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
     __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(resolveRecordChangedEventName(resourceNamespace)),

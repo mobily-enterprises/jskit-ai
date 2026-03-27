@@ -28,5 +28,6 @@ test("server provider module exports mysql service provider only", () => {
 test("shared entrypoint exports mysql dialect helpers", () => {
   assert.equal(sharedApi.DIALECT_ID, "mysql2");
   assert.equal(sharedApi.getDialectId(), "mysql2");
+  assert.equal(typeof sharedApi.introspectCrudTableSnapshot, "function");
   assert.equal(typeof sharedApi.DatabaseRuntimeMysqlServiceProvider, "undefined");
 });

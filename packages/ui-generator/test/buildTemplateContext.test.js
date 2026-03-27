@@ -102,10 +102,9 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
       }
     });
 
-    assert.equal(context.__JSKIT_UI_LIST_DATA_COLUMN_COUNT__, "5");
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>First Name<\/th>/);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.updatedAt/);
-    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /record\.vip/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\.value\?\.vip/);
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
@@ -146,13 +145,12 @@ test("buildUiTemplateContext filters rendered fields when display-fields is prov
       }
     });
 
-    assert.equal(context.__JSKIT_UI_LIST_DATA_COLUMN_COUNT__, "2");
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>First Name<\/th>/);
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>Email<\/th>/);
     assert.doesNotMatch(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>Id<\/th>/);
-    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /record\.firstName/);
-    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /record\.email/);
-    assert.doesNotMatch(context.__JSKIT_UI_VIEW_COLUMNS__, /record\.vip/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\.value\?\.firstName/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\.value\?\.email/);
+    assert.doesNotMatch(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\.value\?\.vip/);
 
     const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
     const editFields = JSON.parse(context.__JSKIT_UI_EDIT_FORM_FIELDS__);
@@ -239,7 +237,6 @@ export { listOnlyResource };
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "false");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "false");
     assert.equal(context.__JSKIT_UI_HAS_EDIT_ROUTE__, "false");
-    assert.equal(context.__JSKIT_UI_LIST_DATA_COLUMN_COUNT__, "2");
     assert.equal(context.__JSKIT_UI_CREATE_FORM_FIELDS__, "[]");
     assert.equal(context.__JSKIT_UI_EDIT_FORM_FIELDS__, "[]");
   });

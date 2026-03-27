@@ -222,12 +222,10 @@ test("add package @jskit-ai/ui-generator with list,view,new,edit scaffolds all c
     const listPageSource = await readFile(paths.listPagePath, "utf8");
     assert.match(listPageSource, /<th>First Name<\/th>/);
     assert.match(listPageSource, /<th>Email<\/th>/);
-    assert.match(listPageSource, /const UI_HAS_VIEW_ROUTE = true;/);
-    assert.match(listPageSource, /const UI_HAS_EDIT_ROUTE = true;/);
-    assert.match(listPageSource, /const UI_HAS_NEW_ROUTE = true;/);
-    assert.match(listPageSource, /const UI_VIEW_URL = UI_HAS_VIEW_ROUTE \? `\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
-    assert.match(listPageSource, /const UI_EDIT_URL = UI_HAS_EDIT_ROUTE \? `\.\/:\$\{UI_RECORD_ID_PARAM\}\/edit` : "";/);
-    assert.match(listPageSource, /const UI_NEW_URL = UI_HAS_NEW_ROUTE \? "\.\/new" : "";/);
+    assert.match(listPageSource, /const UI_VIEW_URL = true \? `\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
+    assert.match(listPageSource, /const UI_EDIT_URL = true \? `\.\/:\$\{UI_RECORD_ID_PARAM\}\/edit` : "";/);
+    assert.match(listPageSource, /const UI_NEW_URL = true \? "\.\/new" : "";/);
+    assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
     assert.match(listPageSource, /const UI_OPERATION_ADAPTER = null;/);
     assert.match(listPageSource, /queryKeyFactory: \(surfaceId = "", workspaceSlug = ""\)/);
     assert.match(listPageSource, /recordIdSelector: \(item = \{\}\) => item\.id,/);
@@ -242,6 +240,14 @@ test("add package @jskit-ai/ui-generator with list,view,new,edit scaffolds all c
     assert.match(viewPageSource, /View and manage this customer\./);
     assert.match(viewPageSource, /const UI_API_BASE_URL = "\/crud\/customers";/);
     assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/:\$\{UI_RECORD_ID_PARAM\}`;/);
+    assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL,/);
+    assert.match(viewPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
+    assert.match(viewPageSource, /includeRecordIdInQueryKey: true,/);
+    assert.match(viewPageSource, /view\.record\.value\?\.firstName/);
+    assert.doesNotMatch(viewPageSource, /function resolveTemplateUrl/);
+    assert.doesNotMatch(viewPageSource, /function toRouteRecordId/);
+    assert.doesNotMatch(viewPageSource, /useRoute/);
+    assert.doesNotMatch(viewPageSource, /const record = computed/);
     assert.match(viewPageSource, /<v-card-title class="px-0">Customer<\/v-card-title>/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
@@ -291,9 +297,10 @@ test("add package @jskit-ai/ui-generator with operations=list scaffolds list onl
     assert.equal(await fileExists(paths.editPagePath), false);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /const UI_HAS_VIEW_ROUTE = false;/);
-    assert.match(listPageSource, /const UI_HAS_EDIT_ROUTE = false;/);
-    assert.match(listPageSource, /const UI_HAS_NEW_ROUTE = false;/);
+    assert.match(listPageSource, /const UI_VIEW_URL = false \? `\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
+    assert.match(listPageSource, /const UI_EDIT_URL = false \? `\.\/:\$\{UI_RECORD_ID_PARAM\}\/edit` : "";/);
+    assert.match(listPageSource, /const UI_NEW_URL = false \? "\.\/new" : "";/);
+    assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
@@ -316,8 +323,9 @@ test("add package @jskit-ai/ui-generator with operations=view scaffolds view onl
     assert.equal(await fileExists(paths.editElementPath), false);
 
     const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /const UI_HAS_LIST_ROUTE = false;/);
-    assert.match(viewPageSource, /const UI_HAS_EDIT_ROUTE = false;/);
+    assert.match(viewPageSource, /const UI_LIST_URL = false \? "\.\." : "";/);
+    assert.match(viewPageSource, /const UI_EDIT_URL = false \? "\.\/edit" : "";/);
+    assert.doesNotMatch(viewPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
@@ -341,9 +349,9 @@ test("add package @jskit-ai/ui-generator applies display-fields filter to list/v
     assert.doesNotMatch(listPageSource, /<th>Vip<\/th>/);
 
     const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /record\.firstName/);
-    assert.match(viewPageSource, /record\.email/);
-    assert.doesNotMatch(viewPageSource, /record\.vip/);
+    assert.match(viewPageSource, /view\.record\.value\?\.firstName/);
+    assert.match(viewPageSource, /view\.record\.value\?\.email/);
+    assert.doesNotMatch(viewPageSource, /view\.record\.value\?\.vip/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
     assert.match(newPageSource, /\{"key":"firstName"/);

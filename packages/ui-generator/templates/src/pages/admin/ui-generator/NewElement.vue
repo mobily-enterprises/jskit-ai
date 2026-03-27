@@ -64,10 +64,8 @@ import { ${option:resource-export|trim} as uiResource } from "/${option:resource
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
 const UI_CREATE_API_URL = "${option:api-path|trim}";
-const UI_HAS_LIST_ROUTE = __JSKIT_UI_HAS_LIST_ROUTE__;
-const UI_HAS_VIEW_ROUTE = __JSKIT_UI_HAS_VIEW_ROUTE__;
-const UI_LIST_URL = UI_HAS_LIST_ROUTE ? ".." : "";
-const UI_VIEW_URL = UI_HAS_VIEW_ROUTE ? `../:${UI_RECORD_ID_PARAM}` : "";
+const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
+const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `../:${UI_RECORD_ID_PARAM}` : "";
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 const UI_CREATE_FORM_FIELDS = Object.freeze(__JSKIT_UI_CREATE_FORM_FIELDS__);
 
