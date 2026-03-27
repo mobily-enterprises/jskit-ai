@@ -3,21 +3,23 @@ import test from "node:test";
 import { ref } from "vue";
 import { createListUiRuntime } from "../src/client/composables/listUiRuntime.js";
 
-test("createListUiRuntime resolves row keys and route templates from string record ids", () => {
+test("createListUiRuntime resolves row keys and relative route templates from string record ids", () => {
   const items = ref([{ uuid: "abc 123" }]);
   const runtime = createListUiRuntime({
     items,
     isInitialLoading: ref(false),
     recordIdParam: "contactId",
     recordIdSelector: (item) => item.uuid,
+    routePath: ref("/w/acme/admin/contacts"),
     viewUrlTemplate: "./:contactId",
     editUrlTemplate: "./:contactId/edit"
   });
 
   assert.equal(runtime.actionColumnCount, 2);
   assert.equal(runtime.resolveRowKey(items.value[0], 0), "abc 123");
-  assert.equal(runtime.resolveViewUrl(items.value[0]), "./abc%20123");
-  assert.equal(runtime.resolveEditUrl(items.value[0]), "./abc%20123/edit");
+  assert.equal(runtime.resolveParams("./new"), "/w/acme/admin/contacts/new");
+  assert.equal(runtime.resolveViewUrl(items.value[0]), "/w/acme/admin/contacts/abc%20123");
+  assert.equal(runtime.resolveEditUrl(items.value[0]), "/w/acme/admin/contacts/abc%20123/edit");
 });
 
 test("createListUiRuntime resolves templates that depend on existing route params", () => {

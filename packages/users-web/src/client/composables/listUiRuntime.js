@@ -1,9 +1,11 @@
-import { computed, unref } from "vue";
+import { computed } from "vue";
 import { asPlainObject } from "./scopeHelpers.js";
 import {
   normalizeRouteParamName,
   toRouteParamValue,
-  resolveRouteTemplatePath
+  resolveRouteParamsSource,
+  resolveRoutePathnameSource,
+  resolveRouteTemplateLocation
 } from "./routeTemplateHelpers.js";
 
 function resolveRecordId(record, recordIdSelector) {
@@ -21,6 +23,7 @@ function createListUiRuntime({
   recordIdParam = "recordId",
   recordIdSelector = null,
   routeParams = null,
+  routePath = "",
   viewUrlTemplate = "",
   editUrlTemplate = ""
 } = {}) {
@@ -35,12 +38,23 @@ function createListUiRuntime({
   const normalizedItems = computed(() => (Array.isArray(items?.value) ? items.value : []));
   const showListSkeleton = computed(() => Boolean(isInitialLoading?.value && normalizedItems.value.length < 1));
 
-  function resolveRouteParams() {
-    if (typeof routeParams === "function") {
-      return asPlainObject(routeParams());
+  function resolveTemplatePath(urlTemplate = "", extraParams = {}) {
+    const normalizedTemplate = String(urlTemplate || "").trim();
+    if (!normalizedTemplate) {
+      return "";
     }
 
-    return asPlainObject(unref(routeParams));
+    return resolveRouteTemplateLocation(normalizedTemplate, {
+      params: {
+        ...resolveRouteParamsSource(routeParams),
+        ...asPlainObject(extraParams)
+      },
+      currentPathname: resolveRoutePathnameSource(routePath)
+    });
+  }
+
+  function resolveParams(urlTemplate = "", extraParams = {}) {
+    return resolveTemplatePath(urlTemplate, extraParams);
   }
 
   function resolveRowKey(record, index) {
@@ -62,8 +76,7 @@ function createListUiRuntime({
       return "";
     }
 
-    return resolveRouteTemplatePath(normalizedViewUrlTemplate, {
-      ...resolveRouteParams(),
+    return resolveTemplatePath(normalizedViewUrlTemplate, {
       [normalizedRecordIdParam]: recordId
     });
   }
@@ -78,8 +91,7 @@ function createListUiRuntime({
       return "";
     }
 
-    return resolveRouteTemplatePath(normalizedEditUrlTemplate, {
-      ...resolveRouteParams(),
+    return resolveTemplatePath(normalizedEditUrlTemplate, {
       [normalizedRecordIdParam]: recordId
     });
   }
@@ -89,6 +101,7 @@ function createListUiRuntime({
     hasEditUrl,
     actionColumnCount,
     showListSkeleton,
+    resolveParams,
     resolveRowKey,
     resolveViewUrl,
     resolveEditUrl

@@ -132,7 +132,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(serverConfig, /export const config = \{\};/);
 
     const serverJs = await readFile(path.join(appRoot, "server.js"), "utf8");
-    assert.match(serverJs, /globalUiPaths:\s*runtime\?\.globalUiPaths\s*\|\|\s*\[\]/);
+    assert.match(serverJs, /function resolveGlobalUiPaths\(runtimeGlobalUiPaths = \[\]\)/);
+    assert.match(serverJs, /globalUiPaths:\s*resolveGlobalUiPaths\(runtime\?\.globalUiPaths\s*\|\|\s*\[\]\)/);
     assert.match(serverJs, /registerTypeBoxFormats\(\);/);
     assert.match(serverJs, /app\.setValidatorCompiler\(TypeBoxValidatorCompiler\);/);
 

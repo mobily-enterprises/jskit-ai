@@ -2,17 +2,11 @@ import { computed, unref } from "vue";
 import { asPlainObject } from "./scopeHelpers.js";
 import {
   normalizeRouteParamName,
-  toRouteParamValue,
-  resolveRouteTemplatePath
+  resolveRouteParamsSource,
+  resolveRoutePathnameSource,
+  resolveRouteTemplateLocation,
+  toRouteParamValue
 } from "./routeTemplateHelpers.js";
-
-function resolveRouteParams(source = null) {
-  if (typeof source === "function") {
-    return asPlainObject(source());
-  }
-
-  return asPlainObject(unref(source));
-}
 
 function toResolvedRecordId({ routeParams, recordIdParam, routeRecordId }) {
   const explicitRecordId = toRouteParamValue(
@@ -37,6 +31,7 @@ function resolveSavedRecordId(payload, saveRecordIdSelector) {
 function createAddEditUiRuntime({
   recordIdParam = "recordId",
   routeParams = null,
+  routePath = "",
   routeRecordId = null,
   apiUrlTemplate = "",
   viewUrlTemplate = "",
@@ -56,7 +51,7 @@ function createAddEditUiRuntime({
       return "";
     }
 
-    const currentRouteParams = resolveRouteParams(routeParams);
+    const currentRouteParams = resolveRouteParamsSource(routeParams);
     const sourceParams = {
       ...currentRouteParams,
       ...asPlainObject(extraParams)
@@ -69,12 +64,15 @@ function createAddEditUiRuntime({
       });
     sourceParams[normalizedRecordIdParam] = resolvedRecordId;
 
-    return resolveRouteTemplatePath(normalizedTemplate, sourceParams);
+    return resolveRouteTemplateLocation(normalizedTemplate, {
+      params: sourceParams,
+      currentPathname: resolveRoutePathnameSource(routePath)
+    });
   }
 
   const recordId = computed(() =>
     toResolvedRecordId({
-      routeParams: resolveRouteParams(routeParams),
+      routeParams: resolveRouteParamsSource(routeParams),
       recordIdParam: normalizedRecordIdParam,
       routeRecordId
     })
@@ -83,6 +81,10 @@ function createAddEditUiRuntime({
   const apiSuffix = computed(() => resolveTemplatePath(normalizedApiUrlTemplate));
   const listUrl = computed(() => resolveTemplatePath(normalizedListUrlTemplate));
   const cancelUrl = computed(() => resolveTemplatePath(normalizedViewUrlTemplate) || listUrl.value);
+
+  function resolveParams(urlTemplate = "", extraParams = {}) {
+    return resolveTemplatePath(urlTemplate, extraParams);
+  }
 
   function resolveViewUrl(recordIdLike = "") {
     const targetRecordId = toRouteParamValue(recordIdLike);
@@ -109,6 +111,7 @@ function createAddEditUiRuntime({
     apiSuffix,
     listUrl,
     cancelUrl,
+    resolveParams,
     resolveViewUrl,
     resolveSavedViewUrl
   });

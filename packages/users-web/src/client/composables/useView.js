@@ -26,6 +26,8 @@ function useView({
   routeParams = null,
   routeRecordId = null,
   apiUrlTemplate = "",
+  listUrlTemplate = "",
+  editUrlTemplate = "",
   includeRecordIdInQueryKey = false,
   realtime = null,
   adapter = null
@@ -34,8 +36,11 @@ function useView({
   const viewUiRuntime = createViewUiRuntime({
     recordIdParam,
     routeParams: routeParams ?? computed(() => route?.params || {}),
+    routePath: computed(() => route?.path || ""),
     routeRecordId,
-    apiUrlTemplate
+    apiUrlTemplate,
+    listUrlTemplate,
+    editUrlTemplate
   });
   const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
   const effectiveApiSuffix = normalizedApiUrlTemplate ? viewUiRuntime.apiSuffix : apiSuffix;
@@ -104,6 +109,9 @@ function useView({
   return Object.freeze({
     record: view.record,
     recordId: viewUiRuntime.recordId,
+    listUrl: viewUiRuntime.listUrl,
+    editUrl: viewUiRuntime.editUrl,
+    resolveParams: viewUiRuntime.resolveParams,
     canView,
     isLoading,
     isFetching,

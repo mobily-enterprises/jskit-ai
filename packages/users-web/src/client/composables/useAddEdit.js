@@ -53,6 +53,7 @@ function useAddEdit({
   const addEditUiRuntime = createAddEditUiRuntime({
     recordIdParam,
     routeParams: routeParams ?? computed(() => route?.params || {}),
+    routePath: computed(() => route?.path || ""),
     routeRecordId,
     apiUrlTemplate,
     viewUrlTemplate,
@@ -157,6 +158,7 @@ function useAddEdit({
     recordId: addEditUiRuntime.recordId,
     listUrl: addEditUiRuntime.listUrl,
     cancelUrl: addEditUiRuntime.cancelUrl,
+    resolveParams: addEditUiRuntime.resolveParams,
     resolveViewUrl: addEditUiRuntime.resolveViewUrl,
     resolveSavedViewUrl: addEditUiRuntime.resolveSavedViewUrl
   });

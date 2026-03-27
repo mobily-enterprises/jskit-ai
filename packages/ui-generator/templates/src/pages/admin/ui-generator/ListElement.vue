@@ -9,7 +9,7 @@
           </div>
           <v-spacer />
           <v-btn variant="outlined" :loading="records.isFetching.value" @click="records.reload">Refresh</v-btn>
-          <v-btn v-if="UI_NEW_URL" color="primary" :to="UI_NEW_URL">New ${option:namespace|singular|default(record)}</v-btn>
+          <v-btn v-if="UI_NEW_URL" color="primary" :to="records.resolveParams(UI_NEW_URL)">New ${option:namespace|singular|default(record)}</v-btn>
         </div>
       </v-card-item>
       <v-divider />

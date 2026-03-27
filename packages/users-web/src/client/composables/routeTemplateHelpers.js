@@ -1,3 +1,4 @@
+import { unref } from "vue";
 import { asPlainObject } from "./scopeHelpers.js";
 
 const ROUTE_PARAM_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -27,6 +28,32 @@ function toRouteParamValue(value) {
   return String(value).trim();
 }
 
+function resolveRouteSourceValue(source = null) {
+  if (typeof source === "function") {
+    return source();
+  }
+
+  return unref(source);
+}
+
+function resolveRouteParamsSource(source = null) {
+  return asPlainObject(resolveRouteSourceValue(source));
+}
+
+function normalizeRoutePathname(value = "") {
+  const rawPathname = String(value || "").trim();
+  const sanitizedPathname = rawPathname.split(/[?#]/u, 1)[0] || "";
+  if (!sanitizedPathname) {
+    return "/";
+  }
+
+  return sanitizedPathname.startsWith("/") ? sanitizedPathname : `/${sanitizedPathname}`;
+}
+
+function resolveRoutePathnameSource(source = "") {
+  return normalizeRoutePathname(resolveRouteSourceValue(source));
+}
+
 function resolveRouteTemplatePath(routeTemplate = "", params = {}) {
   const normalizedTemplate = String(routeTemplate || "").trim();
   if (!normalizedTemplate) {
@@ -52,8 +79,32 @@ function resolveRouteTemplatePath(routeTemplate = "", params = {}) {
   return resolvedPath;
 }
 
+function resolveRouteTemplateLocation(routeTemplate = "", { params = {}, currentPathname = "/" } = {}) {
+  const resolvedTemplatePath = resolveRouteTemplatePath(routeTemplate, params);
+  if (!resolvedTemplatePath) {
+    return "";
+  }
+  if (resolvedTemplatePath.startsWith("/")) {
+    return resolvedTemplatePath;
+  }
+
+  const normalizedCurrentPathname = resolveRoutePathnameSource(currentPathname);
+  const basePathname = normalizedCurrentPathname.endsWith("/")
+    ? normalizedCurrentPathname
+    : `${normalizedCurrentPathname}/`;
+  const resolvedPathname = new URL(resolvedTemplatePath, `https://jskit.local${basePathname}`).pathname;
+  if (resolvedPathname.length > 1 && resolvedPathname.endsWith("/")) {
+    return resolvedPathname.slice(0, -1);
+  }
+
+  return resolvedPathname;
+}
+
 export {
   normalizeRouteParamName,
   toRouteParamValue,
-  resolveRouteTemplatePath
+  resolveRouteParamsSource,
+  resolveRoutePathnameSource,
+  resolveRouteTemplatePath,
+  resolveRouteTemplateLocation
 };

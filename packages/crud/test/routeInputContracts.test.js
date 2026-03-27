@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { registerRoutes } from "../src/server/registerRoutes.js";
+import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 
 function createReplyDouble() {
   return {
@@ -54,8 +55,12 @@ test("crud routes build create/update action input with explicit payload and pat
     }
   });
 
-  const createRoute = findRoute(registeredRoutes, "POST", "/api/w/:workspaceSlug/customers");
-  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/w/:workspaceSlug/customers/:recordId");
+  const workspaceRouteBase = resolveApiBasePath({
+    surfaceRequiresWorkspace: true,
+    relativePath: "/customers"
+  });
+  const createRoute = findRoute(registeredRoutes, "POST", workspaceRouteBase);
+  const updateRoute = findRoute(registeredRoutes, "PATCH", `${workspaceRouteBase}/:recordId`);
   assert.ok(createRoute);
   assert.ok(updateRoute);
 

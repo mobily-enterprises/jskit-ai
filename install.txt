@@ -23,27 +23,9 @@ npm run db:migrate
 
 # npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --no-install
 
-  npx jskit generate @jskit-ai/crud-server-generator \
-    --no-install \
-    --namespace contacts \
-    --surface admin \
-    --table-name contacts \
-    --id-column id \
-    --ownership-filter auto\
-    --no-install
+npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install
 
-
-  npx jskit generate @jskit-ai/crud-ui-generator \
-    --namespace contact \
-    --surface admin \
-    --operations list \
-    --resource-file packages/contacts/src/shared/contactResource.js \
-    --resource-export crudResource \
-    --api-path /crud/contacts \
-    --route-path contacts \
-    --id-param contactId \
-    --no-install
-
+npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param recordId --no-install
 
 
 

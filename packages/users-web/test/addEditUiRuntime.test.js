@@ -10,6 +10,7 @@ test("createAddEditUiRuntime resolves api/list/cancel paths from route params", 
       contactId: "7",
       addressId: "42"
     }),
+    routePath: ref("/contacts/7/addresses/new"),
     apiUrlTemplate: "/crud/contacts/:contactId/addresses/:addressId",
     viewUrlTemplate: "../:addressId",
     listUrlTemplate: ".."
@@ -17,8 +18,9 @@ test("createAddEditUiRuntime resolves api/list/cancel paths from route params", 
 
   assert.equal(runtime.recordId.value, "42");
   assert.equal(runtime.apiSuffix.value, "/crud/contacts/7/addresses/42");
-  assert.equal(runtime.listUrl.value, "..");
-  assert.equal(runtime.cancelUrl.value, "../42");
+  assert.equal(runtime.listUrl.value, "/contacts/7/addresses");
+  assert.equal(runtime.cancelUrl.value, "/contacts/7/addresses/42");
+  assert.equal(runtime.resolveParams("../:addressId"), "/contacts/7/addresses/42");
 });
 
 test("createAddEditUiRuntime resolves view urls for saved payload ids with nested params", () => {
@@ -31,6 +33,22 @@ test("createAddEditUiRuntime resolves view urls for saved payload ids with neste
   });
 
   assert.equal(runtime.resolveSavedViewUrl({ id: 99 }), "/contacts/7/addresses/99");
+});
+
+test("createAddEditUiRuntime resolves edit-page relative list and cancel links", () => {
+  const runtime = createAddEditUiRuntime({
+    recordIdParam: "addressId",
+    routeParams: ref({
+      contactId: "7",
+      addressId: "42"
+    }),
+    routePath: ref("/contacts/7/addresses/42/edit"),
+    viewUrlTemplate: "..",
+    listUrlTemplate: "../.."
+  });
+
+  assert.equal(runtime.listUrl.value, "/contacts/7/addresses");
+  assert.equal(runtime.cancelUrl.value, "/contacts/7/addresses/42");
 });
 
 test("createAddEditUiRuntime supports custom saved-record selector", () => {
