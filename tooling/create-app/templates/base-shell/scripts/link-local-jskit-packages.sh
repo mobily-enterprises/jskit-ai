@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-link installed @jskit-ai packages in node_modules to a local jskit-ai monorepo checkout.
+# Link all local @jskit-ai packages from a jskit-ai monorepo checkout into node_modules.
 # Run this AFTER `npm install` when you want live local development without publishing packages.
 #
 # Usage:
@@ -63,39 +63,76 @@ if ! is_valid_jskit_repo_root "$JSKIT_REPO_ROOT"; then
   exit 1
 fi
 
-resolve_source_dir() {
-  local package_dir_name="$1"
-  case "$package_dir_name" in
-    config-eslint|create-app|jskit-cli|jskit-catalog)
-      echo "$JSKIT_REPO_ROOT/tooling/$package_dir_name"
-      ;;
-    *)
-      echo "$JSKIT_REPO_ROOT/packages/$package_dir_name"
-      ;;
-  esac
+discover_local_package_map() {
+  node - "$JSKIT_REPO_ROOT" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const repoRoot = process.argv[2];
+const parentDirectories = [
+  path.join(repoRoot, "packages"),
+  path.join(repoRoot, "tooling")
+];
+const packageMap = new Map();
+
+for (const parentDirectory of parentDirectories) {
+  if (!fs.existsSync(parentDirectory) || !fs.statSync(parentDirectory).isDirectory()) {
+    continue;
+  }
+
+  for (const entry of fs.readdirSync(parentDirectory, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) {
+      continue;
+    }
+
+    const packageRoot = path.join(parentDirectory, entry.name);
+    const packageJsonPath = path.join(packageRoot, "package.json");
+    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+    if (!fs.existsSync(packageJsonPath) || !fs.existsSync(descriptorPath)) {
+      continue;
+    }
+
+    let packageJson = {};
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    } catch {
+      continue;
+    }
+
+    const packageId = String(packageJson?.name || "").trim();
+    if (!packageId.startsWith("@jskit-ai/")) {
+      continue;
+    }
+    const packageDirName = packageId.slice("@jskit-ai/".length);
+    if (!packageDirName || packageDirName.includes("/")) {
+      continue;
+    }
+
+    if (!packageMap.has(packageDirName)) {
+      packageMap.set(packageDirName, packageRoot);
+    }
+  }
+}
+
+for (const [packageDirName, packageRoot] of packageMap.entries()) {
+  process.stdout.write(`${packageDirName}\t${packageRoot}\n`);
+}
+NODE
 }
 
 linked_count=0
-skipped_count=0
 
-for installed_path in "$SCOPE_DIR"/*; do
-  if [[ ! -e "$installed_path" && ! -L "$installed_path" ]]; then
+mkdir -p "$SCOPE_DIR"
+while IFS=$'\t' read -r package_dir_name source_dir; do
+  if [[ -z "$package_dir_name" || -z "$source_dir" ]]; then
     continue
   fi
 
-  package_dir_name="$(basename "$installed_path")"
-  source_dir="$(resolve_source_dir "$package_dir_name")"
-
-  if [[ ! -f "$source_dir/package.json" ]]; then
-    echo "[link-local] skip @jskit-ai/$package_dir_name (no local source at $source_dir)"
-    skipped_count=$((skipped_count + 1))
-    continue
-  fi
-
-  rm -rf "$installed_path"
-  ln -s "$source_dir" "$installed_path"
+  target_path="$SCOPE_DIR/$package_dir_name"
+  rm -rf "$target_path"
+  ln -s "$source_dir" "$target_path"
   echo "[link-local] linked @jskit-ai/$package_dir_name -> $source_dir"
   linked_count=$((linked_count + 1))
-done
+done < <(discover_local_package_map)
 
-echo "[link-local] done. linked=$linked_count skipped=$skipped_count"
+echo "[link-local] done. linked=$linked_count"
