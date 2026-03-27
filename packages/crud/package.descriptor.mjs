@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.25",
+  version: "0.1.27",
   kind: "generator",
   description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
@@ -100,13 +100,13 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.16",
-        "@jskit-ai/crud-core": "0.1.25",
-        "@jskit-ai/database-runtime": "0.1.17",
-        "@jskit-ai/http-runtime": "0.1.16",
-        "@jskit-ai/kernel": "0.1.17",
-        "@jskit-ai/realtime": "0.1.16",
-        "@jskit-ai/users-core": "0.1.23",
+        "@jskit-ai/auth-core": "0.1.18",
+        "@jskit-ai/crud-core": "0.1.27",
+        "@jskit-ai/database-runtime": "0.1.19",
+        "@jskit-ai/http-runtime": "0.1.18",
+        "@jskit-ai/kernel": "0.1.19",
+        "@jskit-ai/realtime": "0.1.18",
+        "@jskit-ai/users-core": "0.1.28",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
         "typebox": "^1.0.81"
       },
