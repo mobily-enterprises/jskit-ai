@@ -932,11 +932,11 @@
             "promptHint": "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
           },
           "table-name": {
-            "required": false,
+            "required": true,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Table name",
-            "promptHint": "Optional existing MySQL table to introspect for CRUD schema generation."
+            "promptHint": "Required existing MySQL table to introspect for CRUD schema generation."
           },
           "id-column": {
             "required": false,
