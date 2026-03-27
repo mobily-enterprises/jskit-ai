@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.31",
+  "version": "0.1.33",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -21,11 +21,11 @@
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/users-core": "0.1.26",
-    "@jskit-ai/realtime": "0.1.16",
-    "@jskit-ai/http-runtime": "0.1.16",
-    "@jskit-ai/kernel": "0.1.17",
-    "@jskit-ai/shell-web": "0.1.16",
+    "@jskit-ai/users-core": "0.1.28",
+    "@jskit-ai/realtime": "0.1.18",
+    "@jskit-ai/http-runtime": "0.1.18",
+    "@jskit-ai/kernel": "0.1.19",
+    "@jskit-ai/shell-web": "0.1.18",
     "vuetify": "^4.0.0"
   }
 }
