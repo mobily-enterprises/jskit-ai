@@ -48,6 +48,7 @@ async function createExternalDescriptorPackage(appRoot, { packageId, version }) 
   packageVersion: 1,
   packageId: ${JSON.stringify(packageId)},
   version: ${JSON.stringify(version)},
+  kind: "runtime",
   description: "External JSKIT-compatible package.",
   dependsOn: [],
   capabilities: {

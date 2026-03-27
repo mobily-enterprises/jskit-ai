@@ -2,7 +2,7 @@ import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { splitPathQueryAndHash } from "@jskit-ai/kernel/shared/support";
 
 const USERS_PUBLIC_API_BASE_PATH = "/api";
-const USERS_WORKSPACE_API_BASE_PATH = "/api/w/:workspaceSlug/workspace";
+const USERS_WORKSPACE_API_BASE_PATH = "/api/w/:workspaceSlug";
 
 function normalizeApiRelativePath(relativePath = "/") {
   const { pathname, queryString, hash } = splitPathQueryAndHash(relativePath);

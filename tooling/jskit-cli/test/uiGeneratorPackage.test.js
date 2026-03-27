@@ -161,20 +161,21 @@ function resolveGeneratedPaths(appRoot) {
   };
 }
 
-async function addUiGeneratorPackage(
+async function generateCrudUiPackage(
   appRoot,
   {
     operations = "list,view",
     displayFields = "",
     namespace = "customers",
-    apiPath = "/crud/customers"
+    apiPath = "/crud/customers",
+    resourceExport = "customerResource"
   } = {}
 ) {
   const normalizedDisplayFields = String(displayFields || "").trim();
+  const normalizedResourceExport = String(resourceExport || "").trim();
   const args = [
-    "add",
-    "package",
-    "@jskit-ai/ui-generator",
+    "generate",
+    "@jskit-ai/crud-ui-generator",
     "--namespace",
     namespace,
     "--surface",
@@ -184,8 +185,7 @@ async function addUiGeneratorPackage(
     ...(normalizedDisplayFields ? ["--display-fields", normalizedDisplayFields] : []),
     "--resource-file",
     "packages/customers/src/shared/customerResource.js",
-    "--resource-export",
-    "customerResource",
+    ...(normalizedResourceExport ? ["--resource-export", normalizedResourceExport] : []),
     "--api-path",
     apiPath,
     "--route-path",
@@ -202,12 +202,28 @@ async function addUiGeneratorPackage(
   assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 }
 
-test("add package @jskit-ai/ui-generator with list,view,new,edit scaffolds all client files", async () => {
+test('generate @jskit-ai/crud-ui-generator derives resource export from "resource-file" basename by default', async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-default-export");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-default-export" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      operations: "list,view",
+      resourceExport: ""
+    });
+
+    const paths = resolveGeneratedPaths(appRoot);
+    assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.viewPagePath), true);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all client files", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-all");
     await createMinimalApp(appRoot, { name: "ui-generator-app-all" });
     await writeCustomerResource(appRoot);
-    await addUiGeneratorPackage(appRoot, { operations: "list,view,new,edit" });
+    await generateCrudUiPackage(appRoot, { operations: "list,view,new,edit" });
 
     const paths = resolveGeneratedPaths(appRoot);
     assert.equal(await fileExists(paths.listPagePath), true, paths.listPagePath);
@@ -279,12 +295,12 @@ test("add package @jskit-ai/ui-generator with list,view,new,edit scaffolds all c
   });
 });
 
-test("add package @jskit-ai/ui-generator with operations=list scaffolds list only", async () => {
+test("generate @jskit-ai/crud-ui-generator with operations=list scaffolds list only", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-list");
     await createMinimalApp(appRoot, { name: "ui-generator-app-list" });
     await writeCustomerResource(appRoot);
-    await addUiGeneratorPackage(appRoot, { operations: "list" });
+    await generateCrudUiPackage(appRoot, { operations: "list" });
 
     const paths = resolveGeneratedPaths(appRoot);
     assert.equal(await fileExists(paths.listPagePath), true);
@@ -307,12 +323,12 @@ test("add package @jskit-ai/ui-generator with operations=list scaffolds list onl
   });
 });
 
-test("add package @jskit-ai/ui-generator with operations=view scaffolds view only", async () => {
+test("generate @jskit-ai/crud-ui-generator with operations=view scaffolds view only", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-view");
     await createMinimalApp(appRoot, { name: "ui-generator-app-view" });
     await writeCustomerResource(appRoot);
-    await addUiGeneratorPackage(appRoot, { operations: "view" });
+    await generateCrudUiPackage(appRoot, { operations: "view" });
 
     const paths = resolveGeneratedPaths(appRoot);
     assert.equal(await fileExists(paths.viewPagePath), true);
@@ -332,12 +348,12 @@ test("add package @jskit-ai/ui-generator with operations=view scaffolds view onl
   });
 });
 
-test("add package @jskit-ai/ui-generator applies display-fields filter to list/view/forms", async () => {
+test("generate @jskit-ai/crud-ui-generator applies display-fields filter to list/view/forms", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-display-fields");
     await createMinimalApp(appRoot, { name: "ui-generator-app-display-fields" });
     await writeCustomerResource(appRoot);
-    await addUiGeneratorPackage(appRoot, {
+    await generateCrudUiPackage(appRoot, {
       operations: "list,view,new,edit",
       displayFields: "firstName,email"
     });
@@ -360,7 +376,7 @@ test("add package @jskit-ai/ui-generator applies display-fields filter to list/v
   });
 });
 
-test("add package @jskit-ai/ui-generator fails when display-fields includes unknown keys", async () => {
+test("generate @jskit-ai/crud-ui-generator fails when display-fields includes unknown keys", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-invalid-display-fields");
     await createMinimalApp(appRoot, { name: "ui-generator-app-invalid-display-fields" });
@@ -369,9 +385,8 @@ test("add package @jskit-ai/ui-generator fails when display-fields includes unkn
     const addResult = runCli({
       cwd: appRoot,
       args: [
-        "add",
-        "package",
-        "@jskit-ai/ui-generator",
+        "generate",
+        "@jskit-ai/crud-ui-generator",
         "--namespace",
         "customers",
         "--surface",
@@ -399,12 +414,12 @@ test("add package @jskit-ai/ui-generator fails when display-fields includes unkn
   });
 });
 
-test("add package @jskit-ai/ui-generator supports spaced operation lists in when filters", async () => {
+test("generate @jskit-ai/crud-ui-generator supports spaced operation lists in when filters", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-spaced-operations");
     await createMinimalApp(appRoot, { name: "ui-generator-app-spaced-operations" });
     await writeCustomerResource(appRoot);
-    await addUiGeneratorPackage(appRoot, { operations: "view , list , edit" });
+    await generateCrudUiPackage(appRoot, { operations: "view , list , edit" });
 
     const paths = resolveGeneratedPaths(appRoot);
     assert.equal(await fileExists(paths.listPagePath), true);
@@ -415,5 +430,37 @@ test("add package @jskit-ai/ui-generator supports spaced operation lists in when
     assert.equal(await fileExists(paths.viewElementPath), false);
     assert.equal(await fileExists(paths.editElementPath), false);
     assert.equal(await fileExists(paths.newElementPath), false);
+  });
+});
+
+test("add package rejects generator package ids", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-add-rejects-generator");
+    await createMinimalApp(appRoot, { name: "ui-generator-add-rejects-generator" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@jskit-ai/crud-ui-generator", "--no-install"]
+    });
+
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /is a generator/);
+    assert.match(String(addResult.stderr || ""), /jskit generate @jskit-ai\/crud-ui-generator/);
+  });
+});
+
+test("generate rejects runtime package ids", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-generate-rejects-runtime");
+    await createMinimalApp(appRoot, { name: "ui-generator-generate-rejects-runtime" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["generate", "@jskit-ai/auth-core", "--no-install"]
+    });
+
+    assert.equal(addResult.status, 1);
+    assert.match(String(addResult.stderr || ""), /is a runtime package/);
+    assert.match(String(addResult.stderr || ""), /jskit add package @jskit-ai\/auth-core/);
   });
 });

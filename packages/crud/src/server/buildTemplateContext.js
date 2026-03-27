@@ -8,6 +8,7 @@ import {
   resolveDatabaseConnectionFromEnvironment,
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
+import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const DEFAULT_ID_COLUMN = "id";
 const OWNERSHIP_FILTER_AUTO = "auto";
@@ -42,22 +43,6 @@ function asRecord(value) {
     return {};
   }
   return value;
-}
-
-function normalizeNamespace(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function resolveDefaultTableName(namespace) {
-  const normalizedNamespace = normalizeNamespace(namespace);
-  if (!normalizedNamespace) {
-    throw new Error('crud template context requires option "namespace".');
-  }
-  return `crud_${normalizedNamespace.replace(/-/g, "_")}`;
 }
 
 function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
@@ -221,170 +206,6 @@ function resolveKnexFactory(moduleNamespace) {
   throw new Error("Resolved knex module did not expose a callable factory.");
 }
 
-function normalizeDefaultSnapshotColumn(source) {
-  return Object.freeze({
-    ...source,
-    key: String(source.key || ""),
-    dataType: String(source.dataType || "").toLowerCase(),
-    columnType: String(source.columnType || "").toLowerCase(),
-    typeKind: String(source.typeKind || ""),
-    nullable: source.nullable === true,
-    hasDefault: source.hasDefault === true,
-    autoIncrement: source.autoIncrement === true,
-    unsigned: source.unsigned === true,
-    maxLength: Number.isFinite(source.maxLength) ? source.maxLength : null,
-    numericPrecision: Number.isFinite(source.numericPrecision) ? source.numericPrecision : null,
-    numericScale: Number.isFinite(source.numericScale) ? source.numericScale : null,
-    datetimePrecision: Number.isFinite(source.datetimePrecision) ? source.datetimePrecision : null,
-    enumValues: Object.freeze(Array.isArray(source.enumValues) ? [...source.enumValues] : []),
-    extra: String(source.extra || "")
-  });
-}
-
-function buildDefaultSnapshot({ namespace, tableName = "", idColumn = DEFAULT_ID_COLUMN } = {}) {
-  const resolvedTableName = normalizeText(tableName) || resolveDefaultTableName(namespace);
-  const resolvedIdColumn = normalizeText(idColumn) || DEFAULT_ID_COLUMN;
-
-  const columns = Object.freeze([
-    normalizeDefaultSnapshotColumn({
-      name: "id",
-      key: "id",
-      dataType: "int",
-      columnType: "int unsigned",
-      typeKind: "integer",
-      nullable: false,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: true,
-      unsigned: true,
-      numericPrecision: 10,
-      numericScale: 0,
-      ordinalPosition: 1
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "workspace_owner_id",
-      key: "workspaceOwnerId",
-      dataType: "int",
-      columnType: "int unsigned",
-      typeKind: "integer",
-      nullable: true,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: false,
-      unsigned: true,
-      numericPrecision: 10,
-      numericScale: 0,
-      ordinalPosition: 2
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "user_owner_id",
-      key: "userOwnerId",
-      dataType: "int",
-      columnType: "int unsigned",
-      typeKind: "integer",
-      nullable: true,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: false,
-      unsigned: true,
-      numericPrecision: 10,
-      numericScale: 0,
-      ordinalPosition: 3
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "text_field",
-      key: "textField",
-      dataType: "varchar",
-      columnType: "varchar(160)",
-      typeKind: "string",
-      nullable: false,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: false,
-      unsigned: false,
-      maxLength: 160,
-      ordinalPosition: 4
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "date_field",
-      key: "dateField",
-      dataType: "timestamp",
-      columnType: "timestamp",
-      typeKind: "datetime",
-      nullable: false,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: false,
-      unsigned: false,
-      ordinalPosition: 5
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "number_field",
-      key: "numberField",
-      dataType: "double",
-      columnType: "double",
-      typeKind: "number",
-      nullable: false,
-      hasDefault: false,
-      defaultValue: null,
-      autoIncrement: false,
-      unsigned: false,
-      ordinalPosition: 6
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "created_at",
-      key: "createdAt",
-      dataType: "timestamp",
-      columnType: "timestamp",
-      typeKind: "datetime",
-      nullable: false,
-      hasDefault: true,
-      defaultValue: "CURRENT_TIMESTAMP",
-      autoIncrement: false,
-      unsigned: false,
-      extra: "",
-      ordinalPosition: 7
-    }),
-    normalizeDefaultSnapshotColumn({
-      name: "updated_at",
-      key: "updatedAt",
-      dataType: "timestamp",
-      columnType: "timestamp",
-      typeKind: "datetime",
-      nullable: false,
-      hasDefault: true,
-      defaultValue: "CURRENT_TIMESTAMP",
-      autoIncrement: false,
-      unsigned: false,
-      extra: "on update current_timestamp",
-      ordinalPosition: 8
-    })
-  ]);
-
-  return Object.freeze({
-    dialect: MYSQL_CLIENT_ID,
-    schemaName: "",
-    tableName: resolvedTableName,
-    idColumn: resolvedIdColumn,
-    primaryKeyColumns: Object.freeze([resolvedIdColumn]),
-    hasWorkspaceOwnerColumn: true,
-    hasUserOwnerColumn: true,
-    columns,
-    indexes: Object.freeze([
-      Object.freeze({
-        name: "",
-        unique: false,
-        columns: Object.freeze(["workspace_owner_id"])
-      }),
-      Object.freeze({
-        name: "",
-        unique: false,
-        columns: Object.freeze(["user_owner_id"])
-      })
-    ])
-  });
-}
-
 async function resolveMysqlSnapshotFromDatabase({
   appRoot,
   tableName,
@@ -483,25 +304,226 @@ function resolveScaffoldColumns(snapshot) {
   return Object.freeze(columns);
 }
 
-function toResourceFieldDefinition(column) {
-  return Object.freeze({
-    key: String(column.key),
-    typeKind: String(column.typeKind),
-    nullable: column.nullable === true,
-    unsigned: column.unsigned === true,
-    maxLength: Number.isFinite(column.maxLength) ? column.maxLength : null,
-    numericPrecision: Number.isFinite(column.numericPrecision) ? column.numericPrecision : null,
-    numericScale: Number.isFinite(column.numericScale) ? column.numericScale : null,
-    enumValues: Array.isArray(column.enumValues) ? [...column.enumValues] : [],
-    format:
-      column.typeKind === "datetime"
-        ? "date-time"
-        : column.typeKind === "date"
-          ? "date"
-          : column.typeKind === "time"
-            ? "time"
-            : ""
-  });
+const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+function isIdentifier(value) {
+  return IDENTIFIER_PATTERN.test(String(value || ""));
+}
+
+function renderObjectPropertyKey(value) {
+  const key = String(value || "");
+  return isIdentifier(key) ? key : JSON.stringify(key);
+}
+
+function renderPropertyAccess(sourceName, key) {
+  const normalizedKey = String(key || "");
+  if (isIdentifier(normalizedKey)) {
+    return `${sourceName}.${normalizedKey}`;
+  }
+  return `${sourceName}[${JSON.stringify(normalizedKey)}]`;
+}
+
+function renderIntegerSchema(column) {
+  const options = [];
+  if (column.isIdColumn === true) {
+    options.push("minimum: 1");
+  } else if (column.unsigned === true) {
+    options.push("minimum: 0");
+  }
+  if (options.length > 0) {
+    return `Type.Integer({ ${options.join(", ")} })`;
+  }
+  return "Type.Integer()";
+}
+
+function renderStringSchema(column, { forOutput = false } = {}) {
+  const options = [];
+  if (!forOutput && Number.isInteger(column.maxLength) && column.maxLength > 0) {
+    options.push(`maxLength: ${column.maxLength}`);
+  }
+  const enumValues = Array.isArray(column.enumValues) ? column.enumValues.filter((entry) => entry != null) : [];
+  if (!forOutput && enumValues.length > 0) {
+    options.push(`enum: ${JSON.stringify(enumValues)}`);
+  }
+  if (options.length > 0) {
+    return `Type.String({ ${options.join(", ")} })`;
+  }
+  return "Type.String()";
+}
+
+function renderResourceFieldSchema(column, { forOutput = false } = {}) {
+  let schemaExpression = "Type.Any()";
+  const typeKind = String(column.typeKind || "");
+  if (typeKind === "string") {
+    schemaExpression = renderStringSchema(column, { forOutput });
+  } else if (typeKind === "integer") {
+    schemaExpression = renderIntegerSchema(column);
+  } else if (typeKind === "number") {
+    schemaExpression = "Type.Number()";
+  } else if (typeKind === "boolean") {
+    schemaExpression = "Type.Boolean()";
+  } else if (typeKind === "datetime") {
+    schemaExpression = 'Type.String({ format: "date-time", minLength: 1 })';
+  } else if (typeKind === "date") {
+    schemaExpression = 'Type.String({ format: "date", minLength: 1 })';
+  } else if (typeKind === "time") {
+    schemaExpression = 'Type.String({ format: "time", minLength: 1 })';
+  } else if (typeKind === "json") {
+    schemaExpression = "Type.Any()";
+  }
+
+  if (column.nullable === true) {
+    return `Type.Union([${schemaExpression}, Type.Null()])`;
+  }
+  return schemaExpression;
+}
+
+function renderInputNormalizer(column) {
+  const typeKind = String(column.typeKind || "");
+  if (typeKind === "string" || typeKind === "time") {
+    return "normalizeText";
+  }
+  if (typeKind === "integer") {
+    return "normalizeFiniteInteger";
+  }
+  if (typeKind === "number") {
+    return "normalizeFiniteNumber";
+  }
+  if (typeKind === "boolean") {
+    return "normalizeBoolean";
+  }
+  if (typeKind === "datetime") {
+    return "toDatabaseDateTimeUtc";
+  }
+  if (typeKind === "date") {
+    return "(value) => toIsoString(value).slice(0, 10)";
+  }
+  if (typeKind === "json") {
+    return "(value) => parseJsonValue(value, null, { fallback: null, allowNull: true })";
+  }
+  return "(value) => value";
+}
+
+function renderOutputNormalizerExpression(column) {
+  const typeKind = String(column.typeKind || "");
+  if (typeKind === "string" || typeKind === "time") {
+    return "normalizeText";
+  }
+  if (typeKind === "integer") {
+    return "normalizeFiniteInteger";
+  }
+  if (typeKind === "number") {
+    return "normalizeFiniteNumber";
+  }
+  if (typeKind === "boolean") {
+    return "normalizeBoolean";
+  }
+  if (typeKind === "datetime") {
+    return "toIsoString";
+  }
+  if (typeKind === "date") {
+    return "(value) => toIsoString(value).slice(0, 10)";
+  }
+  if (typeKind === "json") {
+    return "(value) => parseJsonValue(value, null, { fallback: null, allowNull: true })";
+  }
+  return "";
+}
+
+function renderResourceSchemaPropertyLines(columns, { forOutput = false } = {}) {
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  return sourceColumns
+    .map((column) => {
+      const key = renderObjectPropertyKey(column.key);
+      const schemaExpression = renderResourceFieldSchema(column, { forOutput });
+      return `    ${key}: ${schemaExpression},`;
+    })
+    .join("\n");
+}
+
+function renderResourceInputNormalizationLines(columns) {
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  return sourceColumns
+    .map((column) => {
+      const keyLiteral = JSON.stringify(String(column.key || ""));
+      const normalizer = renderInputNormalizer(column);
+      return `  normalizeIfInSource(source, normalized, ${keyLiteral}, ${normalizer});`;
+    })
+    .join("\n");
+}
+
+function renderResourceOutputNormalizationLines(columns) {
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  return sourceColumns
+    .map((column) => {
+      const key = renderObjectPropertyKey(column.key);
+      const sourceAccess = renderPropertyAccess("source", column.key);
+      const normalizer = renderOutputNormalizerExpression(column);
+      if (!normalizer) {
+        return `    ${key}: ${sourceAccess},`;
+      }
+      const nullishNormalizer = column.nullable === true ? "normalizeOrNull" : "normalizeIfPresent";
+      return `    ${key}: ${nullishNormalizer}(${sourceAccess}, ${normalizer}),`;
+    })
+    .join("\n");
+}
+
+function renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {}) {
+  const imports = [];
+  if (needsToIsoString) {
+    imports.push("toIsoString");
+  }
+  if (needsToDatabaseDateTimeUtc) {
+    imports.push("toDatabaseDateTimeUtc");
+  }
+  if (imports.length < 1) {
+    return "";
+  }
+  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/database-runtime/shared";`;
+}
+
+function renderResourceJsonImport({ needsJson = false } = {}) {
+  if (!needsJson) {
+    return "";
+  }
+  return 'import { parseJsonValue } from "@jskit-ai/database-runtime/shared/repositoryOptions";';
+}
+
+function renderResourceNormalizeSupportImport({
+  needsNormalizeText = false,
+  needsNormalizeBoolean = false,
+  needsNormalizeFiniteNumber = false,
+  needsNormalizeFiniteInteger = false,
+  needsNormalizeIfInSource = false,
+  needsNormalizeIfPresent = false,
+  needsNormalizeOrNull = false
+} = {}) {
+  const imports = [];
+  if (needsNormalizeText) {
+    imports.push("normalizeText");
+  }
+  if (needsNormalizeBoolean) {
+    imports.push("normalizeBoolean");
+  }
+  if (needsNormalizeFiniteNumber) {
+    imports.push("normalizeFiniteNumber");
+  }
+  if (needsNormalizeFiniteInteger) {
+    imports.push("normalizeFiniteInteger");
+  }
+  if (needsNormalizeIfInSource) {
+    imports.push("normalizeIfInSource");
+  }
+  if (needsNormalizeIfPresent) {
+    imports.push("normalizeIfPresent");
+  }
+  if (needsNormalizeOrNull) {
+    imports.push("normalizeOrNull");
+  }
+  if (imports.length < 1) {
+    return "";
+  }
+  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/support/normalize";`;
 }
 
 function renderMigrationDefaultClause(column) {
@@ -681,31 +703,75 @@ function buildReplacementsFromSnapshot({
   const createRequiredFieldKeys = writableColumns
     .filter((column) => !column.nullable && column.hasDefault !== true)
     .map((column) => column.key);
+  const resourceColumns = [...outputColumns, ...writableColumns];
 
-  const outputFieldDefinitions = outputColumns.map((column) => toResourceFieldDefinition(column));
-  const writeFieldDefinitions = writableColumns.map((column) => toResourceFieldDefinition(column));
-
-  const outputMappings = outputColumns.map((column) => ({
-    key: column.key,
-    column: column.name
-  }));
-  const writeMappings = writableColumns.map((column) => ({
-    key: column.key,
-    column: column.name
-  }));
+  const outputKeys = outputColumns.map((column) => column.key);
+  const writeKeys = writableColumns.map((column) => column.key);
+  const columnOverrides = {};
+  const seenOverrideKeys = new Set();
+  for (const column of [...outputColumns, ...writableColumns]) {
+    const key = column.key;
+    if (!key || seenOverrideKeys.has(key)) {
+      continue;
+    }
+    seenOverrideKeys.add(key);
+    const guessedColumn = toSnakeCase(key);
+    const actualColumn = column.name;
+    if (typeof actualColumn === "string" && actualColumn && actualColumn !== guessedColumn) {
+      columnOverrides[key] = actualColumn;
+    }
+  }
   const createdAtColumn = scaffoldColumns.find((column) => column.isCreatedAtColumn)?.name || "";
   const updatedAtColumn = scaffoldColumns.find((column) => column.isUpdatedAtColumn)?.name || "";
+  const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer");
+  const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
+  const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
+  const needsDateTimeInput = writableColumns.some((column) => column.typeKind === "datetime");
+  const needsDate = resourceColumns.some((column) => column.typeKind === "date");
+  const needsJson = resourceColumns.some((column) => column.typeKind === "json");
+  const needsNormalizeText = resourceColumns.some((column) =>
+    column.typeKind === "string" || column.typeKind === "time"
+  );
+  const needsNormalizeBoolean = resourceColumns.some((column) => column.typeKind === "boolean");
+  const needsNormalizeIfInSource = writableColumns.length > 0;
+  const outputColumnsWithNormalizer = outputColumns.filter(
+    (column) => Boolean(renderOutputNormalizerExpression(column))
+  );
+  const needsNormalizeIfPresent = outputColumnsWithNormalizer.some((column) => column.nullable !== true);
+  const needsNormalizeOrNull = outputColumnsWithNormalizer.some((column) => column.nullable === true);
 
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
-    __JSKIT_CRUD_RESOURCE_OUTPUT_FIELDS__: JSON.stringify(outputFieldDefinitions),
-    __JSKIT_CRUD_RESOURCE_WRITE_FIELDS__: JSON.stringify(writeFieldDefinitions),
+    __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
+      needsToIsoString: needsDateTimeOutput || needsDate,
+      needsToDatabaseDateTimeUtc: needsDateTimeInput
+    }),
+    __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__: renderResourceNormalizeSupportImport({
+      needsNormalizeText,
+      needsNormalizeBoolean,
+      needsNormalizeFiniteNumber: needsFiniteNumber,
+      needsNormalizeFiniteInteger: needsFiniteInteger,
+      needsNormalizeIfInSource,
+      needsNormalizeIfPresent,
+      needsNormalizeOrNull
+    }),
+    __JSKIT_CRUD_RESOURCE_JSON_IMPORT__: renderResourceJsonImport({
+      needsJson
+    }),
+    __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(outputColumns, {
+      forOutput: true
+    }),
+    __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(writableColumns, {
+      forOutput: false
+    }),
+    __JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__: renderResourceInputNormalizationLines(writableColumns),
+    __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__: renderResourceOutputNormalizationLines(outputColumns),
     __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__: JSON.stringify(createRequiredFieldKeys),
-    __JSKIT_CRUD_REPOSITORY_SELECT_COLUMNS__: JSON.stringify(outputMappings.map((mapping) => mapping.column)),
-    __JSKIT_CRUD_REPOSITORY_OUTPUT_MAPPINGS__: JSON.stringify(outputMappings),
-    __JSKIT_CRUD_REPOSITORY_WRITE_MAPPINGS__: JSON.stringify(writeMappings),
+    __JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__: JSON.stringify(outputKeys),
+    __JSKIT_CRUD_REPOSITORY_WRITE_KEYS__: JSON.stringify(writeKeys),
+    __JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__: JSON.stringify(columnOverrides),
     __JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__: JSON.stringify(createdAtColumn),
     __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__: JSON.stringify(updatedAtColumn),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
@@ -717,22 +783,17 @@ function buildReplacementsFromSnapshot({
 
 async function resolveGenerationSnapshot({
   appRoot,
-  namespace,
-  tableNameOption,
+  tableName,
   idColumnOption
 } = {}) {
-  const tableName = normalizeText(tableNameOption);
-  const idColumn = normalizeText(idColumnOption) || DEFAULT_ID_COLUMN;
-  if (!tableName) {
-    return buildDefaultSnapshot({
-      namespace,
-      idColumn
-    });
+  const resolvedTableName = normalizeText(tableName);
+  if (!resolvedTableName) {
+    throw new Error('crud template context requires option "table-name".');
   }
-
+  const idColumn = normalizeText(idColumnOption) || DEFAULT_ID_COLUMN;
   return resolveMysqlSnapshotFromDatabase({
     appRoot,
-    tableName,
+    tableName: resolvedTableName,
     idColumn
   });
 }
@@ -759,12 +820,13 @@ async function buildCrudTemplateContext(input = {}) {
   if (!namespace) {
     throw new Error('crud template context requires option "namespace".');
   }
-
-  const hasTableMode = Boolean(normalizeText(options["table-name"]));
+  const tableName = normalizeText(options["table-name"]);
+  if (!tableName) {
+    throw new Error('crud template context requires option "table-name".');
+  }
   const snapshot = await resolveGenerationSnapshot({
     appRoot,
-    namespace,
-    tableNameOption: options["table-name"],
+    tableName,
     idColumnOption: options["id-column"]
   });
 
@@ -772,7 +834,7 @@ async function buildCrudTemplateContext(input = {}) {
     snapshot,
     options["ownership-filter"],
     {
-      enforceTableColumns: hasTableMode
+      enforceTableColumns: true
     }
   );
 
@@ -798,7 +860,6 @@ async function buildTemplateContext(input = {}) {
 }
 
 const __testables = Object.freeze({
-  buildDefaultSnapshot,
   normalizeRequestedOwnershipFilter,
   inferOwnershipFilterFromSnapshot,
   resolveOwnershipFilterForGeneration,

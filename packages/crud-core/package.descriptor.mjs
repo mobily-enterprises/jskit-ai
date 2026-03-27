@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-core",
   version: "0.1.25",
+  kind: "runtime",
   description: "Shared CRUD helpers used by CRUD modules.",
   dependsOn: [
     "@jskit-ai/kernel",

@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
   version: "0.1.25",
+  kind: "runtime",
   description: "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
   options: {
     "ai-provider": {

@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@local/${option:namespace|kebab}",
   version: "0.1.0",
+  kind: "runtime",
   description: "App-local CRUD package (${option:namespace|kebab}).",
   dependsOn: [
     "@jskit-ai/auth-core",

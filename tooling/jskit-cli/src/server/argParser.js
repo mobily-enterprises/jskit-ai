@@ -1,6 +1,7 @@
 const KNOWN_COMMANDS = new Set([
   "help",
   "create",
+  "generate",
   "list",
   "show",
   "view",
@@ -15,7 +16,8 @@ const KNOWN_COMMANDS = new Set([
 
 const COMMAND_ALIASES = Object.freeze({
   view: "show",
-  ls: "list"
+  ls: "list",
+  gen: "generate"
 });
 
 function resolveCommandAlias(rawCommand) {
@@ -171,10 +173,11 @@ function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
   stream.write("  create package <name>        Scaffold app-local package under packages/ and install it\n");
-  stream.write("  list [bundles [all]|packages] List available bundles/packages and installed status\n");
+  stream.write("  list [bundles [all]|packages|generators] List available bundles/runtime packages/generators and installed status\n");
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
-  stream.write("  add package <packageId>      Add one package to current app (catalog/app-local/installed external)\n");
+  stream.write("  add package <packageId>      Add one runtime package to current app (catalog/app-local/installed external)\n");
+  stream.write("  generate <packageId>         Run one generator package\n");
   stream.write("  position element <packageId> Re-apply positioning mutations for one installed package\n");
   stream.write("  show <id>                    Show details for bundle id or package id\n");
   stream.write("  view <id>                    Alias of show <id>\n");
@@ -185,7 +188,7 @@ function printUsage(stream = process.stderr) {
   stream.write("\n");
   stream.write("Options:\n");
   stream.write("  --dry-run                    Print planned changes only\n");
-  stream.write("  --no-install                 Skip npm install during create/add/update/remove\n");
+  stream.write("  --no-install                 Skip npm install during create/add/generate/update/remove\n");
   stream.write("  --scope <scope>              (create package) override generated package scope\n");
   stream.write("  --package-id <id>            (create package) explicit @scope/name package id\n");
   stream.write("  --description <text>         (create package) descriptor description text\n");

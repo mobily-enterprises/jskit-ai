@@ -76,6 +76,7 @@ async function createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName
     `export default Object.freeze({
   packageId: "@demo/surface-policy",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

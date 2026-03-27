@@ -7,6 +7,7 @@ export {
   normalizeReturnToPath,
   resolveAllowedOriginsFromPlacementContext
 } from "./returnToPath.js";
+export { toCamelCase, toSnakeCase } from "./stringCase.js";
 export {
   isTransientQueryError,
   shouldRetryTransientQueryFailure,

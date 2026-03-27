@@ -1,5 +1,5 @@
 {
-  "name": "@jskit-ai/crud",
+  "name": "@jskit-ai/crud-server-generator",
   "version": "0.1.25",
   "type": "module",
   "scripts": {

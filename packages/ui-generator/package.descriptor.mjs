@@ -1,8 +1,8 @@
 export default Object.freeze({
   packageVersion: 1,
-  packageId: "@jskit-ai/ui-generator",
+  packageId: "@jskit-ai/crud-ui-generator",
   version: "0.1.0",
-  installationMode: "clone-only",
+  kind: "generator",
   description: "Generate app-local CRUD UI scaffolds from resource validators.",
   options: {
     namespace: {
@@ -29,9 +29,9 @@ export default Object.freeze({
     "resource-export": {
       required: false,
       inputType: "text",
-      defaultValue: "crudResource",
+      defaultValue: "",
       promptLabel: "Resource export",
-      promptHint: "Named export in the resource module (default: crudResource)."
+      promptHint: "Named export in the resource module (defaults to resource-file basename, example: contactResource)."
     },
     operations: {
       required: true,

@@ -57,6 +57,7 @@ async function createMinimalPackage({ appRoot, packageId, optionsSource }) {
     `export default Object.freeze({
   packageId: "${packageId}",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

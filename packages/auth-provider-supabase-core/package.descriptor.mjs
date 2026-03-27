@@ -2,6 +2,7 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-supabase-core",
   "version": "0.1.16",
+  "kind": "runtime",
   "options": {
     "auth-supabase-url": {
       "required": true,

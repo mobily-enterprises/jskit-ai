@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@local/main",
   version: "0.1.0",
+  kind: "runtime",
   description: "App-local main module scaffold.",
   dependsOn: [],
   capabilities: {

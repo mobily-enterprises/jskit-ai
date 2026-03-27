@@ -3,6 +3,47 @@ function normalizeText(value, { fallback = "" } = {}) {
   return normalized || fallback;
 }
 
+function normalizeBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    if (value === 1) {
+      return true;
+    }
+    if (value === 0) {
+      return false;
+    }
+  }
+
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "y") {
+    return true;
+  }
+  if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "n") {
+    return false;
+  }
+
+  throw new TypeError("Boolean field must be true or false.");
+}
+
+function normalizeFiniteNumber(value) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized)) {
+    throw new TypeError("Number field must be a valid number.");
+  }
+  return normalized;
+}
+
+function normalizeFiniteInteger(value) {
+  const normalized = normalizeFiniteNumber(value);
+  if (!Number.isInteger(normalized)) {
+    throw new TypeError("Number field must be an integer.");
+  }
+  return normalized;
+}
+
 function normalizeLowerText(value, { fallback = "" } = {}) {
   return normalizeText(value, {
     fallback
@@ -19,6 +60,50 @@ function normalizeObject(value, { fallback = {} } = {}) {
     return { ...fallback };
   }
   return value;
+}
+
+function normalizeIfInSource(source, normalized, fieldName, normalizer = (value) => value) {
+  if (!isRecord(source)) {
+    return normalized;
+  }
+  if (!isRecord(normalized)) {
+    throw new TypeError("normalizeIfInSource requires target object.");
+  }
+
+  const normalizedFieldName = normalizeText(fieldName);
+  if (!normalizedFieldName) {
+    throw new TypeError("normalizeIfInSource requires fieldName.");
+  }
+  if (typeof normalizer !== "function") {
+    throw new TypeError("normalizeIfInSource requires normalizer function.");
+  }
+
+  if (!Object.hasOwn(source, normalizedFieldName)) {
+    return normalized;
+  }
+
+  const sourceValue = source[normalizedFieldName];
+  if (sourceValue == null) {
+    normalized[normalizedFieldName] = sourceValue;
+    return normalized;
+  }
+
+  normalized[normalizedFieldName] = normalizer(sourceValue);
+  return normalized;
+}
+
+function normalizeIfPresent(value, normalizer = (entry) => entry) {
+  if (typeof normalizer !== "function") {
+    throw new TypeError("normalizeIfPresent requires normalizer function.");
+  }
+  return value == null ? value : normalizer(value);
+}
+
+function normalizeOrNull(value, normalizer = (entry) => entry) {
+  if (typeof normalizer !== "function") {
+    throw new TypeError("normalizeOrNull requires normalizer function.");
+  }
+  return value == null ? null : normalizer(value);
 }
 
 function isRecord(value) {
@@ -108,9 +193,15 @@ function ensureNonEmptyText(value, label = "value") {
 
 export {
   normalizeText,
+  normalizeBoolean,
+  normalizeFiniteNumber,
+  normalizeFiniteInteger,
   normalizeLowerText,
   normalizeQueryToken,
   normalizeObject,
+  normalizeIfInSource,
+  normalizeIfPresent,
+  normalizeOrNull,
   isRecord,
   normalizeArray,
   normalizeUniqueTextList,

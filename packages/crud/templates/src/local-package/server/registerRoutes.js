@@ -9,7 +9,7 @@ import { normalizeScopedRouteVisibility } from "@jskit-ai/users-core/shared/supp
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
-import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
 function registerRoutes(
   app,
@@ -51,7 +51,7 @@ function registerRoutes(
       paramsValidator: routeParamsValidator,
       queryValidator: cursorPaginationQueryValidator,
       responseValidators: withStandardErrorResponses({
-        200: crudResource.operations.list.outputValidator
+        200: ${option:namespace|singular|camel}Resource.operations.list.outputValidator
       })
     },
     async function (request, reply) {
@@ -85,7 +85,7 @@ function registerRoutes(
       },
       paramsValidator: [routeParamsValidator, recordIdParamsValidator],
       responseValidators: withStandardErrorResponses({
-        200: crudResource.operations.view.outputValidator
+        200: ${option:namespace|singular|camel}Resource.operations.view.outputValidator
       })
     },
     async function (request, reply) {
@@ -112,10 +112,10 @@ function registerRoutes(
         summary: "Create a record."
       },
       paramsValidator: routeParamsValidator,
-      bodyValidator: crudResource.operations.create.bodyValidator,
+      bodyValidator: ${option:namespace|singular|camel}Resource.operations.create.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
-          201: crudResource.operations.create.outputValidator
+          201: ${option:namespace|singular|camel}Resource.operations.create.outputValidator
         },
         { includeValidation400: true }
       )
@@ -144,10 +144,10 @@ function registerRoutes(
         summary: "Update a record."
       },
       paramsValidator: [routeParamsValidator, recordIdParamsValidator],
-      bodyValidator: crudResource.operations.patch.bodyValidator,
+      bodyValidator: ${option:namespace|singular|camel}Resource.operations.patch.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
-          200: crudResource.operations.patch.outputValidator
+          200: ${option:namespace|singular|camel}Resource.operations.patch.outputValidator
         },
         { includeValidation400: true }
       )
@@ -178,7 +178,7 @@ function registerRoutes(
       },
       paramsValidator: [routeParamsValidator, recordIdParamsValidator],
       responseValidators: withStandardErrorResponses({
-        200: crudResource.operations.delete.outputValidator
+        200: ${option:namespace|singular|camel}Resource.operations.delete.outputValidator
       })
     },
     async function (request, reply) {

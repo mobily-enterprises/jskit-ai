@@ -3,7 +3,7 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
 
 function requireActionSurface(surface = "") {
@@ -29,7 +29,7 @@ function createActions({ surface = "" } = {}) {
         require: "authenticated"
       },
       inputValidator: [workspaceSlugParamsValidator, cursorPaginationQueryValidator],
-      outputValidator: crudResource.operations.list.outputValidator,
+      outputValidator: ${option:namespace|singular|camel}Resource.operations.list.outputValidator,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
@@ -52,7 +52,7 @@ function createActions({ surface = "" } = {}) {
         require: "authenticated"
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
-      outputValidator: crudResource.operations.view.outputValidator,
+      outputValidator: ${option:namespace|singular|camel}Resource.operations.view.outputValidator,
       idempotency: "none",
       audit: {
         actionName: actionIds.view
@@ -77,10 +77,10 @@ function createActions({ surface = "" } = {}) {
       inputValidator: [
         workspaceSlugParamsValidator,
         {
-          payload: crudResource.operations.create.bodyValidator
+          payload: ${option:namespace|singular|camel}Resource.operations.create.bodyValidator
         }
       ],
-      outputValidator: crudResource.operations.create.outputValidator,
+      outputValidator: ${option:namespace|singular|camel}Resource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.create
@@ -106,10 +106,10 @@ function createActions({ surface = "" } = {}) {
         workspaceSlugParamsValidator,
         recordIdParamsValidator,
         {
-          patch: crudResource.operations.patch.bodyValidator
+          patch: ${option:namespace|singular|camel}Resource.operations.patch.bodyValidator
         }
       ],
-      outputValidator: crudResource.operations.patch.outputValidator,
+      outputValidator: ${option:namespace|singular|camel}Resource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.update
@@ -132,7 +132,7 @@ function createActions({ surface = "" } = {}) {
         require: "authenticated"
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
-      outputValidator: crudResource.operations.delete.outputValidator,
+      outputValidator: ${option:namespace|singular|camel}Resource.operations.delete.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.delete

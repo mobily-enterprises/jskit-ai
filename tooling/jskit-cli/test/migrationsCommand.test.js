@@ -33,6 +33,7 @@ async function writeDemoPackageDescriptor(packageRoot, version) {
     `export default Object.freeze({
   packageId: "@demo/migrations-only",
   version: "${version}",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

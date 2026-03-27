@@ -1,9 +1,9 @@
 export default Object.freeze({
   packageVersion: 1,
-  packageId: "@jskit-ai/crud",
+  packageId: "@jskit-ai/crud-server-generator",
   version: "0.1.25",
-  installationMode: "clone-only",
-  description: "CRUD module with server routes, actions, and persistence scaffolding.",
+  kind: "generator",
+  description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
     namespace: {
       required: true,
@@ -34,11 +34,11 @@ export default Object.freeze({
       promptHint: "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
     },
     "table-name": {
-      required: false,
+      required: true,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Table name",
-      promptHint: "Optional existing MySQL table to introspect for CRUD schema generation."
+      promptHint: "Required existing MySQL table to introspect for CRUD schema generation."
     },
     "id-column": {
       required: false,

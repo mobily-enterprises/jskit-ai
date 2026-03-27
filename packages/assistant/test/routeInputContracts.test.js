@@ -55,12 +55,12 @@ test("assistant routes build list inputs with explicit query object", async () =
   const workspaceSettingsReadRoute = findRoute(
     registeredRoutes,
     "GET",
-    "/api/w/:workspaceSlug/workspace/settings/assistant"
+    "/api/w/:workspaceSlug/settings/assistant"
   );
   const workspaceSettingsPatchRoute = findRoute(
     registeredRoutes,
     "PATCH",
-    "/api/w/:workspaceSlug/workspace/settings/assistant"
+    "/api/w/:workspaceSlug/settings/assistant"
   );
   assert.ok(conversationsRoute);
   assert.ok(messagesRoute);
@@ -229,8 +229,8 @@ test("assistant workspace routes use workspace default surface and honor x-jskit
   registerRoutes(app);
 
   const expectedWorkspaceRoutes = [
-    ["GET", "/api/w/:workspaceSlug/workspace/settings/assistant"],
-    ["PATCH", "/api/w/:workspaceSlug/workspace/settings/assistant"],
+    ["GET", "/api/w/:workspaceSlug/settings/assistant"],
+    ["PATCH", "/api/w/:workspaceSlug/settings/assistant"],
     ["POST", "/api/w/:workspaceSlug/assistant/chat/stream"],
     ["GET", "/api/w/:workspaceSlug/assistant/conversations"],
     ["GET", "/api/w/:workspaceSlug/assistant/conversations/:conversationId/messages"]

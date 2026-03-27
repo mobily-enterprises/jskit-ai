@@ -114,9 +114,18 @@ function resolveResourceModulePath(appRoot, resourceFile) {
   return absolutePath;
 }
 
+function deriveDefaultResourceExport(resourceFile = "") {
+  const fileName = normalizeText(path.parse(String(resourceFile || "")).name);
+  if (!fileName) {
+    throw new Error('ui-generator option "resource-export" is required when it cannot be derived from "resource-file".');
+  }
+
+  return fileName;
+}
+
 async function loadResourceDefinition({ appRoot, options }) {
   const resourceFile = requireOption(options, "resource-file");
-  const resourceExport = normalizeText(options?.["resource-export"]) || "crudResource";
+  const resourceExport = normalizeText(options?.["resource-export"]) || deriveDefaultResourceExport(resourceFile);
   const resourceModulePath = resolveResourceModulePath(appRoot, resourceFile);
 
   let moduleNamespace = null;
