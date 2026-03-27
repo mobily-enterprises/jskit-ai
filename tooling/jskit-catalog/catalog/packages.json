@@ -2328,42 +2328,42 @@
               },
               {
                 "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/settings",
+                "path": "/api/w/:workspaceSlug/settings",
                 "summary": "Get workspace settings and role catalog by workspace slug."
               },
               {
                 "method": "PATCH",
-                "path": "/api/w/:workspaceSlug/workspace/settings",
+                "path": "/api/w/:workspaceSlug/settings",
                 "summary": "Update workspace settings by workspace slug."
               },
               {
                 "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/roles",
+                "path": "/api/w/:workspaceSlug/roles",
                 "summary": "Get workspace role catalog by workspace slug."
               },
               {
                 "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/members",
+                "path": "/api/w/:workspaceSlug/members",
                 "summary": "List members by workspace slug."
               },
               {
                 "method": "PATCH",
-                "path": "/api/w/:workspaceSlug/workspace/members/:memberUserId/role",
+                "path": "/api/w/:workspaceSlug/members/:memberUserId/role",
                 "summary": "Update workspace member role by workspace slug."
               },
               {
                 "method": "GET",
-                "path": "/api/w/:workspaceSlug/workspace/invites",
+                "path": "/api/w/:workspaceSlug/invites",
                 "summary": "List workspace invites by workspace slug."
               },
               {
                 "method": "POST",
-                "path": "/api/w/:workspaceSlug/workspace/invites",
+                "path": "/api/w/:workspaceSlug/invites",
                 "summary": "Create workspace invite by workspace slug."
               },
               {
                 "method": "DELETE",
-                "path": "/api/w/:workspaceSlug/workspace/invites/:inviteId",
+                "path": "/api/w/:workspaceSlug/invites/:inviteId",
                 "summary": "Revoke workspace invite by workspace slug."
               },
               {

@@ -123,27 +123,27 @@ test("workspace and settings routes attach only the shared transport normalizers
 
   const workspaceSettings = findRoute(routes, {
     method: "GET",
-    path: "/api/w/:workspaceSlug/workspace/settings"
+    path: "/api/w/:workspaceSlug/settings"
   });
   const workspacePatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace"
+    path: "/api/w/:workspaceSlug"
   });
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/settings"
+    path: "/api/w/:workspaceSlug/settings"
   });
   const workspaceMemberRole = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
+    path: "/api/w/:workspaceSlug/members/:memberUserId/role"
   });
   const workspaceMemberDelete = findRoute(routes, {
     method: "DELETE",
-    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId"
+    path: "/api/w/:workspaceSlug/members/:memberUserId"
   });
   const workspaceInviteDelete = findRoute(routes, {
     method: "DELETE",
-    path: "/api/w/:workspaceSlug/workspace/invites/:inviteId"
+    path: "/api/w/:workspaceSlug/invites/:inviteId"
   });
   const settingsProfilePatch = findRoute(routes, {
     method: "PATCH",
@@ -175,19 +175,19 @@ test("workspace core/settings routes mount one canonical workspace endpoint", as
   const routes = await registerRoutes();
   const workspace = findRoute(routes, {
     method: "GET",
-    path: "/api/w/:workspaceSlug/workspace"
+    path: "/api/w/:workspaceSlug"
   });
   const workspacePatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace"
+    path: "/api/w/:workspaceSlug"
   });
   const workspaceSettings = findRoute(routes, {
     method: "GET",
-    path: "/api/w/:workspaceSlug/workspace/settings"
+    path: "/api/w/:workspaceSlug/settings"
   });
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/settings"
+    path: "/api/w/:workspaceSlug/settings"
   });
   const adminWorkspaceSettings = findRoute(routes, {
     method: "GET",
@@ -222,9 +222,9 @@ test("users-core boot skips workspace routes when workspace policy is disabled",
 
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(routes, { method: "POST", path: "/api/workspaces" }), null);
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" }), null);
-  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" }), null);
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug" }), null);
+  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/w/:workspaceSlug" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
 });
 
@@ -261,24 +261,24 @@ test("users-core route registration follows tenancy mode matrix", async () => {
 
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(noneRoutes, { method: "POST", path: "/api/workspaces" }), null);
-  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" }), null);
-  assert.equal(findRoute(noneRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" }), null);
-  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
 
   assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
   assert.equal(findRoute(personalRoutes, { method: "POST", path: "/api/workspaces" }), null);
   assert.equal(
-    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" })?.path,
-    "/api/w/:workspaceSlug/workspace"
+    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug" })?.path,
+    "/api/w/:workspaceSlug"
   );
   assert.equal(
-    findRoute(personalRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" })?.path,
-    "/api/w/:workspaceSlug/workspace"
+    findRoute(personalRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug" })?.path,
+    "/api/w/:workspaceSlug"
   );
   assert.equal(
-    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
-    "/api/w/:workspaceSlug/workspace/settings"
+    findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/settings" })?.path,
+    "/api/w/:workspaceSlug/settings"
   );
   assert.equal(
     findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
@@ -288,16 +288,16 @@ test("users-core route registration follows tenancy mode matrix", async () => {
   assert.equal(findRoute(workspaceRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
   assert.equal(findRoute(workspaceRoutes, { method: "POST", path: "/api/workspaces" }), null);
   assert.equal(
-    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace" })?.path,
-    "/api/w/:workspaceSlug/workspace"
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug" })?.path,
+    "/api/w/:workspaceSlug"
   );
   assert.equal(
-    findRoute(workspaceRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug/workspace" })?.path,
-    "/api/w/:workspaceSlug/workspace"
+    findRoute(workspaceRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug" })?.path,
+    "/api/w/:workspaceSlug"
   );
   assert.equal(
-    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/settings" })?.path,
-    "/api/w/:workspaceSlug/workspace/settings"
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/w/:workspaceSlug/settings" })?.path,
+    "/api/w/:workspaceSlug/settings"
   );
   assert.equal(
     findRoute(workspaceRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
@@ -320,9 +320,9 @@ test("users-core boot skips invitation redeem/list routes when workspace invitat
 
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
   assert.equal(findRoute(routes, { method: "POST", path: "/api/workspace/invitations/redeem" }), null);
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/workspace/invites" }), null);
-  assert.equal(findRoute(routes, { method: "POST", path: "/api/w/:workspaceSlug/workspace/invites" }), null);
-  assert.equal(findRoute(routes, { method: "DELETE", path: "/api/w/:workspaceSlug/workspace/invites/:inviteId" }), null);
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/invites" }), null);
+  assert.equal(findRoute(routes, { method: "POST", path: "/api/w/:workspaceSlug/invites" }), null);
+  assert.equal(findRoute(routes, { method: "DELETE", path: "/api/w/:workspaceSlug/invites/:inviteId" }), null);
 });
 
 test("workspace invite and member handlers build action input from request.input", async () => {
@@ -337,19 +337,19 @@ test("workspace invite and member handlers build action input from request.input
   });
   const workspaceMemberRolePatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId/role"
+    path: "/api/w/:workspaceSlug/members/:memberUserId/role"
   });
   const workspaceMemberDelete = findRoute(routes, {
     method: "DELETE",
-    path: "/api/w/:workspaceSlug/workspace/members/:memberUserId"
+    path: "/api/w/:workspaceSlug/members/:memberUserId"
   });
   const workspaceInviteCreate = findRoute(routes, {
     method: "POST",
-    path: "/api/w/:workspaceSlug/workspace/invites"
+    path: "/api/w/:workspaceSlug/invites"
   });
   const workspaceInviteDelete = findRoute(routes, {
     method: "DELETE",
-    path: "/api/w/:workspaceSlug/workspace/invites/:inviteId"
+    path: "/api/w/:workspaceSlug/invites/:inviteId"
   });
   const calls = [];
   const executeAction = async (payload) => {
@@ -429,7 +429,7 @@ test("workspace settings route handlers build action input from request.input", 
   const routes = await registerRoutes();
   const workspaceSettingsPatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace/settings"
+    path: "/api/w/:workspaceSlug/settings"
   });
   const calls = [];
   const executeAction = async (payload) => {
@@ -458,7 +458,7 @@ test("workspace route handlers build action input from request.input", async () 
   const routes = await registerRoutes();
   const workspacePatch = findRoute(routes, {
     method: "PATCH",
-    path: "/api/w/:workspaceSlug/workspace"
+    path: "/api/w/:workspaceSlug"
   });
   const calls = [];
   const executeAction = async (payload) => {

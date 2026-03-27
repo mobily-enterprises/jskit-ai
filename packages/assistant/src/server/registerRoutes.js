@@ -114,7 +114,7 @@ function registerRoutes(app) {
 
   router.register(
     "GET",
-    "/api/w/:workspaceSlug/workspace/settings/assistant",
+    "/api/w/:workspaceSlug/settings/assistant",
     {
       auth: "required",
       surface: workspaceRouteSurfaceId,
@@ -145,7 +145,7 @@ function registerRoutes(app) {
 
   router.register(
     "PATCH",
-    "/api/w/:workspaceSlug/workspace/settings/assistant",
+    "/api/w/:workspaceSlug/settings/assistant",
     {
       auth: "required",
       surface: workspaceRouteSurfaceId,

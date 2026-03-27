@@ -54,8 +54,8 @@ test("crud routes build create/update action input with explicit payload and pat
     }
   });
 
-  const createRoute = findRoute(registeredRoutes, "POST", "/api/w/:workspaceSlug/workspace/customers");
-  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/w/:workspaceSlug/workspace/customers/:recordId");
+  const createRoute = findRoute(registeredRoutes, "POST", "/api/w/:workspaceSlug/customers");
+  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/w/:workspaceSlug/customers/:recordId");
   assert.ok(createRoute);
   assert.ok(updateRoute);
 
