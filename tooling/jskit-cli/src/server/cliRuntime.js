@@ -1,16 +1,13 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   access,
   constants as fsConstants,
-  mkdtemp,
   mkdir,
   readFile,
   readdir,
   rm,
   writeFile
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -58,8 +55,8 @@ const PACKAGE_KIND_GENERATOR = "generator";
 const PACKAGE_KINDS = Object.freeze([PACKAGE_KIND_RUNTIME, PACKAGE_KIND_GENERATOR]);
 const WORKSPACE_VISIBILITY_LEVELS = Object.freeze(["workspace", "workspace_user"]);
 const WORKSPACE_VISIBILITY_SET = new Set(WORKSPACE_VISIBILITY_LEVELS);
-const MATERIALIZED_PACKAGE_ROOTS = new Map();
-const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
+const LOCAL_WORKSPACE_PACKAGE_ROOTS = new Map();
+let LOCAL_WORKSPACE_PACKAGE_ID_INDEX = null;
 const BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
   "runtime.actions": Object.freeze(["@jskit-ai/kernel"])
 });
@@ -3406,80 +3403,86 @@ function createManagedRecordBase(packageEntry, options) {
   };
 }
 
-async function runCommandCapture(command, args, { cwd } = {}) {
-  return await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+async function resolvePackageRootFromNodeModules({ appRoot, packageId }) {
+  const normalizedAppRoot = path.resolve(String(appRoot || "").trim());
+  const normalizedPackageId = String(packageId || "").trim();
+  if (!normalizedAppRoot || !normalizedPackageId) {
+    return "";
+  }
 
-    let stdout = "";
-    let stderr = "";
+  const candidateRoot = path.resolve(normalizedAppRoot, "node_modules", ...normalizedPackageId.split("/"));
+  const candidateDescriptorPath = path.join(candidateRoot, "package.descriptor.mjs");
+  if (!(await fileExists(candidateDescriptorPath))) {
+    return "";
+  }
 
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString("utf8");
-    });
+  return candidateRoot;
+}
 
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) {
-        resolve({
-          stdout,
-          stderr
-        });
-        return;
+async function loadLocalWorkspacePackageIdIndex() {
+  if (LOCAL_WORKSPACE_PACKAGE_ID_INDEX instanceof Map) {
+    return LOCAL_WORKSPACE_PACKAGE_ID_INDEX;
+  }
+
+  const repoRoot = path.resolve(CLI_PACKAGE_ROOT, "..", "..");
+  const parentDirectories = [
+    path.join(repoRoot, "packages"),
+    path.join(repoRoot, "tooling")
+  ];
+  const packageIdIndex = new Map();
+
+  for (const parentDirectory of parentDirectories) {
+    if (!(await fileExists(parentDirectory))) {
+      continue;
+    }
+
+    const entries = await readdir(parentDirectory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) {
+        continue;
       }
-      const details = String(stderr || stdout || "").trim();
-      reject(createCliError(`${command} ${args.join(" ")} failed with exit code ${code}.${details ? ` ${details}` : ""}`));
-    });
-  });
+
+      const candidateRoot = path.join(parentDirectory, entry.name);
+      const packageJsonPath = path.join(candidateRoot, "package.json");
+      const descriptorPath = path.join(candidateRoot, "package.descriptor.mjs");
+      if (!(await fileExists(packageJsonPath)) || !(await fileExists(descriptorPath))) {
+        continue;
+      }
+
+      let packageJson = {};
+      try {
+        packageJson = await readJsonFile(packageJsonPath);
+      } catch {
+        continue;
+      }
+
+      const packageId = String(packageJson?.name || "").trim();
+      if (!packageId.startsWith("@jskit-ai/")) {
+        continue;
+      }
+      if (packageIdIndex.has(packageId)) {
+        continue;
+      }
+      packageIdIndex.set(packageId, candidateRoot);
+    }
+  }
+
+  LOCAL_WORKSPACE_PACKAGE_ID_INDEX = packageIdIndex;
+  return packageIdIndex;
 }
 
-function extractPackTarballName(packStdout) {
-  const lines = String(packStdout || "")
-    .split(/\r?\n/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return lines.length > 0 ? lines[lines.length - 1] : "";
-}
-
-async function materializePackageRootFromRegistry({ packageEntry, appRoot }) {
-  const cacheKey = `${packageEntry.packageId}@${packageEntry.version}`;
-  if (MATERIALIZED_PACKAGE_ROOTS.has(cacheKey)) {
-    return MATERIALIZED_PACKAGE_ROOTS.get(cacheKey);
+async function resolvePackageRootFromLocalWorkspace({ packageId }) {
+  const normalizedPackageId = String(packageId || "").trim();
+  if (!normalizedPackageId.startsWith("@jskit-ai/")) {
+    return "";
+  }
+  if (LOCAL_WORKSPACE_PACKAGE_ROOTS.has(normalizedPackageId)) {
+    return LOCAL_WORKSPACE_PACKAGE_ROOTS.get(normalizedPackageId);
   }
 
-  const tempRoot = await mkdtemp(path.join(tmpdir(), "jskit-cli-pack-"));
-  MATERIALIZED_PACKAGE_TEMP_DIRECTORIES.add(tempRoot);
-  const packageSpec = `${packageEntry.packageId}@${packageEntry.version}`;
-  const packResult = await runCommandCapture(
-    "npm",
-    ["pack", packageSpec, "--silent", "--pack-destination", tempRoot],
-    { cwd: appRoot }
-  );
-  const tarballName = extractPackTarballName(packResult.stdout);
-  if (!tarballName) {
-    throw createCliError(`Unable to materialize ${packageSpec}: npm pack produced no tarball name.`);
-  }
-
-  const tarballPath = path.join(tempRoot, tarballName);
-  if (!(await fileExists(tarballPath))) {
-    throw createCliError(`Unable to materialize ${packageSpec}: tarball missing at ${tarballPath}.`);
-  }
-
-  const extractedRoot = path.join(tempRoot, "extracted");
-  await mkdir(extractedRoot, { recursive: true });
-  await runCommandCapture("tar", ["-xzf", tarballPath, "-C", extractedRoot], { cwd: appRoot });
-  const packageRoot = path.join(extractedRoot, "package");
-  const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-  if (!(await fileExists(descriptorPath))) {
-    throw createCliError(`Materialized package ${packageSpec} does not contain package.descriptor.mjs.`);
-  }
-
-  MATERIALIZED_PACKAGE_ROOTS.set(cacheKey, packageRoot);
+  const packageIdIndex = await loadLocalWorkspacePackageIdIndex();
+  const packageRoot = String(packageIdIndex.get(normalizedPackageId) || "").trim();
+  LOCAL_WORKSPACE_PACKAGE_ROOTS.set(normalizedPackageId, packageRoot);
   return packageRoot;
 }
 
@@ -3488,15 +3491,31 @@ async function resolvePackageTemplateRoot({ packageEntry, appRoot }) {
   if (packageRoot) {
     return packageRoot;
   }
-  return await materializePackageRootFromRegistry({ packageEntry, appRoot });
+
+  const installedPackageRoot = await resolvePackageRootFromNodeModules({
+    appRoot,
+    packageId: packageEntry?.packageId
+  });
+  if (installedPackageRoot) {
+    return installedPackageRoot;
+  }
+
+  const localWorkspacePackageRoot = await resolvePackageRootFromLocalWorkspace({
+    packageId: packageEntry?.packageId
+  });
+  if (localWorkspacePackageRoot) {
+    return localWorkspacePackageRoot;
+  }
+
+  throw createCliError(
+    `Unable to resolve local template source for ${String(packageEntry?.packageId || "unknown package")}. ` +
+      "Install it in node_modules or ensure it exists in the local jskit-ai workspace."
+  );
 }
 
 async function cleanupMaterializedPackageRoots() {
-  for (const tempDirectory of MATERIALIZED_PACKAGE_TEMP_DIRECTORIES) {
-    await rm(tempDirectory, { recursive: true, force: true }).catch(() => {});
-  }
-  MATERIALIZED_PACKAGE_TEMP_DIRECTORIES.clear();
-  MATERIALIZED_PACKAGE_ROOTS.clear();
+  LOCAL_WORKSPACE_PACKAGE_ROOTS.clear();
+  LOCAL_WORKSPACE_PACKAGE_ID_INDEX = null;
 }
 
 function interpolateFileMutationRecord(mutation, options, packageId) {

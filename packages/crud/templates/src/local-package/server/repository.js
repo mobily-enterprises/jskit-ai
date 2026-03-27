@@ -2,6 +2,7 @@ import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
 import {
   DEFAULT_LIST_LIMIT,
+  buildRepositoryColumnMetadata,
   normalizeCrudListLimit,
   requireCrudTableName,
   buildWritePayload as baseBuildWritePayload,
