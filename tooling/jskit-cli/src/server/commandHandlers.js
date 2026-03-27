@@ -1345,10 +1345,11 @@ function createCommandHandlers(deps) {
     const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
     const { lockPath, lock } = await loadLockFile(appRoot);
     let resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, combinedPackageRegistry) : "";
-    if (targetType === "package" && !resolvedTargetPackageId) {
+    if (targetType === "package") {
+      const packageIdForNodeModulesLookup = resolvedTargetPackageId || targetId;
       const installedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
         appRoot,
-        packageId: targetId
+        packageId: packageIdForNodeModulesLookup
       });
       if (installedNodeModuleEntry) {
         combinedPackageRegistry.set(installedNodeModuleEntry.packageId, installedNodeModuleEntry);

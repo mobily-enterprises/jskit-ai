@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, constants as fsConstants, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,8 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+const CRUD_UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-ui-generator");
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
@@ -62,6 +64,12 @@ export default function getPlacements() {
 `,
     "utf8"
   );
+}
+
+async function installCrudUiGeneratorPackage(appRoot) {
+  const packageRoot = path.join(appRoot, "node_modules", "@jskit-ai", "crud-ui-generator");
+  await mkdir(path.dirname(packageRoot), { recursive: true });
+  await cp(CRUD_UI_GENERATOR_SOURCE_ROOT, packageRoot, { recursive: true });
 }
 
 async function writeCustomerResource(appRoot) {
@@ -171,6 +179,7 @@ async function generateCrudUiPackage(
     resourceExport = "customerResource"
   } = {}
 ) {
+  await installCrudUiGeneratorPackage(appRoot);
   const normalizedDisplayFields = String(displayFields || "").trim();
   const normalizedResourceExport = String(resourceExport || "").trim();
   const args = [
@@ -381,6 +390,7 @@ test("generate @jskit-ai/crud-ui-generator fails when display-fields includes un
     const appRoot = path.join(cwd, "ui-generator-app-invalid-display-fields");
     await createMinimalApp(appRoot, { name: "ui-generator-app-invalid-display-fields" });
     await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
 
     const addResult = runCli({
       cwd: appRoot,
@@ -437,6 +447,7 @@ test("add package rejects generator package ids", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-add-rejects-generator");
     await createMinimalApp(appRoot, { name: "ui-generator-add-rejects-generator" });
+    await installCrudUiGeneratorPackage(appRoot);
 
     const addResult = runCli({
       cwd: appRoot,

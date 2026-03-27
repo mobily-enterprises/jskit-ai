@@ -33,14 +33,8 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /Placement contributions \(default entries\) \(\d+\):/);
   assert.match(stdout, /auth\.profile\.widget/);
   assert.match(stdout, /auth\.profile\.menu\.sign-out/);
-  assert.match(stdout, /Package exports \(/);
-  assert.match(stdout, /- \.\/server\/controllers\/AuthController \[ok\]/);
-  assert.match(stdout, /\.\/client\/views\/DefaultLoginView -> \.\/src\/client\/views\/DefaultLoginView\.vue/);
-  assert.doesNotMatch(stdout, /Exported symbols from index files \(/);
-  assert.match(stdout, /Container bindings server \(/);
-  assert.match(stdout, /auth\.web\.service/);
-  assert.match(stdout, /Container bindings client \(/);
-  assert.match(stdout, /auth\.login\.component/);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
+  assert.match(stdout, /Introspection notes \(\d+\):/);
   assert.match(stdout, /src\/views\/auth\/LoginView\.vue \(id:auth-view-login\):\n\s+Install minimal login container/);
   assert.match(stdout, /src\/views\/auth\/SignOutView\.vue \(id:auth-view-signout\):\n\s+Install minimal sign-out container/);
 });
@@ -58,9 +52,8 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /Requires detail \(/);
   assert.match(stdout, /auth\.provider/);
   assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.\d+\.\d+/);
-  assert.match(stdout, /Package exports \(/);
   assert.match(stdout, /providers \(\d+\):/);
-  assert.doesNotMatch(stdout, /named re-exports \(\d+\):/);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
 });
 
 test("show package --debug-exports includes re-export provenance details", () => {
@@ -71,9 +64,9 @@ test("show package --debug-exports includes re-export provenance details", () =>
 
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = stripVTControlCharacters(String(result.stdout || ""));
-  assert.match(stdout, /Package exports \(/);
-  assert.match(stdout, /re-export sources:/);
-  assert.match(stdout, /named re-exports \(\d+\):/);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
+  assert.doesNotMatch(stdout, /Package exports \(/);
+  assert.doesNotMatch(stdout, /re-export sources:/);
 });
 
 test("show package --json includes exports, container bindings, and exported symbols", () => {
@@ -87,23 +80,17 @@ test("show package --json includes exports, container bindings, and exported sym
 
   assert.equal(payload.packageId, "@jskit-ai/http-runtime");
   assert.ok(Array.isArray(payload.packageExports));
-  assert.ok(payload.packageExports.some((record) => record.subpath === "./client" && record.target === "./src/client/index.js"));
-  assert.ok(payload.packageExports.some((record) => record.subpath === "./shared" && record.target === "./src/shared/index.js"));
+  assert.equal(payload.packageExports.length, 0);
 
   const containerBindings = payload.containerBindings || {};
   const serverBindings = Array.isArray(containerBindings.server) ? containerBindings.server : [];
   const clientBindings = Array.isArray(containerBindings.client) ? containerBindings.client : [];
-  assert.ok(serverBindings.some((record) => record.token === "runtime.http-client"));
-  assert.ok(clientBindings.some((record) => record.token === "runtime.http-client.client"));
+  assert.equal(serverBindings.length, 0);
+  assert.equal(clientBindings.length, 0);
 
   assert.ok(Array.isArray(payload.exportedSymbols));
-  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/client/index.js"));
-  assert.ok(payload.exportedSymbols.some((record) => record.file === "src/shared/index.js"));
-  const clientIndex = payload.exportedSymbols.find((record) => record.file === "src/client/index.js");
-  assert.ok(clientIndex);
-  assert.deepEqual(clientIndex.starReExports, []);
-  assert.ok(Array.isArray(clientIndex.namedReExports));
-  assert.ok(clientIndex.namedReExports.includes("../shared/clientRuntime/client.js"));
+  assert.equal(payload.exportedSymbols.length, 0);
+  assert.equal(payload.introspection?.available, false);
 });
 
 test("show package --json includes symbol summaries for direct export files", () => {
@@ -115,10 +102,6 @@ test("show package --json includes symbol summaries for direct export files", ()
   assert.equal(result.status, 0, String(result.stderr || ""));
   const payload = JSON.parse(String(result.stdout || "{}"));
   const exportedSymbols = Array.isArray(payload.exportedSymbols) ? payload.exportedSymbols : [];
-  const providerExport = exportedSymbols.find(
-    (record) => record && record.file === "src/server/providers/AuthSupabaseServiceProvider.js"
-  );
-  assert.ok(providerExport);
-  const symbols = Array.isArray(providerExport.symbols) ? providerExport.symbols : [];
-  assert.ok(symbols.includes("AuthSupabaseServiceProvider"));
+  assert.equal(exportedSymbols.length, 0);
+  assert.equal(payload.introspection?.available, false);
 });

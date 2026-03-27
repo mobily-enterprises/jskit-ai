@@ -28,9 +28,7 @@ import {
 import {
   BUNDLES_ROOT,
   CATALOG_PACKAGES_PATH,
-  CLI_PACKAGE_ROOT,
-  MODULES_ROOT,
-  WORKSPACE_ROOT
+  CLI_PACKAGE_ROOT
 } from "./pathResolution.js";
 import {
   appendTextSnippet,
@@ -1332,85 +1330,6 @@ function validateBundleDescriptorShape(descriptor, descriptorPath) {
   return normalized;
 }
 
-async function loadWorkspacePackageRegistry() {
-  if (!MODULES_ROOT || !(await fileExists(MODULES_ROOT))) {
-    return new Map();
-  }
-
-  const directories = [];
-  const levelOne = await readdir(MODULES_ROOT, { withFileTypes: true });
-
-  for (const entry of levelOne) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    if (entry.name.startsWith(".") || entry.name.endsWith(".LEGACY")) {
-      continue;
-    }
-
-    const absolute = path.join(MODULES_ROOT, entry.name);
-    const descriptorPath = path.join(absolute, "package.descriptor.mjs");
-    if (await fileExists(descriptorPath)) {
-      directories.push(absolute);
-      continue;
-    }
-
-    const nested = await readdir(absolute, { withFileTypes: true }).catch(() => []);
-    for (const child of nested) {
-      if (!child.isDirectory() || child.name.startsWith(".")) {
-        continue;
-      }
-      const nestedAbsolute = path.join(absolute, child.name);
-      const nestedDescriptor = path.join(nestedAbsolute, "package.descriptor.mjs");
-      if (await fileExists(nestedDescriptor)) {
-        directories.push(nestedAbsolute);
-      }
-    }
-  }
-
-  const uniqueDirectories = sortStrings([...new Set(directories)]);
-  const registry = new Map();
-
-  for (const packageRoot of uniqueDirectories) {
-    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href);
-    const descriptor = validatePackageDescriptorShape(descriptorModule?.default, descriptorPath);
-
-    const packageJsonPath = path.join(packageRoot, "package.json");
-    if (!(await fileExists(packageJsonPath))) {
-      throw createCliError(`Missing package.json for ${descriptor.packageId} at ${packageRoot}.`);
-    }
-    const packageJson = await readJsonFile(packageJsonPath);
-    const packageName = String(packageJson?.name || "").trim();
-    if (packageName !== descriptor.packageId) {
-      throw createCliError(
-        `Descriptor/package mismatch at ${packageRoot}: package.descriptor.mjs has ${descriptor.packageId} but package.json has ${packageName || "(empty)"}.`
-      );
-    }
-
-    const relativeDir = normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, packageRoot);
-    const descriptorRelativePath = normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, descriptorPath);
-    registry.set(
-      descriptor.packageId,
-      createPackageEntry({
-        packageId: descriptor.packageId,
-        version: descriptor.version,
-        descriptor,
-        rootDir: packageRoot,
-        relativeDir,
-        descriptorRelativePath,
-        packageJson,
-        sourceType: "packages-directory",
-        source: {
-          descriptorPath: descriptorRelativePath
-        }
-      })
-    );
-  }
-
-  return registry;
-}
-
 async function loadAppLocalPackageRegistry(appRoot) {
   const localPackagesRoot = path.join(appRoot, "packages");
   if (!(await fileExists(localPackagesRoot))) {
@@ -1523,17 +1442,14 @@ async function loadCatalogPackageRegistry() {
 }
 
 async function loadPackageRegistry() {
-  const workspaceRegistry = await loadWorkspacePackageRegistry();
   const catalogRegistry = await loadCatalogPackageRegistry();
-  const merged = mergePackageRegistries(catalogRegistry, workspaceRegistry);
-
-  if (merged.size === 0) {
+  if (catalogRegistry.size === 0) {
     throw createCliError(
-      "Unable to load package registry. Provide JSKIT_REPO_ROOT for workspace mode or ensure @jskit-ai/jskit-catalog is installed (or set JSKIT_CATALOG_PACKAGES_PATH)."
+      "Unable to load package registry from @jskit-ai/jskit-catalog. Install it alongside @jskit-ai/jskit-cli or set JSKIT_CATALOG_PACKAGES_PATH."
     );
   }
 
-  return merged;
+  return catalogRegistry;
 }
 
 async function loadInstalledNodeModulePackageEntry({ appRoot, packageId }) {
