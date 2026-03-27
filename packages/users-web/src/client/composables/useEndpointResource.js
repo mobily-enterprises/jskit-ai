@@ -4,6 +4,7 @@ import { usersWebHttpClient } from "../lib/httpClient.js";
 import { asPlainObject } from "./scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import { toQueryErrorMessage } from "./errorMessageHelpers.js";
+import { hasResolvedQueryData } from "./resourceLoadStateHelpers.js";
 
 function useEndpointResource({
   queryKey,
@@ -66,7 +67,11 @@ function useEndpointResource({
   });
 
   const data = computed(() => query.data.value);
-  const isInitialLoading = computed(() => Boolean(queryEnabled.value && query.isPending.value));
+  const hasResolvedData = computed(() => hasResolvedQueryData({
+    query,
+    data
+  }));
+  const isInitialLoading = computed(() => Boolean(queryEnabled.value && query.isPending.value && !hasResolvedData.value));
   const isFetching = computed(() => Boolean(queryEnabled.value && query.isFetching.value));
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const isLoading = computed(() => Boolean(isInitialLoading.value || isFetching.value));

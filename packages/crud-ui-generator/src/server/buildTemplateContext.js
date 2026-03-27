@@ -2,7 +2,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const DATE_FORMATS = new Set(["date", "date-time", "time"]);
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 
 function normalizeText(value) {
@@ -213,9 +212,41 @@ function resolveListItemProperties(listOutputSchema) {
   return requireObjectProperties(itemSchema, "operations.list output items");
 }
 
-function resolveSchemaType(schema) {
+function resolveUnionSchemaVariant(schema = {}) {
   const source = schema && typeof schema === "object" && !Array.isArray(schema) ? schema : {};
-  const rawType = source.type;
+  const candidates = [];
+
+  if (Array.isArray(source.anyOf)) {
+    candidates.push(...source.anyOf);
+  }
+  if (Array.isArray(source.oneOf)) {
+    candidates.push(...source.oneOf);
+  }
+  if (candidates.length < 1) {
+    return source;
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      continue;
+    }
+
+    const rawType = candidate.type;
+    const normalizedType = Array.isArray(rawType)
+      ? normalizeText(rawType.find((entry) => normalizeText(entry).toLowerCase() !== "null"))
+      : normalizeText(rawType);
+    const type = normalizedType.toLowerCase();
+    if (type && type !== "null") {
+      return candidate;
+    }
+  }
+
+  return source;
+}
+
+function resolveSchemaType(schema) {
+  const source = resolveUnionSchemaVariant(schema);
+  const rawType = source?.type;
   const normalizedType = Array.isArray(rawType)
     ? normalizeText(rawType.find((entry) => normalizeText(entry).toLowerCase() !== "null"))
     : normalizeText(rawType);
@@ -333,7 +364,7 @@ function buildViewColumns(fields) {
     .map(
       (field) => `            <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ ${toOptionalAccessorExpression("view.record.value", field.key)} }}</div>
+              <div class="text-body-1">{{ ${toOptionalAccessorExpression("view.record", field.key)} }}</div>
             </v-col>`
     )
     .join("\n");
@@ -400,8 +431,14 @@ function resolveFormInputType(fieldType, fieldFormat) {
     return "number";
   }
 
-  if (DATE_FORMATS.has(fieldFormat)) {
+  if (fieldFormat === "date-time") {
+    return "datetime-local";
+  }
+  if (fieldFormat === "date") {
     return "date";
+  }
+  if (fieldFormat === "time") {
+    return "time";
   }
 
   return "text";
@@ -442,6 +479,61 @@ function createFormFieldDefinitions(properties = {}) {
   }
 
   return fields;
+}
+
+function buildFormColumns(fields) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  return normalizedFields
+    .map((field) => {
+      const key = normalizeText(field?.key);
+      if (!key) {
+        return "";
+      }
+
+      const label = escapeHtml(field?.label || toFieldLabel(key));
+      const formAccessor = toAccessorExpression("formRuntime.form", key);
+      const fieldErrorExpression = `formRuntime.resolveFieldErrors(${JSON.stringify(key)})`;
+      const isSwitch = normalizeText(field?.component).toLowerCase() === "switch";
+      if (isSwitch) {
+        return `            <v-col cols="12" md="6">
+              <v-switch
+                v-model="${formAccessor}"
+                label="${label}"
+                color="primary"
+                hide-details="auto"
+                :disabled="
+                  !formRuntime.addEdit.canSave ||
+                  formRuntime.addEdit.isSaving ||
+                  formRuntime.addEdit.isRefetching
+                "
+                :error-messages='${fieldErrorExpression}'
+              />
+            </v-col>`;
+      }
+
+      const inputType = normalizeText(field?.inputType) || "text";
+      const maxLength = Number.isInteger(field?.maxLength) && field.maxLength > 0
+        ? String(field.maxLength)
+        : "undefined";
+      return `            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="${formAccessor}"
+                label="${label}"
+                type="${escapeHtml(inputType)}"
+                variant="outlined"
+                density="comfortable"
+                :maxlength="${maxLength}"
+                :readonly="
+                  !formRuntime.addEdit.canSave ||
+                  formRuntime.addEdit.isSaving ||
+                  formRuntime.addEdit.isRefetching
+                "
+                :error-messages='${fieldErrorExpression}'
+              />
+            </v-col>`;
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
@@ -529,6 +621,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_HAS_VIEW_ROUTE__: hasViewOperation ? "true" : "false",
     __JSKIT_UI_HAS_NEW_ROUTE__: hasNewOperation ? "true" : "false",
     __JSKIT_UI_HAS_EDIT_ROUTE__: hasEditOperation ? "true" : "false",
+    __JSKIT_UI_CREATE_FORM_COLUMNS__: buildFormColumns(createFields),
+    __JSKIT_UI_EDIT_FORM_COLUMNS__: buildFormColumns(editFields),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields)
   };

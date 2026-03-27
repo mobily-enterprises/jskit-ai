@@ -92,11 +92,12 @@ function useAddEdit({
 
   const canView = operationScope.permissionGate("view");
   const canSave = operationScope.permissionGate("save");
+  const queryCanRun = operationScope.queryCanRun(canView);
 
   const endpointResource = useEndpointResource({
     queryKey: operationScope.queryKey,
     path: operationScope.apiPath,
-    enabled: operationScope.queryCanRun(canView),
+    enabled: queryCanRun,
     readMethod,
     writeMethod,
     fallbackLoadError,

@@ -31,8 +31,18 @@ function useViewCore({
 
   const data = resource?.data;
   const record = computed(() => (model !== undefined ? model : data?.value));
-  const isLoading = computed(() => Boolean(resource?.query?.isPending?.value));
-  const isFetching = computed(() => Boolean(resource?.query?.isFetching?.value));
+  const isLoading = computed(() => {
+    if (resource?.isInitialLoading?.value !== undefined) {
+      return Boolean(resource.isInitialLoading.value);
+    }
+    return Boolean(resource?.query?.isPending?.value);
+  });
+  const isFetching = computed(() => {
+    if (resource?.isFetching?.value !== undefined) {
+      return Boolean(resource.isFetching.value);
+    }
+    return Boolean(resource?.query?.isFetching?.value);
+  });
   const error = computed(() => resource?.query?.error?.value || null);
 
   const isNotFound = computed(() => {

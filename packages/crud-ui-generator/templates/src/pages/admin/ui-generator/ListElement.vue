@@ -8,19 +8,19 @@
             <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="outlined" :loading="records.isFetching.value" @click="records.reload">Refresh</v-btn>
+          <v-btn variant="outlined" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
           <v-btn v-if="UI_NEW_URL" color="primary" :to="records.resolveParams(UI_NEW_URL)">New ${option:namespace|singular|default(record)}</v-btn>
         </div>
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <template v-if="records.showListSkeleton.value">
+        <template v-if="records.showListSkeleton">
           <v-skeleton-loader type="text@2, list-item-two-line@5" />
         </template>
         <template v-else>
-          <v-progress-linear v-if="records.isRefetching.value" indeterminate class="mb-3" />
+          <v-progress-linear v-if="records.isRefetching" indeterminate class="mb-3" />
 
-          <div v-if="records.items.value.length < 1" class="text-center py-6 text-medium-emphasis">
+          <div v-if="records.items.length < 1" class="text-center py-6 text-medium-emphasis">
             No records yet.
           </div>
           <v-table v-else density="comfortable">
@@ -32,7 +32,7 @@ __JSKIT_UI_LIST_HEADER_COLUMNS__
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(record, index) in records.items.value" :key="records.resolveRowKey(record, index)">
+              <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
 __JSKIT_UI_LIST_ROW_COLUMNS__
                 <td v-if="UI_VIEW_URL" class="text-right">
                   <v-btn
@@ -58,8 +58,8 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
             </tbody>
           </v-table>
 
-          <div v-if="records.hasMore.value" class="d-flex justify-center pt-4">
-            <v-btn variant="text" :loading="records.isLoadingMore.value" @click="records.loadMore">Load more</v-btn>
+          <div v-if="records.hasMore" class="d-flex justify-center pt-4">
+            <v-btn variant="text" :loading="records.isLoadingMore" @click="records.loadMore">Load more</v-btn>
           </div>
         </template>
       </v-card-text>

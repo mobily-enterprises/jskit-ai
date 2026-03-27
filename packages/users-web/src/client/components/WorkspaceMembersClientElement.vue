@@ -389,12 +389,12 @@ const status = computed(() => {
     isCreatingInvite: Boolean(inviteCreateCommand.isRunning.value),
     isRevokingInvite: Boolean(revokeInviteCommand.isRunning.value),
     isRemovingMember: Boolean(memberRemoveCommand.isRunning.value),
-    hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading.value,
-    hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading.value,
-    hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading.value,
-    isRefreshingWorkspaceSettings: canInviteMembers.value && Boolean(workspaceSettingsView.isRefetching.value),
-    isRefreshingMembersList: canViewMembers.value && Boolean(workspaceMembersList.isRefetching.value),
-    isRefreshingInviteList: canViewMembers.value && Boolean(workspaceInvitesList.isRefetching.value)
+    hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading,
+    hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading,
+    hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading,
+    isRefreshingWorkspaceSettings: canInviteMembers.value && Boolean(workspaceSettingsView.isRefetching),
+    isRefreshingMembersList: canViewMembers.value && Boolean(workspaceMembersList.isRefetching),
+    isRefreshingInviteList: canViewMembers.value && Boolean(workspaceInvitesList.isRefetching)
   };
 });
 
@@ -440,7 +440,7 @@ watch(
 );
 
 watch(
-  () => workspaceSettingsView.record.value,
+  () => workspaceSettingsView.record,
   (payload) => {
     if (!payload) {
       return;
@@ -451,7 +451,7 @@ watch(
 );
 
 watch(
-  () => workspaceSettingsView.loadError.value,
+  () => workspaceSettingsView.loadError,
   (nextLoadError) => {
     if (!nextLoadError) {
       return;
@@ -462,7 +462,7 @@ watch(
 );
 
 watch(
-  () => workspaceRolesView.record.value,
+  () => workspaceRolesView.record,
   (payload) => {
     if (!payload) {
       return;
@@ -473,7 +473,7 @@ watch(
 );
 
 watch(
-  () => workspaceRolesView.loadError.value,
+  () => workspaceRolesView.loadError,
   (nextLoadError) => {
     if (!nextLoadError) {
       return;
@@ -483,7 +483,7 @@ watch(
 );
 
 watch(
-  () => workspaceMembersList.items.value,
+  () => workspaceMembersList.items,
   (nextMembers) => {
     collections.members = Array.isArray(nextMembers) ? [...nextMembers] : [];
   },
@@ -491,7 +491,7 @@ watch(
 );
 
 watch(
-  () => workspaceMembersList.pages.value,
+  () => workspaceMembersList.pages,
   (pages) => {
     const payload = latestPage(pages);
     if (!payload) {
@@ -503,7 +503,7 @@ watch(
 );
 
 watch(
-  () => workspaceMembersList.loadError.value,
+  () => workspaceMembersList.loadError,
   (nextLoadError) => {
     if (!nextLoadError) {
       membersFeedback.clear();
@@ -514,7 +514,7 @@ watch(
 );
 
 watch(
-  () => workspaceInvitesList.items.value,
+  () => workspaceInvitesList.items,
   (nextInvites) => {
     collections.invites = Array.isArray(nextInvites) ? [...nextInvites] : [];
   },
@@ -522,7 +522,7 @@ watch(
 );
 
 watch(
-  () => workspaceInvitesList.pages.value,
+  () => workspaceInvitesList.pages,
   (pages) => {
     const payload = latestPage(pages);
     if (!payload) {
@@ -534,7 +534,7 @@ watch(
 );
 
 watch(
-  () => workspaceInvitesList.loadError.value,
+  () => workspaceInvitesList.loadError,
   (nextLoadError) => {
     if (!nextLoadError) {
       teamFeedback.clear();

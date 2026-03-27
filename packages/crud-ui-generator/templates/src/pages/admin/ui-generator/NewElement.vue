@@ -30,36 +30,7 @@
         </p>
         <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
           <v-row>
-            <v-col v-for="field in formRuntime.formFields" :key="field.key" cols="12" md="6">
-              <v-switch
-                v-if="field.component === 'switch'"
-                v-model="formRuntime.form[field.key]"
-                :label="field.label"
-                color="primary"
-                hide-details="auto"
-                :disabled="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
-                :error-messages="formRuntime.resolveFieldErrors(field.key)"
-              />
-              <v-text-field
-                v-else
-                v-model="formRuntime.form[field.key]"
-                :label="field.label"
-                :type="field.inputType"
-                variant="outlined"
-                density="comfortable"
-                :maxlength="field.maxLength || undefined"
-                :readonly="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
-                :error-messages="formRuntime.resolveFieldErrors(field.key)"
-              />
-            </v-col>
+__JSKIT_UI_CREATE_FORM_COLUMNS__
           </v-row>
         </v-form>
       </v-card-text>
