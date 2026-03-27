@@ -267,25 +267,25 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(viewPageSource, /<v-card-title class="px-0">Customer<\/v-card-title>/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /useAddEdit/);
+    assert.match(newPageSource, /useCrudSchemaForm/);
+    assert.match(newPageSource, /const formRuntime = useCrudSchemaForm\(/);
     assert.match(newPageSource, /writeMethod: "POST"/);
     assert.match(newPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(newPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(newPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(newPageSource, /addEdit\.resolveSavedViewUrl\(payload\)/);
     assert.doesNotMatch(newPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(newPageSource, /function toRouteRecordId/);
     assert.match(newPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /useAddEdit/);
+    assert.match(editPageSource, /useCrudSchemaForm/);
+    assert.match(editPageSource, /const formRuntime = useCrudSchemaForm\(/);
     assert.match(editPageSource, /writeMethod: "PATCH"/);
     assert.match(editPageSource, /apiUrlTemplate: UI_EDIT_API_URL,/);
     assert.match(editPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(editPageSource, /routeRecordId,/);
     assert.match(editPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(editPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(editPageSource, /addEdit\.resolveSavedViewUrl\(payload\)/);
     assert.doesNotMatch(editPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(editPageSource, /function toRouteRecordId/);
     assert.match(editPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
