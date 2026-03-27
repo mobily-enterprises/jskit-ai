@@ -11,6 +11,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
         "version": "0.1.25",
+        "kind": "runtime",
         "description": "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
         "options": {
           "ai-provider": {
@@ -305,6 +306,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-core",
         "version": "0.1.16",
+        "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/value-app-config-shared"
         ],
@@ -394,6 +396,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-supabase-core",
         "version": "0.1.16",
+        "kind": "runtime",
         "options": {
           "auth-supabase-url": {
             "required": true,
@@ -545,6 +548,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-web",
         "version": "0.1.18",
+        "kind": "runtime",
         "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
         "dependsOn": [
           "@jskit-ai/auth-core",
@@ -845,14 +849,59 @@
       }
     },
     {
-      "packageId": "@jskit-ai/crud",
+      "packageId": "@jskit-ai/crud-core",
       "version": "0.1.25",
       "descriptor": {
         "packageVersion": 1,
-        "packageId": "@jskit-ai/crud",
+        "packageId": "@jskit-ai/crud-core",
         "version": "0.1.25",
-        "installationMode": "clone-only",
-        "description": "CRUD module with server routes, actions, and persistence scaffolding.",
+        "kind": "runtime",
+        "description": "Shared CRUD helpers used by CRUD modules.",
+        "dependsOn": [
+          "@jskit-ai/kernel",
+          "@jskit-ai/realtime",
+          "@jskit-ai/shell-web",
+          "@jskit-ai/users-core",
+          "@jskit-ai/users-web"
+        ],
+        "capabilities": {
+          "provides": [
+            "crud.core"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/crud-core": "0.1.25"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/crud-server-generator",
+      "version": "0.1.25",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/crud-server-generator",
+        "version": "0.1.25",
+        "kind": "generator",
+        "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
           "namespace": {
             "required": true,
@@ -1069,959 +1118,13 @@
       }
     },
     {
-      "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.25",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.25",
-        "description": "Shared CRUD helpers used by CRUD modules.",
-        "dependsOn": [
-          "@jskit-ai/kernel",
-          "@jskit-ai/realtime",
-          "@jskit-ai/shell-web",
-          "@jskit-ai/users-core",
-          "@jskit-ai/users-web"
-        ],
-        "capabilities": {
-          "provides": [
-            "crud.core"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providers": []
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/crud-core": "0.1.25"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": []
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.17",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.17",
-        "dependsOn": [
-          "@jskit-ai/kernel"
-        ],
-        "capabilities": {
-          "provides": [
-            "runtime.database"
-          ],
-          "requires": [
-            "runtime.database.driver"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
-                "export": "DatabaseRuntimeServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Exports DatabaseRuntimeServiceProvider plus registerDatabaseRuntime for server container wiring."
-              },
-              {
-                "subpath": "./shared",
-                "summary": "Exports shared Knex runtime utilities (transaction manager, repository helpers, retention/json/date/dialect helpers)."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports no runtime API today (reserved client entrypoint)."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.database",
-                "runtime.database.driver",
-                "jskit.database.knex",
-                "jskit.database.transactionManager"
-              ],
-              "client": []
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/kernel": "0.1.17",
-              "dotenv": "^16.4.5",
-              "knex": "^3.1.0"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {
-              "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
-              "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-              "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
-            }
-          },
-          "procfile": {},
-          "files": [
-            {
-              "from": "templates/knexfile.js",
-              "to": "knexfile.js",
-              "reason": "Install root Knex configuration so app scripts can run migrations through Knex CLI.",
-              "category": "database-runtime",
-              "id": "database-runtime-knexfile"
-            },
-            {
-              "from": "templates/migrations/.gitkeep",
-              "to": "migrations/.gitkeep",
-              "reason": "Ensure migrations directory exists so Knex migration commands can run before any module installs migrations.",
-              "category": "database-runtime",
-              "id": "database-runtime-migrations-dir"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/database-runtime-mysql",
-        "version": "0.1.16",
-        "options": {
-          "db-host": {
-            "required": false,
-            "values": [],
-            "defaultValue": "localhost",
-            "promptLabel": "Database host",
-            "promptHint": "MySQL host (for example 127.0.0.1)"
-          },
-          "db-port": {
-            "required": false,
-            "values": [],
-            "defaultValue": "3306",
-            "promptLabel": "Database port",
-            "promptHint": "MySQL port (usually 3306)"
-          },
-          "db-name": {
-            "required": true,
-            "values": [],
-            "promptLabel": "Database name",
-            "promptHint": "Schema/database name to connect to"
-          },
-          "db-user": {
-            "required": true,
-            "values": [],
-            "promptLabel": "Database user",
-            "promptHint": "Database username"
-          },
-          "db-password": {
-            "required": true,
-            "values": [],
-            "inputType": "password",
-            "promptLabel": "Database password",
-            "promptHint": "Database password"
-          }
-        },
-        "dependsOn": [
-          "@jskit-ai/database-runtime"
-        ],
-        "capabilities": {
-          "provides": [
-            "runtime.database.driver",
-            "runtime.database.driver.mysql"
-          ],
-          "requires": [
-            "runtime.database"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
-                "export": "DatabaseRuntimeMysqlServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Exports MySQL database runtime provider."
-              },
-              {
-                "subpath": "./shared",
-                "summary": "Exports MySQL dialect metadata helpers."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports no runtime API today (reserved client entrypoint)."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.database.driver.mysql"
-              ],
-              "client": []
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/database-runtime": "0.1.17",
-              "mysql2": "^3.11.2"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": [],
-          "text": [
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_CLIENT",
-              "value": "mysql2",
-              "reason": "Configure database client driver for runtime wiring.",
-              "category": "runtime-config",
-              "id": "database-client-mysql"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_HOST",
-              "value": "${option:db-host}",
-              "reason": "Configure database host.",
-              "category": "runtime-config",
-              "id": "database-host"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_PORT",
-              "value": "${option:db-port}",
-              "reason": "Configure database port.",
-              "category": "runtime-config",
-              "id": "database-port"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_NAME",
-              "value": "${option:db-name}",
-              "reason": "Configure database name.",
-              "category": "runtime-config",
-              "id": "database-name"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_USER",
-              "value": "${option:db-user}",
-              "reason": "Configure database user.",
-              "category": "runtime-config",
-              "id": "database-user"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_PASSWORD",
-              "value": "${option:db-password}",
-              "reason": "Configure database password.",
-              "category": "runtime-config",
-              "id": "database-password"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/database-runtime-postgres",
-        "version": "0.1.16",
-        "options": {
-          "db-host": {
-            "required": false,
-            "values": [],
-            "defaultValue": "localhost",
-            "promptLabel": "Database host",
-            "promptHint": "Postgres host (for example 127.0.0.1)"
-          },
-          "db-port": {
-            "required": false,
-            "values": [],
-            "defaultValue": "5432",
-            "promptLabel": "Database port",
-            "promptHint": "Postgres port (usually 5432)"
-          },
-          "db-name": {
-            "required": true,
-            "values": [],
-            "promptLabel": "Database name",
-            "promptHint": "Database name to connect to"
-          },
-          "db-user": {
-            "required": true,
-            "values": [],
-            "promptLabel": "Database user",
-            "promptHint": "Database username"
-          },
-          "db-password": {
-            "required": true,
-            "values": [],
-            "inputType": "password",
-            "promptLabel": "Database password",
-            "promptHint": "Database password"
-          }
-        },
-        "dependsOn": [
-          "@jskit-ai/database-runtime"
-        ],
-        "capabilities": {
-          "provides": [
-            "runtime.database.driver",
-            "runtime.database.driver.postgres"
-          ],
-          "requires": [
-            "runtime.database"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
-                "export": "DatabaseRuntimePostgresServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Exports Postgres database runtime provider."
-              },
-              {
-                "subpath": "./shared",
-                "summary": "Exports Postgres dialect metadata helpers."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports no runtime API today (reserved client entrypoint)."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.database.driver.postgres"
-              ],
-              "client": []
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/database-runtime": "0.1.17",
-              "pg": "^8.13.1"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": [],
-          "text": [
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_CLIENT",
-              "value": "pg",
-              "reason": "Configure database client driver for runtime wiring.",
-              "category": "runtime-config",
-              "id": "database-client-postgres"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_HOST",
-              "value": "${option:db-host}",
-              "reason": "Configure database host.",
-              "category": "runtime-config",
-              "id": "database-host"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_PORT",
-              "value": "${option:db-port}",
-              "reason": "Configure database port.",
-              "category": "runtime-config",
-              "id": "database-port"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_NAME",
-              "value": "${option:db-name}",
-              "reason": "Configure database name.",
-              "category": "runtime-config",
-              "id": "database-name"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_USER",
-              "value": "${option:db-user}",
-              "reason": "Configure database user.",
-              "category": "runtime-config",
-              "id": "database-user"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "DB_PASSWORD",
-              "value": "${option:db-password}",
-              "reason": "Configure database password.",
-              "category": "runtime-config",
-              "id": "database-password"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/http-runtime",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/http-runtime",
-        "version": "0.1.16",
-        "dependsOn": [],
-        "capabilities": {
-          "provides": [
-            "validators.http",
-            "runtime.http-client"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
-                "export": "HttpValidatorsServiceProvider"
-              },
-              {
-                "entrypoint": "src/server/providers/HttpClientRuntimeServiceProvider.js",
-                "export": "HttpClientRuntimeServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": [
-              {
-                "entrypoint": "src/client/providers/HttpValidatorsClientProvider.js",
-                "export": "HttpValidatorsClientProvider"
-              },
-              {
-                "entrypoint": "src/client/providers/HttpClientRuntimeClientProvider.js",
-                "export": "HttpClientRuntimeClientProvider"
-              }
-            ]
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./client",
-                "summary": "Exports HTTP client runtime APIs (createHttpClient and transport helpers) plus client providers."
-              },
-              {
-                "subpath": "./server",
-                "summary": "Exports service providers only (HttpValidatorsServiceProvider, HttpClientRuntimeServiceProvider)."
-              },
-              {
-                "subpath": "./shared",
-                "summary": "Exports HTTP validator/schema utilities, with structured validator subpaths under ./shared/validators/*."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.http-client"
-              ],
-              "client": [
-                "runtime.http-client.client"
-              ]
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/kernel": "0.1.17",
-              "@fastify/type-provider-typebox": "^6.1.0",
-              "typebox": "^1.0.81"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": []
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/realtime",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/realtime",
-        "version": "0.1.16",
-        "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
-        "options": {
-          "realtime-redis-url": {
-            "required": true,
-            "allowEmpty": true,
-            "values": [],
-            "defaultValue": "",
-            "promptLabel": "Realtime Redis URL",
-            "promptHint": "Leave empty to use in-memory socket adapter."
-          }
-        },
-        "dependsOn": [
-          "@jskit-ai/kernel"
-        ],
-        "capabilities": {
-          "provides": [
-            "runtime.realtime",
-            "runtime.realtime.client"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/RealtimeServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/RealtimeServiceProvider.js",
-                "export": "RealtimeServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": [
-              {
-                "entrypoint": "src/client/RealtimeClientProvider.js",
-                "export": "RealtimeClientProvider"
-              }
-            ]
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Exports RealtimeServiceProvider only."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports RealtimeClientProvider only."
-              },
-              {
-                "subpath": "./client/listeners",
-                "summary": "Exports client listener registration helpers for provider-level realtime subscriptions."
-              },
-              {
-                "subpath": "./client/composables/*",
-                "summary": "Exports component-level realtime socket composables."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.realtime",
-                "runtime.realtime.io"
-              ],
-              "client": [
-                "runtime.realtime.client",
-                "runtime.realtime.client.socket",
-                "realtime.web.connection.indicator"
-              ]
-            }
-          },
-          "ui": {
-            "placements": {
-              "outlets": [],
-              "contributions": [
-                {
-                  "id": "realtime.connection.indicator",
-                  "host": "shell-layout",
-                  "position": "top-right",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "order": 950,
-                  "componentToken": "realtime.web.connection.indicator",
-                  "source": "mutations.text#realtime-placement-indicator"
-                }
-              ]
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/kernel": "0.1.17",
-              "@socket.io/redis-adapter": "^8.3.0",
-              "redis": "^5.8.2",
-              "socket.io": "^4.8.3",
-              "socket.io-client": "^4.8.3"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": [],
-          "vite": {
-            "proxy": [
-              {
-                "id": "realtime-socket-io",
-                "path": "/socket.io",
-                "changeOrigin": true,
-                "ws": true
-              }
-            ]
-          },
-          "text": [
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "REALTIME_REDIS_URL",
-              "value": "${option:realtime-redis-url}",
-              "reason": "Configure optional Redis backplane URL for realtime socket adapter.",
-              "category": "runtime-config",
-              "id": "realtime-redis-url"
-            },
-            {
-              "op": "append-text",
-              "file": "src/placement.js",
-              "position": "bottom",
-              "skipIfContains": "id: \"realtime.connection.indicator\"",
-              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
-              "reason": "Append realtime connection indicator placement into app-owned placement registry.",
-              "category": "realtime-web",
-              "id": "realtime-placement-indicator"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.16",
-        "description": "Web shell layout runtime with outlet-based placement contributions.",
-        "dependsOn": [],
-        "capabilities": {
-          "provides": [
-            "runtime.web-placement",
-            "runtime.web-error"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providers": []
-          },
-          "client": {
-            "providers": [
-              {
-                "entrypoint": "src/client/providers/ShellWebClientProvider.js",
-                "export": "ShellWebClientProvider"
-              }
-            ]
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./client",
-                "summary": "Exports shell layout/outlet/error-host components and ShellWebClientProvider."
-              },
-              {
-                "subpath": "./client/placement",
-                "summary": "Exports placement registry, placement context access, runtime token, and surface path helpers."
-              },
-              {
-                "subpath": "./client/error",
-                "summary": "Exports default error policy and runtime error reporter hook."
-              }
-            ],
-            "containerTokens": {
-              "server": [],
-              "client": [
-                "runtime.web-placement.client",
-                "runtime.web-error.client",
-                "runtime.web-error.presentation-store.client",
-                "shell.web.query-client"
-              ]
-            }
-          },
-          "ui": {
-            "placements": {
-              "outlets": [
-                {
-                  "host": "shell-layout",
-                  "position": "top-left",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "source": "src/client/components/ShellLayout.vue"
-                },
-                {
-                  "host": "shell-layout",
-                  "position": "top-right",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "source": "src/client/components/ShellLayout.vue"
-                },
-                {
-                  "host": "shell-layout",
-                  "position": "primary-menu",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "source": "src/client/components/ShellLayout.vue"
-                },
-                {
-                  "host": "shell-layout",
-                  "position": "secondary-menu",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "source": "src/client/components/ShellLayout.vue"
-                }
-              ],
-              "contributions": []
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@tanstack/vue-query": "^5.90.5",
-              "@jskit-ai/kernel": "0.1.17",
-              "vuetify": "^4.0.0"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {
-              "dev:all": "vite",
-              "dev:home": "VITE_SURFACE=home vite",
-              "dev:console": "VITE_SURFACE=console vite"
-            }
-          },
-          "procfile": {},
-          "text": [],
-          "files": [
-            {
-              "from": "templates/src/App.vue",
-              "to": "src/App.vue",
-              "reason": "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
-              "category": "shell-web",
-              "id": "shell-web-app-root"
-            },
-            {
-              "from": "templates/src/components/ShellLayout.vue",
-              "to": "src/components/ShellLayout.vue",
-              "reason": "Install app-owned shell layout component so apps can customize structure and slots.",
-              "category": "shell-web",
-              "id": "shell-web-component-shell-layout"
-            },
-            {
-              "from": "templates/src/error.js",
-              "to": "src/error.js",
-              "reason": "Install app-owned error runtime policy and presenter config scaffold.",
-              "category": "shell-web",
-              "id": "shell-web-error-config"
-            },
-            {
-              "from": "templates/src/placement.js",
-              "to": "src/placement.js",
-              "reason": "Install app-owned placement registry scaffold used by shell-web placement runtime.",
-              "category": "shell-web",
-              "id": "shell-web-placement-registry"
-            },
-            {
-              "from": "templates/src/pages/home.vue",
-              "toSurface": "home",
-              "toSurfaceRoot": true,
-              "reason": "Install shell-driven home wrapper page.",
-              "category": "shell-web",
-              "id": "shell-web-page-home-wrapper"
-            },
-            {
-              "from": "templates/src/pages/home/index.vue",
-              "toSurface": "home",
-              "toSurfacePath": "index.vue",
-              "reason": "Install shell-driven home surface starter page.",
-              "category": "shell-web",
-              "id": "shell-web-page-home"
-            },
-            {
-              "from": "templates/src/pages/console.vue",
-              "toSurface": "console",
-              "toSurfaceRoot": true,
-              "reason": "Install shell-driven console wrapper page.",
-              "category": "shell-web",
-              "id": "shell-web-page-console-wrapper"
-            },
-            {
-              "from": "templates/src/pages/console/index.vue",
-              "toSurface": "console",
-              "toSurfacePath": "index.vue",
-              "reason": "Install shell-driven console page starter.",
-              "category": "shell-web",
-              "id": "shell-web-page-console"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.16",
-      "descriptor": {
-        "packageVersion": 1,
-        "packageId": "@jskit-ai/storage-runtime",
-        "version": "0.1.16",
-        "dependsOn": [
-          "@jskit-ai/kernel"
-        ],
-        "capabilities": {
-          "provides": [
-            "runtime.storage"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providerEntrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
-            "providers": [
-              {
-                "entrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
-                "export": "StorageRuntimeServiceProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server/providers/StorageRuntimeServiceProvider",
-                "summary": "Exports storage runtime server provider."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports no client runtime API today (reserved client entrypoint)."
-              }
-            ],
-            "containerTokens": {
-              "server": [
-                "runtime.storage",
-                "jskit.storage"
-              ],
-              "client": []
-            }
-          }
-        },
-        "mutations": {
-          "dependencies": {
-            "runtime": {
-              "@jskit-ai/kernel": "0.1.17",
-              "unstorage": "^1.17.3"
-            },
-            "dev": {}
-          },
-          "packageJson": {
-            "scripts": {}
-          },
-          "procfile": {},
-          "files": [],
-          "text": []
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/ui-generator",
+      "packageId": "@jskit-ai/crud-ui-generator",
       "version": "0.1.0",
       "descriptor": {
         "packageVersion": 1,
-        "packageId": "@jskit-ai/ui-generator",
+        "packageId": "@jskit-ai/crud-ui-generator",
         "version": "0.1.0",
-        "installationMode": "clone-only",
+        "kind": "generator",
         "description": "Generate app-local CRUD UI scaffolds from resource validators.",
         "options": {
           "namespace": {
@@ -2048,9 +1151,9 @@
           "resource-export": {
             "required": false,
             "inputType": "text",
-            "defaultValue": "crudResource",
+            "defaultValue": "",
             "promptLabel": "Resource export",
-            "promptHint": "Named export in the resource module (default: crudResource)."
+            "promptHint": "Named export in the resource module (defaults to resource-file basename, example: contactResource)."
           },
           "operations": {
             "required": true,
@@ -2231,12 +1334,922 @@
       }
     },
     {
+      "packageId": "@jskit-ai/database-runtime",
+      "version": "0.1.17",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/database-runtime",
+        "version": "0.1.17",
+        "kind": "runtime",
+        "dependsOn": [
+          "@jskit-ai/kernel"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.database"
+          ],
+          "requires": [
+            "runtime.database.driver"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
+                "export": "DatabaseRuntimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports DatabaseRuntimeServiceProvider plus registerDatabaseRuntime for server container wiring."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared Knex runtime utilities (transaction manager, repository helpers, retention/json/date/dialect helpers)."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.database",
+                "runtime.database.driver",
+                "jskit.database.knex",
+                "jskit.database.transactionManager"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.17",
+              "dotenv": "^16.4.5",
+              "knex": "^3.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {
+              "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+              "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
+              "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
+            }
+          },
+          "procfile": {},
+          "files": [
+            {
+              "from": "templates/knexfile.js",
+              "to": "knexfile.js",
+              "reason": "Install root Knex configuration so app scripts can run migrations through Knex CLI.",
+              "category": "database-runtime",
+              "id": "database-runtime-knexfile"
+            },
+            {
+              "from": "templates/migrations/.gitkeep",
+              "to": "migrations/.gitkeep",
+              "reason": "Ensure migrations directory exists so Knex migration commands can run before any module installs migrations.",
+              "category": "database-runtime",
+              "id": "database-runtime-migrations-dir"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/database-runtime-mysql",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/database-runtime-mysql",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "options": {
+          "db-host": {
+            "required": false,
+            "values": [],
+            "defaultValue": "localhost",
+            "promptLabel": "Database host",
+            "promptHint": "MySQL host (for example 127.0.0.1)"
+          },
+          "db-port": {
+            "required": false,
+            "values": [],
+            "defaultValue": "3306",
+            "promptLabel": "Database port",
+            "promptHint": "MySQL port (usually 3306)"
+          },
+          "db-name": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Database name",
+            "promptHint": "Schema/database name to connect to"
+          },
+          "db-user": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Database user",
+            "promptHint": "Database username"
+          },
+          "db-password": {
+            "required": true,
+            "values": [],
+            "inputType": "password",
+            "promptLabel": "Database password",
+            "promptHint": "Database password"
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/database-runtime"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.database.driver",
+            "runtime.database.driver.mysql"
+          ],
+          "requires": [
+            "runtime.database"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/DatabaseRuntimeMysqlServiceProvider.js",
+                "export": "DatabaseRuntimeMysqlServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports MySQL database runtime provider."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports MySQL dialect metadata helpers."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.database.driver.mysql"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/database-runtime": "0.1.17",
+              "mysql2": "^3.11.2"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_CLIENT",
+              "value": "mysql2",
+              "reason": "Configure database client driver for runtime wiring.",
+              "category": "runtime-config",
+              "id": "database-client-mysql"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_HOST",
+              "value": "${option:db-host}",
+              "reason": "Configure database host.",
+              "category": "runtime-config",
+              "id": "database-host"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_PORT",
+              "value": "${option:db-port}",
+              "reason": "Configure database port.",
+              "category": "runtime-config",
+              "id": "database-port"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_NAME",
+              "value": "${option:db-name}",
+              "reason": "Configure database name.",
+              "category": "runtime-config",
+              "id": "database-name"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_USER",
+              "value": "${option:db-user}",
+              "reason": "Configure database user.",
+              "category": "runtime-config",
+              "id": "database-user"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_PASSWORD",
+              "value": "${option:db-password}",
+              "reason": "Configure database password.",
+              "category": "runtime-config",
+              "id": "database-password"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/database-runtime-postgres",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/database-runtime-postgres",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "options": {
+          "db-host": {
+            "required": false,
+            "values": [],
+            "defaultValue": "localhost",
+            "promptLabel": "Database host",
+            "promptHint": "Postgres host (for example 127.0.0.1)"
+          },
+          "db-port": {
+            "required": false,
+            "values": [],
+            "defaultValue": "5432",
+            "promptLabel": "Database port",
+            "promptHint": "Postgres port (usually 5432)"
+          },
+          "db-name": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Database name",
+            "promptHint": "Database name to connect to"
+          },
+          "db-user": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Database user",
+            "promptHint": "Database username"
+          },
+          "db-password": {
+            "required": true,
+            "values": [],
+            "inputType": "password",
+            "promptLabel": "Database password",
+            "promptHint": "Database password"
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/database-runtime"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.database.driver",
+            "runtime.database.driver.postgres"
+          ],
+          "requires": [
+            "runtime.database"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
+                "export": "DatabaseRuntimePostgresServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports Postgres database runtime provider."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports Postgres dialect metadata helpers."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.database.driver.postgres"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/database-runtime": "0.1.17",
+              "pg": "^8.13.1"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_CLIENT",
+              "value": "pg",
+              "reason": "Configure database client driver for runtime wiring.",
+              "category": "runtime-config",
+              "id": "database-client-postgres"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_HOST",
+              "value": "${option:db-host}",
+              "reason": "Configure database host.",
+              "category": "runtime-config",
+              "id": "database-host"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_PORT",
+              "value": "${option:db-port}",
+              "reason": "Configure database port.",
+              "category": "runtime-config",
+              "id": "database-port"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_NAME",
+              "value": "${option:db-name}",
+              "reason": "Configure database name.",
+              "category": "runtime-config",
+              "id": "database-name"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_USER",
+              "value": "${option:db-user}",
+              "reason": "Configure database user.",
+              "category": "runtime-config",
+              "id": "database-user"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "DB_PASSWORD",
+              "value": "${option:db-password}",
+              "reason": "Configure database password.",
+              "category": "runtime-config",
+              "id": "database-password"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/http-runtime",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/http-runtime",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "validators.http",
+            "runtime.http-client"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
+                "export": "HttpValidatorsServiceProvider"
+              },
+              {
+                "entrypoint": "src/server/providers/HttpClientRuntimeServiceProvider.js",
+                "export": "HttpClientRuntimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/HttpValidatorsClientProvider.js",
+                "export": "HttpValidatorsClientProvider"
+              },
+              {
+                "entrypoint": "src/client/providers/HttpClientRuntimeClientProvider.js",
+                "export": "HttpClientRuntimeClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports HTTP client runtime APIs (createHttpClient and transport helpers) plus client providers."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Exports service providers only (HttpValidatorsServiceProvider, HttpClientRuntimeServiceProvider)."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports HTTP validator/schema utilities, with structured validator subpaths under ./shared/validators/*."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.http-client"
+              ],
+              "client": [
+                "runtime.http-client.client"
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.17",
+              "@fastify/type-provider-typebox": "^6.1.0",
+              "typebox": "^1.0.81"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/realtime",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/realtime",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
+        "options": {
+          "realtime-redis-url": {
+            "required": true,
+            "allowEmpty": true,
+            "values": [],
+            "defaultValue": "",
+            "promptLabel": "Realtime Redis URL",
+            "promptHint": "Leave empty to use in-memory socket adapter."
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/kernel"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.realtime",
+            "runtime.realtime.client"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/RealtimeServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/RealtimeServiceProvider.js",
+                "export": "RealtimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/RealtimeClientProvider.js",
+                "export": "RealtimeClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports RealtimeServiceProvider only."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports RealtimeClientProvider only."
+              },
+              {
+                "subpath": "./client/listeners",
+                "summary": "Exports client listener registration helpers for provider-level realtime subscriptions."
+              },
+              {
+                "subpath": "./client/composables/*",
+                "summary": "Exports component-level realtime socket composables."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.realtime",
+                "runtime.realtime.io"
+              ],
+              "client": [
+                "runtime.realtime.client",
+                "runtime.realtime.client.socket",
+                "realtime.web.connection.indicator"
+              ]
+            }
+          },
+          "ui": {
+            "placements": {
+              "outlets": [],
+              "contributions": [
+                {
+                  "id": "realtime.connection.indicator",
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "order": 950,
+                  "componentToken": "realtime.web.connection.indicator",
+                  "source": "mutations.text#realtime-placement-indicator"
+                }
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.17",
+              "@socket.io/redis-adapter": "^8.3.0",
+              "redis": "^5.8.2",
+              "socket.io": "^4.8.3",
+              "socket.io-client": "^4.8.3"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "vite": {
+            "proxy": [
+              {
+                "id": "realtime-socket-io",
+                "path": "/socket.io",
+                "changeOrigin": true,
+                "ws": true
+              }
+            ]
+          },
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "REALTIME_REDIS_URL",
+              "value": "${option:realtime-redis-url}",
+              "reason": "Configure optional Redis backplane URL for realtime socket adapter.",
+              "category": "runtime-config",
+              "id": "realtime-redis-url"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"realtime.connection.indicator\"",
+              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+              "reason": "Append realtime connection indicator placement into app-owned placement registry.",
+              "category": "realtime-web",
+              "id": "realtime-placement-indicator"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/shell-web",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/shell-web",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "description": "Web shell layout runtime with outlet-based placement contributions.",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "runtime.web-placement",
+            "runtime.web-error"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/ShellWebClientProvider.js",
+                "export": "ShellWebClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports shell layout/outlet/error-host components and ShellWebClientProvider."
+              },
+              {
+                "subpath": "./client/placement",
+                "summary": "Exports placement registry, placement context access, runtime token, and surface path helpers."
+              },
+              {
+                "subpath": "./client/error",
+                "summary": "Exports default error policy and runtime error reporter hook."
+              }
+            ],
+            "containerTokens": {
+              "server": [],
+              "client": [
+                "runtime.web-placement.client",
+                "runtime.web-error.client",
+                "runtime.web-error.presentation-store.client",
+                "shell.web.query-client"
+              ]
+            }
+          },
+          "ui": {
+            "placements": {
+              "outlets": [
+                {
+                  "host": "shell-layout",
+                  "position": "top-left",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "host": "shell-layout",
+                  "position": "top-right",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "host": "shell-layout",
+                  "position": "primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "host": "shell-layout",
+                  "position": "secondary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                }
+              ],
+              "contributions": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@tanstack/vue-query": "^5.90.5",
+              "@jskit-ai/kernel": "0.1.17",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {
+              "dev:all": "vite",
+              "dev:home": "VITE_SURFACE=home vite",
+              "dev:console": "VITE_SURFACE=console vite"
+            }
+          },
+          "procfile": {},
+          "text": [],
+          "files": [
+            {
+              "from": "templates/src/App.vue",
+              "to": "src/App.vue",
+              "reason": "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
+              "category": "shell-web",
+              "id": "shell-web-app-root"
+            },
+            {
+              "from": "templates/src/components/ShellLayout.vue",
+              "to": "src/components/ShellLayout.vue",
+              "reason": "Install app-owned shell layout component so apps can customize structure and slots.",
+              "category": "shell-web",
+              "id": "shell-web-component-shell-layout"
+            },
+            {
+              "from": "templates/src/error.js",
+              "to": "src/error.js",
+              "reason": "Install app-owned error runtime policy and presenter config scaffold.",
+              "category": "shell-web",
+              "id": "shell-web-error-config"
+            },
+            {
+              "from": "templates/src/placement.js",
+              "to": "src/placement.js",
+              "reason": "Install app-owned placement registry scaffold used by shell-web placement runtime.",
+              "category": "shell-web",
+              "id": "shell-web-placement-registry"
+            },
+            {
+              "from": "templates/src/pages/home.vue",
+              "toSurface": "home",
+              "toSurfaceRoot": true,
+              "reason": "Install shell-driven home wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-home-wrapper"
+            },
+            {
+              "from": "templates/src/pages/home/index.vue",
+              "toSurface": "home",
+              "toSurfacePath": "index.vue",
+              "reason": "Install shell-driven home surface starter page.",
+              "category": "shell-web",
+              "id": "shell-web-page-home"
+            },
+            {
+              "from": "templates/src/pages/console.vue",
+              "toSurface": "console",
+              "toSurfaceRoot": true,
+              "reason": "Install shell-driven console wrapper page.",
+              "category": "shell-web",
+              "id": "shell-web-page-console-wrapper"
+            },
+            {
+              "from": "templates/src/pages/console/index.vue",
+              "toSurface": "console",
+              "toSurfacePath": "index.vue",
+              "reason": "Install shell-driven console page starter.",
+              "category": "shell-web",
+              "id": "shell-web-page-console"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/storage-runtime",
+      "version": "0.1.16",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/storage-runtime",
+        "version": "0.1.16",
+        "kind": "runtime",
+        "dependsOn": [
+          "@jskit-ai/kernel"
+        ],
+        "capabilities": {
+          "provides": [
+            "runtime.storage"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
+                "export": "StorageRuntimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server/providers/StorageRuntimeServiceProvider",
+                "summary": "Exports storage runtime server provider."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no client runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "runtime.storage",
+                "jskit.storage"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/kernel": "0.1.17",
+              "unstorage": "^1.17.3"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": []
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/users-core",
       "version": "0.1.26",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
         "version": "0.1.26",
+        "kind": "runtime",
         "description": "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
         "dependsOn": [
           "@jskit-ai/auth-core",
@@ -2717,6 +2730,7 @@
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
         "version": "0.1.31",
+        "kind": "runtime",
         "description": "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
         "dependsOn": [
           "@jskit-ai/http-runtime",

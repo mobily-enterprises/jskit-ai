@@ -74,6 +74,7 @@ export { buildTemplateContext };
     `export default Object.freeze({
   packageId: "@demo/template-context-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -192,6 +193,7 @@ export { buildTemplateContext };
       `export default Object.freeze({
   packageId: "@demo/template-context-single-pass-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -291,6 +293,7 @@ test("add package fails when file templateContext omits entrypoint", async () =>
       `export default Object.freeze({
   packageId: "@demo/template-context-missing-entrypoint-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -379,6 +382,7 @@ export { buildTemplateContext };
       `export default Object.freeze({
   packageId: "@demo/template-context-preflight-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -477,6 +481,7 @@ export { buildTemplateContext };
       `export default Object.freeze({
   packageId: "@demo/template-context-migration-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-mysql",
   version: "0.1.16",
+  kind: "runtime",
   options: {
     "db-host": {
       required: false,

@@ -1,4 +1,5 @@
 import { normalizeText } from "@jskit-ai/database-runtime/shared";
+import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const BOOLEAN_TINYINT_PATTERN = /^tinyint\(1\)/;
 const TABLE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
@@ -42,12 +43,6 @@ function normalizeDbSchemaName(rows = []) {
   }
 
   return schemaName;
-}
-
-function toCamelCase(value = "") {
-  return String(value || "")
-    .replace(/[-_]+([a-zA-Z0-9])/g, (_, nextChar) => String(nextChar || "").toUpperCase())
-    .replace(/^[A-Z]/, (char) => char.toLowerCase());
 }
 
 function toBoolean(value) {

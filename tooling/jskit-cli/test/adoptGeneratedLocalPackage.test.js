@@ -27,7 +27,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function createScaffolderPackage(appRoot, { installationMode = "" } = {}) {
+async function createScaffolderPackage(appRoot, { kind = "runtime" } = {}) {
   const scaffolderRoot = path.join(appRoot, "packages", "scaffolder");
   await mkdir(path.join(scaffolderRoot, "src", "server"), { recursive: true });
   await mkdir(path.join(scaffolderRoot, "templates", "generated", "src", "server"), { recursive: true });
@@ -71,6 +71,7 @@ async function createScaffolderPackage(appRoot, { installationMode = "" } = {}) 
     `export default Object.freeze({
   packageId: "@demo/generated-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/GeneratedProvider.js", export: "GeneratedProvider" }]
@@ -95,13 +96,13 @@ async function createScaffolderPackage(appRoot, { installationMode = "" } = {}) 
     "utf8"
   );
 
-  const installationModeLine = installationMode ? `  installationMode: "${installationMode}",\n` : "";
   await writeFile(
     path.join(scaffolderRoot, "package.descriptor.mjs"),
     `export default Object.freeze({
   packageId: "@demo/scaffolder",
   version: "0.1.0",
-${installationModeLine}  runtime: {
+  kind: "${kind}",
+  runtime: {
     server: {
       providers: [{ entrypoint: "src/server/ScaffolderProvider.js", export: "ScaffolderProvider" }]
     },
@@ -162,15 +163,15 @@ test("add package adopts generated app-local package dependency into lock", asyn
   });
 });
 
-test("add package does not install clone-only scaffold package itself", async () => {
+test("generate does not install scaffold generator package itself", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "adopt-clone-only-scaffolder-app");
-    await createMinimalApp(appRoot, { name: "adopt-clone-only-scaffolder-app" });
-    await createScaffolderPackage(appRoot, { installationMode: "clone-only" });
+    const appRoot = path.join(cwd, "adopt-generator-scaffolder-app");
+    await createMinimalApp(appRoot, { name: "adopt-generator-scaffolder-app" });
+    await createScaffolderPackage(appRoot, { kind: "generator" });
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/scaffolder", "--no-install"]
+      args: ["generate", "@demo/scaffolder", "--no-install"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 

@@ -64,6 +64,14 @@ function createRunCli({
           io: { stdin, stdout, stderr }
         });
       }
+      if (command === "generate") {
+        return await commandHandlers.commandGenerate({
+          positional,
+          options,
+          cwd,
+          io: { stdin, stdout, stderr }
+        });
+      }
       if (command === "position") {
         return await commandHandlers.commandPosition({
           positional,

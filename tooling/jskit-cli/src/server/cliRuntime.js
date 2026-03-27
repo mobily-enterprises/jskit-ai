@@ -55,9 +55,9 @@ const VITE_DEV_PROXY_CONFIG_RELATIVE_PATH = ".jskit/vite.dev.proxy.json";
 const VITE_DEV_PROXY_CONFIG_VERSION = 1;
 const PUBLIC_APP_CONFIG_RELATIVE_PATH = "config/public.js";
 const SERVER_APP_CONFIG_RELATIVE_PATH = "config/server.js";
-const PACKAGE_INSTALL_MODE_INSTALLABLE = "installable";
-const PACKAGE_INSTALL_MODE_CLONE_ONLY = "clone-only";
-const PACKAGE_INSTALL_MODES = Object.freeze([PACKAGE_INSTALL_MODE_INSTALLABLE, PACKAGE_INSTALL_MODE_CLONE_ONLY]);
+const PACKAGE_KIND_RUNTIME = "runtime";
+const PACKAGE_KIND_GENERATOR = "generator";
+const PACKAGE_KINDS = Object.freeze([PACKAGE_KIND_RUNTIME, PACKAGE_KIND_GENERATOR]);
 const WORKSPACE_VISIBILITY_LEVELS = Object.freeze(["workspace", "workspace_user"]);
 const WORKSPACE_VISIBILITY_SET = new Set(WORKSPACE_VISIBILITY_LEVELS);
 const MATERIALIZED_PACKAGE_ROOTS = new Map();
@@ -1167,16 +1167,16 @@ function removeEnvValue(content, key, expectedValue, previous) {
   };
 }
 
-function normalizePackageInstallationMode(rawValue, descriptorPath) {
-  const normalized = String(rawValue || "")
-    .trim()
-    .toLowerCase();
+function normalizePackageKind(rawValue, descriptorPath) {
+  const normalized = String(rawValue || "").trim().toLowerCase();
   if (!normalized) {
-    return PACKAGE_INSTALL_MODE_INSTALLABLE;
-  }
-  if (!PACKAGE_INSTALL_MODES.includes(normalized)) {
     throw createCliError(
-      `Invalid package descriptor at ${descriptorPath}: installationMode must be one of: ${PACKAGE_INSTALL_MODES.join(", ")}.`
+      `Invalid package descriptor at ${descriptorPath}: missing kind (expected ${PACKAGE_KINDS.join(" | ")}).`
+    );
+  }
+  if (!PACKAGE_KINDS.includes(normalized)) {
+    throw createCliError(
+      `Invalid package descriptor at ${descriptorPath}: kind must be one of: ${PACKAGE_KINDS.join(", ")}.`
     );
   }
   return normalized;
@@ -1231,13 +1231,13 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
 
   return {
     ...normalized,
-    installationMode: normalizePackageInstallationMode(normalized.installationMode, descriptorPath)
+    kind: normalizePackageKind(normalized.kind, descriptorPath)
   };
 }
 
-function isCloneOnlyPackageEntry(packageEntry) {
+function isGeneratorPackageEntry(packageEntry) {
   const descriptor = ensureObject(packageEntry?.descriptor);
-  return String(descriptor.installationMode || "").trim().toLowerCase() === PACKAGE_INSTALL_MODE_CLONE_ONLY;
+  return String(descriptor.kind || "").trim().toLowerCase() === PACKAGE_KIND_GENERATOR;
 }
 
 function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { expectedPackageId = "", fallbackVersion = "" } = {}) {
@@ -1262,7 +1262,8 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   return {
     ...normalized,
     packageId,
-    version
+    version,
+    kind: normalizePackageKind(normalized.kind, descriptorPath)
   };
 }
 
@@ -1799,6 +1800,7 @@ function createLocalPackageDescriptorTemplate({ packageId, description }) {
   packageVersion: 1,
   packageId: "${packageId}",
   version: "0.1.0",
+  kind: "runtime",
   description: ${JSON.stringify(String(description || ""))},
   dependsOn: [
     // "@jskit-ai/kernel"
@@ -4677,7 +4679,7 @@ async function applyPackageInstall({
 
   const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
   managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
-  const cloneOnlyPackage = isCloneOnlyPackageEntry(packageEntry);
+  const generatorPackage = isGeneratorPackageEntry(packageEntry);
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const fileMutations = ensureArray(mutations.files);
@@ -4766,7 +4768,7 @@ async function applyPackageInstall({
     }
   }
 
-  if (cloneOnlyPackage) {
+  if (generatorPackage) {
     const removedRuntimeDependency = removePackageJsonField(appPackageJson, "dependencies", packageEntry.packageId);
     const removedDevDependency = removePackageJsonField(appPackageJson, "devDependencies", packageEntry.packageId);
     if (removedRuntimeDependency || removedDevDependency) {
@@ -4828,7 +4830,7 @@ async function applyPackageInstall({
     touchedFiles
   );
 
-  if (cloneOnlyPackage) {
+  if (generatorPackage) {
     delete lock.installedPackages[packageEntry.packageId];
   } else {
     managedRecord.migrationSyncVersion = packageEntry.version;

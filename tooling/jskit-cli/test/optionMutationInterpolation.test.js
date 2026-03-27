@@ -82,6 +82,7 @@ test("add package applies option interpolation and conditional file mutations", 
       `export default Object.freeze({
   packageId: "@demo/option-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -242,6 +243,7 @@ test("update package fails when an install-migration source changes for the same
       `export default Object.freeze({
   packageId: "@demo/migration-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -325,6 +327,7 @@ test("remove then re-add package reuses existing timestamped migration by id", a
       `export default Object.freeze({
   packageId: "@demo/migration-readd",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -429,6 +432,7 @@ test("add package fails when install-migration is missing id", async () => {
       `export default Object.freeze({
   packageId: "@demo/migration-id-required",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -498,6 +502,7 @@ test("add package fails when install-migration id is not lowercase-safe", async 
       `export default Object.freeze({
   packageId: "@demo/migration-id-case",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -568,6 +573,7 @@ test("update package rejects managed migration paths outside app root", async ()
       `export default Object.freeze({
   packageId: "@demo/migration-path-hardening",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -661,6 +667,7 @@ test("add package evaluates when.config conditions from app config", async () =>
       `export default Object.freeze({
   packageId: "@demo/config-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -762,6 +769,7 @@ test("add package resolves option defaultFromConfig from app config", async () =
       `export default Object.freeze({
   packageId: "@demo/default-from-config-feature",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

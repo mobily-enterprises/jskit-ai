@@ -73,6 +73,7 @@ async function createPositionTargetPackage(appRoot) {
   packageVersion: 1,
   packageId: "@demo/position-target",
   version: "0.1.0",
+  kind: "runtime",
   description: "position command test package",
   dependsOn: [],
   capabilities: { provides: [], requires: [] },

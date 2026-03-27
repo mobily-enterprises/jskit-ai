@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { __testables } from "../src/server/buildTemplateContext.js";
+import { buildTemplateContext, __testables } from "../src/server/buildTemplateContext.js";
 
 function createSnapshot({
   tableName = "contacts",
@@ -171,6 +171,18 @@ test("resolveOwnershipFilterForGeneration rejects explicit ownership filters whe
   );
 });
 
+test("buildTemplateContext requires table-name", async () => {
+  await assert.rejects(
+    buildTemplateContext({
+      appRoot: process.cwd(),
+      options: {
+        namespace: "contacts"
+      }
+    }),
+    /requires option "table-name"/
+  );
+});
+
 test("buildReplacementsFromSnapshot builds deterministic template replacement payload", () => {
   const snapshot = createSnapshot();
   const replacements = __testables.buildReplacementsFromSnapshot({
@@ -184,9 +196,35 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.increments\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
-  assert.match(replacements.__JSKIT_CRUD_REPOSITORY_OUTPUT_MAPPINGS__, /"firstName"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_FIELDS__, /"updatedAt"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_WRITE_FIELDS__, /"firstName"/);
+  assert.match(replacements.__JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__, /"firstName"/);
+  assert.match(replacements.__JSKIT_CRUD_REPOSITORY_WRITE_KEYS__, /"firstName"/);
+  assert.equal(replacements.__JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__, "{}");
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: Type\.String/);
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /id: Type\.Integer\(\{ minimum: 1 \}\),/
+  );
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /firstName: Type\.String/);
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /normalizeIfInSource\(source, normalized, "firstName", normalizeText\);/
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /\(value\) =>/
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /value == null/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
+    /firstName: normalizeIfPresent\(source\.firstName, normalizeText\),/
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
+    /== null \?/
+  );
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
 });
 

@@ -2,7 +2,7 @@ LOCAL: Full app form template
 
 export __APP=swayatlas
 npx @jskit-ai/create-app $__APP --tenancy-mode personal --target . --title $__APP
-../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP --force
+../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP
 npm install --verbose
 npm run devlinks
 npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
@@ -21,16 +21,15 @@ npm run db:migrate
 
 
 
-# npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --table-name contacts --no-install
 
   npx jskit generate @jskit-ai/crud-server-generator \
-    --no-install \
     --namespace contacts \
     --surface admin \
+    --directory-prefix crud \
     --table-name contacts \
     --id-column id \
-    --ownership-filter auto\
-    --no-install
+    --ownership-filter auto
 
 
   npx jskit generate @jskit-ai/crud-ui-generator \
@@ -117,5 +116,4 @@ Install app on Dokku:
   ssh root@www.appgenius.biz "dokku ps:report newapp"
   ssh root@www.appgenius.biz "dokku logs newapp -n 120 --quiet"
   curl -I https://newapp.appgenius.biz
-
 

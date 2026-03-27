@@ -68,7 +68,7 @@ test("list packages shows installed local packages section for lock-only package
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
-    assert.match(stdout, /Available packages:/);
+    assert.match(stdout, /Available runtime packages:/);
     assert.match(stdout, /Installed local packages:/);
     assert.match(stdout, /@demo-app\/local-feature \(0\.3\.2\) \(installed\)/);
   });
@@ -109,5 +109,42 @@ test("list packages --json includes installedLocalPackages payload", async () =>
 
     const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
     assert.equal(lock.installedPackages["@demo-app/local-feature"].version, "0.3.2");
+  });
+});
+
+test("list generators prints generator-only section", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-generators-app");
+    await createMinimalApp(appRoot, { name: "list-generators-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "generators"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Available generators:/);
+    assert.match(stdout, /@jskit-ai\/crud-server-generator/);
+    assert.match(stdout, /@jskit-ai\/crud-ui-generator/);
+    assert.doesNotMatch(stdout, /Available runtime packages:/);
+  });
+});
+
+test("list packages does not include generator package ids", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-runtime-packages-app");
+    await createMinimalApp(appRoot, { name: "list-runtime-packages-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "packages"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Available runtime packages:/);
+    assert.doesNotMatch(stdout, /@jskit-ai\/crud-ui-generator/);
+    assert.doesNotMatch(stdout, /@jskit-ai\/crud-server-generator/);
   });
 });

@@ -1,4 +1,3 @@
 export {
-  ${option:namespace|singular|camel}Resource,
-  crudResource
+  ${option:namespace|singular|camel}Resource
 } from "./${option:namespace|singular|camel}Resource.js";

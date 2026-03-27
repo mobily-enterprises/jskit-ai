@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
   version: "0.1.26",
+  kind: "runtime",
   description: "Users/workspace domain runtime plus HTTP routes for workspace, account, and console features.",
   dependsOn: [
     "@jskit-ai/auth-core",

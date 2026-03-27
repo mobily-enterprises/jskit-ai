@@ -2,6 +2,7 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/http-runtime",
   "version": "0.1.16",
+  "kind": "runtime",
   "dependsOn": [],
   "capabilities": {
     "provides": [

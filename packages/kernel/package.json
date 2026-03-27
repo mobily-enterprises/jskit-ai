@@ -30,6 +30,7 @@
     "./shared/validators": "./shared/validators/index.js",
     "./shared/validators/inputNormalization": "./shared/validators/inputNormalization.js",
     "./shared/support": "./shared/support/index.js",
+    "./shared/support/stringCase": "./shared/support/stringCase.js",
     "./shared/support/tokens": "./shared/support/tokens.js",
     "./shared/support/normalize": "./shared/support/normalize.js",
     "./shared/support/permissions": "./shared/support/permissions.js",

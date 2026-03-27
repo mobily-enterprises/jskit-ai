@@ -128,6 +128,27 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
   });
 });
 
+test('buildUiTemplateContext derives "resource-export" default from resource-file basename', async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        operations: "list,view",
+        "resource-file": resourceFile
+      }
+    });
+
+    assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
+    assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
+    assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
+  });
+});
+
 test("buildUiTemplateContext filters rendered fields when display-fields is provided", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/customers/src/shared/customerResource.js";

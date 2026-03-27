@@ -2,6 +2,7 @@ export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/realtime",
   version: "0.1.16",
+  kind: "runtime",
   description: "Thin, generic realtime runtime wrappers for socket.io server and client.",
   options: {
     "realtime-redis-url": {

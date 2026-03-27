@@ -2,6 +2,7 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-core",
   "version": "0.1.16",
+  "kind": "runtime",
   "dependsOn": [
     "@jskit-ai/value-app-config-shared"
   ],

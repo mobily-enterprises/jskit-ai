@@ -124,6 +124,18 @@ function createCommandHandlers(deps) {
     return sortStrings(dependents);
   }
 
+  function resolvePackageKind(packageEntry) {
+    const descriptor = ensureObject(packageEntry?.descriptor);
+    const normalizedKind = String(descriptor.kind || "").trim().toLowerCase();
+    if (normalizedKind === "runtime" || normalizedKind === "generator") {
+      return normalizedKind;
+    }
+    const packageId = String(packageEntry?.packageId || descriptor.packageId || "unknown-package").trim();
+    throw createCliError(
+      `Invalid package descriptor for ${packageId}: missing/invalid kind (expected runtime or generator).`
+    );
+  }
+
   function resolvePackageOptionNames(packageEntry) {
     const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
     return Object.keys(optionSchemas);
@@ -356,8 +368,9 @@ function createCommandHandlers(deps) {
     const mode = String(positional[0] || "").trim();
     const shouldListBundles = !mode || mode === "bundles";
     const shouldListPackages = !mode || mode === "packages";
-  
-    if (!shouldListBundles && !shouldListPackages) {
+    const shouldListGenerators = !mode || mode === "generators";
+
+    if (!shouldListBundles && !shouldListPackages && !shouldListGenerators) {
       throw createCliError(`Unknown list mode: ${mode}`, { showUsage: true });
     }
   
@@ -387,8 +400,11 @@ function createCommandHandlers(deps) {
       if (lines.length > 0) {
         lines.push("");
       }
-      lines.push(color.heading("Available packages:"));
-      const packageIds = sortStrings([...packageRegistry.keys()]);
+      lines.push(color.heading("Available runtime packages:"));
+      const packageIds = sortStrings([...packageRegistry.keys()].filter((packageId) => {
+        const packageEntry = packageRegistry.get(packageId);
+        return resolvePackageKind(packageEntry) === "runtime";
+      }));
       for (const packageId of packageIds) {
         const packageEntry = packageRegistry.get(packageId);
         const installedLabel = installedPackages.has(packageId) ? " (installed)" : "";
@@ -430,6 +446,24 @@ function createCommandHandlers(deps) {
         }
       }
     }
+
+    if (shouldListGenerators) {
+      if (lines.length > 0) {
+        lines.push("");
+      }
+      lines.push(color.heading("Available generators:"));
+      const packageIds = sortStrings([...packageRegistry.keys()].filter((packageId) => {
+        const packageEntry = packageRegistry.get(packageId);
+        return resolvePackageKind(packageEntry) === "generator";
+      }));
+      for (const packageId of packageIds) {
+        const packageEntry = packageRegistry.get(packageId);
+        const installedLabel = installedPackages.has(packageId) ? " (installed)" : "";
+        lines.push(
+          `- ${color.item(packageId)} ${color.version(`(${packageEntry.version})`)}${installedLabel ? color.installed(installedLabel) : ""}`
+        );
+      }
+    }
   
     if (options.json) {
       const payload = {
@@ -448,14 +482,42 @@ function createCommandHandlers(deps) {
           })
           : [],
         packages: shouldListPackages
+          ? sortStrings([...packageRegistry.keys()])
+            .filter((packageId) => resolvePackageKind(packageRegistry.get(packageId)) === "runtime")
+            .map((packageId) => {
+              const packageEntry = packageRegistry.get(packageId);
+              return {
+                packageId,
+                version: packageEntry.version,
+                installed: installedPackages.has(packageId)
+              };
+            })
+          : [],
+        runtimePackages: shouldListPackages
           ? sortStrings([...packageRegistry.keys()]).map((packageId) => {
             const packageEntry = packageRegistry.get(packageId);
+            if (resolvePackageKind(packageEntry) !== "runtime") {
+              return null;
+            }
             return {
               packageId,
               version: packageEntry.version,
               installed: installedPackages.has(packageId)
             };
-          })
+          }).filter(Boolean)
+          : [],
+        generators: shouldListGenerators
+          ? sortStrings([...packageRegistry.keys()]).map((packageId) => {
+            const packageEntry = packageRegistry.get(packageId);
+            if (resolvePackageKind(packageEntry) !== "generator") {
+              return null;
+            }
+            return {
+              packageId,
+              version: packageEntry.version,
+              installed: installedPackages.has(packageId)
+            };
+          }).filter(Boolean)
           : [],
         installedLocalPackages: shouldListPackages
           ? installedLocalPackageIds.map((packageId) => {
@@ -1252,16 +1314,27 @@ function createCommandHandlers(deps) {
   }
   
   async function commandAdd({ positional, options, cwd, io }) {
+    const invocationMode = options?.commandMode === "generate" ? "generate" : "add";
     const targetType = String(positional[0] || "").trim();
     const targetId = String(positional[1] || "").trim();
   
     if (!targetType || !targetId) {
+      if (invocationMode === "generate") {
+        throw createCliError("generate requires a package id (generate <packageId>).", {
+          showUsage: true
+        });
+      }
       throw createCliError("add requires target type and id (add bundle <id> | add package <id>).", {
         showUsage: true
       });
     }
     if (targetType !== "bundle" && targetType !== "package") {
       throw createCliError(`Unsupported add target type: ${targetType}`, { showUsage: true });
+    }
+    if (invocationMode === "generate" && targetType !== "package") {
+      throw createCliError("generate requires a package id (generate <packageId>).", {
+        showUsage: true
+      });
     }
   
     const appRoot = await resolveAppRootFromCwd(cwd);
@@ -1306,6 +1379,17 @@ function createCommandHandlers(deps) {
       if (!targetPackageEntry) {
         throw createCliError(`Unknown package: ${targetId}`);
       }
+      const packageKind = resolvePackageKind(targetPackageEntry);
+      if (invocationMode === "add" && packageKind === "generator") {
+        throw createCliError(
+          `Package ${resolvedTargetPackageId} is a generator. Use: jskit generate ${resolvedTargetPackageId}`
+        );
+      }
+      if (invocationMode === "generate" && packageKind !== "generator") {
+        throw createCliError(
+          `Package ${resolvedTargetPackageId} is a runtime package. Use: jskit add package ${resolvedTargetPackageId}`
+        );
+      }
       validateInlineOptionsForPackage(targetPackageEntry, options.inlineOptions);
     }
   
@@ -1313,6 +1397,17 @@ function createCommandHandlers(deps) {
       targetPackageIds,
       combinedPackageRegistry
     );
+    if (invocationMode === "add" && targetType === "bundle") {
+      const bundledGenerators = resolvedPackageIds.filter((packageId) => {
+        const packageEntry = combinedPackageRegistry.get(packageId);
+        return resolvePackageKind(packageEntry) === "generator";
+      });
+      if (bundledGenerators.length > 0) {
+        throw createCliError(
+          `Bundle ${targetId} includes generator package(s): ${bundledGenerators.join(", ")}. Use: jskit generate <packageId>`
+        );
+      }
+    }
     const plannedInstalledPackageIds = sortStrings([
       ...new Set([
         ...Object.keys(ensureObject(lock.installedPackages)).map((value) => String(value || "").trim()).filter(Boolean),
@@ -1322,7 +1417,7 @@ function createCommandHandlers(deps) {
     validatePlannedCapabilityClosure(
       plannedInstalledPackageIds,
       combinedPackageRegistry,
-      `add ${targetType} ${targetId}`
+      `${invocationMode} ${targetType} ${targetId}`
     );
 
     if (targetType === "bundle") {
@@ -1401,14 +1496,18 @@ function createCommandHandlers(deps) {
       validatePlannedCapabilityClosure(
         postInstallPackageIds,
         combinedPackageRegistry,
-        `add ${targetType} ${targetId}`
+        `${invocationMode} ${targetType} ${targetId}`
       );
     }
   
     const finalResolvedPackageIds = sortStrings([...resolvedPackageIds, ...adoptedPackageIds]);
   
     const touchedFileList = sortStrings([...touchedFiles]);
-    const successLabel = targetType === "bundle" ? "Added bundle" : "Added package";
+    const successLabel = invocationMode === "generate"
+      ? "Generated with"
+      : targetType === "bundle"
+        ? "Added bundle"
+        : "Added package";
     const installWarnings = installedPackageRecords
       .flatMap((record) => ensureArray(ensureObject(record).warnings))
       .map((value) => String(value || "").trim())
@@ -1424,7 +1523,7 @@ function createCommandHandlers(deps) {
   
     if (options.json) {
       io.stdout.write(`${JSON.stringify({
-        targetType,
+        targetType: invocationMode === "generate" ? "generator" : targetType,
         targetId,
         resolvedPackages: finalResolvedPackageIds,
         touchedFiles: touchedFileList,
@@ -1458,6 +1557,32 @@ function createCommandHandlers(deps) {
     }
   
     return 0;
+  }
+
+  async function commandGenerate({ positional, options, cwd, io }) {
+    const firstToken = String(positional[0] || "").trim();
+    const secondToken = String(positional[1] || "").trim();
+    if (firstToken === "bundle") {
+      throw createCliError("generate supports packages only (generate <packageId>).", {
+        showUsage: true
+      });
+    }
+    const targetId = firstToken === "package" ? secondToken : firstToken;
+    if (!targetId) {
+      throw createCliError("generate requires a package id (generate <packageId>).", {
+        showUsage: true
+      });
+    }
+
+    return commandAdd({
+      positional: ["package", targetId],
+      options: {
+        ...options,
+        commandMode: "generate"
+      },
+      cwd,
+      io
+    });
   }
   
   async function commandUpdate({ positional, options, cwd, io }) {
@@ -1970,6 +2095,7 @@ function createCommandHandlers(deps) {
     commandShow,
     commandCreate,
     commandAdd,
+    commandGenerate,
     commandMigrations,
     commandPosition,
     commandUpdate,

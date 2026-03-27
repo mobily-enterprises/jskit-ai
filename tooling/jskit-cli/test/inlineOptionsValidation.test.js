@@ -60,6 +60,7 @@ test("add package fails on unknown inline option for target package", async () =
       `export default Object.freeze({
   packageId: "@demo/no-options",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]

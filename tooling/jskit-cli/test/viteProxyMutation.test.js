@@ -60,6 +60,7 @@ test("add/remove package applies managed vite proxy mutations", async () => {
       `export default Object.freeze({
   packageId: "@demo/realtime",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
@@ -121,6 +122,7 @@ test("add/remove package applies managed vite proxy mutations", async () => {
       `export default Object.freeze({
   packageId: "@demo/realtime",
   version: "0.1.0",
+  kind: "runtime",
   runtime: {
     server: {
       providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
