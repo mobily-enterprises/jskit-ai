@@ -1,9 +1,11 @@
 import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useViewCore } from "./useViewCore.js";
 import { useEndpointResource } from "./useEndpointResource.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
+import { createViewUiRuntime } from "./viewUiRuntime.js";
 
 function useView({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -20,9 +22,23 @@ function useView({
   notFoundMessage = "Record not found.",
   model,
   mapLoadedToModel,
+  recordIdParam = "recordId",
+  routeParams = null,
+  routeRecordId = null,
+  apiUrlTemplate = "",
+  includeRecordIdInQueryKey = false,
   realtime = null,
   adapter = null
 } = {}) {
+  const route = useRoute();
+  const viewUiRuntime = createViewUiRuntime({
+    recordIdParam,
+    routeParams: routeParams ?? computed(() => route?.params || {}),
+    routeRecordId,
+    apiUrlTemplate
+  });
+  const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
+  const effectiveApiSuffix = normalizedApiUrlTemplate ? viewUiRuntime.apiSuffix : apiSuffix;
   const operationAdapter = resolveOperationAdapter(adapter, {
     context: "useView adapter"
   });
@@ -31,7 +47,7 @@ function useView({
     surfaceId,
     access,
     placementSource,
-    apiSuffix,
+    apiSuffix: effectiveApiSuffix,
     readEnabled,
     queryKeyFactory,
     permissionSets: {
@@ -39,10 +55,19 @@ function useView({
     },
     realtime
   });
+  const queryKey = computed(() => {
+    const source = Array.isArray(operationScope.queryKey.value) ? operationScope.queryKey.value : [];
+    if (!includeRecordIdInQueryKey) {
+      return source;
+    }
+
+    const recordIdToken = String(viewUiRuntime.recordId.value || "").trim();
+    return [...source, recordIdToken];
+  });
   const canView = operationScope.permissionGate("view");
 
   const resource = useEndpointResource({
-    queryKey: operationScope.queryKey,
+    queryKey,
     path: operationScope.apiPath,
     enabled: operationScope.queryCanRun(canView),
     readMethod,
@@ -78,6 +103,7 @@ function useView({
 
   return Object.freeze({
     record: view.record,
+    recordId: viewUiRuntime.recordId,
     canView,
     isLoading,
     isFetching,

@@ -34,73 +34,27 @@ __JSKIT_UI_VIEW_COLUMNS__
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { useRoute } from "vue-router";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
 const UI_API_BASE_URL = "${option:api-path|trim}";
 const UI_VIEW_API_URL = `${UI_API_BASE_URL}/:${UI_RECORD_ID_PARAM}`;
-const UI_HAS_LIST_ROUTE = __JSKIT_UI_HAS_LIST_ROUTE__;
-const UI_HAS_EDIT_ROUTE = __JSKIT_UI_HAS_EDIT_ROUTE__;
-const UI_LIST_URL = UI_HAS_LIST_ROUTE ? ".." : "";
-const UI_EDIT_URL = UI_HAS_EDIT_ROUTE ? "./edit" : "";
+const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
+const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? "./edit" : "";
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
-
-const route = useRoute();
-
-function toRouteRecordId(value) {
-  if (Array.isArray(value)) {
-    return toRouteRecordId(value[0]);
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function resolveTemplateUrl(urlTemplate = "", params = {}) {
-  const normalizedTemplate = String(urlTemplate || "").trim();
-  if (!normalizedTemplate) {
-    return "";
-  }
-
-  const source = params && typeof params === "object" && !Array.isArray(params) ? params : {};
-  const missingParams = [];
-  const resolvedPath = normalizedTemplate.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_, key) => {
-    const value = String(source[key] || "").trim();
-    if (!value) {
-      missingParams.push(key);
-      return `:${key}`;
-    }
-
-    return encodeURIComponent(value);
-  });
-
-  if (missingParams.length > 0) {
-    return "";
-  }
-
-  return resolvedPath;
-}
-
-const recordId = computed(() => toRouteRecordId(route.params?.[UI_RECORD_ID_PARAM]));
-const apiSuffix = computed(() =>
-  resolveTemplateUrl(UI_VIEW_API_URL, {
-    [UI_RECORD_ID_PARAM]: recordId.value
-  })
-);
 
 const view = useView({
   adapter: UI_OPERATION_ADAPTER || undefined,
-  apiSuffix,
+  apiUrlTemplate: UI_VIEW_API_URL,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  includeRecordIdInQueryKey: true,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "ui-generator",
     "${option:namespace|kebab}",
     "view",
     String(surfaceId || ""),
-    String(workspaceSlug || ""),
-    recordId.value
+    String(workspaceSlug || "")
   ],
   placementSource: "ui-generator.${option:namespace|kebab}.view",
   fallbackLoadError: "Unable to load record.",
@@ -112,12 +66,4 @@ const view = useView({
     : null
 });
 
-const record = computed(() => {
-  const payload = view.record.value;
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return {};
-  }
-
-  return payload;
-});
 </script>

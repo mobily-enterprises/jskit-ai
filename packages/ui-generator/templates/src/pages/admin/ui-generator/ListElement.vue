@@ -73,12 +73,9 @@ import { useList } from "@jskit-ai/users-web/client/composables/useList";
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
 const UI_LIST_API_URL = "${option:api-path|trim}";
-const UI_HAS_VIEW_ROUTE = __JSKIT_UI_HAS_VIEW_ROUTE__;
-const UI_HAS_EDIT_ROUTE = __JSKIT_UI_HAS_EDIT_ROUTE__;
-const UI_HAS_NEW_ROUTE = __JSKIT_UI_HAS_NEW_ROUTE__;
-const UI_VIEW_URL = UI_HAS_VIEW_ROUTE ? `./:${UI_RECORD_ID_PARAM}` : "";
-const UI_EDIT_URL = UI_HAS_EDIT_ROUTE ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
-const UI_NEW_URL = UI_HAS_NEW_ROUTE ? "./new" : "";
+const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}` : "";
+const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
+const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
 const records = useList({

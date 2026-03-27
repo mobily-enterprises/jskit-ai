@@ -3958,10 +3958,27 @@ async function applyFileMutations(
         throw createCliError(`Missing migration template source ${sourcePath} for ${packageEntry.packageId}.`);
       }
 
+      const hasPrecomputedTemplateContext =
+        precomputedTemplateContextByMutationIndex instanceof Map &&
+        precomputedTemplateContextByMutationIndex.has(mutationIndex);
+      const templateContextReplacements = hasPrecomputedTemplateContext
+        ? precomputedTemplateContextByMutationIndex.get(mutationIndex)
+        : await resolveTemplateContextReplacementsForMutation({
+            packageEntry,
+            mutation,
+            options,
+            appRoot,
+            sourcePath,
+            targetPaths: [path.join(appRoot, toDir)]
+          });
+
       const sourceContent = await readFile(sourcePath, "utf8");
-      const renderedSourceContent = sourceContent.includes("${")
+      let renderedSourceContent = sourceContent.includes("${")
         ? interpolateOptionValue(sourceContent, options, packageEntry.packageId, `${mutation.id || from}.source`)
         : sourceContent;
+      if (templateContextReplacements) {
+        renderedSourceContent = applyTemplateContextReplacements(renderedSourceContent, templateContextReplacements);
+      }
       const sourceExtension = normalizeMigrationExtension(path.extname(from), ".cjs");
       const extension = normalizeMigrationExtension(mutation.extension, sourceExtension);
       const sourceHash = hashBuffer(Buffer.from(renderedSourceContent, "utf8"));
@@ -4197,22 +4214,29 @@ async function preflightFileMutationTemplateContexts(
     }
 
     const operation = mutation.op || "copy-file";
-    if (operation !== "copy-file") {
+    if (operation !== "copy-file" && operation !== "install-migration") {
       continue;
     }
 
     const from = mutation.from;
     const to = mutation.to;
     const toSurface = mutation.toSurface;
-    if (to && toSurface) {
+    if (!from) {
       throw createCliError(
-        `Invalid files mutation in ${packageEntry.packageId}: "to" and "toSurface" cannot both be set.`
+        `Invalid files mutation in ${packageEntry.packageId}: "from" is required.`
       );
     }
-    if (!from || (!to && !toSurface)) {
-      throw createCliError(
-        `Invalid files mutation in ${packageEntry.packageId}: "from" plus one destination ("to" or "toSurface") are required.`
-      );
+    if (operation === "copy-file") {
+      if (to && toSurface) {
+        throw createCliError(
+          `Invalid files mutation in ${packageEntry.packageId}: "to" and "toSurface" cannot both be set.`
+        );
+      }
+      if (!to && !toSurface) {
+        throw createCliError(
+          `Invalid files mutation in ${packageEntry.packageId}: "from" plus one destination ("to" or "toSurface") are required.`
+        );
+      }
     }
 
     const sourcePath = path.join(packageEntry.rootDir, from);
@@ -4220,14 +4244,16 @@ async function preflightFileMutationTemplateContexts(
       throw createCliError(`Missing template source ${sourcePath} for ${packageEntry.packageId}.`);
     }
 
-    const targetPaths = toSurface
-      ? resolveSurfaceTargetPathsForMutation({
-          appRoot,
-          packageId: packageEntry.packageId,
-          mutation,
-          configContext
-        })
-      : [path.join(appRoot, to)];
+    const targetPaths = operation === "copy-file"
+      ? toSurface
+        ? resolveSurfaceTargetPathsForMutation({
+            appRoot,
+            packageId: packageEntry.packageId,
+            mutation,
+            configContext
+          })
+        : [path.join(appRoot, to)]
+      : [path.join(appRoot, mutation.toDir || "migrations")];
     const replacements = await resolveTemplateContextReplacementsForMutation({
       packageEntry,
       mutation,

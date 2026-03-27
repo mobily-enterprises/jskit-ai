@@ -1,7 +1,9 @@
 import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { registerTypeBoxFormats } from "@jskit-ai/http-runtime/shared/validators/typeboxFormats";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   registerSurfaceRequestConstraint,
@@ -9,6 +11,80 @@ import {
   tryCreateProviderRuntimeFromApp
 } from "@jskit-ai/kernel/server/platform";
 import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
+
+const SPA_INDEX_FILE = "index.html";
+const STATIC_GLOBAL_UI_PATHS = Object.freeze([
+  "/assets",
+  "/favicon.svg",
+  "/favicon.ico",
+  "/robots.txt",
+  "/manifest.webmanifest"
+]);
+
+function toRequestPathname(urlValue) {
+  const rawUrl = String(urlValue || "").trim() || "/";
+  try {
+    return new URL(rawUrl, "http://localhost").pathname || "/";
+  } catch {
+    return rawUrl.split("?")[0] || "/";
+  }
+}
+
+function isApiPath(pathname) {
+  const normalizedPathname = String(pathname || "").trim() || "/";
+  return normalizedPathname === "/api" || normalizedPathname.startsWith("/api/");
+}
+
+function hasFileExtension(pathname) {
+  return path.extname(String(pathname || "").trim()) !== "";
+}
+
+function resolveGlobalUiPaths(runtimeGlobalUiPaths = []) {
+  const paths = new Set(Array.isArray(runtimeGlobalUiPaths) ? runtimeGlobalUiPaths : []);
+  for (const staticPath of STATIC_GLOBAL_UI_PATHS) {
+    paths.add(staticPath);
+  }
+  return [...paths];
+}
+
+function resolveStaticFilePath(pathname) {
+  const normalizedPathname = String(pathname || "").trim() || "/";
+  if (!normalizedPathname.startsWith("/")) {
+    return "";
+  }
+
+  const relativePath = normalizedPathname.replace(/^\/+/, "");
+  if (!relativePath || relativePath.endsWith("/")) {
+    return "";
+  }
+
+  const normalizedRelativePath = path.posix.normalize(relativePath);
+  if (
+    !normalizedRelativePath ||
+    normalizedRelativePath === "." ||
+    normalizedRelativePath === ".." ||
+    normalizedRelativePath.startsWith("../") ||
+    normalizedRelativePath.includes("/../")
+  ) {
+    return "";
+  }
+
+  return normalizedRelativePath;
+}
+
+function canServeStaticFile(distRoot, relativePath) {
+  if (!distRoot || !relativePath) {
+    return false;
+  }
+
+  const normalizedDistRoot = path.resolve(distRoot);
+  const resolvedPath = path.resolve(normalizedDistRoot, relativePath);
+  if (!(resolvedPath === normalizedDistRoot || resolvedPath.startsWith(`${normalizedDistRoot}${path.sep}`))) {
+    return false;
+  }
+
+  return existsSync(resolvedPath);
+}
 
 async function createServer() {
   const app = Fastify({ logger: true });
@@ -23,6 +99,9 @@ async function createServer() {
   });
   const runtimeEnv = resolveRuntimeEnv();
   const appRoot = path.resolve(process.cwd());
+  const distRoot = path.resolve(appRoot, "dist");
+  const hasWebBuild = existsSync(path.resolve(distRoot, SPA_INDEX_FILE));
+  const spaDocument = hasWebBuild ? readFileSync(path.resolve(distRoot, SPA_INDEX_FILE), "utf8") : "";
   const runtime = await tryCreateProviderRuntimeFromApp({
     appRoot,
     profile: resolveRuntimeProfileFromSurface({
@@ -39,7 +118,48 @@ async function createServer() {
     fastify: app,
     surfaceRuntime,
     serverSurface: runtimeEnv.SERVER_SURFACE,
-    globalUiPaths: runtime?.globalUiPaths || []
+    globalUiPaths: resolveGlobalUiPaths(runtime?.globalUiPaths || [])
+  });
+
+  if (hasWebBuild) {
+    await app.register(fastifyStatic, {
+      root: distRoot,
+      index: false,
+      serve: false
+    });
+  } else {
+    app.log.warn("Frontend build not found (dist/index.html). Page routes will return 404 until `npm run build`.");
+  }
+
+  app.setNotFoundHandler(async (request, reply) => {
+    const pathname = toRequestPathname(request?.url);
+    const method = String(request?.method || "GET")
+      .trim()
+      .toUpperCase();
+    if (isApiPath(pathname) || (method !== "GET" && method !== "HEAD")) {
+      return reply.code(404).send({
+        message: `Route ${method}:${pathname} not found`,
+        error: "Not Found",
+        statusCode: 404
+      });
+    }
+    if (hasFileExtension(pathname)) {
+      const staticFilePath = resolveStaticFilePath(pathname);
+      if (hasWebBuild && staticFilePath && canServeStaticFile(distRoot, staticFilePath)) {
+        return reply.sendFile(staticFilePath);
+      }
+      return reply.code(404).send({
+        message: `Route ${method}:${pathname} not found`,
+        error: "Not Found",
+        statusCode: 404
+      });
+    }
+    if (!hasWebBuild) {
+      return reply.code(404).send({
+        error: "Frontend build is not available. Run `npm run build`."
+      });
+    }
+    return reply.type("text/html; charset=utf-8").send(spaDocument);
   });
 
   if (runtime) {

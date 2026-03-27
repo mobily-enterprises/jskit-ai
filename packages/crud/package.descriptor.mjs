@@ -32,6 +32,20 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Route path prefix",
       promptHint: "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
+    },
+    "table-name": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Table name",
+      promptHint: "Optional existing MySQL table to introspect for CRUD schema generation."
+    },
+    "id-column": {
+      required: false,
+      inputType: "text",
+      defaultValue: "id",
+      promptLabel: "Id column",
+      promptHint: "Primary key column used by CRUD endpoints (default: id)."
     }
   },
   optionPolicies: {
@@ -79,8 +93,7 @@ export default Object.freeze({
         }
       ],
       containerTokens: {
-        server: [],
-        client: []
+        server: []
       }
     }
   },
@@ -111,7 +124,11 @@ export default Object.freeze({
         extension: ".cjs",
         reason: "Install CRUD schema migration.",
         category: "crud",
-        id: "crud-initial-schema-${option:namespace|snake}"
+        id: "crud-initial-schema-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/package.json",
@@ -132,7 +149,11 @@ export default Object.freeze({
         to: "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}ServiceProvider.js",
         reason: "Install app-local CRUD server provider.",
         category: "crud",
-        id: "crud-local-package-server-provider-${option:namespace|snake}"
+        id: "crud-local-package-server-provider-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/actions.js",
@@ -156,11 +177,15 @@ export default Object.freeze({
         id: "crud-local-package-server-routes-${option:namespace|snake}"
       },
       {
-        from: "src/server/repository.js",
+        from: "templates/src/local-package/server/repository.js",
         to: "packages/${option:namespace|kebab}/src/server/repository.js",
         reason: "Install app-local CRUD repository.",
         category: "crud",
-        id: "crud-local-package-server-repository-${option:namespace|snake}"
+        id: "crud-local-package-server-repository-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/service.js",
@@ -177,18 +202,15 @@ export default Object.freeze({
         id: "crud-local-package-shared-index-${option:namespace|snake}"
       },
       {
-        from: "templates/src/local-package/shared/moduleConfig.js",
-        to: "packages/${option:namespace|kebab}/src/shared/moduleConfig.js",
-        reason: "Install app-local CRUD shared module config.",
-        category: "crud",
-        id: "crud-local-package-shared-module-config-${option:namespace|snake}"
-      },
-      {
-        from: "src/shared/crud/crudResource.js",
+        from: "templates/src/local-package/shared/crudResource.js",
         to: "packages/${option:namespace|kebab}/src/shared/${option:namespace|singular|camel}Resource.js",
         reason: "Install app-local CRUD resource.",
         category: "crud",
-        id: "crud-local-package-shared-resource-${option:namespace|snake}"
+        id: "crud-local-package-shared-resource-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       }
     ],
     text: []

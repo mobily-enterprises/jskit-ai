@@ -10,7 +10,6 @@ import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
 import { crudResource } from "../shared/${option:namespace|singular|camel}Resource.js";
-import { crudModuleConfig } from "../shared/moduleConfig.js";
 
 function registerRoutes(
   app,
@@ -18,11 +17,14 @@ function registerRoutes(
     routeOwnershipFilter = "public",
     routeSurface = "",
     routeSurfaceRequiresWorkspace = false,
-    routeRelativePath = crudModuleConfig.relativePath
+    routeRelativePath = ""
   } = {}
 ) {
   if (!app || typeof app.make !== "function") {
     throw new Error("registerRoutes requires application make().");
+  }
+  if (!String(routeRelativePath || "").trim()) {
+    throw new Error("registerRoutes requires routeRelativePath.");
   }
 
   const router = app.make("jskit.http.router");

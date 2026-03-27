@@ -5,7 +5,7 @@ import {
   resolveCrudSurfacePolicy,
   resolveCrudConfigFromModules,
   resolveCrudConfigsFromModules
-} from "../src/shared/crud/crudModuleConfig.js";
+} from "../src/server/crudModuleConfig.js";
 
 test("resolveCrudConfig throws when namespace is missing", () => {
   assert.throws(

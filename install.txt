@@ -1,7 +1,9 @@
 LOCAL: Full app form template
 
 npx @jskit-ai/create-app dogandgroom --tenancy-mode personal --target . --title "Dog and Groom"
+../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title "Dog and Groom"
 npm install
+npm run devlinks
 npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
 npx jskit add package shell-web --no-install
 npx jskit add package auth-web --no-install
@@ -13,6 +15,29 @@ npx jskit add package @jskit-ai/crud --namespace contacts --surface admin --no-i
 npm install
 npm run db:migrate
 
+  npx jskit add package @jskit-ai/crud \
+    --namespace contacts \
+    --surface admin \
+    --directory-prefix crud \
+    --table-name contacts \
+    --id-column id \
+    --ownership-filter auto
+
+
+  npx jskit add package @jskit-ai/ui-generator \
+    --namespace contact \
+    --surface admin \
+    --operations list \
+    --resource-file packages/contacts/src/shared/contactResource.js \
+    --resource-export crudResource \
+    --api-path /crud/contacts \
+    --route-path contacts \
+    --id-param contactId \
+    --no-install
+
+
+
+
 
 Updating one module:
 
@@ -20,6 +45,7 @@ Updating one module:
   2. In the app repo, run jskit:update (or otherwise bump deps).
   3. Commit package.json + package-lock.json.
   4. git push dokku main to trigger rebuild/deploy.
+
 
 
 
