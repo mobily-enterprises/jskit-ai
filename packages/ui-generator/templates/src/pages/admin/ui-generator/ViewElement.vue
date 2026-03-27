@@ -8,8 +8,8 @@
             <v-card-subtitle class="px-0">View and manage this ${option:namespace|singular|default(record)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn v-if="UI_LIST_URL" variant="text" :to="UI_LIST_URL">Back to ${option:namespace|plural|default(records)}</v-btn>
-          <v-btn v-if="UI_EDIT_URL" color="primary" variant="outlined" :to="UI_EDIT_URL">Edit</v-btn>
+          <v-btn v-if="UI_LIST_URL" variant="text" :to="view.resolveParams(UI_LIST_URL)">Back to ${option:namespace|plural|default(records)}</v-btn>
+          <v-btn v-if="UI_EDIT_URL" color="primary" variant="outlined" :to="view.resolveParams(UI_EDIT_URL)">Edit</v-btn>
         </div>
       </v-card-item>
       <v-divider />
@@ -59,6 +59,8 @@ const view = useView({
   placementSource: "ui-generator.${option:namespace|kebab}.view",
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
+  listUrlTemplate: UI_LIST_URL,
+  editUrlTemplate: UI_EDIT_URL,
   realtime: UI_RECORD_CHANGED_EVENT
     ? {
         event: UI_RECORD_CHANGED_EVENT

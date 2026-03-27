@@ -68,6 +68,7 @@ function useList({
     recordIdParam,
     recordIdSelector,
     routeParams: computed(() => operationScope.routeContext.route?.params || {}),
+    routePath: computed(() => operationScope.routeContext.route?.path || ""),
     viewUrlTemplate,
     editUrlTemplate
   });
@@ -102,6 +103,7 @@ function useList({
     actionColumnCount: listUiRuntime.actionColumnCount,
     showListSkeleton: listUiRuntime.showListSkeleton,
     resolveRowKey: listUiRuntime.resolveRowKey,
+    resolveParams: listUiRuntime.resolveParams,
     resolveViewUrl: listUiRuntime.resolveViewUrl,
     resolveEditUrl: listUiRuntime.resolveEditUrl
   });
