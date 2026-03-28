@@ -10,15 +10,41 @@ after(async () => {
   await fixture.cleanup();
 });
 
-test("template createRepository requires explicit tableName", () => {
-  const knex = () => {
-    throw new Error("not expected");
+test("template createRepository defaults tableName from resource metadata", () => {
+  const query = {
+    select() {
+      return query;
+    },
+    where() {
+      return query;
+    },
+    orderBy() {
+      return query;
+    },
+    modify(callback) {
+      if (typeof callback === "function") {
+        callback(query);
+      }
+      return query;
+    },
+    limit() {
+      return query;
+    },
+    then(resolve) {
+      return Promise.resolve([]).then(resolve);
+    }
+  };
+  const tables = [];
+  const knex = (tableName) => {
+    tables.push(tableName);
+    return query;
   };
 
-  assert.throws(
-    () => createRepository(knex, {}),
-    /requires tableName/
-  );
+  const repository = createRepository(knex, {});
+  assert.equal(typeof repository.list, "function");
+  return repository.list({}).then(() => {
+    assert.equal(tables[0], "customers");
+  });
 });
 
 test("template createActions requires explicit surface", () => {

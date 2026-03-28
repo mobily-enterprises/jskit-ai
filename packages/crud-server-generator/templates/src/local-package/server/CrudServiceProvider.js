@@ -8,8 +8,6 @@ import {
 } from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
-const NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME = __JSKIT_CRUD_TABLE_NAME__;
-const NAMESPACE_${option:namespace|snake|upper}_ID_COLUMN = __JSKIT_CRUD_ID_COLUMN__;
 const CRUD_MODULE_CONFIG = Object.freeze({
   namespace: "${option:namespace|snake}",
   surface: "${option:surface|lower}",
@@ -37,10 +35,7 @@ class ${option:namespace|pascal}ServiceProvider {
 
     app.singleton("repository.${option:namespace|snake}", (scope) => {
       const knex = scope.make("jskit.database.knex");
-      return createRepository(knex, {
-        tableName: NAMESPACE_${option:namespace|snake|upper}_TABLE_NAME,
-        idColumn: NAMESPACE_${option:namespace|snake|upper}_ID_COLUMN
-      });
+      return createRepository(knex);
     });
 
     app.service(

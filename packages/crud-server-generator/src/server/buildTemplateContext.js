@@ -899,8 +899,6 @@ function buildReplacementsFromSnapshot({
     writableColumns,
     snapshot
   });
-  const createdAtColumn = scaffoldColumns.find((column) => column.isCreatedAtColumn)?.name || "";
-  const updatedAtColumn = scaffoldColumns.find((column) => column.isUpdatedAtColumn)?.name || "";
   const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer");
   const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
   const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
@@ -954,8 +952,6 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__: renderResourceOutputNormalizationLines(outputColumns),
     __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__: JSON.stringify(createRequiredFieldKeys),
     __JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__: renderResourceFieldMetaPushLines(fieldMetaEntries),
-    __JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__: JSON.stringify(createdAtColumn),
-    __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__: JSON.stringify(updatedAtColumn),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
     __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot)

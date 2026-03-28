@@ -1,96 +1,38 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { createCrudServiceFromResource } from "@jskit-ai/crud-core/server/createCrudServiceFromResource";
+import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
-const serviceEvents = Object.freeze({
-  createRecord: Object.freeze([
-    Object.freeze({
-      type: "entity.changed",
-      source: "crud",
-      entity: "record",
-      operation: "created",
-      entityId: ({ result }) => result?.id,
-      realtime: Object.freeze({
-        event: "${option:namespace|snake}.record.changed",
-        audience: "event_scope"
-      })
-    })
-  ]),
-  updateRecord: Object.freeze([
-    Object.freeze({
-      type: "entity.changed",
-      source: "crud",
-      entity: "record",
-      operation: "updated",
-      entityId: ({ result }) => result?.id,
-      realtime: Object.freeze({
-        event: "${option:namespace|snake}.record.changed",
-        audience: "event_scope"
-      })
-    })
-  ]),
-  deleteRecord: Object.freeze([
-    Object.freeze({
-      type: "entity.changed",
-      source: "crud",
-      entity: "record",
-      operation: "deleted",
-      entityId: ({ result }) => result?.id,
-      realtime: Object.freeze({
-        event: "${option:namespace|snake}.record.changed",
-        audience: "event_scope"
-      })
-    })
-  ])
+const { createBaseService, baseServiceEvents } = createCrudServiceFromResource(${option:namespace|singular|camel}Resource, {
+  context: "${option:namespace|camel}Service"
 });
 
+const serviceEvents = baseServiceEvents;
+
 function createService({ ${option:namespace|camel}Repository } = {}) {
-  if (!${option:namespace|camel}Repository) {
-    throw new Error("${option:namespace|camel}Service requires ${option:namespace|camel}Repository.");
-  }
-
-  async function listRecords(query = {}, options = {}) {
-    return ${option:namespace|camel}Repository.list(query, options);
-  }
-
-  async function getRecord(recordId, options = {}) {
-    const record = await ${option:namespace|camel}Repository.findById(recordId, options);
-    if (!record) {
-      throw new AppError(404, "Record not found.");
-    }
-
-    return record;
-  }
-
-  async function createRecord(payload = {}, options = {}) {
-    const record = await ${option:namespace|camel}Repository.create(payload, options);
-    if (!record) {
-      throw new Error("${option:namespace|camel}Service could not load the created record.");
-    }
-    return record;
-  }
-
-  async function updateRecord(recordId, payload = {}, options = {}) {
-    const record = await ${option:namespace|camel}Repository.updateById(recordId, payload, options);
-    if (!record) {
-      throw new AppError(404, "Record not found.");
-    }
-    return record;
-  }
-
-  async function deleteRecord(recordId, options = {}) {
-    const deleted = await ${option:namespace|camel}Repository.deleteById(recordId, options);
-    if (!deleted) {
-      throw new AppError(404, "Record not found.");
-    }
-    return deleted;
-  }
+  const base = createBaseService({
+    repository: ${option:namespace|camel}Repository
+  });
 
   return Object.freeze({
-    listRecords,
-    getRecord,
-    createRecord,
-    updateRecord,
-    deleteRecord
+    ...base,
+    // async createRecord(payload = {}, options = {}) {
+    //   return base.createRecord(payload, options);
+    // }
   });
 }
+
+// Optional event override example:
+// const serviceEvents = {
+//   ...baseServiceEvents,
+//   createRecord: [
+//     ...baseServiceEvents.createRecord,
+//     {
+//       type: "${option:namespace|snake}.custom",
+//       source: "custom",
+//       entity: "record",
+//       operation: "created",
+//       entityId: ({ result }) => result?.id
+//     }
+//   ]
+// };
 
 export { createService, serviceEvents };

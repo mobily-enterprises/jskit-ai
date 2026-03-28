@@ -391,15 +391,28 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   );
 });
 
-test("crud repository template imports buildRepositoryColumnMetadata when used", async () => {
+test("crud repository template wraps createCrudRepositoryFromResource for easy method overrides", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "repository.js");
   const templateSource = await readFile(templatePath, "utf8");
-  const importBlockMatch = templateSource.match(
-    /import\s*\{[\s\S]*?\}\s*from "@jskit-ai\/crud-core\/server\/repositorySupport";/
+  assert.match(
+    templateSource,
+    /from "@jskit-ai\/crud-core\/server\/createCrudRepositoryFromResource";/
   );
+  assert.match(templateSource, /const createBaseRepository = createCrudRepositoryFromResource\(/);
+  assert.match(templateSource, /return Object\.freeze\(\{\s*\.\.\.base/s);
+});
 
-  assert.ok(importBlockMatch);
-  assert.match(importBlockMatch[0], /buildRepositoryColumnMetadata/);
-  assert.match(templateSource, /buildRepositoryColumnMetadata\(\{/);
+test("crud service template wraps createCrudServiceFromResource for easy method overrides", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "service.js");
+  const templateSource = await readFile(templatePath, "utf8");
+
+  assert.match(
+    templateSource,
+    /from "@jskit-ai\/crud-core\/server\/createCrudServiceFromResource";/
+  );
+  assert.match(templateSource, /const \{ createBaseService, baseServiceEvents \} = createCrudServiceFromResource\(/);
+  assert.match(templateSource, /const serviceEvents = baseServiceEvents;/);
+  assert.match(templateSource, /return Object\.freeze\(\{\s*\.\.\.base,/s);
 });
