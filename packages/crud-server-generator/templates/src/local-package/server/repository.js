@@ -4,6 +4,7 @@ import {
   DEFAULT_LIST_LIMIT,
   buildRepositoryColumnMetadata,
   deriveRepositoryMappingFromResource,
+  applyCrudListQueryFilters,
   normalizeCrudListLimit,
   requireCrudTableName,
   buildWritePayload as baseBuildWritePayload,
@@ -40,9 +41,7 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
 
   async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT, q = "" } = {}, options = {}) {
     const client = options?.trx || knex;
-    const normalizedCursor = Number.isInteger(Number(cursor)) && Number(cursor) > 0 ? Number(cursor) : 0;
     const normalizedLimit = normalizeCrudListLimit(limit);
-    const normalizedSearch = String(q || "").trim();
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     let query = client(resolvedTableName)
@@ -51,24 +50,12 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
       .orderBy(resolvedIdColumn, "asc")
       .limit(normalizedLimit + 1);
 
-    if (normalizedSearch && LIST_SEARCH_COLUMNS.length > 0) {
-      const searchPattern = `%${normalizedSearch}%`;
-      query = query.modify((searchQuery) => {
-        searchQuery.where((whereQuery) => {
-          for (const [index, columnName] of LIST_SEARCH_COLUMNS.entries()) {
-            if (index === 0) {
-              whereQuery.where(columnName, "like", searchPattern);
-              continue;
-            }
-            whereQuery.orWhere(columnName, "like", searchPattern);
-          }
-        });
-      });
-    }
-
-    if (normalizedCursor > 0) {
-      query = query.where(resolvedIdColumn, ">", normalizedCursor);
-    }
+    query = applyCrudListQueryFilters(query, {
+      idColumn: resolvedIdColumn,
+      cursor,
+      q,
+      searchColumns: LIST_SEARCH_COLUMNS
+    });
 
     const rows = await query;
     const hasMore = rows.length > normalizedLimit;
