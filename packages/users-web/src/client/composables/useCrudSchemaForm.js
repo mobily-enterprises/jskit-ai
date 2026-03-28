@@ -1,4 +1,4 @@
-import { computed, reactive } from "vue";
+import { computed, proxyRefs, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { asPlainObject } from "./scopeHelpers.js";
 import { useAddEdit } from "./useAddEdit.js";
@@ -10,6 +10,7 @@ import {
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
 } from "./crudSchemaFormHelpers.js";
+import { hasResolvedQueryData } from "./resourceLoadStateHelpers.js";
 
 function normalizeFieldErrorKeys(keys = []) {
   return Array.isArray(keys)
@@ -162,9 +163,16 @@ function useCrudSchemaForm({
     return resolveCrudFieldErrors(addEdit.fieldErrors, fieldKey);
   }
 
-  const showFormSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
+  const showFormSkeleton = computed(() => {
+    const hasResolvedData = hasResolvedQueryData({
+      query: addEdit?.resource?.query,
+      data: addEdit?.resource?.data
+    });
 
-  return Object.freeze({
+    return Boolean(addEdit.isInitialLoading) && !hasResolvedData;
+  });
+
+  return proxyRefs({
     formFields: normalizedFields,
     fieldErrorKeys,
     form,

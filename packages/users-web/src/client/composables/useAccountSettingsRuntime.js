@@ -202,22 +202,22 @@ function useAccountSettingsRuntime() {
 
   const settingsView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
-  apiSuffix: "/settings",
-  queryKeyFactory: () => accountSettingsQueryKey,
-  realtime: {
-    event: "account.settings.changed"
-  },
+    apiSuffix: "/settings",
+    queryKeyFactory: () => accountSettingsQueryKey,
+    realtime: {
+      event: "account.settings.changed"
+    },
     fallbackLoadError: "Unable to load settings.",
     mapLoadedToModel: mapAccountSettingsPayload
   });
 
   const pendingInvitesView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
-  apiSuffix: "/bootstrap",
-  queryKeyFactory: () => pendingInvitesQueryKey,
-  realtime: {
-    event: "workspace.invitations.pending.changed"
-  },
+    apiSuffix: "/bootstrap",
+    queryKeyFactory: () => pendingInvitesQueryKey,
+    realtime: {
+      event: "workspace.invitations.pending.changed"
+    },
     fallbackLoadError: "Unable to load invitations.",
     model: pendingInvitesModel,
     mapLoadedToModel: (model, payload = {}) => {
@@ -347,11 +347,11 @@ function useAccountSettingsRuntime() {
     }
   });
 
-  const loadingSettings = computed(() => Boolean(settingsView.isLoading.value));
-  const refreshingSettings = computed(() => Boolean(settingsView.isRefetching.value));
+  const loadingSettings = computed(() => Boolean(settingsView.isLoading));
+  const refreshingSettings = computed(() => Boolean(settingsView.isRefetching));
   const invitesAvailable = computed(() => pendingInvitesModel.workspaceInvitesEnabled === true);
-  const loadingInvites = computed(() => Boolean(pendingInvitesView.isLoading.value));
-  const refreshingInvites = computed(() => Boolean(pendingInvitesView.isRefetching.value));
+  const loadingInvites = computed(() => Boolean(pendingInvitesView.isLoading));
+  const refreshingInvites = computed(() => Boolean(pendingInvitesView.isRefetching));
   const pendingInvites = computed(() => {
     return Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : [];
   });

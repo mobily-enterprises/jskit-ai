@@ -380,7 +380,11 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
 
 function renderInputNormalizer(column) {
   const typeKind = String(column.typeKind || "");
+  const nullable = column?.nullable === true;
   if (typeKind === "string" || typeKind === "time") {
+    if (typeKind === "time" && nullable) {
+      return "normalizeNullableTimeInput";
+    }
     return "normalizeText";
   }
   if (typeKind === "integer") {
@@ -393,9 +397,15 @@ function renderInputNormalizer(column) {
     return "normalizeBoolean";
   }
   if (typeKind === "datetime") {
+    if (nullable) {
+      return "normalizeNullableDateTimeInput";
+    }
     return "toDatabaseDateTimeUtc";
   }
   if (typeKind === "date") {
+    if (nullable) {
+      return "normalizeNullableDateInput";
+    }
     return "(value) => toIsoString(value).slice(0, 10)";
   }
   if (typeKind === "json") {
@@ -466,6 +476,47 @@ function renderResourceOutputNormalizationLines(columns) {
       return `    ${key}: ${nullishNormalizer}(${sourceAccess}, ${normalizer}),`;
     })
     .join("\n");
+}
+
+function renderResourceInputNormalizerSupport({
+  needsNullableDateTimeInput = false,
+  needsNullableDateInput = false,
+  needsNullableTimeInput = false
+} = {}) {
+  const blocks = [];
+
+  if (needsNullableDateTimeInput) {
+    blocks.push(`function normalizeNullableDateTimeInput(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+  return toDatabaseDateTimeUtc(normalized);
+}`);
+  }
+
+  if (needsNullableDateInput) {
+    blocks.push(`function normalizeNullableDateInput(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+  return toIsoString(normalized).slice(0, 10);
+}`);
+  }
+
+  if (needsNullableTimeInput) {
+    blocks.push(`function normalizeNullableTimeInput(value) {
+  const normalized = normalizeText(value);
+  return normalized || null;
+}`);
+  }
+
+  if (blocks.length < 1) {
+    return "";
+  }
+
+  return `${blocks.join("\n\n")}\n`;
 }
 
 function renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {}) {
@@ -727,11 +778,20 @@ function buildReplacementsFromSnapshot({
   const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
   const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
   const needsDateTimeInput = writableColumns.some((column) => column.typeKind === "datetime");
+  const needsNullableDateTimeInput = writableColumns.some(
+    (column) => column.typeKind === "datetime" && column.nullable === true
+  );
+  const needsNullableDateInput = writableColumns.some(
+    (column) => column.typeKind === "date" && column.nullable === true
+  );
+  const needsNullableTimeInput = writableColumns.some(
+    (column) => column.typeKind === "time" && column.nullable === true
+  );
   const needsDate = resourceColumns.some((column) => column.typeKind === "date");
   const needsJson = resourceColumns.some((column) => column.typeKind === "json");
   const needsNormalizeText = resourceColumns.some((column) =>
     column.typeKind === "string" || column.typeKind === "time"
-  );
+  ) || needsNullableDateTimeInput || needsNullableDateInput;
   const needsNormalizeBoolean = resourceColumns.some((column) => column.typeKind === "boolean");
   const needsNormalizeIfInSource = writableColumns.length > 0;
   const outputColumnsWithNormalizer = outputColumns.filter(
@@ -759,6 +819,11 @@ function buildReplacementsFromSnapshot({
     }),
     __JSKIT_CRUD_RESOURCE_JSON_IMPORT__: renderResourceJsonImport({
       needsJson
+    }),
+    __JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__: renderResourceInputNormalizerSupport({
+      needsNullableDateTimeInput,
+      needsNullableDateInput,
+      needsNullableTimeInput
     }),
     __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(outputColumns, {
       forOutput: true

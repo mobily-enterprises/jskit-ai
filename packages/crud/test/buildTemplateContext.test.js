@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { buildTemplateContext, __testables } from "../src/server/buildTemplateContext.js";
 
@@ -253,4 +256,112 @@ test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
   );
 
   assert.equal(line.includes(".defaultTo("), false);
+});
+
+test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without invalid date errors", () => {
+  const snapshot = createSnapshot({
+    hasWorkspaceOwnerColumn: false,
+    hasUserOwnerColumn: false
+  });
+  const temporalColumns = [
+    ...snapshot.columns.filter((column) => column.key !== "updatedAt"),
+    Object.freeze({
+      name: "scheduled_at",
+      key: "scheduledAt",
+      dataType: "datetime",
+      columnType: "datetime",
+      typeKind: "datetime",
+      nullable: true,
+      hasDefault: false,
+      defaultValue: null,
+      autoIncrement: false,
+      unsigned: false,
+      extra: "",
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null,
+      enumValues: Object.freeze([])
+    }),
+    Object.freeze({
+      name: "birth_date",
+      key: "birthDate",
+      dataType: "date",
+      columnType: "date",
+      typeKind: "date",
+      nullable: true,
+      hasDefault: false,
+      defaultValue: null,
+      autoIncrement: false,
+      unsigned: false,
+      extra: "",
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null,
+      enumValues: Object.freeze([])
+    }),
+    Object.freeze({
+      name: "preferred_time",
+      key: "preferredTime",
+      dataType: "time",
+      columnType: "time",
+      typeKind: "time",
+      nullable: true,
+      hasDefault: false,
+      defaultValue: null,
+      autoIncrement: false,
+      unsigned: false,
+      extra: "",
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null,
+      enumValues: Object.freeze([])
+    })
+  ];
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
+    snapshot: {
+      ...snapshot,
+      columns: Object.freeze(temporalColumns)
+    },
+    resolvedOwnershipFilter: "public"
+  });
+
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /normalizeIfInSource\(source, normalized, "scheduledAt", normalizeNullableDateTimeInput\);/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /normalizeIfInSource\(source, normalized, "birthDate", normalizeNullableDateInput\);/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
+    /normalizeIfInSource\(source, normalized, "preferredTime", normalizeNullableTimeInput\);/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
+    /function normalizeNullableDateTimeInput\(value\)/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
+    /function normalizeNullableDateInput\(value\)/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
+    /function normalizeNullableTimeInput\(value\)/
+  );
+});
+
+test("crud repository template imports buildRepositoryColumnMetadata when used", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "repository.js");
+  const templateSource = await readFile(templatePath, "utf8");
+  const importBlockMatch = templateSource.match(
+    /import\s*\{[\s\S]*?\}\s*from "@jskit-ai\/crud-core\/server\/repositorySupport";/
+  );
+
+  assert.ok(importBlockMatch);
+  assert.match(importBlockMatch[0], /buildRepositoryColumnMetadata/);
+  assert.match(templateSource, /buildRepositoryColumnMetadata\(\{/);
 });

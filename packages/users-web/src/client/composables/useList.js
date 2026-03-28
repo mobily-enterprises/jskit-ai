@@ -1,4 +1,4 @@
-import { computed } from "vue";
+import { computed, proxyRefs } from "vue";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
@@ -85,7 +85,7 @@ function useList({
     })
   });
 
-  return Object.freeze({
+  return proxyRefs({
     canView,
     isInitialLoading,
     isFetching,

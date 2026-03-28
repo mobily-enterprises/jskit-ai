@@ -1,4 +1,4 @@
-import { computed } from "vue";
+import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useViewCore } from "./useViewCore.js";
@@ -106,7 +106,7 @@ function useView({
     })
   });
 
-  return Object.freeze({
+  return proxyRefs({
     record: view.record,
     recordId: viewUiRuntime.recordId,
     listUrl: viewUiRuntime.listUrl,

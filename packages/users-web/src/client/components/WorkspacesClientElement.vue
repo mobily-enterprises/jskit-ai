@@ -125,8 +125,8 @@ const pendingInvites = computed(() => {
 });
 const workspaceInvitesEnabled = computed(() => bootstrapModel.workspaceInvitesEnabled === true);
 
-const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading.value));
-const isRefreshingBootstrap = computed(() => Boolean(bootstrapView.isRefetching.value));
+const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading));
+const isRefreshingBootstrap = computed(() => Boolean(bootstrapView.isRefetching));
 const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
 const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
 

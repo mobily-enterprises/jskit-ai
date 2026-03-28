@@ -14,16 +14,16 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
-        <div v-if="view.loadError.value || view.isNotFound.value" class="text-body-2 text-medium-emphasis py-2">
+        <div v-if="view.loadError || view.isNotFound" class="text-body-2 text-medium-emphasis py-2">
           Record unavailable.
         </div>
 
-        <template v-else-if="view.isLoading.value">
+        <template v-else-if="view.isLoading">
           <v-skeleton-loader type="text@2, list-item-two-line@5" />
         </template>
 
         <template v-else>
-          <v-progress-linear v-if="view.isRefetching.value" indeterminate class="mb-4" />
+          <v-progress-linear v-if="view.isRefetching" indeterminate class="mb-4" />
           <v-row>
 __JSKIT_UI_VIEW_COLUMNS__
           </v-row>

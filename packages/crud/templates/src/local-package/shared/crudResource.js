@@ -6,6 +6,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__
 __JSKIT_CRUD_RESOURCE_JSON_IMPORT__
+__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__
 function normalizeRecordInput(payload = {}) {
   const source = normalizeObjectInput(payload);
   const normalized = {};

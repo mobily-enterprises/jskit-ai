@@ -268,7 +268,7 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL,/);
     assert.match(viewPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(viewPageSource, /includeRecordIdInQueryKey: true,/);
-    assert.match(viewPageSource, /view\.record\.value\?\.firstName/);
+    assert.match(viewPageSource, /view\.record\?\.firstName/);
     assert.doesNotMatch(viewPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(viewPageSource, /function toRouteRecordId/);
     assert.doesNotMatch(viewPageSource, /useRoute/);
@@ -282,6 +282,9 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(newPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(newPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(newPageSource, /listUrlTemplate: UI_LIST_URL,/);
+    assert.match(newPageSource, /:error-messages='formRuntime\.resolveFieldErrors\("firstName"\)'/);
+    assert.doesNotMatch(newPageSource, /v-for="field in formRuntime\.formFields"/);
+    assert.match(newPageSource, /v-model="formRuntime\.form\.firstName"/);
     assert.doesNotMatch(newPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(newPageSource, /function toRouteRecordId/);
     assert.match(newPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
@@ -295,6 +298,9 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(editPageSource, /routeRecordId,/);
     assert.match(editPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(editPageSource, /listUrlTemplate: UI_LIST_URL,/);
+    assert.match(editPageSource, /:error-messages='formRuntime\.resolveFieldErrors\("email"\)'/);
+    assert.doesNotMatch(editPageSource, /v-for="field in formRuntime\.formFields"/);
+    assert.match(editPageSource, /v-model="formRuntime\.form\.email"/);
     assert.doesNotMatch(editPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(editPageSource, /function toRouteRecordId/);
     assert.match(editPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
@@ -374,9 +380,9 @@ test("generate @jskit-ai/crud-ui-generator applies display-fields filter to list
     assert.doesNotMatch(listPageSource, /<th>Vip<\/th>/);
 
     const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /view\.record\.value\?\.firstName/);
-    assert.match(viewPageSource, /view\.record\.value\?\.email/);
-    assert.doesNotMatch(viewPageSource, /view\.record\.value\?\.vip/);
+    assert.match(viewPageSource, /view\.record\?\.firstName/);
+    assert.match(viewPageSource, /view\.record\?\.email/);
+    assert.doesNotMatch(viewPageSource, /view\.record\?\.vip/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
     assert.match(newPageSource, /\{"key":"firstName"/);
