@@ -7,76 +7,11 @@ import {
   normalizeObjectInput,
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-
-function normalizeNumberField(value, { fieldLabel = "Number field" } = {}) {
-  const normalized = Number(value);
-  if (!Number.isFinite(normalized)) {
-    throw new TypeError(`${fieldLabel} must be a valid number.`);
-  }
-
-  return normalized;
-}
-
-function normalizeDateTimeField(value, { fieldLabel = "Date field" } = {}) {
-  try {
-    return toIsoString(value);
-  } catch {
-    throw new TypeError(`${fieldLabel} must be a valid date/time.`);
-  }
-}
-
-function normalizeDatabaseDateTimeField(value, { fieldLabel = "Date field" } = {}) {
-  try {
-    return toDatabaseDateTimeUtc(value);
-  } catch {
-    throw new TypeError(`${fieldLabel} must be a valid date/time.`);
-  }
-}
-
-function normalizeRecordInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-
-  if (Object.hasOwn(source, "textField")) {
-    normalized.textField = normalizeText(source.textField);
-  }
-
-  if (Object.hasOwn(source, "dateField")) {
-    normalized.dateField = normalizeDatabaseDateTimeField(source.dateField, {
-      fieldLabel: "Date field"
-    });
-  }
-
-  if (Object.hasOwn(source, "numberField")) {
-    normalized.numberField = normalizeNumberField(source.numberField, {
-      fieldLabel: "Number field"
-    });
-  }
-
-  return normalized;
-}
-
-function normalizeRecordOutput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-
-  return {
-    id: Number(source.id),
-    textField: normalizeText(source.textField),
-    dateField: normalizeDateTimeField(source.dateField, {
-      fieldLabel: "Date field"
-    }),
-    numberField: normalizeNumberField(source.numberField, {
-      fieldLabel: "Number field"
-    }),
-    createdAt: normalizeDateTimeField(source.createdAt, {
-      fieldLabel: "Created at"
-    }),
-    updatedAt: normalizeDateTimeField(source.updatedAt, {
-      fieldLabel: "Updated at"
-    })
-  };
-}
+import {
+  normalizeText,
+  normalizeFiniteNumber,
+  normalizeIfPresent
+} from "@jskit-ai/kernel/shared/support/normalize";
 
 const recordOutputSchema = Type.Object(
   {
@@ -126,9 +61,67 @@ const recordBodySchema = Type.Object(
   }
 );
 
+const patchBodySchema = Type.Partial(recordBodySchema, { additionalProperties: false });
+
 const recordOutputValidator = Object.freeze({
   schema: recordOutputSchema,
-  normalize: normalizeRecordOutput
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      id: Number(source.id),
+      textField: normalizeText(source.textField),
+      dateField: toIsoString(source.dateField),
+      numberField: normalizeFiniteNumber(source.numberField),
+      createdAt: normalizeIfPresent(source.createdAt, toIsoString),
+      updatedAt: normalizeIfPresent(source.updatedAt, toIsoString)
+    };
+  }
+});
+
+const listOutputValidator = createCursorListValidator(recordOutputValidator);
+
+const createBodyValidator = Object.freeze({
+  schema: recordBodySchema,
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    const normalized = {};
+
+    if (Object.hasOwn(source, "textField")) {
+      normalized.textField = normalizeText(source.textField);
+    }
+    if (Object.hasOwn(source, "dateField")) {
+      normalized.dateField = toDatabaseDateTimeUtc(source.dateField);
+    }
+    if (Object.hasOwn(source, "numberField")) {
+      normalized.numberField = normalizeFiniteNumber(source.numberField);
+    }
+
+    return normalized;
+  }
+});
+
+const patchBodyValidator = Object.freeze({
+  schema: patchBodySchema,
+  normalize: createBodyValidator.normalize
+});
+
+const deleteOutputValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      id: Type.Integer({ minimum: 1 }),
+      deleted: Type.Literal(true)
+    },
+    { additionalProperties: false }
+  ),
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+
+    return {
+      id: Number(source.id),
+      deleted: true
+    };
+  }
 });
 
 const CRUD_RESOURCE_FIELD_META = [];
@@ -145,7 +138,7 @@ const crudResource = {
   operations: {
     list: {
       method: "GET",
-      outputValidator: createCursorListValidator(recordOutputValidator)
+      outputValidator: listOutputValidator
     },
     view: {
       method: "GET",
@@ -153,39 +146,17 @@ const crudResource = {
     },
     create: {
       method: "POST",
-      bodyValidator: {
-        schema: recordBodySchema,
-        normalize: normalizeRecordInput
-      },
+      bodyValidator: createBodyValidator,
       outputValidator: recordOutputValidator
     },
     patch: {
       method: "PATCH",
-      bodyValidator: {
-        schema: Type.Partial(recordBodySchema, { additionalProperties: false }),
-        normalize: normalizeRecordInput
-      },
+      bodyValidator: patchBodyValidator,
       outputValidator: recordOutputValidator
     },
     delete: {
       method: "DELETE",
-      outputValidator: {
-        schema: Type.Object(
-          {
-            id: Type.Integer({ minimum: 1 }),
-            deleted: Type.Literal(true)
-          },
-          { additionalProperties: false }
-        ),
-        normalize(payload = {}) {
-          const source = normalizeObjectInput(payload);
-
-          return {
-            id: Number(source.id),
-            deleted: true
-          };
-        }
-      }
+      outputValidator: deleteOutputValidator
     }
   },
   fieldMeta: CRUD_RESOURCE_FIELD_META

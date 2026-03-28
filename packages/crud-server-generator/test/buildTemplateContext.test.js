@@ -379,27 +379,15 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
 
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "scheduledAt", normalizeNullableDateTimeInput\);/
+    /normalizeIfInSource\(source, normalized, "scheduledAt", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toDatabaseDateTimeUtc\(normalized\) : null; \}\);/
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "birthDate", normalizeNullableDateInput\);/
+    /normalizeIfInSource\(source, normalized, "birthDate", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toIsoString\(normalized\)\.slice\(0, 10\) : null; \}\);/
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "preferredTime", normalizeNullableTimeInput\);/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
-    /function normalizeNullableDateTimeInput\(value\)/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
-    /function normalizeNullableDateInput\(value\)/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__,
-    /function normalizeNullableTimeInput\(value\)/
+    /normalizeIfInSource\(source, normalized, "preferredTime", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \|\| null; \}\);/
   );
 });
 

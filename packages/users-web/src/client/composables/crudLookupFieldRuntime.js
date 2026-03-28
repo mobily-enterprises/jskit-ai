@@ -1,5 +1,6 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useList } from "./useList.js";
+import { resolveLookupItemLabel } from "./crudLookupFieldLabelSupport.js";
 
 function normalizeQueryKeyPrefix(value) {
   const source = Array.isArray(value) ? value : [];
@@ -57,7 +58,7 @@ function createCrudLookupFieldRuntime({
     }
     const valueKey = normalizeText(rawRelation.valueKey);
     const labelKey = normalizeText(rawRelation.labelKey);
-    if (!valueKey || !labelKey) {
+    if (!valueKey) {
       continue;
     }
 
@@ -96,10 +97,11 @@ function createCrudLookupFieldRuntime({
 
     return (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
       const value = item?.[entry.valueKey];
-      const label = item?.[entry.labelKey];
+      const resolvedLabel = resolveLookupItemLabel(item, entry.labelKey);
+      const label = resolvedLabel || value;
       return {
         value: value ?? "",
-        label: String(label ?? value ?? "")
+        label: String(label ?? "")
       };
     });
   }

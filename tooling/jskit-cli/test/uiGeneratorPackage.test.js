@@ -260,6 +260,10 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
     assert.match(listPageSource, /const UI_OPERATION_ADAPTER = null;/);
     assert.match(listPageSource, /queryKeyFactory: \(surfaceId = "", workspaceSlug = ""\)/);
+    assert.match(listPageSource, /v-if="records\.searchEnabled"/);
+    assert.match(listPageSource, /v-model="records\.searchQuery"/);
+    assert.match(listPageSource, /:loading="records\.isSearchDebouncing"/);
+    assert.match(listPageSource, /search:\s*\{\s*enabled:\s*true,\s*mode:\s*"query"\s*\}/);
     assert.match(listPageSource, /recordIdSelector: \(item = \{\}\) => item\.id,/);
     assert.match(listPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(listPageSource, /editUrlTemplate: UI_EDIT_URL,/);

@@ -381,9 +381,12 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
 function renderInputNormalizer(column) {
   const typeKind = String(column.typeKind || "");
   const nullable = column?.nullable === true;
-  if (typeKind === "string" || typeKind === "time") {
-    if (typeKind === "time" && nullable) {
-      return "normalizeNullableTimeInput";
+  if (typeKind === "string") {
+    return "normalizeText";
+  }
+  if (typeKind === "time") {
+    if (nullable) {
+      return "(value) => { const normalized = normalizeText(value); return normalized || null; }";
     }
     return "normalizeText";
   }
@@ -398,13 +401,13 @@ function renderInputNormalizer(column) {
   }
   if (typeKind === "datetime") {
     if (nullable) {
-      return "normalizeNullableDateTimeInput";
+      return "(value) => { const normalized = normalizeText(value); return normalized ? toDatabaseDateTimeUtc(normalized) : null; }";
     }
     return "toDatabaseDateTimeUtc";
   }
   if (typeKind === "date") {
     if (nullable) {
-      return "normalizeNullableDateInput";
+      return "(value) => { const normalized = normalizeText(value); return normalized ? toIsoString(normalized).slice(0, 10) : null; }";
     }
     return "(value) => toIsoString(value).slice(0, 10)";
   }
@@ -476,47 +479,6 @@ function renderResourceOutputNormalizationLines(columns) {
       return `    ${key}: ${nullishNormalizer}(${sourceAccess}, ${normalizer}),`;
     })
     .join("\n");
-}
-
-function renderResourceInputNormalizerSupport({
-  needsNullableDateTimeInput = false,
-  needsNullableDateInput = false,
-  needsNullableTimeInput = false
-} = {}) {
-  const blocks = [];
-
-  if (needsNullableDateTimeInput) {
-    blocks.push(`function normalizeNullableDateTimeInput(value) {
-  const normalized = normalizeText(value);
-  if (!normalized) {
-    return null;
-  }
-  return toDatabaseDateTimeUtc(normalized);
-}`);
-  }
-
-  if (needsNullableDateInput) {
-    blocks.push(`function normalizeNullableDateInput(value) {
-  const normalized = normalizeText(value);
-  if (!normalized) {
-    return null;
-  }
-  return toIsoString(normalized).slice(0, 10);
-}`);
-  }
-
-  if (needsNullableTimeInput) {
-    blocks.push(`function normalizeNullableTimeInput(value) {
-  const normalized = normalizeText(value);
-  return normalized || null;
-}`);
-  }
-
-  if (blocks.length < 1) {
-    return "";
-  }
-
-  return `${blocks.join("\n\n")}\n`;
 }
 
 function renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {}) {
@@ -871,8 +833,7 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
       relation: {
         kind: "lookup",
         apiPath: `/${referencedTableName}`,
-        valueKey: toCamelCase(referencedColumnName),
-        labelKey: "name"
+        valueKey: toCamelCase(referencedColumnName)
       }
     });
   }
@@ -902,7 +863,10 @@ function renderFieldMetaEntryLines(entry = {}) {
     lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
     lines.push(`    apiPath: ${JSON.stringify(relationApiPath)},`);
     lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`);
-    lines.push(`    labelKey: ${JSON.stringify(normalizeText(relation.labelKey) || "name")}`);
+    const labelKey = normalizeText(relation.labelKey);
+    if (labelKey) {
+      lines.push(`    labelKey: ${JSON.stringify(labelKey)}`);
+    }
     lines.push("  }");
   }
 
@@ -947,9 +911,6 @@ function buildReplacementsFromSnapshot({
   const needsNullableDateInput = writableColumns.some(
     (column) => column.typeKind === "date" && column.nullable === true
   );
-  const needsNullableTimeInput = writableColumns.some(
-    (column) => column.typeKind === "time" && column.nullable === true
-  );
   const needsDate = resourceColumns.some((column) => column.typeKind === "date");
   const needsJson = resourceColumns.some((column) => column.typeKind === "json");
   const needsNormalizeText = resourceColumns.some((column) =>
@@ -982,11 +943,6 @@ function buildReplacementsFromSnapshot({
     }),
     __JSKIT_CRUD_RESOURCE_JSON_IMPORT__: renderResourceJsonImport({
       needsJson
-    }),
-    __JSKIT_CRUD_RESOURCE_INPUT_NORMALIZER_SUPPORT__: renderResourceInputNormalizerSupport({
-      needsNullableDateTimeInput,
-      needsNullableDateInput,
-      needsNullableTimeInput
     }),
     __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(outputColumns, {
       forOutput: true

@@ -2,16 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isWorkspaceVisibility,
-  normalizeScopedRouteVisibility
+  checkRouteVisibility
 } from "../src/shared/support/usersVisibility.js";
 
-test("normalizeScopedRouteVisibility normalizes users visibility levels", () => {
-  assert.equal(normalizeScopedRouteVisibility("WORKSPACE"), "workspace");
-  assert.equal(normalizeScopedRouteVisibility("workspace_user"), "workspace_user");
-  assert.equal(normalizeScopedRouteVisibility("user"), "user");
-  assert.equal(normalizeScopedRouteVisibility(""), "public");
-  assert.equal(normalizeScopedRouteVisibility("unknown"), "public");
-  assert.equal(normalizeScopedRouteVisibility("unknown", { fallback: "workspace" }), "workspace");
+test("checkRouteVisibility normalizes valid users visibility levels and throws on invalid input", () => {
+  assert.equal(checkRouteVisibility("WORKSPACE"), "workspace");
+  assert.equal(checkRouteVisibility("workspace_user"), "workspace_user");
+  assert.equal(checkRouteVisibility("user"), "user");
+  assert.throws(
+    () => checkRouteVisibility(""),
+    /must be one of/
+  );
+  assert.throws(
+    () => checkRouteVisibility("unknown"),
+    /must be one of/
+  );
 });
 
 test("isWorkspaceVisibility recognizes workspace-only visibility levels", () => {

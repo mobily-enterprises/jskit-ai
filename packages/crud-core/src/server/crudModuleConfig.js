@@ -9,7 +9,7 @@ import {
 } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeScopedRouteVisibility,
+  checkRouteVisibility,
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
@@ -30,7 +30,12 @@ function asRecord(value) {
 }
 
 function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
-  return normalizeScopedRouteVisibility(value, { fallback });
+  const normalizedValue = normalizeText(value).toLowerCase();
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  const resolved = normalizedValue || normalizedFallback;
+  return checkRouteVisibility(resolved, {
+    context: "normalizeCrudOwnershipFilter ownershipFilter"
+  });
 }
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
@@ -195,8 +200,8 @@ function resolveCrudSurfacePolicy(
   const ownershipFilter =
     requestedOwnershipFilter === CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
       ? resolveOwnershipFilterFromSurfaceDefinition(surfaceDefinition)
-      : normalizeScopedRouteVisibility(requestedOwnershipFilter, {
-          fallback: "public"
+      : checkRouteVisibility(requestedOwnershipFilter, {
+          context: `${context} ownershipFilter`
         });
 
   if (isWorkspaceVisibility(ownershipFilter) && surfaceDefinition.requiresWorkspace !== true) {

@@ -1,11 +1,12 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
+import { listSearchQueryValidator } from "@jskit-ai/crud-core/server/listQueryValidators";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { normalizeScopedRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { checkRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
@@ -20,17 +21,7 @@ function registerRoutes(
     routeRelativePath = ""
   } = {}
 ) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("registerRoutes requires application make().");
-  }
-  if (!String(routeRelativePath || "").trim()) {
-    throw new Error("registerRoutes requires routeRelativePath.");
-  }
-
   const router = app.make("jskit.http.router");
-  const routeVisibility = normalizeScopedRouteVisibility(routeOwnershipFilter, {
-    fallback: "public"
-  });
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveApiBasePath({
     surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
@@ -43,27 +34,22 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility: routeVisibility,
+      visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "List records."
       },
       paramsValidator: routeParamsValidator,
-      queryValidator: cursorPaginationQueryValidator,
+      queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator],
       responseValidators: withStandardErrorResponses({
         200: ${option:namespace|singular|camel}Resource.operations.list.outputValidator
       })
     },
     async function (request, reply) {
       const listInput = {
-        ...buildWorkspaceInputFromRouteParams(request.input.params)
+        ...buildWorkspaceInputFromRouteParams(request.input.params),
+        ...(request.input.query || {})
       };
-      if (request.input.query.cursor != null) {
-        listInput.cursor = request.input.query.cursor;
-      }
-      if (request.input.query.limit != null) {
-        listInput.limit = request.input.query.limit;
-      }
       const response = await request.executeAction({
         actionId: actionIds.list,
         input: listInput
@@ -78,7 +64,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility: routeVisibility,
+      visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "View a record."
@@ -106,7 +92,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility: routeVisibility,
+      visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Create a record."
@@ -138,7 +124,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility: routeVisibility,
+      visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Update a record."
@@ -171,7 +157,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
-      visibility: routeVisibility,
+      visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Delete a record."

@@ -1,10 +1,17 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { createService } from "../src/server/service.js";
+import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
+
+const fixture = await createTemplateServerFixture();
+const { createService } = await fixture.importServerModule("service.js");
+
+after(async () => {
+  await fixture.cleanup();
+});
 
 test("crudService delegates CRUD operations to the repository", async () => {
   const calls = [];
-  const crudRepository = {
+  const customersRepository = {
     async list(query) {
       calls.push(["list", query]);
       return { items: [], nextCursor: null };
@@ -27,7 +34,7 @@ test("crudService delegates CRUD operations to the repository", async () => {
     }
   };
 
-  const service = createService({ crudRepository });
+  const service = createService({ customersRepository });
 
   const options = {};
   await service.listRecords({ limit: 10 }, options);
@@ -47,7 +54,7 @@ test("crudService delegates CRUD operations to the repository", async () => {
 
 test("crudService throws 404 when a record is missing", async () => {
   const service = createService({
-    crudRepository: {
+    customersRepository: {
       async list() {
         return { items: [], nextCursor: null };
       },

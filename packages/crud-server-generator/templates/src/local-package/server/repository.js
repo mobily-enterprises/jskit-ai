@@ -18,7 +18,8 @@ const UPDATED_AT_COLUMN = __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__;
 const {
   outputKeys: OUTPUT_KEYS,
   writeKeys: WRITE_KEYS,
-  columnOverrides: COLUMN_OVERRIDES
+  columnOverrides: COLUMN_OVERRIDES,
+  listSearchColumns: LIST_SEARCH_COLUMNS
 } = deriveRepositoryMappingFromResource(${option:namespace|singular|camel}Resource, {
   context: "${option:namespace|snake} repository"
 });
@@ -37,10 +38,11 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
   const resolvedTableName = requireCrudTableName(tableName);
   const resolvedIdColumn = resolveCrudIdColumn(idColumn, { fallback: DEFAULT_ID_COLUMN });
 
-  async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT } = {}, options = {}) {
+  async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT, q = "" } = {}, options = {}) {
     const client = options?.trx || knex;
     const normalizedCursor = Number.isInteger(Number(cursor)) && Number(cursor) > 0 ? Number(cursor) : 0;
     const normalizedLimit = normalizeCrudListLimit(limit);
+    const normalizedSearch = String(q || "").trim();
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     let query = client(resolvedTableName)
@@ -48,6 +50,21 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
       .where(visible)
       .orderBy(resolvedIdColumn, "asc")
       .limit(normalizedLimit + 1);
+
+    if (normalizedSearch && LIST_SEARCH_COLUMNS.length > 0) {
+      const searchPattern = `%${normalizedSearch}%`;
+      query = query.modify((searchQuery) => {
+        searchQuery.where((whereQuery) => {
+          for (const [index, columnName] of LIST_SEARCH_COLUMNS.entries()) {
+            if (index === 0) {
+              whereQuery.where(columnName, "like", searchPattern);
+              continue;
+            }
+            whereQuery.orWhere(columnName, "like", searchPattern);
+          }
+        });
+      });
+    }
 
     if (normalizedCursor > 0) {
       query = query.where(resolvedIdColumn, ">", normalizedCursor);

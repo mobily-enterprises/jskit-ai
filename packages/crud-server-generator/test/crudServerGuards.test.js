@@ -1,18 +1,16 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { createActions } from "../src/server/actions.js";
-import { createActionIds } from "../src/server/actionIds.js";
-import { createRepository } from "../src/server/repository.js";
-import { registerRoutes } from "../src/server/registerRoutes.js";
+import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
-test("createActionIds requires explicit actionIdPrefix", () => {
-  assert.throws(
-    () => createActionIds(""),
-    /requires actionIdPrefix/
-  );
+const fixture = await createTemplateServerFixture();
+const { createActions } = await fixture.importServerModule("actions.js");
+const { createRepository } = await fixture.importServerModule("repository.js");
+
+after(async () => {
+  await fixture.cleanup();
 });
 
-test("createRepository requires explicit tableName", () => {
+test("template createRepository requires explicit tableName", () => {
   const knex = () => {
     throw new Error("not expected");
   };
@@ -23,39 +21,9 @@ test("createRepository requires explicit tableName", () => {
   );
 });
 
-test("createActions requires explicit surface", () => {
+test("template createActions requires explicit surface", () => {
   assert.throws(
-    () =>
-      createActions({
-        actionIdPrefix: "crud.customers"
-      }),
+    () => createActions({}),
     /requires a non-empty surface/
-  );
-});
-
-test("registerRoutes requires explicit routeRelativePath and actionIds", () => {
-  const app = {
-    make() {
-      return {
-        register() {}
-      };
-    }
-  };
-
-  assert.throws(
-    () => registerRoutes(app, {}),
-    /requires routeRelativePath/
-  );
-
-  assert.throws(
-    () =>
-      registerRoutes(app, {
-        routeRelativePath: "/customers",
-        routeSurfaceRequiresWorkspace: true,
-        actionIds: {
-          list: "crud.customers.list"
-        }
-      }),
-    /requires actionIds.view/
   );
 });

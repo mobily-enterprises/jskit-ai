@@ -119,6 +119,7 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
     createdAt: "created_at",
     vetId: "vet_id"
   });
+  assert.deepEqual(mapping.listSearchColumns, ["first_name", "created_at"]);
 });
 
 test("deriveRepositoryMappingFromResource throws when view schema properties are missing", () => {

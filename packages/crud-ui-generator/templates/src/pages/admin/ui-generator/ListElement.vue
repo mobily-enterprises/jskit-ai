@@ -14,6 +14,18 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
+        <v-text-field
+          v-if="records.searchEnabled"
+          v-model="records.searchQuery"
+          :label="records.searchLabel"
+          :placeholder="records.searchPlaceholder"
+          variant="outlined"
+          density="comfortable"
+          hide-details="auto"
+          clearable
+          class="mb-3"
+          :loading="records.isSearchDebouncing"
+        />
         <template v-if="records.showListSkeleton">
           <v-skeleton-loader type="text@2, list-item-two-line@5" />
         </template>
@@ -90,6 +102,10 @@ const records = useList({
     String(surfaceId || ""),
     String(workspaceSlug || "")
   ],
+  search: {
+    enabled: true,
+    mode: "query"
+  },
   placementSource: "ui-generator.${option:namespace|kebab}.list",
   fallbackLoadError: "Unable to load records.",
   recordIdParam: UI_RECORD_ID_PARAM,

@@ -106,6 +106,24 @@ function normalizeResourceFieldMetaEntries(fieldMeta = []) {
   return normalized;
 }
 
+function schemaIncludesStringType(schema = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return false;
+  }
+
+  const type = normalizeText(schema.type).toLowerCase();
+  if (type === "string") {
+    return true;
+  }
+
+  const variants = Array.isArray(schema.anyOf)
+    ? schema.anyOf
+    : Array.isArray(schema.oneOf)
+      ? schema.oneOf
+      : [];
+  return variants.some((entry) => schemaIncludesStringType(entry));
+}
+
 function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError(`${context} requires resource object.`);
@@ -139,10 +157,24 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     columnOverrides[key] = dbColumn;
   }
 
+  const listSearchColumns = [];
+  for (const [key, schema] of Object.entries(outputProperties)) {
+    if (!schemaIncludesStringType(schema)) {
+      continue;
+    }
+
+    const columnName = resolveColumnName(key, columnOverrides);
+    if (!columnName || listSearchColumns.includes(columnName)) {
+      continue;
+    }
+    listSearchColumns.push(columnName);
+  }
+
   return Object.freeze({
     outputKeys,
     writeKeys,
-    columnOverrides: Object.freeze(columnOverrides)
+    columnOverrides: Object.freeze(columnOverrides),
+    listSearchColumns: Object.freeze(listSearchColumns)
   });
 }
 

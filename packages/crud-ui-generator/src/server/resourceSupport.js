@@ -238,12 +238,16 @@ function normalizeLookupRelation(relation = {}) {
     return null;
   }
 
-  return {
+  const normalized = {
     kind: "lookup",
     apiPath,
-    valueKey: normalizeText(relation.valueKey) || "id",
-    labelKey: normalizeText(relation.labelKey) || "name"
+    valueKey: normalizeText(relation.valueKey) || "id"
   };
+  const labelKey = normalizeText(relation.labelKey);
+  if (labelKey) {
+    normalized.labelKey = labelKey;
+  }
+  return normalized;
 }
 
 function buildResourceFieldMetaMap(resource = {}) {
