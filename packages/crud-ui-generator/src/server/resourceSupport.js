@@ -230,14 +230,17 @@ function normalizeLookupRelation(relation = {}) {
   }
 
   const kind = normalizeText(relation.kind).toLowerCase();
+  const relationApiPath = normalizeText(relation.apiPath);
+  const sourcePath = normalizeText(relation?.source?.path);
   const targetResource = normalizeText(relation.targetResource);
-  if (kind !== "lookup" || !targetResource) {
+  const apiPath = relationApiPath || sourcePath || (targetResource ? `/${targetResource}` : "");
+  if (kind !== "lookup" || !apiPath) {
     return null;
   }
 
   return {
     kind: "lookup",
-    targetResource,
+    apiPath,
     valueKey: normalizeText(relation.valueKey) || "id",
     labelKey: normalizeText(relation.labelKey) || "name"
   };

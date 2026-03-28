@@ -71,7 +71,7 @@ CONTACT_FIELD_META.push({
   key: "vetId",
   relation: {
     kind: "lookup",
-    targetResource: "vets",
+    apiPath: "/vets",
     valueKey: "id",
     labelKey: "name"
   }

@@ -422,7 +422,7 @@ test("buildUiTemplateContext maps lookup relations from resource fieldMeta into 
       key: "vetId",
       relation: {
         kind: "lookup",
-        targetResource: "vets",
+        apiPath: "/vets",
         valueKey: "id",
         labelKey: "name"
       }
@@ -451,7 +451,7 @@ export { contactResource };
     assert.equal(vetField.component, "lookup");
     assert.deepEqual(vetField.relation, {
       kind: "lookup",
-      targetResource: "vets",
+      apiPath: "/vets",
       valueKey: "id",
       labelKey: "name"
     });
@@ -462,6 +462,73 @@ export { contactResource };
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /UI_CREATE_FORM_FIELDS\.push\(\{/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /\"relation\": \{/);
+  });
+});
+
+test("buildUiTemplateContext normalizes legacy targetResource lookup metadata to apiPath", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const contactResource = {
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            vetId: { type: ["integer", "null"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "vetId",
+      relation: {
+        kind: "lookup",
+        targetResource: "vets",
+        valueKey: "id",
+        labelKey: "name"
+      }
+    }
+  ]
+};
+
+export { contactResource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "contacts-ui",
+        "api-path": "/contacts",
+        operations: "new",
+        "resource-file": resourceFile,
+        "resource-export": "contactResource"
+      }
+    });
+
+    const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
+    const vetField = createFields.find((field) => field.key === "vetId");
+    assert.ok(vetField);
+    assert.deepEqual(vetField.relation, {
+      kind: "lookup",
+      apiPath: "/vets",
+      valueKey: "id",
+      labelKey: "name"
+    });
   });
 });
 

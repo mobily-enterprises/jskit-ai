@@ -870,7 +870,7 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
       key: localColumn.key,
       relation: {
         kind: "lookup",
-        targetResource: referencedTableName,
+        apiPath: `/${referencedTableName}`,
         valueKey: toCamelCase(referencedColumnName),
         labelKey: "name"
       }
@@ -892,9 +892,15 @@ function renderFieldMetaEntryLines(entry = {}) {
 
   const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
   if (relation) {
+    const targetResource = normalizeText(relation.targetResource);
+    const relationApiPath =
+      normalizeText(relation.apiPath) ||
+      normalizeText(relation?.source?.path) ||
+      (targetResource ? `/${targetResource}` : "");
+
     lines.push("  relation: {");
     lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
-    lines.push(`    targetResource: ${JSON.stringify(normalizeText(relation.targetResource))},`);
+    lines.push(`    apiPath: ${JSON.stringify(relationApiPath)},`);
     lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`);
     lines.push(`    labelKey: ${JSON.stringify(normalizeText(relation.labelKey) || "name")}`);
     lines.push("  }");

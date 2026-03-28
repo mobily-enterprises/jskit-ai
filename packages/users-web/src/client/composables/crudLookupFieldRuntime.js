@@ -8,6 +8,29 @@ function normalizeQueryKeyPrefix(value) {
     .filter(Boolean);
 }
 
+function normalizeLookupApiPath(relation = {}) {
+  if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
+    return "";
+  }
+
+  const relationApiPath = normalizeText(relation.apiPath);
+  if (relationApiPath) {
+    return relationApiPath;
+  }
+
+  const sourcePath = normalizeText(relation?.source?.path);
+  if (sourcePath) {
+    return sourcePath;
+  }
+
+  const targetResource = normalizeText(relation.targetResource);
+  if (targetResource) {
+    return `/${targetResource}`;
+  }
+
+  return "";
+}
+
 function createCrudLookupFieldRuntime({
   formFields = [],
   adapter = null,
@@ -28,8 +51,8 @@ function createCrudLookupFieldRuntime({
     }
 
     const relationKind = normalizeText(rawRelation.kind).toLowerCase();
-    const targetResource = normalizeText(rawRelation.targetResource);
-    if (relationKind !== "lookup" || !targetResource) {
+    const apiPath = normalizeLookupApiPath(rawRelation);
+    if (relationKind !== "lookup" || !apiPath) {
       continue;
     }
     const valueKey = normalizeText(rawRelation.valueKey);
@@ -40,7 +63,7 @@ function createCrudLookupFieldRuntime({
 
     const runtime = useList({
       adapter: adapter || undefined,
-      apiSuffix: `/crud/${targetResource}`,
+      apiSuffix: apiPath,
       queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
         ...normalizedQueryKeyPrefix,
         key,
@@ -50,7 +73,7 @@ function createCrudLookupFieldRuntime({
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${key}`
         : `crud.lookup.${key}`,
-      fallbackLoadError: `Unable to load ${targetResource} options.`,
+      fallbackLoadError: `Unable to load lookup options (${apiPath}).`,
       recordIdParam: normalizedRecordIdParam,
       recordIdSelector: (item = {}) => item[valueKey],
       viewUrlTemplate: "",
