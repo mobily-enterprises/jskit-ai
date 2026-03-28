@@ -195,6 +195,51 @@ function mapRecordRow(row, fieldKeys = [], overrides = {}) {
   return mapped;
 }
 
+function applyCrudListQueryFilters(
+  query,
+  {
+    idColumn = "id",
+    cursor = 0,
+    q = "",
+    searchColumns = []
+  } = {}
+) {
+  if (!query || typeof query.modify !== "function" || typeof query.where !== "function") {
+    throw new TypeError("applyCrudListQueryFilters requires query builder.");
+  }
+
+  const normalizedSearch = String(q || "").trim();
+  const normalizedSearchColumns = (Array.isArray(searchColumns) ? searchColumns : [])
+    .map((columnName) => String(columnName || "").trim())
+    .filter(Boolean);
+
+  let nextQuery = query;
+
+  if (normalizedSearch && normalizedSearchColumns.length > 0) {
+    const searchPattern = `%${normalizedSearch}%`;
+    nextQuery = nextQuery.modify((searchQuery) => {
+      searchQuery.where((whereQuery) => {
+        for (const [index, columnName] of normalizedSearchColumns.entries()) {
+          if (index === 0) {
+            whereQuery.where(columnName, "like", searchPattern);
+            continue;
+          }
+          whereQuery.orWhere(columnName, "like", searchPattern);
+        }
+      });
+    });
+  }
+
+  const numericCursor = Number(cursor);
+  const normalizedCursor = Number.isInteger(numericCursor) && numericCursor > 0 ? numericCursor : 0;
+  const normalizedIdColumn = String(idColumn || "").trim() || "id";
+  if (normalizedCursor > 0) {
+    nextQuery = nextQuery.where(normalizedIdColumn, ">", normalizedCursor);
+  }
+
+  return nextQuery;
+}
+
 function buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}) {
   const source = normalizeObjectInput(sourcePayload);
   const payload = {};
@@ -226,6 +271,7 @@ export {
   normalizeCrudListLimit,
   requireCrudTableName,
   deriveRepositoryMappingFromResource,
+  applyCrudListQueryFilters,
   mapRecordRow,
   buildWritePayload,
   resolveColumnName,

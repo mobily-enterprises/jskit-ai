@@ -6,10 +6,48 @@ import {
   requireCrudTableName,
   buildWritePayload,
   mapRecordRow,
+  applyCrudListQueryFilters,
   resolveCrudIdColumn,
   buildRepositoryColumnMetadata,
   deriveRepositoryMappingFromResource
 } from "../src/server/repositorySupport.js";
+
+function createQueryDouble() {
+  const calls = [];
+  const whereQuery = {
+    where(...args) {
+      calls.push(["innerWhere", ...args]);
+      return whereQuery;
+    },
+    orWhere(...args) {
+      calls.push(["innerOrWhere", ...args]);
+      return whereQuery;
+    }
+  };
+
+  const query = {
+    modify(callback) {
+      calls.push(["modify"]);
+      callback(query);
+      return query;
+    },
+    where(...args) {
+      if (args.length === 1 && typeof args[0] === "function") {
+        calls.push(["whereGroup"]);
+        args[0](whereQuery);
+        return query;
+      }
+
+      calls.push(["where", ...args]);
+      return query;
+    }
+  };
+
+  return {
+    query,
+    calls
+  };
+}
 
 test("normalizeCrudListLimit enforces fallback and max", () => {
   assert.equal(normalizeCrudListLimit(null), DEFAULT_LIST_LIMIT);
@@ -52,6 +90,44 @@ test("buildWritePayload respects defined keys", () => {
   assert.deepEqual(payload, {
     foo_column: "bar"
   });
+});
+
+test("applyCrudListQueryFilters applies search and cursor filters", () => {
+  const { query, calls } = createQueryDouble();
+  const result = applyCrudListQueryFilters(query, {
+    idColumn: "id",
+    cursor: "3",
+    q: "ani",
+    searchColumns: ["first_name", "last_name"]
+  });
+
+  assert.equal(result, query);
+  assert.deepEqual(calls, [
+    ["modify"],
+    ["whereGroup"],
+    ["innerWhere", "first_name", "like", "%ani%"],
+    ["innerOrWhere", "last_name", "like", "%ani%"],
+    ["where", "id", ">", 3]
+  ]);
+});
+
+test("applyCrudListQueryFilters skips search and cursor when inputs are empty", () => {
+  const { query, calls } = createQueryDouble();
+  const result = applyCrudListQueryFilters(query, {
+    cursor: 0,
+    q: "  ",
+    searchColumns: []
+  });
+
+  assert.equal(result, query);
+  assert.deepEqual(calls, []);
+});
+
+test("applyCrudListQueryFilters throws for invalid query builders", () => {
+  assert.throws(
+    () => applyCrudListQueryFilters({}),
+    /requires query builder/
+  );
 });
 
 test("resolveCrudIdColumn falls back and rejects empties", () => {
