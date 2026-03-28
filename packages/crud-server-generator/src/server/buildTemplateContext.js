@@ -8,7 +8,7 @@ import {
   resolveDatabaseConnectionFromEnvironment,
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
-import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
+import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const DEFAULT_ID_COLUMN = "id";
 const OWNERSHIP_FILTER_AUTO = "auto";
@@ -743,8 +743,177 @@ function renderMigrationIndexLines(snapshot) {
   return lines.join("\n");
 }
 
+function renderMigrationForeignKeyLine(foreignKey = {}) {
+  const columns = Array.isArray(foreignKey.columns)
+    ? foreignKey.columns
+        .map((column) => normalizeText(column?.name))
+        .filter(Boolean)
+    : [];
+  const referencedColumns = Array.isArray(foreignKey.columns)
+    ? foreignKey.columns
+        .map((column) => normalizeText(column?.referencedName))
+        .filter(Boolean)
+    : [];
+  const referencedTableName = normalizeText(foreignKey.referencedTableName);
+  const foreignKeyName = normalizeText(foreignKey.name);
+  if (columns.length < 1 || referencedColumns.length < 1 || !referencedTableName) {
+    return "";
+  }
+
+  let line = `    table.foreign(${JSON.stringify(columns)}`;
+  if (foreignKeyName) {
+    line += `, ${JSON.stringify(foreignKeyName)}`;
+  }
+  line += `).references(${JSON.stringify(referencedColumns)}).inTable(${JSON.stringify(referencedTableName)})`;
+
+  const updateRule = normalizeText(foreignKey.updateRule).toUpperCase();
+  if (updateRule) {
+    line += `.onUpdate(${JSON.stringify(updateRule)})`;
+  }
+  const deleteRule = normalizeText(foreignKey.deleteRule).toUpperCase();
+  if (deleteRule) {
+    line += `.onDelete(${JSON.stringify(deleteRule)})`;
+  }
+  line += ";";
+
+  return line;
+}
+
+function renderMigrationForeignKeyLines(snapshot) {
+  const foreignKeys = Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [];
+  const lines = foreignKeys
+    .map((foreignKey) => renderMigrationForeignKeyLine(foreignKey))
+    .filter(Boolean);
+  return lines.join("\n");
+}
+
+function mergeFieldMetaEntries(baseEntries = [], patchEntries = []) {
+  const mergedByKey = new Map();
+  for (const sourceEntry of [...baseEntries, ...patchEntries]) {
+    const key = normalizeText(sourceEntry?.key);
+    if (!key) {
+      continue;
+    }
+    const existing = mergedByKey.get(key) || {};
+    const next = {
+      ...existing,
+      ...sourceEntry,
+      key
+    };
+    if (existing.relation || sourceEntry.relation) {
+      next.relation = {
+        ...(existing.relation && typeof existing.relation === "object" ? existing.relation : {}),
+        ...(sourceEntry.relation && typeof sourceEntry.relation === "object" ? sourceEntry.relation : {})
+      };
+    }
+    mergedByKey.set(key, next);
+  }
+
+  return [...mergedByKey.values()].sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
+  const fieldColumns = [...outputColumns, ...writableColumns];
+  const fieldColumnsByName = new Map();
+  const fieldColumnsByKey = new Map();
+  for (const column of fieldColumns) {
+    const columnName = normalizeText(column?.name);
+    const key = normalizeText(column?.key);
+    if (columnName && !fieldColumnsByName.has(columnName)) {
+      fieldColumnsByName.set(columnName, column);
+    }
+    if (key && !fieldColumnsByKey.has(key)) {
+      fieldColumnsByKey.set(key, column);
+    }
+  }
+
+  const dbColumnEntries = [];
+  for (const column of fieldColumnsByKey.values()) {
+    const key = normalizeText(column?.key);
+    const name = normalizeText(column?.name);
+    if (!key || !name) {
+      continue;
+    }
+    if (toSnakeCase(key) === name) {
+      continue;
+    }
+    dbColumnEntries.push({
+      key,
+      dbColumn: name
+    });
+  }
+
+  const relationEntries = [];
+  const foreignKeys = Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [];
+  for (const foreignKey of foreignKeys) {
+    const columns = Array.isArray(foreignKey?.columns) ? foreignKey.columns : [];
+    if (columns.length !== 1) {
+      const name = normalizeText(foreignKey?.name) || "unnamed_foreign_key";
+      throw new Error(
+        `CRUD generation supports only single-column foreign keys. Constraint "${name}" has ${columns.length} columns.`
+      );
+    }
+
+    const localColumnName = normalizeText(columns[0]?.name);
+    const referencedColumnName = normalizeText(columns[0]?.referencedName);
+    const referencedTableName = normalizeText(foreignKey?.referencedTableName);
+    if (!localColumnName || !referencedColumnName || !referencedTableName) {
+      continue;
+    }
+
+    const localColumn = fieldColumnsByName.get(localColumnName);
+    if (!localColumn || localColumn.isOwnerColumn === true) {
+      continue;
+    }
+
+    relationEntries.push({
+      key: localColumn.key,
+      relation: {
+        kind: "lookup",
+        targetResource: referencedTableName,
+        valueKey: toCamelCase(referencedColumnName),
+        labelKey: "name"
+      }
+    });
+  }
+
+  return mergeFieldMetaEntries(dbColumnEntries, relationEntries);
+}
+
+function renderFieldMetaEntryLines(entry = {}) {
+  const lines = [
+    "RESOURCE_FIELD_META.push({",
+    `  key: ${JSON.stringify(entry.key)},`
+  ];
+  const dbColumn = normalizeText(entry.dbColumn);
+  if (dbColumn) {
+    lines.push(`  dbColumn: ${JSON.stringify(dbColumn)},`);
+  }
+
+  const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
+  if (relation) {
+    lines.push("  relation: {");
+    lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
+    lines.push(`    targetResource: ${JSON.stringify(normalizeText(relation.targetResource))},`);
+    lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`);
+    lines.push(`    labelKey: ${JSON.stringify(normalizeText(relation.labelKey) || "name")}`);
+    lines.push("  }");
+  }
+
+  lines.push("});");
+  return lines.join("\n");
+}
+
+function renderResourceFieldMetaPushLines(entries = []) {
+  const sourceEntries = Array.isArray(entries) ? entries : [];
+  if (sourceEntries.length < 1) {
+    return "";
+  }
+
+  return sourceEntries.map((entry) => renderFieldMetaEntryLines(entry)).join("\n\n");
+}
+
 function buildReplacementsFromSnapshot({
-  namespace,
   snapshot,
   resolvedOwnershipFilter
 }) {
@@ -755,23 +924,11 @@ function buildReplacementsFromSnapshot({
     .filter((column) => !column.nullable && column.hasDefault !== true)
     .map((column) => column.key);
   const resourceColumns = [...outputColumns, ...writableColumns];
-
-  const outputKeys = outputColumns.map((column) => column.key);
-  const writeKeys = writableColumns.map((column) => column.key);
-  const columnOverrides = {};
-  const seenOverrideKeys = new Set();
-  for (const column of [...outputColumns, ...writableColumns]) {
-    const key = column.key;
-    if (!key || seenOverrideKeys.has(key)) {
-      continue;
-    }
-    seenOverrideKeys.add(key);
-    const guessedColumn = toSnakeCase(key);
-    const actualColumn = column.name;
-    if (typeof actualColumn === "string" && actualColumn && actualColumn !== guessedColumn) {
-      columnOverrides[key] = actualColumn;
-    }
-  }
+  const fieldMetaEntries = buildFieldMetaEntries({
+    outputColumns,
+    writableColumns,
+    snapshot
+  });
   const createdAtColumn = scaffoldColumns.find((column) => column.isCreatedAtColumn)?.name || "";
   const updatedAtColumn = scaffoldColumns.find((column) => column.isUpdatedAtColumn)?.name || "";
   const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer");
@@ -834,13 +991,12 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__: renderResourceInputNormalizationLines(writableColumns),
     __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__: renderResourceOutputNormalizationLines(outputColumns),
     __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__: JSON.stringify(createRequiredFieldKeys),
-    __JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__: JSON.stringify(outputKeys),
-    __JSKIT_CRUD_REPOSITORY_WRITE_KEYS__: JSON.stringify(writeKeys),
-    __JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__: JSON.stringify(columnOverrides),
+    __JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__: renderResourceFieldMetaPushLines(fieldMetaEntries),
     __JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__: JSON.stringify(createdAtColumn),
     __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__: JSON.stringify(updatedAtColumn),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
-    __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot)
+    __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
+    __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot)
   });
 
   return replacements;
@@ -904,7 +1060,6 @@ async function buildCrudTemplateContext(input = {}) {
   );
 
   return buildReplacementsFromSnapshot({
-    namespace,
     snapshot,
     resolvedOwnershipFilter
   });
@@ -930,7 +1085,9 @@ const __testables = Object.freeze({
   resolveOwnershipFilterForGeneration,
   buildReplacementsFromSnapshot,
   parseDotEnvLine,
-  renderMigrationColumnLine
+  renderMigrationColumnLine,
+  renderMigrationForeignKeyLine,
+  buildFieldMetaEntries
 });
 
 export { buildTemplateContext, __testables };

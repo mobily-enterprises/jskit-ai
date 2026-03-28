@@ -10,6 +10,7 @@
     "./client/composables/createCrudClientSupport": "./src/client/composables/createCrudClientSupport.js",
     "./client/composables/crudClientSupportHelpers": "./src/client/composables/crudClientSupportHelpers.js",
     "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
+    "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js"
   },

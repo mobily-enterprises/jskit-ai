@@ -104,7 +104,8 @@ function createSnapshot({
         enumValues: Object.freeze([])
       })
     ]),
-    indexes: Object.freeze([])
+    indexes: Object.freeze([]),
+    foreignKeys: Object.freeze([])
   });
 }
 
@@ -199,9 +200,7 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.increments\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
-  assert.match(replacements.__JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__, /"firstName"/);
-  assert.match(replacements.__JSKIT_CRUD_REPOSITORY_WRITE_KEYS__, /"firstName"/);
-  assert.equal(replacements.__JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__, "{}");
+  assert.equal(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, "");
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: Type\.String/);
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
@@ -229,6 +228,57 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     /== null \?/
   );
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
+  assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
+});
+
+test("buildReplacementsFromSnapshot renders append-only field meta entries from foreign keys", () => {
+  const snapshot = {
+    ...createSnapshot(),
+    columns: Object.freeze([
+      ...createSnapshot().columns,
+      Object.freeze({
+        name: "vet_id",
+        key: "vetId",
+        dataType: "int",
+        columnType: "int unsigned",
+        typeKind: "integer",
+        nullable: true,
+        hasDefault: false,
+        defaultValue: null,
+        autoIncrement: false,
+        unsigned: true,
+        extra: "",
+        maxLength: null,
+        numericPrecision: 10,
+        numericScale: 0,
+        enumValues: Object.freeze([])
+      })
+    ]),
+    foreignKeys: Object.freeze([
+      Object.freeze({
+        name: "contacts_vet_id_foreign",
+        referencedTableName: "vets",
+        updateRule: "CASCADE",
+        deleteRule: "SET NULL",
+        columns: Object.freeze([
+          Object.freeze({
+            name: "vet_id",
+            referencedName: "id"
+          })
+        ])
+      })
+    ])
+  };
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    snapshot,
+    resolvedOwnershipFilter: "workspace_user"
+  });
+
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /RESOURCE_FIELD_META\.push\(\{/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "vetId"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /targetResource: "vets"/);
+  assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
 
 test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {

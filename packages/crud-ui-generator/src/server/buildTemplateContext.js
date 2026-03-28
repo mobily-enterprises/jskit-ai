@@ -1,21 +1,25 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import {
+  normalizeText,
+  requireOption,
+  loadResourceDefinition,
+  requireOperation,
+  requireOutputSchema,
+  requireBodySchema,
+  requireObjectProperties,
+  resolveListItemProperties,
+  buildResourceFieldMetaMap,
+  createFieldDefinitions,
+  createFormFieldDefinitions,
+  buildListHeaderColumns,
+  buildListRowColumns,
+  buildViewColumns,
+  buildFormColumns,
+  renderObjectPushLines,
+  resolveRecordChangedEventName,
+  resolveRecordIdExpression
+} from "./resourceSupport.js";
 
-const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function requireOption(options, optionName) {
-  const value = normalizeText(options?.[optionName]);
-  if (!value) {
-    throw new Error(`ui-generator requires option "${optionName}".`);
-  }
-
-  return value;
-}
 
 function parseOperationsOption(options) {
   const rawValue = requireOption(options, "operations");
@@ -85,314 +89,6 @@ function resolveResourceNamespaceOption(options = {}) {
   return resolvedNamespace;
 }
 
-function resolveResourceModulePath(appRoot, resourceFile) {
-  const normalizedFile = normalizeText(resourceFile);
-  if (!normalizedFile) {
-    throw new Error('ui-generator requires option "resource-file".');
-  }
-  if (path.isAbsolute(normalizedFile)) {
-    throw new Error('ui-generator option "resource-file" must be a path relative to app root.');
-  }
-
-  const appRootAbsolute = path.resolve(String(appRoot || ""));
-  if (!appRootAbsolute) {
-    throw new Error("ui-generator template context requires appRoot.");
-  }
-
-  const absolutePath = path.resolve(appRootAbsolute, normalizedFile);
-  const relativePath = path.relative(appRootAbsolute, absolutePath);
-  if (
-    !relativePath ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    throw new Error('ui-generator option "resource-file" must stay within app root.');
-  }
-
-  return absolutePath;
-}
-
-function deriveDefaultResourceExport(resourceFile = "") {
-  const fileName = normalizeText(path.parse(String(resourceFile || "")).name);
-  if (!fileName) {
-    throw new Error('ui-generator option "resource-export" is required when it cannot be derived from "resource-file".');
-  }
-
-  return fileName;
-}
-
-async function loadResourceDefinition({ appRoot, options }) {
-  const resourceFile = requireOption(options, "resource-file");
-  const resourceExport = normalizeText(options?.["resource-export"]) || deriveDefaultResourceExport(resourceFile);
-  const resourceModulePath = resolveResourceModulePath(appRoot, resourceFile);
-
-  let moduleNamespace = null;
-  try {
-    moduleNamespace = await import(`${pathToFileURL(resourceModulePath).href}?t=${Date.now()}_${Math.random()}`);
-  } catch (error) {
-    throw new Error(
-      `ui-generator could not load resource file "${resourceFile}": ${String(error?.message || error || "unknown error")}`
-    );
-  }
-
-  const resource = moduleNamespace?.[resourceExport];
-  if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
-    throw new Error(
-      `ui-generator could not find resource export "${resourceExport}" in "${resourceFile}".`
-    );
-  }
-
-  return resource;
-}
-
-function requireOperation(resource, operationName) {
-  const operations = resource?.operations;
-  if (!operations || typeof operations !== "object" || Array.isArray(operations)) {
-    throw new Error("ui-generator resource must expose operations.");
-  }
-
-  const operation = operations[operationName];
-  if (!operation || typeof operation !== "object" || Array.isArray(operation)) {
-    throw new Error(`ui-generator resource is missing operations.${operationName}.`);
-  }
-
-  return operation;
-}
-
-function requireOutputSchema(operation, operationName) {
-  const outputValidator = operation?.outputValidator;
-  if (!outputValidator || typeof outputValidator !== "object" || Array.isArray(outputValidator)) {
-    throw new Error(`ui-generator resource operations.${operationName} is missing outputValidator.`);
-  }
-
-  const schema = outputValidator.schema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`ui-generator resource operations.${operationName}.outputValidator is missing schema.`);
-  }
-
-  return schema;
-}
-
-function requireBodySchema(operation, operationName) {
-  const bodyValidator = operation?.bodyValidator;
-  if (!bodyValidator || typeof bodyValidator !== "object" || Array.isArray(bodyValidator)) {
-    throw new Error(`ui-generator resource operations.${operationName} is missing bodyValidator.`);
-  }
-
-  const schema = bodyValidator.schema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`ui-generator resource operations.${operationName}.bodyValidator is missing schema.`);
-  }
-
-  return schema;
-}
-
-function requireObjectProperties(schema, contextLabel) {
-  const properties = schema?.properties;
-  if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
-    throw new Error(`ui-generator expected ${contextLabel} to be an object schema with properties.`);
-  }
-
-  return properties;
-}
-
-function resolveListItemProperties(listOutputSchema) {
-  const listProperties = requireObjectProperties(listOutputSchema, "operations.list output");
-  const itemsSchema = listProperties.items;
-  if (!itemsSchema || typeof itemsSchema !== "object" || Array.isArray(itemsSchema)) {
-    throw new Error("ui-generator expected operations.list output schema to include object items schema.");
-  }
-
-  const itemSchema = Array.isArray(itemsSchema.items) ? itemsSchema.items[0] : itemsSchema.items;
-  if (!itemSchema || typeof itemSchema !== "object" || Array.isArray(itemSchema)) {
-    throw new Error("ui-generator expected operations.list output schema items.items to be an object schema.");
-  }
-
-  return requireObjectProperties(itemSchema, "operations.list output items");
-}
-
-function resolveUnionSchemaVariant(schema = {}) {
-  const source = schema && typeof schema === "object" && !Array.isArray(schema) ? schema : {};
-  const candidates = [];
-
-  if (Array.isArray(source.anyOf)) {
-    candidates.push(...source.anyOf);
-  }
-  if (Array.isArray(source.oneOf)) {
-    candidates.push(...source.oneOf);
-  }
-  if (candidates.length < 1) {
-    return source;
-  }
-
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
-      continue;
-    }
-
-    const rawType = candidate.type;
-    const normalizedType = Array.isArray(rawType)
-      ? normalizeText(rawType.find((entry) => normalizeText(entry).toLowerCase() !== "null"))
-      : normalizeText(rawType);
-    const type = normalizedType.toLowerCase();
-    if (type && type !== "null") {
-      return candidate;
-    }
-  }
-
-  return source;
-}
-
-function resolveSchemaType(schema) {
-  const source = resolveUnionSchemaVariant(schema);
-  const rawType = source?.type;
-  const normalizedType = Array.isArray(rawType)
-    ? normalizeText(rawType.find((entry) => normalizeText(entry).toLowerCase() !== "null"))
-    : normalizeText(rawType);
-
-  return {
-    type: normalizedType.toLowerCase(),
-    format: normalizeText(source.format).toLowerCase(),
-    schema: source
-  };
-}
-
-function toFieldLabel(key) {
-  const normalizedKey = normalizeText(key);
-  if (!normalizedKey) {
-    return "Field";
-  }
-
-  const words = normalizedKey
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_\-.]+/g, " ")
-    .split(/\s+/)
-    .map((entry) => normalizeText(entry))
-    .filter(Boolean);
-  if (words.length < 1) {
-    return "Field";
-  }
-
-  return words
-    .map((entry) => `${entry.slice(0, 1).toUpperCase()}${entry.slice(1)}`)
-    .join(" ");
-}
-
-function createFieldDefinitions(properties = {}) {
-  const fields = [];
-
-  for (const [rawKey, schema] of Object.entries(properties)) {
-    const key = normalizeText(rawKey);
-    if (!key) {
-      continue;
-    }
-
-    const schemaType = resolveSchemaType(schema);
-    fields.push({
-      key,
-      label: toFieldLabel(key),
-      type: schemaType.type,
-      format: schemaType.format
-    });
-  }
-
-  if (fields.length > 0) {
-    return fields;
-  }
-
-  return [
-    {
-      key: "id",
-      label: "Id",
-      type: "string",
-      format: ""
-    }
-  ];
-}
-
-function toAccessorExpression(baseName, fieldKey) {
-  const key = normalizeText(fieldKey);
-  if (!key) {
-    return baseName;
-  }
-  if (JS_IDENTIFIER_PATTERN.test(key)) {
-    return `${baseName}.${key}`;
-  }
-
-  return `${baseName}[${JSON.stringify(key)}]`;
-}
-
-function toOptionalAccessorExpression(baseName, fieldKey) {
-  const key = normalizeText(fieldKey);
-  if (!key) {
-    return baseName;
-  }
-  if (JS_IDENTIFIER_PATTERN.test(key)) {
-    return `${baseName}?.${key}`;
-  }
-
-  return `${baseName}?.[${JSON.stringify(key)}]`;
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function buildListHeaderColumns(fields) {
-  return fields
-    .map((field) => `                <th>${escapeHtml(field.label)}</th>`)
-    .join("\n");
-}
-
-function buildListRowColumns(fields) {
-  return fields
-    .map(
-      (field) =>
-        `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`
-    )
-    .join("\n");
-}
-
-function buildViewColumns(fields) {
-  return fields
-    .map(
-      (field) => `            <v-col cols="12" md="6">
-              <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ ${toOptionalAccessorExpression("view.record", field.key)} }}</div>
-            </v-col>`
-    )
-    .join("\n");
-}
-
-function resolveRecordChangedEventName(namespace = "") {
-  const normalizedNamespace = normalizeText(namespace).toLowerCase();
-  if (!normalizedNamespace) {
-    return "";
-  }
-
-  return `${normalizedNamespace.replace(/-/g, "_")}.record.changed`;
-}
-
-function resolveRecordIdExpression(fields) {
-  const normalizedFields = Array.isArray(fields) ? fields : [];
-  const preferred =
-    normalizedFields.find((field) => normalizeText(field?.key).toLowerCase() === "id") ||
-    normalizedFields.find((field) => {
-      const key = normalizeText(field?.key).toLowerCase();
-      return key.endsWith("id") || key.endsWith("_id") || key.endsWith("-id");
-    }) ||
-    normalizedFields[0] ||
-    { key: "id" };
-
-  return toAccessorExpression("item", preferred.key);
-}
-
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   if (selectedFields.length < 1) {
@@ -426,116 +122,6 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   return availableFields.filter((field) => selectedFieldSet.has(normalizeText(field?.key)));
 }
 
-function resolveFormInputType(fieldType, fieldFormat) {
-  if (fieldType === "integer" || fieldType === "number") {
-    return "number";
-  }
-
-  if (fieldFormat === "date-time") {
-    return "datetime-local";
-  }
-  if (fieldFormat === "date") {
-    return "date";
-  }
-  if (fieldFormat === "time") {
-    return "time";
-  }
-
-  return "text";
-}
-
-function resolveFormFieldComponent(fieldType) {
-  if (fieldType === "boolean") {
-    return "switch";
-  }
-
-  return "text";
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function createFormFieldDefinitions(properties = {}) {
-  const fields = [];
-
-  for (const [rawKey, schema] of Object.entries(properties)) {
-    const key = normalizeText(rawKey);
-    if (!key) {
-      continue;
-    }
-
-    const schemaType = resolveSchemaType(schema);
-    fields.push({
-      key,
-      label: toFieldLabel(key),
-      type: schemaType.type || "string",
-      format: schemaType.format || "",
-      inputType: resolveFormInputType(schemaType.type, schemaType.format),
-      component: resolveFormFieldComponent(schemaType.type),
-      maxLength: toPositiveInteger(schemaType.schema?.maxLength)
-    });
-  }
-
-  return fields;
-}
-
-function buildFormColumns(fields) {
-  const normalizedFields = Array.isArray(fields) ? fields : [];
-  return normalizedFields
-    .map((field) => {
-      const key = normalizeText(field?.key);
-      if (!key) {
-        return "";
-      }
-
-      const label = escapeHtml(field?.label || toFieldLabel(key));
-      const formAccessor = toAccessorExpression("formRuntime.form", key);
-      const fieldErrorExpression = `formRuntime.resolveFieldErrors(${JSON.stringify(key)})`;
-      const isSwitch = normalizeText(field?.component).toLowerCase() === "switch";
-      if (isSwitch) {
-        return `            <v-col cols="12" md="6">
-              <v-switch
-                v-model="${formAccessor}"
-                label="${label}"
-                color="primary"
-                hide-details="auto"
-                :disabled="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
-                :error-messages='${fieldErrorExpression}'
-              />
-            </v-col>`;
-      }
-
-      const inputType = normalizeText(field?.inputType) || "text";
-      const maxLength = Number.isInteger(field?.maxLength) && field.maxLength > 0
-        ? String(field.maxLength)
-        : "undefined";
-      return `            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="${formAccessor}"
-                label="${label}"
-                type="${escapeHtml(inputType)}"
-                variant="outlined"
-                density="comfortable"
-                :maxlength="${maxLength}"
-                :readonly="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
-                :error-messages='${fieldErrorExpression}'
-              />
-            </v-col>`;
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
 function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
   const normalizedFields = Array.isArray(fields) ? fields : [];
   if (normalizedFields.length > 0) {
@@ -555,37 +141,55 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const hasNewOperation = selectedOperations.has("new");
   const hasEditOperation = selectedOperations.has("edit");
 
-  const resource = await loadResourceDefinition({ appRoot, options });
+  const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
+  const fieldMetaMap = buildResourceFieldMetaMap(resource);
 
   let listFieldsAll = [];
   if (hasListOperation) {
-    const listOperation = requireOperation(resource, "list");
-    const listOutputSchema = requireOutputSchema(listOperation, "list");
-    listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema));
+    const listOperation = requireOperation(resource, "list", { context: "ui-generator" });
+    const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "ui-generator" });
+    listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "ui-generator" }), {
+      fieldMetaMap
+    });
     validateDisplayFieldsForOperation(selectedDisplayFields, listFieldsAll, "list");
   }
 
   let viewFieldsAll = [];
   if (hasViewOperation) {
-    const viewOperation = requireOperation(resource, "view");
-    const viewOutputSchema = requireOutputSchema(viewOperation, "view");
-    viewFieldsAll = createFieldDefinitions(requireObjectProperties(viewOutputSchema, "operations.view output"));
+    const viewOperation = requireOperation(resource, "view", { context: "ui-generator" });
+    const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "ui-generator" });
+    viewFieldsAll = createFieldDefinitions(
+      requireObjectProperties(viewOutputSchema, "operations.view output", { context: "ui-generator" }),
+      {
+        fieldMetaMap
+      }
+    );
     validateDisplayFieldsForOperation(selectedDisplayFields, viewFieldsAll, "view");
   }
 
   let createFieldsAll = [];
   if (hasNewOperation) {
-    const createOperation = requireOperation(resource, "create");
-    const createBodySchema = requireBodySchema(createOperation, "create");
-    createFieldsAll = createFormFieldDefinitions(requireObjectProperties(createBodySchema, "operations.create body"));
+    const createOperation = requireOperation(resource, "create", { context: "ui-generator" });
+    const createBodySchema = requireBodySchema(createOperation, "create", { context: "ui-generator" });
+    createFieldsAll = createFormFieldDefinitions(
+      requireObjectProperties(createBodySchema, "operations.create body", { context: "ui-generator" }),
+      {
+        fieldMetaMap
+      }
+    );
     validateDisplayFieldsForOperation(selectedDisplayFields, createFieldsAll, "create");
   }
 
   let editFieldsAll = [];
   if (hasEditOperation) {
-    const patchOperation = requireOperation(resource, "patch");
-    const patchBodySchema = requireBodySchema(patchOperation, "patch");
-    editFieldsAll = createFormFieldDefinitions(requireObjectProperties(patchBodySchema, "operations.patch body"));
+    const patchOperation = requireOperation(resource, "patch", { context: "ui-generator" });
+    const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "ui-generator" });
+    editFieldsAll = createFormFieldDefinitions(
+      requireObjectProperties(patchBodySchema, "operations.patch body", { context: "ui-generator" }),
+      {
+        fieldMetaMap
+      }
+    );
     validateDisplayFieldsForOperation(selectedDisplayFields, editFieldsAll, "patch");
   }
 
@@ -624,7 +228,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_CREATE_FORM_COLUMNS__: buildFormColumns(createFields),
     __JSKIT_UI_EDIT_FORM_COLUMNS__: buildFormColumns(editFields),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
-    __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields)
+    __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
+    __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
+    __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields)
   };
 }
 

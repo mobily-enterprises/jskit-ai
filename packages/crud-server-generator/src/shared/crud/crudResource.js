@@ -131,6 +131,8 @@ const recordOutputValidator = Object.freeze({
   normalize: normalizeRecordOutput
 });
 
+const CRUD_RESOURCE_FIELD_META = [];
+
 const crudResource = {
   resource: "crud",
   messages: {
@@ -185,7 +187,10 @@ const crudResource = {
         }
       }
     }
-  }
+  },
+  fieldMeta: CRUD_RESOURCE_FIELD_META
 };
+
+void CRUD_RESOURCE_FIELD_META;
 
 export { crudResource };

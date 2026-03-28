@@ -30,6 +30,7 @@
         </p>
         <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
           <v-row>
+            <!-- jskit:crud-ui-fields:new -->
 __JSKIT_UI_CREATE_FORM_COLUMNS__
           </v-row>
         </v-form>
@@ -40,6 +41,7 @@ __JSKIT_UI_CREATE_FORM_COLUMNS__
 
 <script setup>
 import { useCrudSchemaForm } from "@jskit-ai/users-web/client/composables/useCrudSchemaForm";
+import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
 import { ${option:resource-export|trim} as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
@@ -48,7 +50,22 @@ const UI_CREATE_API_URL = "${option:api-path|trim}";
 const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `../:${UI_RECORD_ID_PARAM}` : "";
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
-const UI_CREATE_FORM_FIELDS = Object.freeze(__JSKIT_UI_CREATE_FORM_FIELDS__);
+const UI_CREATE_FORM_FIELDS = [];
+
+// @jskit-contract crud.ui.form-fields.${option:namespace|snake}.new.v1
+void UI_CREATE_FORM_FIELDS;
+// jskit:crud-ui-form-fields:new
+__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__
+Object.freeze(UI_CREATE_FORM_FIELDS);
+
+const lookupFieldRuntime = createCrudLookupFieldRuntime({
+  formFields: UI_CREATE_FORM_FIELDS,
+  adapter: UI_OPERATION_ADAPTER || undefined,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "lookup", "new"],
+  placementSourcePrefix: "ui-generator.${option:namespace|kebab}.new.lookup"
+});
+const { resolveLookupItems, resolveLookupLoading } = lookupFieldRuntime;
 
 const formRuntime = useCrudSchemaForm({
   resource: uiResource,

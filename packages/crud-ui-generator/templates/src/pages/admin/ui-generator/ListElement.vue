@@ -27,6 +27,7 @@
             <thead>
               <tr>
 __JSKIT_UI_LIST_HEADER_COLUMNS__
+                <!-- jskit:crud-ui-fields:list-header -->
                 <th v-if="UI_VIEW_URL" class="text-right">Open</th>
                 <th v-if="UI_EDIT_URL" class="text-right">Edit</th>
               </tr>
@@ -34,6 +35,7 @@ __JSKIT_UI_LIST_HEADER_COLUMNS__
             <tbody>
               <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
 __JSKIT_UI_LIST_ROW_COLUMNS__
+                <!-- jskit:crud-ui-fields:list-row -->
                 <td v-if="UI_VIEW_URL" class="text-right">
                   <v-btn
                     size="small"

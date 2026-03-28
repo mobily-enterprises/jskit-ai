@@ -257,6 +257,61 @@ function normalizeIndexes(rows = []) {
   );
 }
 
+function normalizeForeignKeys(rows = []) {
+  const grouped = new Map();
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const name = normalizeText(row.constraintName || row.constraint_name);
+    const columnName = normalizeText(row.columnName || row.column_name);
+    const referencedTableName = normalizeText(row.referencedTableName || row.referenced_table_name);
+    const referencedColumnName = normalizeText(row.referencedColumnName || row.referenced_column_name);
+    if (!name || !columnName || !referencedTableName || !referencedColumnName) {
+      continue;
+    }
+
+    const ordinalPosition = toNullableNumber(row.ordinalPosition ?? row.ordinal_position) || 0;
+    const updateRule = normalizeText(row.updateRule || row.update_rule).toUpperCase();
+    const deleteRule = normalizeText(row.deleteRule || row.delete_rule).toUpperCase();
+    const existing = grouped.get(name) || {
+      name,
+      referencedTableName,
+      updateRule,
+      deleteRule,
+      columns: []
+    };
+
+    existing.columns.push({
+      name: columnName,
+      referencedName: referencedColumnName,
+      order: ordinalPosition
+    });
+    grouped.set(name, existing);
+  }
+
+  return Object.freeze(
+    [...grouped.values()]
+      .map((foreignKey) =>
+        Object.freeze({
+          name: foreignKey.name,
+          referencedTableName: foreignKey.referencedTableName,
+          updateRule: foreignKey.updateRule,
+          deleteRule: foreignKey.deleteRule,
+          columns: Object.freeze(
+            foreignKey.columns
+              .sort((left, right) => left.order - right.order)
+              .map((column) =>
+                Object.freeze({
+                  name: column.name,
+                  referencedName: column.referencedName
+                })
+              )
+          )
+        })
+      )
+      .sort((left, right) => left.name.localeCompare(right.name))
+  );
+}
+
 function requireIdColumn(columns, idColumn) {
   const normalizedIdColumn = normalizeText(idColumn) || "id";
   const idSpec = columns.find((column) => column.name === normalizedIdColumn) || null;
@@ -361,6 +416,30 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     )
   );
 
+  const foreignKeyRows = normalizeRows(
+    await knex.raw(
+      `
+        SELECT
+          rc.constraint_name AS constraintName,
+          k.column_name AS columnName,
+          k.referenced_table_name AS referencedTableName,
+          k.referenced_column_name AS referencedColumnName,
+          k.ordinal_position AS ordinalPosition,
+          rc.update_rule AS updateRule,
+          rc.delete_rule AS deleteRule
+        FROM information_schema.referential_constraints rc
+        JOIN information_schema.key_column_usage k
+          ON k.constraint_name = rc.constraint_name
+         AND k.constraint_schema = rc.constraint_schema
+         AND k.table_name = rc.table_name
+        WHERE rc.constraint_schema = ?
+          AND rc.table_name = ?
+        ORDER BY rc.constraint_name ASC, k.ordinal_position ASC
+      `,
+      [schemaName, resolvedTableName]
+    )
+  );
+
   const columns = Object.freeze(columnRows.map((row) => normalizeColumn(row)));
   const resolvedIdColumn = requireIdColumn(columns, idColumn);
   const primaryKeyColumns = normalizePrimaryKeyColumns(primaryRows);
@@ -375,7 +454,8 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     hasWorkspaceOwnerColumn: columns.some((column) => column.name === "workspace_owner_id"),
     hasUserOwnerColumn: columns.some((column) => column.name === "user_owner_id"),
     columns,
-    indexes: normalizeIndexes(indexRows)
+    indexes: normalizeIndexes(indexRows),
+    foreignKeys: normalizeForeignKeys(foreignKeyRows)
   });
 
   return snapshot;

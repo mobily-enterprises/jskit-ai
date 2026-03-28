@@ -40,6 +40,7 @@
         <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
           <v-progress-linear v-if="formRuntime.addEdit.isRefetching" indeterminate class="mb-4" />
           <v-row>
+            <!-- jskit:crud-ui-fields:edit -->
 __JSKIT_UI_EDIT_FORM_COLUMNS__
           </v-row>
         </v-form>
@@ -52,6 +53,7 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudSchemaForm } from "@jskit-ai/users-web/client/composables/useCrudSchemaForm";
+import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
 import { ${option:resource-export|trim} as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
@@ -62,7 +64,13 @@ const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? "../.." : "";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? ".." : "";
 const UI_CANCEL_URL = UI_VIEW_URL || UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
-const UI_EDIT_FORM_FIELDS = Object.freeze(__JSKIT_UI_EDIT_FORM_FIELDS__);
+const UI_EDIT_FORM_FIELDS = [];
+
+// @jskit-contract crud.ui.form-fields.${option:namespace|snake}.edit.v1
+void UI_EDIT_FORM_FIELDS;
+// jskit:crud-ui-form-fields:edit
+__JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__
+Object.freeze(UI_EDIT_FORM_FIELDS);
 
 const route = useRoute();
 
@@ -74,6 +82,15 @@ const routeRecordId = computed(() => {
 
   return String(source ?? "").trim();
 });
+
+const lookupFieldRuntime = createCrudLookupFieldRuntime({
+  formFields: UI_EDIT_FORM_FIELDS,
+  adapter: UI_OPERATION_ADAPTER || undefined,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "lookup", "edit"],
+  placementSourcePrefix: "ui-generator.${option:namespace|kebab}.edit.lookup"
+});
+const { resolveLookupItems, resolveLookupLoading } = lookupFieldRuntime;
 
 const formRuntime = useCrudSchemaForm({
   resource: uiResource,

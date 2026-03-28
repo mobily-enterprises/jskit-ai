@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import {
   ensureArray,
   ensureObject,
@@ -153,6 +154,134 @@ function createCommandHandlers(deps) {
     }
 
     return resolved;
+  }
+
+  function resolveGeneratorSubcommandDefinition(packageEntry, subcommandName) {
+    const descriptor = ensureObject(packageEntry?.descriptor);
+    const metadata = ensureObject(descriptor.metadata);
+    const subcommands = ensureObject(
+      metadata.generatorSubcommands || descriptor.generatorSubcommands
+    );
+    const definition = ensureObject(subcommands[subcommandName]);
+    const entrypoint = String(definition.entrypoint || "").trim();
+    const exportName = String(definition.export || "runGeneratorSubcommand").trim() || "runGeneratorSubcommand";
+    if (!entrypoint) {
+      throw createCliError(
+        `Generator ${packageEntry?.packageId || "unknown"} does not define subcommand "${subcommandName}".`
+      );
+    }
+
+    return Object.freeze({
+      entrypoint,
+      exportName
+    });
+  }
+
+  async function resolvePackageIdFromRegistryOrNodeModules({
+    appRoot,
+    packageRegistry,
+    packageIdInput
+  }) {
+    let resolvedPackageId = resolvePackageIdInput(packageIdInput, packageRegistry);
+    const packageIdForNodeModulesLookup = resolvedPackageId || packageIdInput;
+    const installedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
+      appRoot,
+      packageId: packageIdForNodeModulesLookup
+    });
+    if (installedNodeModuleEntry) {
+      packageRegistry.set(installedNodeModuleEntry.packageId, installedNodeModuleEntry);
+      resolvedPackageId = installedNodeModuleEntry.packageId;
+    }
+
+    return resolvedPackageId;
+  }
+
+  async function runGeneratorSubcommand({
+    packageEntry,
+    subcommandName,
+    subcommandArgs = [],
+    inlineOptions = {},
+    appRoot,
+    io,
+    dryRun = false,
+    json = false
+  }) {
+    const normalizedSubcommandName = String(subcommandName || "").trim();
+    if (!normalizedSubcommandName) {
+      throw createCliError("Generator subcommand name is required.");
+    }
+
+    const packageId = String(packageEntry?.packageId || "").trim();
+    const packageRoot = String(packageEntry?.rootDir || "").trim();
+    if (!packageRoot) {
+      throw createCliError(`Could not resolve package root for generator ${packageId || "<unknown>"}.`);
+    }
+
+    const definition = resolveGeneratorSubcommandDefinition(packageEntry, normalizedSubcommandName);
+    const entrypointPath = path.resolve(packageRoot, definition.entrypoint);
+    if (!(await fileExists(entrypointPath))) {
+      throw createCliError(
+        `Generator subcommand entrypoint not found: ${normalizeRelativePath(appRoot, entrypointPath)}`
+      );
+    }
+
+    let moduleNamespace = null;
+    try {
+      moduleNamespace = await import(`${pathToFileURL(entrypointPath).href}?t=${Date.now()}_${Math.random()}`);
+    } catch (error) {
+      throw createCliError(
+        `Unable to load generator subcommand entrypoint ${normalizeRelativePath(appRoot, entrypointPath)}: ${String(error?.message || error || "unknown error")}`
+      );
+    }
+
+    const handler =
+      (typeof moduleNamespace?.[definition.exportName] === "function" && moduleNamespace[definition.exportName]) ||
+      (typeof moduleNamespace?.default === "function" && moduleNamespace.default) ||
+      null;
+    if (!handler) {
+      throw createCliError(
+        `Generator subcommand "${normalizedSubcommandName}" export "${definition.exportName}" was not found in ${normalizeRelativePath(appRoot, entrypointPath)}.`
+      );
+    }
+
+    const result = await handler({
+      appRoot,
+      packageId,
+      subcommand: normalizedSubcommandName,
+      args: ensureArray(subcommandArgs).map((value) => String(value || "")),
+      options: ensureObject(inlineOptions),
+      dryRun: dryRun === true
+    });
+    const payload = ensureObject(result);
+    const touchedFiles = sortStrings(
+      ensureArray(payload.touchedFiles).map((value) => String(value || "").trim()).filter(Boolean)
+    );
+    const summary = String(payload.summary || "").trim();
+
+    if (json) {
+      io.stdout.write(`${JSON.stringify({
+        targetType: "generator-subcommand",
+        packageId,
+        subcommand: normalizedSubcommandName,
+        touchedFiles,
+        summary,
+        dryRun: dryRun === true
+      }, null, 2)}\n`);
+    } else {
+      io.stdout.write(`Generated with ${packageId} (${normalizedSubcommandName}).\n`);
+      if (summary) {
+        io.stdout.write(`${summary}\n`);
+      }
+      io.stdout.write(`Touched files (${touchedFiles.length}):\n`);
+      for (const touchedFile of touchedFiles) {
+        io.stdout.write(`- ${touchedFile}\n`);
+      }
+      if (dryRun) {
+        io.stdout.write("Dry run enabled: no files were written.\n");
+      }
+    }
+
+    return 0;
   }
 
   function validateInlineOptionsForBundle({
@@ -1344,18 +1473,13 @@ function createCommandHandlers(deps) {
     const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
     const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
     const { lockPath, lock } = await loadLockFile(appRoot);
-    let resolvedTargetPackageId = targetType === "package" ? resolvePackageIdInput(targetId, combinedPackageRegistry) : "";
-    if (targetType === "package") {
-      const packageIdForNodeModulesLookup = resolvedTargetPackageId || targetId;
-      const installedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
-        appRoot,
-        packageId: packageIdForNodeModulesLookup
-      });
-      if (installedNodeModuleEntry) {
-        combinedPackageRegistry.set(installedNodeModuleEntry.packageId, installedNodeModuleEntry);
-        resolvedTargetPackageId = installedNodeModuleEntry.packageId;
-      }
-    }
+    const resolvedTargetPackageId = targetType === "package"
+      ? await resolvePackageIdFromRegistryOrNodeModules({
+          appRoot,
+          packageRegistry: combinedPackageRegistry,
+          packageIdInput: targetId
+        })
+      : "";
   
     const targetPackageIds = targetType === "bundle"
       ? ensureArray(bundleRegistry.get(targetId)?.packages).map((value) => String(value))
@@ -1563,15 +1687,63 @@ function createCommandHandlers(deps) {
   async function commandGenerate({ positional, options, cwd, io }) {
     const firstToken = String(positional[0] || "").trim();
     const secondToken = String(positional[1] || "").trim();
+    const thirdToken = String(positional[2] || "").trim();
     if (firstToken === "bundle") {
       throw createCliError("generate supports packages only (generate <packageId>).", {
         showUsage: true
       });
     }
     const targetId = firstToken === "package" ? secondToken : firstToken;
+    const subcommandName = firstToken === "package" ? thirdToken : secondToken;
+    const subcommandArgs = firstToken === "package" ? positional.slice(3) : positional.slice(2);
     if (!targetId) {
       throw createCliError("generate requires a package id (generate <packageId>).", {
         showUsage: true
+      });
+    }
+
+    if (subcommandName) {
+      const appRoot = await resolveAppRootFromCwd(cwd);
+      const packageRegistry = await loadPackageRegistry();
+      const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+      const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
+
+      const resolvedPackageId = await resolvePackageIdFromRegistryOrNodeModules({
+        appRoot,
+        packageRegistry: combinedPackageRegistry,
+        packageIdInput: targetId
+      });
+      if (!resolvedPackageId) {
+        throw createCliError(
+          `Unknown package: ${targetId}. Install it first (npm install ${targetId}) if you want to run generator subcommands from node_modules.`
+        );
+      }
+
+      await hydratePackageRegistryFromInstalledNodeModules({
+        appRoot,
+        packageRegistry: combinedPackageRegistry,
+        seedPackageIds: [resolvedPackageId]
+      });
+      const packageEntry = combinedPackageRegistry.get(resolvedPackageId);
+      if (!packageEntry) {
+        throw createCliError(`Unknown package: ${targetId}`);
+      }
+
+      if (resolvePackageKind(packageEntry) !== "generator") {
+        throw createCliError(
+          `Package ${resolvedPackageId} is a runtime package. Use: jskit add package ${resolvedPackageId}`
+        );
+      }
+
+      return runGeneratorSubcommand({
+        packageEntry,
+        subcommandName,
+        subcommandArgs,
+        inlineOptions: options.inlineOptions,
+        appRoot,
+        io,
+        dryRun: options.dryRun,
+        json: options.json
       });
     }
 

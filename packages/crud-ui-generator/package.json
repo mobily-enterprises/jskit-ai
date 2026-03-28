@@ -5,6 +5,10 @@
   "scripts": {
     "test": "node --test"
   },
+  "dependencies": {
+    "@jskit-ai/crud-core": "0.1.25",
+    "@jskit-ai/kernel": "0.1.17"
+  },
   "exports": {
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"
   }

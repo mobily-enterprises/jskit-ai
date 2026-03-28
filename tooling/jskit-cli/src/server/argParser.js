@@ -177,7 +177,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>      Add one runtime package to current app (catalog/app-local/installed external)\n");
-  stream.write("  generate <packageId>         Run one generator package\n");
+  stream.write("  generate <packageId> [subcommand ...] Run one generator package or generator subcommand\n");
   stream.write("  position element <packageId> Re-apply positioning mutations for one installed package\n");
   stream.write("  show <id>                    Show details for bundle id or package id\n");
   stream.write("  view <id>                    Alias of show <id>\n");

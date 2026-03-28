@@ -50,6 +50,8 @@ const recordOutputValidator = Object.freeze({
   normalize: normalizeRecordOutput
 });
 
+const RESOURCE_FIELD_META = [];
+
 const ${option:namespace|singular|camel}Resource = {
   resource: "${option:namespace|snake}",
   messages: {
@@ -104,7 +106,13 @@ const ${option:namespace|singular|camel}Resource = {
         }
       }
     }
-  }
+  },
+  fieldMeta: RESOURCE_FIELD_META
 };
 
 export { ${option:namespace|singular|camel}Resource };
+
+// @jskit-contract crud.resource.field-meta.${option:namespace|snake}.v1
+void RESOURCE_FIELD_META;
+
+__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__

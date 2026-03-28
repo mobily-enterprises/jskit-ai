@@ -3,26 +3,27 @@ import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runti
 import {
   DEFAULT_LIST_LIMIT,
   buildRepositoryColumnMetadata,
+  deriveRepositoryMappingFromResource,
   normalizeCrudListLimit,
   requireCrudTableName,
   buildWritePayload as baseBuildWritePayload,
   mapRecordRow as baseMapRecordRow,
-  resolveColumnName,
   resolveCrudIdColumn
 } from "@jskit-ai/crud-core/server/repositorySupport";
+import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
 const DEFAULT_ID_COLUMN = __JSKIT_CRUD_ID_COLUMN__;
-const OUTPUT_KEYS = Object.freeze(__JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__);
-const WRITE_KEYS = Object.freeze(__JSKIT_CRUD_REPOSITORY_WRITE_KEYS__);
-const COLUMN_OVERRIDES = Object.freeze(__JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__);
 const CREATED_AT_COLUMN = __JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__;
 const UPDATED_AT_COLUMN = __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__;
-
 const {
-  selectColumns: SELECT_COLUMNS,
-  outputMappings: OUTPUT_MAPPINGS,
-  writeMappings: WRITE_MAPPINGS
-} = buildRepositoryColumnMetadata({
+  outputKeys: OUTPUT_KEYS,
+  writeKeys: WRITE_KEYS,
+  columnOverrides: COLUMN_OVERRIDES
+} = deriveRepositoryMappingFromResource(${option:namespace|singular|camel}Resource, {
+  context: "${option:namespace|snake} repository"
+});
+
+const { selectColumns: SELECT_COLUMNS } = buildRepositoryColumnMetadata({
   outputKeys: OUTPUT_KEYS,
   writeKeys: WRITE_KEYS,
   columnOverrides: COLUMN_OVERRIDES

@@ -1,18 +1,13 @@
-import { normalizeLowerText, normalizeText, normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText, normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibilityToken } from "@jskit-ai/kernel/shared/support/visibility";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
+import {
+  requireCrudNamespace,
+  resolveCrudRecordChangedEvent
+} from "../../shared/crudNamespaceSupport.js";
 
 const DEFAULT_CRUD_OWNERSHIP_FILTER = "workspace";
 const ROUTE_PARAM_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
-
-function requireCrudNamespace(namespace, { context = "resolveCrudClientConfig" } = {}) {
-  const normalizedNamespace = normalizeLowerText(namespace);
-  if (!normalizedNamespace) {
-    throw new TypeError(`${context} requires a non-empty namespace.`);
-  }
-
-  return normalizedNamespace;
-}
 
 function normalizeRelativePath(value, { context = "resolveCrudClientConfig" } = {}) {
   const raw = normalizeText(value);
@@ -75,13 +70,6 @@ function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, name
 
 function crudScopeQueryKey(namespace = "") {
   return Object.freeze(["crud", normalizeQueryToken(namespace)]);
-}
-
-function resolveCrudRecordChangedEvent(namespace = "") {
-  const normalizedNamespace = requireCrudNamespace(namespace, {
-    context: "resolveCrudRecordChangedEvent"
-  });
-  return `${normalizedNamespace.replace(/-/g, "_")}.record.changed`;
 }
 
 async function invalidateCrudQueries(queryClient, namespace = "") {
