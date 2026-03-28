@@ -19,3 +19,7 @@ test("cursorPaginationQueryValidator normalizes invalid values to 0", () => {
 test("cursorPaginationQueryValidator keeps absent keys absent", () => {
   assert.deepEqual(cursorPaginationQueryValidator.normalize({}), {});
 });
+
+test("cursorPaginationQueryValidator ignores unsupported query fields", () => {
+  assert.deepEqual(cursorPaginationQueryValidator.normalize({ q: "  to  " }), {});
+});

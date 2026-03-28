@@ -7,7 +7,8 @@ function createKnexRawDouble({
   schemaName = "appdb",
   columns = [],
   primaryKeyColumns = [],
-  indexes = []
+  indexes = [],
+  foreignKeys = []
 } = {}) {
   const calls = [];
 
@@ -30,6 +31,9 @@ function createKnexRawDouble({
       }
       if (normalizedSql.includes("from information_schema.statistics")) {
         return [[...indexes], []];
+      }
+      if (normalizedSql.includes("from information_schema.referential_constraints")) {
+        return [[...foreignKeys], []];
       }
 
       throw new Error(`Unexpected SQL in test double: ${normalizedSql}`);
@@ -151,6 +155,17 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnName: "vip",
         seqInIndex: 1
       }
+    ],
+    foreignKeys: [
+      {
+        constraintName: "contacts_workspace_owner_id_foreign",
+        columnName: "workspace_owner_id",
+        referencedTableName: "workspaces",
+        referencedColumnName: "id",
+        ordinalPosition: 1,
+        updateRule: "CASCADE",
+        deleteRule: "SET NULL"
+      }
     ]
   });
 
@@ -195,6 +210,20 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
       name: "uq_contacts_vip",
       unique: true,
       columns: ["vip"]
+    }
+  ]);
+  assert.deepEqual(snapshot.foreignKeys, [
+    {
+      name: "contacts_workspace_owner_id_foreign",
+      referencedTableName: "workspaces",
+      updateRule: "CASCADE",
+      deleteRule: "SET NULL",
+      columns: [
+        {
+          name: "workspace_owner_id",
+          referencedName: "id"
+        }
+      ]
     }
   ]);
 });

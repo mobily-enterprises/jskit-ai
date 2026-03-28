@@ -39,3 +39,8 @@ test("crudResource normalizes list output", () => {
   assert.match(normalized.items[0].updatedAt, /T/);
   assert.equal(normalized.nextCursor, "8");
 });
+
+test("crudResource list operation exposes output validator only", () => {
+  assert.equal(typeof crudResource.operations.list.outputValidator?.normalize, "function");
+  assert.equal(crudResource.operations.list.inputValidator, undefined);
+});

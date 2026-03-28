@@ -2,6 +2,7 @@ import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
+import { listSearchQueryValidator } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
@@ -28,7 +29,7 @@ function createActions({ surface = "" } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, cursorPaginationQueryValidator],
+      inputValidator: [workspaceSlugParamsValidator, cursorPaginationQueryValidator, listSearchQueryValidator],
       outputValidator: ${option:namespace|singular|camel}Resource.operations.list.outputValidator,
       idempotency: "none",
       audit: {

@@ -3,26 +3,28 @@ import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runti
 import {
   DEFAULT_LIST_LIMIT,
   buildRepositoryColumnMetadata,
+  deriveRepositoryMappingFromResource,
   normalizeCrudListLimit,
   requireCrudTableName,
   buildWritePayload as baseBuildWritePayload,
   mapRecordRow as baseMapRecordRow,
-  resolveColumnName,
   resolveCrudIdColumn
 } from "@jskit-ai/crud-core/server/repositorySupport";
+import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
 const DEFAULT_ID_COLUMN = __JSKIT_CRUD_ID_COLUMN__;
-const OUTPUT_KEYS = Object.freeze(__JSKIT_CRUD_REPOSITORY_OUTPUT_KEYS__);
-const WRITE_KEYS = Object.freeze(__JSKIT_CRUD_REPOSITORY_WRITE_KEYS__);
-const COLUMN_OVERRIDES = Object.freeze(__JSKIT_CRUD_REPOSITORY_COLUMN_OVERRIDES__);
 const CREATED_AT_COLUMN = __JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__;
 const UPDATED_AT_COLUMN = __JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__;
-
 const {
-  selectColumns: SELECT_COLUMNS,
-  outputMappings: OUTPUT_MAPPINGS,
-  writeMappings: WRITE_MAPPINGS
-} = buildRepositoryColumnMetadata({
+  outputKeys: OUTPUT_KEYS,
+  writeKeys: WRITE_KEYS,
+  columnOverrides: COLUMN_OVERRIDES,
+  listSearchColumns: LIST_SEARCH_COLUMNS
+} = deriveRepositoryMappingFromResource(${option:namespace|singular|camel}Resource, {
+  context: "${option:namespace|snake} repository"
+});
+
+const { selectColumns: SELECT_COLUMNS } = buildRepositoryColumnMetadata({
   outputKeys: OUTPUT_KEYS,
   writeKeys: WRITE_KEYS,
   columnOverrides: COLUMN_OVERRIDES
@@ -36,10 +38,11 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
   const resolvedTableName = requireCrudTableName(tableName);
   const resolvedIdColumn = resolveCrudIdColumn(idColumn, { fallback: DEFAULT_ID_COLUMN });
 
-  async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT } = {}, options = {}) {
+  async function list({ cursor = 0, limit = DEFAULT_LIST_LIMIT, q = "" } = {}, options = {}) {
     const client = options?.trx || knex;
     const normalizedCursor = Number.isInteger(Number(cursor)) && Number(cursor) > 0 ? Number(cursor) : 0;
     const normalizedLimit = normalizeCrudListLimit(limit);
+    const normalizedSearch = String(q || "").trim();
     const visible = (queryBuilder) => applyVisibility(queryBuilder, options.visibilityContext);
 
     let query = client(resolvedTableName)
@@ -47,6 +50,21 @@ function createRepository(knex, { tableName, idColumn = DEFAULT_ID_COLUMN } = {}
       .where(visible)
       .orderBy(resolvedIdColumn, "asc")
       .limit(normalizedLimit + 1);
+
+    if (normalizedSearch && LIST_SEARCH_COLUMNS.length > 0) {
+      const searchPattern = `%${normalizedSearch}%`;
+      query = query.modify((searchQuery) => {
+        searchQuery.where((whereQuery) => {
+          for (const [index, columnName] of LIST_SEARCH_COLUMNS.entries()) {
+            if (index === 0) {
+              whereQuery.where(columnName, "like", searchPattern);
+              continue;
+            }
+            whereQuery.orWhere(columnName, "like", searchPattern);
+          }
+        });
+      });
+    }
 
     if (normalizedCursor > 0) {
       query = query.where(resolvedIdColumn, ">", normalizedCursor);

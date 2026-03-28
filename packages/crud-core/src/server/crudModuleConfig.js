@@ -1,11 +1,15 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
+  normalizeCrudNamespace,
+  requireCrudNamespace
+} from "../shared/crudNamespaceSupport.js";
+import {
   resolveApiBasePath
 } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import {
   USERS_ROUTE_VISIBILITY_LEVELS,
-  normalizeScopedRouteVisibility,
+  checkRouteVisibility,
   isWorkspaceVisibility
 } from "@jskit-ai/users-core/shared/support/usersVisibility";
 
@@ -25,16 +29,13 @@ function asRecord(value) {
   return value;
 }
 
-function normalizeCrudNamespace(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
-  return normalizeScopedRouteVisibility(value, { fallback });
+  const normalizedValue = normalizeText(value).toLowerCase();
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  const resolved = normalizedValue || normalizedFallback;
+  return checkRouteVisibility(resolved, {
+    context: "normalizeCrudOwnershipFilter ownershipFilter"
+  });
 }
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
@@ -49,15 +50,6 @@ function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTE
   }
 
   return CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO;
-}
-
-function requireCrudNamespace(namespace, { context = "CRUD config" } = {}) {
-  const normalizedNamespace = normalizeCrudNamespace(namespace);
-  if (!normalizedNamespace) {
-    throw new TypeError(`${context} requires a non-empty namespace.`);
-  }
-
-  return normalizedNamespace;
 }
 
 function resolveCrudNamespacePath(namespace = "") {
@@ -208,8 +200,8 @@ function resolveCrudSurfacePolicy(
   const ownershipFilter =
     requestedOwnershipFilter === CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
       ? resolveOwnershipFilterFromSurfaceDefinition(surfaceDefinition)
-      : normalizeScopedRouteVisibility(requestedOwnershipFilter, {
-          fallback: "public"
+      : checkRouteVisibility(requestedOwnershipFilter, {
+          context: `${context} ownershipFilter`
         });
 
   if (isWorkspaceVisibility(ownershipFilter) && surfaceDefinition.requiresWorkspace !== true) {

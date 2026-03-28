@@ -14,6 +14,18 @@
       </v-card-item>
       <v-divider />
       <v-card-text class="pt-4">
+        <v-text-field
+          v-if="records.searchEnabled"
+          v-model="records.searchQuery"
+          :label="records.searchLabel"
+          :placeholder="records.searchPlaceholder"
+          variant="outlined"
+          density="comfortable"
+          hide-details="auto"
+          clearable
+          class="mb-3"
+          :loading="records.isSearchDebouncing"
+        />
         <template v-if="records.showListSkeleton">
           <v-skeleton-loader type="text@2, list-item-two-line@5" />
         </template>
@@ -27,6 +39,7 @@
             <thead>
               <tr>
 __JSKIT_UI_LIST_HEADER_COLUMNS__
+                <!-- jskit:crud-ui-fields:list-header -->
                 <th v-if="UI_VIEW_URL" class="text-right">Open</th>
                 <th v-if="UI_EDIT_URL" class="text-right">Edit</th>
               </tr>
@@ -34,6 +47,7 @@ __JSKIT_UI_LIST_HEADER_COLUMNS__
             <tbody>
               <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
 __JSKIT_UI_LIST_ROW_COLUMNS__
+                <!-- jskit:crud-ui-fields:list-row -->
                 <td v-if="UI_VIEW_URL" class="text-right">
                   <v-btn
                     size="small"
@@ -88,6 +102,10 @@ const records = useList({
     String(surfaceId || ""),
     String(workspaceSlug || "")
   ],
+  search: {
+    enabled: true,
+    mode: "query"
+  },
   placementSource: "ui-generator.${option:namespace|kebab}.list",
   fallbackLoadError: "Unable to load records.",
   recordIdParam: UI_RECORD_ID_PARAM,

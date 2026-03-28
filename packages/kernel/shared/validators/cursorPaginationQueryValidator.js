@@ -28,4 +28,6 @@ const cursorPaginationQueryValidator = Object.freeze({
   normalize: normalizeCursorPaginationQuery
 });
 
-export { cursorPaginationQueryValidator };
+export {
+  cursorPaginationQueryValidator
+};

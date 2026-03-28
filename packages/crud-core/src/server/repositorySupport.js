@@ -70,6 +70,114 @@ function buildRepositoryColumnMetadata({
   });
 }
 
+function requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new TypeError(`${context} requires ${schemaLabel} to be an object schema.`);
+  }
+
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
+    throw new TypeError(`${context} requires ${schemaLabel}.properties.`);
+  }
+
+  return properties;
+}
+
+function normalizeResourceFieldMetaEntries(fieldMeta = []) {
+  if (!Array.isArray(fieldMeta)) {
+    return [];
+  }
+
+  const normalized = [];
+  const seenKeys = new Set();
+  for (const rawEntry of fieldMeta) {
+    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
+      continue;
+    }
+
+    const key = normalizeText(rawEntry.key);
+    if (!key || seenKeys.has(key)) {
+      continue;
+    }
+    seenKeys.add(key);
+    normalized.push(rawEntry);
+  }
+
+  return normalized;
+}
+
+function schemaIncludesStringType(schema = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return false;
+  }
+
+  const type = normalizeText(schema.type).toLowerCase();
+  if (type === "string") {
+    return true;
+  }
+
+  const variants = Array.isArray(schema.anyOf)
+    ? schema.anyOf
+    : Array.isArray(schema.oneOf)
+      ? schema.oneOf
+      : [];
+  return variants.some((entry) => schemaIncludesStringType(entry));
+}
+
+function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {}) {
+  if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
+    throw new TypeError(`${context} requires resource object.`);
+  }
+
+  const operations = resource.operations;
+  if (!operations || typeof operations !== "object" || Array.isArray(operations)) {
+    throw new TypeError(`${context} requires resource.operations.`);
+  }
+
+  const outputSchema = operations?.view?.outputValidator?.schema;
+  const writeSchema = operations?.create?.bodyValidator?.schema;
+  const outputProperties = requireObjectSchemaProperties(outputSchema, {
+    context,
+    schemaLabel: "operations.view.outputValidator.schema"
+  });
+  const writeProperties = requireObjectSchemaProperties(writeSchema, {
+    context,
+    schemaLabel: "operations.create.bodyValidator.schema"
+  });
+  const outputKeys = Object.freeze(Object.keys(outputProperties));
+  const writeKeys = Object.freeze(Object.keys(writeProperties));
+
+  const columnOverrides = {};
+  for (const entry of normalizeResourceFieldMetaEntries(resource.fieldMeta)) {
+    const key = normalizeText(entry.key);
+    const dbColumn = normalizeText(entry.dbColumn);
+    if (!key || !dbColumn) {
+      continue;
+    }
+    columnOverrides[key] = dbColumn;
+  }
+
+  const listSearchColumns = [];
+  for (const [key, schema] of Object.entries(outputProperties)) {
+    if (!schemaIncludesStringType(schema)) {
+      continue;
+    }
+
+    const columnName = resolveColumnName(key, columnOverrides);
+    if (!columnName || listSearchColumns.includes(columnName)) {
+      continue;
+    }
+    listSearchColumns.push(columnName);
+  }
+
+  return Object.freeze({
+    outputKeys,
+    writeKeys,
+    columnOverrides: Object.freeze(columnOverrides),
+    listSearchColumns: Object.freeze(listSearchColumns)
+  });
+}
+
 function mapRecordRow(row, fieldKeys = [], overrides = {}) {
   if (!row) {
     return null;
@@ -117,6 +225,7 @@ export {
   MAX_LIST_LIMIT,
   normalizeCrudListLimit,
   requireCrudTableName,
+  deriveRepositoryMappingFromResource,
   mapRecordRow,
   buildWritePayload,
   resolveColumnName,

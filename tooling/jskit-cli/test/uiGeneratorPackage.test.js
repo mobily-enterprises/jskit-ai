@@ -9,6 +9,8 @@ import { createCliRunner } from "../../testUtils/runCli.js";
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const CRUD_UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-ui-generator");
+const CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-core");
+const KERNEL_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "kernel");
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
@@ -67,9 +69,14 @@ export default function getPlacements() {
 }
 
 async function installCrudUiGeneratorPackage(appRoot) {
-  const packageRoot = path.join(appRoot, "node_modules", "@jskit-ai", "crud-ui-generator");
+  const scopedRoot = path.join(appRoot, "node_modules", "@jskit-ai");
+  const packageRoot = path.join(scopedRoot, "crud-ui-generator");
+  const crudCoreRoot = path.join(scopedRoot, "crud-core");
+  const kernelRoot = path.join(scopedRoot, "kernel");
   await mkdir(path.dirname(packageRoot), { recursive: true });
   await cp(CRUD_UI_GENERATOR_SOURCE_ROOT, packageRoot, { recursive: true });
+  await cp(CRUD_CORE_SOURCE_ROOT, crudCoreRoot, { recursive: true });
+  await cp(KERNEL_SOURCE_ROOT, kernelRoot, { recursive: true });
 }
 
 async function writeCustomerResource(appRoot) {
@@ -253,6 +260,10 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
     assert.match(listPageSource, /const UI_OPERATION_ADAPTER = null;/);
     assert.match(listPageSource, /queryKeyFactory: \(surfaceId = "", workspaceSlug = ""\)/);
+    assert.match(listPageSource, /v-if="records\.searchEnabled"/);
+    assert.match(listPageSource, /v-model="records\.searchQuery"/);
+    assert.match(listPageSource, /:loading="records\.isSearchDebouncing"/);
+    assert.match(listPageSource, /search:\s*\{\s*enabled:\s*true,\s*mode:\s*"query"\s*\}/);
     assert.match(listPageSource, /recordIdSelector: \(item = \{\}\) => item\.id,/);
     assert.match(listPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(listPageSource, /editUrlTemplate: UI_EDIT_URL,/);
@@ -385,9 +396,9 @@ test("generate @jskit-ai/crud-ui-generator applies display-fields filter to list
     assert.doesNotMatch(viewPageSource, /view\.record\?\.vip/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /\{"key":"firstName"/);
-    assert.match(newPageSource, /\{"key":"email"/);
-    assert.doesNotMatch(newPageSource, /\{"key":"vip"/);
+    assert.match(newPageSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "firstName"/);
+    assert.match(newPageSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "email"/);
+    assert.doesNotMatch(newPageSource, /"key": "vip"/);
   });
 });
 

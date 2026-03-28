@@ -74,6 +74,10 @@ export default Object.freeze({
           summary: "Exports list operation composable."
         },
         {
+          subpath: "./client/composables/crudLookupFieldRuntime",
+          summary: "Exports CRUD lookup field runtime helpers for generated add/edit forms."
+        },
+        {
           subpath: "./client/composables/useCommand",
           summary: "Exports command operation composable."
         },

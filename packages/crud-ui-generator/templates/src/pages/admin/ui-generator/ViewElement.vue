@@ -26,6 +26,7 @@
           <v-progress-linear v-if="view.isRefetching" indeterminate class="mb-4" />
           <v-row>
 __JSKIT_UI_VIEW_COLUMNS__
+            <!-- jskit:crud-ui-fields:view -->
           </v-row>
         </template>
       </v-card-text>
