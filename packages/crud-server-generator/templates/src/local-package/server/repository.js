@@ -7,7 +7,6 @@ import {
   requireCrudTableName,
   buildWritePayload as baseBuildWritePayload,
   mapRecordRow as baseMapRecordRow,
-  buildRepositoryColumnMetadata,
   resolveColumnName,
   resolveCrudIdColumn
 } from "@jskit-ai/crud-core/server/repositorySupport";
