@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
 const fixture = await createTemplateServerFixture();
-const { createService } = await fixture.importServerModule("service.js");
+const { createService, serviceEvents } = await fixture.importServerModule("service.js");
 
 after(async () => {
   await fixture.cleanup();
@@ -87,4 +87,10 @@ test("crudService throws 404 when a record is missing", async () => {
     () => service.deleteRecord(9, {}),
     (error) => error?.status === 404 && error?.message === "Record not found."
   );
+});
+
+test("crudService exports default realtime events for create/update/delete", () => {
+  assert.equal(serviceEvents.createRecord[0].realtime.event, "customers.record.changed");
+  assert.equal(serviceEvents.updateRecord[0].realtime.event, "customers.record.changed");
+  assert.equal(serviceEvents.deleteRecord[0].realtime.event, "customers.record.changed");
 });

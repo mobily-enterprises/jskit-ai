@@ -18,9 +18,7 @@ const TEMPLATE_REPLACEMENTS = Object.freeze([
   ["${option:namespace|camel}", CRUD_NAMESPACE.camel],
   ["${option:namespace|singular|camel}", CRUD_NAMESPACE.singularCamel],
   ["${option:namespace|pascal}", CRUD_NAMESPACE.pascal],
-  ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")],
-  ["__JSKIT_CRUD_REPOSITORY_CREATED_AT_COLUMN__", JSON.stringify("created_at")],
-  ["__JSKIT_CRUD_REPOSITORY_UPDATED_AT_COLUMN__", JSON.stringify("updated_at")]
+  ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")]
 ]);
 
 function applyTemplateReplacements(sourceText = "") {
@@ -65,6 +63,9 @@ const patchBodyValidator = Object.freeze({
 });
 
 const customerResource = Object.freeze({
+  resource: "customers",
+  tableName: "customers",
+  idColumn: "id",
   operations: {
     list: {
       outputValidator: Object.freeze({

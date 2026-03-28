@@ -80,6 +80,8 @@ const RESOURCE_FIELD_META = [];
 
 const ${option:namespace|singular|camel}Resource = {
   resource: "${option:namespace|snake}",
+  tableName: __JSKIT_CRUD_TABLE_NAME__,
+  idColumn: __JSKIT_CRUD_ID_COLUMN__,
   messages: {
     validation: "Fix invalid values and try again.",
     saveSuccess: "Record saved.",

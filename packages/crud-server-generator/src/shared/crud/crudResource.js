@@ -128,6 +128,8 @@ const CRUD_RESOURCE_FIELD_META = [];
 
 const crudResource = {
   resource: "crud",
+  tableName: "crud",
+  idColumn: "id",
   messages: {
     validation: "Fix invalid CRUD values and try again.",
     saveSuccess: "Record saved.",
