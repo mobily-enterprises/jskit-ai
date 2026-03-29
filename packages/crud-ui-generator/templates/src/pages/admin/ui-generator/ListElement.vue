@@ -23,7 +23,7 @@
           density="comfortable"
           hide-details="auto"
           clearable
-          class="mb-3"
+          class="mb-3 ui-generator-list-search"
           :loading="records.isSearchDebouncing"
         />
         <template v-if="records.showListSkeleton">
@@ -119,3 +119,9 @@ const records = useList({
     : null
 });
 </script>
+
+<style scoped>
+.ui-generator-list-search {
+  max-width: 26rem;
+}
+</style>

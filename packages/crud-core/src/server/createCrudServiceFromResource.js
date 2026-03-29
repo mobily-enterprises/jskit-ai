@@ -1,53 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import {
-  requireCrudNamespace,
-  resolveCrudRecordChangedEvent
-} from "../shared/crudNamespaceSupport.js";
+import { requireCrudNamespace } from "../shared/crudNamespaceSupport.js";
+import { createCrudServiceEvents } from "./serviceEvents.js";
 
 function createCrudServiceFromResource(resource = {}, { context = "crudService" } = {}) {
   const namespace = requireCrudNamespace(resource?.resource, { context: `${context} resource.resource` });
-  const recordChangedEventName = resolveCrudRecordChangedEvent(namespace);
-  const baseServiceEvents = Object.freeze({
-    createRecord: Object.freeze([
-      Object.freeze({
-        type: "entity.changed",
-        source: "crud",
-        entity: "record",
-        operation: "created",
-        entityId: ({ result }) => result?.id,
-        realtime: Object.freeze({
-          event: recordChangedEventName,
-          audience: "event_scope"
-        })
-      })
-    ]),
-    updateRecord: Object.freeze([
-      Object.freeze({
-        type: "entity.changed",
-        source: "crud",
-        entity: "record",
-        operation: "updated",
-        entityId: ({ result }) => result?.id,
-        realtime: Object.freeze({
-          event: recordChangedEventName,
-          audience: "event_scope"
-        })
-      })
-    ]),
-    deleteRecord: Object.freeze([
-      Object.freeze({
-        type: "entity.changed",
-        source: "crud",
-        entity: "record",
-        operation: "deleted",
-        entityId: ({ result }) => result?.id,
-        realtime: Object.freeze({
-          event: recordChangedEventName,
-          audience: "event_scope"
-        })
-      })
-    ])
-  });
+  const baseServiceEvents = createCrudServiceEvents(resource, { context });
 
   function createBaseService({ repository } = {}) {
     if (!repository) {

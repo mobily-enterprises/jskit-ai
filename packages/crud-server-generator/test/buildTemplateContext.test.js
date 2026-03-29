@@ -391,28 +391,35 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   );
 });
 
-test("crud repository template wraps createCrudRepositoryFromResource for easy method overrides", async () => {
+test("crud repository template defines explicit one-line CRUD methods over repository primitives", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "repository.js");
   const templateSource = await readFile(templatePath, "utf8");
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/createCrudRepositoryFromResource";/
+    /from "@jskit-ai\/crud-core\/server\/repositoryMethods";/
   );
-  assert.match(templateSource, /const createBaseRepository = createCrudRepositoryFromResource\(/);
-  assert.match(templateSource, /return Object\.freeze\(\{\s*\.\.\.base/s);
+  assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
+  assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
+  assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
+  assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
+  assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
+  assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
 });
 
-test("crud service template wraps createCrudServiceFromResource for easy method overrides", async () => {
+test("crud service template defines explicit service methods and semi-explicit default events", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "service.js");
   const templateSource = await readFile(templatePath, "utf8");
 
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/createCrudServiceFromResource";/
+    /from "@jskit-ai\/crud-core\/server\/serviceEvents";/
   );
-  assert.match(templateSource, /const \{ createBaseService, baseServiceEvents \} = createCrudServiceFromResource\(/);
-  assert.match(templateSource, /const serviceEvents = baseServiceEvents;/);
-  assert.match(templateSource, /return Object\.freeze\(\{\s*\.\.\.base,/s);
+  assert.match(templateSource, /const baseServiceEvents = createCrudServiceEvents\(/);
+  assert.match(templateSource, /const serviceEvents = Object\.freeze\(\{/);
+  assert.match(templateSource, /createRecord: \[\.\.\.baseServiceEvents\.createRecord\],/);
+  assert.match(templateSource, /async function listRecords\(query = \{\}, options = \{\}\)/);
+  assert.match(templateSource, /return \$\{option:namespace\|camel\}Repository\.list\(query, options\);/);
+  assert.match(templateSource, /throw new AppError\(404, "Record not found\."\);/);
 });

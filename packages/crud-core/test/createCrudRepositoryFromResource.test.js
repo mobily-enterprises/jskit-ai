@@ -160,3 +160,27 @@ test("createCrudRepositoryFromResource createRepository requires knex", () => {
     /requires knex/
   );
 });
+
+test("createCrudRepositoryFromResource allows list tuning through list config", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      defaultLimit: 1,
+      maxLimit: 2,
+      searchColumns: ["first_name"]
+    }
+  });
+  const { knex, calls } = createListKnexDouble([
+    { contact_id: 3, first_name: "Tony" },
+    { contact_id: 4, first_name: "Tom" },
+    { contact_id: 5, first_name: "Toby" }
+  ]);
+  const repository = createRepository(knex);
+
+  await repository.list({
+    q: "to",
+    limit: 99
+  });
+
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "first_name" && call[2] === "like" && call[3] === "%to%"));
+  assert.ok(calls.some((call) => call[0] === "limit" && call[1] === 3));
+});
