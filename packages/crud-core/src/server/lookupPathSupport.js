@@ -1,14 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
-
-function normalizeCrudLookupApiPath(value = "") {
-  const normalized = normalizePathname(normalizeText(value));
-  if (!normalized || normalized === "/") {
-    return "";
-  }
-
-  return normalized;
-}
+import { normalizeCrudLookupApiPath } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 function requireCrudLookupApiPath(value = "", { context = "crudLookupProvider" } = {}) {
   const normalizedPath = normalizeCrudLookupApiPath(value);

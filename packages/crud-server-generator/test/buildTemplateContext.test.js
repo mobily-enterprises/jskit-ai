@@ -278,6 +278,10 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /RESOURCE_FIELD_META\.push\(\{/);
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "vetId"/);
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /apiPath: "\/vets"/);
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__,
+    /formControl: "autocomplete" \/\/ or "select"/
+  );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
 

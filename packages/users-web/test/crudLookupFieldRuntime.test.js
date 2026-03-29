@@ -127,6 +127,32 @@ test("resolveLookupFieldDisplayValue falls back to raw id when lookup is not hyd
   );
 });
 
+test("resolveLookupFieldDisplayValue supports custom lookup container key", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: 17,
+        lookupData: {
+          vetId: {
+            id: 17,
+            name: "Harbor Vet"
+          }
+        }
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          containerKey: "lookupData",
+          valueKey: "id",
+          labelKey: "name"
+        }
+      }
+    ),
+    "Harbor Vet"
+  );
+});
+
 test("resolveLookupFieldDisplayValue returns raw value for non-lookup fields", () => {
   assert.equal(
     resolveLookupFieldDisplayValue(

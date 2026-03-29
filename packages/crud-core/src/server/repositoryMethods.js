@@ -1,6 +1,7 @@
 import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
 import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { Check, Errors } from "typebox/value";
 import {
   DEFAULT_LIST_LIMIT,
   MAX_LIST_LIMIT,
@@ -75,9 +76,51 @@ function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = []) {
   });
 }
 
+function resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {}) {
+  const outputValidator = resource?.operations?.view?.outputValidator;
+  if (!outputValidator || typeof outputValidator !== "object" || Array.isArray(outputValidator)) {
+    throw new TypeError(`${context} requires resource.operations.view.outputValidator.`);
+  }
+
+  const schema = outputValidator?.schema;
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new TypeError(`${context} requires resource.operations.view.outputValidator.schema.`);
+  }
+
+  const normalize = typeof outputValidator.normalize === "function"
+    ? outputValidator.normalize
+    : (payload = {}) => payload;
+
+  return Object.freeze({
+    schema,
+    normalize
+  });
+}
+
+function formatOutputValidationError(error = {}) {
+  const path = normalizeText(error?.instancePath || error?.path) || "/";
+  const message = normalizeText(error?.message) || "invalid output value";
+  return `${path} ${message}`;
+}
+
+async function normalizeRepositoryOutputRecord(runtime, record = {}, { operation = "read" } = {}) {
+  const outputRuntime = runtime?.output || {};
+  const normalizedRecord = await outputRuntime.normalize(record);
+  if (Check(outputRuntime.schema, normalizedRecord)) {
+    return normalizedRecord;
+  }
+
+  const issues = [...Errors(outputRuntime.schema, normalizedRecord)];
+  const formattedIssue = formatOutputValidationError(issues[0]);
+  throw new TypeError(
+    `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${formattedIssue}.`
+  );
+}
+
 function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {} } = {}) {
   const repositoryMapping = deriveRepositoryMappingFromResource(resource, { context });
   const defaults = resolveRepositoryDefaults(resource, repositoryMapping);
+  const output = resolveRecordOutputValidator(resource, { context });
   const lookupRuntime = createCrudLookupRuntime(resource, {
     outputKeys: repositoryMapping.outputKeys
   });
@@ -91,6 +134,7 @@ function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository"
     context,
     defaults,
     selectColumns,
+    output,
     list: resolveListRuntimeConfig(list, repositoryMapping.listSearchColumns),
     lookup: lookupRuntime,
     mapping: repositoryMapping
@@ -144,7 +188,17 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
   const rows = await dbQuery;
   const hasMore = rows.length > normalizedLimit;
   const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows;
-  const items = pageRows.map((row) => mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides));
+  const items = [];
+  for (const row of pageRows) {
+    const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+    if (!mappedRecord) {
+      continue;
+    }
+
+    items.push(await normalizeRepositoryOutputRecord(runtime, mappedRecord, {
+      operation: "list"
+    }));
+  }
 
   const hydratedItems = await hydrateCrudLookupRecords(items, {
     ...runtime.lookup,
@@ -176,8 +230,11 @@ async function crudRepositoryFindById(runtime, knex, recordId, repositoryOptions
   if (!mappedRecord) {
     return null;
   }
+  const normalizedRecord = await normalizeRepositoryOutputRecord(runtime, mappedRecord, {
+    operation: "findById"
+  });
 
-  const hydrated = await hydrateCrudLookupRecords([mappedRecord], {
+  const hydrated = await hydrateCrudLookupRecords([normalizedRecord], {
     ...runtime.lookup,
     context: runtime.context
   }, {
@@ -213,7 +270,29 @@ async function crudRepositoryListByIds(runtime, knex, ids = [], repositoryOption
     .where(visible)
     .whereIn(lookupColumn, normalizedIds);
 
-  return rows.map((row) => mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides));
+  const records = [];
+  for (const row of rows) {
+    const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+    if (!mappedRecord) {
+      continue;
+    }
+
+    records.push(await normalizeRepositoryOutputRecord(runtime, mappedRecord, {
+      operation: "listByIds"
+    }));
+  }
+
+  const lookupInclude = callOptions?.include === undefined ? "none" : callOptions.include;
+
+  return hydrateCrudLookupRecords(records, {
+    ...runtime.lookup,
+    context: runtime.context
+  }, {
+    include: lookupInclude,
+    mode: "list",
+    repositoryOptions,
+    callOptions
+  });
 }
 
 async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptions = {}, callOptions = {}) {

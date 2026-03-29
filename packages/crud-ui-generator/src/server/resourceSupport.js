@@ -1,6 +1,15 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
+import {
+  checkCrudLookupFormControl,
+  isCrudRuntimeOutputOnlyFieldKey
+} from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+import {
+  normalizeCrudLookupApiPath,
+  normalizeCrudLookupContainerKey,
+  resolveCrudLookupContainerKey
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -230,10 +239,11 @@ function normalizeLookupRelation(relation = {}) {
   }
 
   const kind = normalizeText(relation.kind).toLowerCase();
-  const relationApiPath = normalizeText(relation.apiPath);
-  const sourcePath = normalizeText(relation?.source?.path);
+  const relationApiPath = normalizeCrudLookupApiPath(relation.apiPath);
+  const sourcePath = normalizeCrudLookupApiPath(relation?.source?.path);
   const targetResource = normalizeText(relation.targetResource);
-  const apiPath = relationApiPath || sourcePath || (targetResource ? `/${targetResource}` : "");
+  const targetResourcePath = targetResource ? normalizeCrudLookupApiPath(`/${targetResource}`) : "";
+  const apiPath = relationApiPath || sourcePath || targetResourcePath;
   if (kind !== "lookup" || !apiPath) {
     return null;
   }
@@ -246,6 +256,15 @@ function normalizeLookupRelation(relation = {}) {
   const labelKey = normalizeText(relation.labelKey);
   if (labelKey) {
     normalized.labelKey = labelKey;
+  }
+  if (Object.hasOwn(relation, "containerKey")) {
+    const containerKey = normalizeCrudLookupContainerKey(relation.containerKey, {
+      defaultValue: "",
+      context: "resource lookup relation containerKey"
+    });
+    if (containerKey) {
+      normalized.containerKey = containerKey;
+    }
   }
   return normalized;
 }
@@ -274,6 +293,15 @@ function buildResourceFieldMetaMap(resource = {}) {
     const relation = normalizeLookupRelation(rawEntry.relation);
     if (relation) {
       nextEntry.relation = relation;
+      const formControl = checkCrudLookupFormControl(rawEntry?.ui?.formControl, {
+        context: `resource.fieldMeta["${key}"].ui.formControl`,
+        defaultValue: "autocomplete"
+      });
+      if (formControl) {
+        nextEntry.ui = {
+          formControl
+        };
+      }
     }
 
     map[key] = nextEntry;
@@ -282,14 +310,30 @@ function buildResourceFieldMetaMap(resource = {}) {
   return Object.freeze(map);
 }
 
-function toLookupRelation(fieldMetaMap = {}, fieldKey = "") {
+function resolveLookupContainerKey(resource = {}, { context = "ui-generator" } = {}) {
+  return resolveCrudLookupContainerKey(resource, {
+    context: `${context} resource.contract.lookup.containerKey`
+  });
+}
+
+function toLookupRelation(fieldMetaMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {}) {
   const key = normalizeText(fieldKey);
   if (!key) {
     return null;
   }
 
   const relation = normalizeLookupRelation(fieldMetaMap?.[key]?.relation);
-  return relation || null;
+  if (!relation) {
+    return null;
+  }
+
+  const containerKey = normalizeCrudLookupContainerKey(lookupContainerKey, {
+    context: `resource lookup relation "${key}" container key`
+  });
+  return {
+    ...relation,
+    containerKey
+  };
 }
 
 function resolveFormInputType(fieldType, fieldFormat) {
@@ -327,12 +371,12 @@ function toPositiveInteger(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function createFieldDefinitions(properties = {}, { fieldMetaMap = {} } = {}) {
+function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups" } = {}) {
   const fields = [];
 
   for (const [rawKey, schema] of Object.entries(properties)) {
     const key = normalizeText(rawKey);
-    if (!key) {
+    if (!key || isCrudRuntimeOutputOnlyFieldKey(key, { lookupContainerKey })) {
       continue;
     }
 
@@ -342,7 +386,7 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {} } = {}) {
       label: toFieldLabel(key),
       type: schemaType.type,
       format: schemaType.format,
-      relation: toLookupRelation(fieldMetaMap, key)
+      relation: toLookupRelation(fieldMetaMap, key, { lookupContainerKey })
     });
   }
 
@@ -361,18 +405,24 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {} } = {}) {
   ];
 }
 
-function createFormFieldDefinitions(properties = {}, { fieldMetaMap = {} } = {}) {
+function createFormFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups" } = {}) {
   const fields = [];
 
   for (const [rawKey, schema] of Object.entries(properties)) {
     const key = normalizeText(rawKey);
-    if (!key) {
+    if (!key || isCrudRuntimeOutputOnlyFieldKey(key, { lookupContainerKey })) {
       continue;
     }
 
     const schemaType = resolveSchemaType(schema);
-    const relation = toLookupRelation(fieldMetaMap, key);
-    fields.push({
+    const relation = toLookupRelation(fieldMetaMap, key, { lookupContainerKey });
+    const lookupFormControl = relation
+      ? checkCrudLookupFormControl(fieldMetaMap?.[key]?.ui?.formControl, {
+          context: `resource.fieldMeta["${key}"].ui.formControl`,
+          defaultValue: "autocomplete"
+        })
+      : "";
+    const fieldDefinition = {
       key,
       label: toFieldLabel(key),
       type: schemaType.type || "string",
@@ -382,7 +432,11 @@ function createFormFieldDefinitions(properties = {}, { fieldMetaMap = {} } = {})
       inputType: resolveFormInputType(schemaType.type, schemaType.format),
       component: resolveFormFieldComponent(schemaType.type, relation),
       maxLength: toPositiveInteger(schemaType.schema?.maxLength)
-    });
+    };
+    if (lookupFormControl) {
+      fieldDefinition.lookupFormControl = lookupFormControl;
+    }
+    fields.push(fieldDefinition);
   }
 
   return fields;
@@ -443,12 +497,40 @@ function toLookupDisplayFieldDescriptor(field = {}) {
   };
 }
 
+function toLookupDisplayFieldExpression(field = {}) {
+  const descriptor = toLookupDisplayFieldDescriptor(field);
+  if (!descriptor) {
+    return "{}";
+  }
+
+  const relation = descriptor.relation && typeof descriptor.relation === "object" && !Array.isArray(descriptor.relation)
+    ? descriptor.relation
+    : null;
+  if (!relation) {
+    return `{ key: ${JSON.stringify(descriptor.key)} }`;
+  }
+
+  const relationParts = [
+    `kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")}`,
+    `valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`
+  ];
+  const labelKey = normalizeText(relation.labelKey);
+  if (labelKey) {
+    relationParts.push(`labelKey: ${JSON.stringify(labelKey)}`);
+  }
+  const containerKey = normalizeText(relation.containerKey);
+  if (containerKey) {
+    relationParts.push(`containerKey: ${JSON.stringify(containerKey)}`);
+  }
+
+  return `{ key: ${JSON.stringify(descriptor.key)}, relation: { ${relationParts.join(", ")} } }`;
+}
+
 function buildListRowColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
     .map((field) => {
       if (isLookupField(field)) {
-        const descriptor = toLookupDisplayFieldDescriptor(field);
-        return `                <td>{{ records.resolveFieldDisplay(record, ${JSON.stringify(descriptor)}) }}</td>`;
+        return `                <td>{{ records.resolveFieldDisplay(record, ${toLookupDisplayFieldExpression(field)}) }}</td>`;
       }
 
       return `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`;
@@ -460,7 +542,7 @@ function buildViewColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
     .map((field) => {
       const valueExpression = isLookupField(field)
-        ? `view.resolveFieldDisplay(view.record, ${JSON.stringify(toLookupDisplayFieldDescriptor(field))})`
+        ? `view.resolveFieldDisplay(view.record, ${toLookupDisplayFieldExpression(field)})`
         : toOptionalAccessorExpression("view.record", field.key);
 
       return `            <v-col cols="12" md="6">
@@ -502,15 +584,24 @@ function buildFormColumns(fields = []) {
       }
 
       if (component === "lookup") {
+        const lookupFormControl = field?.lookupFormControl === "select" ? "select" : "autocomplete";
+        const useAutocomplete = lookupFormControl !== "select";
+        const lookupComponentTag = useAutocomplete ? "v-autocomplete" : "v-select";
+        const lookupSearchBindings = useAutocomplete
+          ? `\n                :search='resolveLookupSearch(${JSON.stringify(key)})'\n                @update:search='setLookupSearch(${JSON.stringify(key)}, $event)'`
+          : "";
+        const lookupNoFilterLine = useAutocomplete ? "\n                no-filter" : "";
         return `            <v-col cols="12" md="6">
-              <v-select
+              <${lookupComponentTag}
                 v-model="${formAccessor}"
                 label="${label}"
                 variant="outlined"
                 density="comfortable"
                 :items='resolveLookupItems(${JSON.stringify(key)}, { selectedValue: ${formAccessor}, selectedRecord: formRuntime.addEdit.resource.data })'
+                ${lookupSearchBindings}
                 item-title="label"
                 item-value="value"
+                ${lookupNoFilterLine}
                 :loading='resolveLookupLoading(${JSON.stringify(key)})'
                 :disabled="
                   !formRuntime.addEdit.canSave ||
@@ -590,6 +681,7 @@ export {
   requireBodySchema,
   requireObjectProperties,
   resolveListItemProperties,
+  resolveLookupContainerKey,
   buildResourceFieldMetaMap,
   createFieldDefinitions,
   createFormFieldDefinitions,

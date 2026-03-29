@@ -7,10 +7,12 @@ import {
 __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__
 __JSKIT_CRUD_RESOURCE_JSON_IMPORT__
 
+const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
+
 const recordOutputSchema = Type.Object(
   {
 __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__
-    lookups: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+    [RESOURCE_LOOKUP_CONTAINER_KEY]: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
   },
   { additionalProperties: false }
 );
@@ -36,8 +38,9 @@ const recordOutputValidator = Object.freeze({
     const normalized = {
 __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__
     };
-    if (source.lookups && typeof source.lookups === "object" && !Array.isArray(source.lookups)) {
-      normalized.lookups = source.lookups;
+    const sourceLookupContainer = source[RESOURCE_LOOKUP_CONTAINER_KEY];
+    if (sourceLookupContainer && typeof sourceLookupContainer === "object" && !Array.isArray(sourceLookupContainer)) {
+      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = sourceLookupContainer;
     }
 
     return normalized;
@@ -93,6 +96,13 @@ const ${option:namespace|singular|camel}Resource = {
     saveError: "Unable to save record.",
     deleteSuccess: "Record deleted.",
     deleteError: "Unable to delete record."
+  },
+  contract: {
+    lookup: {
+      containerKey: RESOURCE_LOOKUP_CONTAINER_KEY,
+      defaultInclude: "*", // Set "none" to disable lookup hydration unless include=... is passed.
+      maxDepth: 3 // Lower this to limit nested lookup hydration depth.
+    }
   },
   operations: {
     list: {

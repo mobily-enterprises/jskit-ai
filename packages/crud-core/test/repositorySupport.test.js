@@ -231,6 +231,44 @@ test("deriveRepositoryMappingFromResource excludes runtime-only lookups output k
   assert.deepEqual(mapping.outputKeys, ["id", "firstName"]);
 });
 
+test("deriveRepositoryMappingFromResource excludes custom lookup output container key", () => {
+  const resource = {
+    contract: {
+      lookup: {
+        containerKey: "lookupData"
+      }
+    },
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              firstName: { type: "string" },
+              lookupData: { type: "object" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: []
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.outputKeys, ["id", "firstName"]);
+});
+
 test("deriveRepositoryMappingFromResource throws when view schema properties are missing", () => {
   const resource = {
     operations: {

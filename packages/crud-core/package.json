@@ -10,6 +10,7 @@
     "./client/composables/createCrudClientSupport": "./src/client/composables/createCrudClientSupport.js",
     "./client/composables/crudClientSupportHelpers": "./src/client/composables/crudClientSupportHelpers.js",
     "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
+    "./shared/crudFieldMetaSupport": "./src/shared/crudFieldMetaSupport.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
     "./server/repositoryMethods": "./src/server/repositoryMethods.js",
@@ -26,6 +27,7 @@
     "@jskit-ai/realtime": "0.1.16",
     "@jskit-ai/shell-web": "0.1.16",
     "@jskit-ai/users-core": "0.1.26",
-    "@jskit-ai/users-web": "0.1.27"
+    "@jskit-ai/users-web": "0.1.27",
+    "typebox": "^1.0.81"
   }
 }

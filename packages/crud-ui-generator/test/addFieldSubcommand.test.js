@@ -130,9 +130,11 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
     const editSource = await readFile(path.join(appRoot, editFile), "utf8");
     assert.match(
       editSource,
-      /<v-select[\s\S]*resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)/
+      /<v-autocomplete[\s\S]*resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)/
     );
     assert.match(editSource, /:items='resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)'/);
+    assert.match(editSource, /:search='resolveLookupSearch\("vetId"\)'/);
+    assert.match(editSource, /@update:search='setLookupSearch\("vetId", \$event\)'/);
     assert.match(editSource, /:loading='resolveLookupLoading\("vetId"\)'/);
     assert.match(editSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
 
@@ -187,7 +189,7 @@ test("add-field patches list screen when resource-file is passed explicitly", as
     assert.match(listSource, /<th>Vet Id<\/th>/);
     assert.match(
       listSource,
-      /records\.resolveFieldDisplay\(record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+      /records\.resolveFieldDisplay\(record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/
     );
   });
 });
