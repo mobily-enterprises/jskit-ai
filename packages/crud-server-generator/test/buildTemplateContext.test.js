@@ -257,7 +257,7 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
     foreignKeys: Object.freeze([
       Object.freeze({
         name: "contacts_vet_id_foreign",
-        referencedTableName: "vets",
+        referencedTableName: "customer_categories",
         updateRule: "CASCADE",
         deleteRule: "SET NULL",
         columns: Object.freeze([
@@ -277,7 +277,7 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
 
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /RESOURCE_FIELD_META\.push\(\{/);
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "vetId"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /apiPath: "\/vets"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /apiPath: "\/customer-categories"/);
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__,
     /formControl: "autocomplete" \/\/ or "select"/

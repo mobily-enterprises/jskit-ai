@@ -198,8 +198,16 @@ export default Object.freeze({
         category: "ui-generator",
         id: "ui-generator-placement-menu",
         when: {
-          option: "operations",
-          in: ["list"]
+          all: [
+            {
+              option: "operations",
+              in: ["list"]
+            },
+            {
+              option: "route-path",
+              notContains: "["
+            }
+          ]
         }
       }
     ]

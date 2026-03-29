@@ -78,9 +78,8 @@ const recordOutputValidator = Object.freeze({
       createdAt: normalizeIfPresent(source.createdAt, toIsoString),
       updatedAt: normalizeIfPresent(source.updatedAt, toIsoString)
     };
-    const sourceLookupContainer = source[RESOURCE_LOOKUP_CONTAINER_KEY];
-    if (sourceLookupContainer && typeof sourceLookupContainer === "object" && !Array.isArray(sourceLookupContainer)) {
-      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = sourceLookupContainer;
+    if (Object.hasOwn(source, RESOURCE_LOOKUP_CONTAINER_KEY)) {
+      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = source[RESOURCE_LOOKUP_CONTAINER_KEY];
     }
 
     return normalized;

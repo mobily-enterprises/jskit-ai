@@ -182,13 +182,18 @@ function insertBeforeAnchor(source, { anchor = "", snippet = "" } = {}) {
     };
   }
 
-  const anchorIndex = String(source || "").indexOf(normalizedAnchor);
-  if (anchorIndex < 0) {
+  const sourceText = String(source || "");
+  const escapedAnchor = normalizedAnchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const anchorLinePattern = new RegExp(`^([ \\t]*)${escapedAnchor}[ \\t]*$`, "m");
+  const anchorLineMatch = sourceText.match(anchorLinePattern);
+  if (!anchorLineMatch) {
     throw new Error(`crud-ui-generator add-field could not find anchor: ${normalizedAnchor}`);
   }
+  const anchorIndent = String(anchorLineMatch[1] || "");
+  const alignedAnchorLine = `${anchorIndent}${normalizedAnchor}`;
 
   return {
-    content: String(source || "").replace(normalizedAnchor, `${normalizedSnippet}\n${normalizedAnchor}`),
+    content: sourceText.replace(anchorLinePattern, `${normalizedSnippet}\n${alignedAnchorLine}`),
     changed: true
   };
 }

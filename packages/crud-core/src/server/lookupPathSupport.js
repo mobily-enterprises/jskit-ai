@@ -1,4 +1,5 @@
 import { normalizeCrudLookupApiPath } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 function requireCrudLookupApiPath(value = "", { context = "crudLookupProvider" } = {}) {
   const normalizedPath = normalizeCrudLookupApiPath(value);
@@ -13,7 +14,13 @@ function resolveCrudLookupProviderToken(apiPath = "", { context = "crudLookupPro
   const normalizedPath = requireCrudLookupApiPath(apiPath, {
     context
   });
-  return `crud.lookup.${normalizedPath.slice(1).toLowerCase().replace(/\//g, ".")}`;
+  const tokenPart = normalizedPath
+    .slice(1)
+    .split("/")
+    .map((segment) => toSnakeCase(segment))
+    .filter(Boolean)
+    .join(".");
+  return `crud.lookup.${tokenPart}`;
 }
 
 export {

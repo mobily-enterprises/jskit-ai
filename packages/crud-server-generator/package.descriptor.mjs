@@ -81,6 +81,12 @@ export default Object.freeze({
     }
   },
   metadata: {
+    generatorSubcommands: {
+      "add-field": {
+        entrypoint: "src/server/subcommands/addField.js",
+        export: "runGeneratorSubcommand"
+      }
+    },
     apiSummary: {
       surfaces: [
         {

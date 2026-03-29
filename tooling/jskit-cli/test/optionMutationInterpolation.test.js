@@ -76,6 +76,21 @@ test("add package applies option interpolation and conditional file mutations", 
       "prefixed namespace=${option:namespace|kebab} prefix=${option:directory-prefix|path}\n",
       "utf8"
     );
+    await writeFile(
+      path.join(packageRoot, "templates", "dynamic-route.txt"),
+      "route=${option:route-path|path}\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(packageRoot, "templates", "root-only.txt"),
+      "root-route-only=true\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(packageRoot, "templates", "all-conditions.txt"),
+      "all-conditions=true\n",
+      "utf8"
+    );
 
     await writeFile(
       path.join(packageRoot, "package.descriptor.mjs"),
@@ -97,6 +112,10 @@ test("add package applies option interpolation and conditional file mutations", 
       defaultValue: ""
     },
     "directory-prefix": {
+      required: false,
+      defaultValue: ""
+    },
+    "route-path": {
       required: false,
       defaultValue: ""
     },
@@ -134,6 +153,42 @@ test("add package applies option interpolation and conditional file mutations", 
         to: "src/generated/\${option:directory-prefix|pathprefix}\${option:namespace|kebab|default(default)}/prefixed.txt"
       },
       {
+        from: "templates/dynamic-route.txt",
+        to: "src/generated/\${option:route-path|path}/route.txt"
+      },
+      {
+        from: "templates/root-only.txt",
+        to: "src/generated/root-only.txt",
+        when: {
+          all: [
+            {
+              option: "visibility",
+              in: ["public"]
+            },
+            {
+              option: "route-path",
+              notContains: "["
+            }
+          ]
+        }
+      },
+      {
+        from: "templates/all-conditions.txt",
+        to: "src/generated/all-conditions.txt",
+        when: {
+          all: [
+            {
+              option: "visibility",
+              in: ["public"]
+            },
+            {
+              option: "route-path",
+              contains: "[contactId]"
+            }
+          ]
+        }
+      },
+      {
         op: "install-migration",
         from: "templates/migration.cjs",
         toDir: "migrations",
@@ -155,6 +210,8 @@ test("add package applies option interpolation and conditional file mutations", 
         "client-profiles",
         "--directory-prefix",
         "crm/team alpha",
+        "--route-path",
+        "contacts/[contactId]/addresses",
         "--visibility",
         "public",
         "--no-install"
@@ -172,6 +229,22 @@ test("add package applies option interpolation and conditional file mutations", 
     const prefixedFile = path.join(appRoot, "src", "generated", "crm", "team-alpha", "client-profiles", "prefixed.txt");
     const prefixedContent = await readFile(prefixedFile, "utf8");
     assert.equal(prefixedContent, "prefixed namespace=client-profiles prefix=crm/team-alpha\n");
+    const dynamicRouteFile = path.join(
+      appRoot,
+      "src",
+      "generated",
+      "contacts",
+      "[contactId]",
+      "addresses",
+      "route.txt"
+    );
+    const dynamicRouteContent = await readFile(dynamicRouteFile, "utf8");
+    assert.equal(dynamicRouteContent, "route=contacts/[contactId]/addresses\n");
+    const rootOnlyFile = path.join(appRoot, "src", "generated", "root-only.txt");
+    await assert.rejects(() => readFile(rootOnlyFile, "utf8"));
+    const allConditionsFile = path.join(appRoot, "src", "generated", "all-conditions.txt");
+    const allConditionsContent = await readFile(allConditionsFile, "utf8");
+    assert.equal(allConditionsContent, "all-conditions=true\n");
 
     const migrationsDirectory = path.join(appRoot, "migrations");
     const migrationFiles = (await readdir(migrationsDirectory))
