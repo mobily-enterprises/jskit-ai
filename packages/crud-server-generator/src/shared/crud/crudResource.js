@@ -154,6 +154,9 @@ const crudResource = {
   },
   operations: {
     list: {
+      realtime: {
+        events: ["crud.record.changed"] // Add more events e.g. for lookup records
+      },
       method: "GET",
       outputValidator: listOutputValidator
     },

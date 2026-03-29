@@ -43,4 +43,5 @@ test("crudResource normalizes list output", () => {
 test("crudResource list operation exposes output validator only", () => {
   assert.equal(typeof crudResource.operations.list.outputValidator?.normalize, "function");
   assert.equal(crudResource.operations.list.inputValidator, undefined);
+  assert.deepEqual(crudResource.operations.list.realtime?.events, ["crud.record.changed"]);
 });

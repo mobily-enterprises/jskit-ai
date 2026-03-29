@@ -102,6 +102,62 @@ function requireOperation(resource, operationName, { context = "ui-generator" } 
   return operation;
 }
 
+function normalizeRealtimeEventList(events = []) {
+  const sourceEvents = Array.isArray(events) ? events : [events];
+  const uniqueEvents = [];
+  const seen = new Set();
+
+  for (const entry of sourceEvents) {
+    const eventName = normalizeText(entry);
+    if (!eventName || seen.has(eventName)) {
+      continue;
+    }
+    seen.add(eventName);
+    uniqueEvents.push(eventName);
+  }
+
+  return uniqueEvents;
+}
+
+function resolveOperationRealtimeEvents(
+  operation = {},
+  {
+    defaultEvents = [],
+    context = "ui-generator"
+  } = {}
+) {
+  const fallbackEvents = normalizeRealtimeEventList(defaultEvents);
+  const realtime = operation?.realtime;
+  if (realtime === undefined || realtime === null) {
+    return fallbackEvents;
+  }
+  if (realtime === false) {
+    return [];
+  }
+
+  if (typeof realtime === "string") {
+    return normalizeRealtimeEventList([realtime]);
+  }
+
+  if (!realtime || typeof realtime !== "object" || Array.isArray(realtime)) {
+    throw new Error(`${context} operations realtime config must be false, string, or object.`);
+  }
+
+  const events = [];
+  if (Object.hasOwn(realtime, "event")) {
+    events.push(realtime.event);
+  }
+  if (Object.hasOwn(realtime, "events")) {
+    if (!Array.isArray(realtime.events)) {
+      throw new Error(`${context} operations realtime.events must be an array.`);
+    }
+    events.push(...realtime.events);
+  }
+
+  const normalizedEvents = normalizeRealtimeEventList(events);
+  return normalizedEvents.length > 0 ? normalizedEvents : fallbackEvents;
+}
+
 function requireOutputSchema(operation, operationName, { context = "ui-generator" } = {}) {
   const outputValidator = operation?.outputValidator;
   if (!outputValidator || typeof outputValidator !== "object" || Array.isArray(outputValidator)) {
@@ -677,6 +733,7 @@ export {
   deriveDefaultResourceExport,
   loadResourceDefinition,
   requireOperation,
+  resolveOperationRealtimeEvents,
   requireOutputSchema,
   requireBodySchema,
   requireObjectProperties,

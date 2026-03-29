@@ -3,6 +3,7 @@ import {
   requireOption,
   loadResourceDefinition,
   requireOperation,
+  resolveOperationRealtimeEvents,
   requireOutputSchema,
   requireBodySchema,
   requireObjectProperties,
@@ -143,15 +144,21 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const hasEditOperation = selectedOperations.has("edit");
 
   const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
+  const defaultRecordChangedEvent = resolveRecordChangedEventName(resourceNamespace);
   const lookupContainerKey = resolveLookupContainerKey(resource, {
     context: "ui-generator"
   });
   const fieldMetaMap = buildResourceFieldMetaMap(resource);
+  let listRealtimeEvents = [defaultRecordChangedEvent];
 
   let listFieldsAll = [];
   if (hasListOperation) {
     const listOperation = requireOperation(resource, "list", { context: "ui-generator" });
     const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "ui-generator" });
+    listRealtimeEvents = resolveOperationRealtimeEvents(listOperation, {
+      defaultEvents: [defaultRecordChangedEvent],
+      context: "ui-generator operations.list.realtime"
+    });
     listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "ui-generator" }), {
       fieldMetaMap,
       lookupContainerKey
@@ -226,9 +233,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   return {
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
+    __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
-    __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(resolveRecordChangedEventName(resourceNamespace)),
+    __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(defaultRecordChangedEvent),
     __JSKIT_UI_HAS_LIST_ROUTE__: hasListOperation ? "true" : "false",
     __JSKIT_UI_HAS_VIEW_ROUTE__: hasViewOperation ? "true" : "false",
     __JSKIT_UI_HAS_NEW_ROUTE__: hasNewOperation ? "true" : "false",
