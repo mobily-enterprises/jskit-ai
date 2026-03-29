@@ -52,7 +52,8 @@ function resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = 
       relation: {
         kind: normalizeText(relationKind).toLowerCase(),
         valueKey: normalizeText(valueKey) || "id",
-        labelKey: normalizeText(labelKey)
+        labelKey: normalizeText(labelKey),
+        containerKey: ""
       }
     };
   }
@@ -64,7 +65,8 @@ function resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = 
     relation: {
       kind: normalizeText(relation.kind).toLowerCase(),
       valueKey: normalizeText(relation.valueKey) || "id",
-      labelKey: normalizeText(relation.labelKey)
+      labelKey: normalizeText(relation.labelKey),
+      containerKey: normalizeText(relation.containerKey)
     }
   };
 }
@@ -81,7 +83,7 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = 
     return sourceRecord[key];
   }
 
-  const lookupContainerKey = normalizeCrudLookupContainerKey(relation.containerKey, {
+  const lookupContainerKey = normalizeCrudLookupContainerKey(descriptor.relation.containerKey, {
     context: `lookup relation "${key}" containerKey`
   });
   const sourceLookups = asPlainObject(sourceRecord[lookupContainerKey]);
