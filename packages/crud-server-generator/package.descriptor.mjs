@@ -74,8 +74,8 @@ export default Object.freeze({
     server: {
       providers: [
         {
-          entrypoint: "src/server/CrudServiceProvider.js",
-          export: "CrudServiceProvider"
+          entrypoint: "src/server/CrudProvider.js",
+          export: "CrudProvider"
         }
       ]
     }
@@ -145,8 +145,8 @@ export default Object.freeze({
         id: "crud-local-package-descriptor-${option:namespace|snake}"
       },
       {
-        from: "templates/src/local-package/server/CrudServiceProvider.js",
-        to: "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}ServiceProvider.js",
+        from: "templates/src/local-package/server/CrudProvider.js",
+        to: "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}Provider.js",
         reason: "Install app-local CRUD server provider.",
         category: "crud",
         id: "crud-local-package-server-provider-${option:namespace|snake}",
