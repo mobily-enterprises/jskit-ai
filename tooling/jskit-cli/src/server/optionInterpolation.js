@@ -187,7 +187,18 @@ function toPluralForm(value) {
 function normalizePathValue(value) {
   return String(value || "")
     .split("/")
-    .map((segment) => wordsToKebab(splitTextIntoWords(segment)))
+    .map((segment) => {
+      const normalizedSegment = String(segment || "").trim();
+      if (!normalizedSegment) {
+        return "";
+      }
+
+      if (/^\[[^\]]+\]$/.test(normalizedSegment)) {
+        return normalizedSegment;
+      }
+
+      return wordsToKebab(splitTextIntoWords(normalizedSegment));
+    })
     .filter(Boolean)
     .join("/");
 }

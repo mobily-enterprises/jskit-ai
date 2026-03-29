@@ -9,6 +9,8 @@ import {
 test("resolveCrudLookupProviderToken normalizes apiPath to lookup token", () => {
   assert.equal(resolveCrudLookupProviderToken("/vets"), "crud.lookup.vets");
   assert.equal(resolveCrudLookupProviderToken("vets/clinics/"), "crud.lookup.vets.clinics");
+  assert.equal(resolveCrudLookupProviderToken("/contact-categories"), "crud.lookup.contact_categories");
+  assert.equal(resolveCrudLookupProviderToken("/customer-categories/line-items"), "crud.lookup.customer_categories.line_items");
 });
 
 test("resolveCrudLookupProviderToken throws for empty apiPath", () => {

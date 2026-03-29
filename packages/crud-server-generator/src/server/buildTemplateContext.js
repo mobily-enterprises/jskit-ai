@@ -781,6 +781,15 @@ function mergeFieldMetaEntries(baseEntries = [], patchEntries = []) {
   return [...mergedByKey.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
+function resolveLookupApiPathFromTableName(tableName = "") {
+  const normalizedTableName = toSnakeCase(normalizeText(tableName));
+  if (!normalizedTableName) {
+    return "";
+  }
+
+  return `/${normalizedTableName.replace(/_/g, "-")}`;
+}
+
 function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
   const fieldColumns = [...outputColumns, ...writableColumns];
   const fieldColumnsByName = new Map();
@@ -839,7 +848,7 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
       key: localColumn.key,
       relation: {
         kind: "lookup",
-        apiPath: `/${referencedTableName}`,
+        apiPath: resolveLookupApiPathFromTableName(referencedTableName),
         valueKey: toCamelCase(referencedColumnName)
       },
       ui: {
@@ -1081,7 +1090,23 @@ const __testables = Object.freeze({
   parseDotEnvLine,
   renderMigrationColumnLine,
   renderMigrationForeignKeyLine,
+  resolveScaffoldColumns,
+  renderPropertyAccess,
+  renderResourceFieldSchema,
+  renderInputNormalizer,
+  renderOutputNormalizerExpression,
+  resolveGenerationSnapshot,
   buildFieldMetaEntries
 });
 
-export { buildTemplateContext, __testables };
+export {
+  buildTemplateContext,
+  resolveScaffoldColumns,
+  renderPropertyAccess,
+  resolveGenerationSnapshot,
+  renderResourceFieldSchema,
+  renderInputNormalizer,
+  renderOutputNormalizerExpression,
+  buildFieldMetaEntries,
+  __testables
+};

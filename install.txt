@@ -24,14 +24,65 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 
 
 
-
 # npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --no-install
 
+
+
+
+------------------------------
 npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param recordId --no-install
+npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param contactId --no-install
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install
+npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
+
 
 npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto --no-install
 npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --resource-export vetResource --api-path /vets --route-path vets --id-param recordId --no-install
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace contact-categories --surface admin --table-name contact_categories --id-column id --ownership-filter auto --no-install
+npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js --resource-export contactCategoryResource --api-path /contact-categories --route-path contact-categories --id-param recordId --no-install
+------------------------------------
+
+
+
+
+
+
+
+
+-------------------------------------
+FIELD ADDING:
+
+ ALTER TABLE contacts
+    DROP FOREIGN KEY crud_contacts_category_id_foreign,
+    DROP INDEX crud_contacts_category_id_index,
+    DROP COLUMN category_id;
+
+
+  ALTER TABLE contacts
+    ADD COLUMN category_id INT UNSIGNED NULL AFTER vet_id,
+    ADD KEY crud_contacts_category_id_index (category_id),
+    ADD CONSTRAINT crud_contacts_category_id_foreign
+      FOREIGN KEY (category_id) REFERENCES contact_categories(id)
+      ON UPDATE CASCADE
+      ON DELETE SET NULL;
+
+
+
+
+  npx jskit generate @jskit-ai/crud-server-generator add-field categoryId packages/contacts/src/shared/contactResource.js --no-install
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+  
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+
+----------------------------------------------------------------------
+
+
+
+
 
 // ONE LINE
 npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install;npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param recordId --no-install;npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto --no-install;npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --resource-export vetResource --api-path /vets --route-path vets --id-param recordId --no-install
@@ -53,7 +104,7 @@ drop table  workspaces            ;
 
 
 TODO TODAY:
-* Check that adding a module 
+* Check that adding a field. categoryId for customer, then countryId for vets
 * Check feasibility of pattern /contacts/:contactId/addresses/:addressId/edit
 * Check if it's feasible to have a crud within a container (if not, give it up)
 
@@ -129,5 +180,3 @@ Install app on Dokku:
   ssh root@www.appgenius.biz "dokku ps:report newapp"
   ssh root@www.appgenius.biz "dokku logs newapp -n 120 --quiet"
   curl -I https://newapp.appgenius.biz
-
-

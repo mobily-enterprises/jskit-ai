@@ -38,9 +38,8 @@ const recordOutputValidator = Object.freeze({
     const normalized = {
 __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__
     };
-    const sourceLookupContainer = source[RESOURCE_LOOKUP_CONTAINER_KEY];
-    if (sourceLookupContainer && typeof sourceLookupContainer === "object" && !Array.isArray(sourceLookupContainer)) {
-      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = sourceLookupContainer;
+    if (Object.hasOwn(source, RESOURCE_LOOKUP_CONTAINER_KEY)) {
+      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = source[RESOURCE_LOOKUP_CONTAINER_KEY];
     }
 
     return normalized;

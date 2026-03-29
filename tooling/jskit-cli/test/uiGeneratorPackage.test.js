@@ -183,7 +183,9 @@ async function generateCrudUiPackage(
     displayFields = "",
     namespace = "customers",
     apiPath = "/crud/customers",
-    resourceExport = "customerResource"
+    resourceExport = "customerResource",
+    routePath = "ops/customers-ui",
+    idParam = "customerId"
   } = {}
 ) {
   await installCrudUiGeneratorPackage(appRoot);
@@ -205,9 +207,9 @@ async function generateCrudUiPackage(
     "--api-path",
     apiPath,
     "--route-path",
-    "ops/customers-ui",
+    routePath,
     "--id-param",
-    "customerId",
+    idParam,
     "--no-install"
   ];
 
@@ -346,6 +348,37 @@ test("generate @jskit-ai/crud-ui-generator with operations=list scaffolds list o
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator does not append menu placement for dynamic route paths", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-dynamic-route-no-menu");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-route-no-menu" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      namespace: "addresses",
+      apiPath: "/addresses",
+      operations: "list,view,new,edit",
+      routePath: "contacts/[contactId]/addresses",
+      idParam: "addressId"
+    });
+
+    const dynamicListPagePath = path.join(
+      appRoot,
+      "src",
+      "pages",
+      "admin",
+      "contacts",
+      "[contactId]",
+      "addresses",
+      "index.vue"
+    );
+    assert.equal(await fileExists(dynamicListPagePath), true);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:addresses::contacts\/\[contactId\]\/addresses/);
+    assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/addresses"/);
   });
 });
 
