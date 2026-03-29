@@ -166,3 +166,24 @@ test("resolveLookupFieldDisplayValue returns raw value for non-lookup fields", (
     "Ana"
   );
 });
+
+test("resolveLookupFieldDisplayValue supports scalar lookup descriptor arguments", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: 17,
+        lookups: {
+          vetId: {
+            id: 17,
+            name: "Harbor Vet"
+          }
+        }
+      },
+      "vetId",
+      "lookup",
+      "id",
+      "name"
+    ),
+    "Harbor Vet"
+  );
+});

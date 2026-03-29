@@ -171,8 +171,19 @@ function createCrudLookupFieldRuntime({
       return items;
     }
 
-    if (items.some((item) => isSameLookupValue(item?.value, selectedItem.value))) {
+    if (items.some((item) => item?.value === selectedItem.value)) {
       return items;
+    }
+
+    const matchingItem = items.find((item) => isSameLookupValue(item?.value, selectedItem.value));
+    if (matchingItem) {
+      return [
+        {
+          ...selectedItem,
+          label: String(matchingItem.label ?? selectedItem.label ?? "")
+        },
+        ...items
+      ];
     }
 
     return [selectedItem, ...items];
