@@ -30,6 +30,8 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 
 
 ------------------------------
+npm run devlinks
+
 npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install
 npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param contactId --no-install
 
@@ -45,6 +47,9 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --
 ------------------------------------
 
 
+Addresses:
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install; npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
 
 
 

@@ -2,7 +2,8 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/valida
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   listSearchQueryValidator,
-  lookupIncludeQueryValidator
+  lookupIncludeQueryValidator,
+  createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import {
   cursorPaginationQueryValidator,
@@ -14,6 +15,8 @@ import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
 import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
+
+const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(${option:namespace|singular|camel}Resource);
 
 function registerRoutes(
   app,
@@ -43,7 +46,12 @@ function registerRoutes(
         summary: "List records."
       },
       paramsValidator: routeParamsValidator,
-      queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator],
+      queryValidator: [
+        cursorPaginationQueryValidator,
+        listSearchQueryValidator,
+        listParentFilterQueryValidator,
+        lookupIncludeQueryValidator
+      ],
       responseValidators: withStandardErrorResponses({
         200: ${option:namespace|singular|camel}Resource.operations.list.outputValidator
       })

@@ -45,7 +45,8 @@ function buildResourceStubSource() {
 const createBodyValidator = Object.freeze({
   schema: {
     properties: {
-      name: {}
+      name: {},
+      contactId: {}
     }
   },
   normalize(payload = {}) {
@@ -56,7 +57,8 @@ const createBodyValidator = Object.freeze({
 const patchBodyValidator = Object.freeze({
   schema: {
     properties: {
-      name: {}
+      name: {},
+      contactId: {}
     }
   },
   normalize: createBodyValidator.normalize
@@ -105,7 +107,16 @@ const customerResource = Object.freeze({
       })
     }
   },
-  fieldMeta: []
+  fieldMeta: [
+    {
+      key: "contactId",
+      relation: {
+        kind: "lookup",
+        apiPath: "/contacts",
+        valueKey: "id"
+      }
+    }
+  ]
 });
 
 export { customerResource };

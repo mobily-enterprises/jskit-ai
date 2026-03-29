@@ -289,6 +289,49 @@ function toFieldLabel(key) {
     .join(" ");
 }
 
+function extractDynamicRouteParamKeys(routePath = "") {
+  const sourcePath = String(routePath || "").trim();
+  if (!sourcePath) {
+    return [];
+  }
+
+  const keys = [];
+  const seenKeys = new Set();
+  const bracketPattern = /\[([A-Za-z][A-Za-z0-9_]*)\]/g;
+  const colonPattern = /:([A-Za-z][A-Za-z0-9_]*)/g;
+
+  let match = null;
+  while ((match = bracketPattern.exec(sourcePath)) != null) {
+    const key = normalizeText(match[1]);
+    if (!key || seenKeys.has(key)) {
+      continue;
+    }
+    seenKeys.add(key);
+    keys.push(key);
+  }
+  while ((match = colonPattern.exec(sourcePath)) != null) {
+    const key = normalizeText(match[1]);
+    if (!key || seenKeys.has(key)) {
+      continue;
+    }
+    seenKeys.add(key);
+    keys.push(key);
+  }
+
+  return keys;
+}
+
+function resolveNearestParentRouteParamKey(routePath = "", { recordIdParam = "recordId" } = {}) {
+  const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
+  const dynamicParamKeys = extractDynamicRouteParamKeys(routePath);
+  if (dynamicParamKeys.length < 1) {
+    return "";
+  }
+
+  const filteredParamKeys = dynamicParamKeys.filter((key) => key !== "workspaceSlug" && key !== normalizedRecordIdParam);
+  return filteredParamKeys[filteredParamKeys.length - 1] || "";
+}
+
 function normalizeLookupRelation(relation = {}) {
   if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
     return null;
@@ -461,8 +504,16 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupCont
   ];
 }
 
-function createFormFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups" } = {}) {
+function createFormFieldDefinitions(
+  properties = {},
+  {
+    fieldMetaMap = {},
+    lookupContainerKey = "lookups",
+    parentRouteParamKey = ""
+  } = {}
+) {
   const fields = [];
+  const normalizedParentRouteParamKey = normalizeText(parentRouteParamKey);
 
   for (const [rawKey, schema] of Object.entries(properties)) {
     const key = normalizeText(rawKey);
@@ -489,6 +540,10 @@ function createFormFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookup
       component: resolveFormFieldComponent(schemaType.type, relation),
       maxLength: toPositiveInteger(schemaType.schema?.maxLength)
     };
+    if (normalizedParentRouteParamKey && key === normalizedParentRouteParamKey) {
+      fieldDefinition.hidden = true;
+      fieldDefinition.routeParamKey = normalizedParentRouteParamKey;
+    }
     if (lookupFormControl) {
       fieldDefinition.lookupFormControl = lookupFormControl;
     }
@@ -617,6 +672,9 @@ function buildFormColumns(fields = []) {
       if (!key) {
         return "";
       }
+      if (field?.hidden === true) {
+        return "";
+      }
 
       const label = escapeHtml(field?.label || toFieldLabel(key));
       const formAccessor = toAccessorExpression("formRuntime.form", key);
@@ -742,6 +800,7 @@ export {
   buildResourceFieldMetaMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
+  resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
   buildViewColumns,

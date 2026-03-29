@@ -123,6 +123,24 @@ test("applyCrudListQueryFilters skips search and cursor when inputs are empty", 
   assert.deepEqual(calls, []);
 });
 
+test("applyCrudListQueryFilters applies parent FK filters from allowed columns", () => {
+  const { query, calls } = createQueryDouble();
+  const result = applyCrudListQueryFilters(query, {
+    parentFilters: {
+      contactId: " 7 ",
+      ignored: "x"
+    },
+    parentFilterColumns: {
+      contactId: "contact_id"
+    }
+  });
+
+  assert.equal(result, query);
+  assert.deepEqual(calls, [
+    ["where", "contact_id", "7"]
+  ]);
+});
+
 test("applyCrudListQueryFilters throws for invalid query builders", () => {
   assert.throws(
     () => applyCrudListQueryFilters({}),
@@ -183,7 +201,12 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
       },
       {
         key: "vetId",
-        dbColumn: "vet_id"
+        dbColumn: "vet_id",
+        relation: {
+          kind: "lookup",
+          apiPath: "/vets",
+          valueKey: "id"
+        }
       }
     ]
   };
@@ -196,6 +219,9 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
     vetId: "vet_id"
   });
   assert.deepEqual(mapping.listSearchColumns, ["first_name", "created_at"]);
+  assert.deepEqual(mapping.parentFilterColumns, {
+    vetId: "vet_id"
+  });
 });
 
 test("deriveRepositoryMappingFromResource excludes runtime-only lookups output key from db mapping", () => {

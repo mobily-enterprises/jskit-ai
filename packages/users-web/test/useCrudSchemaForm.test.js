@@ -7,6 +7,8 @@ import {
   createCrudFormModel,
   buildCrudFormPayload,
   applyCrudPayloadToForm,
+  resolveCrudRouteBoundFieldValues,
+  applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
 } from "../src/client/composables/crudSchemaFormHelpers.js";
@@ -84,6 +86,43 @@ test("applyCrudPayloadToForm maps payload values into reactive form model", () =
     name: "Grace",
     active: true,
     age: "33"
+  });
+});
+
+test("resolveCrudRouteBoundFieldValues maps route params for route-bound form fields", () => {
+  const values = resolveCrudRouteBoundFieldValues(
+    [
+      { key: "contactId", routeParamKey: "contactId" },
+      { key: "name" }
+    ],
+    {
+      contactId: " 2971 "
+    }
+  );
+
+  assert.deepEqual(values, {
+    contactId: "2971"
+  });
+});
+
+test("applyCrudRouteBoundFieldValues enforces route-bound field values onto target payload", () => {
+  const payload = {
+    name: "Address one",
+    contactId: "123"
+  };
+  applyCrudRouteBoundFieldValues(
+    [
+      { key: "contactId", routeParamKey: "contactId" }
+    ],
+    payload,
+    {
+      contactId: "2971"
+    }
+  );
+
+  assert.deepEqual(payload, {
+    name: "Address one",
+    contactId: "2971"
   });
 });
 

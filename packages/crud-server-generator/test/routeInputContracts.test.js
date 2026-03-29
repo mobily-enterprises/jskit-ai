@@ -241,6 +241,7 @@ test("crud list route forwards normalized query input from list query validators
           cursor: 3,
           limit: 25,
           q: "to",
+          contactId: "2971",
           include: "vetId"
         }
       },
@@ -254,6 +255,7 @@ test("crud list route forwards normalized query input from list query validators
     cursor: 3,
     limit: 25,
     q: "to",
+    contactId: "2971",
     include: "vetId"
   });
 });

@@ -46,9 +46,49 @@ function resolveCrudLookupContainerKey(resource = {}, options = {}) {
   return normalizeCrudLookupContainerKey(lookup?.containerKey, options);
 }
 
+function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
+  const source = resource && typeof resource === "object" && !Array.isArray(resource) ? resource : {};
+  const entries = Array.isArray(source.fieldMeta) ? source.fieldMeta : [];
+  const allowedKeySet = new Set(
+    (Array.isArray(allowKeys) ? allowKeys : [])
+      .map((entry) => normalizeText(entry))
+      .filter(Boolean)
+  );
+
+  const keys = [];
+  const seenKeys = new Set();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+
+    const key = normalizeText(entry.key);
+    if (!key || seenKeys.has(key)) {
+      continue;
+    }
+    if (allowedKeySet.size > 0 && !allowedKeySet.has(key)) {
+      continue;
+    }
+
+    const relation = entry.relation;
+    if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
+      continue;
+    }
+    if (normalizeText(relation.kind).toLowerCase() !== "lookup") {
+      continue;
+    }
+
+    seenKeys.add(key);
+    keys.push(key);
+  }
+
+  return Object.freeze(keys);
+}
+
 export {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
   normalizeCrudLookupContainerKey,
-  resolveCrudLookupContainerKey
+  resolveCrudLookupContainerKey,
+  resolveCrudLookupFieldKeys
 };

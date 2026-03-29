@@ -100,11 +100,64 @@ function resolveRouteTemplateLocation(routeTemplate = "", { params = {}, current
   return resolvedPathname;
 }
 
+function extractRouteParamNames(pathTemplate = "") {
+  const normalizedTemplate = String(pathTemplate || "").trim();
+  if (!normalizedTemplate) {
+    return [];
+  }
+
+  const names = [];
+  const seen = new Set();
+  const pattern = /:([A-Za-z][A-Za-z0-9_]*)/g;
+  let match = null;
+  while ((match = pattern.exec(normalizedTemplate)) != null) {
+    const name = String(match[1] || "").trim();
+    if (!name || seen.has(name)) {
+      continue;
+    }
+    seen.add(name);
+    names.push(name);
+  }
+
+  return names;
+}
+
+function resolveRouteParamNamesInOrder(route = null) {
+  const sourceRoute = route && typeof route === "object" ? route : {};
+  const matched = Array.isArray(sourceRoute.matched) ? sourceRoute.matched : [];
+  const names = [];
+  const seen = new Set();
+
+  for (const entry of matched) {
+    const entryPath = String(entry?.path || "").trim();
+    if (!entryPath) {
+      continue;
+    }
+    for (const name of extractRouteParamNames(entryPath)) {
+      if (seen.has(name)) {
+        continue;
+      }
+      seen.add(name);
+      names.push(name);
+    }
+  }
+
+  if (names.length > 0) {
+    return names;
+  }
+
+  return Object.keys(asPlainObject(sourceRoute.params))
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
 export {
   normalizeRouteParamName,
   toRouteParamValue,
   resolveRouteParamsSource,
   resolveRoutePathnameSource,
   resolveRouteTemplatePath,
-  resolveRouteTemplateLocation
+  resolveRouteTemplateLocation,
+  extractRouteParamNames,
+  resolveRouteParamNamesInOrder
 };
