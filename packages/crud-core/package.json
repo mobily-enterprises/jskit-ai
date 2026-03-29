@@ -12,7 +12,9 @@
     "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
+    "./server/repositoryMethods": "./src/server/repositoryMethods.js",
     "./server/createCrudRepositoryFromResource": "./src/server/createCrudRepositoryFromResource.js",
+    "./server/serviceEvents": "./src/server/serviceEvents.js",
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js"
