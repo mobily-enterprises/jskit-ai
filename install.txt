@@ -44,13 +44,11 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin 
 
 npx jskit generate @jskit-ai/crud-server-generator --namespace contact-categories --surface admin --table-name contact_categories --id-column id --ownership-filter auto --no-install
 npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js --resource-export contactCategoryResource --api-path /contact-categories --route-path contact-categories --id-param recordId --no-install
+
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install
+npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
 ------------------------------------
-
-
-Addresses:
-
-npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install; npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
-
 
 
 

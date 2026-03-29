@@ -23,6 +23,7 @@ import {
 } from "./resourceSupport.js";
 
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
+const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 
 function parseOperationsOption(options) {
   const rawValue = requireOption(options, "operations");
@@ -130,6 +131,16 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   });
 }
 
+function filterDefaultHiddenListFields(selectedFieldKeys, fields) {
+  const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
+  const availableFields = Array.isArray(fields) ? fields : [];
+  if (selectedFields.length > 0) {
+    return availableFields;
+  }
+
+  return availableFields.filter((field) => !DEFAULT_LIST_HIDDEN_FIELD_KEYS.has(normalizeText(field?.key)));
+}
+
 function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
   const normalizedFields = Array.isArray(fields) ? fields : [];
   if (normalizedFields.length > 0) {
@@ -220,7 +231,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   }
 
   const listFields = hasListOperation
-    ? filterDisplayFields(selectedDisplayFields, ensureFields(listFieldsAll))
+    ? filterDisplayFields(
+      selectedDisplayFields,
+      filterDefaultHiddenListFields(selectedDisplayFields, ensureFields(listFieldsAll))
+    )
     : createFieldDefinitions({});
   const viewFields = hasViewOperation
     ? filterDisplayFields(selectedDisplayFields, ensureFields(viewFieldsAll))

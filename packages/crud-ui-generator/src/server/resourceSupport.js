@@ -289,6 +289,39 @@ function toFieldLabel(key) {
     .join(" ");
 }
 
+function stripLookupIdSuffix(key = "") {
+  const normalizedKey = normalizeText(key);
+  if (!normalizedKey) {
+    return "";
+  }
+
+  if (normalizedKey.endsWith("Id") && normalizedKey.length > 2) {
+    return normalizedKey.slice(0, -2);
+  }
+  if (/[_\-.]id$/iu.test(normalizedKey)) {
+    return normalizedKey.replace(/[_\-.]id$/iu, "");
+  }
+
+  return normalizedKey;
+}
+
+function resolveFieldLabel(key = "", relation = null) {
+  const normalizedKey = normalizeText(key);
+  if (!normalizedKey) {
+    return "Field";
+  }
+
+  const relationKind = normalizeText(relation?.kind).toLowerCase();
+  if (relationKind === "lookup") {
+    const lookupLabelKey = stripLookupIdSuffix(normalizedKey);
+    if (lookupLabelKey) {
+      return toFieldLabel(lookupLabelKey);
+    }
+  }
+
+  return toFieldLabel(normalizedKey);
+}
+
 function extractDynamicRouteParamKeys(routePath = "") {
   const sourcePath = String(routePath || "").trim();
   if (!sourcePath) {
@@ -480,12 +513,13 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupCont
     }
 
     const schemaType = resolveSchemaType(schema);
+    const relation = toLookupRelation(fieldMetaMap, key, { lookupContainerKey });
     fields.push({
       key,
-      label: toFieldLabel(key),
+      label: resolveFieldLabel(key, relation),
       type: schemaType.type,
       format: schemaType.format,
-      relation: toLookupRelation(fieldMetaMap, key, { lookupContainerKey })
+      relation
     });
   }
 
@@ -531,7 +565,7 @@ function createFormFieldDefinitions(
       : "";
     const fieldDefinition = {
       key,
-      label: toFieldLabel(key),
+      label: resolveFieldLabel(key, relation),
       type: schemaType.type || "string",
       format: schemaType.format || "",
       nullable: schemaType.nullable,

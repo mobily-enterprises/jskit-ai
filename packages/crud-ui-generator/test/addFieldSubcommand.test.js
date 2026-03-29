@@ -186,7 +186,7 @@ test("add-field patches list screen when resource-file is passed explicitly", as
 
     assert.deepEqual(result.touchedFiles, [listFile]);
     const listSource = await readFile(path.join(appRoot, listFile), "utf8");
-    assert.match(listSource, /<th>Vet Id<\/th>/);
+    assert.match(listSource, /<th>Vet<\/th>/);
     assert.match(
       listSource,
       /records\.resolveFieldDisplay\(record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/

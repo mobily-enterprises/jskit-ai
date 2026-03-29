@@ -172,8 +172,10 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
     });
 
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>First Name<\/th>/);
-    assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.updatedAt/);
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>Updated At<\/th>/);
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.updatedAt/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.vip/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.updatedAt/);
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_LIST_REALTIME_EVENTS__, "[\"customers.record.changed\"]");
@@ -197,6 +199,29 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
     assert.equal(createFields[2].component, "switch");
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /v-model="formRuntime\.form\.firstName"/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /v-model="formRuntime\.form\.email"/);
+  });
+});
+
+test("buildUiTemplateContext includes hidden default list fields when explicitly selected", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        operations: "list,view",
+        "resource-file": resourceFile,
+        "resource-export": "customerResource",
+        "display-fields": "updatedAt"
+      }
+    });
+
+    assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>Updated At<\/th>/);
+    assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.updatedAt/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.updatedAt/);
   });
 });
 
@@ -542,6 +567,7 @@ export { contactResource };
     const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
     const vetField = createFields.find((field) => field.key === "vetId");
     assert.ok(vetField);
+    assert.equal(vetField.label, "Vet");
     assert.equal(vetField.component, "lookup");
     assert.deepEqual(vetField.relation, {
       kind: "lookup",
@@ -701,10 +727,12 @@ export { contactResource };
       context.__JSKIT_UI_LIST_ROW_COLUMNS__,
       /records\.resolveFieldDisplay\(record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/
     );
+    assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /<th>Vet<\/th>/);
     assert.match(
       context.__JSKIT_UI_VIEW_COLUMNS__,
       /view\.resolveFieldDisplay\(view\.record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/
     );
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /text-caption text-medium-emphasis">Vet</);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.id/);
     assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.lookups/);
