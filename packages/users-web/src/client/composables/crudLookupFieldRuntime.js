@@ -1,4 +1,8 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeCrudLookupApiPath,
+  normalizeCrudLookupContainerKey
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { useList } from "./useList.js";
 import {
   resolveLookupItemLabel,
@@ -13,29 +17,6 @@ function normalizeQueryKeyPrefix(value) {
     .filter(Boolean);
 }
 
-function normalizeLookupApiPath(relation = {}) {
-  if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
-    return "";
-  }
-
-  const relationApiPath = normalizeText(relation.apiPath);
-  if (relationApiPath) {
-    return relationApiPath;
-  }
-
-  const sourcePath = normalizeText(relation?.source?.path);
-  if (sourcePath) {
-    return sourcePath;
-  }
-
-  const targetResource = normalizeText(relation.targetResource);
-  if (targetResource) {
-    return `/${targetResource}`;
-  }
-
-  return "";
-}
-
 function isSameLookupValue(left, right) {
   if (left === right) {
     return true;
@@ -44,23 +25,34 @@ function isSameLookupValue(left, right) {
   return String(left ?? "") === String(right ?? "");
 }
 
+function normalizeLookupValue(value) {
+  if (value == null) {
+    return "";
+  }
+
+  return String(value);
+}
+
 function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}) {
   if (selectedValue == null || selectedValue === "") {
     return null;
   }
 
   const sourceRecord = asPlainObject(selectedRecord);
-  const hydratedLookup = asPlainObject(asPlainObject(sourceRecord.lookups)[entry.fieldKey]);
+  const sourceLookups = asPlainObject(sourceRecord[entry.lookupContainerKey]);
+  const hydratedLookup = asPlainObject(sourceLookups[entry.fieldKey]);
   const hydratedValue = hydratedLookup[entry.valueKey];
-  const value = hydratedValue == null || hydratedValue === "" ? selectedValue : hydratedValue;
-  if (value == null || value === "") {
+  const value = normalizeLookupValue(
+    hydratedValue == null || hydratedValue === "" ? selectedValue : hydratedValue
+  );
+  if (!value) {
     return null;
   }
 
   const displayValue = resolveLookupFieldDisplayValue(
     {
       [entry.fieldKey]: value,
-      lookups: {
+      [entry.lookupContainerKey]: {
         [entry.fieldKey]: hydratedLookup
       }
     },
@@ -81,12 +73,16 @@ function createCrudLookupFieldRuntime({
   adapter = null,
   recordIdParam = "recordId",
   queryKeyPrefix = [],
-  placementSourcePrefix = ""
+  placementSourcePrefix = "",
+  lookupContainerKey = "lookups"
 } = {}) {
   const runtimes = new Map();
   const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
   const normalizedPlacementSourcePrefix = normalizeText(placementSourcePrefix);
   const normalizedQueryKeyPrefix = normalizeQueryKeyPrefix(queryKeyPrefix);
+  const defaultLookupContainerKey = normalizeCrudLookupContainerKey(lookupContainerKey, {
+    context: "createCrudLookupFieldRuntime lookupContainerKey"
+  });
 
   for (const field of Array.isArray(formFields) ? formFields : []) {
     const key = normalizeText(field?.key);
@@ -96,12 +92,16 @@ function createCrudLookupFieldRuntime({
     }
 
     const relationKind = normalizeText(rawRelation.kind).toLowerCase();
-    const apiPath = normalizeLookupApiPath(rawRelation);
+    const apiPath = normalizeCrudLookupApiPath(rawRelation.apiPath);
     if (relationKind !== "lookup" || !apiPath) {
       continue;
     }
     const valueKey = normalizeText(rawRelation.valueKey);
     const labelKey = normalizeText(rawRelation.labelKey);
+    const relationLookupContainerKey = normalizeCrudLookupContainerKey(rawRelation.containerKey, {
+      defaultValue: defaultLookupContainerKey,
+      context: `createCrudLookupFieldRuntime formFields["${key}"].relation.containerKey`
+    });
     if (!valueKey) {
       continue;
     }
@@ -115,6 +115,11 @@ function createCrudLookupFieldRuntime({
         String(surfaceId || ""),
         String(workspaceSlug || "")
       ],
+      search: {
+        enabled: true,
+        mode: "query",
+        queryParam: "q"
+      },
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${key}`
         : `crud.lookup.${key}`,
@@ -128,10 +133,12 @@ function createCrudLookupFieldRuntime({
     runtimes.set(key, Object.freeze({
       runtime,
       fieldKey: key,
+      lookupContainerKey: relationLookupContainerKey,
       valueKey,
       labelKey,
       relation: Object.freeze({
         kind: "lookup",
+        containerKey: relationLookupContainerKey,
         valueKey,
         ...(labelKey ? { labelKey } : {})
       })
@@ -146,11 +153,11 @@ function createCrudLookupFieldRuntime({
     }
 
     const items = (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
-      const value = item?.[entry.valueKey];
+      const value = normalizeLookupValue(item?.[entry.valueKey]);
       const resolvedLabel = resolveLookupItemLabel(item, entry.labelKey);
       const label = resolvedLabel || value;
       return {
-        value: value ?? "",
+        value,
         label: String(label ?? "")
       };
     });
@@ -181,9 +188,31 @@ function createCrudLookupFieldRuntime({
     return Boolean(entry.runtime.isInitialLoading || entry.runtime.isFetching || entry.runtime.isRefetching);
   }
 
+  function resolveLookupSearch(fieldKey = "") {
+    const key = normalizeText(fieldKey);
+    const entry = runtimes.get(key);
+    if (!entry) {
+      return "";
+    }
+
+    return String(entry.runtime.searchQuery || "");
+  }
+
+  function setLookupSearch(fieldKey = "", searchValue = "") {
+    const key = normalizeText(fieldKey);
+    const entry = runtimes.get(key);
+    if (!entry) {
+      return;
+    }
+
+    entry.runtime.searchQuery = String(searchValue || "");
+  }
+
   return Object.freeze({
     resolveLookupItems,
-    resolveLookupLoading
+    resolveLookupLoading,
+    resolveLookupSearch,
+    setLookupSearch
   });
 }
 

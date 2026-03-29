@@ -1,10 +1,11 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
+import { resolveCrudLookupContainerKey } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldMetaSupport.js";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
-const RUNTIME_OUTPUT_ONLY_KEYS = new Set(["lookups"]);
 
 function normalizeCrudListLimit(value, { fallback = DEFAULT_LIST_LIMIT, max = MAX_LIST_LIMIT } = {}) {
   const parsed = Number(value);
@@ -145,8 +146,13 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     context,
     schemaLabel: "operations.create.bodyValidator.schema"
   });
+  const lookupContainerKey = resolveCrudLookupContainerKey(resource, {
+    context: `${context} resource.contract.lookup.containerKey`
+  });
   const outputKeys = Object.freeze(
-    Object.keys(outputProperties).filter((key) => !RUNTIME_OUTPUT_ONLY_KEYS.has(String(key || "").trim()))
+    Object.keys(outputProperties).filter(
+      (key) => !isCrudRuntimeOutputOnlyFieldKey(key, { lookupContainerKey })
+    )
   );
   const writeKeys = Object.freeze(Object.keys(writeProperties));
 

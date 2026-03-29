@@ -7,6 +7,7 @@ import {
   requireBodySchema,
   requireObjectProperties,
   resolveListItemProperties,
+  resolveLookupContainerKey,
   buildResourceFieldMetaMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
@@ -142,6 +143,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const hasEditOperation = selectedOperations.has("edit");
 
   const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
+  const lookupContainerKey = resolveLookupContainerKey(resource, {
+    context: "ui-generator"
+  });
   const fieldMetaMap = buildResourceFieldMetaMap(resource);
 
   let listFieldsAll = [];
@@ -149,7 +153,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     const listOperation = requireOperation(resource, "list", { context: "ui-generator" });
     const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "ui-generator" });
     listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "ui-generator" }), {
-      fieldMetaMap
+      fieldMetaMap,
+      lookupContainerKey
     });
     validateDisplayFieldsForOperation(selectedDisplayFields, listFieldsAll, "list");
   }
@@ -161,7 +166,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     viewFieldsAll = createFieldDefinitions(
       requireObjectProperties(viewOutputSchema, "operations.view output", { context: "ui-generator" }),
       {
-        fieldMetaMap
+        fieldMetaMap,
+        lookupContainerKey
       }
     );
     validateDisplayFieldsForOperation(selectedDisplayFields, viewFieldsAll, "view");
@@ -174,7 +180,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     createFieldsAll = createFormFieldDefinitions(
       requireObjectProperties(createBodySchema, "operations.create body", { context: "ui-generator" }),
       {
-        fieldMetaMap
+        fieldMetaMap,
+        lookupContainerKey
       }
     );
     validateDisplayFieldsForOperation(selectedDisplayFields, createFieldsAll, "create");
@@ -187,7 +194,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     editFieldsAll = createFormFieldDefinitions(
       requireObjectProperties(patchBodySchema, "operations.patch body", { context: "ui-generator" }),
       {
-        fieldMetaMap
+        fieldMetaMap,
+        lookupContainerKey
       }
     );
     validateDisplayFieldsForOperation(selectedDisplayFields, editFieldsAll, "patch");

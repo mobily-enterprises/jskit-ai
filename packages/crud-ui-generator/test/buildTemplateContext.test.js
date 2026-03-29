@@ -453,15 +453,84 @@ export { contactResource };
       kind: "lookup",
       apiPath: "/vets",
       valueKey: "id",
-      labelKey: "name"
+      labelKey: "name",
+      containerKey: "lookups"
     });
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-autocomplete/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:items='resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)'/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:search='resolveLookupSearch\("vetId"\)'/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /@update:search='setLookupSearch\("vetId", \$event\)'/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:loading='resolveLookupLoading\("vetId"\)'/);
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /UI_CREATE_FORM_FIELDS\.push\(\{/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /\"relation\": \{/);
+  });
+});
+
+test("buildUiTemplateContext maps custom lookup container key from resource contract", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const contactResource = {
+  contract: {
+    lookup: {
+      containerKey: "lookupData"
+    }
+  },
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            vetId: { type: ["integer", "null"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "vetId",
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id"
+      }
+    }
+  ]
+};
+
+export { contactResource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "contacts-ui",
+        "api-path": "/contacts",
+        operations: "new",
+        "resource-file": resourceFile,
+        "resource-export": "contactResource"
+      }
+    });
+
+    const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
+    const vetField = createFields.find((field) => field.key === "vetId");
+    assert.ok(vetField);
+    assert.equal(vetField.relation.containerKey, "lookupData");
   });
 });
 
@@ -484,7 +553,8 @@ test("buildUiTemplateContext renders lookup display via shared runtime in list a
                 type: "object",
                 properties: {
                   id: { type: "integer" },
-                  vetId: { type: ["integer", "null"] }
+                  vetId: { type: ["integer", "null"] },
+                  lookups: { type: "object" }
                 }
               }
             }
@@ -498,7 +568,8 @@ test("buildUiTemplateContext renders lookup display via shared runtime in list a
           type: "object",
           properties: {
             id: { type: "integer" },
-            vetId: { type: ["integer", "null"] }
+            vetId: { type: ["integer", "null"] },
+            lookups: { type: "object" }
           }
         }
       }
@@ -534,14 +605,16 @@ export { contactResource };
 
     assert.match(
       context.__JSKIT_UI_LIST_ROW_COLUMNS__,
-      /records\.resolveFieldDisplay\(record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+      /records\.resolveFieldDisplay\(record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/
     );
     assert.match(
       context.__JSKIT_UI_VIEW_COLUMNS__,
-      /view\.resolveFieldDisplay\(view\.record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+      /view\.resolveFieldDisplay\(view\.record, \{ key: "vetId", relation: \{ kind: "lookup", valueKey: "id", labelKey: "name", containerKey: "lookups" \} \}\)/
     );
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.id/);
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.lookups/);
+    assert.doesNotMatch(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.lookups/);
   });
 });
 
@@ -607,8 +680,73 @@ export { contactResource };
       kind: "lookup",
       apiPath: "/vets",
       valueKey: "id",
-      labelKey: "name"
+      labelKey: "name",
+      containerKey: "lookups"
     });
+  });
+});
+
+test("buildUiTemplateContext supports lookup ui.formControl=select", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const contactResource = {
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            vetId: { type: ["integer", "null"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "vetId",
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id"
+      },
+      ui: {
+        formControl: "select"
+      }
+    }
+  ]
+};
+
+export { contactResource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "contacts-ui",
+        "api-path": "/contacts",
+        operations: "new",
+        "resource-file": resourceFile,
+        "resource-export": "contactResource"
+      }
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-autocomplete/);
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /resolveLookupSearch\("vetId"\)/);
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /setLookupSearch\("vetId", \$event\)/);
   });
 });
 

@@ -41,7 +41,7 @@ test("createCrudLookupProviderResolver resolves providers through scope.make()",
   });
 });
 
-test("createCrudLookupProvider wraps repository.listByIds and forces include=none", async () => {
+test("createCrudLookupProvider wraps repository.listByIds and preserves include when provided", async () => {
   const calls = [];
   const provider = createCrudLookupProvider({
     async listByIds(ids = [], options = {}) {
@@ -59,6 +59,31 @@ test("createCrudLookupProvider wraps repository.listByIds and forces include=non
   });
 
   assert.deepEqual(result, [{ id: 1 }]);
+  assert.deepEqual(calls[0], {
+    ids: [1, 2],
+    options: {
+      include: "*",
+      limit: 10
+    }
+  });
+});
+
+test("createCrudLookupProvider defaults include=none when include is not provided", async () => {
+  const calls = [];
+  const provider = createCrudLookupProvider({
+    async listByIds(ids = [], options = {}) {
+      calls.push({
+        ids,
+        options
+      });
+      return [{ id: 1 }];
+    }
+  });
+
+  await provider.listByIds([1, 2], {
+    limit: 10
+  });
+
   assert.deepEqual(calls[0], {
     ids: [1, 2],
     options: {

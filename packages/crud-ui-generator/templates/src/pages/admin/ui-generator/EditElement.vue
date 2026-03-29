@@ -87,10 +87,16 @@ const lookupFieldRuntime = createCrudLookupFieldRuntime({
   formFields: UI_EDIT_FORM_FIELDS,
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
+  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
   queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "lookup", "edit"],
   placementSourcePrefix: "ui-generator.${option:namespace|kebab}.edit.lookup"
 });
-const { resolveLookupItems, resolveLookupLoading } = lookupFieldRuntime;
+const {
+  resolveLookupItems,
+  resolveLookupLoading,
+  resolveLookupSearch,
+  setLookupSearch
+} = lookupFieldRuntime;
 
 const formRuntime = useCrudSchemaForm({
   resource: uiResource,

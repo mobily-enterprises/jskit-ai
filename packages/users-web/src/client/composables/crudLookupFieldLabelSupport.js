@@ -1,4 +1,5 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeCrudLookupContainerKey } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { asPlainObject } from "./scopeHelpers.js";
 
 const LOOKUP_LABEL_COMPOSITION_CANDIDATES = Object.freeze([
@@ -57,7 +58,10 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}) {
     return sourceRecord[key];
   }
 
-  const sourceLookups = asPlainObject(sourceRecord.lookups);
+  const lookupContainerKey = normalizeCrudLookupContainerKey(relation.containerKey, {
+    context: `lookup relation "${key}" containerKey`
+  });
+  const sourceLookups = asPlainObject(sourceRecord[lookupContainerKey]);
   const lookupRecord = asPlainObject(sourceLookups[key]);
   const lookupLabel = resolveLookupItemLabel(lookupRecord, relation.labelKey);
   if (lookupLabel) {

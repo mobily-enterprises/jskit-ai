@@ -120,7 +120,7 @@ function createLookupResourceFixture() {
               id: { type: "integer" },
               firstName: { type: "string" },
               primaryVetId: { type: "integer" },
-              secondaryVetId: { type: "integer" },
+              secondaryVetId: { type: ["integer", "null"] },
               lookups: {
                 type: "object"
               }
@@ -163,6 +163,117 @@ function createLookupResourceFixture() {
           apiPath: "/vets",
           valueKey: "id"
         }
+      }
+    ]
+  };
+}
+
+function createLookupResourceWithCustomContainerKeyFixture() {
+  return {
+    resource: "contacts",
+    tableName: "contacts_table",
+    idColumn: "contact_id",
+    contract: {
+      lookup: {
+        containerKey: "lookupData"
+      }
+    },
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              firstName: { type: "string" },
+              primaryVetId: { type: "integer" },
+              secondaryVetId: { type: "integer" },
+              lookupData: {
+                type: "object"
+              }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" },
+              primaryVetId: { type: "integer" },
+              secondaryVetId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "id",
+        dbColumn: "contact_id"
+      },
+      {
+        key: "primaryVetId",
+        dbColumn: "primary_vet_id",
+        relation: {
+          kind: "lookup",
+          apiPath: "/vets",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "secondaryVetId",
+        dbColumn: "secondary_vet_id",
+        relation: {
+          kind: "lookup",
+          apiPath: "/vets",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+}
+
+function createNormalizedResourceFixture() {
+  return {
+    resource: "contacts",
+    tableName: "contacts_table",
+    idColumn: "contact_id",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              firstName: { type: "string" }
+            },
+            required: ["id", "firstName"]
+          },
+          normalize(payload = {}) {
+            return {
+              id: Number(payload.id),
+              firstName: String(payload.firstName || "").trim()
+            };
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "id",
+        dbColumn: "contact_id"
       }
     ]
   };
@@ -297,6 +408,41 @@ test("createCrudRepositoryFromResource listByIds fails fast when valueKey is not
   );
 });
 
+test("createCrudRepositoryFromResource normalizes listByIds output using resource view output validator", async () => {
+  const createRepository = createCrudRepositoryFromResource(createNormalizedResourceFixture());
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: "3",
+      first_name: " Tony "
+    }
+  ]);
+  const repository = createRepository(knex);
+
+  const result = await repository.listByIds([3]);
+  assert.deepEqual(result, [
+    {
+      id: 3,
+      firstName: "Tony"
+    }
+  ]);
+});
+
+test("createCrudRepositoryFromResource fails when mapped output violates resource view output schema", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture());
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: "3",
+      first_name: "Tony"
+    }
+  ]);
+  const repository = createRepository(knex);
+
+  await assert.rejects(
+    () => repository.listByIds([3]),
+    /output validation failed/
+  );
+});
+
 test("createCrudRepositoryFromResource hydrates lookup relations by default and batches by lookup resource", async () => {
   const createRepository = createCrudRepositoryFromResource(createLookupResourceFixture());
   const { knex } = createListKnexDouble([
@@ -337,7 +483,9 @@ test("createCrudRepositoryFromResource hydrates lookup relations by default and 
 
   assert.equal(lookupCalls.length, 1);
   assert.deepEqual(lookupCalls[0].ids, [10, 12]);
-  assert.equal(lookupCalls[0].options.include, "none");
+  assert.equal(lookupCalls[0].options.include, "*");
+  assert.equal(lookupCalls[0].options.lookupDepth, 1);
+  assert.equal(lookupCalls[0].options.lookupMaxDepth, 3);
   assert.deepEqual(result.items[0].lookups, {
     primaryVetId: { id: 10, name: "Vet A" },
     secondaryVetId: { id: 12, name: "Vet B" }
@@ -346,6 +494,71 @@ test("createCrudRepositoryFromResource hydrates lookup relations by default and 
     primaryVetId: { id: 10, name: "Vet A" },
     secondaryVetId: null
   });
+});
+
+test("createCrudRepositoryFromResource writes hydrated lookups into custom output container key", async () => {
+  const createRepository = createCrudRepositoryFromResource(createLookupResourceWithCustomContainerKeyFixture());
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+  const repository = createRepository(knex, {
+    resolveLookupProvider() {
+      return {
+        async listByIds() {
+          return [
+            { id: 10, name: "Vet A" },
+            { id: 12, name: "Vet B" }
+          ];
+        }
+      };
+    }
+  });
+
+  const result = await repository.list({});
+  assert.equal(Object.hasOwn(result.items[0], "lookups"), false);
+  assert.deepEqual(result.items[0].lookupData, {
+    primaryVetId: { id: 10, name: "Vet A" },
+    secondaryVetId: { id: 12, name: "Vet B" }
+  });
+});
+
+test("createCrudRepositoryFromResource respects resource lookup.defaultInclude=none", async () => {
+  const resource = createLookupResourceFixture();
+  resource.contract = {
+    lookup: {
+      defaultInclude: "none"
+    }
+  };
+  const createRepository = createCrudRepositoryFromResource(resource);
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+
+  let resolverCalls = 0;
+  const repository = createRepository(knex, {
+    resolveLookupProvider() {
+      resolverCalls += 1;
+      return {
+        async listByIds() {
+          return [];
+        }
+      };
+    }
+  });
+
+  const result = await repository.list({});
+  assert.equal(resolverCalls, 0);
+  assert.equal(Object.hasOwn(result.items[0], "lookups"), false);
 });
 
 test("createCrudRepositoryFromResource skips lookup hydration when include=none", async () => {
@@ -366,6 +579,111 @@ test("createCrudRepositoryFromResource skips lookup hydration when include=none"
 
   assert.equal(result.items.length, 1);
   assert.equal(Object.hasOwn(result.items[0], "lookups"), false);
+});
+
+test("createCrudRepositoryFromResource forwards nested include paths to child lookup repositories", async () => {
+  const createRepository = createCrudRepositoryFromResource(createLookupResourceFixture());
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+
+  const lookupCalls = [];
+  const repository = createRepository(knex, {
+    resolveLookupProvider() {
+      return {
+        async listByIds(ids = [], options = {}) {
+          lookupCalls.push({
+            ids,
+            options
+          });
+          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+        }
+      };
+    }
+  });
+
+  await repository.list({
+    include: "primaryVetId.vetTypeId"
+  });
+
+  assert.equal(lookupCalls.length, 1);
+  assert.equal(lookupCalls[0].options.include, "vetTypeId");
+});
+
+test("createCrudRepositoryFromResource forwards wildcard nested include paths to child lookup repositories", async () => {
+  const createRepository = createCrudRepositoryFromResource(createLookupResourceFixture());
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+
+  const lookupCalls = [];
+  const repository = createRepository(knex, {
+    resolveLookupProvider() {
+      return {
+        async listByIds(ids = [], options = {}) {
+          lookupCalls.push({
+            ids,
+            options
+          });
+          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+        }
+      };
+    }
+  });
+
+  await repository.list({
+    include: "primaryVetId.*"
+  });
+
+  assert.equal(lookupCalls.length, 1);
+  assert.equal(lookupCalls[0].options.include, "*");
+});
+
+test("createCrudRepositoryFromResource forwards configured lookup maxDepth to child repositories", async () => {
+  const resource = createLookupResourceFixture();
+  resource.contract = {
+    lookup: {
+      maxDepth: 5
+    }
+  };
+  const createRepository = createCrudRepositoryFromResource(resource);
+  const { knex } = createListKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+
+  const lookupCalls = [];
+  const repository = createRepository(knex, {
+    resolveLookupProvider() {
+      return {
+        async listByIds(ids = [], options = {}) {
+          lookupCalls.push({
+            ids,
+            options
+          });
+          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+        }
+      };
+    }
+  });
+
+  await repository.list({});
+  assert.equal(lookupCalls.length, 1);
+  assert.equal(lookupCalls[0].options.lookupMaxDepth, 5);
 });
 
 test("createCrudRepositoryFromResource throws when include requires lookups and resolver is missing", async () => {

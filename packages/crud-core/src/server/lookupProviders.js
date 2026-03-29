@@ -21,9 +21,10 @@ function createCrudLookupProvider(repository, { context = "crudLookupProvider" }
 
   return Object.freeze({
     async listByIds(ids = [], options = {}) {
+      const include = options?.include === undefined ? "none" : options.include;
       return repository.listByIds(ids, {
         ...options,
-        include: "none"
+        include
       });
     }
   });

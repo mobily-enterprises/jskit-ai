@@ -8,6 +8,7 @@ import {
   resolveDatabaseConnectionFromEnvironment,
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
+import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const DEFAULT_ID_COLUMN = "id";
@@ -768,6 +769,12 @@ function mergeFieldMetaEntries(baseEntries = [], patchEntries = []) {
         ...(sourceEntry.relation && typeof sourceEntry.relation === "object" ? sourceEntry.relation : {})
       };
     }
+    if (existing.ui || sourceEntry.ui) {
+      next.ui = {
+        ...(existing.ui && typeof existing.ui === "object" ? existing.ui : {}),
+        ...(sourceEntry.ui && typeof sourceEntry.ui === "object" ? sourceEntry.ui : {})
+      };
+    }
     mergedByKey.set(key, next);
   }
 
@@ -834,6 +841,9 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
         kind: "lookup",
         apiPath: `/${referencedTableName}`,
         valueKey: toCamelCase(referencedColumnName)
+      },
+      ui: {
+        formControl: "autocomplete"
       }
     });
   }
@@ -842,13 +852,11 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
 }
 
 function renderFieldMetaEntryLines(entry = {}) {
-  const lines = [
-    "RESOURCE_FIELD_META.push({",
-    `  key: ${JSON.stringify(entry.key)},`
-  ];
+  const lines = ["RESOURCE_FIELD_META.push({"];
+  const topLevelProperties = [`key: ${JSON.stringify(entry.key)}`];
   const dbColumn = normalizeText(entry.dbColumn);
   if (dbColumn) {
-    lines.push(`  dbColumn: ${JSON.stringify(dbColumn)},`);
+    topLevelProperties.push(`dbColumn: ${JSON.stringify(dbColumn)}`);
   }
 
   const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
@@ -858,16 +866,44 @@ function renderFieldMetaEntryLines(entry = {}) {
       normalizeText(relation.apiPath) ||
       normalizeText(relation?.source?.path) ||
       (targetResource ? `/${targetResource}` : "");
-
-    lines.push("  relation: {");
-    lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
-    lines.push(`    apiPath: ${JSON.stringify(relationApiPath)},`);
-    lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`);
+    const relationLines = [
+      "relation: {",
+      `  kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`,
+      `  apiPath: ${JSON.stringify(relationApiPath)},`,
+      `  valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`
+    ];
     const labelKey = normalizeText(relation.labelKey);
     if (labelKey) {
-      lines.push(`    labelKey: ${JSON.stringify(labelKey)}`);
+      relationLines.push(`  labelKey: ${JSON.stringify(labelKey)}`);
+    } else {
+      relationLines[relationLines.length - 1] = relationLines[relationLines.length - 1].replace(/,$/, "");
     }
-    lines.push("  }");
+    relationLines.push("}");
+    topLevelProperties.push(relationLines.join("\n"));
+  }
+
+  const formControl = checkCrudLookupFormControl(entry?.ui?.formControl, {
+    context: `resource.fieldMeta["${normalizeText(entry.key)}"].ui.formControl`,
+    defaultValue: relation ? "autocomplete" : ""
+  });
+  if (formControl) {
+    topLevelProperties.push(
+      [
+        "ui: {",
+        `  formControl: ${JSON.stringify(formControl)} // or "select"`,
+        "}"
+      ].join("\n")
+    );
+  }
+
+  for (const [index, propertyBlock] of topLevelProperties.entries()) {
+    const blockLines = String(propertyBlock || "").split("\n");
+    const isLastProperty = index >= topLevelProperties.length - 1;
+    const propertySuffix = isLastProperty ? "" : ",";
+    for (const [lineIndex, line] of blockLines.entries()) {
+      const isLastLine = lineIndex >= blockLines.length - 1;
+      lines.push(`  ${line}${isLastLine ? propertySuffix : ""}`);
+    }
   }
 
   lines.push("});");

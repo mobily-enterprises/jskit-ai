@@ -13,6 +13,8 @@ import {
   normalizeIfPresent
 } from "@jskit-ai/kernel/shared/support/normalize";
 
+const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
+
 const recordOutputSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
@@ -21,7 +23,7 @@ const recordOutputSchema = Type.Object(
     numberField: Type.Number(),
     createdAt: Type.String({ minLength: 1 }),
     updatedAt: Type.String({ minLength: 1 }),
-    lookups: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+    [RESOURCE_LOOKUP_CONTAINER_KEY]: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
   },
   { additionalProperties: false }
 );
@@ -76,8 +78,9 @@ const recordOutputValidator = Object.freeze({
       createdAt: normalizeIfPresent(source.createdAt, toIsoString),
       updatedAt: normalizeIfPresent(source.updatedAt, toIsoString)
     };
-    if (source.lookups && typeof source.lookups === "object" && !Array.isArray(source.lookups)) {
-      normalized.lookups = source.lookups;
+    const sourceLookupContainer = source[RESOURCE_LOOKUP_CONTAINER_KEY];
+    if (sourceLookupContainer && typeof sourceLookupContainer === "object" && !Array.isArray(sourceLookupContainer)) {
+      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = sourceLookupContainer;
     }
 
     return normalized;
@@ -141,6 +144,13 @@ const crudResource = {
     saveError: "Unable to save record.",
     deleteSuccess: "Record deleted.",
     deleteError: "Unable to delete record."
+  },
+  contract: {
+    lookup: {
+      containerKey: RESOURCE_LOOKUP_CONTAINER_KEY,
+      defaultInclude: "*", // Set "none" to disable lookup hydration unless include=... is passed.
+      maxDepth: 3 // Lower this to limit nested lookup hydration depth.
+    }
   },
   operations: {
     list: {

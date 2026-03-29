@@ -8,6 +8,7 @@ import {
   requireBodySchema,
   requireObjectProperties,
   resolveListItemProperties,
+  resolveLookupContainerKey,
   buildResourceFieldMetaMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
@@ -109,13 +110,16 @@ function resolveResourceOptions(options = {}, inferredOptions = {}) {
 
 function resolveOperationFields(resource, operationName) {
   const fieldMetaMap = buildResourceFieldMetaMap(resource);
+  const lookupContainerKey = resolveLookupContainerKey(resource, {
+    context: "crud-ui-generator add-field"
+  });
 
   if (operationName === "list") {
     const listOperation = requireOperation(resource, "list", { context: "crud-ui-generator add-field" });
     const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "crud-ui-generator add-field" });
     return createFieldDefinitions(
       resolveListItemProperties(listOutputSchema, { context: "crud-ui-generator add-field" }),
-      { fieldMetaMap }
+      { fieldMetaMap, lookupContainerKey }
     );
   }
 
@@ -124,7 +128,7 @@ function resolveOperationFields(resource, operationName) {
     const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "crud-ui-generator add-field" });
     return createFieldDefinitions(
       requireObjectProperties(viewOutputSchema, "operations.view output", { context: "crud-ui-generator add-field" }),
-      { fieldMetaMap }
+      { fieldMetaMap, lookupContainerKey }
     );
   }
 
@@ -133,7 +137,7 @@ function resolveOperationFields(resource, operationName) {
     const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator add-field" });
     return createFormFieldDefinitions(
       requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator add-field" }),
-      { fieldMetaMap }
+      { fieldMetaMap, lookupContainerKey }
     );
   }
 
@@ -141,7 +145,7 @@ function resolveOperationFields(resource, operationName) {
   const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator add-field" });
   return createFormFieldDefinitions(
     requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator add-field" }),
-    { fieldMetaMap }
+    { fieldMetaMap, lookupContainerKey }
   );
 }
 
