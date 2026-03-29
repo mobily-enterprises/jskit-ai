@@ -87,8 +87,7 @@ for (const parentDirectory of parentDirectories) {
 
     const packageRoot = path.join(parentDirectory, entry.name);
     const packageJsonPath = path.join(packageRoot, "package.json");
-    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-    if (!fs.existsSync(packageJsonPath) || !fs.existsSync(descriptorPath)) {
+    if (!fs.existsSync(packageJsonPath)) {
       continue;
     }
 
@@ -120,6 +119,68 @@ for (const [packageDirName, packageRoot] of packageMap.entries()) {
 NODE
 }
 
+link_package_bin_entries() {
+  local package_dir_name="$1"
+  local source_dir="$2"
+
+  node - "$APP_ROOT" "$package_dir_name" "$source_dir" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const appRoot = process.argv[2];
+const packageDirName = process.argv[3];
+const sourceDir = process.argv[4];
+
+const packageJsonPath = path.join(sourceDir, "package.json");
+if (!fs.existsSync(packageJsonPath)) {
+  process.exit(0);
+}
+
+let packageJson = {};
+try {
+  packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+} catch {
+  process.exit(0);
+}
+
+const rawBin = packageJson?.bin;
+let binEntries = [];
+if (typeof rawBin === "string") {
+  binEntries = [[packageDirName, rawBin]];
+} else if (rawBin && typeof rawBin === "object" && !Array.isArray(rawBin)) {
+  binEntries = Object.entries(rawBin);
+}
+
+if (binEntries.length < 1) {
+  process.exit(0);
+}
+
+const binDir = path.join(appRoot, "node_modules", ".bin");
+const packageRoot = path.join(appRoot, "node_modules", "@jskit-ai", packageDirName);
+fs.mkdirSync(binDir, { recursive: true });
+
+for (const [rawBinName, rawBinTarget] of binEntries) {
+  const binName = String(rawBinName || "").trim();
+  const binTarget = String(rawBinTarget || "").trim();
+  if (!binName || !binTarget) {
+    continue;
+  }
+
+  const absoluteTarget = path.join(packageRoot, binTarget);
+  if (!fs.existsSync(absoluteTarget)) {
+    continue;
+  }
+
+  const binPath = path.join(binDir, binName);
+  fs.rmSync(binPath, { force: true, recursive: true });
+
+  const relativeTarget = path.relative(binDir, absoluteTarget) || absoluteTarget;
+  fs.symlinkSync(relativeTarget, binPath);
+  process.stdout.write(`[link-local] linked bin ${binName} -> ${relativeTarget}\n`);
+}
+NODE
+}
+
 linked_count=0
 
 mkdir -p "$SCOPE_DIR"
@@ -132,6 +193,7 @@ while IFS=$'\t' read -r package_dir_name source_dir; do
   rm -rf "$target_path"
   ln -s "$source_dir" "$target_path"
   echo "[link-local] linked @jskit-ai/$package_dir_name -> $source_dir"
+  link_package_bin_entries "$package_dir_name" "$source_dir"
   linked_count=$((linked_count + 1))
 done < <(discover_local_package_map)
 
