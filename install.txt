@@ -53,9 +53,11 @@ drop table  workspaces            ;
 
 
 TODO TODAY:
+* Check that adding a module 
 * Check feasibility of pattern /contacts/:contactId/addresses/:addressId/edit
 * Check if it's feasible to have a crud within a container (if not, give it up)
 
+Now check all of the changes you made for slop: repeated functions, helpers that are already in kernel and redeclared here, and generally speaking bad code. Focus on unstage changed
 
 
 Updating one module:

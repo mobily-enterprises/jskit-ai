@@ -90,7 +90,7 @@ const UI_LIST_API_URL = "${option:api-path|trim}";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}` : "";
 const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
 const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
-const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
+const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 
 const records = useList({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -112,9 +112,9 @@ const records = useList({
   recordIdSelector: (item = {}) => __JSKIT_UI_LIST_RECORD_ID_EXPR__,
   viewUrlTemplate: UI_VIEW_URL,
   editUrlTemplate: UI_EDIT_URL,
-  realtime: UI_RECORD_CHANGED_EVENT
+  realtime: UI_RECORD_CHANGED_EVENTS.length > 0
     ? {
-        event: UI_RECORD_CHANGED_EVENT
+        events: UI_RECORD_CHANGED_EVENTS
       }
     : null
 });

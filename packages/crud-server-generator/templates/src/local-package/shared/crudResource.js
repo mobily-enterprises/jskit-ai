@@ -106,6 +106,9 @@ const ${option:namespace|singular|camel}Resource = {
   },
   operations: {
     list: {
+      realtime: {
+        events: ["${option:namespace|snake}.record.changed"] // Add more events e.g. for lookup records
+      },
       method: "GET",
       outputValidator: listOutputValidator
     },

@@ -77,11 +77,30 @@ function useOperationRealtime({
   enabled = true
 } = {}) {
   const source = normalizeRealtimeOptions(realtime);
-  if (!source.event) {
+  const eventList = [];
+  if (Object.hasOwn(source, "event")) {
+    const normalizedEvent = normalizeText(source.event);
+    if (normalizedEvent) {
+      eventList.push(normalizedEvent);
+    }
+  }
+  if (Object.hasOwn(source, "events")) {
+    if (!Array.isArray(source.events)) {
+      throw new TypeError("realtime.events must be an array when configured.");
+    }
+    for (const entry of source.events) {
+      const normalizedEvent = normalizeText(entry);
+      if (!normalizedEvent || eventList.includes(normalizedEvent)) {
+        continue;
+      }
+      eventList.push(normalizedEvent);
+    }
+  }
+
+  if (eventList.length < 1) {
     return null;
   }
 
-  const event = source.event;
   const matches = typeof source.matches === "function" ? source.matches : null;
   const onEvent = typeof source.onEvent === "function" ? source.onEvent : null;
   const resolvedQueryKey = Object.hasOwn(source, "queryKey") ? source.queryKey : queryKey;
@@ -90,12 +109,18 @@ function useOperationRealtime({
     return resolveEnabled(enabled) && resolveEnabled(sourceEnabled);
   });
 
-  return useRealtimeQueryInvalidation({
-    event,
-    enabled: active,
-    matches,
-    queryKey: resolvedQueryKey,
-    onEvent
+  const bindings = eventList.map((event) =>
+    useRealtimeQueryInvalidation({
+      event,
+      enabled: active,
+      matches,
+      queryKey: resolvedQueryKey,
+      onEvent
+    })
+  );
+
+  return Object.freeze({
+    active: computed(() => bindings.some((binding) => Boolean(binding?.active?.value)))
   });
 }
 

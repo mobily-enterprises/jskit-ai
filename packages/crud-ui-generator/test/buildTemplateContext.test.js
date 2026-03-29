@@ -86,6 +86,75 @@ const customerResource = {
 export { customerResource };
 `;
 
+const FULL_RESOURCE_WITH_LIST_REALTIME_SOURCE = `const customerRecordSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    firstName: { type: "string" },
+    email: { type: "string" },
+    vip: { type: "boolean" },
+    updatedAt: { type: "string", format: "date-time" }
+  },
+  additionalProperties: false
+};
+
+const customerBodySchema = {
+  type: "object",
+  properties: {
+    firstName: { type: "string", maxLength: 120 },
+    email: { type: "string", maxLength: 160 },
+    vip: { type: "boolean" }
+  },
+  additionalProperties: false
+};
+
+const customerResource = {
+  operations: {
+    list: {
+      realtime: {
+        events: ["customers.record.changed", "vets.record.changed"]
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: customerRecordSchema
+            },
+            nextCursor: { type: ["string", "null"] }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    create: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    }
+  }
+};
+
+export { customerResource };
+`;
+
 test("buildUiTemplateContext derives list/view/new/edit placeholders from resource validators", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/customers/src/shared/customerResource.js";
@@ -107,6 +176,7 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.vip/);
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
+    assert.equal(context.__JSKIT_UI_LIST_REALTIME_EVENTS__, "[\"customers.record.changed\"]");
     assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "true");
@@ -146,8 +216,32 @@ test('buildUiTemplateContext derives "resource-export" default from resource-fil
     });
 
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
+    assert.equal(context.__JSKIT_UI_LIST_REALTIME_EVENTS__, "[\"customers.record.changed\"]");
     assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
+  });
+});
+
+test("buildUiTemplateContext exposes explicit list realtime events from resource operation config", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_WITH_LIST_REALTIME_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        operations: "list",
+        "resource-file": resourceFile,
+        "resource-export": "customerResource"
+      }
+    });
+
+    assert.equal(
+      context.__JSKIT_UI_LIST_REALTIME_EVENTS__,
+      "[\"customers.record.changed\",\"vets.record.changed\"]"
+    );
   });
 });
 
