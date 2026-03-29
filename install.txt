@@ -20,6 +20,8 @@ npm run devlinks
 npm run db:migrate
 
 
+Now check all of the changes you made for slop: repeated functions, helpers that are already in kernel and redeclared here, and generally speaking bad code
+
 
 # npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --no-install
 
@@ -28,7 +30,6 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface ad
 
 npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto --no-install
 npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --resource-export vetResource --api-path /vets --route-path vets --id-param recordId --no-install
-
 
 npm install --verbose
 npm run devlinks
@@ -46,6 +47,10 @@ drop table  workspace_memberships ;
 drop table  workspace_settings    ;
 drop table  workspaces            ;
 
+
+TODO TODAY:
+* Check feasibility of pattern /contacts/:contactId/addresses/:addressId/edit
+* Check if it's feasible to have a crud within a container (if not, give it up)
 
 
 

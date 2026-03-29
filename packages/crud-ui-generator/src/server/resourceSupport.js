@@ -427,23 +427,47 @@ function buildListHeaderColumns(fields = []) {
     .join("\n");
 }
 
+function isLookupField(field = {}) {
+  return normalizeText(field?.relation?.kind).toLowerCase() === "lookup";
+}
+
+function toLookupDisplayFieldDescriptor(field = {}) {
+  const key = normalizeText(field?.key);
+  if (!key) {
+    return null;
+  }
+
+  return {
+    key,
+    relation: normalizeLookupRelation(field.relation)
+  };
+}
+
 function buildListRowColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
-    .map(
-      (field) =>
-        `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`
-    )
+    .map((field) => {
+      if (isLookupField(field)) {
+        const descriptor = toLookupDisplayFieldDescriptor(field);
+        return `                <td>{{ records.resolveFieldDisplay(record, ${JSON.stringify(descriptor)}) }}</td>`;
+      }
+
+      return `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`;
+    })
     .join("\n");
 }
 
 function buildViewColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
-    .map(
-      (field) => `            <v-col cols="12" md="6">
+    .map((field) => {
+      const valueExpression = isLookupField(field)
+        ? `view.resolveFieldDisplay(view.record, ${JSON.stringify(toLookupDisplayFieldDescriptor(field))})`
+        : toOptionalAccessorExpression("view.record", field.key);
+
+      return `            <v-col cols="12" md="6">
               <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ ${toOptionalAccessorExpression("view.record", field.key)} }}</div>
-            </v-col>`
-    )
+              <div class="text-body-1">{{ ${valueExpression} }}</div>
+            </v-col>`;
+    })
     .join("\n");
 }
 
@@ -484,7 +508,7 @@ function buildFormColumns(fields = []) {
                 label="${label}"
                 variant="outlined"
                 density="comfortable"
-                :items='resolveLookupItems(${JSON.stringify(key)})'
+                :items='resolveLookupItems(${JSON.stringify(key)}, { selectedValue: ${formAccessor}, selectedRecord: formRuntime.addEdit.resource.data })'
                 item-title="label"
                 item-value="value"
                 :loading='resolveLookupLoading(${JSON.stringify(key)})'

@@ -4,6 +4,7 @@ import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
+const RUNTIME_OUTPUT_ONLY_KEYS = new Set(["lookups"]);
 
 function normalizeCrudListLimit(value, { fallback = DEFAULT_LIST_LIMIT, max = MAX_LIST_LIMIT } = {}) {
   const parsed = Number(value);
@@ -144,7 +145,9 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     context,
     schemaLabel: "operations.create.bodyValidator.schema"
   });
-  const outputKeys = Object.freeze(Object.keys(outputProperties));
+  const outputKeys = Object.freeze(
+    Object.keys(outputProperties).filter((key) => !RUNTIME_OUTPUT_ONLY_KEYS.has(String(key || "").trim()))
+  );
   const writeKeys = Object.freeze(Object.keys(writeProperties));
 
   const columnOverrides = {};

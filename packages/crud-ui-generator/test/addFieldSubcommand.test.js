@@ -128,8 +128,11 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
 
     assert.deepEqual(result.touchedFiles, [editFile]);
     const editSource = await readFile(path.join(appRoot, editFile), "utf8");
-    assert.match(editSource, /<v-select[\s\S]*resolveLookupItems\("vetId"\)/);
-    assert.match(editSource, /:items='resolveLookupItems\("vetId"\)'/);
+    assert.match(
+      editSource,
+      /<v-select[\s\S]*resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)/
+    );
+    assert.match(editSource, /:items='resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)'/);
     assert.match(editSource, /:loading='resolveLookupLoading\("vetId"\)'/);
     assert.match(editSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
 
@@ -182,6 +185,9 @@ test("add-field patches list screen when resource-file is passed explicitly", as
     assert.deepEqual(result.touchedFiles, [listFile]);
     const listSource = await readFile(path.join(appRoot, listFile), "utf8");
     assert.match(listSource, /<th>Vet Id<\/th>/);
-    assert.match(listSource, /record\.vetId/);
+    assert.match(
+      listSource,
+      /records\.resolveFieldDisplay\(record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+    );
   });
 });

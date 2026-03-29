@@ -2,6 +2,7 @@ import {
   createCrudRepositoryRuntime,
   crudRepositoryList,
   crudRepositoryFindById,
+  crudRepositoryListByIds,
   crudRepositoryCreate,
   crudRepositoryUpdateById,
   crudRepositoryDeleteById
@@ -26,6 +27,10 @@ function createCrudRepositoryFromResource(resource = {}, { context = "crudReposi
       return crudRepositoryFindById(runtime, knex, recordId, options, callOptions);
     }
 
+    async function listByIds(ids = [], callOptions = {}) {
+      return crudRepositoryListByIds(runtime, knex, ids, options, callOptions);
+    }
+
     async function create(payload = {}, callOptions = {}) {
       return crudRepositoryCreate(runtime, knex, payload, options, callOptions);
     }
@@ -41,6 +46,7 @@ function createCrudRepositoryFromResource(resource = {}, { context = "crudReposi
     return Object.freeze({
       list: listRecords,
       findById,
+      listByIds,
       create,
       updateById,
       deleteById

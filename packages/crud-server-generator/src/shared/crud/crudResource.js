@@ -20,7 +20,8 @@ const recordOutputSchema = Type.Object(
     dateField: Type.String({ minLength: 1 }),
     numberField: Type.Number(),
     createdAt: Type.String({ minLength: 1 }),
-    updatedAt: Type.String({ minLength: 1 })
+    updatedAt: Type.String({ minLength: 1 }),
+    lookups: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
   },
   { additionalProperties: false }
 );
@@ -67,8 +68,7 @@ const recordOutputValidator = Object.freeze({
   schema: recordOutputSchema,
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
-
-    return {
+    const normalized = {
       id: Number(source.id),
       textField: normalizeText(source.textField),
       dateField: toIsoString(source.dateField),
@@ -76,6 +76,11 @@ const recordOutputValidator = Object.freeze({
       createdAt: normalizeIfPresent(source.createdAt, toIsoString),
       updatedAt: normalizeIfPresent(source.updatedAt, toIsoString)
     };
+    if (source.lookups && typeof source.lookups === "object" && !Array.isArray(source.lookups)) {
+      normalized.lookups = source.lookups;
+    }
+
+    return normalized;
   }
 });
 

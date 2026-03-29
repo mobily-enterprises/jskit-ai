@@ -14,6 +14,7 @@
     "./server/repositorySupport": "./src/server/repositorySupport.js",
     "./server/repositoryMethods": "./src/server/repositoryMethods.js",
     "./server/createCrudRepositoryFromResource": "./src/server/createCrudRepositoryFromResource.js",
+    "./server/lookupProviders": "./src/server/lookupProviders.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",

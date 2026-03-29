@@ -240,7 +240,8 @@ test("crud list route forwards normalized query input from list query validators
         query: {
           cursor: 3,
           limit: 25,
-          q: "to"
+          q: "to",
+          include: "vetId"
         }
       },
       executeAction
@@ -252,6 +253,64 @@ test("crud list route forwards normalized query input from list query validators
     workspaceSlug: "acme",
     cursor: 3,
     limit: 25,
-    q: "to"
+    q: "to",
+    include: "vetId"
+  });
+});
+
+test("crud view route forwards include query input", async () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== "jskit.http.router") {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerRoutes(app, {
+    routeRelativePath: "/customers",
+    routeSurfaceRequiresWorkspace: true
+  });
+
+  const workspaceRouteBase = resolveApiBasePath({
+    surfaceRequiresWorkspace: true,
+    relativePath: "/customers"
+  });
+  const viewRoute = findRoute(registeredRoutes, "GET", `${workspaceRouteBase}/:recordId`);
+  assert.ok(viewRoute);
+
+  const calls = [];
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    return {};
+  };
+
+  await viewRoute.handler(
+    {
+      input: {
+        params: { workspaceSlug: "acme", recordId: 7 },
+        query: { include: "vetId" }
+      },
+      executeAction
+    },
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0].input, {
+    workspaceSlug: "acme",
+    recordId: 7,
+    include: "vetId"
   });
 });

@@ -2,7 +2,10 @@ import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { listSearchQueryValidator } from "@jskit-ai/crud-core/server/listQueryValidators";
+import {
+  listSearchQueryValidator,
+  lookupIncludeQueryValidator
+} from "@jskit-ai/crud-core/server/listQueryValidators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
@@ -29,7 +32,12 @@ function createActions({ surface = "" } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, cursorPaginationQueryValidator, listSearchQueryValidator],
+      inputValidator: [
+        workspaceSlugParamsValidator,
+        cursorPaginationQueryValidator,
+        listSearchQueryValidator,
+        lookupIncludeQueryValidator
+      ],
       outputValidator: ${option:namespace|singular|camel}Resource.operations.list.outputValidator,
       idempotency: "none",
       audit: {
@@ -52,7 +60,7 @@ function createActions({ surface = "" } = {}) {
       permission: {
         require: "authenticated"
       },
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
+      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, lookupIncludeQueryValidator],
       outputValidator: ${option:namespace|singular|camel}Resource.operations.view.outputValidator,
       idempotency: "none",
       audit: {
@@ -62,7 +70,8 @@ function createActions({ surface = "" } = {}) {
       async execute(input, context, deps) {
         return deps.${option:namespace|camel}Service.getRecord(input.recordId, {
           context,
-          visibilityContext: context?.visibilityContext
+          visibilityContext: context?.visibilityContext,
+          include: input.include
         });
       }
     },
