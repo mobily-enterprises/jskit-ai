@@ -45,16 +45,39 @@ function resolveLookupItemLabel(item = {}, labelKey = "") {
   return normalizeText(source[normalizedLabelKey]);
 }
 
-function resolveLookupFieldDisplayValue(record = {}, field = {}) {
+function resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = "", labelKey = "") {
+  if (typeof field === "string") {
+    return {
+      key: normalizeText(field),
+      relation: {
+        kind: normalizeText(relationKind).toLowerCase(),
+        valueKey: normalizeText(valueKey) || "id",
+        labelKey: normalizeText(labelKey)
+      }
+    };
+  }
+
+  const sourceField = asPlainObject(field);
+  const relation = asPlainObject(sourceField.relation);
+  return {
+    key: normalizeText(sourceField.key),
+    relation: {
+      kind: normalizeText(relation.kind).toLowerCase(),
+      valueKey: normalizeText(relation.valueKey) || "id",
+      labelKey: normalizeText(relation.labelKey)
+    }
+  };
+}
+
+function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = "", valueKey = "", labelKey = "") {
   const sourceRecord = asPlainObject(record);
-  const key = normalizeText(field?.key);
+  const descriptor = resolveLookupFieldDescriptor(field, relationKind, valueKey, labelKey);
+  const key = descriptor.key;
   if (!key) {
     return "";
   }
 
-  const relation = asPlainObject(field?.relation);
-  const relationKind = normalizeText(relation.kind).toLowerCase();
-  if (relationKind !== "lookup") {
+  if (descriptor.relation.kind !== "lookup") {
     return sourceRecord[key];
   }
 
@@ -63,13 +86,12 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}) {
   });
   const sourceLookups = asPlainObject(sourceRecord[lookupContainerKey]);
   const lookupRecord = asPlainObject(sourceLookups[key]);
-  const lookupLabel = resolveLookupItemLabel(lookupRecord, relation.labelKey);
+  const lookupLabel = resolveLookupItemLabel(lookupRecord, descriptor.relation.labelKey);
   if (lookupLabel) {
     return lookupLabel;
   }
 
-  const valueKey = normalizeText(relation.valueKey) || "id";
-  const lookupValue = lookupRecord[valueKey];
+  const lookupValue = lookupRecord[descriptor.relation.valueKey];
   if (hasDisplayValue(lookupValue)) {
     return lookupValue;
   }
