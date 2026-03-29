@@ -1572,6 +1572,13 @@ function createCommandHandlers(deps) {
       const shouldReapplyInstalledPackage =
         (isDirectTargetPackage && (forceReapplyTarget || hasInlineOptions)) ||
         (targetType === "bundle" && hasPackageInlineOptions);
+      const shouldSkipGenerateDependencyReinstall =
+        invocationMode === "generate" &&
+        !isDirectTargetPackage &&
+        Boolean(existingVersion);
+      if (shouldSkipGenerateDependencyReinstall && !shouldReapplyInstalledPackage) {
+        continue;
+      }
       if (existingVersion && existingVersion === packageEntry.version && !shouldReapplyInstalledPackage) {
         continue;
       }
