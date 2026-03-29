@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveCrudLookupFieldKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
@@ -11,6 +12,11 @@ import {
   matchesLocalSearch
 } from "./listSearchSupport.js";
 import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
+import {
+  resolveRouteParamNamesInOrder,
+  resolveRouteParamsSource,
+  toRouteParamValue
+} from "./routeTemplateHelpers.js";
 
 function useList({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -29,6 +35,7 @@ function useList({
   queryOptions,
   realtime = null,
   adapter = null,
+  resource = null,
   recordIdParam = "recordId",
   recordIdSelector = null,
   viewUrlTemplate = "",
@@ -84,6 +91,42 @@ function useList({
     realtime
   });
   const canView = operationScope.permissionGate("view");
+  const parentRouteFilter = computed(() => {
+    const lookupFieldKeys = resolveCrudLookupFieldKeys(resource);
+    if (lookupFieldKeys.length < 1) {
+      return null;
+    }
+
+    const lookupFieldKeySet = new Set(lookupFieldKeys);
+    const sourceRoute = operationScope.routeContext.route;
+    const orderedRouteParamNames = resolveRouteParamNamesInOrder(sourceRoute);
+    if (orderedRouteParamNames.length < 1) {
+      return null;
+    }
+
+    const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
+    const parentParamName = [...orderedRouteParamNames]
+      .reverse()
+      .find((name) => (
+        name !== "workspaceSlug" &&
+        name !== normalizedRecordIdParam &&
+        lookupFieldKeySet.has(name)
+      )) || "";
+    if (!parentParamName) {
+      return null;
+    }
+
+    const routeParams = resolveRouteParamsSource(sourceRoute?.params || {});
+    const parentParamValue = toRouteParamValue(routeParams[parentParamName]);
+    if (!parentParamValue) {
+      return null;
+    }
+
+    return Object.freeze({
+      key: parentParamName,
+      value: parentParamValue
+    });
+  });
   const activeSearchQuery = computed(() => {
     if (searchConfig.enabled !== true) {
       return "";
@@ -100,16 +143,26 @@ function useList({
     if (!basePath) {
       return "";
     }
-    if (!querySearchEnabled.value) {
-      return basePath;
-    }
-    const queryValue = activeSearchQuery.value;
-    if (!queryValue) {
-      return basePath;
-    }
+
     const searchParams = new URLSearchParams();
-    searchParams.set(searchConfig.queryParam, queryValue);
-    return appendQueryString(basePath, searchParams.toString());
+    if (querySearchEnabled.value) {
+      const queryValue = activeSearchQuery.value;
+      if (queryValue) {
+        searchParams.set(searchConfig.queryParam, queryValue);
+      }
+    }
+
+    const parentFilter = parentRouteFilter.value;
+    if (parentFilter) {
+      searchParams.set(parentFilter.key, parentFilter.value);
+    }
+
+    const serializedSearch = searchParams.toString();
+    if (!serializedSearch) {
+      return basePath;
+    }
+
+    return appendQueryString(basePath, serializedSearch);
   });
   const listQueryKey = computed(() => {
     const sourceQueryKey = operationScope.queryKey.value;
@@ -118,15 +171,14 @@ function useList({
       : sourceQueryKey == null
         ? []
         : [sourceQueryKey];
-    if (!querySearchEnabled.value) {
-      return baseQueryKey;
+    const parentFilter = parentRouteFilter.value;
+    if (parentFilter) {
+      baseQueryKey.push("__parent__", parentFilter.key, parentFilter.value);
     }
-    return [
-      ...baseQueryKey,
-      "__search__",
-      searchConfig.queryParam,
-      activeSearchQuery.value
-    ];
+    if (querySearchEnabled.value) {
+      baseQueryKey.push("__search__", searchConfig.queryParam, activeSearchQuery.value);
+    }
+    return baseQueryKey;
   });
 
   const list = useListCore({

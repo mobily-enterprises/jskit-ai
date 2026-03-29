@@ -83,6 +83,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
+import { ${option:resource-export|trim} as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
@@ -94,6 +95,7 @@ const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 
 const records = useList({
   adapter: UI_OPERATION_ADAPTER || undefined,
+  resource: uiResource,
   apiSuffix: UI_LIST_API_URL,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "ui-generator",

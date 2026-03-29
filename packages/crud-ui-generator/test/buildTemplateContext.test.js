@@ -865,3 +865,94 @@ test("buildUiTemplateContext fails when operations option is invalid", async () 
     );
   });
 });
+
+test("buildUiTemplateContext marks nearest route parent field as hidden route-bound in forms", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/addresses/src/shared/addressResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const addressResource = {
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            contactId: { type: "integer" },
+            line1: { type: "string" }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            contactId: { type: "integer" },
+            line1: { type: "string" }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "contactId",
+      relation: {
+        kind: "lookup",
+        apiPath: "/contacts",
+        valueKey: "id"
+      }
+    }
+  ]
+};
+
+export { addressResource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "addresses-ui",
+        "api-path": "/addresses",
+        "route-path": "contacts/[contactId]/addresses",
+        "id-param": "addressId",
+        operations: "new,edit",
+        "resource-file": resourceFile,
+        "resource-export": "addressResource",
+        "display-fields": "line1"
+      }
+    });
+
+    const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
+    const editFields = JSON.parse(context.__JSKIT_UI_EDIT_FORM_FIELDS__);
+    const createContactIdField = createFields.find((field) => field.key === "contactId");
+    const editContactIdField = editFields.find((field) => field.key === "contactId");
+
+    assert.equal(createContactIdField.hidden, true);
+    assert.equal(createContactIdField.routeParamKey, "contactId");
+    assert.equal(editContactIdField.hidden, true);
+    assert.equal(editContactIdField.routeParamKey, "contactId");
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.contactId/);
+    assert.doesNotMatch(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formRuntime\.form\.contactId/);
+  });
+});

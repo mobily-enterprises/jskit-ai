@@ -12,6 +12,7 @@ import {
   buildResourceFieldMetaMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
+  resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
   buildViewColumns,
@@ -121,7 +122,12 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   }
 
   const selectedFieldSet = new Set(selectedFields);
-  return availableFields.filter((field) => selectedFieldSet.has(normalizeText(field?.key)));
+  return availableFields.filter((field) => {
+    if (field?.hidden === true) {
+      return true;
+    }
+    return selectedFieldSet.has(normalizeText(field?.key));
+  });
 }
 
 function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
@@ -145,6 +151,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
 
   const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
   const defaultRecordChangedEvent = resolveRecordChangedEventName(resourceNamespace);
+  const parentRouteParamKey = resolveNearestParentRouteParamKey(options?.["route-path"], {
+    recordIdParam: options?.["id-param"]
+  });
   const lookupContainerKey = resolveLookupContainerKey(resource, {
     context: "ui-generator"
   });
@@ -188,7 +197,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       requireObjectProperties(createBodySchema, "operations.create body", { context: "ui-generator" }),
       {
         fieldMetaMap,
-        lookupContainerKey
+        lookupContainerKey,
+        parentRouteParamKey
       }
     );
     validateDisplayFieldsForOperation(selectedDisplayFields, createFieldsAll, "create");
@@ -202,7 +212,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       requireObjectProperties(patchBodySchema, "operations.patch body", { context: "ui-generator" }),
       {
         fieldMetaMap,
-        lookupContainerKey
+        lookupContainerKey,
+        parentRouteParamKey
       }
     );
     validateDisplayFieldsForOperation(selectedDisplayFields, editFieldsAll, "patch");

@@ -6,7 +6,9 @@ import {
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import {
   listSearchQueryValidator,
-  lookupIncludeQueryValidator
+  lookupIncludeQueryValidator,
+  createCrudParentFilterQueryValidator,
+  resolveCrudParentFilterKeys
 } from "../src/server/listQueryValidators.js";
 
 test("listSearchQueryValidator normalizes q", () => {
@@ -42,5 +44,119 @@ test("lookupIncludeQueryValidator keeps include optional when merged with pagina
     queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator]
   });
 
+  assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("resolveCrudParentFilterKeys returns lookup keys that exist in create schema", () => {
+  const resource = {
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              contactId: { type: "integer" },
+              name: { type: "string" },
+              vetId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/vets",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "ignoredLookup",
+        relation: {
+          kind: "lookup",
+          apiPath: "/ignored",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+
+  assert.deepEqual(resolveCrudParentFilterKeys(resource), ["contactId", "vetId"]);
+});
+
+test("createCrudParentFilterQueryValidator normalizes configured parent filters", () => {
+  const validator = createCrudParentFilterQueryValidator({
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              contactId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    ]
+  });
+
+  const normalized = validator.normalize({
+    contactId: "  42  ",
+    unknown: "x"
+  });
+  assert.deepEqual(normalized, {
+    contactId: "42"
+  });
+});
+
+test("createCrudParentFilterQueryValidator keeps parent filters optional when merged", () => {
+  const parentValidator = createCrudParentFilterQueryValidator({
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              contactId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    ]
+  });
+
+  const compiled = compileRouteValidator({
+    queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator]
+  });
   assert.deepEqual(compiled.schema.querystring.required || [], []);
 });

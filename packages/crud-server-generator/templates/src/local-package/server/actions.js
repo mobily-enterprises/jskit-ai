@@ -4,11 +4,14 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import {
   listSearchQueryValidator,
-  lookupIncludeQueryValidator
+  lookupIncludeQueryValidator,
+  createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
+
+const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(${option:namespace|singular|camel}Resource);
 
 function requireActionSurface(surface = "") {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
@@ -36,6 +39,7 @@ function createActions({ surface = "" } = {}) {
         workspaceSlugParamsValidator,
         cursorPaginationQueryValidator,
         listSearchQueryValidator,
+        listParentFilterQueryValidator,
         lookupIncludeQueryValidator
       ],
       outputValidator: ${option:namespace|singular|camel}Resource.operations.list.outputValidator,

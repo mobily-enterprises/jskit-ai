@@ -1,5 +1,6 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { asPlainObject } from "./scopeHelpers.js";
+import { toRouteParamValue } from "./routeTemplateHelpers.js";
 
 function normalizeCrudFormFields(fields = []) {
   const normalizedFields = [];
@@ -109,6 +110,38 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
   }
 }
 
+function resolveCrudRouteBoundFieldValues(fields = [], routeParams = {}) {
+  const sourceRouteParams = asPlainObject(routeParams);
+  const values = {};
+
+  for (const field of normalizeCrudFormFields(fields)) {
+    const routeParamKey = String(field?.routeParamKey || "").trim();
+    if (!routeParamKey) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(sourceRouteParams, routeParamKey)) {
+      continue;
+    }
+
+    const routeValue = toRouteParamValue(sourceRouteParams[routeParamKey]);
+    if (!routeValue) {
+      continue;
+    }
+    values[field.key] = routeValue;
+  }
+
+  return values;
+}
+
+function applyCrudRouteBoundFieldValues(fields = [], target = {}, routeParams = {}) {
+  const resolved = resolveCrudRouteBoundFieldValues(fields, routeParams);
+  const destination = asPlainObject(target);
+  for (const [key, value] of Object.entries(resolved)) {
+    destination[key] = value;
+  }
+  return resolved;
+}
+
 function resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "") {
   const key = String(fieldKey || "").trim();
   if (!key) {
@@ -147,6 +180,8 @@ export {
   createCrudFormModel,
   buildCrudFormPayload,
   applyCrudPayloadToForm,
+  resolveCrudRouteBoundFieldValues,
+  applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
 };

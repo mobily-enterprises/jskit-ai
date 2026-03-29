@@ -1,5 +1,5 @@
-import { computed, proxyRefs, reactive } from "vue";
-import { useRouter } from "vue-router";
+import { computed, proxyRefs, reactive, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { asPlainObject } from "./scopeHelpers.js";
 import { useAddEdit } from "./useAddEdit.js";
 import {
@@ -7,6 +7,7 @@ import {
   createCrudFormModel,
   buildCrudFormPayload,
   applyCrudPayloadToForm,
+  applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
 } from "./crudSchemaFormHelpers.js";
@@ -47,6 +48,7 @@ function useCrudSchemaForm({
   parseInput = null
 } = {}) {
   const router = useRouter();
+  const route = useRoute();
   const normalizedFields = normalizeCrudFormFields(formFields);
   const normalizedAddEditOptions = asPlainObject(addEditOptions);
   const saveSuccessOptions = normalizeSaveSuccessOptions(saveSuccess);
@@ -59,6 +61,19 @@ function useCrudSchemaForm({
     ? asPlainObject(createModel(normalizedFields))
     : createCrudFormModel(normalizedFields);
   const form = hasProvidedModel ? providedModel : reactive(defaultModel);
+
+  function applyRouteBoundValues(target = {}) {
+    return applyCrudRouteBoundFieldValues(normalizedFields, target, route?.params || {});
+  }
+
+  applyRouteBoundValues(form);
+  watch(
+    () => route?.params,
+    () => {
+      applyRouteBoundValues(form);
+    },
+    { deep: true }
+  );
   const parseInputOverride = typeof parseInput === "function"
     ? parseInput
     : (typeof normalizedAddEditOptions.parseInput === "function" ? normalizedAddEditOptions.parseInput : null);
@@ -88,14 +103,15 @@ function useCrudSchemaForm({
   }
 
   function resolveBuildRawPayload(model = {}, context = {}) {
-    if (buildPayloadOverride) {
-      return buildPayloadOverride(model, {
-        ...context,
-        fields: normalizedFields
-      });
-    }
+    const payload = buildPayloadOverride
+      ? buildPayloadOverride(model, {
+          ...context,
+          fields: normalizedFields
+        })
+      : buildCrudFormPayload(normalizedFields, model);
+    applyRouteBoundValues(payload);
 
-    return buildCrudFormPayload(normalizedFields, model);
+    return payload;
   }
 
   const effectiveMapLoadedToModel = mapPayloadToModelOverride
@@ -104,10 +120,12 @@ function useCrudSchemaForm({
           ...context,
           fields: normalizedFields
         });
+        applyRouteBoundValues(model);
       }
     : (shouldApplyDefaultMapPayload
         ? (model = {}, payload = {}) => {
             applyCrudPayloadToForm(normalizedFields, model, payload);
+            applyRouteBoundValues(model);
           }
         : undefined);
 

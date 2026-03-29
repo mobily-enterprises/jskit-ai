@@ -182,7 +182,9 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
     idColumn,
     cursor: query?.cursor,
     q: query?.q,
-    searchColumns: runtime.list.searchColumns
+    searchColumns: runtime.list.searchColumns,
+    parentFilters: query,
+    parentFilterColumns: runtime.mapping.parentFilterColumns
   });
 
   const rows = await dbQuery;

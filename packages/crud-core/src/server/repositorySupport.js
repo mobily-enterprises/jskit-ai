@@ -1,7 +1,10 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
-import { resolveCrudLookupContainerKey } from "@jskit-ai/kernel/shared/support/crudLookup";
+import {
+  resolveCrudLookupContainerKey,
+  resolveCrudLookupFieldKeys
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldMetaSupport.js";
 
 const DEFAULT_LIST_LIMIT = 20;
@@ -179,11 +182,21 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     listSearchColumns.push(columnName);
   }
 
+  const parentFilterColumns = {};
+  for (const key of resolveCrudLookupFieldKeys(resource, { allowKeys: writeKeys })) {
+    const columnName = resolveColumnName(key, columnOverrides);
+    if (!columnName) {
+      continue;
+    }
+    parentFilterColumns[key] = columnName;
+  }
+
   return Object.freeze({
     outputKeys,
     writeKeys,
     columnOverrides: Object.freeze(columnOverrides),
-    listSearchColumns: Object.freeze(listSearchColumns)
+    listSearchColumns: Object.freeze(listSearchColumns),
+    parentFilterColumns: Object.freeze(parentFilterColumns)
   });
 }
 
@@ -210,7 +223,9 @@ function applyCrudListQueryFilters(
     idColumn = "id",
     cursor = 0,
     q = "",
-    searchColumns = []
+    searchColumns = [],
+    parentFilters = {},
+    parentFilterColumns = {}
   } = {}
 ) {
   if (!query || typeof query.modify !== "function" || typeof query.where !== "function") {
@@ -223,6 +238,32 @@ function applyCrudListQueryFilters(
     .filter(Boolean);
 
   let nextQuery = query;
+
+  const sourceParentFilters = normalizeObjectInput(parentFilters);
+  const normalizedParentFilterColumns = parentFilterColumns && typeof parentFilterColumns === "object" && !Array.isArray(parentFilterColumns)
+    ? parentFilterColumns
+    : {};
+
+  for (const [fieldKey, columnNameRaw] of Object.entries(normalizedParentFilterColumns)) {
+    if (!Object.hasOwn(sourceParentFilters, fieldKey)) {
+      continue;
+    }
+
+    const columnName = String(columnNameRaw || "").trim();
+    if (!columnName) {
+      continue;
+    }
+
+    const sourceValue = sourceParentFilters[fieldKey];
+    const normalizedValue = typeof sourceValue === "string"
+      ? sourceValue.trim()
+      : sourceValue;
+    if (normalizedValue === "" || normalizedValue === undefined || normalizedValue === null) {
+      continue;
+    }
+
+    nextQuery = nextQuery.where(columnName, normalizedValue);
+  }
 
   if (normalizedSearch && normalizedSearchColumns.length > 0) {
     const searchPattern = `%${normalizedSearch}%`;
