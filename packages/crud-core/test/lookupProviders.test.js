@@ -1,0 +1,76 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  resolveCrudLookupProviderToken,
+  createCrudLookupProviderResolver,
+  createCrudLookupProvider
+} from "../src/server/lookupProviders.js";
+
+test("resolveCrudLookupProviderToken normalizes apiPath to lookup token", () => {
+  assert.equal(resolveCrudLookupProviderToken("/vets"), "crud.lookup.vets");
+  assert.equal(resolveCrudLookupProviderToken("vets/clinics/"), "crud.lookup.vets.clinics");
+});
+
+test("resolveCrudLookupProviderToken throws for empty apiPath", () => {
+  assert.throws(
+    () => resolveCrudLookupProviderToken(""),
+    /requires relation\.apiPath/
+  );
+});
+
+test("createCrudLookupProviderResolver resolves providers through scope.make()", () => {
+  const calls = [];
+  const scope = {
+    make(token) {
+      calls.push(token);
+      return { token };
+    }
+  };
+
+  const resolveLookupProvider = createCrudLookupProviderResolver(scope, {
+    context: "customersProvider"
+  });
+
+  const resolved = resolveLookupProvider({
+    apiPath: "/vets"
+  });
+
+  assert.equal(calls[0], "crud.lookup.vets");
+  assert.deepEqual(resolved, {
+    token: "crud.lookup.vets"
+  });
+});
+
+test("createCrudLookupProvider wraps repository.listByIds and forces include=none", async () => {
+  const calls = [];
+  const provider = createCrudLookupProvider({
+    async listByIds(ids = [], options = {}) {
+      calls.push({
+        ids,
+        options
+      });
+      return [{ id: 1 }];
+    }
+  });
+
+  const result = await provider.listByIds([1, 2], {
+    include: "*",
+    limit: 10
+  });
+
+  assert.deepEqual(result, [{ id: 1 }]);
+  assert.deepEqual(calls[0], {
+    ids: [1, 2],
+    options: {
+      include: "none",
+      limit: 10
+    }
+  });
+});
+
+test("createCrudLookupProvider validates repository contract", () => {
+  assert.throws(
+    () => createCrudLookupProvider({}),
+    /requires repository\.listByIds/
+  );
+});

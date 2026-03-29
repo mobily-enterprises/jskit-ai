@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveLookupItemLabel } from "../src/client/composables/crudLookupFieldLabelSupport.js";
+import {
+  resolveLookupItemLabel,
+  resolveLookupFieldDisplayValue
+} from "../src/client/composables/crudLookupFieldLabelSupport.js";
 
 test("resolveLookupItemLabel composes name + surname", () => {
   assert.equal(
@@ -54,4 +57,86 @@ test("resolveLookupItemLabel resolves name when surname is missing", () => {
 
 test("resolveLookupItemLabel returns empty when no label fields match", () => {
   assert.equal(resolveLookupItemLabel({ id: 42 }, "name"), "");
+});
+
+test("resolveLookupFieldDisplayValue returns hydrated label for lookup fields", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: 17,
+        lookups: {
+          vetId: {
+            id: 17,
+            name: "Harbor Vet"
+          }
+        }
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          valueKey: "id",
+          labelKey: "name"
+        }
+      }
+    ),
+    "Harbor Vet"
+  );
+});
+
+test("resolveLookupFieldDisplayValue falls back to hydrated valueKey", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: 17,
+        lookups: {
+          vetId: {
+            id: 99
+          }
+        }
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          valueKey: "id",
+          labelKey: "name"
+        }
+      }
+    ),
+    99
+  );
+});
+
+test("resolveLookupFieldDisplayValue falls back to raw id when lookup is not hydrated", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: 17
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          valueKey: "id",
+          labelKey: "name"
+        }
+      }
+    ),
+    17
+  );
+});
+
+test("resolveLookupFieldDisplayValue returns raw value for non-lookup fields", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        firstName: "Ana"
+      },
+      {
+        key: "firstName"
+      }
+    ),
+    "Ana"
+  );
 });

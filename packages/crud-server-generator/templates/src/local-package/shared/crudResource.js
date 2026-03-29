@@ -10,6 +10,7 @@ __JSKIT_CRUD_RESOURCE_JSON_IMPORT__
 const recordOutputSchema = Type.Object(
   {
 __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__
+    lookups: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
   },
   { additionalProperties: false }
 );
@@ -32,10 +33,14 @@ const recordOutputValidator = Object.freeze({
   schema: recordOutputSchema,
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
-
-    return {
+    const normalized = {
 __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__
     };
+    if (source.lookups && typeof source.lookups === "object" && !Array.isArray(source.lookups)) {
+      normalized.lookups = source.lookups;
+    }
+
+    return normalized;
   }
 });
 

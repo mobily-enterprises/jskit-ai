@@ -10,6 +10,7 @@ import {
   normalizeListSearchConfig,
   matchesLocalSearch
 } from "./listSearchSupport.js";
+import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
 
 function useList({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -202,6 +203,7 @@ function useList({
     resolveParams: listUiRuntime.resolveParams,
     resolveViewUrl: listUiRuntime.resolveViewUrl,
     resolveEditUrl: listUiRuntime.resolveEditUrl,
+    resolveFieldDisplay: resolveLookupFieldDisplayValue,
     searchEnabled: searchConfig.enabled,
     searchMode: searchConfig.mode,
     searchQuery,

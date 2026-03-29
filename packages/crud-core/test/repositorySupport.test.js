@@ -198,6 +198,39 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
   assert.deepEqual(mapping.listSearchColumns, ["first_name", "created_at"]);
 });
 
+test("deriveRepositoryMappingFromResource excludes runtime-only lookups output key from db mapping", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              firstName: { type: "string" },
+              lookups: { type: "object" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: []
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.outputKeys, ["id", "firstName"]);
+});
+
 test("deriveRepositoryMappingFromResource throws when view schema properties are missing", () => {
   const resource = {
     operations: {

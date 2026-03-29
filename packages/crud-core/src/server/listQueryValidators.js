@@ -21,6 +21,26 @@ const listSearchQueryValidator = Object.freeze({
   }
 });
 
+const lookupIncludeQueryValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      include: Type.Optional(Type.String({ minLength: 0 }))
+    },
+    { additionalProperties: false }
+  ),
+  normalize(payload = {}) {
+    const source = normalizeObjectInput(payload);
+    if (!Object.hasOwn(source, "include")) {
+      return {};
+    }
+
+    return {
+      include: normalizeText(source.include)
+    };
+  }
+});
+
 export {
-  listSearchQueryValidator
+  listSearchQueryValidator,
+  lookupIncludeQueryValidator
 };

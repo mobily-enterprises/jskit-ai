@@ -402,6 +402,7 @@ test("crud repository template defines explicit one-line CRUD methods over repos
   assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
   assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
+  assert.match(templateSource, /return crudRepositoryListByIds\(repositoryRuntime, knex, ids, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
@@ -422,4 +423,18 @@ test("crud service template defines explicit service methods and semi-explicit d
   assert.match(templateSource, /async function listRecords\(query = \{\}, options = \{\}\)/);
   assert.match(templateSource, /return \$\{option:namespace\|camel\}Repository\.list\(query, options\);/);
   assert.match(templateSource, /throw new AppError\(404, "Record not found\."\);/);
+});
+
+test("crud provider template uses shared lookup provider helpers instead of inline wiring", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "CrudProvider.js");
+  const templateSource = await readFile(templatePath, "utf8");
+
+  assert.match(
+    templateSource,
+    /from "@jskit-ai\/crud-core\/server\/lookupProviders";/
+  );
+  assert.match(templateSource, /resolveLookupProvider: createCrudLookupProviderResolver\(scope\)/);
+  assert.match(templateSource, /return createCrudLookupProvider\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\)\);/);
+  assert.doesNotMatch(templateSource, /normalizePathname\(relation\.apiPath\)/);
 });

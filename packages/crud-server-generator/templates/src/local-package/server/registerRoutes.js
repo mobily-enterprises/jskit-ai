@@ -1,6 +1,9 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { listSearchQueryValidator } from "@jskit-ai/crud-core/server/listQueryValidators";
+import {
+  listSearchQueryValidator,
+  lookupIncludeQueryValidator
+} from "@jskit-ai/crud-core/server/listQueryValidators";
 import {
   cursorPaginationQueryValidator,
   recordIdParamsValidator
@@ -40,7 +43,7 @@ function registerRoutes(
         summary: "List records."
       },
       paramsValidator: routeParamsValidator,
-      queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator],
+      queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator],
       responseValidators: withStandardErrorResponses({
         200: ${option:namespace|singular|camel}Resource.operations.list.outputValidator
       })
@@ -70,6 +73,7 @@ function registerRoutes(
         summary: "View a record."
       },
       paramsValidator: [routeParamsValidator, recordIdParamsValidator],
+      queryValidator: [lookupIncludeQueryValidator],
       responseValidators: withStandardErrorResponses({
         200: ${option:namespace|singular|camel}Resource.operations.view.outputValidator
       })
@@ -79,7 +83,8 @@ function registerRoutes(
         actionId: actionIds.view,
         input: {
           ...buildWorkspaceInputFromRouteParams(request.input.params),
-          recordId: request.input.params.recordId
+          recordId: request.input.params.recordId,
+          ...(request.input.query || {})
         }
       });
       reply.code(200).send(response);

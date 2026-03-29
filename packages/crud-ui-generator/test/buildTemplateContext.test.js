@@ -456,12 +456,92 @@ export { contactResource };
       labelKey: "name"
     });
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /resolveLookupItems\("vetId"\)/);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:items='resolveLookupItems\("vetId"\)'/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:items='resolveLookupItems\("vetId", \{ selectedValue: formRuntime\.form\.vetId, selectedRecord: formRuntime\.addEdit\.resource\.data \}\)'/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:loading='resolveLookupLoading\("vetId"\)'/);
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /UI_CREATE_FORM_FIELDS\.push\(\{/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__, /\"relation\": \{/);
+  });
+});
+
+test("buildUiTemplateContext renders lookup display via shared runtime in list and view", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const contactResource = {
+  operations: {
+    list: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "integer" },
+                  vetId: { type: ["integer", "null"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            vetId: { type: ["integer", "null"] }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "vetId",
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id",
+        labelKey: "name"
+      }
+    }
+  ]
+};
+
+export { contactResource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "contacts-ui",
+        "api-path": "/contacts",
+        operations: "list,view",
+        "resource-file": resourceFile,
+        "resource-export": "contactResource"
+      }
+    });
+
+    assert.match(
+      context.__JSKIT_UI_LIST_ROW_COLUMNS__,
+      /records\.resolveFieldDisplay\(record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+    );
+    assert.match(
+      context.__JSKIT_UI_VIEW_COLUMNS__,
+      /view\.resolveFieldDisplay\(view\.record, \{"key":"vetId","relation":\{"kind":"lookup","apiPath":"\/vets","valueKey":"id","labelKey":"name"\}\}\)/
+    );
+    assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
+    assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.id/);
   });
 });
 

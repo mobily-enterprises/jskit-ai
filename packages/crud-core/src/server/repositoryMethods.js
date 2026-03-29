@@ -1,6 +1,6 @@
 import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_LIST_LIMIT,
   MAX_LIST_LIMIT,
@@ -14,6 +14,10 @@ import {
   resolveColumnName,
   resolveCrudIdColumn
 } from "./repositorySupport.js";
+import {
+  createCrudLookupRuntime,
+  hydrateCrudLookupRecords
+} from "./lookupHydration.js";
 
 function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}) {
   const resourceName = normalizeText(resource.resource);
@@ -74,6 +78,9 @@ function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = []) {
 function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {} } = {}) {
   const repositoryMapping = deriveRepositoryMappingFromResource(resource, { context });
   const defaults = resolveRepositoryDefaults(resource, repositoryMapping);
+  const lookupRuntime = createCrudLookupRuntime(resource, {
+    outputKeys: repositoryMapping.outputKeys
+  });
   const { selectColumns } = buildRepositoryColumnMetadata({
     outputKeys: repositoryMapping.outputKeys,
     writeKeys: repositoryMapping.writeKeys,
@@ -85,6 +92,7 @@ function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository"
     defaults,
     selectColumns,
     list: resolveListRuntimeConfig(list, repositoryMapping.listSearchColumns),
+    lookup: lookupRuntime,
     mapping: repositoryMapping
   });
 }
@@ -138,8 +146,18 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
   const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows;
   const items = pageRows.map((row) => mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides));
 
+  const hydratedItems = await hydrateCrudLookupRecords(items, {
+    ...runtime.lookup,
+    context: runtime.context
+  }, {
+    include: query?.include,
+    mode: "list",
+    repositoryOptions,
+    callOptions
+  });
+
   return {
-    items,
+    items: hydratedItems,
     nextCursor: hasMore && items.length > 0 ? String(items[items.length - 1].id) : null
   };
 }
@@ -154,7 +172,48 @@ async function crudRepositoryFindById(runtime, knex, recordId, repositoryOptions
     })
     .first();
 
-  return mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+  const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+  if (!mappedRecord) {
+    return null;
+  }
+
+  const hydrated = await hydrateCrudLookupRecords([mappedRecord], {
+    ...runtime.lookup,
+    context: runtime.context
+  }, {
+    include: callOptions?.include,
+    mode: "view",
+    repositoryOptions,
+    callOptions
+  });
+
+  return hydrated[0] || null;
+}
+
+async function crudRepositoryListByIds(runtime, knex, ids = [], repositoryOptions = {}, callOptions = {}) {
+  const { client, tableName, visible } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
+  const lookupValueKey = normalizeText(callOptions?.valueKey) || "id";
+  if (!runtime.mapping.outputKeys.includes(lookupValueKey)) {
+    throw new TypeError(
+      `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
+    );
+  }
+  const lookupColumn = resolveColumnName(lookupValueKey, runtime.mapping.columnOverrides);
+  if (!lookupColumn) {
+    throw new TypeError(`${runtime.context || "crudRepository"} listByIds requires a valid valueKey.`);
+  }
+
+  const normalizedIds = normalizeUniqueTextList(ids);
+  if (normalizedIds.length < 1) {
+    return [];
+  }
+
+  const rows = await client(tableName)
+    .select(...runtime.selectColumns)
+    .where(visible)
+    .whereIn(lookupColumn, normalizedIds);
+
+  return rows.map((row) => mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides));
 }
 
 async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptions = {}, callOptions = {}) {
@@ -209,6 +268,7 @@ async function crudRepositoryDeleteById(runtime, knex, recordId, repositoryOptio
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
   const existing = await crudRepositoryFindById(runtime, knex, recordId, repositoryOptions, {
     ...callOptions,
+    include: "none",
     trx: client
   });
 
@@ -233,6 +293,7 @@ export {
   createCrudRepositoryRuntime,
   crudRepositoryList,
   crudRepositoryFindById,
+  crudRepositoryListByIds,
   crudRepositoryCreate,
   crudRepositoryUpdateById,
   crudRepositoryDeleteById

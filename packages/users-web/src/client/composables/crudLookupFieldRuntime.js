@@ -1,6 +1,10 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useList } from "./useList.js";
-import { resolveLookupItemLabel } from "./crudLookupFieldLabelSupport.js";
+import {
+  resolveLookupItemLabel,
+  resolveLookupFieldDisplayValue
+} from "./crudLookupFieldLabelSupport.js";
+import { asPlainObject } from "./scopeHelpers.js";
 
 function normalizeQueryKeyPrefix(value) {
   const source = Array.isArray(value) ? value : [];
@@ -30,6 +34,46 @@ function normalizeLookupApiPath(relation = {}) {
   }
 
   return "";
+}
+
+function isSameLookupValue(left, right) {
+  if (left === right) {
+    return true;
+  }
+
+  return String(left ?? "") === String(right ?? "");
+}
+
+function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}) {
+  if (selectedValue == null || selectedValue === "") {
+    return null;
+  }
+
+  const sourceRecord = asPlainObject(selectedRecord);
+  const hydratedLookup = asPlainObject(asPlainObject(sourceRecord.lookups)[entry.fieldKey]);
+  const hydratedValue = hydratedLookup[entry.valueKey];
+  const value = hydratedValue == null || hydratedValue === "" ? selectedValue : hydratedValue;
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const displayValue = resolveLookupFieldDisplayValue(
+    {
+      [entry.fieldKey]: value,
+      lookups: {
+        [entry.fieldKey]: hydratedLookup
+      }
+    },
+    {
+      key: entry.fieldKey,
+      relation: entry.relation
+    }
+  );
+  const label = displayValue == null || displayValue === "" ? value : displayValue;
+  return {
+    value,
+    label: String(label ?? "")
+  };
 }
 
 function createCrudLookupFieldRuntime({
@@ -83,19 +127,25 @@ function createCrudLookupFieldRuntime({
 
     runtimes.set(key, Object.freeze({
       runtime,
+      fieldKey: key,
       valueKey,
-      labelKey
+      labelKey,
+      relation: Object.freeze({
+        kind: "lookup",
+        valueKey,
+        ...(labelKey ? { labelKey } : {})
+      })
     }));
   }
 
-  function resolveLookupItems(fieldKey = "") {
+  function resolveLookupItems(fieldKey = "", options = {}) {
     const key = normalizeText(fieldKey);
     const entry = runtimes.get(key);
     if (!entry) {
       return [];
     }
 
-    return (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
+    const items = (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
       const value = item?.[entry.valueKey];
       const resolvedLabel = resolveLookupItemLabel(item, entry.labelKey);
       const label = resolvedLabel || value;
@@ -104,6 +154,21 @@ function createCrudLookupFieldRuntime({
         label: String(label ?? "")
       };
     });
+
+    const selectedItem = createSelectedLookupItem(
+      options?.selectedValue,
+      options?.selectedRecord,
+      entry
+    );
+    if (!selectedItem) {
+      return items;
+    }
+
+    if (items.some((item) => isSameLookupValue(item?.value, selectedItem.value))) {
+      return items;
+    }
+
+    return [selectedItem, ...items];
   }
 
   function resolveLookupLoading(fieldKey = "") {
