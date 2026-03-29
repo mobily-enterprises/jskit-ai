@@ -27,8 +27,8 @@ export default Object.freeze({
     server: {
       providers: [
         {
-          entrypoint: "src/server/${option:namespace|pascal}ServiceProvider.js",
-          export: "${option:namespace|pascal}ServiceProvider"
+          entrypoint: "src/server/${option:namespace|pascal}Provider.js",
+          export: "${option:namespace|pascal}Provider"
         }
       ]
     }

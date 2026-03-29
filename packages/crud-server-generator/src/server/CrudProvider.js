@@ -1,4 +1,4 @@
-class CrudServiceProvider {
+class CrudProvider {
   static id = "crud";
 
   static dependsOn = [];
@@ -8,4 +8,4 @@ class CrudServiceProvider {
   boot() {}
 }
 
-export { CrudServiceProvider };
+export { CrudProvider };

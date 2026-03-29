@@ -6,7 +6,7 @@
     "test": "node --test"
   },
   "exports": {
-    "./server/CrudServiceProvider": "./src/server/CrudServiceProvider.js",
+    "./server/CrudProvider": "./src/server/CrudProvider.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./shared": "./src/shared/index.js",
     "./shared/crud/crudResource": "./src/shared/crud/crudResource.js"

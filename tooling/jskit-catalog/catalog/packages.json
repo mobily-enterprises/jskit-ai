@@ -974,8 +974,8 @@
           "server": {
             "providers": [
               {
-                "entrypoint": "src/server/CrudServiceProvider.js",
-                "export": "CrudServiceProvider"
+                "entrypoint": "src/server/CrudProvider.js",
+                "export": "CrudProvider"
               }
             ]
           }
@@ -1006,7 +1006,7 @@
               "@jskit-ai/http-runtime": "0.1.16",
               "@jskit-ai/kernel": "0.1.17",
               "@jskit-ai/realtime": "0.1.16",
-              "@jskit-ai/users-core": "0.1.23",
+              "@jskit-ai/users-core": "0.1.26",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
               "typebox": "^1.0.81"
             },
@@ -1045,8 +1045,8 @@
               "id": "crud-local-package-descriptor-${option:namespace|snake}"
             },
             {
-              "from": "templates/src/local-package/server/CrudServiceProvider.js",
-              "to": "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}ServiceProvider.js",
+              "from": "templates/src/local-package/server/CrudProvider.js",
+              "to": "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}Provider.js",
               "reason": "Install app-local CRUD server provider.",
               "category": "crud",
               "id": "crud-local-package-server-provider-${option:namespace|snake}",
@@ -1214,6 +1214,12 @@
           }
         },
         "metadata": {
+          "generatorSubcommands": {
+            "add-field": {
+              "entrypoint": "src/server/subcommands/addField.js",
+              "export": "runGeneratorSubcommand"
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -2800,6 +2806,10 @@
               {
                 "subpath": "./client/composables/useList",
                 "summary": "Exports list operation composable."
+              },
+              {
+                "subpath": "./client/composables/crudLookupFieldRuntime",
+                "summary": "Exports CRUD lookup field runtime helpers for generated add/edit forms."
               },
               {
                 "subpath": "./client/composables/useCommand",

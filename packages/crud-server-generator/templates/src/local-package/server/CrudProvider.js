@@ -17,18 +17,18 @@ const CRUD_MODULE_CONFIG = Object.freeze({
 
 function resolveCrudPolicyFromApp(app) {
   return resolveCrudSurfacePolicyFromAppConfig(CRUD_MODULE_CONFIG, resolveAppConfig(app), {
-    context: "${option:namespace|pascal}ServiceProvider"
+    context: "${option:namespace|pascal}Provider"
   });
 }
 
-class ${option:namespace|pascal}ServiceProvider {
+class ${option:namespace|pascal}Provider {
   static id = "crud.${option:namespace|snake}";
 
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "users.core"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
-      throw new Error("${option:namespace|pascal}ServiceProvider requires application singleton()/service()/actions().");
+      throw new Error("${option:namespace|pascal}Provider requires application singleton()/service()/actions().");
     }
 
     const crudPolicy = resolveCrudPolicyFromApp(app);
@@ -76,4 +76,4 @@ class ${option:namespace|pascal}ServiceProvider {
   }
 }
 
-export { ${option:namespace|pascal}ServiceProvider };
+export { ${option:namespace|pascal}Provider };
