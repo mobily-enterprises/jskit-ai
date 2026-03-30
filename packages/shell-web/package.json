@@ -13,6 +13,7 @@
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
     "./client/components/ShellErrorHost": "./src/client/components/ShellErrorHost.vue",
+    "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js"
   },
   "dependencies": {

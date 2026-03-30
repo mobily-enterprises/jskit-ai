@@ -81,7 +81,7 @@ export { contactResource };
 `;
 
 async function withTempApp(run) {
-  const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-add-field-"));
+  const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-field-"));
   try {
     return await run(appRoot);
   } finally {
@@ -96,7 +96,7 @@ async function writeAppFile(appRoot, relativePath, source) {
   return absolutePath;
 }
 
-test("add-field patches edit screen using resource metadata and anchors", async () => {
+test("field patches edit screen using resource metadata and anchors", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";
     const editFile = "src/pages/admin/crm/contacts/[recordId]/edit.vue";
@@ -121,7 +121,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
 
     const result = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "add-field",
+      subcommand: "field",
       args: ["vetId", "edit", editFile],
       options: {}
     });
@@ -140,7 +140,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
 
     const second = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "add-field",
+      subcommand: "field",
       args: ["vetId", "edit", editFile],
       options: {}
     });
@@ -148,7 +148,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
   });
 });
 
-test("add-field patches list screen when resource-file is passed explicitly", async () => {
+test("field patches list screen when resource-file is passed explicitly", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";
     const listFile = "src/pages/admin/crm/contacts/index.vue";
@@ -176,7 +176,7 @@ test("add-field patches list screen when resource-file is passed explicitly", as
 
     const result = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "add-field",
+      subcommand: "field",
       args: ["vetId", "list", listFile],
       options: {
         "resource-file": resourceFile,

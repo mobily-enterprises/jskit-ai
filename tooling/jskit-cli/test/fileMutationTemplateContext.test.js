@@ -529,3 +529,95 @@ export { buildTemplateContext };
     assert.equal(migrationContent, "module.exports = \"contacts_from_template_context\";\n");
   });
 });
+
+test("add package applies templateContext replacements to append-text mutations", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "template-context-append-text-app");
+    await createMinimalApp(appRoot, { name: "template-context-append-text-app" });
+    await mkdir(path.join(appRoot, "src"), { recursive: true });
+    await writeFile(path.join(appRoot, "src", "placement.js"), "function addPlacement() {}\n", "utf8");
+
+    const packageRoot = path.join(appRoot, "packages", "template-context-append-text-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/template-context-append-text-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.template-context.append-text\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "templateContext.js"),
+      `function buildTemplateContext() {
+  return {
+    "__HOST__": "shell-layout",
+    "__POSITION__": "primary-menu"
+  };
+}
+
+export { buildTemplateContext };
+`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/template-context-append-text-feature",
+  version: "0.1.0",
+  kind: "runtime",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    text: [
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        id: "template-context-append-text",
+        value: "addPlacement({ host: \\"__HOST__\\", position: \\"__POSITION__\\" });\\n",
+        templateContext: {
+          entrypoint: "src/server/templateContext.js",
+          export: "buildTemplateContext"
+        }
+      }
+    ]
+  }
+});
+`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/template-context-append-text-feature", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /addPlacement\(\{ host: "shell-layout", position: "primary-menu" \}\);/);
+  });
+});

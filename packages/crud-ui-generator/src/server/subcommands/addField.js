@@ -33,7 +33,7 @@ function resolveOperation(rawOperation = "") {
   const normalized = normalizeText(rawOperation).toLowerCase();
   const resolved = OPERATION_ALIASES[normalized] || normalized;
   if (!SUPPORTED_OPERATIONS.has(resolved)) {
-    throw new Error('crud-ui-generator add-field operation must be one of: list, view, new, edit.');
+    throw new Error('crud-ui-generator field operation must be one of: list, view, new, edit.');
   }
 
   return resolved;
@@ -42,12 +42,12 @@ function resolveOperation(rawOperation = "") {
 function resolveTargetFilePath(appRoot, targetFile) {
   const appRootAbsolute = path.resolve(String(appRoot || ""));
   if (!appRootAbsolute) {
-    throw new Error("crud-ui-generator add-field requires appRoot.");
+    throw new Error("crud-ui-generator field requires appRoot.");
   }
 
   const normalizedTargetFile = normalizeText(targetFile);
   if (!normalizedTargetFile) {
-    throw new Error("crud-ui-generator add-field requires target file path.");
+    throw new Error("crud-ui-generator field requires target file path.");
   }
 
   const absolutePath = path.isAbsolute(normalizedTargetFile)
@@ -60,7 +60,7 @@ function resolveTargetFilePath(appRoot, targetFile) {
     relativePath.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relativePath)
   ) {
-    throw new Error("crud-ui-generator add-field target file must stay within app root.");
+    throw new Error("crud-ui-generator field target file must stay within app root.");
   }
 
   return {
@@ -98,7 +98,7 @@ function resolveResourceOptions(options = {}, inferredOptions = {}) {
   const resourceExport = normalizeText(options?.["resource-export"] || inferredOptions?.["resource-export"]);
   if (!resourceFile) {
     throw new Error(
-      'crud-ui-generator add-field could not resolve "resource-file". Pass --resource-file or run on a generated new/edit file that imports uiResource.'
+      'crud-ui-generator field could not resolve "resource-file". Pass --resource-file or run on a generated new/edit file that imports uiResource.'
     );
   }
 
@@ -111,40 +111,40 @@ function resolveResourceOptions(options = {}, inferredOptions = {}) {
 function resolveOperationFields(resource, operationName) {
   const fieldMetaMap = buildResourceFieldMetaMap(resource);
   const lookupContainerKey = resolveLookupContainerKey(resource, {
-    context: "crud-ui-generator add-field"
+    context: "crud-ui-generator field"
   });
 
   if (operationName === "list") {
-    const listOperation = requireOperation(resource, "list", { context: "crud-ui-generator add-field" });
-    const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "crud-ui-generator add-field" });
+    const listOperation = requireOperation(resource, "list", { context: "crud-ui-generator field" });
+    const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "crud-ui-generator field" });
     return createFieldDefinitions(
-      resolveListItemProperties(listOutputSchema, { context: "crud-ui-generator add-field" }),
+      resolveListItemProperties(listOutputSchema, { context: "crud-ui-generator field" }),
       { fieldMetaMap, lookupContainerKey }
     );
   }
 
   if (operationName === "view") {
-    const viewOperation = requireOperation(resource, "view", { context: "crud-ui-generator add-field" });
-    const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "crud-ui-generator add-field" });
+    const viewOperation = requireOperation(resource, "view", { context: "crud-ui-generator field" });
+    const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "crud-ui-generator field" });
     return createFieldDefinitions(
-      requireObjectProperties(viewOutputSchema, "operations.view output", { context: "crud-ui-generator add-field" }),
+      requireObjectProperties(viewOutputSchema, "operations.view output", { context: "crud-ui-generator field" }),
       { fieldMetaMap, lookupContainerKey }
     );
   }
 
   if (operationName === "new") {
-    const createOperation = requireOperation(resource, "create", { context: "crud-ui-generator add-field" });
-    const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator add-field" });
+    const createOperation = requireOperation(resource, "create", { context: "crud-ui-generator field" });
+    const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator field" });
     return createFormFieldDefinitions(
-      requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator add-field" }),
+      requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator field" }),
       { fieldMetaMap, lookupContainerKey }
     );
   }
 
-  const patchOperation = requireOperation(resource, "patch", { context: "crud-ui-generator add-field" });
-  const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator add-field" });
+  const patchOperation = requireOperation(resource, "patch", { context: "crud-ui-generator field" });
+  const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator field" });
   return createFormFieldDefinitions(
-    requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator add-field" }),
+    requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator field" }),
     { fieldMetaMap, lookupContainerKey }
   );
 }
@@ -161,7 +161,7 @@ function resolveFieldDefinition(fields = [], fieldKey = "") {
     .filter(Boolean)
     .join(", ");
   throw new Error(
-    `crud-ui-generator add-field could not find field "${key}" in resource schema for selected operation. Available: ${available || "<none>"}.`
+    `crud-ui-generator field could not find field "${key}" in resource schema for selected operation. Available: ${available || "<none>"}.`
   );
 }
 
@@ -187,7 +187,7 @@ function insertBeforeAnchor(source, { anchor = "", snippet = "" } = {}) {
   const anchorLinePattern = new RegExp(`^([ \\t]*)${escapedAnchor}[ \\t]*$`, "m");
   const anchorLineMatch = sourceText.match(anchorLinePattern);
   if (!anchorLineMatch) {
-    throw new Error(`crud-ui-generator add-field could not find anchor: ${normalizedAnchor}`);
+    throw new Error(`crud-ui-generator field could not find anchor: ${normalizedAnchor}`);
   }
   const anchorIndent = String(anchorLineMatch[1] || "");
   const alignedAnchorLine = `${anchorIndent}${normalizedAnchor}`;
@@ -253,10 +253,10 @@ function parseSubcommandArgs(args = []) {
   const targetFile = normalizeText(source[2]);
 
   if (!fieldKey) {
-    throw new Error("crud-ui-generator add-field requires <fieldKey>.");
+    throw new Error("crud-ui-generator field requires <fieldKey>.");
   }
   if (!targetFile) {
-    throw new Error("crud-ui-generator add-field requires <targetFile>.");
+    throw new Error("crud-ui-generator field requires <targetFile>.");
   }
 
   return {
@@ -274,7 +274,7 @@ async function runGeneratorSubcommand({
   dryRun = false
 } = {}) {
   const normalizedSubcommand = normalizeText(subcommand).toLowerCase();
-  if (normalizedSubcommand !== "add-field") {
+  if (normalizedSubcommand !== "field") {
     throw new Error(`Unsupported crud-ui-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
 
@@ -287,7 +287,7 @@ async function runGeneratorSubcommand({
   const resource = await loadResourceDefinition({
     appRoot,
     options: resourceOptions,
-    context: "crud-ui-generator add-field"
+    context: "crud-ui-generator field"
   });
 
   const fields = resolveOperationFields(resource, operationName);

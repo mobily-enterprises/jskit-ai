@@ -22,6 +22,10 @@ const props = defineProps({
     type: String,
     default: ""
   },
+  default: {
+    type: Boolean,
+    default: false
+  },
   context: {
     type: Object,
     default: () => ({})

@@ -20,6 +20,24 @@ async function writeResource(appRoot, relativeFile, source) {
   await writeFile(absoluteFile, source, "utf8");
 }
 
+async function writeShellLayout(appRoot, source = "") {
+  const absoluteFile = path.join(appRoot, "src", "components", "ShellLayout.vue");
+  await mkdir(path.dirname(absoluteFile), { recursive: true });
+  await writeFile(
+    absoluteFile,
+    source ||
+      `<template>
+  <div>
+    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet host="shell-layout" position="secondary-menu" />
+  </div>
+</template>
+`,
+    "utf8"
+  );
+}
+
 const FULL_RESOURCE_SOURCE = `const customerRecordSchema = {
   type: "object",
   properties: {
@@ -982,5 +1000,76 @@ export { addressResource };
     assert.equal(editContactIdField.routeParamKey, "contactId");
     assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.contactId/);
     assert.doesNotMatch(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formRuntime\.form\.contactId/);
+  });
+});
+
+test("buildUiTemplateContext resolves menu placement from ShellLayout default target", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(
+      appRoot,
+      `<template>
+  <div>
+    <ShellOutlet host="shell-layout" position="top-right" default />
+    <ShellOutlet host="shell-layout" position="primary-menu" />
+  </div>
+</template>
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "ops/customers",
+        operations: "list",
+        "resource-file": resourceFile,
+        "resource-export": "customerResource"
+      }
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "shell-layout");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "top-right");
+  });
+});
+
+test("buildUiTemplateContext applies explicit placement override and validates target format", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "ops/customers",
+        operations: "list",
+        placement: "shell-layout:secondary-menu",
+        "resource-file": resourceFile,
+        "resource-export": "customerResource"
+      }
+    });
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "secondary-menu");
+
+    await assert.rejects(
+      () =>
+        buildUiTemplateContext({
+          appRoot,
+          options: {
+            namespace: "customers-ui",
+            "api-path": "/crud/customers",
+            "route-path": "ops/customers",
+            operations: "list",
+            placement: "invalid-placement",
+            "resource-file": resourceFile,
+            "resource-export": "customerResource"
+          }
+        }),
+      /option "placement" must be in "host:position" format/
+    );
   });
 });

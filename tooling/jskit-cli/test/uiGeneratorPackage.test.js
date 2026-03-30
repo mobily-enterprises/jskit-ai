@@ -16,6 +16,7 @@ const runCli = createCliRunner(CLI_PATH);
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src"), { recursive: true });
+  await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "pages", "admin"), { recursive: true });
 
   await writeFile(
@@ -63,6 +64,20 @@ export { addPlacement };
 export default function getPlacements() {
   return [];
 }
+`,
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(appRoot, "src", "components", "ShellLayout.vue"),
+    `<template>
+  <div>
+    <ShellOutlet host="shell-layout" position="top-left" />
+    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet host="shell-layout" position="secondary-menu" />
+  </div>
+</template>
 `,
     "utf8"
   );
@@ -185,7 +200,9 @@ async function generateCrudUiPackage(
     apiPath = "/crud/customers",
     resourceExport = "customerResource",
     routePath = "ops/customers-ui",
-    idParam = "customerId"
+    idParam = "customerId",
+    placement = "",
+    command = ""
   } = {}
 ) {
   await installCrudUiGeneratorPackage(appRoot);
@@ -194,6 +211,7 @@ async function generateCrudUiPackage(
   const args = [
     "generate",
     "@jskit-ai/crud-ui-generator",
+    ...(command ? [command] : []),
     "--namespace",
     namespace,
     "--surface",
@@ -208,6 +226,7 @@ async function generateCrudUiPackage(
     apiPath,
     "--route-path",
     routePath,
+    ...(String(placement || "").trim() ? ["--placement", String(placement || "").trim()] : []),
     "--id-param",
     idParam,
     "--no-install"
@@ -228,6 +247,22 @@ test('generate @jskit-ai/crud-ui-generator derives resource export from "resourc
     await generateCrudUiPackage(appRoot, {
       operations: "list,view",
       resourceExport: ""
+    });
+
+    const paths = resolveGeneratedPaths(appRoot);
+    assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.viewPagePath), true);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator crud runs canonical noun command", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-crud-command");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-crud-command" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      operations: "list,view",
+      command: "crud"
     });
 
     const paths = resolveGeneratedPaths(appRoot);
@@ -320,6 +355,21 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator uses --placement when provided", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-placement-override");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-placement-override" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      operations: "list",
+      placement: "shell-layout:secondary-menu"
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /position: "secondary-menu"/);
   });
 });
 
