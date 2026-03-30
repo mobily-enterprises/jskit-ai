@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/config-eslint",
-  "version": "0.1.16",
+  "version": "0.1.19",
   "dependsOn": [],
   "capabilities": {
     "provides": [
