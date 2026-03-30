@@ -52,6 +52,10 @@ export default Object.freeze({
         "to": "base-shell/README.md"
       },
       {
+        "from": "templates/base-shell/scripts/release.sh",
+        "to": "base-shell/scripts/release.sh"
+      },
+      {
         "from": "templates/base-shell/server.js",
         "to": "base-shell/server.js"
       },
