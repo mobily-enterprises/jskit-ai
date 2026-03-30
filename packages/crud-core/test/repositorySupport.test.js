@@ -204,7 +204,7 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
         dbColumn: "vet_id",
         relation: {
           kind: "lookup",
-          apiPath: "/vets",
+          namespace: "vets",
           valueKey: "id"
         }
       }

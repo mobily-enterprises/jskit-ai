@@ -9,6 +9,7 @@ import {
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
 import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const DEFAULT_ID_COLUMN = "id";
@@ -781,13 +782,13 @@ function mergeFieldMetaEntries(baseEntries = [], patchEntries = []) {
   return [...mergedByKey.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
-function resolveLookupApiPathFromTableName(tableName = "") {
+function resolveLookupNamespaceFromTableName(tableName = "") {
   const normalizedTableName = toSnakeCase(normalizeText(tableName));
   if (!normalizedTableName) {
     return "";
   }
 
-  return `/${normalizedTableName.replace(/_/g, "-")}`;
+  return normalizedTableName.replace(/_/g, "-");
 }
 
 function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
@@ -848,7 +849,7 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
       key: localColumn.key,
       relation: {
         kind: "lookup",
-        apiPath: resolveLookupApiPathFromTableName(referencedTableName),
+        namespace: resolveLookupNamespaceFromTableName(referencedTableName),
         valueKey: toCamelCase(referencedColumnName)
       },
       ui: {
@@ -870,15 +871,19 @@ function renderFieldMetaEntryLines(entry = {}) {
 
   const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
   if (relation) {
-    const targetResource = normalizeText(relation.targetResource);
-    const relationApiPath =
-      normalizeText(relation.apiPath) ||
-      normalizeText(relation?.source?.path) ||
-      (targetResource ? `/${targetResource}` : "");
+    const targetResourceNamespace = normalizeCrudLookupNamespace(relation.targetResource);
+    const relationNamespace =
+      normalizeCrudLookupNamespace(relation.namespace) ||
+      normalizeCrudLookupNamespace(relation.apiPath) ||
+      normalizeCrudLookupNamespace(relation?.source?.path) ||
+      targetResourceNamespace;
+    if (!relationNamespace) {
+      throw new Error(`crud template context fieldMeta["${normalizeText(entry.key)}"] lookup relation requires namespace.`);
+    }
     const relationLines = [
       "relation: {",
       `  kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`,
-      `  apiPath: ${JSON.stringify(relationApiPath)},`,
+      `  namespace: ${JSON.stringify(relationNamespace)},`,
       `  valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`
     ];
     const labelKey = normalizeText(relation.labelKey);

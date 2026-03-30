@@ -1,7 +1,9 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   normalizeCrudLookupApiPath,
-  normalizeCrudLookupContainerKey
+  normalizeCrudLookupNamespace,
+  normalizeCrudLookupContainerKey,
+  resolveCrudLookupApiPathFromNamespace
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { useList } from "./useList.js";
 import {
@@ -92,10 +94,14 @@ function createCrudLookupFieldRuntime({
     }
 
     const relationKind = normalizeText(rawRelation.kind).toLowerCase();
-    const apiPath = normalizeCrudLookupApiPath(rawRelation.apiPath);
-    if (relationKind !== "lookup" || !apiPath) {
+    const namespace =
+      normalizeCrudLookupNamespace(rawRelation.namespace) ||
+      normalizeCrudLookupNamespace(rawRelation.apiPath);
+    if (relationKind !== "lookup" || !namespace) {
       continue;
     }
+    const explicitApiPath = normalizeCrudLookupApiPath(rawRelation.apiPath);
+    const apiPath = explicitApiPath || resolveCrudLookupApiPathFromNamespace(namespace);
     const valueKey = normalizeText(rawRelation.valueKey);
     const labelKey = normalizeText(rawRelation.labelKey);
     const relationLookupContainerKey = normalizeCrudLookupContainerKey(rawRelation.containerKey, {
@@ -138,6 +144,8 @@ function createCrudLookupFieldRuntime({
       labelKey,
       relation: Object.freeze({
         kind: "lookup",
+        namespace,
+        ...(explicitApiPath ? { apiPath: explicitApiPath } : {}),
         containerKey: relationLookupContainerKey,
         valueKey,
         ...(labelKey ? { labelKey } : {})

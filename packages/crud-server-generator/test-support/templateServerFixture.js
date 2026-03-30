@@ -112,7 +112,7 @@ const customerResource = Object.freeze({
       key: "contactId",
       relation: {
         kind: "lookup",
-        apiPath: "/contacts",
+        namespace: "contacts",
         valueKey: "id"
       }
     }

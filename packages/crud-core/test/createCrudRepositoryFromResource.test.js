@@ -151,7 +151,7 @@ function createLookupResourceFixture() {
         dbColumn: "primary_vet_id",
         relation: {
           kind: "lookup",
-          apiPath: "/vets",
+          namespace: "vets",
           valueKey: "id"
         }
       },
@@ -160,7 +160,7 @@ function createLookupResourceFixture() {
         dbColumn: "secondary_vet_id",
         relation: {
           kind: "lookup",
-          apiPath: "/vets",
+          namespace: "vets",
           valueKey: "id"
         }
       }
@@ -218,7 +218,7 @@ function createLookupResourceWithCustomContainerKeyFixture() {
         dbColumn: "primary_vet_id",
         relation: {
           kind: "lookup",
-          apiPath: "/vets",
+          namespace: "vets",
           valueKey: "id"
         }
       },
@@ -227,7 +227,7 @@ function createLookupResourceWithCustomContainerKeyFixture() {
         dbColumn: "secondary_vet_id",
         relation: {
           kind: "lookup",
-          apiPath: "/vets",
+          namespace: "vets",
           valueKey: "id"
         }
       }
@@ -463,7 +463,7 @@ test("createCrudRepositoryFromResource hydrates lookup relations by default and 
   const lookupCalls = [];
   const repository = createRepository(knex, {
     resolveLookupProvider(relation = {}) {
-      assert.equal(relation.apiPath, "/vets");
+      assert.equal(relation.namespace, "vets");
       return {
         async listByIds(ids = [], options = {}) {
           lookupCalls.push({

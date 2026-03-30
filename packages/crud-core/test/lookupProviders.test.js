@@ -6,17 +6,17 @@ import {
   createCrudLookupProvider
 } from "../src/server/lookupProviders.js";
 
-test("resolveCrudLookupProviderToken normalizes apiPath to lookup token", () => {
-  assert.equal(resolveCrudLookupProviderToken("/vets"), "crud.lookup.vets");
+test("resolveCrudLookupProviderToken normalizes namespace to lookup token", () => {
+  assert.equal(resolveCrudLookupProviderToken("vets"), "crud.lookup.vets");
   assert.equal(resolveCrudLookupProviderToken("vets/clinics/"), "crud.lookup.vets.clinics");
-  assert.equal(resolveCrudLookupProviderToken("/contact-categories"), "crud.lookup.contact_categories");
-  assert.equal(resolveCrudLookupProviderToken("/customer-categories/line-items"), "crud.lookup.customer_categories.line_items");
+  assert.equal(resolveCrudLookupProviderToken("contact-categories"), "crud.lookup.contact_categories");
+  assert.equal(resolveCrudLookupProviderToken("customer-categories/line-items"), "crud.lookup.customer_categories.line_items");
 });
 
-test("resolveCrudLookupProviderToken throws for empty apiPath", () => {
+test("resolveCrudLookupProviderToken throws for empty namespace", () => {
   assert.throws(
     () => resolveCrudLookupProviderToken(""),
-    /requires relation\.apiPath/
+    /requires relation\.namespace/
   );
 });
 
@@ -34,7 +34,7 @@ test("createCrudLookupProviderResolver resolves providers through scope.make()",
   });
 
   const resolved = resolveLookupProvider({
-    apiPath: "/vets"
+    namespace: "vets"
   });
 
   assert.equal(calls[0], "crud.lookup.vets");
