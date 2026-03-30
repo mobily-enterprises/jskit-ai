@@ -54,9 +54,11 @@ npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface 
 
 ## Container Workflow
 
-- `container` creates `<route>.vue` with:
-  - `<ShellOutlet host="<route-slug>" position="sub-pages" />`
-  - `<RouterView />`
+- `container` creates app-owned scaffolding:
+  - `src/components/SectionContainerShell.vue` (shared container shell with responsive tab row)
+  - `src/components/SectionShellTabLinkItem.vue` (tab link item token component)
+  - `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.section-shell.tab-link-item`
+  - `<route>.vue` as a thin wrapper around `SectionContainerShell` + `<RouterView />`
 - Generate CRUD pages into that container using `@jskit-ai/crud-ui-generator` with:
   - `--container <route-slug>`
   - `--route-path <resource-slug>`

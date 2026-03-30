@@ -10,45 +10,22 @@ import {
   normalizeObject,
   normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
-import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
+import {
+  DEFAULT_COMPONENT_DIRECTORY,
+  MAIN_CLIENT_PROVIDER_FILE,
+  PLACEMENT_FILE,
+  toKebabCase,
+  requireOption,
+  resolvePathWithinApp,
+  appendBlockIfMarkerMissing,
+  insertImportIfMissing,
+  insertBeforeClassDeclaration
+} from "./support.js";
 
-const PLACEMENT_FILE = "src/placement.js";
 const CONTAINER_OUTLET_POSITION = "sub-pages";
-
-function toKebabCase(value = "") {
-  return toSnakeCase(value).replaceAll("_", "-");
-}
-
-function requireOption(options = {}, optionName = "", { context = "ui-generator container" } = {}) {
-  const optionValue = normalizeText(options?.[optionName]);
-  if (!optionValue) {
-    throw new Error(`${context} requires --${optionName}.`);
-  }
-
-  return optionValue;
-}
-
-function ensureTrailingNewline(value = "") {
-  const source = String(value || "");
-  return source.endsWith("\n") ? source : `${source}\n`;
-}
-
-function appendBlockIfMarkerMissing(source = "", marker = "", block = "") {
-  const normalizedMarker = String(marker || "").trim();
-  const normalizedBlock = String(block || "").trim();
-  const sourceText = String(source || "");
-  if (!normalizedMarker || !normalizedBlock || sourceText.includes(normalizedMarker)) {
-    return {
-      changed: false,
-      content: sourceText
-    };
-  }
-
-  return {
-    changed: true,
-    content: `${ensureTrailingNewline(sourceText)}${normalizedBlock}\n`
-  };
-}
+const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
+const SECTION_TAB_LINK_COMPONENT = "SectionShellTabLinkItem";
+const SECTION_TAB_LINK_COMPONENT_TOKEN = "local.main.ui.section-shell.tab-link-item";
 
 function normalizeRoutePrefix(value = "") {
   const source = normalizeText(value).replaceAll("\\", "/");
@@ -112,34 +89,203 @@ async function resolveSurfacePagesDirectory(appRoot = "", surfaceId = "") {
   return path.join(appRoot, "src", "pages", pagesRoot);
 }
 
-function renderContainerPageSource({
-  surface = "",
-  title = "",
-  containerHost = "",
-  containerPosition = CONTAINER_OUTLET_POSITION
-} = {}) {
+function renderSectionContainerShellSource() {
   return `<script setup>
+import { computed } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
-import { RouterView } from "vue-router";
+
+const props = defineProps({
+  title: {
+    type: String,
+    default: ""
+  },
+  subtitle: {
+    type: String,
+    default: ""
+  },
+  host: {
+    type: String,
+    default: ""
+  },
+  position: {
+    type: String,
+    default: "${CONTAINER_OUTLET_POSITION}"
+  }
+});
+
+const resolvedTitle = computed(() => String(props.title || "").trim() || "Section");
+const resolvedSubtitle = computed(() => String(props.subtitle || "").trim());
 </script>
 
 <template>
-  <section class="d-flex flex-column ga-4">
+  <section class="section-container-shell d-flex flex-column ga-4">
     <v-card rounded="lg" elevation="1" border>
       <v-card-item>
-        <v-card-title class="px-0">${title}</v-card-title>
-        <v-card-subtitle class="px-0">Manage ${toKebabCase(title)} modules.</v-card-subtitle>
+        <v-card-title class="px-0">{{ resolvedTitle }}</v-card-title>
+        <v-card-subtitle v-if="resolvedSubtitle" class="px-0">{{ resolvedSubtitle }}</v-card-subtitle>
       </v-card-item>
       <v-divider />
-      <v-card-text class="pa-0">
-        <v-list density="comfortable">
-          <ShellOutlet host="${containerHost}" position="${containerPosition}" />
-        </v-list>
+      <v-card-text class="section-container-shell__tabs">
+        <ShellOutlet :host="props.host" :position="props.position" />
       </v-card-text>
     </v-card>
 
-    <RouterView />
+    <slot />
   </section>
+</template>
+
+<style scoped>
+.section-container-shell__tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.75rem;
+  scrollbar-width: thin;
+}
+
+.section-container-shell__tabs :deep(.section-shell-tab-link) {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .section-container-shell__tabs {
+    gap: 0.375rem;
+    padding: 0.5rem;
+  }
+}
+</style>
+`;
+}
+
+function renderSectionShellTabLinkItemSource() {
+  return `<script setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
+
+const props = defineProps({
+  label: {
+    type: String,
+    default: ""
+  },
+  to: {
+    type: String,
+    default: ""
+  },
+  surface: {
+    type: String,
+    default: ""
+  },
+  workspaceSuffix: {
+    type: String,
+    default: "/"
+  },
+  nonWorkspaceSuffix: {
+    type: String,
+    default: "/"
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  }
+});
+
+const route = useRoute();
+const paths = usePaths();
+const { currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
+
+function normalizePathname(pathname = "") {
+  const source = String(pathname || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  const queryIndex = source.indexOf("?");
+  const hashIndex = source.indexOf("#");
+  const cutoff =
+    queryIndex < 0
+      ? hashIndex
+      : hashIndex < 0
+        ? queryIndex
+        : Math.min(queryIndex, hashIndex);
+  return cutoff < 0 ? source : source.slice(0, cutoff);
+}
+
+const targetSurfaceId = computed(() => {
+  const explicitSurface = String(props.surface || "").trim().toLowerCase();
+  if (explicitSurface && explicitSurface !== "*") {
+    return explicitSurface;
+  }
+  return String(currentSurfaceId.value || paths.currentSurfaceId.value || "").trim().toLowerCase();
+});
+
+const resolvedTo = computed(() => {
+  const explicitTo = String(props.to || "").trim();
+  if (explicitTo) {
+    return explicitTo;
+  }
+
+  const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
+  const suffix = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
+  const normalizedSuffix = String(suffix || "/").trim() || "/";
+  return paths.page(normalizedSuffix, {
+    surface: targetSurfaceId.value,
+    mode: "auto"
+  });
+});
+
+const isActive = computed(() => {
+  const targetPathname = normalizePathname(resolvedTo.value);
+  const currentPathname = normalizePathname(route.fullPath || route.path);
+  if (!targetPathname || !currentPathname) {
+    return false;
+  }
+  return currentPathname === targetPathname || currentPathname.startsWith(\`\${targetPathname}/\`);
+});
+</script>
+
+<template>
+  <v-btn
+    v-if="resolvedTo"
+    class="section-shell-tab-link text-none"
+    :to="resolvedTo"
+    rounded="pill"
+    size="small"
+    :variant="isActive ? 'flat' : 'tonal'"
+    :color="isActive ? 'primary' : undefined"
+    :disabled="props.disabled"
+    :aria-current="isActive ? 'page' : undefined"
+  >
+    {{ props.label }}
+  </v-btn>
+</template>
+`;
+}
+
+function renderContainerPageSource({
+  surface = "",
+  title = "",
+  subtitle = "",
+  containerHost = "",
+  containerPosition = CONTAINER_OUTLET_POSITION,
+  sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue"
+} = {}) {
+  return `<script setup>
+import { RouterView } from "vue-router";
+import SectionContainerShell from "${sectionContainerComponentImportPath}";
+</script>
+
+<template>
+  <SectionContainerShell
+    title="${title}"
+    subtitle="${subtitle}"
+    host="${containerHost}"
+    position="${containerPosition}"
+  >
+    <RouterView />
+  </SectionContainerShell>
 </template>
 
 <route lang="json">
@@ -172,9 +318,10 @@ async function runGeneratorSubcommand({
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
     context: "ui-generator container"
   });
-  const name = requireOption(options, "name");
-  const surface = requireOption(options, "surface").toLowerCase();
+  const name = requireOption(options, "name", { context: "ui-generator container" });
+  const surface = requireOption(options, "surface", { context: "ui-generator container" }).toLowerCase();
   const routePrefix = normalizeRoutePrefix(options?.["directory-prefix"]);
+  const componentDirectory = normalizeText(options?.path) || DEFAULT_COMPONENT_DIRECTORY;
   const containerSlug = toKebabCase(name);
   if (!containerSlug) {
     throw new Error("ui-generator container requires a valid --name.");
@@ -184,8 +331,27 @@ async function runGeneratorSubcommand({
   const pagesDirectory = await resolveSurfacePagesDirectory(resolvedAppRoot, surface);
   const containerFilePath = path.join(pagesDirectory, `${routePath}.vue`);
   const containerRelativePath = toPosixPath(path.relative(resolvedAppRoot, containerFilePath));
-  const placementPath = path.join(resolvedAppRoot, PLACEMENT_FILE);
-  const placementRelativePath = toPosixPath(path.relative(resolvedAppRoot, placementPath));
+  const placementPath = resolvePathWithinApp(resolvedAppRoot, PLACEMENT_FILE, {
+    context: "ui-generator container"
+  });
+  const providerPath = resolvePathWithinApp(resolvedAppRoot, MAIN_CLIENT_PROVIDER_FILE, {
+    context: "ui-generator container"
+  });
+  const sectionContainerShellPath = resolvePathWithinApp(
+    resolvedAppRoot,
+    path.join(componentDirectory, `${SECTION_CONTAINER_SHELL_COMPONENT}.vue`),
+    {
+      context: "ui-generator container"
+    }
+  );
+  const sectionTabLinkPath = resolvePathWithinApp(
+    resolvedAppRoot,
+    path.join(componentDirectory, `${SECTION_TAB_LINK_COMPONENT}.vue`),
+    {
+      context: "ui-generator container"
+    }
+  );
+
   const placementTarget = await resolveShellOutletPlacementTargetFromApp({
     appRoot: resolvedAppRoot,
     context: "ui-generator container",
@@ -193,6 +359,60 @@ async function runGeneratorSubcommand({
   });
 
   const touchedFiles = new Set();
+
+  let existingSectionContainerSource = "";
+  try {
+    existingSectionContainerSource = await readFile(sectionContainerShellPath.absolutePath, "utf8");
+  } catch {
+    existingSectionContainerSource = "";
+  }
+  if (!existingSectionContainerSource) {
+    if (dryRun !== true) {
+      await mkdir(path.dirname(sectionContainerShellPath.absolutePath), { recursive: true });
+      await writeFile(sectionContainerShellPath.absolutePath, renderSectionContainerShellSource(), "utf8");
+    }
+    touchedFiles.add(sectionContainerShellPath.relativePath);
+  }
+
+  let existingSectionTabLinkSource = "";
+  try {
+    existingSectionTabLinkSource = await readFile(sectionTabLinkPath.absolutePath, "utf8");
+  } catch {
+    existingSectionTabLinkSource = "";
+  }
+  if (!existingSectionTabLinkSource) {
+    if (dryRun !== true) {
+      await mkdir(path.dirname(sectionTabLinkPath.absolutePath), { recursive: true });
+      await writeFile(sectionTabLinkPath.absolutePath, renderSectionShellTabLinkItemSource(), "utf8");
+    }
+    touchedFiles.add(sectionTabLinkPath.relativePath);
+  }
+
+  const providerSource = await readFile(providerPath.absolutePath, "utf8");
+  if (!/\bregisterMainClientComponent\s*\(/.test(providerSource)) {
+    throw new Error(
+      `ui-generator container could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
+    );
+  }
+
+  const providerImportLine = `import ${SECTION_TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(componentDirectory, `${SECTION_TAB_LINK_COMPONENT}.vue`))}";`;
+  const providerRegisterLine =
+    `registerMainClientComponent("${SECTION_TAB_LINK_COMPONENT_TOKEN}", () => ${SECTION_TAB_LINK_COMPONENT});`;
+  const providerImportApplied = insertImportIfMissing(providerSource, providerImportLine);
+  const providerRegisterApplied = insertBeforeClassDeclaration(
+    providerImportApplied.content,
+    providerRegisterLine,
+    {
+      className: "MainClientProvider",
+      contextFile: MAIN_CLIENT_PROVIDER_FILE
+    }
+  );
+  if (providerImportApplied.changed || providerRegisterApplied.changed) {
+    if (dryRun !== true) {
+      await writeFile(providerPath.absolutePath, providerRegisterApplied.content, "utf8");
+    }
+    touchedFiles.add(providerPath.relativePath);
+  }
 
   let existingContainerSource = "";
   try {
@@ -208,7 +428,9 @@ async function runGeneratorSubcommand({
         renderContainerPageSource({
           surface,
           title: name,
-          containerHost: containerSlug
+          subtitle: `Manage ${toKebabCase(name).replaceAll("-", " ")} modules.`,
+          containerHost: containerSlug,
+          sectionContainerComponentImportPath: `/${toPosixPath(path.join(componentDirectory, `${SECTION_CONTAINER_SHELL_COMPONENT}.vue`))}`
         }),
         "utf8"
       );
@@ -216,7 +438,7 @@ async function runGeneratorSubcommand({
     touchedFiles.add(containerRelativePath);
   }
 
-  const placementSource = await readFile(placementPath, "utf8");
+  const placementSource = await readFile(placementPath.absolutePath, "utf8");
   const placementIdSuffix = routePath.replaceAll("/", "-");
   const placementMarker = `jskit:ui-generator.container.menu:${surface}:${routePath}`;
   const placementBlock =
@@ -241,9 +463,9 @@ async function runGeneratorSubcommand({
   const placementApplied = appendBlockIfMarkerMissing(placementSource, placementMarker, placementBlock);
   if (placementApplied.changed) {
     if (dryRun !== true) {
-      await writeFile(placementPath, placementApplied.content, "utf8");
+      await writeFile(placementPath.absolutePath, placementApplied.content, "utf8");
     }
-    touchedFiles.add(placementRelativePath);
+    touchedFiles.add(placementPath.relativePath);
   }
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));
