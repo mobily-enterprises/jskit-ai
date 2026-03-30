@@ -27,6 +27,12 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
         return work(transaction);
       }
     },
+    userSettingsRepository: {
+      async ensureForUserId(userId, options = {}) {
+        calls.push({ step: "ensureUserSettings", userId: Number(userId), trx: options.trx || null });
+        return { userId: Number(userId) };
+      }
+    },
     workspaceProvisioningService: {
       async provisionWorkspaceForNewUser(_profile, options = {}) {
         calls.push({ step: "provision", trx: options.trx || null });
@@ -45,10 +51,12 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
   assert.equal(calls[0].step, "withTransaction");
   assert.equal(calls[1].step, "find");
   assert.equal(calls[2].step, "upsert");
-  assert.equal(calls[3].step, "provision");
+  assert.equal(calls[3].step, "ensureUserSettings");
+  assert.equal(calls[4].step, "provision");
   assert.equal(calls[1].trx, transaction);
   assert.equal(calls[2].trx, transaction);
   assert.equal(calls[3].trx, transaction);
+  assert.equal(calls[4].trx, transaction);
 });
 
 test("authProfileSyncService.syncIdentityProfile skips write path when profile is unchanged", async () => {
@@ -72,6 +80,11 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
       },
       async withTransaction(work) {
         return work({ trxId: "tx-2" });
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return { userId: 7 };
       }
     },
     workspaceProvisioningService: {
@@ -103,6 +116,11 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
       },
       async upsert() {
         return null;
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return { userId: 1 };
       }
     }
   });
