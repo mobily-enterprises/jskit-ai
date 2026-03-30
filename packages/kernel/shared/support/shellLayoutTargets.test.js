@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  describeShellOutletTargets,
   discoverShellOutletTargetsFromVueSource,
+  findShellOutletTargetById,
   normalizeShellOutletTargetId
 } from "./shellLayoutTargets.js";
 
@@ -30,6 +32,14 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
   assert.deepEqual(
     discovered.targets.map((entry) => entry.id),
     ["shell-layout:top-left", "shell-layout:primary-menu", "shell-layout:secondary-menu"]
+  );
+  assert.equal(
+    describeShellOutletTargets(discovered.targets),
+    "shell-layout:top-left, shell-layout:primary-menu, shell-layout:secondary-menu"
+  );
+  assert.deepEqual(
+    findShellOutletTargetById(discovered.targets, " shell-layout : primary-menu "),
+    discovered.targets[1]
   );
 });
 

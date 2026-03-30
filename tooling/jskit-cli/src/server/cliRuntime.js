@@ -11,6 +11,7 @@ import {
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { discoverShellOutletTargetsFromApp } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "./cliError.js";
 import {
   ensureArray,
@@ -4911,7 +4912,8 @@ const commandHandlers = createCommandHandlers(
     removeEnvValue,
     removeManagedViteProxyEntries,
     hashBuffer,
-    rm
+    rm,
+    discoverShellOutletTargetsFromApp
   })
 );
 

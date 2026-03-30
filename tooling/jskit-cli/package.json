@@ -20,7 +20,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/jskit-catalog": "0.1.25"
+    "@jskit-ai/jskit-catalog": "0.1.25",
+    "@jskit-ai/kernel": "0.1.17"
   },
   "engines": {
     "node": "20.x"

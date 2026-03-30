@@ -57,7 +57,8 @@ function createCommandHandlers(deps) {
     removeEnvValue,
     removeManagedViteProxyEntries,
     hashBuffer,
-    rm
+    rm,
+    discoverShellOutletTargetsFromApp
   } = deps;
 
   function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles, appRoot, lockPath, externalDependencies) {
@@ -519,10 +520,25 @@ function createCommandHandlers(deps) {
     const shouldListBundles = !mode || mode === "bundles";
     const shouldListPackages = !mode || mode === "packages";
     const shouldListGenerators = !mode || mode === "generators";
+    const shouldListPlacements = mode === "placements";
 
-    if (!shouldListBundles && !shouldListPackages && !shouldListGenerators) {
+    if (!shouldListBundles && !shouldListPackages && !shouldListGenerators && !shouldListPlacements) {
       throw createCliError(`Unknown list mode: ${mode}`, { showUsage: true });
     }
+
+    const discoveredPlacements = shouldListPlacements
+      ? await discoverShellOutletTargetsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      })
+      : Object.freeze({
+        targets: Object.freeze([]),
+        defaultTargetId: ""
+      });
+    const placementTargets = ensureArray(discoveredPlacements.targets)
+      .map((entry) => ensureObject(entry))
+      .filter((entry) => String(entry.id || "").trim())
+      .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
   
     const color = createColorFormatter(stdout);
     const lines = [];
@@ -614,6 +630,22 @@ function createCommandHandlers(deps) {
         );
       }
     }
+
+    if (shouldListPlacements) {
+      lines.push(color.heading("Available placements:"));
+      if (placementTargets.length < 1) {
+        lines.push("- none");
+      } else {
+        for (const placementTarget of placementTargets) {
+          const placementId = String(placementTarget.id || "").trim();
+          const sourcePath = String(placementTarget.sourcePath || "").trim();
+          const isDefault = placementTarget.default === true;
+          const defaultLabel = isDefault ? color.installed(" (default)") : "";
+          const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
+          lines.push(`- ${color.item(placementId)}${defaultLabel}${sourceLabel}`);
+        }
+      }
+    }
   
     if (options.json) {
       const payload = {
@@ -668,6 +700,15 @@ function createCommandHandlers(deps) {
               installed: installedPackages.has(packageId)
             };
           }).filter(Boolean)
+          : [],
+        placements: shouldListPlacements
+          ? placementTargets.map((placementTarget) => ({
+            id: String(placementTarget.id || "").trim(),
+            host: String(placementTarget.host || "").trim(),
+            position: String(placementTarget.position || "").trim(),
+            default: placementTarget.default === true,
+            sourcePath: String(placementTarget.sourcePath || "").trim()
+          }))
           : [],
         installedLocalPackages: shouldListPackages
           ? installedLocalPackageIds.map((packageId) => {
