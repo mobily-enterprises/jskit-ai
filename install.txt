@@ -5,6 +5,7 @@ export __APP=dogandgroom
 ../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP --force
 npm install --verbose
 npm run devlinks
+
 npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
 npx jskit add package shell-web --no-install
 npx jskit add package auth-web --no-install
@@ -14,6 +15,10 @@ npx jskit add package realtime --no-install
 npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek --no-install
 npm install --verbose
 npm run devlinks
+
+git init
+git add -A
+git commit -m "INIT"
 
 #mysqladmin -uroot -pppp  drop $__APP
 #mysqladmin -uroot -pppp  create $__APP

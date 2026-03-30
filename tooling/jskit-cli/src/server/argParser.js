@@ -173,7 +173,7 @@ function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
   stream.write("  create package <name>        Scaffold app-local package under packages/ and install it\n");
-  stream.write("  list [bundles [all]|packages|generators] List available bundles/runtime packages/generators and installed status\n");
+  stream.write("  list [bundles [all]|packages|generators|placements] List bundles/packages/generators or app placement targets\n");
   stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>      Add one runtime package to current app (catalog/app-local/installed external)\n");

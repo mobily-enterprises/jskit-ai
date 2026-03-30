@@ -40,6 +40,23 @@ function normalizeShellOutletTargetId(value = "") {
   return `${host}:${position}`;
 }
 
+function findShellOutletTargetById(targets = [], targetId = "") {
+  const entries = Array.isArray(targets) ? targets : [];
+  const normalizedTargetId = normalizeShellOutletTargetId(targetId);
+  if (!normalizedTargetId) {
+    return null;
+  }
+
+  return entries.find((entry) => normalizeShellOutletTargetId(entry?.id) === normalizedTargetId) || null;
+}
+
+function describeShellOutletTargets(targets = []) {
+  return (Array.isArray(targets) ? targets : [])
+    .map((entry) => normalizeShellOutletTargetId(entry?.id))
+    .filter(Boolean)
+    .join(", ");
+}
+
 function isDefaultAttributeEnabled(value) {
   if (value === true) {
     return true;
@@ -102,4 +119,9 @@ function discoverShellOutletTargetsFromVueSource(source = "", { context = "shell
   });
 }
 
-export { discoverShellOutletTargetsFromVueSource, normalizeShellOutletTargetId };
+export {
+  describeShellOutletTargets,
+  discoverShellOutletTargetsFromVueSource,
+  findShellOutletTargetById,
+  normalizeShellOutletTargetId
+};
