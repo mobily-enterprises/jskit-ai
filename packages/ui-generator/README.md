@@ -40,10 +40,27 @@ Generate an element with custom component path:
 npx jskit generate @jskit-ai/ui-generator element --name "Alerts Widget" --surface admin --path src/widgets --placement shell-layout:top-right --no-install
 ```
 
+Generate a route container page with nested outlet (for embedded sub-pages):
+
+```bash
+npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin --no-install
+```
+
 ## Commands
 
 - `page`: `--name --surface [--directory-prefix] [--placement]`
 - `element`: `--name --surface [--path] [--placement]`
+- `container`: `--name --surface [--directory-prefix] [--placement]`
+
+## Container Workflow
+
+- `container` creates `<route>.vue` with:
+  - `<ShellOutlet host="<route-slug>" position="sub-pages" />`
+  - `<RouterView />`
+- Generate CRUD pages into that container using `@jskit-ai/crud-ui-generator` with:
+  - `--container <route-slug>`
+  - `--route-path <resource-slug>`
+  - optional `--placement` override (default becomes `<container>:sub-pages` for list pages)
 
 ## Placement Notes
 

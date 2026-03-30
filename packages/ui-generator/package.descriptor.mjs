@@ -60,6 +60,10 @@ export default Object.freeze({
       element: {
         entrypoint: "src/server/subcommands/element.js",
         export: "runGeneratorSubcommand"
+      },
+      container: {
+        entrypoint: "src/server/subcommands/container.js",
+        export: "runGeneratorSubcommand"
       }
     },
     apiSummary: {
