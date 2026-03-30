@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.19",
+  "version": "0.1.21",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/kernel": "0.1.20",
+    "@jskit-ai/kernel": "0.1.22",
     "vuetify": "^4.0.0"
   }
 }

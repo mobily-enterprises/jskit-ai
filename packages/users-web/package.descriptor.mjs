@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.34",
+  version: "0.1.36",
   kind: "runtime",
   description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
   dependsOn: [
@@ -246,11 +246,11 @@ export default Object.freeze({
         "@uppy/dashboard": "^5.1.1",
         "@uppy/image-editor": "^4.2.0",
         "@uppy/xhr-upload": "^5.1.1",
-        "@jskit-ai/http-runtime": "0.1.19",
-        "@jskit-ai/realtime": "0.1.19",
-        "@jskit-ai/kernel": "0.1.20",
-        "@jskit-ai/shell-web": "0.1.19",
-        "@jskit-ai/users-core": "0.1.29",
+        "@jskit-ai/http-runtime": "0.1.21",
+        "@jskit-ai/realtime": "0.1.21",
+        "@jskit-ai/kernel": "0.1.22",
+        "@jskit-ai/shell-web": "0.1.21",
+        "@jskit-ai/users-core": "0.1.31",
         "vuetify": "^4.0.0"
       },
       dev: {}
