@@ -1,5 +1,7 @@
 import { normalizeOpaqueId, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  normalizeCrudLookupNamespace,
+  resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
@@ -29,10 +31,14 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
     return null;
   }
 
-  const apiPath = normalizeCrudLookupApiPath(relation.apiPath);
-  if (!apiPath) {
+  const namespace =
+    normalizeCrudLookupNamespace(relation.namespace) ||
+    normalizeCrudLookupNamespace(relation.apiPath);
+  if (!namespace) {
     return null;
   }
+  const explicitApiPath = normalizeCrudLookupApiPath(relation.apiPath);
+  const apiPath = explicitApiPath || resolveCrudLookupApiPathFromNamespace(namespace);
 
   const valueKey = normalizeText(relation.valueKey) || "id";
 
@@ -40,6 +46,7 @@ function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
     key,
     relation: {
       kind: "lookup",
+      namespace,
       apiPath,
       valueKey,
       hydrateOnList: relation.hydrateOnList !== false,
@@ -346,7 +353,7 @@ function resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOpt
 }
 
 function buildLookupGroupKey(relation = {}) {
-  return `${relation.apiPath}::${relation.valueKey}`;
+  return `${relation.namespace}::${relation.valueKey}`;
 }
 
 function normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {}) {
@@ -422,10 +429,10 @@ function resolveGroupChildInclude(group = {}) {
 
 function normalizeLookupProvider(provider, relation = {}, { context = "crudRepository" } = {}) {
   if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
-    throw new Error(`${context} could not resolve lookup provider for apiPath "${relation.apiPath}".`);
+    throw new Error(`${context} could not resolve lookup provider for namespace "${relation.namespace}".`);
   }
   if (typeof provider.listByIds !== "function") {
-    throw new Error(`${context} lookup provider for apiPath "${relation.apiPath}" must expose listByIds(ids, options).`);
+    throw new Error(`${context} lookup provider for namespace "${relation.namespace}" must expose listByIds(ids, options).`);
   }
   return provider;
 }

@@ -1,21 +1,23 @@
-import { normalizeCrudLookupApiPath } from "@jskit-ai/kernel/shared/support/crudLookup";
+import {
+  normalizeCrudLookupApiPath,
+  normalizeCrudLookupNamespace
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
-function requireCrudLookupApiPath(value = "", { context = "crudLookupProvider" } = {}) {
-  const normalizedPath = normalizeCrudLookupApiPath(value);
-  if (!normalizedPath) {
-    throw new Error(`${context} requires relation.apiPath.`);
+function requireCrudLookupNamespace(value = "", { context = "crudLookupProvider" } = {}) {
+  const normalizedNamespace = normalizeCrudLookupNamespace(value);
+  if (!normalizedNamespace) {
+    throw new Error(`${context} requires relation.namespace.`);
   }
 
-  return normalizedPath;
+  return normalizedNamespace;
 }
 
-function resolveCrudLookupProviderToken(apiPath = "", { context = "crudLookupProvider" } = {}) {
-  const normalizedPath = requireCrudLookupApiPath(apiPath, {
+function resolveCrudLookupProviderToken(namespace = "", { context = "crudLookupProvider" } = {}) {
+  const normalizedNamespace = requireCrudLookupNamespace(namespace, {
     context
   });
-  const tokenPart = normalizedPath
-    .slice(1)
+  const tokenPart = normalizedNamespace
     .split("/")
     .map((segment) => toSnakeCase(segment))
     .filter(Boolean)
@@ -23,8 +25,21 @@ function resolveCrudLookupProviderToken(apiPath = "", { context = "crudLookupPro
   return `crud.lookup.${tokenPart}`;
 }
 
+function resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookupProvider" } = {}) {
+  const normalizedNamespace =
+    normalizeCrudLookupNamespace(relation?.namespace) ||
+    normalizeCrudLookupNamespace(relation?.apiPath);
+  if (!normalizedNamespace) {
+    throw new Error(`${context} requires relation.namespace.`);
+  }
+
+  return normalizedNamespace;
+}
+
 export {
   normalizeCrudLookupApiPath,
-  requireCrudLookupApiPath,
+  normalizeCrudLookupNamespace,
+  requireCrudLookupNamespace,
+  resolveCrudLookupNamespaceFromRelation,
   resolveCrudLookupProviderToken
 };

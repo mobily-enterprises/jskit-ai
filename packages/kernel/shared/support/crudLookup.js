@@ -12,6 +12,24 @@ function normalizeCrudLookupApiPath(value = "") {
   return normalized;
 }
 
+function normalizeCrudLookupNamespace(value = "") {
+  const normalizedApiPath = normalizeCrudLookupApiPath(value);
+  if (!normalizedApiPath) {
+    return "";
+  }
+
+  return normalizedApiPath.slice(1);
+}
+
+function resolveCrudLookupApiPathFromNamespace(value = "") {
+  const normalizedNamespace = normalizeCrudLookupNamespace(value);
+  if (!normalizedNamespace) {
+    return "";
+  }
+
+  return `/${normalizedNamespace}`;
+}
+
 function normalizeCrudLookupContainerKey(
   value,
   {
@@ -88,6 +106,8 @@ function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
 export {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
+  normalizeCrudLookupNamespace,
+  resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys

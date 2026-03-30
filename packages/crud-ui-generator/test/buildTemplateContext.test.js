@@ -541,7 +541,7 @@ test("buildUiTemplateContext maps lookup relations from resource fieldMeta into 
       key: "vetId",
       relation: {
         kind: "lookup",
-        apiPath: "/vets",
+        namespace: "vets",
         valueKey: "id",
         labelKey: "name"
       }
@@ -571,7 +571,7 @@ export { contactResource };
     assert.equal(vetField.component, "lookup");
     assert.deepEqual(vetField.relation, {
       kind: "lookup",
-      apiPath: "/vets",
+      namespace: "vets",
       valueKey: "id",
       labelKey: "name",
       containerKey: "lookups"
@@ -625,7 +625,7 @@ test("buildUiTemplateContext maps custom lookup container key from resource cont
       key: "vetId",
       relation: {
         kind: "lookup",
-        apiPath: "/vets",
+        namespace: "vets",
         valueKey: "id"
       }
     }
@@ -700,7 +700,7 @@ test("buildUiTemplateContext renders lookup display via shared runtime in list a
       key: "vetId",
       relation: {
         kind: "lookup",
-        apiPath: "/vets",
+        namespace: "vets",
         valueKey: "id",
         labelKey: "name"
       }
@@ -740,7 +740,7 @@ export { contactResource };
   });
 });
 
-test("buildUiTemplateContext normalizes legacy targetResource lookup metadata to apiPath", async () => {
+test("buildUiTemplateContext normalizes legacy targetResource lookup metadata to namespace", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";
     await writeResource(
@@ -800,7 +800,7 @@ export { contactResource };
     assert.ok(vetField);
     assert.deepEqual(vetField.relation, {
       kind: "lookup",
-      apiPath: "/vets",
+      namespace: "vets",
       valueKey: "id",
       labelKey: "name",
       containerKey: "lookups"
@@ -840,7 +840,7 @@ test("buildUiTemplateContext supports lookup ui.formControl=select", async () =>
       key: "vetId",
       relation: {
         kind: "lookup",
-        apiPath: "/vets",
+        namespace: "vets",
         valueKey: "id"
       },
       ui: {
@@ -946,7 +946,7 @@ test("buildUiTemplateContext marks nearest route parent field as hidden route-bo
       key: "contactId",
       relation: {
         kind: "lookup",
-        apiPath: "/contacts",
+        namespace: "contacts",
         valueKey: "id"
       }
     }

@@ -7,7 +7,9 @@ import {
 } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
 import {
   normalizeCrudLookupApiPath,
+  normalizeCrudLookupNamespace,
   normalizeCrudLookupContainerKey,
+  resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -371,20 +373,30 @@ function normalizeLookupRelation(relation = {}) {
   }
 
   const kind = normalizeText(relation.kind).toLowerCase();
-  const relationApiPath = normalizeCrudLookupApiPath(relation.apiPath);
-  const sourcePath = normalizeCrudLookupApiPath(relation?.source?.path);
+  const relationNamespace = normalizeCrudLookupNamespace(relation.namespace);
+  const relationApiPathNamespace = normalizeCrudLookupNamespace(relation.apiPath);
+  const sourcePathNamespace = normalizeCrudLookupNamespace(relation?.source?.path);
   const targetResource = normalizeText(relation.targetResource);
-  const targetResourcePath = targetResource ? normalizeCrudLookupApiPath(`/${targetResource}`) : "";
-  const apiPath = relationApiPath || sourcePath || targetResourcePath;
-  if (kind !== "lookup" || !apiPath) {
+  const targetResourceNamespace = targetResource ? normalizeCrudLookupNamespace(targetResource) : "";
+  const namespace =
+    relationNamespace ||
+    relationApiPathNamespace ||
+    sourcePathNamespace ||
+    targetResourceNamespace;
+  if (kind !== "lookup" || !namespace) {
     return null;
   }
 
+  const defaultApiPath = resolveCrudLookupApiPathFromNamespace(namespace);
+  const explicitApiPath = normalizeCrudLookupApiPath(relation.apiPath);
   const normalized = {
     kind: "lookup",
-    apiPath,
+    namespace,
     valueKey: normalizeText(relation.valueKey) || "id"
   };
+  if (explicitApiPath && explicitApiPath !== defaultApiPath) {
+    normalized.apiPath = explicitApiPath;
+  }
   const labelKey = normalizeText(relation.labelKey);
   if (labelKey) {
     normalized.labelKey = labelKey;

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
+  normalizeCrudLookupNamespace,
+  resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys
@@ -12,6 +14,18 @@ test("normalizeCrudLookupApiPath normalizes and rejects root", () => {
   assert.equal(normalizeCrudLookupApiPath("vets"), "/vets");
   assert.equal(normalizeCrudLookupApiPath("/vets//"), "/vets");
   assert.equal(normalizeCrudLookupApiPath("/"), "");
+});
+
+test("normalizeCrudLookupNamespace normalizes namespace-like values", () => {
+  assert.equal(normalizeCrudLookupNamespace("vets"), "vets");
+  assert.equal(normalizeCrudLookupNamespace("/customer-categories//"), "customer-categories");
+  assert.equal(normalizeCrudLookupNamespace("/"), "");
+});
+
+test("resolveCrudLookupApiPathFromNamespace maps namespace to api path", () => {
+  assert.equal(resolveCrudLookupApiPathFromNamespace("vets"), "/vets");
+  assert.equal(resolveCrudLookupApiPathFromNamespace("/customer-categories"), "/customer-categories");
+  assert.equal(resolveCrudLookupApiPathFromNamespace(""), "");
 });
 
 test("normalizeCrudLookupContainerKey defaults to canonical value", () => {

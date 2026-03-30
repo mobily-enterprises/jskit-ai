@@ -1,4 +1,7 @@
-import { resolveCrudLookupProviderToken } from "./lookupPathSupport.js";
+import {
+  resolveCrudLookupProviderToken,
+  resolveCrudLookupNamespaceFromRelation
+} from "./lookupPathSupport.js";
 
 function createCrudLookupProviderResolver(scope, { context = "crudLookupProvider" } = {}) {
   if (!scope || typeof scope.make !== "function") {
@@ -6,8 +9,11 @@ function createCrudLookupProviderResolver(scope, { context = "crudLookupProvider
   }
 
   return function resolveLookupProvider(relation = {}) {
+    const namespace = resolveCrudLookupNamespaceFromRelation(relation, {
+      context
+    });
     return scope.make(
-      resolveCrudLookupProviderToken(relation?.apiPath, {
+      resolveCrudLookupProviderToken(namespace, {
         context
       })
     );

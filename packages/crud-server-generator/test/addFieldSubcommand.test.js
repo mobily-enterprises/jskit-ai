@@ -150,7 +150,7 @@ test("add-field patches CRUD resource file using DB snapshot metadata", async ()
     assert.match(content, /categoryId: normalizeOrNull\(source\.categoryId, normalizeFiniteInteger\)/);
     assert.match(content, /RESOURCE_FIELD_META\.push\(\{/);
     assert.match(content, /key: "categoryId"/);
-    assert.match(content, /apiPath: "\/customer-categories"/);
+    assert.match(content, /namespace: "customer-categories"/);
     assert.match(content, /valueKey: "id"/);
     assert.match(content, /formControl: "autocomplete" \/\/ or "select"/);
     assert.match(content, /normalizeFiniteInteger/);

@@ -1,6 +1,7 @@
 import * as recast from "recast";
 import { parse as parseBabel } from "@babel/parser";
 import { normalizeText } from "@jskit-ai/database-runtime/shared";
+import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 const { namedTypes: n, builders: b } = recast.types;
 
@@ -490,9 +491,15 @@ function renderResourceFieldMetaPushStatement(entry = {}) {
 
   const relation = entry?.relation && typeof entry.relation === "object" ? entry.relation : null;
   if (relation) {
+    const relationNamespace =
+      normalizeCrudLookupNamespace(relation.namespace) ||
+      normalizeCrudLookupNamespace(relation.apiPath);
+    if (!relationNamespace) {
+      throw new Error("crud-server-generator add-field fieldMeta relation requires namespace.");
+    }
     lines.push("  relation: {");
     lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
-    lines.push(`    apiPath: ${JSON.stringify(normalizeText(relation.apiPath))},`);
+    lines.push(`    namespace: ${JSON.stringify(relationNamespace)},`);
     lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`);
     lines.push("  },");
   }
