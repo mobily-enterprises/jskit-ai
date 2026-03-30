@@ -1,5 +1,18 @@
 LOCAL: Full app form template
 
+drop table  ai_conversations      ;
+drop table  ai_messages           ;
+drop table  console_settings      ;
+drop table  knex_migrations       ;
+drop table  knex_migrations_lock  ;
+drop table  user_settings         ;
+drop table  users                 ;
+drop table  workspace_invites     ;
+drop table  workspace_memberships ;
+drop table  workspace_settings    ;
+drop table  workspaces            ;
+
+
 export __APP=dogandgroom
 # npx @jskit-ai/create-app $__APP --tenancy-mode personal --target . --title $__APP
 ../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP --force
@@ -20,22 +33,12 @@ git init
 git add -A
 git commit -m "INIT"
 
+npm run db:migrate
+
 #mysqladmin -uroot -pppp  drop $__APP
 #mysqladmin -uroot -pppp  create $__APP
 
-drop table  ai_conversations      ;
-drop table  ai_messages           ;
-drop table  console_settings      ;
-drop table  knex_migrations       ;
-drop table  knex_migrations_lock  ;
-drop table  user_settings         ;
-drop table  users                 ;
-drop table  workspace_invites     ;
-drop table  workspace_memberships ;
-drop table  workspace_settings    ;
-drop table  workspaces            ;
 
-npm run db:migrate
 
 
 Now check all of the changes you made for slop: repeated functions, helpers that are already in kernel and redeclared here, and generally speaking bad code
@@ -67,6 +70,66 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --
 npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install
 npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
 ------------------------------------
+
+
+
+ 1. Page under subdirectory
+
+  npx jskit generate @jskit-ai/ui-generator page \
+    --name "Reports Dashboard" \
+    --surface admin \
+    --directory-prefix ops \
+    --no-install
+
+  2. Page with explicit menu placement
+
+  npx jskit generate @jskit-ai/ui-generator page \
+    --name "Reports" \
+    --surface admin \
+    --placement shell-layout:secondary-menu \
+    --no-install
+
+  3. Element with custom component folder
+
+  npx jskit generate @jskit-ai/ui-generator element \
+    --name "Ops Panel" \
+    --surface admin \
+    --path src/widgets \
+    --placement workspace-settings:forms \
+    --no-install
+
+  4. Element targeting shell top-right
+
+  npx jskit generate @jskit-ai/ui-generator element \
+    --name "Alerts Widget" \
+    --surface admin \
+    --placement shell-layout:top-right \
+    --no-install
+
+  5. Element using default outlet (omit --placement)
+
+  npx jskit generate @jskit-ai/ui-generator element \
+    --name "Quick Actions" \
+    --surface admin \
+    --no-install
+
+
+ npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu
+  --no-install
+
+
+
+  Options summary:
+
+  - page: --name --surface [--directory-prefix] [--placement]
+  - element: --name --surface [--path] [--placement]
+
+  --no-install is optional in all cases.
+
+
+
+
+
 
 
 

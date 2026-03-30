@@ -61,6 +61,14 @@ export default Object.freeze({
       promptLabel: "Route path",
       promptHint: "List route path under the target surface (example: crm/contacts-alt)."
     },
+    container: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Container host",
+      promptHint:
+        "Optional container host slug (example: practice). Routes are generated under this prefix and list menu placement defaults to <container>:sub-pages."
+    },
     "id-param": {
       required: false,
       inputType: "text",
@@ -132,7 +140,7 @@ export default Object.freeze({
       {
         from: "templates/src/pages/admin/ui-generator/ListElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/index.vue",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/index.vue",
         reason: "Install generated list page.",
         category: "ui-generator",
         id: "ui-generator-page-list-${option:namespace|snake}",
@@ -148,7 +156,8 @@ export default Object.freeze({
       {
         from: "templates/src/pages/admin/ui-generator/ViewElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/index.vue",
+        toSurfacePath:
+          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/index.vue",
         reason: "Install generated view page.",
         category: "ui-generator",
         id: "ui-generator-page-view-${option:namespace|snake}",
@@ -164,7 +173,7 @@ export default Object.freeze({
       {
         from: "templates/src/pages/admin/ui-generator/NewElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/new.vue",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/new.vue",
         reason: "Install generated new page.",
         category: "ui-generator",
         id: "ui-generator-page-new-${option:namespace|snake}",
@@ -180,7 +189,8 @@ export default Object.freeze({
       {
         from: "templates/src/pages/admin/ui-generator/EditElement.vue",
         toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
+        toSurfacePath:
+          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
         reason: "Install generated edit page.",
         category: "ui-generator",
         id: "ui-generator-page-edit-${option:namespace|snake}",
@@ -199,9 +209,10 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:route-path|path}",
+        skipIfContains:
+          "jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}",
         value:
-          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated UI menu placement.",
         category: "ui-generator",
         id: "ui-generator-placement-menu",

@@ -25,20 +25,55 @@ import {
 
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
+const CONTAINER_TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+
+function resolveContainerOption(options = {}) {
+  const container = normalizeText(options?.container).toLowerCase();
+  if (!container) {
+    return "";
+  }
+
+  if (!CONTAINER_TOKEN_PATTERN.test(container)) {
+    throw new Error(
+      'ui-generator option "container" must be a single host token (letters, numbers, ".", "_" or "-").'
+    );
+  }
+
+  return container;
+}
+
+function resolveRoutePathWithContainer(options = {}) {
+  const routePath = normalizeText(options?.["route-path"]);
+  if (!routePath) {
+    return "";
+  }
+
+  const container = resolveContainerOption(options);
+  if (!container) {
+    return routePath;
+  }
+
+  return `${container}/${routePath}`;
+}
+
 async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {}) {
   if (hasListOperation !== true) {
     return null;
   }
 
-  const routePath = normalizeText(options?.["route-path"]);
+  const routePath = resolveRoutePathWithContainer(options);
   if (!routePath || routePath.includes("[")) {
     return null;
   }
 
+  const explicitPlacement = normalizeText(options?.placement);
+  const container = resolveContainerOption(options);
+  const placementTarget = explicitPlacement || (container ? `${container}:sub-pages` : "");
+
   return resolveShellOutletPlacementTargetFromApp({
     appRoot,
     context: "ui-generator",
-    placement: options?.placement
+    placement: placementTarget
   });
 }
 
@@ -179,7 +214,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
 
   const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
   const defaultRecordChangedEvent = resolveRecordChangedEventName(resourceNamespace);
-  const parentRouteParamKey = resolveNearestParentRouteParamKey(options?.["route-path"], {
+  const parentRouteParamKey = resolveNearestParentRouteParamKey(resolveRoutePathWithContainer(options), {
     recordIdParam: options?.["id-param"]
   });
   const lookupContainerKey = resolveLookupContainerKey(resource, {

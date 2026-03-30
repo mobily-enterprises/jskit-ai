@@ -1035,6 +1035,39 @@ test("buildUiTemplateContext resolves menu placement from ShellLayout default ta
   });
 });
 
+test("buildUiTemplateContext defaults list placement to container host when container is set", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(
+      appRoot,
+      `<template>
+  <div>
+    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet host="practice" position="sub-pages" />
+  </div>
+</template>
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "customers",
+        container: "practice",
+        operations: "list",
+        "resource-file": resourceFile,
+        "resource-export": "customerResource"
+      }
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "practice");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "sub-pages");
+  });
+});
+
 test("buildUiTemplateContext applies explicit placement override and validates target format", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/customers/src/shared/customerResource.js";
@@ -1070,6 +1103,23 @@ test("buildUiTemplateContext applies explicit placement override and validates t
           }
         }),
       /option "placement" must be in "host:position" format/
+    );
+
+    await assert.rejects(
+      () =>
+        buildUiTemplateContext({
+          appRoot,
+          options: {
+            namespace: "customers-ui",
+            "api-path": "/crud/customers",
+            "route-path": "ops/customers",
+            container: "practice/sub",
+            operations: "list",
+            "resource-file": resourceFile,
+            "resource-export": "customerResource"
+          }
+        }),
+      /option "container" must be a single host token/
     );
   });
 });
