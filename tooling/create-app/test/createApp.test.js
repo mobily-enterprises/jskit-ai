@@ -171,9 +171,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
       path.join(appRoot, "packages/main/src/server/support/loadAppConfig.js"),
       "utf8"
     );
-    assert.match(localMainAppConfigLoader, /resolveAppRootFrom/);
-    assert.match(localMainAppConfigLoader, /config\/public\.js/);
-    assert.match(localMainAppConfigLoader, /"config", "server\.js"/);
+    assert.match(localMainAppConfigLoader, /@jskit-ai\/kernel\/server\/support/);
+    assert.match(localMainAppConfigLoader, /loadAppConfigFromModuleUrl/);
+    assert.match(localMainAppConfigLoader, /return loadAppConfigFromModuleUrl\(\{/);
 
     const localMainControllersIndex = await readFile(
       path.join(appRoot, "packages/main/src/server/controllers/index.js"),

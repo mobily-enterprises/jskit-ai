@@ -10,9 +10,11 @@ import {
   resolveRuntimeProfileFromSurface,
   tryCreateProviderRuntimeFromApp
 } from "@jskit-ai/kernel/server/platform";
+import { matchesPathPrefix, normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
 
 const SPA_INDEX_FILE = "index.html";
+const API_BASE_PATH = "/api";
 const STATIC_GLOBAL_UI_PATHS = Object.freeze([
   "/assets",
   "/favicon.svg",
@@ -24,19 +26,18 @@ const STATIC_GLOBAL_UI_PATHS = Object.freeze([
 function toRequestPathname(urlValue) {
   const rawUrl = String(urlValue || "").trim() || "/";
   try {
-    return new URL(rawUrl, "http://localhost").pathname || "/";
+    return normalizePathname(new URL(rawUrl, "http://localhost").pathname || "/");
   } catch {
-    return rawUrl.split("?")[0] || "/";
+    return normalizePathname(rawUrl.split("?")[0] || "/");
   }
 }
 
 function isApiPath(pathname) {
-  const normalizedPathname = String(pathname || "").trim() || "/";
-  return normalizedPathname === "/api" || normalizedPathname.startsWith("/api/");
+  return matchesPathPrefix(pathname, API_BASE_PATH);
 }
 
 function hasFileExtension(pathname) {
-  return path.extname(String(pathname || "").trim()) !== "";
+  return path.extname(normalizePathname(pathname)) !== "";
 }
 
 function resolveGlobalUiPaths(runtimeGlobalUiPaths = []) {
@@ -48,10 +49,7 @@ function resolveGlobalUiPaths(runtimeGlobalUiPaths = []) {
 }
 
 function resolveStaticFilePath(pathname) {
-  const normalizedPathname = String(pathname || "").trim() || "/";
-  if (!normalizedPathname.startsWith("/")) {
-    return "";
-  }
+  const normalizedPathname = normalizePathname(pathname);
 
   const relativePath = normalizedPathname.replace(/^\/+/, "");
   if (!relativePath || relativePath.endsWith("/")) {
