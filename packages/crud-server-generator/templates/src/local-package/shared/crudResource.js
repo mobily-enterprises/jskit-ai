@@ -85,7 +85,7 @@ const deleteOutputValidator = Object.freeze({
 
 const RESOURCE_FIELD_META = [];
 
-const ${option:namespace|singular|camel}Resource = {
+const resource = {
   resource: "${option:namespace|snake}",
   tableName: __JSKIT_CRUD_TABLE_NAME__,
   idColumn: __JSKIT_CRUD_ID_COLUMN__,
@@ -133,7 +133,7 @@ const ${option:namespace|singular|camel}Resource = {
   fieldMeta: RESOURCE_FIELD_META
 };
 
-export { ${option:namespace|singular|camel}Resource };
+export { resource };
 
 // @jskit-contract crud.resource.field-meta.${option:namespace|snake}.v1
 void RESOURCE_FIELD_META;

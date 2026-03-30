@@ -157,13 +157,13 @@ test("generate keeps already-installed dependency placements instead of reapplyi
 
     const addBaseResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/base", "--no-install"]
+      args: ["add", "package", "@demo/base"]
     });
     assert.equal(addBaseResult.status, 0, String(addBaseResult.stderr || ""));
 
     const addWidgetResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/widget", "--no-install"]
+      args: ["add", "package", "@demo/widget"]
     });
     assert.equal(addWidgetResult.status, 0, String(addWidgetResult.stderr || ""));
 
@@ -187,7 +187,7 @@ test("generate keeps already-installed dependency placements instead of reapplyi
 
     const generateResult = runCli({
       cwd: appRoot,
-      args: ["generate", "@demo/generator", "--no-install"]
+      args: ["generate", "@demo/generator"]
     });
     assert.equal(generateResult.status, 0, String(generateResult.stderr || ""));
 

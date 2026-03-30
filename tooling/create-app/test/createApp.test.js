@@ -74,7 +74,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
     assert.match(readme, /npm run dev/);
-    assert.match(readme, /npx jskit add auth-base --no-install/);
+    assert.match(readme, /npx jskit add auth-base/);
     assert.doesNotMatch(readme, /-w apps/);
 
     const appJson = JSON.parse(await readFile(path.join(appRoot, "app.json"), "utf8"));
@@ -235,7 +235,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
 
-    assert.match(result.stdout, /npx jskit add auth-base --no-install/);
+    assert.match(result.stdout, /npx jskit add auth-base/);
   });
 });
 
@@ -304,7 +304,7 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     assert.deepEqual(answers, []);
     assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework bundle commands \(auth\):/);
-    assert.match(stdout, /npx jskit add auth-base --no-install/);
+    assert.match(stdout, /npx jskit add auth-base/);
 
     const publicConfig = await readFile(path.join(cwd, "interactive-app/config/public.js"), "utf8");
     assert.match(publicConfig, /config\.tenancyMode = "workspaces";/);
@@ -453,7 +453,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
-      args: ["add", "package", "shell-web", "--no-install"]
+      args: ["add", "package", "shell-web"]
     });
     assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
 
@@ -492,8 +492,7 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
         "--auth-supabase-publishable-key",
         "sb_publishable_example",
         "--app-public-url",
-        "http://localhost:5173",
-        "--no-install"
+        "http://localhost:5173"
       ]
     });
     assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
@@ -509,15 +508,14 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
         "--db-user",
         "app_user",
         "--db-password",
-        "app_password",
-        "--no-install"
+        "app_password"
       ]
     });
     assert.equal(addDatabaseDriverResult.status, 0, addDatabaseDriverResult.stderr);
 
     const addUsersWebResult = runJskit({
       cwd: appRoot,
-      args: ["add", "package", "users-web", "--no-install"]
+      args: ["add", "package", "users-web"]
     });
     assert.equal(addUsersWebResult.status, 0, addUsersWebResult.stderr);
 
@@ -600,15 +598,14 @@ test("generated app supports shell + auth progressive installation", async () =>
         "--auth-supabase-publishable-key",
         "sb_publishable_example",
         "--app-public-url",
-        "http://localhost:5173",
-        "--no-install"
+        "http://localhost:5173"
       ]
     });
     assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
 
     const addAuthResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base"]
     });
     assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
 

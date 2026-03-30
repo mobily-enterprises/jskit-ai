@@ -29,5 +29,5 @@ App configuration files:
 ## Add Capabilities
 
 ```bash
-npx jskit add auth-base --no-install
+npx jskit add auth-base
 ```

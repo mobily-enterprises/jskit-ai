@@ -48,7 +48,7 @@ test("add bundle auth-base fails when required capabilities have no provider", a
     await createMinimalApp(appRoot);
     const result = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base"]
     });
 
     assert.notEqual(result.status, 0);
@@ -72,15 +72,14 @@ test("add bundle auth-base passes after a provider package is installed", async 
         "--auth-supabase-publishable-key",
         "sb_publishable_example",
         "--app-public-url",
-        "http://localhost:5173",
-        "--no-install"
+        "http://localhost:5173"
       ]
     });
     assert.equal(addProviderResult.status, 0, String(addProviderResult.stderr || ""));
 
     const addBundleResult = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base"]
     });
     assert.equal(addBundleResult.status, 0, String(addBundleResult.stderr || ""));
     assert.match(String(addBundleResult.stdout || ""), /Added bundle auth-base\./);

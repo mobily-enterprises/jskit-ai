@@ -82,7 +82,7 @@ test("add package fails on unknown inline option for target package", async () =
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/no-options", "--namespace", "dragons", "--no-install"]
+      args: ["add", "package", "@demo/no-options", "--namespace", "dragons"]
     });
 
     assert.equal(addResult.status, 1);

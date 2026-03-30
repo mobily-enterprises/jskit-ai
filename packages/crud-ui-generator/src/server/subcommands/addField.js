@@ -71,13 +71,12 @@ function resolveTargetFilePath(appRoot, targetFile) {
 
 function inferResourceOptionsFromSource(screenSource = "") {
   const source = String(screenSource || "");
-  const importPattern = /import\s*\{\s*([A-Za-z_$][A-Za-z0-9_$]*)(?:\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*))?\s*\}\s*from\s*["']\/([^"']+)["'];?/g;
+  const importPattern = /import\s*\{\s*resource(?:\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*))?\s*\}\s*from\s*["']\/([^"']+)["'];?/g;
   let match = null;
   while ((match = importPattern.exec(source)) != null) {
-    const exportName = normalizeText(match[1]);
-    const alias = normalizeText(match[2]);
-    const resourceFile = normalizeText(match[3]);
-    if (!exportName || !resourceFile) {
+    const alias = normalizeText(match[1]);
+    const resourceFile = normalizeText(match[2]);
+    if (!resourceFile) {
       continue;
     }
     if (alias && alias !== "uiResource") {
@@ -85,8 +84,7 @@ function inferResourceOptionsFromSource(screenSource = "") {
     }
 
     return {
-      "resource-file": resourceFile,
-      "resource-export": exportName
+      "resource-file": resourceFile
     };
   }
 
@@ -95,7 +93,6 @@ function inferResourceOptionsFromSource(screenSource = "") {
 
 function resolveResourceOptions(options = {}, inferredOptions = {}) {
   const resourceFile = normalizeText(options?.["resource-file"] || inferredOptions?.["resource-file"]);
-  const resourceExport = normalizeText(options?.["resource-export"] || inferredOptions?.["resource-export"]);
   if (!resourceFile) {
     throw new Error(
       'crud-ui-generator field could not resolve "resource-file". Pass --resource-file or run on a generated new/edit file that imports uiResource.'
@@ -103,8 +100,7 @@ function resolveResourceOptions(options = {}, inferredOptions = {}) {
   }
 
   return {
-    "resource-file": resourceFile,
-    ...(resourceExport ? { "resource-export": resourceExport } : {})
+    "resource-file": resourceFile
   };
 }
 

@@ -64,7 +64,7 @@ const patchBodyValidator = Object.freeze({
   normalize: createBodyValidator.normalize
 });
 
-const customerResource = Object.freeze({
+const resource = Object.freeze({
   resource: "customers",
   tableName: "customers",
   idColumn: "id",
@@ -119,7 +119,7 @@ const customerResource = Object.freeze({
   ]
 });
 
-export { customerResource };
+export { resource };
 `;
 }
 

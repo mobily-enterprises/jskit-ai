@@ -1464,7 +1464,7 @@ function createCommandHandlers(deps) {
     if (!options.dryRun) {
       await writeJsonFile(packageJsonPath, packageJson);
       await writeJsonFile(lockPath, lock);
-      if (!options.noInstall) {
+      if (options.runNpmInstall) {
         await runNpmInstall(appRoot, io.stderr);
       }
     }
@@ -1710,7 +1710,7 @@ function createCommandHandlers(deps) {
     if (!options.dryRun) {
       await writeJsonFile(packageJsonPath, packageJson);
       await writeJsonFile(lockPath, lock);
-      if (!options.noInstall) {
+      if (options.runNpmInstall) {
         await runNpmInstall(appRoot, io.stderr);
       }
     }
@@ -2212,7 +2212,7 @@ function createCommandHandlers(deps) {
     if (!options.dryRun) {
       await writeJsonFile(packageJsonPath, packageJson);
       await writeJsonFile(lockPath, lock);
-      if (!options.noInstall) {
+      if (options.runNpmInstall) {
         await runNpmInstall(appRoot, io.stderr);
       }
     }

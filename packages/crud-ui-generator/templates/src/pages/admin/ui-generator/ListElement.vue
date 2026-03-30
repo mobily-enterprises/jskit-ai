@@ -83,7 +83,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 
 <script setup>
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
-import { ${option:resource-export|trim} as uiResource } from "/${option:resource-file|trim}";
+import { resource as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";

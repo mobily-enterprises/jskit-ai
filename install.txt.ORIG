@@ -5,13 +5,13 @@ npx @jskit-ai/create-app $__APP --tenancy-mode personal --target . --title $__AP
 ../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP
 npm install --verbose
 npm run devlinks
-npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
-npx jskit add package shell-web --no-install
-npx jskit add package auth-web --no-install
-npx jskit add package database-runtime-mysql --no-install
-npx jskit add package users-web --no-install
-npx jskit add package realtime --no-install
-npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek --no-install
+npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb
+npx jskit add package shell-web
+npx jskit add package auth-web
+npx jskit add package database-runtime-mysql
+npx jskit add package users-web
+npx jskit add package realtime
+npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek
 npm install --verbose
 npm run devlinks
 
@@ -21,7 +21,7 @@ npm run db:migrate
 
 
 
-npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --table-name contacts --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --table-name contacts
 
   npx jskit generate @jskit-ai/crud-server-generator \
     --namespace contacts \
@@ -41,7 +41,6 @@ npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surfac
     --api-path /crud/contacts \
     --route-path contacts \
     --id-param contactId \
-    --no-install
 
 
 

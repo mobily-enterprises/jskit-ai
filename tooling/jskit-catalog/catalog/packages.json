@@ -913,9 +913,8 @@
           "surface": {
             "required": true,
             "inputType": "text",
-            "defaultFromConfig": "surfaceDefaultId",
             "promptLabel": "Target surface",
-            "promptHint": "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+            "promptHint": "Must match an enabled surface id."
           },
           "ownership-filter": {
             "required": true,
@@ -1143,9 +1142,8 @@
           "surface": {
             "required": true,
             "inputType": "text",
-            "defaultFromConfig": "surfaceDefaultId",
             "promptLabel": "Target surface",
-            "promptHint": "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+            "promptHint": "Must match an enabled surface id."
           },
           "resource-file": {
             "required": true,
@@ -1153,13 +1151,6 @@
             "defaultValue": "",
             "promptLabel": "Resource file",
             "promptHint": "Relative path from app root to the resource module."
-          },
-          "resource-export": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Resource export",
-            "promptHint": "Named export in the resource module (defaults to resource-file basename, example: contactResource)."
           },
           "operations": {
             "required": true,
@@ -1176,18 +1167,18 @@
             "promptHint": "Optional comma-separated field keys to render (must exist in selected operation schemas)."
           },
           "api-path": {
-            "required": true,
+            "required": false,
             "inputType": "text",
-            "defaultValue": "",
+            "defaultFromOptionTemplate": "/${option:namespace|kebab}",
             "promptLabel": "API path",
-            "promptHint": "Base API path without trailing id (example: /crud/contacts)."
+            "promptHint": "Base API path without trailing id (defaults to /<namespace>, example: /contacts)."
           },
           "route-path": {
-            "required": true,
+            "required": false,
             "inputType": "text",
-            "defaultValue": "",
+            "defaultFromOptionTemplate": "${option:namespace|kebab}",
             "promptLabel": "Route path",
-            "promptHint": "List route path under the target surface (example: crm/contacts-alt)."
+            "promptHint": "List route path under the target surface (defaults to <namespace>, example: contacts)."
           },
           "container": {
             "required": false,

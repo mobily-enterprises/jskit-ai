@@ -121,7 +121,7 @@ test("files mutation resolves toSurface targets from config surfaceDefinitions.p
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-targeted", "--no-install"]
+      args: ["add", "package", "@demo/surface-targeted"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -172,7 +172,7 @@ test("files mutation supports comma-separated toSurface values", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-multi-targeted", "--no-install"]
+      args: ["add", "package", "@demo/surface-multi-targeted"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -226,7 +226,7 @@ test("files mutation fails when toSurface references unknown surface id", async 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-unknown", "--no-install"]
+      args: ["add", "package", "@demo/surface-unknown"]
     });
     assert.notEqual(addResult.status, 0);
     assert.match(String(addResult.stderr || ""), /unknown surface "missing"/);
@@ -269,7 +269,7 @@ test("files mutation rejects path traversal in toSurfacePath", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-traversal", "--no-install"]
+      args: ["add", "package", "@demo/surface-traversal"]
     });
     assert.notEqual(addResult.status, 0);
     assert.match(String(addResult.stderr || ""), /path traversal is not allowed/);
@@ -323,7 +323,7 @@ test("files mutation fails when toSurface references disabled surface id", async
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-disabled", "--no-install"]
+      args: ["add", "package", "@demo/surface-disabled"]
     });
     assert.notEqual(addResult.status, 0);
     assert.match(String(addResult.stderr || ""), /surface "admin" is disabled/);
@@ -366,7 +366,7 @@ test("files mutation rejects descriptors that set both to and toSurface", async 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/surface-both-targets", "--no-install"]
+      args: ["add", "package", "@demo/surface-both-targets"]
     });
     assert.notEqual(addResult.status, 0);
     assert.match(String(addResult.stderr || ""), /"to" and "toSurface" cannot both be set/);

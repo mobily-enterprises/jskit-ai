@@ -124,7 +124,7 @@ test("generate <packageId> <subcommand> runs generator subcommand without instal
 
     const result = runCli({
       cwd: appRoot,
-      args: ["generate", "@demo/generator", "ping", "a", "b", "--no-install"]
+      args: ["generate", "@demo/generator", "ping", "a", "b"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));

@@ -19,13 +19,13 @@ export __APP=dogandgroom
 npm install --verbose
 npm run devlinks
 
-npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb --no-install
-npx jskit add package shell-web --no-install
-npx jskit add package auth-web --no-install
-npx jskit add package database-runtime-mysql --no-install
-npx jskit add package users-web --no-install
-npx jskit add package realtime --no-install
-npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek --no-install
+npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb
+npx jskit add package shell-web
+npx jskit add package auth-web
+npx jskit add package database-runtime-mysql
+npx jskit add package users-web
+npx jskit add package realtime
+npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek
 npm install --verbose
 npm run devlinks
 
@@ -45,7 +45,7 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 
 
 
-# npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --no-install
+# npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin
 
 
 
@@ -53,22 +53,22 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 ------------------------------
 npm run devlinks
 
-npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param contactId --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto
+npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --api-path /contacts --route-path contacts --id-param contactId
 
-npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
-
-
-npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --resource-export vetResource --api-path /vets --route-path vets --id-param recordId --no-install
-
-npx jskit generate @jskit-ai/crud-server-generator --namespace contact-categories --surface admin --table-name contact_categories --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js --resource-export contactCategoryResource --api-path /contact-categories --route-path contact-categories --id-param recordId --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto
+npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId
 
 
-npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto --no-install
-npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --resource-export addressResource --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto
+npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --api-path /vets --route-path vets --id-param recordId
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace contact-categories --surface admin --table-name contact_categories --id-column id --ownership-filter auto
+npx jskit generate @jskit-ai/crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js --api-path /contact-categories --route-path contact-categories --id-param recordId
+
+
+npx jskit generate @jskit-ai/crud-server-generator --namespace addresses --surface admin --table-name addresses --id-column id --ownership-filter auto
+npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --api-path /addresses --route-path contacts/[contactId]/addresses --id-param addressId
 ------------------------------------
 
 
@@ -79,7 +79,6 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface a
     --name "Reports Dashboard" \
     --surface admin \
     --directory-prefix ops \
-    --no-install
 
   2. Page with explicit menu placement
 
@@ -87,7 +86,6 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface a
     --name "Reports" \
     --surface admin \
     --placement shell-layout:secondary-menu \
-    --no-install
 
   3. Element with custom component folder
 
@@ -96,7 +94,6 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface a
     --surface admin \
     --path src/widgets \
     --placement workspace-settings:forms \
-    --no-install
 
   4. Element targeting shell top-right
 
@@ -104,27 +101,22 @@ npx jskit generate @jskit-ai/crud-ui-generator --namespace addresses --surface a
     --name "Alerts Widget" \
     --surface admin \
     --placement shell-layout:top-right \
-    --no-install
 
   5. Element using default outlet (omit --placement)
 
   npx jskit generate @jskit-ai/ui-generator element \
     --name "Quick Actions" \
     --surface admin \
-    --no-install
 
 
  npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu
-  --no-install
 
 
 
   Options summary:
 
   - page: --name --surface [--directory-prefix] [--placement]
-  - element: --name --surface [--path] [--placement]
-
-  --no-install is optional in all cases.
+  - element: --name --surface [--path] [--placement] is optional in all cases.
 
 
 
@@ -155,12 +147,12 @@ FIELD ADDING:
 
 
 
-  npx jskit generate @jskit-ai/crud-server-generator add-field categoryId packages/contacts/src/shared/contactResource.js --no-install
-  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+  npx jskit generate @jskit-ai/crud-server-generator add-field categoryId packages/contacts/src/shared/contactResource.js
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js
   
-  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
-  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
-  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --no-install
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate @jskit-ai/crud-ui-generator add-field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js
 
 ----------------------------------------------------------------------
 
@@ -169,7 +161,7 @@ FIELD ADDING:
 
 
 // ONE LINE
-npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto --no-install;npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --resource-export contactResource --api-path /contacts --route-path contacts --id-param recordId --no-install;npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto --no-install;npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --resource-export vetResource --api-path /vets --route-path vets --id-param recordId --no-install
+npx jskit generate @jskit-ai/crud-server-generator --namespace contacts --surface admin --table-name contacts --id-column id --ownership-filter auto;npx jskit generate @jskit-ai/crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --api-path /contacts --route-path contacts --id-param recordId;npx jskit generate @jskit-ai/crud-server-generator --namespace vets --surface admin --table-name vets --id-column id --ownership-filter auto;npx jskit generate @jskit-ai/crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js --api-path /vets --route-path vets --id-param recordId
 
 npm install --verbose;npm run devlinks
 

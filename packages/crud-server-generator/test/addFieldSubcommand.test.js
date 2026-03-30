@@ -69,7 +69,7 @@ const patchBodyValidator = Object.freeze({
 
 const RESOURCE_FIELD_META = [];
 
-const contactResource = {
+const resource = {
   resource: "contacts",
   tableName: "contacts",
   idColumn: "id",
@@ -82,7 +82,7 @@ const contactResource = {
   fieldMeta: RESOURCE_FIELD_META
 };
 
-export { contactResource };
+export { resource };
 `;
 
 async function withTempApp(run) {

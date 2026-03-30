@@ -93,7 +93,7 @@ test("add/remove package applies managed vite proxy mutations", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/realtime", "--no-install"]
+      args: ["add", "package", "@demo/realtime"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -155,7 +155,7 @@ test("add/remove package applies managed vite proxy mutations", async () => {
 
     const updateResult = runCli({
       cwd: appRoot,
-      args: ["update", "package", "@demo/realtime", "--no-install"]
+      args: ["update", "package", "@demo/realtime"]
     });
     assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
 
@@ -175,7 +175,7 @@ test("add/remove package applies managed vite proxy mutations", async () => {
 
     const removeResult = runCli({
       cwd: appRoot,
-      args: ["remove", "package", "@demo/realtime", "--no-install"]
+      args: ["remove", "package", "@demo/realtime"]
     });
     assert.equal(removeResult.status, 0, String(removeResult.stderr || ""));
 

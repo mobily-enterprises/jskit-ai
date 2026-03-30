@@ -129,7 +129,7 @@ test("add package applies file templateContext replacements", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-feature", "--namespace", "contact records", "--no-install"]
+      args: ["add", "package", "@demo/template-context-feature", "--namespace", "contact records"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -225,7 +225,7 @@ export { buildTemplateContext };
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-single-pass-feature", "--no-install"]
+      args: ["add", "package", "@demo/template-context-single-pass-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -247,7 +247,7 @@ test("add package fails when file templateContext export returns non-object", as
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-feature", "--namespace", "contacts", "--no-install"]
+      args: ["add", "package", "@demo/template-context-feature", "--namespace", "contacts"]
     });
     assert.equal(addResult.status, 1);
     assert.match(
@@ -324,7 +324,7 @@ test("add package fails when file templateContext omits entrypoint", async () =>
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-missing-entrypoint-feature", "--no-install"]
+      args: ["add", "package", "@demo/template-context-missing-entrypoint-feature"]
     });
     assert.equal(addResult.status, 1);
     assert.match(
@@ -418,7 +418,7 @@ export { buildTemplateContext };
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-preflight-feature", "--no-install"]
+      args: ["add", "package", "@demo/template-context-preflight-feature"]
     });
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /resource invalid/);
@@ -516,7 +516,7 @@ export { buildTemplateContext };
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-migration-feature", "--no-install"]
+      args: ["add", "package", "@demo/template-context-migration-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -613,7 +613,7 @@ export { buildTemplateContext };
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/template-context-append-text-feature", "--no-install"]
+      args: ["add", "package", "@demo/template-context-append-text-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 

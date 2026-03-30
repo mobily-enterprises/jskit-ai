@@ -120,7 +120,7 @@ const customerBodySchema = {
   additionalProperties: false
 };
 
-const customerResource = {
+const resource = {
   operations: {
     list: {
       outputValidator: {
@@ -161,7 +161,7 @@ const customerResource = {
   }
 };
 
-export { customerResource };
+export { resource };
 `,
     "utf8"
   );
@@ -198,7 +198,6 @@ async function generateCrudUiPackage(
     displayFields = "",
     namespace = "customers",
     apiPath = "/crud/customers",
-    resourceExport = "customerResource",
     routePath = "ops/customers-ui",
     idParam = "customerId",
     placement = "",
@@ -207,7 +206,6 @@ async function generateCrudUiPackage(
 ) {
   await installCrudUiGeneratorPackage(appRoot);
   const normalizedDisplayFields = String(displayFields || "").trim();
-  const normalizedResourceExport = String(resourceExport || "").trim();
   const args = [
     "generate",
     "@jskit-ai/crud-ui-generator",
@@ -221,15 +219,13 @@ async function generateCrudUiPackage(
     ...(normalizedDisplayFields ? ["--display-fields", normalizedDisplayFields] : []),
     "--resource-file",
     "packages/customers/src/shared/customerResource.js",
-    ...(normalizedResourceExport ? ["--resource-export", normalizedResourceExport] : []),
     "--api-path",
     apiPath,
     "--route-path",
     routePath,
     ...(String(placement || "").trim() ? ["--placement", String(placement || "").trim()] : []),
     "--id-param",
-    idParam,
-    "--no-install"
+    idParam
   ];
 
   const addResult = runCli({
@@ -239,19 +235,51 @@ async function generateCrudUiPackage(
   assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 }
 
-test('generate @jskit-ai/crud-ui-generator derives resource export from "resource-file" basename by default', async () => {
+test('generate @jskit-ai/crud-ui-generator loads named export "resource" from resource-file', async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-generator-app-default-export");
     await createMinimalApp(appRoot, { name: "ui-generator-app-default-export" });
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot, {
-      operations: "list,view",
-      resourceExport: ""
+      operations: "list,view"
     });
 
     const paths = resolveGeneratedPaths(appRoot);
     assert.equal(await fileExists(paths.listPagePath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator derives api-path and route-path from namespace when omitted", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-derived-paths");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-derived-paths" });
+    await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "--namespace",
+        "contacts",
+        "--surface",
+        "admin",
+        "--operations",
+        "list,view,new,edit",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--id-param",
+        "recordId"
+      ]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const listPagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "index.vue");
+    assert.equal(await fileExists(listPagePath), true);
+    const listPageSource = await readFile(listPagePath, "utf8");
+    assert.match(listPageSource, /const UI_LIST_API_URL = "\/contacts";/);
   });
 });
 
@@ -354,7 +382,7 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(editPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
+    assert.match(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
   });
 });
 
@@ -397,7 +425,7 @@ test("generate @jskit-ai/crud-ui-generator with operations=list scaffolds list o
     assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
+    assert.match(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
   });
 });
 
@@ -427,7 +455,7 @@ test("generate @jskit-ai/crud-ui-generator does not append menu placement for dy
     assert.equal(await fileExists(dynamicListPagePath), true);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:addresses::contacts\/\[contactId\]\/addresses/);
+    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:addresses:::contacts\/\[contactId\]\/addresses/);
     assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/addresses"/);
   });
 });
@@ -453,7 +481,7 @@ test("generate @jskit-ai/crud-ui-generator with operations=view scaffolds view o
     assert.doesNotMatch(viewPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:customers::ops\/customers-ui/);
+    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
   });
 });
 
@@ -507,15 +535,12 @@ test("generate @jskit-ai/crud-ui-generator fails when display-fields includes un
         "firstName,unknownField",
         "--resource-file",
         "packages/customers/src/shared/customerResource.js",
-        "--resource-export",
-        "customerResource",
         "--api-path",
         "/crud/customers",
         "--route-path",
         "ops/customers-ui",
         "--id-param",
-        "customerId",
-        "--no-install"
+        "customerId"
       ]
     });
 
@@ -551,7 +576,7 @@ test("add package rejects generator package ids", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@jskit-ai/crud-ui-generator", "--no-install"]
+      args: ["add", "package", "@jskit-ai/crud-ui-generator"]
     });
 
     assert.equal(addResult.status, 1);
@@ -567,7 +592,7 @@ test("generate rejects runtime package ids", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["generate", "@jskit-ai/auth-core", "--no-install"]
+      args: ["generate", "@jskit-ai/auth-core"]
     });
 
     assert.equal(addResult.status, 1);
