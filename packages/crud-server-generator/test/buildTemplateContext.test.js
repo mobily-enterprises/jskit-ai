@@ -421,11 +421,17 @@ test("crud service template defines explicit service methods and semi-explicit d
     templateSource,
     /from "@jskit-ai\/crud-core\/server\/serviceEvents";/
   );
+  assert.match(
+    templateSource,
+    /from "@jskit-ai\/crud-core\/server\/fieldAccess";/
+  );
   assert.match(templateSource, /const baseServiceEvents = createCrudServiceEvents\(/);
+  assert.match(templateSource, /const fieldAccessRuntime = createCrudFieldAccessRuntime\(/);
   assert.match(templateSource, /const serviceEvents = Object\.freeze\(\{/);
   assert.match(templateSource, /createRecord: \[\.\.\.baseServiceEvents\.createRecord\],/);
   assert.match(templateSource, /async function listRecords\(query = \{\}, options = \{\}\)/);
-  assert.match(templateSource, /return \$\{option:namespace\|camel\}Repository\.list\(query, options\);/);
+  assert.match(templateSource, /return fieldAccessRuntime\.filterReadableListResult\(result, fieldAccess, \{/);
+  assert.match(templateSource, /const writablePayload = await fieldAccessRuntime\.enforceWritablePayload\(payload, fieldAccess, \{/);
   assert.match(templateSource, /throw new AppError\(404, "Record not found\."\);/);
 });
 
