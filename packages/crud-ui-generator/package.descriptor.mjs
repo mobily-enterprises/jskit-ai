@@ -74,6 +74,13 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Page directory prefix",
       promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
+    },
+    placement: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Menu placement",
+      promptHint: "Optional host:position target (defaults to ShellLayout default outlet)."
     }
   },
   dependsOn: [],
@@ -90,8 +97,9 @@ export default Object.freeze({
     }
   },
   metadata: {
+    generatorPrimarySubcommand: "crud",
     generatorSubcommands: {
-      "add-field": {
+      field: {
         entrypoint: "src/server/subcommands/addField.js",
         export: "runGeneratorSubcommand"
       }
@@ -193,10 +201,14 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:route-path|path}",
         value:
-          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:route-path|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated UI menu placement.",
         category: "ui-generator",
         id: "ui-generator-placement-menu",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
         when: {
           all: [
             {

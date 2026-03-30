@@ -1,3 +1,9 @@
+import path from "node:path";
+import { readFile } from "node:fs/promises";
+import {
+  discoverShellOutletTargetsFromVueSource,
+  normalizeShellOutletTargetId
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 import {
   normalizeText,
   requireOption,
@@ -24,6 +30,86 @@ import {
 
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
+const DEFAULT_SHELL_LAYOUT_FILE = "src/components/ShellLayout.vue";
+
+function resolveMenuPlacementTargetById(targets = [], targetId = "") {
+  const entries = Array.isArray(targets) ? targets : [];
+  const normalizedTargetId = normalizeShellOutletTargetId(targetId);
+  if (!normalizedTargetId) {
+    return null;
+  }
+
+  return entries.find((entry) => normalizeShellOutletTargetId(entry?.id) === normalizedTargetId) || null;
+}
+
+function describeMenuPlacementTargets(targets = []) {
+  return (Array.isArray(targets) ? targets : [])
+    .map((entry) => normalizeShellOutletTargetId(entry?.id))
+    .filter(Boolean)
+    .join(", ");
+}
+
+async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {}) {
+  if (hasListOperation !== true) {
+    return null;
+  }
+
+  const routePath = normalizeText(options?.["route-path"]);
+  if (!routePath || routePath.includes("[")) {
+    return null;
+  }
+
+  const requestedPlacementOption = normalizeText(options?.placement);
+  const requestedPlacementTargetId = normalizeShellOutletTargetId(requestedPlacementOption);
+  if (requestedPlacementOption && !requestedPlacementTargetId) {
+    throw new Error('ui-generator option "placement" must be in "host:position" format.');
+  }
+
+  const shellLayoutPath = path.join(String(appRoot || ""), DEFAULT_SHELL_LAYOUT_FILE);
+  let shellLayoutSource = "";
+  try {
+    shellLayoutSource = await readFile(shellLayoutPath, "utf8");
+  } catch {
+    throw new Error(
+      `ui-generator could not read ${DEFAULT_SHELL_LAYOUT_FILE}. ` +
+      'Define ShellOutlet targets in ShellLayout.vue or pass "--placement host:position".'
+    );
+  }
+
+  const discoveredTargets = discoverShellOutletTargetsFromVueSource(shellLayoutSource, {
+    context: DEFAULT_SHELL_LAYOUT_FILE
+  });
+  const targets = Array.isArray(discoveredTargets.targets) ? discoveredTargets.targets : [];
+  if (targets.length < 1) {
+    throw new Error(
+      `ui-generator could not find any <ShellOutlet host="..." position="..."> targets in ${DEFAULT_SHELL_LAYOUT_FILE}.`
+    );
+  }
+
+  if (requestedPlacementTargetId) {
+    const requestedTarget = resolveMenuPlacementTargetById(targets, requestedPlacementTargetId);
+    if (!requestedTarget) {
+      const availableTargets = describeMenuPlacementTargets(targets);
+      throw new Error(
+        `ui-generator option "placement" target "${requestedPlacementTargetId}" is not declared in ` +
+        `${DEFAULT_SHELL_LAYOUT_FILE}. Available targets: ${availableTargets || "<none>"}.`
+      );
+    }
+    return requestedTarget;
+  }
+
+  const defaultTarget = resolveMenuPlacementTargetById(targets, discoveredTargets.defaultTargetId);
+  if (defaultTarget) {
+    return defaultTarget;
+  }
+
+  const availableTargets = describeMenuPlacementTargets(targets);
+  throw new Error(
+    `ui-generator could not resolve a default ShellOutlet target from ${DEFAULT_SHELL_LAYOUT_FILE}. ` +
+    `Set one outlet as default (e.g. <ShellOutlet host="shell-layout" position="primary-menu" default />) ` +
+    `or pass "--placement host:position". Available targets: ${availableTargets || "<none>"}.`
+  );
+}
 
 function parseOperationsOption(options) {
   const rawValue = requireOption(options, "operations");
@@ -254,6 +340,11 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
         : editFieldsAll.length > 0
           ? editFieldsAll
           : createFieldDefinitions({});
+  const menuPlacementTarget = await resolveMenuPlacementTarget({
+    appRoot,
+    options,
+    hasListOperation
+  });
 
   return {
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
@@ -271,7 +362,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
-    __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields)
+    __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
+    __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(menuPlacementTarget?.host),
+    __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(menuPlacementTarget?.position)
   };
 }
 

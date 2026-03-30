@@ -3616,29 +3616,31 @@ async function resolveTemplateContextReplacementsForMutation({
   options,
   appRoot,
   sourcePath,
-  targetPaths
+  targetPaths,
+  mutationContext = "files mutation"
 } = {}) {
   const templateContext = ensureObject(mutation?.templateContext);
   const hasTemplateContext = Object.keys(templateContext).length > 0;
   const entrypoint = String(templateContext.entrypoint || "").trim();
+  const resolvedMutationContext = String(mutationContext || "files mutation").trim() || "files mutation";
   if (!hasTemplateContext) {
     return null;
   }
   if (!entrypoint) {
     throw createCliError(
-      `Invalid files mutation in ${packageEntry.packageId}: templateContext.entrypoint is required when templateContext is set.`
+      `Invalid ${resolvedMutationContext} in ${packageEntry.packageId}: templateContext.entrypoint is required when templateContext is set.`
     );
   }
   const exportName = String(templateContext.export || "").trim() || "buildTemplateContext";
   const resolvedEntrypointPath = resolveAppRelativePathWithinRoot(
     packageEntry.rootDir,
     entrypoint,
-    `${packageEntry.packageId} files mutation templateContext.entrypoint`
+    `${packageEntry.packageId} ${resolvedMutationContext} templateContext.entrypoint`
   );
   const absoluteEntrypointPath = resolvedEntrypointPath.absolutePath;
   if (!(await fileExists(absoluteEntrypointPath))) {
     throw createCliError(
-      `Invalid files mutation in ${packageEntry.packageId}: templateContext.entrypoint not found at ${entrypoint}.`
+      `Invalid ${resolvedMutationContext} in ${packageEntry.packageId}: templateContext.entrypoint not found at ${entrypoint}.`
     );
   }
 
@@ -3654,7 +3656,7 @@ async function resolveTemplateContextReplacementsForMutation({
   const resolver = moduleNamespace?.[exportName];
   if (typeof resolver !== "function") {
     throw createCliError(
-      `Invalid files mutation in ${packageEntry.packageId}: templateContext export "${exportName}" is not a function.`
+      `Invalid ${resolvedMutationContext} in ${packageEntry.packageId}: templateContext export "${exportName}" is not a function.`
     );
   }
 
@@ -3680,7 +3682,7 @@ async function resolveTemplateContextReplacementsForMutation({
   }
   if (!replacements || typeof replacements !== "object" || Array.isArray(replacements)) {
     throw createCliError(
-      `Invalid files mutation in ${packageEntry.packageId}: templateContext export "${exportName}" must return an object map of placeholder replacements.`
+      `Invalid ${resolvedMutationContext} in ${packageEntry.packageId}: templateContext export "${exportName}" must return an object map of placeholder replacements.`
     );
   }
 
@@ -4230,7 +4232,8 @@ async function preflightFileMutationTemplateContexts(
       options,
       appRoot,
       sourcePath,
-      targetPaths
+      targetPaths,
+      mutationContext: "files mutation"
     });
     replacementsByMutationIndex.set(mutationIndex, replacements);
   }
@@ -4307,8 +4310,26 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
       const mutationId = String(mutation?.id || "").trim() || "append-text";
       const resolvedSnippet = interpolateOptionValue(snippet, options, packageEntry.packageId, mutationId);
+      const templateContextReplacements = await resolveTemplateContextReplacementsForMutation({
+        packageEntry,
+        mutation,
+        options,
+        appRoot,
+        sourcePath: absoluteFile,
+        targetPaths: [absoluteFile],
+        mutationContext: "text mutation"
+      });
+      const renderedSnippet = templateContextReplacements
+        ? applyTemplateContextReplacements(resolvedSnippet, templateContextReplacements)
+        : resolvedSnippet;
       const skipChecks = normalizeSkipChecks(mutation?.skipIfContains)
         .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+        .map((entry) => {
+          if (!templateContextReplacements) {
+            return entry;
+          }
+          return applyTemplateContextReplacements(entry, templateContextReplacements);
+        })
         .filter((entry) => String(entry || "").trim().length > 0);
 
       const shouldSkip = skipChecks.some((pattern) => previousContent.includes(String(pattern)));
@@ -4316,7 +4337,7 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
         continue;
       }
 
-      const appended = appendTextSnippet(previousContent, resolvedSnippet, position);
+      const appended = appendTextSnippet(previousContent, renderedSnippet, position);
       if (!appended.changed) {
         continue;
       }
@@ -4328,7 +4349,7 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       managedText[recordKey] = {
         file: relativeFile,
         op: "append-text",
-        value: resolvedSnippet,
+        value: renderedSnippet,
         position,
         reason: String(mutation?.reason || ""),
         category: String(mutation?.category || ""),

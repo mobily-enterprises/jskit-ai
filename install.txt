@@ -17,6 +17,19 @@ npm run devlinks
 
 #mysqladmin -uroot -pppp  drop $__APP
 #mysqladmin -uroot -pppp  create $__APP
+
+drop table  ai_conversations      ;
+drop table  ai_messages           ;
+drop table  console_settings      ;
+drop table  knex_migrations       ;
+drop table  knex_migrations_lock  ;
+drop table  user_settings         ;
+drop table  users                 ;
+drop table  workspace_invites     ;
+drop table  workspace_memberships ;
+drop table  workspace_settings    ;
+drop table  workspaces            ;
+
 npm run db:migrate
 
 
@@ -93,17 +106,7 @@ npx jskit generate @jskit-ai/crud-server-generator --no-install --namespace cont
 npm install --verbose;npm run devlinks
 
 
-drop table  ai_conversations      ;
-drop table  ai_messages           ;
-drop table  console_settings      ;
-drop table  knex_migrations       ;
-drop table  knex_migrations_lock  ;
-drop table  user_settings         ;
-drop table  users                 ;
-drop table  workspace_invites     ;
-drop table  workspace_memberships ;
-drop table  workspace_settings    ;
-drop table  workspaces            ;
+
 
 
 TODO TODAY:

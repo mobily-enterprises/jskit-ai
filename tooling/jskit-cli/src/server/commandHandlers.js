@@ -157,11 +157,7 @@ function createCommandHandlers(deps) {
   }
 
   function resolveGeneratorSubcommandDefinition(packageEntry, subcommandName) {
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const metadata = ensureObject(descriptor.metadata);
-    const subcommands = ensureObject(
-      metadata.generatorSubcommands || descriptor.generatorSubcommands
-    );
+    const subcommands = resolveGeneratorSubcommands(packageEntry);
     const definition = ensureObject(subcommands[subcommandName]);
     const entrypoint = String(definition.entrypoint || "").trim();
     const exportName = String(definition.export || "runGeneratorSubcommand").trim() || "runGeneratorSubcommand";
@@ -175,6 +171,31 @@ function createCommandHandlers(deps) {
       entrypoint,
       exportName
     });
+  }
+
+  function resolveGeneratorSubcommands(packageEntry) {
+    const descriptor = ensureObject(packageEntry?.descriptor);
+    const metadata = ensureObject(descriptor.metadata);
+    return ensureObject(metadata.generatorSubcommands || descriptor.generatorSubcommands);
+  }
+
+  function hasGeneratorSubcommandDefinition(packageEntry, subcommandName) {
+    const subcommands = resolveGeneratorSubcommands(packageEntry);
+    const normalizedSubcommandName = String(subcommandName || "").trim();
+    if (!normalizedSubcommandName) {
+      return false;
+    }
+
+    const definition = ensureObject(subcommands[normalizedSubcommandName]);
+    return String(definition.entrypoint || "").trim().length > 0;
+  }
+
+  function resolveGeneratorPrimarySubcommand(packageEntry) {
+    const descriptor = ensureObject(packageEntry?.descriptor);
+    const metadata = ensureObject(descriptor.metadata);
+    return String(metadata.generatorPrimarySubcommand || descriptor.generatorPrimarySubcommand || "")
+      .trim()
+      .toLowerCase();
   }
 
   async function resolvePackageIdFromRegistryOrNodeModules({
@@ -1740,6 +1761,29 @@ function createCommandHandlers(deps) {
         throw createCliError(
           `Package ${resolvedPackageId} is a runtime package. Use: jskit add package ${resolvedPackageId}`
         );
+      }
+
+      const normalizedSubcommandName = String(subcommandName || "").trim().toLowerCase();
+      const primarySubcommand = resolveGeneratorPrimarySubcommand(packageEntry);
+      if (
+        normalizedSubcommandName &&
+        normalizedSubcommandName === primarySubcommand &&
+        !hasGeneratorSubcommandDefinition(packageEntry, normalizedSubcommandName)
+      ) {
+        if (subcommandArgs.length > 0) {
+          throw createCliError(
+            `Generator command "${primarySubcommand}" for ${resolvedPackageId} does not accept positional arguments.`
+          );
+        }
+        return commandAdd({
+          positional: ["package", resolvedPackageId],
+          options: {
+            ...options,
+            commandMode: "generate"
+          },
+          cwd,
+          io
+        });
       }
 
       return runGeneratorSubcommand({
