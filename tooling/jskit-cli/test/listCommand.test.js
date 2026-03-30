@@ -155,7 +155,7 @@ test("list packages does not include generator package ids", async () => {
   });
 });
 
-test("list placements discovers shell outlets from app Vue files", async () => {
+test("list-placements discovers shell outlets from app Vue files", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-app");
     await createMinimalApp(appRoot, { name: "list-placements-app" });
@@ -183,7 +183,7 @@ test("list placements discovers shell outlets from app Vue files", async () => {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list", "placements"]
+      args: ["list-placements"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -195,7 +195,7 @@ test("list placements discovers shell outlets from app Vue files", async () => {
   });
 });
 
-test("list placements --json returns structured placement targets", async () => {
+test("list-placements --json returns structured placement targets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-json-app");
     await createMinimalApp(appRoot, { name: "list-placements-json-app" });
@@ -212,7 +212,7 @@ test("list placements --json returns structured placement targets", async () => 
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list", "placements", "--json"]
+      args: ["list-placements", "--json"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -229,7 +229,7 @@ test("list placements --json returns structured placement targets", async () => 
   });
 });
 
-test("list placements includes installed package metadata outlets", async () => {
+test("list-placements includes installed package metadata outlets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-package-outlets-app");
     await createMinimalApp(appRoot, {
@@ -274,7 +274,7 @@ test("list placements includes installed package metadata outlets", async () => 
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list", "placements"]
+      args: ["list-placements"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -282,6 +282,24 @@ test("list placements includes installed package metadata outlets", async () => 
     assert.match(
       stdout,
       /workspace-tools:primary-menu \[package:@example\/users-web:src\/client\/components\/UsersWorkspaceToolsWidget\.vue\]/
+    );
+  });
+});
+
+test("list placements mode reports dedicated command migration", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placements-migration-app");
+    await createMinimalApp(appRoot, { name: "list-placements-migration-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "placements"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /moved to a dedicated command: jskit list-placements/i
     );
   });
 });
