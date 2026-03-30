@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
 import { useAccountSettingsRuntime } from "@jskit-ai/users-web/client/composables/useAccountSettingsRuntime";
 import AccountSettingsProfileSection from "./AccountSettingsProfileSection.vue";
 import AccountSettingsPreferencesSection from "./AccountSettingsPreferencesSection.vue";
@@ -17,15 +18,11 @@ const sections = Object.freeze([
   { title: "Notifications", value: "notifications" },
   { title: "Invites", value: "invites" }
 ]);
-const sectionValues = new Set(sections.map((section) => section.value));
+const sectionValues = Object.freeze(sections.map((section) => section.value));
 
 function normalizeSection(value) {
   const source = Array.isArray(value) ? value[0] : value;
-  const normalized = String(source || "").trim().toLowerCase();
-  if (!sectionValues.has(normalized)) {
-    return "profile";
-  }
-  return normalized;
+  return normalizeOneOf(source, sectionValues, "profile");
 }
 
 function readRouteSection() {
