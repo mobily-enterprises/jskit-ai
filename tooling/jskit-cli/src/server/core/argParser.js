@@ -1,32 +1,4 @@
-const KNOWN_COMMANDS = new Set([
-  "help",
-  "create",
-  "generate",
-  "list",
-  "show",
-  "view",
-  "migrations",
-  "add",
-  "position",
-  "update",
-  "remove",
-  "doctor",
-  "lint-descriptors"
-]);
-
-const COMMAND_ALIASES = Object.freeze({
-  view: "show",
-  ls: "list",
-  gen: "generate"
-});
-
-function resolveCommandAlias(rawCommand) {
-  const command = String(rawCommand || "").trim();
-  if (!command) {
-    return "";
-  }
-  return COMMAND_ALIASES[command] || command;
-}
+import { isKnownCommandName, resolveCommandAlias } from "./commandCatalog.js";
 
 function parseArgs(argv, { createCliError } = {}) {
   if (typeof createCliError !== "function") {
@@ -60,7 +32,7 @@ function parseArgs(argv, { createCliError } = {}) {
   const rawCommand = String(args.shift() || "help").trim() || "help";
   const command = resolveCommandAlias(rawCommand);
 
-  if (!KNOWN_COMMANDS.has(command)) {
+  if (!isKnownCommandName(command)) {
     throw createCliError(`Unknown command: ${rawCommand}`, { showUsage: true });
   }
 
@@ -169,38 +141,4 @@ function parseArgs(argv, { createCliError } = {}) {
   };
 }
 
-function printUsage(stream = process.stderr) {
-  stream.write("Usage: jskit <command> [options]\n\n");
-  stream.write("Commands:\n");
-  stream.write("  create package <name>        Scaffold app-local package under packages/\n");
-  stream.write("  list [bundles [all]|packages|generators|placements] List bundles/packages/generators or app placement targets\n");
-  stream.write("  lint-descriptors             Validate bundle/package descriptor files\n");
-  stream.write("  add bundle <bundleId>        Add one bundle (bundle is a package shortcut)\n");
-  stream.write("  add package <packageId>      Add one runtime package to current app (catalog/app-local/installed external)\n");
-  stream.write("  generate <packageId> [subcommand ...] Run one generator package or generator subcommand\n");
-  stream.write("  position element <packageId> Re-apply positioning mutations for one installed package\n");
-  stream.write("  show <id>                    Show details for bundle id or package id\n");
-  stream.write("  view <id>                    Alias of show <id>\n");
-  stream.write("  migrations <scope>           Generate managed migrations only (scope: all | changed | package <packageId>)\n");
-  stream.write("  update package <packageId>   Re-apply one installed package\n");
-  stream.write("  remove package <packageId>   Remove one installed package\n");
-  stream.write("  doctor                       Validate lockfile + managed files\n");
-  stream.write("\n");
-  stream.write("Options:\n");
-  stream.write("  --dry-run                    Print planned changes only\n");
-  stream.write("  --run-npm-install            Run npm install after create/add/generate/update/remove\n");
-  stream.write("  --scope <scope>              (create package) override generated package scope\n");
-  stream.write("  --package-id <id>            (create package) explicit @scope/name package id\n");
-  stream.write("  --description <text>         (create package) descriptor description text\n");
-  stream.write("  --full                       Show bundle package ids (declared packages)\n");
-  stream.write("  --expanded                   Show expanded/transitive package ids\n");
-  stream.write("  --details                    Show extra capability detail in show output\n");
-  stream.write("  --debug-exports              Show export provenance/re-export source details in show output\n");
-  stream.write("  --check-di-labels            (lint-descriptors) verify DI labels used by providers match descriptor container tokens\n");
-  stream.write("  --verbose                    Show verbose informational diagnostics\n");
-  stream.write("  --<option> <value>           Package option (for packages requiring input)\n");
-  stream.write("  --json                       Print structured output\n");
-  stream.write("  -h, --help                   Show help\n");
-}
-
-export { parseArgs, printUsage };
+export { parseArgs };

@@ -1,6 +1,7 @@
 function createRunCli({
   parseArgs,
   printUsage,
+  shouldShowCommandHelpOnBareInvocation,
   commandHandlers,
   cleanupMaterializedPackageRoots,
   createCliError
@@ -10,6 +11,9 @@ function createRunCli({
   }
   if (typeof printUsage !== "function") {
     throw new TypeError("createRunCli requires printUsage.");
+  }
+  if (typeof shouldShowCommandHelpOnBareInvocation !== "function") {
+    throw new TypeError("createRunCli requires shouldShowCommandHelpOnBareInvocation.");
   }
   if (!commandHandlers || typeof commandHandlers !== "object") {
     throw new TypeError("createRunCli requires commandHandlers.");
@@ -30,7 +34,13 @@ function createRunCli({
     try {
       const { command, options, positional } = parseArgs(argv, { createCliError });
       if (options.help || command === "help") {
-        printUsage(stdout);
+        const helpCommand = command === "help" ? String(positional[0] || "").trim() : command;
+        printUsage(stdout, { command: helpCommand });
+        return 0;
+      }
+
+      if (shouldShowCommandHelpOnBareInvocation(command, positional)) {
+        printUsage(stdout, { command });
         return 0;
       }
 
@@ -44,6 +54,9 @@ function createRunCli({
       }
       if (command === "list") {
         return await commandHandlers.commandList({ positional, options, cwd, stdout });
+      }
+      if (command === "list-placements") {
+        return await commandHandlers.commandListPlacements({ options, cwd, stdout });
       }
       if (command === "show") {
         return await commandHandlers.commandShow({ positional, options, stdout });
