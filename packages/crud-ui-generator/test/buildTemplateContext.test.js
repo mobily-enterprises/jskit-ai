@@ -1032,6 +1032,7 @@ test("buildUiTemplateContext resolves menu placement from ShellLayout default ta
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "shell-layout");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "top-right");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
   });
 });
 
@@ -1065,6 +1066,7 @@ test("buildUiTemplateContext defaults list placement to container host when cont
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "practice");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.section-shell.tab-link-item");
   });
 });
 

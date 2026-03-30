@@ -18,6 +18,7 @@ async function writeAppFixture(appRoot) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
   await mkdir(path.join(appRoot, "src"), { recursive: true });
+  await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
   await writeFile(
     path.join(appRoot, "config", "public.js"),
@@ -52,6 +53,29 @@ export default function getPlacements() {
 `,
     "utf8"
   );
+  await writeFile(
+    path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+    `const mainClientComponents = [];
+
+function registerMainClientComponent(componentToken, resolveComponent) {
+  const token = String(componentToken || "").trim();
+  if (!token || typeof resolveComponent !== "function") {
+    return;
+  }
+  mainClientComponents.push(
+    Object.freeze({
+      token,
+      resolveComponent
+    })
+  );
+}
+
+class MainClientProvider {}
+
+export { MainClientProvider, registerMainClientComponent };
+`,
+    "utf8"
+  );
 }
 
 test("ui-generator container subcommand creates parent route container with ShellOutlet and RouterView", async () => {
@@ -68,6 +92,9 @@ test("ui-generator container subcommand creates parent route container with Shel
     });
 
     assert.deepEqual(result.touchedFiles, [
+      "packages/main/src/client/providers/MainClientProvider.js",
+      "src/components/SectionContainerShell.vue",
+      "src/components/SectionShellTabLinkItem.vue",
       "src/pages/w/[workspaceSlug]/admin/practice.vue",
       "src/placement.js"
     ]);
@@ -76,9 +103,26 @@ test("ui-generator container subcommand creates parent route container with Shel
       path.join(appRoot, "src", "pages", "w", "[workspaceSlug]", "admin", "practice.vue"),
       "utf8"
     );
-    assert.match(containerSource, /<ShellOutlet host="practice" position="sub-pages" \/>/);
+    assert.match(containerSource, /<SectionContainerShell/);
+    assert.match(containerSource, /host="practice"/);
     assert.match(containerSource, /<RouterView \/>/);
     assert.match(containerSource, /"surface": "admin"/);
+
+    const sectionShellSource = await readFile(path.join(appRoot, "src", "components", "SectionContainerShell.vue"), "utf8");
+    assert.match(sectionShellSource, /<ShellOutlet :host="props\.host" :position="props\.position" \/>/);
+
+    const tabLinkSource = await readFile(path.join(appRoot, "src", "components", "SectionShellTabLinkItem.vue"), "utf8");
+    assert.match(tabLinkSource, /useWorkspaceRouteContext/);
+    assert.match(tabLinkSource, /class="section-shell-tab-link text-none"/);
+
+    const providerSource = await readFile(
+      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+      "utf8"
+    );
+    assert.match(
+      providerSource,
+      /registerMainClientComponent\("local\.main\.ui\.section-shell\.tab-link-item", \(\) => SectionShellTabLinkItem\);/
+    );
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.container\.practice\.menu"/);

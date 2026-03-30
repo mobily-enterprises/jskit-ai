@@ -1,163 +1,22 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
-  resolveRequiredAppRoot,
   resolveShellOutletPlacementTargetFromApp,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
-
-const DEFAULT_COMPONENT_DIRECTORY = "src/components";
-const MAIN_CLIENT_PROVIDER_FILE = "packages/main/src/client/providers/MainClientProvider.js";
-const PLACEMENT_FILE = "src/placement.js";
-
-function toKebabCase(value = "") {
-  return toSnakeCase(value).replaceAll("_", "-");
-}
-
-function toPascalCase(value = "") {
-  const camel = toCamelCase(toSnakeCase(value));
-  if (!camel) {
-    return "";
-  }
-
-  return `${camel.slice(0, 1).toUpperCase()}${camel.slice(1)}`;
-}
-
-function requireOption(options = {}, optionName = "") {
-  const optionValue = normalizeText(options[optionName]);
-  if (!optionValue) {
-    throw new Error(`ui-generator element requires --${optionName}.`);
-  }
-
-  return optionValue;
-}
-
-function resolvePathWithinApp(appRoot, targetPath) {
-  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
-    context: "ui-generator element"
-  });
-
-  const normalizedTargetPath = normalizeText(targetPath);
-  if (!normalizedTargetPath) {
-    throw new Error("ui-generator element requires target path.");
-  }
-
-  const absolutePath = path.resolve(resolvedAppRoot, normalizedTargetPath);
-  const relativePath = path.relative(resolvedAppRoot, absolutePath);
-  if (
-    !relativePath ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    throw new Error(`ui-generator element target path must stay within app root: ${normalizedTargetPath}`);
-  }
-
-  return Object.freeze({
-    absolutePath,
-    relativePath: toPosixPath(relativePath)
-  });
-}
-
-function ensureTrailingNewline(value = "") {
-  const source = String(value || "");
-  return source.endsWith("\n") ? source : `${source}\n`;
-}
-
-function appendBlockIfMarkerMissing(source = "", marker = "", block = "") {
-  const normalizedMarker = String(marker || "").trim();
-  const normalizedBlock = String(block || "").trim();
-  if (!normalizedMarker || !normalizedBlock) {
-    return {
-      changed: false,
-      content: String(source || "")
-    };
-  }
-
-  const sourceText = String(source || "");
-  if (sourceText.includes(normalizedMarker)) {
-    return {
-      changed: false,
-      content: sourceText
-    };
-  }
-
-  return {
-    changed: true,
-    content: `${ensureTrailingNewline(sourceText)}${normalizedBlock}\n`
-  };
-}
-
-function insertProviderImportIfMissing(source = "", importLine = "") {
-  const normalizedImportLine = String(importLine || "").trim();
-  if (!normalizedImportLine) {
-    return {
-      changed: false,
-      content: String(source || "")
-    };
-  }
-
-  const sourceText = String(source || "");
-  if (sourceText.includes(normalizedImportLine)) {
-    return {
-      changed: false,
-      content: sourceText
-    };
-  }
-
-  const importPattern = /^import\s+[^;]+;\s*$/gm;
-  let match = null;
-  let insertionIndex = 0;
-  while ((match = importPattern.exec(sourceText)) !== null) {
-    insertionIndex = match.index + match[0].length;
-  }
-
-  if (insertionIndex > 0) {
-    return {
-      changed: true,
-      content: `${sourceText.slice(0, insertionIndex)}\n${normalizedImportLine}${sourceText.slice(insertionIndex)}`
-    };
-  }
-
-  return {
-    changed: true,
-    content: `${normalizedImportLine}\n${sourceText}`
-  };
-}
-
-function insertBeforeMainClientProviderClass(source = "", line = "") {
-  const normalizedLine = String(line || "").trim();
-  if (!normalizedLine) {
-    return {
-      changed: false,
-      content: String(source || "")
-    };
-  }
-
-  const sourceText = String(source || "");
-  if (sourceText.includes(normalizedLine)) {
-    return {
-      changed: false,
-      content: sourceText
-    };
-  }
-
-  const classPattern = /^class\s+MainClientProvider\b/m;
-  const classMatch = classPattern.exec(sourceText);
-  if (!classMatch) {
-    throw new Error(
-      `ui-generator element could not find MainClientProvider class declaration in ${MAIN_CLIENT_PROVIDER_FILE}.`
-    );
-  }
-
-  const insertionIndex = classMatch.index;
-  return {
-    changed: true,
-    content: `${sourceText.slice(0, insertionIndex)}${normalizedLine}\n\n${sourceText.slice(insertionIndex)}`
-  };
-}
+import {
+  DEFAULT_COMPONENT_DIRECTORY,
+  MAIN_CLIENT_PROVIDER_FILE,
+  PLACEMENT_FILE,
+  toKebabCase,
+  toPascalCase,
+  requireOption,
+  resolvePathWithinApp,
+  appendBlockIfMarkerMissing,
+  insertImportIfMissing,
+  insertBeforeClassDeclaration
+} from "./support.js";
 
 function renderElementComponentSource(elementName = "") {
   return `<template>
@@ -184,8 +43,8 @@ async function runGeneratorSubcommand({
     throw new Error("ui-generator element does not accept positional arguments.");
   }
 
-  const name = requireOption(options, "name");
-  const surface = requireOption(options, "surface").toLowerCase();
+  const name = requireOption(options, "name", { context: "ui-generator element" });
+  const surface = requireOption(options, "surface", { context: "ui-generator element" }).toLowerCase();
   const componentDirectory = normalizeText(options.path) || DEFAULT_COMPONENT_DIRECTORY;
   const elementNamePascal = toPascalCase(name);
   const elementNameKebab = toKebabCase(name);
@@ -194,9 +53,15 @@ async function runGeneratorSubcommand({
     throw new Error("ui-generator element requires a valid --name.");
   }
 
-  const componentPath = resolvePathWithinApp(appRoot, path.join(componentDirectory, `${elementNamePascal}Element.vue`));
-  const providerPath = resolvePathWithinApp(appRoot, MAIN_CLIENT_PROVIDER_FILE);
-  const placementPath = resolvePathWithinApp(appRoot, PLACEMENT_FILE);
+  const componentPath = resolvePathWithinApp(appRoot, path.join(componentDirectory, `${elementNamePascal}Element.vue`), {
+    context: "ui-generator element"
+  });
+  const providerPath = resolvePathWithinApp(appRoot, MAIN_CLIENT_PROVIDER_FILE, {
+    context: "ui-generator element"
+  });
+  const placementPath = resolvePathWithinApp(appRoot, PLACEMENT_FILE, {
+    context: "ui-generator element"
+  });
   const componentToken = `local.main.ui.element.${elementNameKebab}`;
   const placementTarget = await resolveShellOutletPlacementTargetFromApp({
     appRoot,
@@ -232,10 +97,14 @@ async function runGeneratorSubcommand({
   const componentRegisterLine =
     `registerMainClientComponent("${componentToken}", () => ${elementNamePascal}Element);`;
 
-  const providerImportApplied = insertProviderImportIfMissing(providerSource, componentImportLine);
-  const providerRegisterApplied = insertBeforeMainClientProviderClass(
+  const providerImportApplied = insertImportIfMissing(providerSource, componentImportLine);
+  const providerRegisterApplied = insertBeforeClassDeclaration(
     providerImportApplied.content,
-    componentRegisterLine
+    componentRegisterLine,
+    {
+      className: "MainClientProvider",
+      contextFile: MAIN_CLIENT_PROVIDER_FILE
+    }
   );
   if (providerImportApplied.changed || providerRegisterApplied.changed) {
     if (dryRun !== true) {

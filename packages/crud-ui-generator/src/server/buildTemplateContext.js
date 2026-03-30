@@ -26,6 +26,8 @@ import {
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const CONTAINER_TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const DEFAULT_MENU_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
+const CONTAINER_MENU_COMPONENT_TOKEN = "local.main.ui.section-shell.tab-link-item";
 
 function resolveContainerOption(options = {}) {
   const container = normalizeText(options?.container).toLowerCase();
@@ -54,6 +56,11 @@ function resolveRoutePathWithContainer(options = {}) {
   }
 
   return `${container}/${routePath}`;
+}
+
+function resolveMenuComponentToken(options = {}) {
+  const container = resolveContainerOption(options);
+  return container ? CONTAINER_MENU_COMPONENT_TOKEN : DEFAULT_MENU_COMPONENT_TOKEN;
 }
 
 async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {}) {
@@ -330,7 +337,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
     __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
     __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(menuPlacementTarget?.host),
-    __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(menuPlacementTarget?.position)
+    __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(menuPlacementTarget?.position),
+    __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options)
   };
 }
 
