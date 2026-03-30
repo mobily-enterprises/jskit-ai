@@ -1,6 +1,5 @@
 import { createCliError } from "../shared/cliError.js";
 import {
-  ensureArray,
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
