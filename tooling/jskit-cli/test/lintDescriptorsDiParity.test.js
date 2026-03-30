@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createCommandHandlers } from "../src/server/commandHandlers.js";
+import { createCommandHandlers } from "../src/server/core/createCommandHandlers.js";
 
 function createStdoutCapture() {
   const chunks = [];
