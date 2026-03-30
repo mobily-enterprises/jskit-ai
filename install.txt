@@ -6,11 +6,11 @@ drop table  console_settings      ;
 drop table  knex_migrations       ;
 drop table  knex_migrations_lock  ;
 drop table  user_settings         ;
-drop table  users                 ;
 drop table  workspace_invites     ;
 drop table  workspace_memberships ;
 drop table  workspace_settings    ;
 drop table  workspaces            ;
+drop table  users                 ;
 
 
 export __APP=dogandgroom
