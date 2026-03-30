@@ -213,8 +213,7 @@ test("add package applies option interpolation and conditional file mutations", 
         "--route-path",
         "contacts/[contactId]/addresses",
         "--visibility",
-        "public",
-        "--no-install"
+        "public"
       ]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
@@ -257,7 +256,7 @@ test("add package applies option interpolation and conditional file mutations", 
 
     const updateResult = runCli({
       cwd: appRoot,
-      args: ["update", "package", "@demo/option-feature", "--no-install"]
+      args: ["update", "package", "@demo/option-feature"]
     });
     assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
 
@@ -346,7 +345,7 @@ test("update package fails when an install-migration source changes for the same
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-feature", "--no-install"]
+      args: ["add", "package", "@demo/migration-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -358,7 +357,7 @@ test("update package fails when an install-migration source changes for the same
 
     const updateResult = runCli({
       cwd: appRoot,
-      args: ["update", "package", "@demo/migration-feature", "--no-install"]
+      args: ["update", "package", "@demo/migration-feature"]
     });
     assert.equal(updateResult.status, 1);
     assert.match(String(updateResult.stderr || ""), /migration demo-migration-immutability changed after install/i);
@@ -430,7 +429,7 @@ test("remove then re-add package reuses existing timestamped migration by id", a
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-readd", "--no-install"]
+      args: ["add", "package", "@demo/migration-readd"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -442,13 +441,13 @@ test("remove then re-add package reuses existing timestamped migration by id", a
 
     const removeResult = runCli({
       cwd: appRoot,
-      args: ["remove", "package", "@demo/migration-readd", "--no-install"]
+      args: ["remove", "package", "@demo/migration-readd"]
     });
     assert.equal(removeResult.status, 0, String(removeResult.stderr || ""));
 
     const readdResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-readd", "--no-install"]
+      args: ["add", "package", "@demo/migration-readd"]
     });
     assert.equal(readdResult.status, 0, String(readdResult.stderr || ""));
 
@@ -533,7 +532,7 @@ test("add package fails when install-migration is missing id", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-id-required", "--no-install"]
+      args: ["add", "package", "@demo/migration-id-required"]
     });
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /install-migration.*requires "id"/i);
@@ -604,7 +603,7 @@ test("add package fails when install-migration id is not lowercase-safe", async 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-id-case", "--no-install"]
+      args: ["add", "package", "@demo/migration-id-case"]
     });
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /install-migration mutation.*id.*must match/i);
@@ -675,7 +674,7 @@ test("update package rejects managed migration paths outside app root", async ()
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migration-path-hardening", "--no-install"]
+      args: ["add", "package", "@demo/migration-path-hardening"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -686,7 +685,7 @@ test("update package rejects managed migration paths outside app root", async ()
 
     const updateResult = runCli({
       cwd: appRoot,
-      args: ["update", "package", "@demo/migration-path-hardening", "--no-install"]
+      args: ["update", "package", "@demo/migration-path-hardening"]
     });
     assert.equal(updateResult.status, 1);
     assert.match(
@@ -779,7 +778,7 @@ test("add package evaluates when.config conditions from app config", async () =>
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/config-feature", "--no-install"]
+      args: ["add", "package", "@demo/config-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -875,7 +874,7 @@ test("add package resolves option defaultFromConfig from app config", async () =
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/default-from-config-feature", "--no-install"]
+      args: ["add", "package", "@demo/default-from-config-feature"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 

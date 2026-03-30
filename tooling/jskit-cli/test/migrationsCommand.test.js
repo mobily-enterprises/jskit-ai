@@ -118,7 +118,7 @@ test("migrations changed generates only migrations for changed installed package
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/migrations-only", "--no-install"]
+      args: ["add", "package", "@demo/migrations-only"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 

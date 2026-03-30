@@ -142,7 +142,7 @@ test("position element applies only positioning mutations", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/position-target", "--surfaces", "app", "--no-install"]
+      args: ["add", "package", "@demo/position-target", "--surfaces", "app"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 

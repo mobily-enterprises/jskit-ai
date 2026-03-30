@@ -53,22 +53,12 @@ function resolveResourceModulePath(appRoot, resourceFile, { context = "ui-genera
   return absolutePath;
 }
 
-function deriveDefaultResourceExport(resourceFile = "", { context = "ui-generator" } = {}) {
-  const fileName = normalizeText(path.parse(String(resourceFile || "")).name);
-  if (!fileName) {
-    throw new Error(`${context} option "resource-export" is required when it cannot be derived from "resource-file".`);
-  }
-
-  return fileName;
-}
-
 async function loadResourceDefinition({
   appRoot,
   options = {},
   context = "ui-generator"
 } = {}) {
   const resourceFile = requireOption(options, "resource-file", { context });
-  const resourceExport = normalizeText(options?.["resource-export"]) || deriveDefaultResourceExport(resourceFile, { context });
   const resourceModulePath = resolveResourceModulePath(appRoot, resourceFile, { context });
 
   let moduleNamespace = null;
@@ -80,10 +70,10 @@ async function loadResourceDefinition({
     );
   }
 
-  const resource = moduleNamespace?.[resourceExport];
+  const resource = moduleNamespace?.resource;
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new Error(
-      `${context} could not find resource export "${resourceExport}" in "${resourceFile}".`
+      `${context} could not find named export "resource" in "${resourceFile}".`
     );
   }
 
@@ -834,7 +824,6 @@ export {
   normalizeText,
   requireOption,
   resolveResourceModulePath,
-  deriveDefaultResourceExport,
   loadResourceDefinition,
   requireOperation,
   resolveOperationRealtimeEvents,

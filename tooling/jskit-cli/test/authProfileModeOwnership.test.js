@@ -61,8 +61,7 @@ test("installing users-core sets AUTH_PROFILE_MODE to users", async () => {
         "--auth-supabase-publishable-key",
         "sb_publishable_example",
         "--app-public-url",
-        "http://localhost:5173",
-        "--no-install"
+        "http://localhost:5173"
       ]
     });
     assert.equal(addProviderResult.status, 0, String(addProviderResult.stderr || ""));
@@ -78,15 +77,14 @@ test("installing users-core sets AUTH_PROFILE_MODE to users", async () => {
         "--db-user",
         "app_user",
         "--db-password",
-        "app_pass",
-        "--no-install"
+        "app_pass"
       ]
     });
     assert.equal(addMysqlDriverResult.status, 0, String(addMysqlDriverResult.stderr || ""));
 
     const addUsersCoreResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "users-core", "--no-install"]
+      args: ["add", "package", "users-core"]
     });
     assert.equal(addUsersCoreResult.status, 0, String(addUsersCoreResult.stderr || ""));
 

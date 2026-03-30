@@ -13,37 +13,37 @@ npx jskit list placements
 Generate a page (default placement target):
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin --no-install
+npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin
 ```
 
 Generate a page in a subdirectory:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin --directory-prefix ops --no-install
+npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin --directory-prefix ops
 ```
 
 Generate a page and place its menu entry in the workspace cog dropdown:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu --no-install
+npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu
 ```
 
 Generate an element at a specific outlet:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement workspace-settings:forms --no-install
+npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement workspace-settings:forms
 ```
 
 Generate an element with custom component path:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Alerts Widget" --surface admin --path src/widgets --placement shell-layout:top-right --no-install
+npx jskit generate @jskit-ai/ui-generator element --name "Alerts Widget" --surface admin --path src/widgets --placement shell-layout:top-right
 ```
 
 Generate a route container page with nested outlet (for embedded sub-pages):
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin --no-install
+npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin
 ```
 
 ## Commands

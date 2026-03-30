@@ -34,7 +34,7 @@ test("create package scaffolds local module and wires package.json + lock", asyn
 
     const result = runCli({
       cwd: appRoot,
-      args: ["create", "package", "feature-auth", "--no-install"]
+      args: ["create", "package", "feature-auth"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -74,7 +74,7 @@ test("create package --dry-run reports changes without writing files", async () 
 
     const result = runCli({
       cwd: appRoot,
-      args: ["create", "package", "sample", "--dry-run", "--no-install", "--package-id", "@acme/sample"]
+      args: ["create", "package", "sample", "--dry-run", "--package-id", "@acme/sample"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));

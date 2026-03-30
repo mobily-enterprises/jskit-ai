@@ -15,9 +15,8 @@ export default Object.freeze({
     surface: {
       required: true,
       inputType: "text",
-      defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Target surface",
-      promptHint: "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+      promptHint: "Must match an enabled surface id."
     },
     "ownership-filter": {
       required: true,

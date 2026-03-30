@@ -132,8 +132,7 @@ test("add package fails fast when workspace visibility targets a non-workspace s
         "--surface",
         "console",
         "--visibility",
-        "workspace",
-        "--no-install"
+        "workspace"
       ]
     });
 
@@ -158,8 +157,7 @@ test("add package allows auto visibility on non-workspace surfaces", async () =>
         "--surface",
         "console",
         "--visibility",
-        "auto",
-        "--no-install"
+        "auto"
       ]
     });
 
@@ -184,8 +182,7 @@ test("add package validates every surface in comma-separated surface option", as
         "--surfaces",
         "admin,missing",
         "--visibility",
-        "auto",
-        "--no-install"
+        "auto"
       ]
     });
 
@@ -209,8 +206,7 @@ test("add package rejects workspace visibility when any comma-separated surface 
         "--surfaces",
         "admin,console",
         "--visibility",
-        "workspace",
-        "--no-install"
+        "workspace"
       ]
     });
 
@@ -235,8 +231,7 @@ test("add package accepts comma-separated workspace surfaces", async () => {
         "--surfaces",
         "admin,admin",
         "--visibility",
-        "workspace",
-        "--no-install"
+        "workspace"
       ]
     });
 

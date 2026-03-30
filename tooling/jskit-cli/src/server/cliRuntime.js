@@ -3334,6 +3334,30 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
     return normalizeWhenSourceValue(resolveWhenConfigValue(configContext, normalizedConfigPath));
   }
 
+  function resolveOptionDefaultFromTemplate(template = "", optionName = "") {
+    const normalizedTemplate = String(template || "").trim();
+    if (!normalizedTemplate) {
+      return "";
+    }
+
+    try {
+      return String(
+        interpolateOptionValue(
+          normalizedTemplate,
+          resolved,
+          packageEntry.packageId,
+          `option-default:${String(optionName || "").trim()}`
+        )
+      );
+    } catch (error) {
+      const message = String(error?.message || error || "");
+      if (message.includes("Missing required option")) {
+        return "";
+      }
+      throw error;
+    }
+  }
+
   for (const optionName of optionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
     const allowEmpty = schema.allowEmpty === true;
@@ -3353,6 +3377,15 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
       const defaultFromConfigValue = await resolveOptionDefaultFromConfig(defaultFromConfigPath);
       if (defaultFromConfigValue || allowEmpty) {
         resolved[optionName] = defaultFromConfigValue;
+        continue;
+      }
+    }
+
+    const defaultFromOptionTemplate = String(schema.defaultFromOptionTemplate || "").trim();
+    if (defaultFromOptionTemplate) {
+      const derivedOptionValue = resolveOptionDefaultFromTemplate(defaultFromOptionTemplate, optionName);
+      if (derivedOptionValue || allowEmpty) {
+        resolved[optionName] = derivedOptionValue;
         continue;
       }
     }

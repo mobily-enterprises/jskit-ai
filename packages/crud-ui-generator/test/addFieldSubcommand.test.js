@@ -26,7 +26,7 @@ const contactBodySchema = {
 
 const CONTACT_FIELD_META = [];
 
-const contactResource = {
+const resource = {
   operations: {
     list: {
       outputValidator: {
@@ -77,7 +77,7 @@ CONTACT_FIELD_META.push({
   }
 });
 
-export { contactResource };
+export { resource };
 `;
 
 async function withTempApp(run) {
@@ -111,7 +111,7 @@ test("field patches edit screen using resource metadata and anchors", async () =
   </v-row>
 </template>
 <script setup>
-import { contactResource as uiResource } from "/packages/contacts/src/shared/contactResource.js";
+import { resource as uiResource } from "/packages/contacts/src/shared/contactResource.js";
 const UI_EDIT_FORM_FIELDS = [];
 // jskit:crud-ui-form-fields:edit
 UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
@@ -180,7 +180,6 @@ test("field patches list screen when resource-file is passed explicitly", async 
       args: ["vetId", "list", listFile],
       options: {
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 

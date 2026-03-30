@@ -116,7 +116,7 @@ test("add package fails when console settings fields contract marker is missing"
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/settings-appender", "--no-install"]
+      args: ["add", "package", "@demo/settings-appender"]
     });
 
     assert.equal(addResult.status, 1);
@@ -133,7 +133,7 @@ test("add package passes when console settings fields contract marker is present
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/settings-appender", "--no-install"]
+      args: ["add", "package", "@demo/settings-appender"]
     });
 
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));

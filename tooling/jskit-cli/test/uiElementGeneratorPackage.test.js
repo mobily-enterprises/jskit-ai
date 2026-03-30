@@ -156,8 +156,7 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
         "--name",
         "Reports Dashboard",
         "--surface",
-        "admin",
-        "--no-install"
+        "admin"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -197,8 +196,7 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
         "--path",
         "src/widgets",
         "--placement",
-        "workspace-settings:forms",
-        "--no-install"
+        "workspace-settings:forms"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));

@@ -105,7 +105,7 @@ test("add package adopts installed external npm package descriptor into lock", a
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", packageId, "--no-install"]
+      args: ["add", "package", packageId]
     });
 
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));

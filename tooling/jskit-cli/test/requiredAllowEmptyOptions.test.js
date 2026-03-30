@@ -104,7 +104,7 @@ test("add package accepts explicit empty value for required allowEmpty option", 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/allow-empty-required", "--redis-url=", "--no-install"]
+      args: ["add", "package", "@demo/allow-empty-required", "--redis-url="]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -130,7 +130,7 @@ test("add package rejects explicit empty value for required non-empty option", a
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/required-non-empty", "--redis-url=", "--no-install"]
+      args: ["add", "package", "@demo/required-non-empty", "--redis-url="]
     });
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /requires a non-empty value/i);

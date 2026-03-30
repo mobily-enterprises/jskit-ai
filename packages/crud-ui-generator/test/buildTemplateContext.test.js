@@ -60,7 +60,7 @@ const customerBodySchema = {
   additionalProperties: false
 };
 
-const customerResource = {
+const resource = {
   operations: {
     list: {
       outputValidator: {
@@ -101,7 +101,7 @@ const customerResource = {
   }
 };
 
-export { customerResource };
+export { resource };
 `;
 
 const FULL_RESOURCE_WITH_LIST_REALTIME_SOURCE = `const customerRecordSchema = {
@@ -126,7 +126,7 @@ const customerBodySchema = {
   additionalProperties: false
 };
 
-const customerResource = {
+const resource = {
   operations: {
     list: {
       realtime: {
@@ -170,7 +170,7 @@ const customerResource = {
   }
 };
 
-export { customerResource };
+export { resource };
 `;
 
 test("buildUiTemplateContext derives list/view/new/edit placeholders from resource validators", async () => {
@@ -185,7 +185,6 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
         "api-path": "/crud/customers",
         operations: "list,view,new,edit",
         "resource-file": resourceFile,
-        "resource-export": "customerResource"
       }
     });
 
@@ -232,7 +231,6 @@ test("buildUiTemplateContext includes hidden default list fields when explicitly
         "api-path": "/crud/customers",
         operations: "list,view",
         "resource-file": resourceFile,
-        "resource-export": "customerResource",
         "display-fields": "updatedAt"
       }
     });
@@ -243,7 +241,7 @@ test("buildUiTemplateContext includes hidden default list fields when explicitly
   });
 });
 
-test('buildUiTemplateContext derives "resource-export" default from resource-file basename', async () => {
+test('buildUiTemplateContext loads named export "resource" from resource-file', async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/customers/src/shared/customerResource.js";
     await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
@@ -277,7 +275,6 @@ test("buildUiTemplateContext exposes explicit list realtime events from resource
         "api-path": "/crud/customers",
         operations: "list",
         "resource-file": resourceFile,
-        "resource-export": "customerResource"
       }
     });
 
@@ -300,7 +297,6 @@ test("buildUiTemplateContext filters rendered fields when display-fields is prov
         "api-path": "/crud/customers",
         operations: "list,view,new,edit",
         "resource-file": resourceFile,
-        "resource-export": "customerResource",
         "display-fields": "firstName,email"
       }
     });
@@ -339,7 +335,6 @@ test("buildUiTemplateContext fails when display-fields includes unknown keys", a
             "api-path": "/crud/customers",
             operations: "list,view,new,edit",
             "resource-file": resourceFile,
-            "resource-export": "customerResource",
             "display-fields": "firstName,unknownField"
           }
         }),
@@ -354,7 +349,7 @@ test("buildUiTemplateContext supports list-only resources when operations=list",
     await writeResource(
       appRoot,
       resourceFile,
-      `const listOnlyResource = {
+      `const resource = {
   operations: {
     list: {
       outputValidator: {
@@ -378,7 +373,7 @@ test("buildUiTemplateContext supports list-only resources when operations=list",
   }
 };
 
-export { listOnlyResource };
+export { resource };
 `
     );
 
@@ -389,7 +384,6 @@ export { listOnlyResource };
         "api-path": "/crud/customers",
         operations: "list",
         "resource-file": resourceFile,
-        "resource-export": "listOnlyResource"
       }
     });
 
@@ -410,7 +404,7 @@ test("buildUiTemplateContext resolves field format from nullable anyOf schemas",
     await writeResource(
       appRoot,
       resourceFile,
-      `const nullableTemporalResource = {
+      `const resource = {
   operations: {
     create: {
       bodyValidator: {
@@ -439,7 +433,7 @@ test("buildUiTemplateContext resolves field format from nullable anyOf schemas",
   }
 };
 
-export { nullableTemporalResource };
+export { resource };
 `
     );
 
@@ -450,7 +444,6 @@ export { nullableTemporalResource };
         "api-path": "/crud/appointments",
         operations: "new",
         "resource-file": resourceFile,
-        "resource-export": "nullableTemporalResource"
       }
     });
 
@@ -468,7 +461,7 @@ test("buildUiTemplateContext supports view-only resources when operations=view",
     await writeResource(
       appRoot,
       resourceFile,
-      `const viewOnlyResource = {
+      `const resource = {
   operations: {
     view: {
       outputValidator: {
@@ -484,7 +477,7 @@ test("buildUiTemplateContext supports view-only resources when operations=view",
   }
 };
 
-export { viewOnlyResource };
+export { resource };
 `
     );
 
@@ -495,7 +488,6 @@ export { viewOnlyResource };
         "api-path": "/crud/customers",
         operations: "view",
         "resource-file": resourceFile,
-        "resource-export": "viewOnlyResource"
       }
     });
 
@@ -513,7 +505,7 @@ test("buildUiTemplateContext maps lookup relations from resource fieldMeta into 
     await writeResource(
       appRoot,
       resourceFile,
-      `const contactResource = {
+      `const resource = {
   operations: {
     create: {
       bodyValidator: {
@@ -567,7 +559,7 @@ test("buildUiTemplateContext maps lookup relations from resource fieldMeta into 
   ]
 };
 
-export { contactResource };
+export { resource };
 `
     );
 
@@ -578,7 +570,6 @@ export { contactResource };
         "api-path": "/crud/contacts",
         operations: "new,edit",
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 
@@ -612,7 +603,7 @@ test("buildUiTemplateContext maps custom lookup container key from resource cont
     await writeResource(
       appRoot,
       resourceFile,
-      `const contactResource = {
+      `const resource = {
   contract: {
     lookup: {
       containerKey: "lookupData"
@@ -650,7 +641,7 @@ test("buildUiTemplateContext maps custom lookup container key from resource cont
   ]
 };
 
-export { contactResource };
+export { resource };
 `
     );
 
@@ -661,7 +652,6 @@ export { contactResource };
         "api-path": "/contacts",
         operations: "new",
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 
@@ -678,7 +668,7 @@ test("buildUiTemplateContext renders lookup display via shared runtime in list a
     await writeResource(
       appRoot,
       resourceFile,
-      `const contactResource = {
+      `const resource = {
   operations: {
     list: {
       outputValidator: {
@@ -726,7 +716,7 @@ test("buildUiTemplateContext renders lookup display via shared runtime in list a
   ]
 };
 
-export { contactResource };
+export { resource };
 `
     );
 
@@ -737,7 +727,6 @@ export { contactResource };
         "api-path": "/contacts",
         operations: "list,view",
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 
@@ -764,7 +753,7 @@ test("buildUiTemplateContext normalizes legacy targetResource lookup metadata to
     await writeResource(
       appRoot,
       resourceFile,
-      `const contactResource = {
+      `const resource = {
   operations: {
     create: {
       bodyValidator: {
@@ -798,7 +787,7 @@ test("buildUiTemplateContext normalizes legacy targetResource lookup metadata to
   ]
 };
 
-export { contactResource };
+export { resource };
 `
     );
 
@@ -809,7 +798,6 @@ export { contactResource };
         "api-path": "/contacts",
         operations: "new",
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 
@@ -832,7 +820,7 @@ test("buildUiTemplateContext supports lookup ui.formControl=select", async () =>
     await writeResource(
       appRoot,
       resourceFile,
-      `const contactResource = {
+      `const resource = {
   operations: {
     create: {
       bodyValidator: {
@@ -868,7 +856,7 @@ test("buildUiTemplateContext supports lookup ui.formControl=select", async () =>
   ]
 };
 
-export { contactResource };
+export { resource };
 `
     );
 
@@ -879,7 +867,6 @@ export { contactResource };
         "api-path": "/contacts",
         operations: "new",
         "resource-file": resourceFile,
-        "resource-export": "contactResource"
       }
     });
 
@@ -904,7 +891,6 @@ test("buildUiTemplateContext fails when operations option is invalid", async () 
             "api-path": "/crud/customers",
             operations: "create",
             "resource-file": resourceFile,
-            "resource-export": "customerResource"
           }
         }),
       /operations" supports only: list, view, new, edit/
@@ -918,7 +904,7 @@ test("buildUiTemplateContext marks nearest route parent field as hidden route-bo
     await writeResource(
       appRoot,
       resourceFile,
-      `const addressResource = {
+      `const resource = {
   operations: {
     create: {
       bodyValidator: {
@@ -971,7 +957,7 @@ test("buildUiTemplateContext marks nearest route parent field as hidden route-bo
   ]
 };
 
-export { addressResource };
+export { resource };
 `
     );
 
@@ -984,7 +970,6 @@ export { addressResource };
         "id-param": "addressId",
         operations: "new,edit",
         "resource-file": resourceFile,
-        "resource-export": "addressResource",
         "display-fields": "line1"
       }
     });
@@ -1026,7 +1011,6 @@ test("buildUiTemplateContext resolves menu placement from ShellLayout default ta
         "route-path": "ops/customers",
         operations: "list",
         "resource-file": resourceFile,
-        "resource-export": "customerResource"
       }
     });
 
@@ -1060,7 +1044,6 @@ test("buildUiTemplateContext defaults list placement to container host when cont
         container: "practice",
         operations: "list",
         "resource-file": resourceFile,
-        "resource-export": "customerResource"
       }
     });
 
@@ -1085,7 +1068,6 @@ test("buildUiTemplateContext applies explicit placement override and validates t
         operations: "list",
         placement: "shell-layout:secondary-menu",
         "resource-file": resourceFile,
-        "resource-export": "customerResource"
       }
     });
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "secondary-menu");
@@ -1101,7 +1083,6 @@ test("buildUiTemplateContext applies explicit placement override and validates t
             operations: "list",
             placement: "invalid-placement",
             "resource-file": resourceFile,
-            "resource-export": "customerResource"
           }
         }),
       /option "placement" must be in "host:position" format/
@@ -1118,7 +1099,6 @@ test("buildUiTemplateContext applies explicit placement override and validates t
             container: "practice/sub",
             operations: "list",
             "resource-file": resourceFile,
-            "resource-export": "customerResource"
           }
         }),
       /option "container" must be a single host token/

@@ -1,8 +1,8 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createCrudServiceEvents } from "@jskit-ai/crud-core/server/serviceEvents";
-import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
-const baseServiceEvents = createCrudServiceEvents(${option:namespace|singular|camel}Resource, {
+const baseServiceEvents = createCrudServiceEvents(resource, {
   context: "${option:namespace|camel}Service"
 });
 

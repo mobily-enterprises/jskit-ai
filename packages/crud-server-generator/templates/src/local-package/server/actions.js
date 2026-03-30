@@ -8,10 +8,10 @@ import {
   createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
-import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
 
-const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(${option:namespace|singular|camel}Resource);
+const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 
 function requireActionSurface(surface = "") {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
@@ -42,7 +42,7 @@ function createActions({ surface = "" } = {}) {
         listParentFilterQueryValidator,
         lookupIncludeQueryValidator
       ],
-      outputValidator: ${option:namespace|singular|camel}Resource.operations.list.outputValidator,
+      outputValidator: resource.operations.list.outputValidator,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
@@ -91,10 +91,10 @@ function createActions({ surface = "" } = {}) {
       inputValidator: [
         workspaceSlugParamsValidator,
         {
-          payload: ${option:namespace|singular|camel}Resource.operations.create.bodyValidator
+          payload: resource.operations.create.bodyValidator
         }
       ],
-      outputValidator: ${option:namespace|singular|camel}Resource.operations.create.outputValidator,
+      outputValidator: resource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.create
@@ -120,10 +120,10 @@ function createActions({ surface = "" } = {}) {
         workspaceSlugParamsValidator,
         recordIdParamsValidator,
         {
-          patch: ${option:namespace|singular|camel}Resource.operations.patch.bodyValidator
+          patch: resource.operations.patch.bodyValidator
         }
       ],
-      outputValidator: ${option:namespace|singular|camel}Resource.operations.patch.outputValidator,
+      outputValidator: resource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.update
@@ -146,7 +146,7 @@ function createActions({ surface = "" } = {}) {
         require: "authenticated"
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
-      outputValidator: ${option:namespace|singular|camel}Resource.operations.delete.outputValidator,
+      outputValidator: resource.operations.delete.outputValidator,
       idempotency: "optional",
       audit: {
         actionName: actionIds.delete

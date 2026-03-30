@@ -35,13 +35,13 @@ test("local package can be removed (disabled) and added back from app packages d
     const packageId = "@demo/local-feature";
     const createResult = runCli({
       cwd: appRoot,
-      args: ["create", "package", "local-feature", "--package-id", packageId, "--no-install"]
+      args: ["create", "package", "local-feature", "--package-id", packageId]
     });
     assert.equal(createResult.status, 0, String(createResult.stderr || ""));
 
     const removeResult = runCli({
       cwd: appRoot,
-      args: ["remove", "package", packageId, "--no-install"]
+      args: ["remove", "package", packageId]
     });
     assert.equal(removeResult.status, 0, String(removeResult.stderr || ""));
 
@@ -56,7 +56,7 @@ test("local package can be removed (disabled) and added back from app packages d
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", packageId, "--no-install"]
+      args: ["add", "package", packageId]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
     assert.match(String(addResult.stdout || ""), /Added package @demo\/local-feature\./);
@@ -86,7 +86,7 @@ test("doctor accepts installed app-local packages", async () => {
     const packageId = "@demo/local-feature";
     const createResult = runCli({
       cwd: appRoot,
-      args: ["create", "package", "local-feature", "--package-id", packageId, "--no-install"]
+      args: ["create", "package", "local-feature", "--package-id", packageId]
     });
     assert.equal(createResult.status, 0, String(createResult.stderr || ""));
 

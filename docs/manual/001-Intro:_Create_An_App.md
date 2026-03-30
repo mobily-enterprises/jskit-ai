@@ -396,6 +396,6 @@ This pattern scales well:
 
 ## To be done later
 
-npx jskit add package @jskit-ai/auth-provider-supabase-core --no-install
-npx jskit add auth-base --no-install
+npx jskit add package @jskit-ai/auth-provider-supabase-core
+npx jskit add auth-base
 npm install

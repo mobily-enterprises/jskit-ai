@@ -7,7 +7,7 @@ import {
   crudRepositoryUpdateById,
   crudRepositoryDeleteById
 } from "@jskit-ai/crud-core/server/repositoryMethods";
-import { ${option:namespace|singular|camel}Resource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
 const LIST_CONFIG = Object.freeze({
   // defaultLimit: 20,
@@ -15,7 +15,7 @@ const LIST_CONFIG = Object.freeze({
   // searchColumns: ["name"]
 });
 
-const repositoryRuntime = createCrudRepositoryRuntime(${option:namespace|singular|camel}Resource, {
+const repositoryRuntime = createCrudRepositoryRuntime(resource, {
   context: "${option:namespace|snake} repository",
   list: LIST_CONFIG
 });

@@ -113,7 +113,7 @@ if [[ "$dry_run_enabled" != "true" ]]; then
   echo "[jskit:update] generating managed migrations for changed packages."
   (
     cd "$APP_ROOT"
-    npx jskit migrations changed --no-install
+    npx jskit migrations changed
   )
 fi
 

@@ -54,7 +54,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudSchemaForm } from "@jskit-ai/users-web/client/composables/useCrudSchemaForm";
 import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
-import { ${option:resource-export|trim} as uiResource } from "/${option:resource-file|trim}";
+import { resource as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";

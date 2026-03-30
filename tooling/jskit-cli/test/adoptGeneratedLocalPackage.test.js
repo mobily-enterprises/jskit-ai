@@ -149,7 +149,7 @@ test("add package adopts generated app-local package dependency into lock", asyn
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@demo/scaffolder", "--no-install"]
+      args: ["add", "package", "@demo/scaffolder"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
@@ -171,7 +171,7 @@ test("generate does not install scaffold generator package itself", async () => 
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["generate", "@demo/scaffolder", "--no-install"]
+      args: ["generate", "@demo/scaffolder"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
