@@ -15,6 +15,12 @@ Refresh JSKIT dependencies to the latest published versions:
 npm run jskit:update
 ```
 
+Automate update + PR + merge release flow:
+
+```bash
+npm run release
+```
+
 ## Server
 
 ```bash

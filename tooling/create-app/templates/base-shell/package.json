@@ -27,6 +27,7 @@
     "test": "node --test",
     "test:client": "vitest run tests/client",
     "verify": "npm run lint && npm run test && npm run test:client && npm run build && npx jskit doctor",
+    "release": "bash ./scripts/release.sh",
     "jskit:update": "bash ./scripts/update-jskit-packages.sh"
   },
   "dependencies": {

@@ -256,6 +256,7 @@ test("base-shell scripts do not hardcode machine-specific jskit paths", async ()
   const baseScriptsDir = path.join(packageRoot, "templates/base-shell/scripts");
   const scriptPaths = [
     path.join(baseScriptsDir, "link-local-jskit-packages.sh"),
+    path.join(baseScriptsDir, "release.sh"),
     path.join(baseScriptsDir, "update-jskit-packages.sh")
   ];
 
