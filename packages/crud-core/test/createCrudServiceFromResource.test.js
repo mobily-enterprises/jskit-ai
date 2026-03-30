@@ -2,6 +2,35 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createCrudServiceFromResource } from "../src/server/createCrudServiceFromResource.js";
 
+function createResourceWithOutputSchema(overrides = {}) {
+  return {
+    resource: "contacts",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              name: { type: "string" },
+              optionalSecret: { type: "string" },
+              nullableSecret: {
+                anyOf: [{ type: "string" }, { type: "null" }]
+              },
+              defaultedSecret: {
+                type: "string",
+                default: ""
+              }
+            },
+            required: ["id", "name", "nullableSecret", "defaultedSecret"]
+          }
+        }
+      }
+    },
+    ...overrides
+  };
+}
+
 function createRepositoryDouble(overrides = {}) {
   return {
     async list(query) {
@@ -103,5 +132,132 @@ test("createCrudServiceFromResource validates required inputs", async () => {
   await assert.rejects(
     () => service.createRecord({}, {}),
     /contactsService could not load the created record/
+  );
+});
+
+test("createCrudServiceFromResource readable field hooks require view output schema", async () => {
+  const { createBaseService } = createCrudServiceFromResource({
+    resource: "contacts"
+  });
+
+  const service = createBaseService({
+    repository: createRepositoryDouble(),
+    fieldAccess: {
+      readable: () => ["id"]
+    }
+  });
+
+  await assert.rejects(
+    () => service.getRecord(1, {}),
+    /requires resource\.operations\.view\.outputValidator\.schema for fieldAccess\.readable/
+  );
+});
+
+test("createCrudServiceFromResource enforces writable field access hooks", async () => {
+  const createCalls = [];
+  const { createBaseService } = createCrudServiceFromResource(createResourceWithOutputSchema());
+
+  const service = createBaseService({
+    repository: createRepositoryDouble({
+      async create(payload) {
+        createCalls.push(payload);
+        return { id: 2, ...payload };
+      }
+    }),
+    fieldAccess: {
+      writable: () => ["name"]
+    }
+  });
+
+  await assert.rejects(
+    () => service.createRecord({ name: "A", optionalSecret: "hidden" }, {}),
+    (error) => error?.status === 403 && /Write access denied for fields: optionalSecret/.test(error?.message || "")
+  );
+  assert.equal(createCalls.length, 0);
+});
+
+test("createCrudServiceFromResource supports writable field strip mode", async () => {
+  const createCalls = [];
+  const { createBaseService } = createCrudServiceFromResource(createResourceWithOutputSchema());
+
+  const service = createBaseService({
+    repository: createRepositoryDouble({
+      async create(payload) {
+        createCalls.push(payload);
+        return { id: 2, ...payload, nullableSecret: "x", defaultedSecret: "y" };
+      }
+    }),
+    fieldAccess: {
+      writable: () => ["name"],
+      writeMode: "strip"
+    }
+  });
+
+  await service.createRecord({ name: "A", optionalSecret: "hidden" }, {});
+  assert.deepEqual(createCalls, [{ name: "A" }]);
+});
+
+test("createCrudServiceFromResource applies readable field access hooks with drop/null/default redaction", async () => {
+  const { createBaseService } = createCrudServiceFromResource(createResourceWithOutputSchema());
+
+  const service = createBaseService({
+    repository: createRepositoryDouble({
+      async findById() {
+        return {
+          id: 1,
+          name: "A",
+          optionalSecret: "drop-me",
+          nullableSecret: "redact-to-null",
+          defaultedSecret: "redact-to-default"
+        };
+      }
+    }),
+    fieldAccess: {
+      readable: () => ["id", "name"]
+    }
+  });
+
+  const record = await service.getRecord(1, {});
+  assert.deepEqual(record, {
+    id: 1,
+    name: "A",
+    nullableSecret: null,
+    defaultedSecret: ""
+  });
+});
+
+test("createCrudServiceFromResource readable filtering fails fast for required non-nullable fields without defaults", async () => {
+  const { createBaseService } = createCrudServiceFromResource({
+    resource: "contacts",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              strictSecret: { type: "string" }
+            },
+            required: ["id", "strictSecret"]
+          }
+        }
+      }
+    }
+  });
+
+  const service = createBaseService({
+    repository: createRepositoryDouble({
+      async findById() {
+        return { id: 1, strictSecret: "value" };
+      }
+    }),
+    fieldAccess: {
+      readable: () => ["id"]
+    }
+  });
+
+  await assert.rejects(
+    () => service.getRecord(1, {}),
+    /cannot redact required non-nullable field "strictSecret" without schema\.default/
   );
 });

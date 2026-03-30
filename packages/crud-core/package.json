@@ -17,6 +17,7 @@
     "./server/createCrudRepositoryFromResource": "./src/server/createCrudRepositoryFromResource.js",
     "./server/lookupProviders": "./src/server/lookupProviders.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
+    "./server/fieldAccess": "./src/server/fieldAccess.js",
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js"
