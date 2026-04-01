@@ -192,6 +192,16 @@ function useList({
     queryOptions,
     fallbackLoadError
   });
+  watch(activeSearchQuery, (nextValue, previousValue) => {
+    if (!querySearchEnabled.value) {
+      return;
+    }
+    if (nextValue === previousValue) {
+      return;
+    }
+
+    list.trimToFirstPage();
+  });
   const filteredItems = computed(() => {
     const sourceItems = Array.isArray(list.items.value) ? list.items.value : [];
     if (searchConfig.enabled !== true || searchConfig.mode !== "local") {
