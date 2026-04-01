@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+function resolveTemplatePath(relativePath) {
+  return fileURLToPath(new URL(`../templates/${relativePath}`, import.meta.url));
+}
+
+test("actions template uses resource symbol for view output validator", async () => {
+  const actionsTemplate = await readFile(
+    resolveTemplatePath("src/local-package/server/actions.js"),
+    "utf8"
+  );
+
+  assert.match(
+    actionsTemplate,
+    /outputValidator:\s*resource\.operations\.view\.outputValidator,/
+  );
+  assert.doesNotMatch(
+    actionsTemplate,
+    /\$\{option:namespace\|singular\|camel\}Resource\.operations\.view\.outputValidator/
+  );
+});
+
+test("shared index template re-exports standardized resource symbol", async () => {
+  const sharedIndexTemplate = await readFile(
+    resolveTemplatePath("src/local-package/shared/index.js"),
+    "utf8"
+  );
+
+  assert.match(
+    sharedIndexTemplate,
+    /export\s*\{\s*resource\s*\}\s*from\s*"\.\/\$\{option:namespace\|singular\|camel\}Resource\.js";/s
+  );
+  assert.doesNotMatch(
+    sharedIndexTemplate,
+    /export\s*\{\s*\$\{option:namespace\|singular\|camel\}Resource\s*\}/s
+  );
+});
