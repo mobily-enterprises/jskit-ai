@@ -16,14 +16,24 @@ test("jskit with no args prints top-level command overview", () => {
   assert.match(stdout, /list-placements\s+List discovered UI placement targets/);
 });
 
-test("jskit generate with no params prints generate command help", () => {
+test("jskit generate with no params lists available generators", () => {
   const result = runCli({ args: ["generate"] });
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
-  assert.match(stdout, /Command: generate/);
-  assert.match(stdout, /1\) Minimal use/);
-  assert.match(stdout, /2\) Defaults/);
-  assert.match(stdout, /3\) Full use/);
+  assert.match(stdout, /Generate command/);
+  assert.match(stdout, /Available generators \(\d+\):/);
+  assert.match(stdout, /@jskit-ai\/crud-server-generator/);
+  assert.match(stdout, /jskit generate <generatorId> help/);
+});
+
+test("jskit add with no params lists bundles and runtime packages", () => {
+  const result = runCli({ args: ["add"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Add command/);
+  assert.match(stdout, /Available bundles \(\d+\):/);
+  assert.match(stdout, /Available runtime packages \(\d+\):/);
+  assert.match(stdout, /jskit add package <packageId> help/);
 });
 
 test("jskit help generate prints generate command help", () => {

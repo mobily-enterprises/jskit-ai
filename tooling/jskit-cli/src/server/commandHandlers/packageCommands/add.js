@@ -3,6 +3,12 @@ import {
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
+import {
+  isHelpToken,
+  renderAddCatalogHelp,
+  renderAddPackageHelp,
+  renderAddBundleHelp
+} from "./discoverabilityHelp.js";
 
 async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -34,6 +40,94 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   const invocationMode = options?.commandMode === "generate" ? "generate" : "add";
   const targetType = String(positional[0] || "").trim();
   const targetId = String(positional[1] || "").trim();
+  const thirdToken = String(positional[2] || "").trim();
+
+  if (invocationMode === "add" && !targetType) {
+    const packageRegistry = await loadPackageRegistry();
+    const bundleRegistry = await loadBundleRegistry();
+    renderAddCatalogHelp({
+      io,
+      packageRegistry,
+      bundleRegistry,
+      resolvePackageKind,
+      json: options.json
+    });
+    return 0;
+  }
+
+  const addShorthandHelpTargetId =
+    invocationMode === "add" &&
+    targetType &&
+    targetType !== "bundle" &&
+    targetType !== "package" &&
+    isHelpToken(targetId) &&
+    !thirdToken
+      ? targetType
+      : "";
+
+  const addPackageHelpTargetId =
+    invocationMode === "add" && targetType === "package" && targetId && isHelpToken(thirdToken)
+      ? targetId
+      : addShorthandHelpTargetId;
+  const addBundleHelpTargetId =
+    invocationMode === "add" && targetType === "bundle" && targetId && isHelpToken(thirdToken)
+      ? targetId
+      : "";
+
+  if (addPackageHelpTargetId) {
+    const appRoot = await resolveAppRootFromCwd(cwd);
+    const packageRegistry = await loadPackageRegistry();
+    const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+    const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
+    const resolvedPackageId = await resolvePackageIdFromRegistryOrNodeModules({
+      appRoot,
+      packageRegistry: combinedPackageRegistry,
+      packageIdInput: addPackageHelpTargetId
+    });
+    if (!resolvedPackageId) {
+      throw createCliError(
+        `Unknown package: ${addPackageHelpTargetId}. Install an external module first (npm install ${addPackageHelpTargetId}) if you want to adopt it into lock.`
+      );
+    }
+
+    await hydratePackageRegistryFromInstalledNodeModules({
+      appRoot,
+      packageRegistry: combinedPackageRegistry,
+      seedPackageIds: [resolvedPackageId]
+    });
+    const packageEntry = combinedPackageRegistry.get(resolvedPackageId);
+    if (!packageEntry) {
+      throw createCliError(`Unknown package: ${addPackageHelpTargetId}`);
+    }
+    const packageKind = resolvePackageKind(packageEntry);
+    if (packageKind === "generator") {
+      throw createCliError(
+        `Package ${resolvedPackageId} is a generator. Use: jskit generate ${resolvedPackageId}`
+      );
+    }
+    renderAddPackageHelp({
+      io,
+      packageEntry,
+      packageIdInput: addPackageHelpTargetId,
+      json: options.json
+    });
+    return 0;
+  }
+
+  if (addBundleHelpTargetId) {
+    const bundleRegistry = await loadBundleRegistry();
+    const bundle = bundleRegistry.get(addBundleHelpTargetId);
+    if (!bundle) {
+      throw createCliError(`Unknown bundle: ${addBundleHelpTargetId}`);
+    }
+    renderAddBundleHelp({
+      io,
+      bundleId: addBundleHelpTargetId,
+      bundle,
+      json: options.json
+    });
+    return 0;
+  }
 
   if (!targetType || !targetId) {
     if (invocationMode === "generate") {

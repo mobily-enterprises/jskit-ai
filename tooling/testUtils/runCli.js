@@ -7,11 +7,23 @@ function createCliRunner(cliPath) {
     throw new TypeError("cliPath is required to run a CLI test helper.");
   }
 
-  return function runCli({ cwd, args = [], input = undefined } = {}) {
+  return function runCli({ cwd, args = [], input = undefined, env = {} } = {}) {
+    const baseEnv = {
+      ...process.env,
+      NO_COLOR: "1",
+      FORCE_COLOR: "0",
+      CLICOLOR: "0",
+      CLICOLOR_FORCE: "0"
+    };
+
     return spawnSync(process.execPath, [resolvedPath, ...args], {
       cwd,
       encoding: "utf8",
-      input
+      input,
+      env: {
+        ...baseEnv,
+        ...env
+      }
     });
   };
 }

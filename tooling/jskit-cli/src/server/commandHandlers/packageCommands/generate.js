@@ -1,3 +1,10 @@
+import {
+  isHelpToken,
+  renderGenerateCatalogHelp,
+  renderGeneratePackageHelp,
+  renderGenerateSubcommandHelp
+} from "./discoverabilityHelp.js";
+
 async function runPackageGenerateCommand(
   ctx = {},
   { positional, options, cwd, io },
@@ -28,13 +35,8 @@ async function runPackageGenerateCommand(
   const targetId = firstToken === "package" ? secondToken : firstToken;
   const subcommandName = firstToken === "package" ? thirdToken : secondToken;
   const subcommandArgs = firstToken === "package" ? positional.slice(3) : positional.slice(2);
-  if (!targetId) {
-    throw createCliError("generate requires a package id (generate <packageId>).", {
-      showUsage: true
-    });
-  }
 
-  if (subcommandName) {
+  async function resolveGeneratorPackageEntry(packageIdInput = "") {
     const appRoot = await resolveAppRootFromCwd(cwd);
     const packageRegistry = await loadPackageRegistry();
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
@@ -43,11 +45,11 @@ async function runPackageGenerateCommand(
     const resolvedPackageId = await resolvePackageIdFromRegistryOrNodeModules({
       appRoot,
       packageRegistry: combinedPackageRegistry,
-      packageIdInput: targetId
+      packageIdInput
     });
     if (!resolvedPackageId) {
       throw createCliError(
-        `Unknown package: ${targetId}. Install it first (npm install ${targetId}) if you want to run generator subcommands from node_modules.`
+        `Unknown package: ${packageIdInput}. Install it first (npm install ${packageIdInput}) if you want to run generator subcommands from node_modules.`
       );
     }
 
@@ -58,13 +60,81 @@ async function runPackageGenerateCommand(
     });
     const packageEntry = combinedPackageRegistry.get(resolvedPackageId);
     if (!packageEntry) {
-      throw createCliError(`Unknown package: ${targetId}`);
+      throw createCliError(`Unknown package: ${packageIdInput}`);
     }
-
     if (resolvePackageKind(packageEntry) !== "generator") {
       throw createCliError(
         `Package ${resolvedPackageId} is a runtime package. Use: jskit add package ${resolvedPackageId}`
       );
+    }
+
+    return Object.freeze({
+      appRoot,
+      packageEntry,
+      resolvedPackageId
+    });
+  }
+
+  if (!targetId) {
+    const packageRegistry = await loadPackageRegistry();
+    renderGenerateCatalogHelp({
+      io,
+      packageRegistry,
+      resolvePackageKind,
+      json: options.json
+    });
+    return 0;
+  }
+
+  if (isHelpToken(subcommandName)) {
+    const helpSubcommandName = String(subcommandArgs[0] || "").trim();
+    if (subcommandArgs.length > 1) {
+      throw createCliError("generate help accepts at most one subcommand name.");
+    }
+    const { packageEntry } = await resolveGeneratorPackageEntry(targetId);
+    if (helpSubcommandName) {
+      const rendered = renderGenerateSubcommandHelp({
+        io,
+        packageEntry,
+        packageIdInput: targetId,
+        subcommandName: helpSubcommandName,
+        json: options.json
+      });
+      if (!rendered) {
+        throw createCliError(
+          `Unknown generator subcommand "${helpSubcommandName}" for ${String(packageEntry?.packageId || targetId)}.`
+        );
+      }
+      return 0;
+    }
+
+    renderGeneratePackageHelp({
+      io,
+      packageEntry,
+      packageIdInput: targetId,
+      json: options.json
+    });
+    return 0;
+  }
+
+  if (subcommandName) {
+    const {
+      appRoot,
+      packageEntry,
+      resolvedPackageId
+    } = await resolveGeneratorPackageEntry(targetId);
+    if (subcommandArgs.length === 1 && isHelpToken(subcommandArgs[0])) {
+      const rendered = renderGenerateSubcommandHelp({
+        io,
+        packageEntry,
+        packageIdInput: targetId,
+        subcommandName,
+        json: options.json
+      });
+      if (!rendered) {
+        throw createCliError(`Unknown generator subcommand "${subcommandName}" for ${resolvedPackageId}.`);
+      }
+      return 0;
     }
 
     const normalizedSubcommandName = String(subcommandName || "").trim().toLowerCase();
