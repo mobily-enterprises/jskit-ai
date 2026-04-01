@@ -980,10 +980,39 @@
           }
         },
         "metadata": {
+          "generatorPrimarySubcommand": "add-table",
           "generatorSubcommands": {
+            "add-table": {
+              "description": "Scaffold a CRUD resource package for a table (same behavior as running generate with no subcommand).",
+              "optionNames": [
+                "namespace",
+                "surface",
+                "ownership-filter",
+                "table-name",
+                "id-column",
+                "directory-prefix"
+              ]
+            },
             "add-field": {
               "entrypoint": "src/server/subcommands/addField.js",
-              "export": "runGeneratorSubcommand"
+              "export": "runGeneratorSubcommand",
+              "description": "Patch one writable field into an existing generated CRUD resource module.",
+              "positionalArgs": [
+                {
+                  "name": "<fieldKey>",
+                  "required": true,
+                  "description": "Resource field key (camelCase) resolved from the DB snapshot."
+                },
+                {
+                  "name": "<targetFile>",
+                  "required": true,
+                  "description": "Path to the generated CRUD resource file relative to app root."
+                }
+              ],
+              "optionNames": [
+                "table-name",
+                "id-column"
+              ]
             }
           },
           "apiSummary": {

@@ -45,7 +45,19 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 
 
 
-# npx jskit generate crud-server-generator --namespace contacts --surface admin --table-name contacts
+# GENERATE (new format)
+# 1) Discover generators
+npx jskit generate
+# 2) Inspect package-level help
+npx jskit generate crud-server-generator help
+# 3) Inspect subcommand-level help
+npx jskit generate crud-server-generator add-table help
+npx jskit generate crud-server-generator add-field help
+npx jskit generate crud-ui-generator help
+npx jskit generate crud-ui-generator field help
+npx jskit generate ui-generator help
+npx jskit generate ui-generator page help
+npx jskit generate ui-generator element help
 
 
 
@@ -53,21 +65,21 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 ------------------------------
 npm run devlinks
 
-npx jskit generate crud-server-generator --namespace contacts --surface admin --table-name contacts
+npx jskit generate crud-server-generator add-table --namespace contacts --surface admin --table-name contacts
 npx jskit generate crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --id-param contactId
 
-npx jskit generate crud-server-generator --namespace addresses --surface admin --table-name addresses
+npx jskit generate crud-server-generator add-table --namespace addresses --surface admin --table-name addresses
 npx jskit generate crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --route-path contacts/[contactId]/addresses --id-param addressId
 
 
-npx jskit generate crud-server-generator --namespace vets --surface admin --table-name vets
+npx jskit generate crud-server-generator add-table --namespace vets --surface admin --table-name vets
 npx jskit generate crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js
 
-npx jskit generate crud-server-generator --namespace contact-categories --surface admin --table-name contact_categories
+npx jskit generate crud-server-generator add-table --namespace contact-categories --surface admin --table-name contact_categories
 npx jskit generate crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js
 
 
-npx jskit generate crud-server-generator --namespace addresses --surface admin --table-name addresses
+npx jskit generate crud-server-generator add-table --namespace addresses --surface admin --table-name addresses
 npx jskit generate crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --route-path contacts/[contactId]/addresses --id-param addressId
 ------------------------------------
 
@@ -130,11 +142,11 @@ FIELD ADDING:
 
 
   npx jskit generate crud-server-generator add-field categoryId packages/contacts/src/shared/contactResource.js
-  npx jskit generate crud-ui-generator add-field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js
   
-  npx jskit generate crud-ui-generator add-field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js
-  npx jskit generate crud-ui-generator add-field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js
-  npx jskit generate crud-ui-generator add-field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js
 
 ----------------------------------------------------------------------
 
@@ -143,7 +155,7 @@ FIELD ADDING:
 
 
 // ONE LINE
-npx jskit generate crud-server-generator --namespace contacts --surface admin --table-name contacts;npx jskit generate crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator --namespace vets --surface admin --table-name vets;npx jskit generate crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js
+npx jskit generate crud-server-generator add-table --namespace contacts --surface admin --table-name contacts;npx jskit generate crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator add-table --namespace vets --surface admin --table-name vets;npx jskit generate crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js
 
 npm install --verbose;npm run devlinks
 

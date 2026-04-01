@@ -84,6 +84,7 @@ const COMMAND_HELP = Object.freeze({
     defaults: Object.freeze([
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
+      "Running without args lists bundles and runtime packages.",
       "Existing matching version is skipped unless options force reapply."
     ]),
     fullUse: "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]"
@@ -98,7 +99,7 @@ const COMMAND_HELP = Object.freeze({
       }),
       Object.freeze({
         name: "[subcommand]",
-        description: "Optional generator subcommand (for example: add-field)."
+        description: "Optional generator subcommand (for example: add-table or add-field)."
       }),
       Object.freeze({
         name: "[subcommand args...]",
@@ -108,7 +109,9 @@ const COMMAND_HELP = Object.freeze({
     defaults: Object.freeze([
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
-      "If no subcommand is provided, the generator primary command runs."
+      "Running without args lists available generators.",
+      "If no subcommand is provided, the generator primary command runs.",
+      "Use jskit generate <generatorId> <subcommand> help for subcommand-specific usage."
     ]),
     fullUse: "jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]"
   }),
@@ -261,8 +264,6 @@ const COMMAND_HELP = Object.freeze({
 
 const BARE_COMMAND_HELP = new Set([
   "create",
-  "add",
-  "generate",
   "show",
   "migrations",
   "position",
