@@ -64,7 +64,7 @@ test("listPendingInvitesForUser returns raw pending invite rows for the action l
         workspaceSlug: "tonymobily3",
         workspaceName: "TonyMobily3",
         workspaceAvatarUrl: "",
-        roleId: "member",
+        roleSid: "member",
         status: "pending",
         expiresAt: "2030-01-01T00:00:00.000Z",
         tokenHash
@@ -91,7 +91,7 @@ test("acceptInviteByToken accepts opaque invite token and resolves invite by dec
         id: 44,
         workspaceId: 1,
         email: "chiaramobily@gmail.com",
-        roleId: "member",
+        roleSid: "member",
         status: "pending",
         tokenHash,
         expiresAt: "2030-01-01T00:00:00.000Z"
@@ -125,7 +125,7 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
         id: 45,
         workspaceId: 1,
         email: "chiaramobily@gmail.com",
-        roleId: "member",
+        roleSid: "member",
         status: "pending",
         tokenHash,
         expiresAt: "2030-01-01T00:00:00.000Z"

@@ -19,7 +19,7 @@ const workspaceSummaryOutputSchema = Type.Object(
 const memberSummaryOutputSchema = Type.Object(
   {
     userId: Type.Integer({ minimum: 1 }),
-    roleId: Type.String({ minLength: 1 }),
+    roleSid: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     displayName: Type.String(),
     email: Type.String({ minLength: 1 }),
@@ -32,7 +32,7 @@ const inviteSummaryOutputSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     email: Type.String({ minLength: 3, format: "email" }),
-    roleId: Type.String({ minLength: 1 }),
+    roleSid: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     expiresAt: Type.String({ minLength: 1 }),
     invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
@@ -57,13 +57,13 @@ function normalizeMemberSummary(member, workspace) {
 
   return {
     userId: Number(source.userId),
-    roleId: normalizeLowerText(source.roleId || "member") || "member",
+    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
     status: normalizeLowerText(source.status || "active") || "active",
     displayName: normalizeText(source.displayName),
     email: normalizeLowerText(source.email),
     isOwner:
       Number(source.userId) === Number(workspace.ownerUserId) ||
-      normalizeLowerText(source.roleId) === OWNER_ROLE_ID
+      normalizeLowerText(source.roleSid) === OWNER_ROLE_ID
   };
 }
 
@@ -73,7 +73,7 @@ function normalizeInviteSummary(invite) {
   return {
     id: Number(source.id),
     email: normalizeLowerText(source.email),
-    roleId: normalizeLowerText(source.roleId || "member") || "member",
+    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
     status: normalizeLowerText(source.status || "pending") || "pending",
     expiresAt: source.expiresAt,
     invitedByUserId: source.invitedByUserId == null ? null : Number(source.invitedByUserId)
@@ -160,7 +160,7 @@ const workspaceInvitesOutputValidator = Object.freeze({
 const updateMemberRoleBodyValidator = Object.freeze({
   schema: Type.Object(
     {
-      roleId: Type.String({ minLength: 1 })
+      roleSid: Type.String({ minLength: 1 })
     },
     { additionalProperties: false }
   ),
@@ -168,7 +168,7 @@ const updateMemberRoleBodyValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      roleId: normalizeLowerText(source.roleId)
+      roleSid: normalizeLowerText(source.roleSid)
     };
   }
 });
@@ -177,7 +177,7 @@ const updateMemberRoleInputValidator = Object.freeze({
   schema: Type.Object(
     {
       memberUserId: Type.Integer({ minimum: 1 }),
-      roleId: Type.String({ minLength: 1 })
+      roleSid: Type.String({ minLength: 1 })
     },
     { additionalProperties: false }
   ),
@@ -186,7 +186,7 @@ const updateMemberRoleInputValidator = Object.freeze({
 
     return {
       memberUserId: normalizePositiveInteger(source.memberUserId),
-      roleId: normalizeLowerText(source.roleId)
+      roleSid: normalizeLowerText(source.roleSid)
     };
   }
 });
@@ -211,7 +211,7 @@ const createInviteBodyValidator = Object.freeze({
   schema: Type.Object(
     {
       email: Type.String({ minLength: 3, format: "email" }),
-      roleId: Type.String({ minLength: 1 })
+      roleSid: Type.String({ minLength: 1 })
     },
     { additionalProperties: false }
   ),
@@ -220,7 +220,7 @@ const createInviteBodyValidator = Object.freeze({
 
     return {
       email: normalizeLowerText(source.email),
-      roleId: normalizeLowerText(source.roleId || "member") || "member"
+      roleSid: normalizeLowerText(source.roleSid || "member") || "member"
     };
   }
 });

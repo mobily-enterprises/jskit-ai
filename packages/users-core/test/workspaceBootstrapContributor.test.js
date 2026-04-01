@@ -10,7 +10,7 @@ function createAuthenticatedProfile(overrides = {}) {
   return {
     id: 7,
     authProvider: "local",
-    authProviderUserId: "user-7",
+    authProviderUserSid: "user-7",
     username: "tester",
     displayName: "Test User",
     email: "test@example.com",

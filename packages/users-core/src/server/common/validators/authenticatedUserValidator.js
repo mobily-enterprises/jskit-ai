@@ -16,7 +16,7 @@ function normalizeAuthenticatedUser(input = {}) {
     username: normalizeLowerText(source.username),
     displayName: normalizeText(source.displayName) || email || `User ${id}`,
     authProvider: normalizeLowerText(source.authProvider),
-    authProviderUserId: normalizeText(source.authProviderUserId),
+    authProviderUserSid: normalizeText(source.authProviderUserSid),
     avatarStorageKey: source.avatarStorageKey ? normalizeText(source.avatarStorageKey) : null,
     avatarVersion: source.avatarVersion == null ? null : String(source.avatarVersion)
   };
@@ -30,7 +30,7 @@ const authenticatedUserValidator = Object.freeze({
       username: Type.Optional(Type.String()),
       displayName: Type.Optional(Type.String()),
       authProvider: Type.Optional(Type.String()),
-      authProviderUserId: Type.Optional(Type.String()),
+      authProviderUserSid: Type.Optional(Type.String()),
       avatarStorageKey: Type.Optional(Type.Union([Type.String(), Type.Null()])),
       avatarVersion: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()]))
     },

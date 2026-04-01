@@ -40,7 +40,7 @@ function createInMemoryTranscriptRepos({
         status: String(payload.status || "active"),
         provider: String(payload.provider || ""),
         model: String(payload.model || ""),
-        surfaceId: String(payload.surfaceId || "admin"),
+        surfaceSid: String(payload.surfaceSid || "admin"),
         messageCount: Number(payload.messageCount || 0),
         metadata: payload.metadata || {}
       };

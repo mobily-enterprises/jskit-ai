@@ -99,7 +99,7 @@ function createService({
       workspaceId,
       resolvedInvite.user.id,
       {
-        roleId: resolvedInvite.invite.roleId,
+        roleSid: resolvedInvite.invite.roleSid,
         status: "active"
       },
       options

@@ -103,7 +103,7 @@ function bootWorkspaceMembers(app) {
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
           memberUserId: request.input.params.memberUserId,
-          roleId: request.input.body.roleId
+          roleSid: request.input.body.roleSid
         }
       });
       reply.code(200).send(response);
@@ -195,7 +195,7 @@ function bootWorkspaceMembers(app) {
           input: {
             workspaceSlug: request.input.params.workspaceSlug,
             email: request.input.body.email,
-            roleId: request.input.body.roleId
+            roleSid: request.input.body.roleSid
           }
         });
         reply.code(200).send(response);

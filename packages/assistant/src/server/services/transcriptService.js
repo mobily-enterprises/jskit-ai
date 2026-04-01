@@ -155,7 +155,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       status: "active",
       provider: normalizeText(source.provider),
       model: normalizeText(source.model),
-      surfaceId: normalizeText(source.surfaceId).toLowerCase() || "admin",
+      surfaceSid: normalizeText(source.surfaceSid).toLowerCase() || "admin",
       metadata: {
         firstMessageId: normalizeText(source.messageId)
       }
@@ -186,7 +186,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       workspaceId: conversation.workspaceId,
       role: normalizeText(source.role).toLowerCase(),
       kind: normalizeText(source.kind).toLowerCase() || "chat",
-      clientMessageId: normalizeText(source.clientMessageId),
+      clientMessageSid: normalizeText(source.clientMessageSid),
       actorUserId,
       contentText: source.contentText == null ? null : String(source.contentText),
       metadata: normalizeObject(source.metadata)

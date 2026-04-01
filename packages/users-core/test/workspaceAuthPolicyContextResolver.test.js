@@ -45,7 +45,7 @@ test("workspace auth policy context resolver resolves workspace context from use
             slug: workspaceSlug
           },
           membership: {
-            roleId: "owner"
+            roleSid: "owner"
           },
           permissions: ["projects.read"]
         };
@@ -85,7 +85,7 @@ test("workspace auth policy context resolver resolves workspace context from use
       slug: "acme"
     },
     membership: {
-      roleId: "owner"
+      roleSid: "owner"
     },
     permissions: ["projects.read"]
   });

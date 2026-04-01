@@ -63,7 +63,7 @@ function normalizeWorkspaceListItemOutput(payload = {}) {
     slug: normalizeLowerText(source.slug),
     name: normalizeText(source.name),
     avatarUrl: normalizeText(source.avatarUrl),
-    roleId: normalizeLowerText(source.roleId || "member") || "member",
+    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
     isAccessible: source.isAccessible !== false
   };
 }
@@ -85,7 +85,7 @@ const listItemSchema = Type.Object(
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
     avatarUrl: Type.String(),
-    roleId: Type.String({ minLength: 1 }),
+    roleSid: Type.String({ minLength: 1 }),
     isAccessible: Type.Boolean()
   },
   { additionalProperties: false }

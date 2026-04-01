@@ -134,7 +134,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
               slug: "main"
             };
             request.membership = {
-              roleId: "owner"
+              roleSid: "owner"
             };
           }
         ],
@@ -191,7 +191,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
   assert.equal(observed[0].context.actor?.id, 7);
   assert.deepEqual(observed[0].context.permissions, ["settings.read"]);
   assert.equal(observed[0].context.workspace?.id, 10);
-  assert.equal(observed[0].context.membership?.roleId, "owner");
+  assert.equal(observed[0].context.membership?.roleSid, "owner");
   assert.equal(observed[0].context.surface, "coffie");
   assert.equal(observed[0].context.channel, "api");
   assert.equal(observed[0].context.requestMeta.commandId, "cmd-1");

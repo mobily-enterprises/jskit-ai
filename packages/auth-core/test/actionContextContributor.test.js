@@ -28,7 +28,7 @@ test("auth action context contributor contributes real request context values", 
       id: 11
     },
     membership: {
-      roleId: "owner"
+      roleSid: "owner"
     },
     permissions: ["workspace.settings.update", "", "  "]
   };

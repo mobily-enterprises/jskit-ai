@@ -379,7 +379,7 @@ test("workspace invite and member handlers build action input from request.input
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme", memberUserId: "12" },
-        body: { roleId: "admin" }
+        body: { roleSid: "admin" }
       },
       executeAction
     }),
@@ -389,7 +389,7 @@ test("workspace invite and member handlers build action input from request.input
     createActionRequest({
       input: {
         params: { workspaceSlug: "acme" },
-        body: { email: "user@example.com", roleId: "member" }
+        body: { email: "user@example.com", roleSid: "member" }
       },
       executeAction
     }),
@@ -419,8 +419,8 @@ test("workspace invite and member handlers build action input from request.input
     input: { name: "Operations", slug: "operations" }
   });
   assert.deepEqual(calls[1].input, { payload: { token: "token-1", decision: "accept" } });
-  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleId: "admin" });
-  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleId: "member" });
+  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleSid: "admin" });
+  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleSid: "member" });
   assert.deepEqual(calls[4].input, { workspaceSlug: "acme", memberUserId: "44" });
   assert.deepEqual(calls[5].input, { workspaceSlug: "acme", inviteId: "55" });
 });

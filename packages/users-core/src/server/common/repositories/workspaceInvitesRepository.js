@@ -17,7 +17,7 @@ function mapRow(row) {
     id: Number(row.id),
     workspaceId: Number(row.workspace_id),
     email: normalizeLowerText(row.email),
-    roleId: normalizeLowerText(row.role_id || "member") || "member",
+    roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "pending") || "pending",
     tokenHash: normalizeText(row.token_hash),
     invitedByUserId: row.invited_by_user_id == null ? null : Number(row.invited_by_user_id),
@@ -86,7 +86,7 @@ function createRepository(knex) {
     const insertPayload = {
       workspace_id: Number(source.workspaceId),
       email: normalizeLowerText(source.email),
-      role_id: normalizeLowerText(source.roleId || "member") || "member",
+      role_sid: normalizeLowerText(source.roleSid || "member") || "member",
       status: normalizeLowerText(source.status || "pending") || "pending",
       token_hash: normalizeText(source.tokenHash),
       invited_by_user_id: source.invitedByUserId == null ? null : Number(source.invitedByUserId),

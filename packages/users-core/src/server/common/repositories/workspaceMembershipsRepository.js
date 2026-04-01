@@ -16,7 +16,7 @@ function mapRow(row) {
     id: Number(row.id),
     workspaceId: Number(row.workspace_id),
     userId: Number(row.user_id),
-    roleId: normalizeLowerText(row.role_id || "member") || "member",
+    roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "active") || "active",
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
@@ -30,7 +30,7 @@ function mapMemberSummaryRow(row) {
 
   return {
     userId: Number(row.user_id),
-    roleId: normalizeLowerText(row.role_id || "member") || "member",
+    roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "active") || "active",
     displayName: normalizeText(row.display_name),
     email: normalizeLowerText(row.email)
@@ -54,11 +54,11 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const existing = await findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
     if (existing) {
-      if (existing.roleId !== OWNER_ROLE_ID || existing.status !== "active") {
+      if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
         await client("workspace_memberships")
           .where({ workspace_id: Number(workspaceId), user_id: Number(userId) })
           .update({
-            role_id: OWNER_ROLE_ID,
+            role_sid: OWNER_ROLE_ID,
             status: "active",
             updated_at: nowDb()
           });
@@ -70,7 +70,7 @@ function createRepository(knex) {
       await client("workspace_memberships").insert({
         workspace_id: Number(workspaceId),
         user_id: Number(userId),
-        role_id: OWNER_ROLE_ID,
+        role_sid: OWNER_ROLE_ID,
         status: "active",
         created_at: nowDb(),
         updated_at: nowDb()
@@ -87,14 +87,14 @@ function createRepository(knex) {
   async function upsertMembership(workspaceId, userId, patch = {}, options = {}) {
     const client = options?.trx || knex;
     const existing = await findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
-    const roleId = normalizeLowerText(patch.roleId || existing?.roleId || "member") || "member";
+    const roleSid = normalizeLowerText(patch.roleSid || existing?.roleSid || "member") || "member";
     const status = normalizeLowerText(patch.status || existing?.status || "active") || "active";
 
     if (!existing) {
       await client("workspace_memberships").insert({
         workspace_id: Number(workspaceId),
         user_id: Number(userId),
-        role_id: roleId,
+        role_sid: roleSid,
         status,
         created_at: nowDb(),
         updated_at: nowDb()
@@ -105,7 +105,7 @@ function createRepository(knex) {
     await client("workspace_memberships")
       .where({ workspace_id: Number(workspaceId), user_id: Number(userId) })
       .update({
-        role_id: roleId,
+        role_sid: roleSid,
         status,
         updated_at: nowDb()
       });
@@ -121,7 +121,7 @@ function createRepository(knex) {
       .orderBy("up.display_name", "asc")
       .select([
         "wm.user_id",
-        "wm.role_id",
+        "wm.role_sid",
         "wm.status",
         "up.display_name",
         "up.email"

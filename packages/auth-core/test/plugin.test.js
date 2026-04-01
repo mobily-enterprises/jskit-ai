@@ -213,7 +213,7 @@ test("enforces permission checks and resolves workspace context when requested",
           id: 11
         },
         membership: {
-          roleId: "member"
+          roleSid: "member"
         },
         permissions: []
       };

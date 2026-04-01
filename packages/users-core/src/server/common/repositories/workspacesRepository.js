@@ -32,7 +32,7 @@ function mapMembershipWorkspaceRow(row) {
 
   return {
     ...mapRow(row),
-    roleId: normalizeLowerText(row.role_id || "member"),
+    roleSid: normalizeLowerText(row.role_sid || "member"),
     membershipStatus: normalizeLowerText(row.membership_status || "active") || "active"
   };
 }
@@ -55,7 +55,7 @@ function createRepository(knex) {
       "w.deleted_at"
     ];
     if (includeMembership) {
-      columns.push("wm.role_id", "wm.status as membership_status");
+      columns.push("wm.role_sid", "wm.status as membership_status");
     }
     return columns;
   }

@@ -44,7 +44,7 @@
                     class="mb-3"
                   />
                   <v-select
-                    v-model="inviteForm.roleId"
+                    v-model="inviteForm.roleSid"
                     label="Role"
                     :items="inviteRoleOptions"
                     item-title="title"
@@ -105,7 +105,7 @@
                     <template #append>
                       <div class="d-flex align-center ga-2">
                         <v-select
-                          v-model="member.roleId"
+                          v-model="member.roleSid"
                           :items="memberRoleOptions"
                           item-title="title"
                           item-value="value"
@@ -139,7 +139,7 @@
                       {{ invite.email }}
                     </template>
                     <template #subtitle>
-                      Role: {{ invite.roleId }} • expires {{ formatDateTime(invite.expiresAt) }}
+                      Role: {{ invite.roleSid }} • expires {{ formatDateTime(invite.expiresAt) }}
                     </template>
                     <template #append>
                       <v-btn
@@ -375,12 +375,12 @@ async function onRevokeInvite(inviteId) {
   await actionHandlers.submitRevokeInvite(inviteId);
 }
 
-async function onMemberRoleUpdate(member, roleId) {
+async function onMemberRoleUpdate(member, roleSid) {
   if (isMemberRoleLocked(member)) {
     return;
   }
 
-  await actionHandlers.submitMemberRoleUpdate(member, roleId);
+  await actionHandlers.submitMemberRoleUpdate(member, roleSid);
 }
 
 async function onRemoveMember(member) {

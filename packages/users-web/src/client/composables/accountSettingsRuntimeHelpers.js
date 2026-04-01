@@ -50,7 +50,7 @@ function normalizePendingInvite(entry) {
     workspaceSlug,
     workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
     workspaceAvatarUrl: String(entry.workspaceAvatarUrl || "").trim(),
-    roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
+    roleSid: String(entry.roleSid || "member").trim().toLowerCase() || "member",
     status: String(entry.status || "pending").trim().toLowerCase() || "pending",
     expiresAt: String(entry.expiresAt || "").trim()
   };

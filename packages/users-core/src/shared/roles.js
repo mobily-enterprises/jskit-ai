@@ -20,13 +20,13 @@ function normalizeRoleId(value) {
     .toLowerCase();
 }
 
-function createRoleDescriptor(roleId, configuredDefinition) {
+function createRoleDescriptor(roleSid, configuredDefinition) {
   const source = asRecord(configuredDefinition);
-  const assignable = roleId === OWNER_ROLE_ID ? false : source.assignable === true;
+  const assignable = roleSid === OWNER_ROLE_ID ? false : source.assignable === true;
   const permissions = normalizePermissionList(source.permissions);
 
   return Object.freeze({
-    id: roleId,
+    id: roleSid,
     assignable,
     permissions: Object.freeze([...permissions])
   });
@@ -46,8 +46,8 @@ function normalizeConfiguredRoles(appConfig = {}) {
   const configuredRoles = asRecord(workspaceRoles.roles);
   const normalizedRoles = {};
 
-  for (const [roleId, roleDefinition] of Object.entries(configuredRoles)) {
-    const normalizedRoleId = normalizeRoleId(roleId);
+  for (const [roleSid, roleDefinition] of Object.entries(configuredRoles)) {
+    const normalizedRoleId = normalizeRoleId(roleSid);
     if (!normalizedRoleId) {
       continue;
     }
@@ -60,7 +60,7 @@ function normalizeConfiguredRoles(appConfig = {}) {
 function createWorkspaceRoleCatalog(appConfig = {}) {
   const configuredRoles = normalizeConfiguredRoles(appConfig);
   const roleIds = listConfiguredRoleIds(appConfig);
-  const roles = roleIds.map((roleId) => createRoleDescriptor(roleId, configuredRoles[roleId]));
+  const roles = roleIds.map((roleSid) => createRoleDescriptor(roleSid, configuredRoles[roleSid]));
   const assignableRoleIds = roles.filter((role) => role.assignable).map((role) => role.id);
   const configuredDefaultInviteRole = resolveConfiguredDefaultInviteRole(appConfig);
   const defaultInviteRole = assignableRoleIds.includes(configuredDefaultInviteRole)
@@ -109,8 +109,8 @@ function listRoleDescriptors(appConfig = {}) {
   }));
 }
 
-function resolveRolePermissions(roleId, appConfig = {}) {
-  const normalizedRoleId = normalizeRoleId(roleId);
+function resolveRolePermissions(roleSid, appConfig = {}) {
+  const normalizedRoleId = normalizeRoleId(roleSid);
   if (!normalizedRoleId) {
     return [];
   }

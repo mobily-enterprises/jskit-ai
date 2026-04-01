@@ -17,7 +17,7 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
         return {
           id: 13,
           authProvider: payload.authProvider,
-          authProviderUserId: payload.authProviderUserId,
+          authProviderUserSid: payload.authProviderUserSid,
           email: payload.email,
           displayName: payload.displayName
         };
@@ -42,7 +42,7 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
 
   const profile = await service.syncIdentityProfile({
     authProvider: "supabase",
-    authProviderUserId: "abc-1",
+    authProviderUserSid: "abc-1",
     email: "tony@example.com",
     displayName: "Tony"
   });
@@ -69,7 +69,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
         return {
           id: 7,
           authProvider: "supabase",
-          authProviderUserId: "abc-7",
+          authProviderUserSid: "abc-7",
           email: "tony@example.com",
           displayName: "Tony"
         };
@@ -96,7 +96,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
 
   const profile = await service.syncIdentityProfile({
     authProvider: "supabase",
-    authProviderUserId: "abc-7",
+    authProviderUserSid: "abc-7",
     email: "tony@example.com",
     displayName: "Tony"
   });
@@ -127,7 +127,7 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
 
   await service.findByIdentity({
     authProvider: "  SUPABASE  ",
-    authProviderUserId: " user-1 "
+    authProviderUserSid: " user-1 "
   });
 
   assert.deepEqual(capturedIdentity, {

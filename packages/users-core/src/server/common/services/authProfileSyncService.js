@@ -9,7 +9,7 @@ function buildNormalizedIdentityKey(identityLike) {
 
   return {
     authProvider: identity.provider,
-    authProviderUserId: identity.providerUserId
+    authProviderUserSid: identity.providerUserId
   };
 }
 
@@ -25,7 +25,7 @@ function buildNormalizedIdentityProfile(profileLike) {
 
   return {
     authProvider: identity.authProvider,
-    authProviderUserId: identity.authProviderUserId,
+    authProviderUserSid: identity.authProviderUserSid,
     email,
     displayName,
     username: normalizeLowerText(source.username)
@@ -41,7 +41,7 @@ function profileNeedsUpdate(existing, nextProfile) {
     existing.email !== nextProfile.email ||
     existing.displayName !== nextProfile.displayName ||
     existing.authProvider !== nextProfile.authProvider ||
-    existing.authProviderUserId !== nextProfile.authProviderUserId
+    existing.authProviderUserSid !== nextProfile.authProviderUserSid
   );
 }
 
@@ -69,7 +69,7 @@ function createService({ userProfilesRepository, workspaceProvisioningService = 
     return userProfilesRepository.findByIdentity(
       {
         provider: normalized.authProvider,
-        providerUserId: normalized.authProviderUserId
+        providerUserId: normalized.authProviderUserSid
       },
       options
     );
@@ -80,7 +80,7 @@ function createService({ userProfilesRepository, workspaceProvisioningService = 
     return userProfilesRepository.upsert(
       {
         authProvider: normalized.authProvider,
-        authProviderUserId: normalized.authProviderUserId,
+        authProviderUserSid: normalized.authProviderUserSid,
         email: normalized.email,
         displayName: normalized.displayName,
         username: normalized.username

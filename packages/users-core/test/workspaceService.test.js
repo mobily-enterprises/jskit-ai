@@ -95,7 +95,7 @@ function createWorkspaceServiceFixture({
             slug: "tonymobily3",
             name: "TonyMobily3",
             avatarUrl: "",
-            roleId: "owner",
+            roleSid: "owner",
             membershipStatus: "active"
           },
           {
@@ -103,7 +103,7 @@ function createWorkspaceServiceFixture({
             slug: "pending-workspace",
             name: "Pending Workspace",
             avatarUrl: "",
-            roleId: "member",
+            roleSid: "member",
             membershipStatus: "pending"
           }
         ];
@@ -158,7 +158,7 @@ function createWorkspaceServiceFixture({
         return {
           workspaceId,
           userId,
-          roleId: "owner",
+          roleSid: "owner",
           status: "active"
         };
       }
@@ -190,7 +190,7 @@ test("workspaceService.listWorkspacesForUser returns only accessible workspaces"
 
   assert.equal(workspaces.length, 1);
   assert.equal(workspaces[0].slug, "tonymobily3");
-  assert.equal(workspaces[0].roleId, "owner");
+  assert.equal(workspaces[0].roleSid, "owner");
   assert.equal(calls.listForUserId, 1);
   assert.equal(calls.insert, 0);
 });
@@ -220,7 +220,7 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "chiaramobily",
         name: "Chiara Personal",
         avatarUrl: "",
-        roleId: "owner",
+        roleSid: "owner",
         membershipStatus: "active"
       },
       {
@@ -228,7 +228,7 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "tonymobily",
         name: "Tony Workspace",
         avatarUrl: "",
-        roleId: "member",
+        roleSid: "member",
         membershipStatus: "active"
       },
       {
@@ -236,7 +236,7 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
         slug: "pending-workspace",
         name: "Pending Workspace",
         avatarUrl: "",
-        roleId: "member",
+        roleSid: "member",
         membershipStatus: "pending"
       }
     ]
@@ -393,7 +393,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug allows personal tena
   );
 
   assert.equal(context.workspace.slug, "team-alpha");
-  assert.equal(context.membership.roleId, "owner");
+  assert.equal(context.membership.roleSid, "owner");
   assert.deepEqual(context.permissions, ["*"]);
 });
 
@@ -439,7 +439,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
         membershipRecord = {
           workspaceId,
           userId,
-          roleId: "owner",
+          roleSid: "owner",
           status: "active"
         };
         return membershipRecord;
@@ -464,7 +464,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   );
 
   assert.equal(ensuredMembershipCount, 1);
-  assert.equal(context.membership.roleId, "owner");
+  assert.equal(context.membership.roleSid, "owner");
   assert.deepEqual(context.permissions, ["*"]);
 });
 

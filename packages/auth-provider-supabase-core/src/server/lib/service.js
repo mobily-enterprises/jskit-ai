@@ -399,15 +399,15 @@ function createService(options) {
     const authProvider = normalizeAuthProviderId(source.authProvider || authProviderId, {
       fallback: authProviderId
     });
-    const authProviderUserId = normalizeProviderUserId(source.authProviderUserId);
+    const authProviderUserSid = normalizeProviderUserId(source.authProviderUserSid);
 
-    if (!authProviderUserId) {
+    if (!authProviderUserSid) {
       throw new TypeError("Profile identity is missing required fields.");
     }
 
     return {
       authProvider,
-      authProviderUserId
+      authProviderUserSid
     };
   }
 
@@ -423,7 +423,7 @@ function createService(options) {
 
     return {
       authProvider: identity.authProvider,
-      authProviderUserId: identity.authProviderUserId,
+      authProviderUserSid: identity.authProviderUserSid,
       email,
       displayName
     };
@@ -434,7 +434,7 @@ function createService(options) {
     return userProfileSyncService.findByIdentity(
       {
         authProvider: normalized.authProvider,
-        authProviderUserId: normalized.authProviderUserId
+        authProviderUserSid: normalized.authProviderUserSid
       },
       options
     );
@@ -474,7 +474,7 @@ function createService(options) {
 
     return syncProfileMirror({
       authProvider: authProviderId,
-      authProviderUserId: supabaseUserId,
+      authProviderUserSid: supabaseUserId,
       email,
       displayName: resolveDisplayName(supabaseUser, email)
     });
@@ -488,7 +488,7 @@ function createService(options) {
 
     const existing = await findProfileByIdentity({
       authProvider: authProviderId,
-      authProviderUserId: supabaseUserId
+      authProviderUserSid: supabaseUserId
     });
     const emailFromToken = normalizeEmail(claims?.email || "");
 
@@ -501,7 +501,7 @@ function createService(options) {
 
     return syncProfileMirror({
       authProvider: authProviderId,
-      authProviderUserId: supabaseUserId,
+      authProviderUserSid: supabaseUserId,
       email: emailFromToken,
       displayName: resolveDisplayNameFromClaims(claims, emailFromToken)
     });

@@ -14,7 +14,7 @@ test("workspacePendingInvitationsResource output normalizer shapes raw invite ro
         workspaceSlug: "tonymobily3",
         workspaceName: "",
         workspaceAvatarUrl: "",
-        roleId: "Member",
+        roleSid: "Member",
         status: "Pending",
         expiresAt: "2030-01-01T00:00:00.000Z",
         tokenHash
@@ -29,7 +29,7 @@ test("workspacePendingInvitationsResource output normalizer shapes raw invite ro
       workspaceSlug: "tonymobily3",
       workspaceName: "tonymobily3",
       workspaceAvatarUrl: "",
-      roleId: "member",
+      roleSid: "member",
       status: "pending",
       expiresAt: "2030-01-01T00:00:00.000Z",
       token: encodeInviteTokenHash(tokenHash)

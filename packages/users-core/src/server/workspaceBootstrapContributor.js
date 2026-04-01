@@ -319,7 +319,7 @@ function createWorkspaceBootstrapContributor({
         const latestProfile =
           (await userProfilesRepository.findByIdentity({
             provider: normalizedUser.authProvider,
-            providerUserId: normalizedUser.authProviderUserId
+            providerUserId: normalizedUser.authProviderUserSid
           })) || normalizedUser;
 
         const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
@@ -362,7 +362,7 @@ function createWorkspaceBootstrapContributor({
           pendingInvites,
           activeWorkspace: workspaceContext
             ? mapWorkspaceSummary(workspaceContext.workspace, {
-                roleId: workspaceContext.membership?.roleId,
+                roleSid: workspaceContext.membership?.roleSid,
                 status: workspaceContext.membership?.status
               })
             : null,

@@ -13,7 +13,7 @@ const USERNAME_MAX_LENGTH = 120;
 function normalizeIdentity(identityLike) {
   const source = identityLike && typeof identityLike === "object" ? identityLike : {};
   const provider = normalizeLowerText(source.provider || source.authProvider);
-  const providerUserId = normalizeText(source.providerUserId || source.authProviderUserId);
+  const providerUserId = normalizeText(source.providerUserId || source.authProviderUserSid);
   if (!provider || !providerUserId) {
     return null;
   }
@@ -57,7 +57,7 @@ function mapProfileRow(row) {
   return {
     id: Number(row.id),
     authProvider: normalizeLowerText(row.auth_provider),
-    authProviderUserId: normalizeText(row.auth_provider_user_id),
+    authProviderUserSid: normalizeText(row.auth_provider_user_sid),
     email: normalizeLowerText(row.email),
     username: normalizeLowerText(row.username),
     displayName: normalizeText(row.display_name),
@@ -123,7 +123,7 @@ function createRepository(knex) {
     const row = await client("users")
       .where({
         auth_provider: identity.provider,
-        auth_provider_user_id: identity.providerUserId
+        auth_provider_user_sid: identity.providerUserId
       })
       .first();
     return mapProfileRow(row);
@@ -168,7 +168,7 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const identity = normalizeIdentity(profileLike);
     if (!identity) {
-      throw new TypeError("upsert requires provider/authProvider and providerUserId/authProviderUserId.");
+      throw new TypeError("upsert requires provider/authProvider and providerUserId/authProviderUserSid.");
     }
 
     const email = normalizeLowerText(profileLike.email);
@@ -181,7 +181,7 @@ function createRepository(knex) {
     const executeUpsert = async (trx) => {
       const where = {
         auth_provider: identity.provider,
-        auth_provider_user_id: identity.providerUserId
+        auth_provider_user_sid: identity.providerUserId
       };
       const existing = await trx("users").where(where).first();
 
@@ -200,7 +200,7 @@ function createRepository(knex) {
           const username = await resolveUniqueUsername(trx, requestedUsername || usernameBaseFromEmail(email));
           await trx("users").insert({
             auth_provider: identity.provider,
-            auth_provider_user_id: identity.providerUserId,
+            auth_provider_user_sid: identity.providerUserId,
             email,
             display_name: displayName,
             username
