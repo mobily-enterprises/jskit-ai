@@ -65,7 +65,7 @@ function createActions({ surface = "" } = {}) {
         require: "authenticated"
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, lookupIncludeQueryValidator],
-      outputValidator: ${option:namespace|singular|camel}Resource.operations.view.outputValidator,
+      outputValidator: resource.operations.view.outputValidator,
       idempotency: "none",
       audit: {
         actionName: actionIds.view

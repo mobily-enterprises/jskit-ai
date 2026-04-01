@@ -1,3 +1,3 @@
 export {
-  ${option:namespace|singular|camel}Resource
+  resource
 } from "./${option:namespace|singular|camel}Resource.js";
