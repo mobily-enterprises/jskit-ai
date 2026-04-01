@@ -7,7 +7,7 @@ function mapWorkspaceSummary(workspace, membership) {
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name),
     avatarUrl: normalizeText(workspace.avatarUrl),
-    roleId: normalizeLowerText(membership?.roleId || "member") || "member",
+    roleSid: normalizeLowerText(membership?.roleSid || "member") || "member",
     isAccessible: normalizeLowerText(membership?.status || "active") === "active"
   };
 }
@@ -40,7 +40,7 @@ function mapMembershipSummary(membership, workspace) {
 
   return {
     workspaceId: Number(workspace?.id || membership.workspaceId),
-    roleId: normalizeLowerText(membership.roleId || "member") || "member",
+    roleSid: normalizeLowerText(membership.roleSid || "member") || "member",
     status: normalizeLowerText(membership.status || "active") || "active"
   };
 }

@@ -37,7 +37,7 @@ import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/su
 const forms = reactive({
   invite: {
     email: "",
-    roleId: "member"
+    roleSid: "member"
   },
   workspace: {
     invitesEnabled: false,
@@ -139,7 +139,7 @@ function clearRoleOptions() {
 function resetViewState() {
   resetMessages();
   forms.invite.email = "";
-  forms.invite.roleId = "member";
+  forms.invite.roleSid = "member";
   forms.workspace.invitesEnabled = false;
   forms.workspace.invitesAvailable = false;
   collections.members = [];
@@ -149,8 +149,8 @@ function resetViewState() {
   removeMemberUserId.value = 0;
 }
 
-function toRoleTitle(roleId) {
-  const normalizedRoleId = String(roleId || "").trim();
+function toRoleTitle(roleSid) {
+  const normalizedRoleId = String(roleSid || "").trim();
   if (!normalizedRoleId) {
     return "";
   }
@@ -182,9 +182,9 @@ function normalizeRoleCatalog(payload = {}) {
   }
 
   const uniqueRoleIds = Array.from(new Set(assignableRoleIds));
-  const roleOptions = uniqueRoleIds.map((roleId) => ({
-    title: toRoleTitle(roleId),
-    value: roleId
+  const roleOptions = uniqueRoleIds.map((roleSid) => ({
+    title: toRoleTitle(roleSid),
+    value: roleSid
   }));
 
   const defaultInviteRole = String(source.defaultInviteRole || "")
@@ -202,19 +202,19 @@ function applyRoleCatalog(payload = {}) {
   options.inviteRoleOptions = [...normalizedCatalog.roleOptions];
   options.memberRoleOptions = [...normalizedCatalog.roleOptions];
 
-  const selectedInviteRole = String(forms.invite.roleId || "").trim().toLowerCase();
+  const selectedInviteRole = String(forms.invite.roleSid || "").trim().toLowerCase();
   const hasSelectedInviteRole = normalizedCatalog.roleOptions.some((entry) => entry.value === selectedInviteRole);
 
   if (
     normalizedCatalog.defaultInviteRole &&
     normalizedCatalog.roleOptions.some((entry) => entry.value === normalizedCatalog.defaultInviteRole)
   ) {
-    forms.invite.roleId = normalizedCatalog.defaultInviteRole;
+    forms.invite.roleSid = normalizedCatalog.defaultInviteRole;
     return;
   }
 
   if (!hasSelectedInviteRole && normalizedCatalog.roleOptions.length > 0) {
-    forms.invite.roleId = normalizedCatalog.roleOptions[0].value;
+    forms.invite.roleSid = normalizedCatalog.roleOptions[0].value;
   }
 }
 
@@ -224,7 +224,7 @@ function normalizeMembers(entries) {
     const value = entry && typeof entry === "object" ? entry : {};
     return {
       userId: Number(value.userId || 0),
-      roleId: String(value.roleId || "").trim().toLowerCase(),
+      roleSid: String(value.roleSid || "").trim().toLowerCase(),
       status: String(value.status || "").trim().toLowerCase(),
       displayName: String(value.displayName || "").trim(),
       email: String(value.email || "").trim().toLowerCase(),
@@ -240,7 +240,7 @@ function normalizeInvites(entries) {
     return {
       id: Number(value.id || 0),
       email: String(value.email || "").trim().toLowerCase(),
-      roleId: String(value.roleId || "").trim().toLowerCase(),
+      roleSid: String(value.roleSid || "").trim().toLowerCase(),
       status: String(value.status || "").trim().toLowerCase(),
       expiresAt: value.expiresAt || "",
       invitedByUserId: value.invitedByUserId == null ? null : Number(value.invitedByUserId)
@@ -319,7 +319,7 @@ const inviteCreateCommand = useCommand({
   fallbackRunError: "Unable to send invite.",
   buildRawPayload: () => ({
     email: forms.invite.email,
-    roleId: forms.invite.roleId
+    roleSid: forms.invite.roleSid
   }),
   messages: {
     success: "Invite sent.",
@@ -352,7 +352,7 @@ const memberRoleCommand = useCommand({
   writeMethod: "PATCH",
   fallbackRunError: "Unable to update member role.",
   buildRawPayload: (_model, { context }) => ({
-    roleId: String(context?.roleId || "").trim().toLowerCase()
+    roleSid: String(context?.roleSid || "").trim().toLowerCase()
   }),
   buildCommandOptions: (_parsed, { context }) => {
     return {
@@ -595,7 +595,7 @@ async function submitRevokeInvite(inviteId) {
   }
 }
 
-async function submitMemberRoleUpdate(member, roleId) {
+async function submitMemberRoleUpdate(member, roleSid) {
   if (!canManageMembers.value) {
     return;
   }
@@ -610,7 +610,7 @@ async function submitMemberRoleUpdate(member, roleId) {
 
     await memberRoleCommand.run({
       memberUserId,
-      roleId
+      roleSid
     });
     await Promise.all([
       workspaceMembersList.reload(),

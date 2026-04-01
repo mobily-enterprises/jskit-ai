@@ -50,8 +50,8 @@ function buildWorkspaceName(user = {}) {
 }
 
 function buildPermissionsFromMembership(membership, appConfig = {}) {
-  const roleId = normalizeLowerText(membership?.roleId || "member");
-  return resolveRolePermissions(roleId, appConfig);
+  const roleSid = normalizeLowerText(membership?.roleSid || "member");
+  return resolveRolePermissions(roleSid, appConfig);
 }
 
 function hashInviteToken(token) {
@@ -145,7 +145,7 @@ function createService({
 
     const list = await workspacesRepository.listForUserId(normalizedUser.id, options);
     const accessible = list
-      .map((entry) => mapWorkspaceSummary(entry, { roleId: entry.roleId, status: entry.membershipStatus }))
+      .map((entry) => mapWorkspaceSummary(entry, { roleSid: entry.roleSid, status: entry.membershipStatus }))
       .filter((entry) => entry.isAccessible);
 
     return accessible;

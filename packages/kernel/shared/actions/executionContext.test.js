@@ -42,11 +42,11 @@ test("normalizeExecutionContext keeps actor payload generic", () => {
     actor: {
       id: "user_1",
       email: "UPPER@EXAMPLE.COM",
-      roleId: "OWNER",
+      roleSid: "OWNER",
       customFlag: true
     },
     membership: {
-      roleId: "OWNER",
+      roleSid: "OWNER",
       status: "ACTIVE",
       extra: "x"
     }
@@ -55,11 +55,11 @@ test("normalizeExecutionContext keeps actor payload generic", () => {
   assert.deepEqual(context.actor, {
     id: "user_1",
     email: "UPPER@EXAMPLE.COM",
-    roleId: "OWNER",
+    roleSid: "OWNER",
     customFlag: true
   });
   assert.deepEqual(context.membership, {
-    roleId: "OWNER",
+    roleSid: "OWNER",
     status: "ACTIVE",
     extra: "x"
   });

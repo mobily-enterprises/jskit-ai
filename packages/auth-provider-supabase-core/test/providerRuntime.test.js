@@ -48,7 +48,7 @@ test("auth supabase provider registers authService and contributes auth actions 
       return {
         id: 1,
         authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserId: String(profile?.authProviderUserId || "user-1"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
         email: String(profile?.email || "test@example.com"),
         displayName: String(profile?.displayName || "Test User")
       };

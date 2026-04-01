@@ -25,7 +25,7 @@ test("assistant output schemas accept normalized paginated payloads", () => {
       status: "active",
       provider: "openai",
       model: "gpt-4.1",
-      surfaceId: "admin",
+      surfaceSid: "admin",
       startedAt: "2026-03-16T10:00:00.000Z",
       endedAt: null,
       messageCount: 2,

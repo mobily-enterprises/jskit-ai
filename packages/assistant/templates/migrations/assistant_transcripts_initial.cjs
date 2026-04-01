@@ -3,13 +3,13 @@ exports.up = async function up(knex) {
   if (!hasConversationsTable) {
     await knex.schema.createTable("ai_conversations", (table) => {
       table.increments("id").unsigned().primary();
-      table.integer("workspace_id").unsigned().notNullable().index();
-      table.integer("created_by_user_id").unsigned().nullable().index();
+      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE").index();
+      table.integer("created_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL").index();
       table.string("title", 160).notNullable().defaultTo("New conversation");
       table.string("status", 32).notNullable().defaultTo("active");
       table.string("provider", 64).notNullable().defaultTo("");
       table.string("model", 128).notNullable().defaultTo("");
-      table.string("surface_id", 32).notNullable().defaultTo("admin");
+      table.string("surface_sid", 32).notNullable().defaultTo("admin");
       table.integer("message_count").unsigned().notNullable().defaultTo(0);
       table.text("metadata_json").nullable();
       table.timestamp("started_at").notNullable().defaultTo(knex.fn.now());
@@ -27,12 +27,12 @@ exports.up = async function up(knex) {
     await knex.schema.createTable("ai_messages", (table) => {
       table.increments("id").unsigned().primary();
       table.integer("conversation_id").unsigned().notNullable().references("id").inTable("ai_conversations").onDelete("CASCADE");
-      table.integer("workspace_id").unsigned().notNullable().index();
+      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE").index();
       table.integer("seq").unsigned().notNullable();
       table.string("role", 32).notNullable();
       table.string("kind", 32).notNullable().defaultTo("chat");
-      table.string("client_message_id", 128).notNullable().defaultTo("");
-      table.integer("actor_user_id").unsigned().nullable().index();
+      table.string("client_message_sid", 128).notNullable().defaultTo("");
+      table.integer("actor_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL").index();
       table.text("content_text").nullable();
       table.text("metadata_json").nullable();
       table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());

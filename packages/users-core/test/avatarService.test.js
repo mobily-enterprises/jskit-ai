@@ -41,7 +41,7 @@ test("avatarService uploadForUser stores bytes and updates profile avatar fields
   const repository = createRepositoryDouble({
     id: 7,
     authProvider: "local",
-    authProviderUserId: "u-7",
+    authProviderUserSid: "u-7",
     email: "test@example.com",
     displayName: "Tester",
     avatarStorageKey: null,
@@ -65,7 +65,7 @@ test("avatarService uploadForUser stores bytes and updates profile avatar fields
 
   const user = {
     authProvider: "local",
-    authProviderUserId: "u-7"
+    authProviderUserSid: "u-7"
   };
 
   const result = await avatarService.uploadForUser(user, {
@@ -84,7 +84,7 @@ test("avatarService clearForUser removes stored avatar and clears profile fields
   const repository = createRepositoryDouble({
     id: 7,
     authProvider: "local",
-    authProviderUserId: "u-7",
+    authProviderUserSid: "u-7",
     email: "test@example.com",
     displayName: "Tester",
     avatarStorageKey: "users/avatars/7/avatar",
@@ -105,7 +105,7 @@ test("avatarService clearForUser removes stored avatar and clears profile fields
 
   const profile = await avatarService.clearForUser({
     authProvider: "local",
-    authProviderUserId: "u-7"
+    authProviderUserSid: "u-7"
   });
 
   assert.deepEqual(deletedKeys, ["users/avatars/7/avatar"]);

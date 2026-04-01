@@ -69,7 +69,7 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
       "auth.policy.contextResolver",
       async ({ actor, request }) => ({
         workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
-        membership: { roleId: "member" },
+        membership: { roleSid: "member" },
         permissions: actor?.id === 7 ? ["projects.read"] : []
       })
     ]
@@ -107,6 +107,6 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
   await state.preHandler(request, {});
   assert.equal(request.workspace?.id, 11);
   assert.equal(request.workspace?.slug, "acme");
-  assert.equal(request.membership?.roleId, "member");
+  assert.equal(request.membership?.roleSid, "member");
   assert.deepEqual(request.permissions, ["projects.read"]);
 });

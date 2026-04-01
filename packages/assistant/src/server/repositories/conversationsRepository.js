@@ -21,7 +21,7 @@ function mapConversationRow(row = {}) {
     status: String(row.status || "active"),
     provider: String(row.provider || ""),
     model: String(row.model || ""),
-    surfaceId: String(row.surface_id || ""),
+    surfaceSid: String(row.surface_sid || ""),
     startedAt: toIso(row.started_at),
     endedAt: row.ended_at ? toIso(row.ended_at) : null,
     messageCount: Number(row.message_count || 0),
@@ -101,7 +101,7 @@ function createConversationsRepository(knex) {
       status: normalizeText(payload.status).toLowerCase() || "active",
       provider: normalizeText(payload.provider),
       model: normalizeText(payload.model),
-      surface_id: normalizeText(payload.surfaceId).toLowerCase() || "admin",
+      surface_sid: normalizeText(payload.surfaceSid).toLowerCase() || "admin",
       message_count: parsePositiveInteger(payload.messageCount) || 0,
       metadata_json: stringifyJsonObject(payload.metadata),
       started_at: payload.startedAt ? new Date(payload.startedAt) : now,
@@ -140,8 +140,8 @@ function createConversationsRepository(knex) {
     if (Object.hasOwn(patch, "model")) {
       updatePatch.model = normalizeText(patch.model);
     }
-    if (Object.hasOwn(patch, "surfaceId")) {
-      updatePatch.surface_id = normalizeText(patch.surfaceId).toLowerCase() || "admin";
+    if (Object.hasOwn(patch, "surfaceSid")) {
+      updatePatch.surface_sid = normalizeText(patch.surfaceSid).toLowerCase() || "admin";
     }
     if (Object.hasOwn(patch, "messageCount")) {
       updatePatch.message_count = Math.max(0, Number(patch.messageCount || 0));

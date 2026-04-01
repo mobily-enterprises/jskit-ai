@@ -2,20 +2,20 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actio
 
 const USER_PROFILE_EMAIL_CONFLICT_CODE = "USER_PROFILE_EMAIL_CONFLICT";
 
-function buildIdentityKey({ authProvider, authProviderUserId } = {}) {
-  return `${normalizeLowerText(authProvider)}:${normalizeText(authProviderUserId)}`;
+function buildIdentityKey({ authProvider, authProviderUserSid } = {}) {
+  return `${normalizeLowerText(authProvider)}:${normalizeText(authProviderUserSid)}`;
 }
 
 function normalizeIdentity(identityLike) {
   const source = identityLike && typeof identityLike === "object" ? identityLike : {};
   const authProvider = normalizeLowerText(source.authProvider || source.provider);
-  const authProviderUserId = normalizeText(source.authProviderUserId || source.providerUserId);
-  if (!authProvider || !authProviderUserId) {
-    throw new TypeError("Standalone profile sync requires authProvider and authProviderUserId.");
+  const authProviderUserSid = normalizeText(source.authProviderUserSid || source.providerUserId);
+  if (!authProvider || !authProviderUserSid) {
+    throw new TypeError("Standalone profile sync requires authProvider and authProviderUserSid.");
   }
   return {
     authProvider,
-    authProviderUserId
+    authProviderUserSid
   };
 }
 
@@ -29,7 +29,7 @@ function normalizeProfile(profileLike) {
   }
   return {
     authProvider: identity.authProvider,
-    authProviderUserId: identity.authProviderUserId,
+    authProviderUserSid: identity.authProviderUserSid,
     email,
     displayName
   };
@@ -68,7 +68,7 @@ function createStandaloneProfileSyncService() {
     const next = {
       id: Number(existing?.id || nextId++),
       authProvider: normalizedProfile.authProvider,
-      authProviderUserId: normalizedProfile.authProviderUserId,
+      authProviderUserSid: normalizedProfile.authProviderUserSid,
       email: normalizedProfile.email,
       displayName: normalizedProfile.displayName
     };

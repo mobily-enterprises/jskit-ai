@@ -62,12 +62,12 @@ function createService({
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
     const memberUserId = payload.memberUserId;
-    const roleId = payload.roleId;
-    if (!assignableRoleIds.includes(roleId)) {
+    const roleSid = payload.roleSid;
+    if (!assignableRoleIds.includes(roleSid)) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            roleId: "Role is not assignable."
+            roleSid: "Role is not assignable."
           }
         }
       });
@@ -77,7 +77,7 @@ function createService({
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
+    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleSid === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot change workspace owner role.");
     }
 
@@ -85,7 +85,7 @@ function createService({
       workspace.id,
       memberUserId,
       {
-        roleId,
+        roleSid,
         status: "active"
       },
       options
@@ -101,7 +101,7 @@ function createService({
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleId === OWNER_ROLE_ID) {
+    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleSid === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot remove workspace owner.");
     }
 
@@ -109,7 +109,7 @@ function createService({
       workspace.id,
       memberUserId,
       {
-        roleId: existingMembership.roleId,
+        roleSid: existingMembership.roleSid,
         status: "revoked"
       },
       options
@@ -134,12 +134,12 @@ function createService({
 
   async function createInvite(workspace, user, payload = {}, options = {}) {
     const email = payload.email;
-    const roleId = payload.roleId;
-    if (!assignableRoleIds.includes(roleId)) {
+    const roleSid = payload.roleSid;
+    if (!assignableRoleIds.includes(roleSid)) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            roleId: "Role is not assignable."
+            roleSid: "Role is not assignable."
           }
         }
       });
@@ -152,7 +152,7 @@ function createService({
       {
         workspaceId: workspace.id,
         email,
-        roleId,
+        roleSid,
         status: "pending",
         tokenHash,
         invitedByUserId: Number(user?.id || 0) || null,

@@ -1,5 +1,5 @@
 function resolveMembershipRoleId(membershipLike) {
-  return String(membershipLike?.roleId || "").trim();
+  return String(membershipLike?.roleSid || "").trim();
 }
 
 function resolveMembershipStatus(membershipLike) {
@@ -7,8 +7,8 @@ function resolveMembershipStatus(membershipLike) {
 }
 
 function normalizeMembershipForAccess(membershipLike) {
-  const roleId = resolveMembershipRoleId(membershipLike);
-  if (!roleId) {
+  const roleSid = resolveMembershipRoleId(membershipLike);
+  if (!roleSid) {
     return null;
   }
 
@@ -18,7 +18,7 @@ function normalizeMembershipForAccess(membershipLike) {
   }
 
   return {
-    roleId,
+    roleSid,
     status
   };
 }

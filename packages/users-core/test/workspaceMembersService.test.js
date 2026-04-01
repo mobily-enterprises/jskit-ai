@@ -52,7 +52,7 @@ function createFixture() {
         return [
           {
             userId: 11,
-            roleId: "member",
+            roleSid: "member",
             status: "active",
             displayName: "Alice",
             email: "alice@example.com"
@@ -65,7 +65,7 @@ function createFixture() {
         return {
           workspaceId: 7,
           userId: 11,
-          roleId: "member",
+          roleSid: "member",
           status: "active"
         };
       },
@@ -73,7 +73,7 @@ function createFixture() {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
         assert.deepEqual(patch, {
-          roleId: "admin",
+          roleSid: "admin",
           status: "active"
         });
       }
@@ -134,7 +134,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
     { id: 11 },
     {
       email: "alice@example.com",
-      roleId: "member"
+      roleSid: "member"
     },
     authorizedOptions(["workspace.members.invite"])
   );
@@ -260,13 +260,13 @@ test("workspaceMembersService.updateMemberRole returns the refreshed member list
     workspace,
     {
       memberUserId: 11,
-      roleId: "admin"
+      roleSid: "admin"
     },
     authorizedOptions(["workspace.members.manage"])
   );
 
   assert.equal(response.members.length, 1);
-  assert.equal(response.members[0].roleId, "member");
+  assert.equal(response.members[0].roleSid, "member");
 });
 
 test("workspaceMembersService.removeMember marks membership revoked and returns refreshed members", async () => {
@@ -287,7 +287,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
           : [
               {
                 userId: 11,
-                roleId: "member",
+                roleSid: "member",
                 status: "active",
                 displayName: "Alice",
                 email: "alice@example.com"
@@ -300,7 +300,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
         return {
           workspaceId: 7,
           userId: 11,
-          roleId: "member",
+          roleSid: "member",
           status: "active"
         };
       },
@@ -308,7 +308,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
         assert.deepEqual(patch, {
-          roleId: "member",
+          roleSid: "member",
           status: "revoked"
         });
         removed = true;
@@ -359,7 +359,7 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
         return {
           workspaceId: 7,
           userId: 9,
-          roleId: "owner",
+          roleSid: "owner",
           status: "active"
         };
       },

@@ -33,7 +33,7 @@ const invites = props.runtime.invites;
             v-for="invite in invites.items.value"
             :key="invite.id"
             :title="invite.workspaceName"
-            :subtitle="`/${invite.workspaceSlug} • role: ${invite.roleId}`"
+            :subtitle="`/${invite.workspaceSlug} • role: ${invite.roleSid}`"
             class="px-0"
           >
             <template #prepend>

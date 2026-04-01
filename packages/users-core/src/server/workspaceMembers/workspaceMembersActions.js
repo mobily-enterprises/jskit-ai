@@ -68,7 +68,7 @@ const workspaceMembersActions = Object.freeze([
     async execute(input, context, deps) {
       return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId,
-        roleId: input.roleId
+        roleSid: input.roleSid
       }, {
         context
       });
@@ -150,7 +150,7 @@ const workspaceMembersActions = Object.freeze([
         resolveActionUser(context, input),
         {
           email: input.email,
-          roleId: input.roleId
+          roleSid: input.roleSid
         },
         {
           context

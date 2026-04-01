@@ -25,7 +25,7 @@ function normalizePendingInvite(invite) {
     workspaceSlug: normalizeText(invite?.workspaceSlug),
     workspaceName: normalizeText(invite?.workspaceName || invite?.workspaceSlug),
     workspaceAvatarUrl: normalizeText(invite?.workspaceAvatarUrl),
-    roleId: normalizeLowerText(invite?.roleId || "member") || "member",
+    roleSid: normalizeLowerText(invite?.roleSid || "member") || "member",
     status: normalizeLowerText(invite?.status || "pending") || "pending",
     expiresAt: invite?.expiresAt || null,
     token: encodeInviteTokenHash(tokenHash)
@@ -44,7 +44,7 @@ const pendingInviteRecordValidator = Object.freeze({
       workspaceSlug: Type.String({ minLength: 1 }),
       workspaceName: Type.String({ minLength: 1 }),
       workspaceAvatarUrl: Type.String(),
-      roleId: Type.String({ minLength: 1 }),
+      roleSid: Type.String({ minLength: 1 }),
       status: Type.String({ minLength: 1 }),
       expiresAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
       token: Type.String({ minLength: 1 })

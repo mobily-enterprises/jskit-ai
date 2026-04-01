@@ -19,7 +19,7 @@ test("workspace action context contributor resolves workspace context for worksp
             slug: "acme"
           },
           membership: {
-            roleId: "owner"
+            roleSid: "owner"
           },
           permissions: ["workspace.settings.update"]
         };
@@ -64,7 +64,7 @@ test("workspace action context contributor resolves workspace context for worksp
           slug: "acme"
         },
         membership: {
-          roleId: "owner"
+          roleSid: "owner"
         },
         permissions: ["workspace.settings.update"]
       }
@@ -74,7 +74,7 @@ test("workspace action context contributor resolves workspace context for worksp
       slug: "acme"
     },
     membership: {
-      roleId: "owner"
+      roleSid: "owner"
     },
     permissions: ["workspace.settings.update"]
   });
@@ -113,7 +113,7 @@ test("workspace action context contributor always resolves and stores resolved c
             ownerUserId: 77
           },
           membership: {
-            roleId: "owner"
+            roleSid: "owner"
           },
           permissions: ["workspace.settings.update"]
         };
@@ -161,13 +161,13 @@ test("workspace action context contributor always resolves and stores resolved c
           ownerUserId: 77
         },
         membership: {
-          roleId: "owner"
+          roleSid: "owner"
         },
         permissions: ["workspace.settings.update"]
       }
     },
     membership: {
-      roleId: "owner"
+      roleSid: "owner"
     },
     permissions: ["workspace.settings.update"]
   });
@@ -185,7 +185,7 @@ test("workspace action context contributor resolves context for workspace-visibl
             slug: "acme"
           },
           membership: {
-            roleId: "admin"
+            roleSid: "admin"
           },
           permissions: ["assistant.chat.use"]
         };
@@ -234,7 +234,7 @@ test("workspace action context contributor resolves context for workspace-visibl
           slug: "acme"
         },
         membership: {
-          roleId: "admin"
+          roleSid: "admin"
         },
         permissions: ["assistant.chat.use"]
       }
@@ -244,7 +244,7 @@ test("workspace action context contributor resolves context for workspace-visibl
       slug: "acme"
     },
     membership: {
-      roleId: "admin"
+      roleSid: "admin"
     },
     permissions: ["assistant.chat.use"]
   });

@@ -561,7 +561,7 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog, as
         conversationId: source.conversationId,
         provider: aiClient.provider,
         model: aiClient.defaultModel,
-        surfaceId: context.surface,
+        surfaceSid: context.surface,
         messageId: source.messageId
       },
       {
@@ -580,10 +580,10 @@ function createChatService({ aiClient, transcriptService, serviceToolCatalog, as
       {
         role: "user",
         kind: "chat",
-        clientMessageId: source.messageId,
+        clientMessageSid: source.messageId,
         contentText: source.input,
         metadata: {
-          surfaceId: normalizeText(context.surface)
+          surfaceSid: normalizeText(context.surface)
         }
       },
       {

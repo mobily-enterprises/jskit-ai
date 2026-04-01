@@ -421,7 +421,7 @@ watch(
                       :title="workspace.name"
                       :subtitle="
                         workspace.isAccessible
-                          ? `/${workspace.slug} • role: ${workspace.roleId || 'member'}`
+                          ? `/${workspace.slug} • role: ${workspace.roleSid || 'member'}`
                           : `/${workspace.slug} • unavailable on this surface`
                       "
                       class="px-0"
@@ -466,7 +466,7 @@ watch(
                       v-for="invite in pendingInvites"
                       :key="invite.id"
                       :title="invite.workspaceName"
-                      :subtitle="`Role: ${invite.roleId}`"
+                      :subtitle="`Role: ${invite.roleSid}`"
                       class="px-0"
                     >
                       <template #prepend>

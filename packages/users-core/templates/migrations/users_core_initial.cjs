@@ -5,7 +5,7 @@ exports.up = async function up(knex) {
   await knex.schema.createTable("users", (table) => {
     table.increments("id").primary();
     table.string("auth_provider", 64).notNullable();
-    table.string("auth_provider_user_id", 191).notNullable();
+    table.string("auth_provider_user_sid", 191).notNullable();
     table.string("email", 255).notNullable();
     table.string("username", 120).notNullable();
     table.string("display_name", 160).notNullable();
@@ -13,7 +13,7 @@ exports.up = async function up(knex) {
     table.string("avatar_version", 64).nullable();
     table.timestamp("avatar_updated_at", { useTz: false }).nullable();
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
-    table.unique(["auth_provider", "auth_provider_user_id"], "uq_users_identity");
+    table.unique(["auth_provider", "auth_provider_user_sid"], "uq_users_identity");
     table.unique(["email"], "uq_users_email");
     table.unique(["username"], "uq_users_username");
   });
@@ -35,7 +35,7 @@ exports.up = async function up(knex) {
     table.increments("id").primary();
     table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
     table.integer("user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
-    table.string("role_id", 64).notNullable().defaultTo("member");
+    table.string("role_sid", 64).notNullable().defaultTo("member");
     table.string("status", 32).notNullable().defaultTo("active");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
@@ -63,7 +63,7 @@ exports.up = async function up(knex) {
     table.increments("id").primary();
     table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
     table.string("email", 255).notNullable();
-    table.string("role_id", 64).notNullable().defaultTo("member");
+    table.string("role_sid", 64).notNullable().defaultTo("member");
     table.string("status", 32).notNullable().defaultTo("pending");
     table.string("token_hash", 191).notNullable();
     table.integer("invited_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
@@ -97,7 +97,7 @@ exports.up = async function up(knex) {
 
   await knex.schema.createTable("console_settings", (table) => {
     table.integer("id").primary();
-    table.integer("owner_user_id").unsigned().nullable();
+    table.integer("owner_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
     table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
   });

@@ -30,7 +30,7 @@ function normalizeWorkspaceEntry(entry) {
     surfaceColor: String(entry.surfaceColor || "").trim(),
     surfaceVariantColor: String(entry.surfaceVariantColor || "").trim(),
     avatarUrl: String(entry.avatarUrl || "").trim(),
-    roleId: String(entry.roleId || "member").trim().toLowerCase() || "member",
+    roleSid: String(entry.roleSid || "member").trim().toLowerCase() || "member",
     isAccessible: entry.isAccessible !== false
   });
 }
