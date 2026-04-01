@@ -1,5 +1,5 @@
-import { computed } from "vue";
-import { useInfiniteQuery } from "@tanstack/vue-query";
+import { computed, unref } from "vue";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { asPlainObject } from "./scopeHelpers.js";
 import { resolveEnabledRef } from "./refValueHelpers.js";
 import { toQueryErrorMessage } from "./errorMessageHelpers.js";
@@ -10,6 +10,42 @@ function defaultSelectItems(page) {
 
 function defaultGetNextPageParam(lastPage) {
   return lastPage?.nextCursor ?? null;
+}
+
+function normalizeQueryKeyValue(queryKey = null) {
+  const resolved = unref(queryKey);
+  if (Array.isArray(resolved)) {
+    return resolved;
+  }
+  if (resolved === null || resolved === undefined || resolved === "") {
+    return [];
+  }
+
+  return [resolved];
+}
+
+function trimInfinitePagesToFirst(data = null) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return data;
+  }
+
+  const sourcePages = Array.isArray(data.pages) ? data.pages : [];
+  const sourcePageParams = Array.isArray(data.pageParams) ? data.pageParams : [];
+  if (sourcePages.length < 2 && sourcePageParams.length < 2) {
+    return data;
+  }
+  const pages = sourcePages.slice(0, 1);
+  const pageParams = sourcePageParams.length > 0
+    ? sourcePageParams.slice(0, 1)
+    : pages.length > 0
+      ? [null]
+      : [];
+
+  return {
+    ...data,
+    pages,
+    pageParams
+  };
 }
 
 function usePagedCollection({
@@ -36,7 +72,9 @@ function usePagedCollection({
     throw new TypeError("usePagedCollection dedupeBy must be a function when provided.");
   }
 
+  const queryClient = useQueryClient();
   const queryEnabled = computed(() => resolveEnabledRef(enabled));
+  const normalizedQueryKey = computed(() => normalizeQueryKeyValue(queryKey));
 
   const query = useInfiniteQuery({
     queryKey,
@@ -106,6 +144,15 @@ function usePagedCollection({
     return query.fetchNextPage();
   }
 
+  function trimToFirstPage() {
+    const key = normalizedQueryKey.value;
+    if (key.length < 1) {
+      return;
+    }
+
+    queryClient.setQueryData(key, (data) => trimInfinitePagesToFirst(data));
+  }
+
   return Object.freeze({
     query,
     pages,
@@ -118,8 +165,12 @@ function usePagedCollection({
     hasMore,
     loadError,
     reload,
-    loadMore
+    loadMore,
+    trimToFirstPage
   });
 }
 
-export { usePagedCollection };
+export {
+  usePagedCollection,
+  trimInfinitePagesToFirst
+};

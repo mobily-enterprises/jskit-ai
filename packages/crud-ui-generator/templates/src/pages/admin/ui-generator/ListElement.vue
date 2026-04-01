@@ -40,8 +40,8 @@
               <tr>
 __JSKIT_UI_LIST_HEADER_COLUMNS__
                 <!-- jskit:crud-ui-fields:list-header -->
-                <th v-if="UI_VIEW_URL" class="text-right">Open</th>
-                <th v-if="UI_EDIT_URL" class="text-right">Edit</th>
+                <th v-if="UI_VIEW_URL" class="text-right"></th>
+                <th v-if="UI_EDIT_URL" class="text-right"></th>
               </tr>
             </thead>
             <tbody>
