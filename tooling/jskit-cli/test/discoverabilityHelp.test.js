@@ -114,8 +114,8 @@ test("generate <generatorId> help prints generator-specific option contract", as
     const stdout = String(result.stdout || "");
     assert.match(stdout, /Generator help: @jskit-ai\/crud-server-generator/);
     assert.match(stdout, /Subcommands \(\d+\):/);
-    assert.match(stdout, /add-table \[primary\]/);
-    assert.match(stdout, /add-field/);
+    assert.match(stdout, /scaffold \[primary\]/);
+    assert.match(stdout, /scaffold-field/);
     assert.match(stdout, /jskit generate <generatorId> <subcommand> help/);
     assert.match(stdout, /--namespace <text> \[required\]/);
     const namespaceIndex = stdout.indexOf("--namespace <text> [required]");
@@ -137,12 +137,12 @@ test("generate <generatorId> <subcommand> help prints subcommand contract", asyn
 
     const result = runCli({
       cwd: appRoot,
-      args: ["generate", "crud-server-generator", "add-field", "help"]
+      args: ["generate", "crud-server-generator", "scaffold-field", "help"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
-    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator add-field/);
+    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator scaffold-field/);
     assert.match(stdout, /Positional args \(2\):/);
     assert.match(stdout, /<fieldKey> \[required\]/);
     assert.match(stdout, /<targetFile> \[required\]/);
@@ -160,12 +160,12 @@ test("generate <generatorId> help <subcommand> prints primary subcommand contrac
 
     const result = runCli({
       cwd: appRoot,
-      args: ["generate", "crud-server-generator", "help", "add-table"]
+      args: ["generate", "crud-server-generator", "help", "scaffold"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
-    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator add-table/);
+    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator scaffold/);
     assert.match(stdout, /primary generator command/i);
     assert.match(stdout, /Positional args \(0\):/);
     assert.match(stdout, /No positional arguments/);

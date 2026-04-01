@@ -99,7 +99,7 @@ const COMMAND_HELP = Object.freeze({
       }),
       Object.freeze({
         name: "[subcommand]",
-        description: "Optional generator subcommand (for example: add-table or add-field)."
+        description: "Optional generator subcommand (for example: scaffold or scaffold-field)."
       }),
       Object.freeze({
         name: "[subcommand args...]",

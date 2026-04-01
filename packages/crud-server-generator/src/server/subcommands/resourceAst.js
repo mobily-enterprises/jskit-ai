@@ -37,7 +37,7 @@ function isIdentifierName(value = "") {
   return IDENTIFIER_PATTERN.test(String(value || ""));
 }
 
-function parseModule(source = "", context = "crud-server-generator add-field") {
+function parseModule(source = "", context = "crud-server-generator scaffold-field") {
   try {
     return recast.parse(String(source || ""), { parser: BABEL_REC_AST_PARSER });
   } catch (error) {
@@ -47,7 +47,7 @@ function parseModule(source = "", context = "crud-server-generator add-field") {
   }
 }
 
-function parseExpression(source = "", context = "crud-server-generator add-field") {
+function parseExpression(source = "", context = "crud-server-generator scaffold-field") {
   const expressionSource = `const __jskitFieldExpression = ${String(source || "")};`;
   const ast = parseModule(expressionSource, context);
   const statement = ast?.program?.body?.[0];
@@ -61,7 +61,7 @@ function parseExpression(source = "", context = "crud-server-generator add-field
   return declaration.init;
 }
 
-function parseStatement(source = "", context = "crud-server-generator add-field") {
+function parseStatement(source = "", context = "crud-server-generator scaffold-field") {
   const ast = parseModule(String(source || ""), context);
   const statement = ast?.program?.body?.[0];
   if (!statement) {
@@ -114,7 +114,7 @@ function findVariableDeclarator(programNode, variableName = "") {
   return null;
 }
 
-function requireVariableDeclarator(programNode, variableName = "", context = "crud-server-generator add-field") {
+function requireVariableDeclarator(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
   const declaration = findVariableDeclarator(programNode, variableName);
   if (declaration) {
     return declaration;
@@ -122,7 +122,7 @@ function requireVariableDeclarator(programNode, variableName = "", context = "cr
   throw new Error(`${context} could not find const ${variableName}.`);
 }
 
-function requireSchemaPropertiesObject(programNode, variableName = "", context = "crud-server-generator add-field") {
+function requireSchemaPropertiesObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
   const declaration = requireVariableDeclarator(programNode, variableName, context);
   const initExpression = declaration.init;
   if (!n.CallExpression.check(initExpression)) {
@@ -149,7 +149,7 @@ function requireSchemaPropertiesObject(programNode, variableName = "", context =
   return firstArgument;
 }
 
-function requireObjectFreezePayloadObject(programNode, variableName = "", context = "crud-server-generator add-field") {
+function requireObjectFreezePayloadObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
   const declaration = requireVariableDeclarator(programNode, variableName, context);
   const initExpression = declaration.init;
   if (!n.CallExpression.check(initExpression)) {
@@ -197,7 +197,7 @@ function findObjectPropertyByName(objectNode, propertyName = "") {
   return null;
 }
 
-function requireNormalizeFunctionBody(programNode, variableName = "", context = "crud-server-generator add-field") {
+function requireNormalizeFunctionBody(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
   const validatorObject = requireObjectFreezePayloadObject(programNode, variableName, context);
   const normalizeProperty = findObjectPropertyByName(validatorObject, "normalize");
   if (!normalizeProperty) {
@@ -218,7 +218,7 @@ function requireNormalizeFunctionBody(programNode, variableName = "", context = 
   throw new Error(`${context} expected ${variableName}.normalize to be a function with a block body.`);
 }
 
-function requireNormalizedObjectLiteral(functionBody, context = "crud-server-generator add-field") {
+function requireNormalizedObjectLiteral(functionBody, context = "crud-server-generator scaffold-field") {
   for (const statement of functionBody.body || []) {
     if (!n.VariableDeclaration.check(statement)) {
       continue;
@@ -248,7 +248,7 @@ function insertObjectProperty(
   propertyName = "",
   valueExpressionSource = "",
   {
-    context = "crud-server-generator add-field",
+    context = "crud-server-generator scaffold-field",
     insertBeforeComputed = false
   } = {}
 ) {
@@ -448,7 +448,7 @@ function resolveObjectPropertyStringValue(objectNode, propertyName = "") {
   return "";
 }
 
-function resolveCrudResourceDefaults(source = "", context = "crud-server-generator add-field") {
+function resolveCrudResourceDefaults(source = "", context = "crud-server-generator scaffold-field") {
   const ast = parseModule(source, context);
   const statements = Array.isArray(ast?.program?.body) ? ast.program.body : [];
 
@@ -478,7 +478,7 @@ function resolveCrudResourceDefaults(source = "", context = "crud-server-generat
 function renderResourceFieldMetaPushStatement(entry = {}) {
   const key = normalizeText(entry?.key);
   if (!key) {
-    throw new Error("crud-server-generator add-field fieldMeta entry requires key.");
+    throw new Error("crud-server-generator scaffold-field fieldMeta entry requires key.");
   }
 
   const lines = ["RESOURCE_FIELD_META.push({"];
@@ -495,7 +495,7 @@ function renderResourceFieldMetaPushStatement(entry = {}) {
       normalizeCrudLookupNamespace(relation.namespace) ||
       normalizeCrudLookupNamespace(relation.apiPath);
     if (!relationNamespace) {
-      throw new Error("crud-server-generator add-field fieldMeta relation requires namespace.");
+      throw new Error("crud-server-generator scaffold-field fieldMeta relation requires namespace.");
     }
     lines.push("  relation: {");
     lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
@@ -530,7 +530,7 @@ function applyCrudResourceFieldPatch(
     normalizeImportNames = [],
     databaseRuntimeImportNames = [],
     databaseRuntimeRepositoryOptionsImportNames = [],
-    context = "crud-server-generator add-field"
+    context = "crud-server-generator scaffold-field"
   } = {}
 ) {
   const normalizedFieldKey = normalizeText(fieldKey);

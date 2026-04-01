@@ -35,12 +35,12 @@ function toPosixPath(value = "") {
 function resolveTargetFilePath(appRoot, targetFile) {
   const appRootAbsolute = path.resolve(String(appRoot || ""));
   if (!appRootAbsolute) {
-    throw new Error("crud-server-generator add-field requires appRoot.");
+    throw new Error("crud-server-generator scaffold-field requires appRoot.");
   }
 
   const normalizedTargetFile = normalizeText(targetFile);
   if (!normalizedTargetFile) {
-    throw new Error("crud-server-generator add-field requires target file path.");
+    throw new Error("crud-server-generator scaffold-field requires target file path.");
   }
 
   const absolutePath = path.isAbsolute(normalizedTargetFile)
@@ -53,7 +53,7 @@ function resolveTargetFilePath(appRoot, targetFile) {
     relativePath.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relativePath)
   ) {
-    throw new Error("crud-server-generator add-field target file must stay within app root.");
+    throw new Error("crud-server-generator scaffold-field target file must stay within app root.");
   }
 
   return {
@@ -68,10 +68,10 @@ function parseSubcommandArgs(args = []) {
   const targetFile = normalizeText(source[1]);
 
   if (!fieldKey) {
-    throw new Error("crud-server-generator add-field requires <fieldKey>.");
+    throw new Error("crud-server-generator scaffold-field requires <fieldKey>.");
   }
   if (!targetFile) {
-    throw new Error("crud-server-generator add-field requires <targetFile>.");
+    throw new Error("crud-server-generator scaffold-field requires <targetFile>.");
   }
 
   return {
@@ -80,7 +80,7 @@ function parseSubcommandArgs(args = []) {
   };
 }
 
-function resolveRequestedTableConfig(source = "", options = {}, context = "crud-server-generator add-field") {
+function resolveRequestedTableConfig(source = "", options = {}, context = "crud-server-generator scaffold-field") {
   const defaults = resolveCrudResourceDefaults(source, context);
   const tableName = normalizeText(options?.["table-name"] || defaults.tableName);
   if (!tableName) {
@@ -110,7 +110,7 @@ function resolveColumnForField(snapshot = {}, fieldKey = "", { idColumn = "id" }
     .filter(Boolean)
     .join(", ");
   throw new Error(
-    `crud-server-generator add-field could not find field "${key}" in DB snapshot columns. Available: ${available || "<none>"}.`
+    `crud-server-generator scaffold-field could not find field "${key}" in DB snapshot columns. Available: ${available || "<none>"}.`
   );
 }
 
@@ -178,7 +178,7 @@ async function runGeneratorSubcommand({
   resolveSnapshot = resolveGenerationSnapshot
 } = {}) {
   const normalizedSubcommand = normalizeText(subcommand).toLowerCase();
-  if (normalizedSubcommand !== "add-field") {
+  if (normalizedSubcommand !== "scaffold-field") {
     throw new Error(`Unsupported crud-server-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
 
@@ -197,7 +197,7 @@ async function runGeneratorSubcommand({
   const column = resolveColumnForField(snapshot, fieldKey, { idColumn });
   if (column?.writable !== true) {
     throw new Error(
-      `crud-server-generator add-field cannot patch non-writable field "${fieldKey}" (column "${column.name}").`
+      `crud-server-generator scaffold-field cannot patch non-writable field "${fieldKey}" (column "${column.name}").`
     );
   }
 
