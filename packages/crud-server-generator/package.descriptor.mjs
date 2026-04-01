@@ -80,9 +80,9 @@ export default Object.freeze({
     }
   },
   metadata: {
-    generatorPrimarySubcommand: "add-table",
+    generatorPrimarySubcommand: "scaffold",
     generatorSubcommands: {
-      "add-table": {
+      "scaffold": {
         description: "Scaffold a CRUD resource package for a table (same behavior as running generate with no subcommand).",
         optionNames: [
           "namespace",
@@ -93,7 +93,7 @@ export default Object.freeze({
           "directory-prefix"
         ]
       },
-      "add-field": {
+      "scaffold-field": {
         entrypoint: "src/server/subcommands/addField.js",
         export: "runGeneratorSubcommand",
         description: "Patch one writable field into an existing generated CRUD resource module.",

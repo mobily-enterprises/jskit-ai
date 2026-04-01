@@ -86,7 +86,7 @@ export { resource };
 `;
 
 async function withTempApp(run) {
-  const appRoot = await mkdtemp(path.join(tmpdir(), "crud-server-add-field-"));
+  const appRoot = await mkdtemp(path.join(tmpdir(), "crud-server-scaffold-field-"));
   try {
     await run(appRoot);
   } finally {
@@ -129,14 +129,14 @@ function createSnapshot() {
   };
 }
 
-test("add-field patches CRUD resource file using DB snapshot metadata", async () => {
+test("scaffold-field patches CRUD resource file using DB snapshot metadata", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";
     await writeAppFile(appRoot, resourceFile, RESOURCE_SOURCE);
 
     const result = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "add-field",
+      subcommand: "scaffold-field",
       args: ["categoryId", resourceFile],
       options: {},
       resolveSnapshot: async () => createSnapshot()
@@ -157,7 +157,7 @@ test("add-field patches CRUD resource file using DB snapshot metadata", async ()
 
     const secondRun = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "add-field",
+      subcommand: "scaffold-field",
       args: ["categoryId", resourceFile],
       options: {},
       resolveSnapshot: async () => createSnapshot()
