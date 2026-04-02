@@ -11,7 +11,7 @@
           <v-btn
             v-if="UI_CANCEL_URL"
             variant="text"
-            :to="formRuntime.addEdit.resolveParams(UI_CANCEL_URL)"
+            :to="{ path: formRuntime.addEdit.resolveParams(UI_CANCEL_URL), query: $route.query }"
           >
             Cancel
           </v-btn>

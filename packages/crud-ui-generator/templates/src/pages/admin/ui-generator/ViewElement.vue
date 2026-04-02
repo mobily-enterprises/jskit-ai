@@ -8,8 +8,21 @@
             <v-card-subtitle class="px-0">View and manage this ${option:namespace|singular|default(record)}.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn v-if="UI_LIST_URL" variant="text" :to="view.resolveParams(UI_LIST_URL)">Back to ${option:namespace|plural|default(records)}</v-btn>
-          <v-btn v-if="UI_EDIT_URL" color="primary" variant="outlined" :to="view.resolveParams(UI_EDIT_URL)">Edit</v-btn>
+          <v-btn
+            v-if="UI_LIST_URL"
+            variant="text"
+            :to="{ path: view.resolveParams(UI_LIST_URL), query: $route.query }"
+          >
+            Back to ${option:namespace|plural|default(records)}
+          </v-btn>
+          <v-btn
+            v-if="UI_EDIT_URL"
+            color="primary"
+            variant="outlined"
+            :to="{ path: view.resolveParams(UI_EDIT_URL), query: $route.query }"
+          >
+            Edit
+          </v-btn>
         </div>
       </v-card-item>
       <v-divider />
