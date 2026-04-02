@@ -183,4 +183,21 @@ const crudResource = {
 
 void CRUD_RESOURCE_FIELD_META;
 
+// Example 1:n collection hydration:
+// CRUD_RESOURCE_FIELD_META.push({
+//   key: "pets",
+//   relation: {
+//     kind: "collection",
+//     namespace: "pets",
+//     foreignKey: "customerId",
+//     parentValueKey: "id",
+//     hydrateOnList: false, // list: opt-in with include=pets
+//     hydrateOnView: true // view: hydrated by default
+//   }
+// });
+//
+// To hydrate child lookups too, request nested include paths:
+// - include=pets
+// - include=pets,pets.breedId
+
 export { crudResource };

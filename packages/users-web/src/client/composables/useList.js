@@ -1,4 +1,5 @@
 import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudLookupFieldKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
@@ -7,10 +8,23 @@ import { useListCore } from "./useListCore.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 import { createListUiRuntime } from "./listUiRuntime.js";
+import { asPlainObject } from "./scopeHelpers.js";
 import {
   normalizeListSearchConfig,
   matchesLocalSearch
 } from "./listSearchSupport.js";
+import {
+  normalizeListSyncToRouteConfig,
+  resolveQueryParamDescriptors,
+  resolveActiveQueryParamEntries,
+  resolveWritableQueryParamBindings,
+  buildQueryParamEntriesToken,
+  parseRouteBindingValue,
+  areQueryParamBindingValuesEqual,
+  buildRouteQueryCompareToken,
+  mergeManagedQueryParamKeyHistory,
+  resolveRouteSyncManagedKeys
+} from "./listQueryParamSupport.js";
 import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
 import {
   resolveRouteParamNamesInOrder,
@@ -40,9 +54,15 @@ function useList({
   recordIdSelector = null,
   viewUrlTemplate = "",
   editUrlTemplate = "",
-  search = null
+  search = null,
+  queryParams = null,
+  syncToRoute = false
 } = {}) {
   const searchConfig = normalizeListSearchConfig(search);
+  const routeSyncConfig = normalizeListSyncToRouteConfig(syncToRoute, {
+    defaultSearchParam: searchConfig.queryParam
+  });
+  const router = routeSyncConfig.enabled === true ? useRouter() : null;
   const searchQuery = ref(searchConfig.initialQuery);
   const debouncedSearchQuery = ref(searchConfig.initialQuery);
   let searchDebounceTimer = null;
@@ -91,6 +111,26 @@ function useList({
     realtime
   });
   const canView = operationScope.permissionGate("view");
+  const queryParamsContext = computed(() => {
+    return Object.freeze({
+      surfaceId: operationScope.routeContext.currentSurfaceId.value,
+      workspaceSlug: operationScope.workspaceSlugFromRoute.value,
+      ownershipFilter: operationScope.normalizedOwnershipFilter
+    });
+  });
+  const queryParamDescriptors = computed(() => {
+    return resolveQueryParamDescriptors(queryParams, queryParamsContext.value);
+  });
+  const declaredQueryParamKeys = computed(() => {
+    return queryParamDescriptors.value.map((descriptor) => descriptor.key);
+  });
+  const activeQueryParamEntries = computed(() => {
+    return resolveActiveQueryParamEntries(queryParamDescriptors.value);
+  });
+  const activeQueryParamsToken = computed(() => buildQueryParamEntriesToken(activeQueryParamEntries.value));
+  const writableQueryParamBindings = computed(() => {
+    return resolveWritableQueryParamBindings(queryParamDescriptors.value);
+  });
   const parentRouteFilter = computed(() => {
     const lookupFieldKeys = resolveCrudLookupFieldKeys(resource);
     if (lookupFieldKeys.length < 1) {
@@ -157,6 +197,12 @@ function useList({
       searchParams.set(parentFilter.key, parentFilter.value);
     }
 
+    for (const entry of activeQueryParamEntries.value) {
+      for (const value of entry.values) {
+        searchParams.append(entry.key, value);
+      }
+    }
+
     const serializedSearch = searchParams.toString();
     if (!serializedSearch) {
       return basePath;
@@ -178,6 +224,9 @@ function useList({
     if (querySearchEnabled.value) {
       baseQueryKey.push("__search__", searchConfig.queryParam, activeSearchQuery.value);
     }
+    if (activeQueryParamsToken.value) {
+      baseQueryKey.push("__query__", activeQueryParamsToken.value);
+    }
     return baseQueryKey;
   });
 
@@ -192,10 +241,144 @@ function useList({
     queryOptions,
     fallbackLoadError
   });
+  const routeSyncHydrated = ref(routeSyncConfig.enabled !== true);
+  const routeSyncApplying = ref(false);
+  const routeSyncManagedKeyHistory = ref([]);
+  if (routeSyncConfig.enabled === true && routeSyncConfig.syncQueryParams === true) {
+    watch(declaredQueryParamKeys, (nextKeys) => {
+      routeSyncManagedKeyHistory.value = mergeManagedQueryParamKeyHistory(
+        routeSyncManagedKeyHistory.value,
+        nextKeys
+      );
+    }, { immediate: true });
+  }
+  const routeSyncManagedKeys = computed(() => {
+    return resolveRouteSyncManagedKeys({
+      searchEnabled: searchConfig.enabled,
+      searchParam: routeSyncConfig.searchParam,
+      syncSearch: routeSyncConfig.enabled === true && routeSyncConfig.syncSearch === true,
+      syncQueryParams: routeSyncConfig.enabled === true && routeSyncConfig.syncQueryParams === true,
+      declaredKeys: declaredQueryParamKeys.value,
+      keyHistory: routeSyncManagedKeyHistory.value
+    });
+  });
+  const routeSyncDesiredQuery = computed(() => {
+    if (routeSyncConfig.enabled !== true) {
+      return {};
+    }
+
+    const desiredQuery = {};
+    if (routeSyncConfig.syncSearch === true && searchConfig.enabled === true) {
+      const normalizedSearch = normalizeText(searchQuery.value);
+      if (normalizedSearch) {
+        desiredQuery[routeSyncConfig.searchParam] = normalizedSearch;
+      }
+    }
+    if (routeSyncConfig.syncQueryParams === true) {
+      for (const entry of activeQueryParamEntries.value) {
+        if (entry.values.length === 1) {
+          desiredQuery[entry.key] = entry.values[0];
+          continue;
+        }
+        desiredQuery[entry.key] = [...entry.values];
+      }
+    }
+
+    return desiredQuery;
+  });
+  if (routeSyncConfig.enabled === true) {
+    watch(
+      () => operationScope.routeContext.route?.query || {},
+      (routeQuery) => {
+        if (routeSyncConfig.hydrateFromRoute !== true || routeSyncApplying.value === true) {
+          routeSyncHydrated.value = true;
+          return;
+        }
+
+        const routeQuerySource = asPlainObject(routeQuery);
+        if (routeSyncConfig.syncSearch === true && searchConfig.enabled === true) {
+          const routeSearchValue = routeQuerySource[routeSyncConfig.searchParam];
+          const nextSearch = normalizeText(Array.isArray(routeSearchValue) ? routeSearchValue[0] : routeSearchValue);
+          if (nextSearch !== searchQuery.value) {
+            searchQuery.value = nextSearch;
+          }
+        }
+        if (routeSyncConfig.syncQueryParams === true) {
+          for (const binding of writableQueryParamBindings.value) {
+            const nextValue = parseRouteBindingValue(binding, routeQuerySource[binding.key]);
+            const currentValue = typeof binding.get === "function" ? binding.get() : undefined;
+            if (areQueryParamBindingValuesEqual(currentValue, nextValue)) {
+              continue;
+            }
+            try {
+              binding.set(nextValue);
+            } catch {
+              // Ignore non-writable query param bindings.
+            }
+          }
+        }
+
+        routeSyncHydrated.value = true;
+      },
+      {
+        immediate: true
+      }
+    );
+
+    watch(
+      [routeSyncDesiredQuery, routeSyncManagedKeys],
+      async ([desiredQuery, managedKeys]) => {
+        if (routeSyncHydrated.value !== true || routeSyncApplying.value === true) {
+          return;
+        }
+
+        const managedKeySet = new Set(Array.isArray(managedKeys) ? managedKeys : []);
+        const currentQuery = asPlainObject(operationScope.routeContext.route?.query || {});
+        const nextQuery = {};
+
+        for (const [key, value] of Object.entries(currentQuery)) {
+          if (managedKeySet.has(key)) {
+            continue;
+          }
+          nextQuery[key] = value;
+        }
+        for (const [key, value] of Object.entries(asPlainObject(desiredQuery))) {
+          nextQuery[key] = value;
+        }
+
+        if (buildRouteQueryCompareToken(currentQuery) === buildRouteQueryCompareToken(nextQuery)) {
+          return;
+        }
+
+        routeSyncApplying.value = true;
+        try {
+          if (routeSyncConfig.mode === "push") {
+            await router.push({
+              query: nextQuery
+            });
+          } else {
+            await router.replace({
+              query: nextQuery
+            });
+          }
+        } finally {
+          routeSyncApplying.value = false;
+        }
+      }
+    );
+  }
+
   watch(activeSearchQuery, (nextValue, previousValue) => {
     if (!querySearchEnabled.value) {
       return;
     }
+    if (nextValue === previousValue) {
+      return;
+    }
+
+    list.trimToFirstPage();
+  });
+  watch(activeQueryParamsToken, (nextValue, previousValue) => {
     if (nextValue === previousValue) {
       return;
     }
@@ -271,7 +454,8 @@ function useList({
     searchQuery,
     searchLabel: searchConfig.label,
     searchPlaceholder: searchConfig.placeholder,
-    isSearchDebouncing
+    isSearchDebouncing,
+    activeQueryParamsToken
   });
 }
 

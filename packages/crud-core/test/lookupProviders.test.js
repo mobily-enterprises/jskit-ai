@@ -46,6 +46,7 @@ test("createCrudLookupProviderResolver resolves providers through scope.make()",
 test("createCrudLookupProvider wraps repository.listByIds and preserves include when provided", async () => {
   const calls = [];
   const provider = createCrudLookupProvider({
+    ownershipFilter: "workspace",
     async listByIds(ids = [], options = {}) {
       calls.push({
         ids,
@@ -61,6 +62,7 @@ test("createCrudLookupProvider wraps repository.listByIds and preserves include 
   });
 
   assert.deepEqual(result, [{ id: 1 }]);
+  assert.equal(provider.ownershipFilter, "workspace");
   assert.deepEqual(calls[0], {
     ids: [1, 2],
     options: {
@@ -93,6 +95,36 @@ test("createCrudLookupProvider defaults include=none when include is not provide
       limit: 10
     }
   });
+  assert.equal(provider.ownershipFilter, null);
+});
+
+test("createCrudLookupProvider accepts ownershipFilter option override", () => {
+  const provider = createCrudLookupProvider(
+    {
+      ownershipFilter: "workspace",
+      async listByIds() {
+        return [];
+      }
+    },
+    {
+      ownershipFilter: "public"
+    }
+  );
+
+  assert.equal(provider.ownershipFilter, "public");
+});
+
+test("createCrudLookupProvider validates ownershipFilter token", () => {
+  assert.throws(
+    () =>
+      createCrudLookupProvider({
+        ownershipFilter: "workspace-only",
+        async listByIds() {
+          return [];
+        }
+      }),
+    /must be one of/
+  );
 });
 
 test("createCrudLookupProvider validates repository contract", () => {
