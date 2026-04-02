@@ -11,6 +11,7 @@ This is the canonical start page for the JSKIT manual.
 5. [005 - Kernel Client: Intro](/manual/005-Kernel:_Client_Into)
 6. [006 - Kernel Client API](/manual/006-Kernel:_Client_API)
 7. [007 - Kernel Client And Server API](/manual/007-Kernel:_Client_And_Server_API)
+8. [008 - CRUD Core: Repository Hooks](/manual/008-CRUD_Core:_Repository_Hooks)
 
 ## Notes
 

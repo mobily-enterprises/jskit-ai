@@ -445,6 +445,9 @@ test("crud provider template uses shared lookup provider helpers instead of inli
     /from "@jskit-ai\/crud-core\/server\/lookupProviders";/
   );
   assert.match(templateSource, /resolveLookupProvider: createCrudLookupProviderResolver\(scope\)/);
-  assert.match(templateSource, /return createCrudLookupProvider\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\)\);/);
+  assert.match(
+    templateSource,
+    /return createCrudLookupProvider\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\), \{\s*ownershipFilter: crudPolicy\.ownershipFilter\s*\}\);/
+  );
   assert.doesNotMatch(templateSource, /normalizePathname\(relation\.apiPath\)/);
 });

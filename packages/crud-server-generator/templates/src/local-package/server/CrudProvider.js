@@ -45,7 +45,9 @@ class ${option:namespace|pascal}Provider {
     });
 
     app.singleton("crud.lookup.${option:namespace|snake}", (scope) => {
-      return createCrudLookupProvider(scope.make("repository.${option:namespace|snake}"));
+      return createCrudLookupProvider(scope.make("repository.${option:namespace|snake}"), {
+        ownershipFilter: crudPolicy.ownershipFilter
+      });
     });
 
     app.service(
