@@ -25,7 +25,8 @@ test("normalizeListSyncToRouteConfig defaults", () => {
       syncSearch: false,
       syncQueryParams: false,
       hydrateFromRoute: false,
-      searchParam: "search"
+      searchParam: "search",
+      queryParamBlacklist: []
     }
   );
 
@@ -37,7 +38,24 @@ test("normalizeListSyncToRouteConfig defaults", () => {
       syncSearch: true,
       syncQueryParams: true,
       hydrateFromRoute: true,
-      searchParam: "q"
+      searchParam: "q",
+      queryParamBlacklist: []
+    }
+  );
+
+  assert.deepEqual(
+    normalizeListSyncToRouteConfig({
+      enabled: true,
+      queryParamBlacklist: [" include ", "cursor", "include", ""]
+    }),
+    {
+      enabled: true,
+      mode: "replace",
+      syncSearch: true,
+      syncQueryParams: true,
+      hydrateFromRoute: true,
+      searchParam: "q",
+      queryParamBlacklist: ["include", "cursor"]
     }
   );
 });

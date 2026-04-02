@@ -92,6 +92,7 @@ const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}` : "
 const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
 const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
+const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
 
 const records = useList({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -107,6 +108,13 @@ const records = useList({
   search: {
     enabled: true,
     mode: "query"
+  },
+  syncToRoute: {
+    enabled: true,
+    mode: "replace",
+    search: true,
+    queryParams: true,
+    queryParamBlacklist: UI_ROUTE_QUERY_BLACKLIST
   },
   placementSource: "ui-generator.${option:namespace|kebab}.list",
   fallbackLoadError: "Unable to load records.",
