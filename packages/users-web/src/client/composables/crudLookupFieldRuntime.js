@@ -66,7 +66,8 @@ function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}
   const label = displayValue == null || displayValue === "" ? value : displayValue;
   return {
     value,
-    label: String(label ?? "")
+    label: String(label ?? ""),
+    record: hydratedLookup
   };
 }
 
@@ -161,12 +162,14 @@ function createCrudLookupFieldRuntime({
     }
 
     const items = (Array.isArray(entry.runtime.items) ? entry.runtime.items : []).map((item = {}) => {
+      const sourceRecord = asPlainObject(item);
       const value = normalizeLookupValue(item?.[entry.valueKey]);
       const resolvedLabel = resolveLookupItemLabel(item, entry.labelKey);
       const label = resolvedLabel || value;
       return {
         value,
-        label: String(label ?? "")
+        label: String(label ?? ""),
+        record: sourceRecord
       };
     });
 
