@@ -52,7 +52,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
                   <v-btn
                     size="small"
                     variant="text"
-                    :to="records.resolveViewUrl(record)"
+                    :to="{ path: records.resolveViewUrl(record), query: $route.query }"
                     :disabled="!records.resolveViewUrl(record)"
                   >
                     Open
@@ -62,7 +62,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
                   <v-btn
                     size="small"
                     variant="text"
-                    :to="records.resolveEditUrl(record)"
+                    :to="{ path: records.resolveEditUrl(record), query: $route.query }"
                     :disabled="!records.resolveEditUrl(record)"
                   >
                     Edit
