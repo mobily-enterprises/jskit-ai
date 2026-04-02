@@ -112,6 +112,25 @@ function useList({
     },
     realtime
   });
+  if (
+    routeSyncConfig.enabled === true &&
+    routeSyncConfig.hydrateFromRoute === true &&
+    routeSyncConfig.syncSearch === true &&
+    searchConfig.enabled === true
+  ) {
+    const routeQuerySource = asPlainObject(operationScope.routeContext.route?.query || {});
+    const routeSearchValue = routeQuerySource[routeSyncConfig.searchParam];
+    const hydratedSearch = normalizeText(Array.isArray(routeSearchValue) ? routeSearchValue[0] : routeSearchValue);
+
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = null;
+    }
+
+    searchQuery.value = hydratedSearch;
+    debouncedSearchQuery.value = hydratedSearch;
+    isSearchDebouncing.value = false;
+  }
   const canView = operationScope.permissionGate("view");
   const queryParamsContext = computed(() => {
     return Object.freeze({
