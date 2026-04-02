@@ -32,6 +32,8 @@ import {
   toRouteParamValue
 } from "./routeTemplateHelpers.js";
 
+const EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST = Object.freeze([]);
+
 function useList({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
@@ -244,6 +246,15 @@ function useList({
   const routeSyncHydrated = ref(routeSyncConfig.enabled !== true);
   const routeSyncApplying = ref(false);
   const routeSyncManagedKeyHistory = ref([]);
+  const routeSyncQueryParamBlacklist = computed(() => {
+    if (routeSyncConfig.enabled !== true || routeSyncConfig.syncQueryParams !== true) {
+      return EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST;
+    }
+    return routeSyncConfig.queryParamBlacklist;
+  });
+  const routeSyncQueryParamBlacklistSet = computed(() => {
+    return new Set(routeSyncQueryParamBlacklist.value);
+  });
   if (routeSyncConfig.enabled === true && routeSyncConfig.syncQueryParams === true) {
     watch(declaredQueryParamKeys, (nextKeys) => {
       routeSyncManagedKeyHistory.value = mergeManagedQueryParamKeyHistory(
@@ -253,7 +264,7 @@ function useList({
     }, { immediate: true });
   }
   const routeSyncManagedKeys = computed(() => {
-    return resolveRouteSyncManagedKeys({
+    const managedKeys = resolveRouteSyncManagedKeys({
       searchEnabled: searchConfig.enabled,
       searchParam: routeSyncConfig.searchParam,
       syncSearch: routeSyncConfig.enabled === true && routeSyncConfig.syncSearch === true,
@@ -261,6 +272,15 @@ function useList({
       declaredKeys: declaredQueryParamKeys.value,
       keyHistory: routeSyncManagedKeyHistory.value
     });
+    if (routeSyncConfig.enabled !== true || routeSyncConfig.syncQueryParams !== true) {
+      return managedKeys;
+    }
+
+    const output = new Set(managedKeys);
+    for (const key of routeSyncQueryParamBlacklist.value) {
+      output.add(key);
+    }
+    return [...output].sort((left, right) => left.localeCompare(right));
   });
   const routeSyncDesiredQuery = computed(() => {
     if (routeSyncConfig.enabled !== true) {
@@ -276,6 +296,9 @@ function useList({
     }
     if (routeSyncConfig.syncQueryParams === true) {
       for (const entry of activeQueryParamEntries.value) {
+        if (routeSyncQueryParamBlacklistSet.value.has(entry.key)) {
+          continue;
+        }
         if (entry.values.length === 1) {
           desiredQuery[entry.key] = entry.values[0];
           continue;
@@ -305,6 +328,9 @@ function useList({
         }
         if (routeSyncConfig.syncQueryParams === true) {
           for (const binding of writableQueryParamBindings.value) {
+            if (routeSyncQueryParamBlacklistSet.value.has(binding.key)) {
+              continue;
+            }
             const nextValue = parseRouteBindingValue(binding, routeQuerySource[binding.key]);
             const currentValue = typeof binding.get === "function" ? binding.get() : undefined;
             if (areQueryParamBindingValuesEqual(currentValue, nextValue)) {

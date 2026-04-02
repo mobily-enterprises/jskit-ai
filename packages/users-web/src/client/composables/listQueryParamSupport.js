@@ -1,5 +1,9 @@
 import { isRef, unref } from "vue";
-import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeBoolean,
+  normalizeText,
+  normalizeUniqueTextList
+} from "@jskit-ai/kernel/shared/support/normalize";
 import { asPlainObject } from "./scopeHelpers.js";
 
 const QUERY_PARAM_BINDING_TYPE_TEXT = "text";
@@ -11,6 +15,7 @@ const QUERY_PARAM_BINDING_TYPE_DATE = "date";
 function normalizeListSyncToRouteConfig(syncToRoute = false, { defaultSearchParam = "q" } = {}) {
   const source = syncToRoute === true ? {} : asPlainObject(syncToRoute);
   const requested = syncToRoute === true || Object.keys(source).length > 0;
+  const queryParamBlacklist = Object.freeze(normalizeUniqueTextList(source.queryParamBlacklist));
   if (!requested || source.enabled === false) {
     return Object.freeze({
       enabled: false,
@@ -18,7 +23,8 @@ function normalizeListSyncToRouteConfig(syncToRoute = false, { defaultSearchPara
       syncSearch: false,
       syncQueryParams: false,
       hydrateFromRoute: false,
-      searchParam: normalizeText(defaultSearchParam) || "q"
+      searchParam: normalizeText(defaultSearchParam) || "q",
+      queryParamBlacklist
     });
   }
 
@@ -31,7 +37,8 @@ function normalizeListSyncToRouteConfig(syncToRoute = false, { defaultSearchPara
     syncSearch: source.search !== false,
     syncQueryParams: source.queryParams !== false,
     hydrateFromRoute: source.hydrateFromRoute !== false,
-    searchParam
+    searchParam,
+    queryParamBlacklist
   });
 }
 
