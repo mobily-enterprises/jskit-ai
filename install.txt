@@ -61,6 +61,9 @@ npx jskit generate ui-generator element help
 
 
 
+----------------------------
+
+
 
 ------------------------------
 npm run devlinks
@@ -115,8 +118,37 @@ npx jskit generate crud-ui-generator --namespace addresses --surface admin --ope
 
 
 
+----------------------------------------------------
+PETS WITHIN contacts
+
+  npx jskit generate ui-generator outlet \
+      --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
+      --host contact-view \
+      --position sub-pages \
+      --mode routed
+
+  npx jskit generate crud-ui-generator \
+    --namespace pets \
+    --surface admin \
+    --operations list,view,new,edit \
+    --resource-file packages/pets/src/shared/petResource.js \
+    --directory-prefix "contacts/[contactId]/(nestedChildren)" \
+    --placement contact-view:sub-pages \
+    --placement-component-token local.main.ui.tab-link-item \
+    --placement-to ./pets \
+    --id-param petId
+
+------------------------------------------------------------------------------
 
 
+FIGURE OUT:
+
+Use case for this:
+
+    npx jskit generate ui-generator container \
+      --name "Contact Tools" \
+      --surface admin \
+      --directory-prefix "contacts/[contactId]"
 
 
 

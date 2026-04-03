@@ -9,6 +9,10 @@ import {
   renderAddPackageHelp,
   renderAddBundleHelp
 } from "./discoverabilityHelp.js";
+import {
+  TAB_LINK_COMPONENT_TOKEN,
+  ensureLocalMainTabLinkItemProvisioning
+} from "./tabLinkItemProvisioning.js";
 
 async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -315,6 +319,21 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   }
 
   const finalResolvedPackageIds = sortStrings([...resolvedPackageIds, ...adoptedPackageIds]);
+
+  const requestedPlacementComponentToken = String(options?.inlineOptions?.["placement-component-token"] || "").trim();
+  if (
+    invocationMode === "generate" &&
+    targetType === "package" &&
+    resolvedTargetPackageId === "@jskit-ai/crud-ui-generator" &&
+    requestedPlacementComponentToken === TAB_LINK_COMPONENT_TOKEN
+  ) {
+    await ensureLocalMainTabLinkItemProvisioning({
+      appRoot,
+      createCliError,
+      dryRun: options.dryRun === true,
+      touchedFiles
+    });
+  }
 
   const touchedFileList = sortStrings([...touchedFiles]);
   const successLabel = invocationMode === "generate"

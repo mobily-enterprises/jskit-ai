@@ -14,6 +14,7 @@ test("jskit with no args prints top-level command overview", () => {
   assert.match(stdout, /Available commands:/);
   assert.match(stdout, /generate\s+Run a generator package/);
   assert.match(stdout, /list-placements\s+List discovered UI placement targets/);
+  assert.match(stdout, /list-link-items\s+List available placement link-item component tokens/);
 });
 
 test("jskit generate with no params lists available generators", () => {
@@ -50,4 +51,43 @@ test("jskit generate --help prints generate command help", () => {
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Command: generate/);
   assert.match(stdout, /\[subcommand\]/);
+});
+
+test("jskit generate ui-generator outlet help prints outlet-specific usage", () => {
+  const result = runCli({ args: ["generate", "ui-generator", "outlet", "help"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
+  assert.match(stdout, /--file/);
+  assert.match(stdout, /--host/);
+  assert.match(stdout, /--position/);
+  assert.match(stdout, /--mode/);
+});
+
+test("jskit generate ui-generator outlet with no options prints subcommand help", () => {
+  const result = runCli({ args: ["generate", "ui-generator", "outlet"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
+  assert.match(stdout, /--file/);
+  assert.match(stdout, /--host/);
+});
+
+test("jskit generate ui-generator page help includes placement token options", () => {
+  const result = runCli({ args: ["generate", "ui-generator", "page", "help"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator page/);
+  assert.match(stdout, /--placement-component-token/);
+  assert.match(stdout, /--placement-to/);
+});
+
+test("jskit help list-link-items prints command help", () => {
+  const result = runCli({ args: ["help", "list-link-items"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Command: list-link-items/);
+  assert.match(stdout, /jskit list-link-items/);
+  assert.match(stdout, /--prefix <value>/);
+  assert.match(stdout, /--all/);
 });

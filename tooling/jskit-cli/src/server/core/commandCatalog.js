@@ -4,6 +4,7 @@ const KNOWN_COMMAND_IDS = Object.freeze([
   "generate",
   "list",
   "list-placements",
+  "list-link-items",
   "show",
   "view",
   "migrations",
@@ -21,7 +22,9 @@ const COMMAND_ALIASES = Object.freeze({
   view: "show",
   ls: "list",
   gen: "generate",
-  lp: "list-placements"
+  lp: "list-placements",
+  lpct: "list-link-items",
+  "list-placement-component-tokens": "list-link-items"
 });
 
 function resolveCommandAlias(rawCommand) {

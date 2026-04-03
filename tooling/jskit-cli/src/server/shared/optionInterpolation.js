@@ -197,6 +197,12 @@ function normalizePathValue(value) {
         return normalizedSegment;
       }
 
+      const routeGroupMatch = /^\(([^()]+)\)$/.exec(normalizedSegment);
+      if (routeGroupMatch) {
+        const routeGroupName = wordsToKebab(splitTextIntoWords(routeGroupMatch[1]));
+        return routeGroupName ? `(${routeGroupName})` : "";
+      }
+
       return wordsToKebab(splitTextIntoWords(normalizedSegment));
     })
     .filter(Boolean)

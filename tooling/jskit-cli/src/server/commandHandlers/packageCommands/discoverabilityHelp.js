@@ -117,6 +117,7 @@ function resolveGeneratorSubcommandMetadata(packageEntry = {}) {
       continue;
     }
     const optionNames = normalizeSubcommandOptionNames(definition.optionNames);
+    const requiredOptionNames = normalizeSubcommandOptionNames(definition.requiredOptionNames);
     rows.push(Object.freeze({
       name,
       entrypoint,
@@ -124,7 +125,8 @@ function resolveGeneratorSubcommandMetadata(packageEntry = {}) {
       primary: primarySubcommand === name.toLowerCase(),
       description: String(definition.description || "").trim(),
       positionalArgs: normalizeSubcommandPositionalArgRows(definition.positionalArgs),
-      optionNames
+      optionNames,
+      requiredOptionNames
     }));
   }
 
@@ -147,7 +149,10 @@ function formatOptionSummary(optionRow = {}) {
   const labelParts = [optionRow.promptLabel, optionRow.promptHint].filter(Boolean);
   const label = labelParts.join(". ");
   const typeSuffix = optionRow.inputType ? `<${optionRow.inputType}> ` : "";
-  const description = label || "No description provided.";
+  const baseDescription = label || "No description provided.";
+  const description = optionRow.name === "placement-component-token"
+    ? `${baseDescription} Use jskit list-link-items to discover link-item tokens.`
+    : baseDescription;
   return `- --${optionRow.name} ${typeSuffix}[${status}${defaultSuffix}${allowEmptySuffix}]: ${description}`.trim();
 }
 
@@ -189,6 +194,9 @@ function findGeneratorSubcommandRow(packageEntry = {}, subcommandName = "") {
 function buildSubcommandOptionRows(optionRows = [], subcommandRow = {}) {
   const packageOptionRows = ensureArray(optionRows);
   const optionNames = ensureArray(subcommandRow.optionNames).map((value) => String(value || "").trim()).filter(Boolean);
+  const requiredOptionNames = new Set(
+    ensureArray(subcommandRow.requiredOptionNames).map((value) => String(value || "").trim()).filter(Boolean)
+  );
   if (optionNames.length < 1) {
     return packageOptionRows;
   }
@@ -202,7 +210,14 @@ function buildSubcommandOptionRows(optionRows = [], subcommandRow = {}) {
   for (const optionName of optionNames) {
     const optionRow = optionRowsByName.get(optionName);
     if (optionRow) {
-      rows.push(optionRow);
+      if (requiredOptionNames.size > 0) {
+        rows.push(Object.freeze({
+          ...optionRow,
+          required: requiredOptionNames.has(optionName)
+        }));
+      } else {
+        rows.push(optionRow);
+      }
     }
   }
   return rows;
@@ -445,9 +460,8 @@ function renderGenerateSubcommandHelp({
     ? ` ${positionalArgTokens.join(" ")}`
     : ""} [--<option> <value>...]`;
   const usage = Object.freeze([
-    `jskit generate ${preferredId} ${subcommandRow.name} help`,
-    `jskit generate ${preferredId} help ${subcommandRow.name}`,
-    invocationLine
+    invocationLine,
+    `jskit generate ${preferredId} ${subcommandRow.name} help`
   ]);
   const subcommandOptionRows = buildSubcommandOptionRows(optionRows, subcommandRow);
   const hasRequiredWithDefaults = subcommandOptionRows.some((row) => row.required && row.defaultValue);

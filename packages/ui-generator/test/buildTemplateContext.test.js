@@ -61,6 +61,10 @@ test("buildUiPageTemplateContext resolves placement from default app ShellOutlet
     });
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "workspace-settings");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "forms");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/");
+    assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/");
+    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
   });
 });
 
@@ -75,6 +79,7 @@ test("buildUiPageTemplateContext supports explicit placement override", async ()
       }
     });
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "top-right");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
   });
 });
 
@@ -127,6 +132,44 @@ test("buildUiPageTemplateContext supports explicit package outlet placement", as
     });
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "workspace-tools");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "primary-menu");
+  });
+});
+
+test("buildUiPageTemplateContext supports explicit placement token and placement to", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeVueFile(appRoot, "src/components/ShellLayout.vue");
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      options: {
+        name: "Notes",
+        "directory-prefix": "contacts/[contactId]/(nestedChildren)",
+        placement: "shell-layout:top-right",
+        "placement-component-token": "local.main.ui.tab-link-item",
+        "placement-to": "./notes"
+      }
+    });
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
+    assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
+    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./notes\",\n");
+  });
+});
+
+test("buildUiPageTemplateContext auto sets relative placement to for nestedChildren prefixes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeVueFile(appRoot, "src/components/ShellLayout.vue");
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      options: {
+        name: "Notes",
+        "directory-prefix": "contacts/[contactId]/(nestedChildren)",
+        placement: "shell-layout:top-right"
+      }
+    });
+    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./notes\",\n");
+    assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
   });
 });
 

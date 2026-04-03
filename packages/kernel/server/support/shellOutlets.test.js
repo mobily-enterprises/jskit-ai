@@ -174,6 +174,52 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
   });
 });
 
+test("discoverShellOutletTargetsFromApp discovers route meta placement outlets", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeFileInApp(
+      appRoot,
+      "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue",
+      `<template><section /></template>
+
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "placements": {
+        "outlets": [
+          {
+            "host": "contact-tools",
+            "position": "sub-pages"
+          }
+        ]
+      }
+    }
+  }
+}
+</route>
+`
+    );
+
+    const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
+    assert.deepEqual(discovered.targets, [
+      {
+        id: "contact-tools:sub-pages",
+        host: "contact-tools",
+        position: "sub-pages",
+        default: false,
+        sourcePath: "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue"
+      }
+    ]);
+
+    const target = await resolveShellOutletPlacementTargetFromApp({
+      appRoot,
+      placement: "contact-tools:sub-pages",
+      context: "ui-generator"
+    });
+    assert.equal(target.id, "contact-tools:sub-pages");
+  });
+});
+
 test("resolveShellOutletPlacementTargetFromApp supports explicit placement override", async () => {
   await withTempApp(async (appRoot) => {
     await writeFileInApp(

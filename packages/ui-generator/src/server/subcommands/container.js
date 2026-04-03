@@ -25,7 +25,26 @@ import {
 const CONTAINER_OUTLET_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
 const SECTION_TAB_LINK_COMPONENT = "SectionShellTabLinkItem";
-const SECTION_TAB_LINK_COMPONENT_TOKEN = "local.main.ui.section-shell.tab-link-item";
+const SECTION_TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const ROUTE_TAG_PATTERN = /<route\b([^>]*)>([\s\S]*?)<\/route>/;
+const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
+
+function isBracketRouteParamSegment(value = "") {
+  return value.startsWith("[") && value.endsWith("]");
+}
+
+function normalizeRoutePrefixSegment(value = "") {
+  const source = normalizeText(value);
+  if (!source) {
+    return "";
+  }
+
+  if (isBracketRouteParamSegment(source)) {
+    return source;
+  }
+
+  return toKebabCase(source);
+}
 
 function normalizeRoutePrefix(value = "") {
   const source = normalizeText(value).replaceAll("\\", "/");
@@ -35,9 +54,146 @@ function normalizeRoutePrefix(value = "") {
 
   const parts = source
     .split("/")
-    .map((entry) => toKebabCase(entry))
+    .map((entry) => normalizeRoutePrefixSegment(entry))
     .filter(Boolean);
   return parts.join("/");
+}
+
+function parseTagAttributes(attributesSource = "") {
+  const attributes = {};
+  const source = String(attributesSource || "");
+  for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
+    const attributeName = normalizeText(match[1]);
+    if (!attributeName) {
+      continue;
+    }
+
+    const hasValue = match[2] != null || match[3] != null;
+    const attributeValue = hasValue ? String(match[2] ?? match[3] ?? "") : true;
+    attributes[attributeName] = attributeValue;
+  }
+
+  return attributes;
+}
+
+function createContainerRouteMeta({
+  surface = "",
+  containerHost = "",
+  containerPosition = CONTAINER_OUTLET_POSITION
+} = {}) {
+  return {
+    meta: {
+      jskit: {
+        surface,
+        placements: {
+          outlets: [
+            {
+              host: containerHost,
+              position: containerPosition
+            }
+          ]
+        }
+      }
+    }
+  };
+}
+
+function renderContainerRouteMetaBlock(routeMeta = {}) {
+  return `<route lang="json">
+${JSON.stringify(routeMeta, null, 2)}
+</route>
+`;
+}
+
+function normalizeOutletTargetId(outlet = {}) {
+  const host = normalizeText(outlet?.host);
+  const position = normalizeText(outlet?.position);
+  if (!host || !position) {
+    return "";
+  }
+  return `${host}:${position}`;
+}
+
+function ensureContainerRouteMetaOutlets(source = "", { surface = "", containerHost = "", containerPosition = "" } = {}) {
+  const sourceText = String(source || "");
+  const routeTagMatch = ROUTE_TAG_PATTERN.exec(sourceText);
+  const expectedTargetId = normalizeOutletTargetId({
+    host: containerHost,
+    position: containerPosition
+  });
+  if (!expectedTargetId) {
+    return {
+      changed: false,
+      content: sourceText
+    };
+  }
+
+  if (!routeTagMatch) {
+    const appendedContent = `${sourceText.trimEnd()}\n\n${renderContainerRouteMetaBlock(createContainerRouteMeta({
+      surface,
+      containerHost,
+      containerPosition
+    }))}`;
+    return {
+      changed: appendedContent !== sourceText,
+      content: appendedContent
+    };
+  }
+
+  const routeTagAttributes = parseTagAttributes(routeTagMatch[1]);
+  const routeTagLanguage = normalizeText(routeTagAttributes.lang).toLowerCase();
+  if (routeTagLanguage && routeTagLanguage !== "json") {
+    return {
+      changed: false,
+      content: sourceText
+    };
+  }
+
+  let routeMetaRecord = null;
+  try {
+    routeMetaRecord = JSON.parse(String(routeTagMatch[2] || "").trim());
+  } catch {
+    return {
+      changed: false,
+      content: sourceText
+    };
+  }
+
+  const routeMeta = normalizeObject(routeMetaRecord);
+  const metadata = normalizeObject(routeMeta.meta);
+  const jskitMetadata = normalizeObject(metadata.jskit);
+  const placementsMetadata = normalizeObject(jskitMetadata.placements);
+  const outletRecords = Array.isArray(placementsMetadata.outlets) ? [...placementsMetadata.outlets] : [];
+  const knownTargetIds = new Set(outletRecords.map((entry) => normalizeOutletTargetId(entry)).filter(Boolean));
+  if (!knownTargetIds.has(expectedTargetId)) {
+    outletRecords.push({
+      host: containerHost,
+      position: containerPosition
+    });
+  }
+
+  const normalizedSurface = normalizeText(jskitMetadata.surface) || normalizeText(surface);
+  const nextRouteMeta = {
+    ...routeMeta,
+    meta: {
+      ...metadata,
+      jskit: {
+        ...jskitMetadata,
+        surface: normalizedSurface,
+        placements: {
+          ...placementsMetadata,
+          outlets: outletRecords
+        }
+      }
+    }
+  };
+  const renderedRouteMeta = renderContainerRouteMetaBlock(nextRouteMeta);
+  const replacementContent =
+    `${sourceText.slice(0, routeTagMatch.index)}${renderedRouteMeta}${sourceText.slice(routeTagMatch.index + routeTagMatch[0].length)}`;
+  return {
+    changed: replacementContent !== sourceText,
+    content: replacementContent
+  };
 }
 
 async function loadPublicConfig(appRoot = "") {
@@ -213,6 +369,22 @@ function normalizePathname(pathname = "") {
   return cutoff < 0 ? source : source.slice(0, cutoff);
 }
 
+function interpolateBracketParams(pathTemplate = "", params = {}) {
+  const source = String(pathTemplate || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  return source.replace(/\\[([^\\]]+)\\]/g, (_match, rawKey) => {
+    const key = String(rawKey || "").trim();
+    if (!key) {
+      return "";
+    }
+    const value = params?.[key];
+    return value == null ? "[" + key + "]" : encodeURIComponent(String(value));
+  });
+}
+
 const targetSurfaceId = computed(() => {
   const explicitSurface = String(props.surface || "").trim().toLowerCase();
   if (explicitSurface && explicitSurface !== "*") {
@@ -224,6 +396,17 @@ const targetSurfaceId = computed(() => {
 const resolvedTo = computed(() => {
   const explicitTo = String(props.to || "").trim();
   if (explicitTo) {
+    if (explicitTo.startsWith("./")) {
+      const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
+      const suffixTemplate = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
+      const interpolatedSuffix = interpolateBracketParams(suffixTemplate, route.params || {});
+      if (interpolatedSuffix && !interpolatedSuffix.includes("[")) {
+        return paths.page(interpolatedSuffix, {
+          surface: targetSurfaceId.value,
+          mode: "auto"
+        });
+      }
+    }
     return explicitTo;
   }
 
@@ -272,6 +455,11 @@ function renderContainerPageSource({
   containerPosition = CONTAINER_OUTLET_POSITION,
   sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue"
 } = {}) {
+  const routeMeta = createContainerRouteMeta({
+    surface,
+    containerHost,
+    containerPosition
+  });
   return `<script setup>
 import { RouterView } from "vue-router";
 import SectionContainerShell from "${sectionContainerComponentImportPath}";
@@ -288,15 +476,7 @@ import SectionContainerShell from "${sectionContainerComponentImportPath}";
   </SectionContainerShell>
 </template>
 
-<route lang="json">
-{
-  "meta": {
-    "jskit": {
-      "surface": "${surface}"
-    }
-  }
-}
-</route>
+${renderContainerRouteMetaBlock(routeMeta)}
 `;
 }
 
@@ -331,9 +511,6 @@ async function runGeneratorSubcommand({
   const pagesDirectory = await resolveSurfacePagesDirectory(resolvedAppRoot, surface);
   const containerFilePath = path.join(pagesDirectory, `${routePath}.vue`);
   const containerRelativePath = toPosixPath(path.relative(resolvedAppRoot, containerFilePath));
-  const placementPath = resolvePathWithinApp(resolvedAppRoot, PLACEMENT_FILE, {
-    context: "ui-generator container"
-  });
   const providerPath = resolvePathWithinApp(resolvedAppRoot, MAIN_CLIENT_PROVIDER_FILE, {
     context: "ui-generator container"
   });
@@ -352,11 +529,14 @@ async function runGeneratorSubcommand({
     }
   );
 
-  const placementTarget = await resolveShellOutletPlacementTargetFromApp({
-    appRoot: resolvedAppRoot,
-    context: "ui-generator container",
-    placement: options?.placement
-  });
+  const placementOption = normalizeText(options?.placement);
+  const placementTarget = placementOption
+    ? await resolveShellOutletPlacementTargetFromApp({
+        appRoot: resolvedAppRoot,
+        context: "ui-generator container",
+        placement: placementOption
+      })
+    : null;
 
   const touchedFiles = new Set();
 
@@ -436,36 +616,53 @@ async function runGeneratorSubcommand({
       );
     }
     touchedFiles.add(containerRelativePath);
+  } else {
+    const routeMetaApplied = ensureContainerRouteMetaOutlets(existingContainerSource, {
+      surface,
+      containerHost: containerSlug,
+      containerPosition: CONTAINER_OUTLET_POSITION
+    });
+    if (routeMetaApplied.changed) {
+      if (dryRun !== true) {
+        await writeFile(containerFilePath, routeMetaApplied.content, "utf8");
+      }
+      touchedFiles.add(containerRelativePath);
+    }
   }
 
-  const placementSource = await readFile(placementPath.absolutePath, "utf8");
-  const placementIdSuffix = routePath.replaceAll("/", "-");
-  const placementMarker = `jskit:ui-generator.container.menu:${surface}:${routePath}`;
-  const placementBlock =
-    `// ${placementMarker}\n` +
-    "{\n" +
-    "  addPlacement({\n" +
-    `    id: "ui-generator.container.${placementIdSuffix}.menu",\n` +
-    `    host: "${placementTarget.host}",\n` +
-    `    position: "${placementTarget.position}",\n` +
-    `    surfaces: ["${surface}"],\n` +
-    "    order: 155,\n" +
-    '    componentToken: "users.web.shell.surface-aware-menu-link-item",\n' +
-    "    props: {\n" +
-    `      label: "${name}",\n` +
-    `      surface: "${surface}",\n` +
-    `      workspaceSuffix: "/${routePath}",\n` +
-    `      nonWorkspaceSuffix: "/${routePath}"\n` +
-    "    },\n" +
-    "    when: ({ auth }) => Boolean(auth?.authenticated)\n" +
-    "  });\n" +
-    "}\n";
-  const placementApplied = appendBlockIfMarkerMissing(placementSource, placementMarker, placementBlock);
-  if (placementApplied.changed) {
-    if (dryRun !== true) {
-      await writeFile(placementPath.absolutePath, placementApplied.content, "utf8");
+  if (placementTarget) {
+    const placementPath = resolvePathWithinApp(resolvedAppRoot, PLACEMENT_FILE, {
+      context: "ui-generator container"
+    });
+    const placementSource = await readFile(placementPath.absolutePath, "utf8");
+    const placementIdSuffix = routePath.replaceAll("/", "-");
+    const placementMarker = `jskit:ui-generator.container.menu:${surface}:${routePath}`;
+    const placementBlock =
+      `// ${placementMarker}\n` +
+      "{\n" +
+      "  addPlacement({\n" +
+      `    id: "ui-generator.container.${placementIdSuffix}.menu",\n` +
+      `    host: "${placementTarget.host}",\n` +
+      `    position: "${placementTarget.position}",\n` +
+      `    surfaces: ["${surface}"],\n` +
+      "    order: 155,\n" +
+      '    componentToken: "users.web.shell.surface-aware-menu-link-item",\n' +
+      "    props: {\n" +
+      `      label: "${name}",\n` +
+      `      surface: "${surface}",\n` +
+      `      workspaceSuffix: "/${routePath}",\n` +
+      `      nonWorkspaceSuffix: "/${routePath}"\n` +
+      "    },\n" +
+      "    when: ({ auth }) => Boolean(auth?.authenticated)\n" +
+      "  });\n" +
+      "}\n";
+    const placementApplied = appendBlockIfMarkerMissing(placementSource, placementMarker, placementBlock);
+    if (placementApplied.changed) {
+      if (dryRun !== true) {
+        await writeFile(placementPath.absolutePath, placementApplied.content, "utf8");
+      }
+      touchedFiles.add(placementPath.relativePath);
     }
-    touchedFiles.add(placementPath.relativePath);
   }
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));

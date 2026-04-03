@@ -22,6 +22,10 @@ const COMMAND_OVERVIEW = Object.freeze([
     summary: "List discovered UI placement targets."
   }),
   Object.freeze({
+    command: "list-link-items",
+    summary: "List available placement link-item component tokens."
+  }),
+  Object.freeze({
     command: "show",
     summary: "Show detailed metadata for a bundle or package."
   }),
@@ -136,11 +140,33 @@ const COMMAND_HELP = Object.freeze({
     minimalUse: "jskit list-placements",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Discovers ShellOutlet targets from app src/ Vue files.",
+      "Discovers placement outlets from app Vue ShellOutlet tags and route meta.",
       "Includes placement outlets contributed by installed package metadata.",
       "Shows plain text by default; use --json for structured output."
     ]),
     fullUse: "jskit list-placements [--json]"
+  }),
+  "list-link-items": Object.freeze({
+    title: "list-link-items",
+    minimalUse: "jskit list-link-items",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "[--prefix <value>]",
+        description: "Optional token prefix filter (example: local.main. or users.web.shell.)."
+      }),
+      Object.freeze({
+        name: "[--all]",
+        description: "Include all discovered tokens (including non-link-item and client container/runtime tokens)."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Default output shows link-item tokens only (token names ending with link-item).",
+      "Default includes app and installed-package placement-linked token sources.",
+      "Use --prefix to narrow quickly (recommended: --prefix local.main.).",
+      "Use --all when you want the full discovered token set.",
+      "Shows plain text by default; use --json for structured output."
+    ]),
+    fullUse: "jskit list-link-items [--prefix <value>] [--all] [--json]"
   }),
   show: Object.freeze({
     title: "show",

@@ -91,6 +91,11 @@ test("add package applies option interpolation and conditional file mutations", 
       "all-conditions=true\n",
       "utf8"
     );
+    await writeFile(
+      path.join(packageRoot, "templates", "any-conditions.txt"),
+      "any-conditions=true\n",
+      "utf8"
+    );
 
     await writeFile(
       path.join(packageRoot, "package.descriptor.mjs"),
@@ -189,6 +194,22 @@ test("add package applies option interpolation and conditional file mutations", 
         }
       },
       {
+        from: "templates/any-conditions.txt",
+        to: "src/generated/any-conditions.txt",
+        when: {
+          any: [
+            {
+              option: "visibility",
+              in: ["workspaces"]
+            },
+            {
+              option: "route-path",
+              contains: "[contactId]"
+            }
+          ]
+        }
+      },
+      {
         op: "install-migration",
         from: "templates/migration.cjs",
         toDir: "migrations",
@@ -244,6 +265,9 @@ test("add package applies option interpolation and conditional file mutations", 
     const allConditionsFile = path.join(appRoot, "src", "generated", "all-conditions.txt");
     const allConditionsContent = await readFile(allConditionsFile, "utf8");
     assert.equal(allConditionsContent, "all-conditions=true\n");
+    const anyConditionsFile = path.join(appRoot, "src", "generated", "any-conditions.txt");
+    const anyConditionsContent = await readFile(anyConditionsFile, "utf8");
+    assert.equal(anyConditionsContent, "any-conditions=true\n");
 
     const migrationsDirectory = path.join(appRoot, "migrations");
     const migrationFiles = (await readdir(migrationsDirectory))

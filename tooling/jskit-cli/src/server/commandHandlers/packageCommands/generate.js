@@ -5,6 +5,63 @@ import {
   renderGenerateSubcommandHelp
 } from "./discoverabilityHelp.js";
 
+function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "") {
+  const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
+    ? packageEntry.descriptor
+    : {};
+  const metadata = descriptor?.metadata && typeof descriptor.metadata === "object"
+    ? descriptor.metadata
+    : {};
+  const subcommands = metadata?.generatorSubcommands && typeof metadata.generatorSubcommands === "object"
+    ? metadata.generatorSubcommands
+    : descriptor?.generatorSubcommands && typeof descriptor.generatorSubcommands === "object"
+      ? descriptor.generatorSubcommands
+      : {};
+  const normalizedSubcommandName = String(subcommandName || "").trim();
+  if (!normalizedSubcommandName) {
+    return {};
+  }
+  const definition = subcommands[normalizedSubcommandName];
+  return definition && typeof definition === "object" ? definition : {};
+}
+
+function resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "") {
+  const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
+    ? packageEntry.descriptor
+    : {};
+  const optionSchemas = descriptor?.options && typeof descriptor.options === "object"
+    ? descriptor.options
+    : {};
+  const subcommandDefinition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName);
+  const positionalArgs = Array.isArray(subcommandDefinition?.positionalArgs)
+    ? subcommandDefinition.positionalArgs
+    : [];
+  if (positionalArgs.length > 0) {
+    return true;
+  }
+  const requiredOptionNames = Array.isArray(subcommandDefinition?.requiredOptionNames)
+    ? subcommandDefinition.requiredOptionNames
+    : [];
+  if (requiredOptionNames.some((optionName) => String(optionName || "").trim().length > 0)) {
+    return true;
+  }
+
+  const optionNames = Array.isArray(subcommandDefinition?.optionNames) && subcommandDefinition.optionNames.length > 0
+    ? subcommandDefinition.optionNames
+    : Object.keys(optionSchemas);
+  for (const optionName of optionNames) {
+    const normalizedOptionName = String(optionName || "").trim();
+    if (!normalizedOptionName) {
+      continue;
+    }
+    const schema = optionSchemas[normalizedOptionName];
+    if (schema && typeof schema === "object" && schema.required === true) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function runPackageGenerateCommand(
   ctx = {},
   { positional, options, cwd, io },
@@ -123,6 +180,20 @@ async function runPackageGenerateCommand(
       packageEntry,
       resolvedPackageId
     } = await resolveGeneratorPackageEntry(targetId);
+    const hasInlineOptions = Object.keys(options?.inlineOptions || {}).length > 0;
+    const hasSubcommandArgs = subcommandArgs.length > 0;
+    if (!hasInlineOptions && !hasSubcommandArgs && resolveSubcommandRequiresInput(packageEntry, subcommandName)) {
+      const rendered = renderGenerateSubcommandHelp({
+        io,
+        packageEntry,
+        packageIdInput: targetId,
+        subcommandName,
+        json: options.json
+      });
+      if (rendered) {
+        return 0;
+      }
+    }
     if (subcommandArgs.length === 1 && isHelpToken(subcommandArgs[0])) {
       const rendered = renderGenerateSubcommandHelp({
         io,
