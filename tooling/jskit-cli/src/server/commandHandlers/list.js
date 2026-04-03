@@ -1,8 +1,133 @@
+import path from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import {
   ensureArray,
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
+
+const PLACEMENT_FILE_RELATIVE_PATH = "src/placement.js";
+const MAIN_CLIENT_PROVIDERS_RELATIVE_PATH = "packages/main/src/client/providers";
+const COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
+const REGISTER_MAIN_CLIENT_COMPONENT_PATTERN = /registerMainClientComponent\(\s*["']([^"']+)["']\s*,/g;
+const LINK_ITEM_TOKEN_SUFFIX = "link-item";
+const PROVIDER_SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx"]);
+const READ_FILE_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EISDIR", "EACCES", "EPERM"]);
+const READ_DIRECTORY_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
+
+function collectTokenMatches(source = "", pattern = COMPONENT_TOKEN_PATTERN) {
+  const sourceText = String(source || "");
+  const tokens = [];
+  for (const match of sourceText.matchAll(pattern)) {
+    const token = String(match[1] || "").trim();
+    if (token) {
+      tokens.push(token);
+    }
+  }
+  return tokens;
+}
+
+function appendTokenSource(map, token = "", source = "") {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) {
+    return;
+  }
+  const normalizedSource = String(source || "").trim();
+  const existingSources = map.get(normalizedToken) || new Set();
+  if (normalizedSource) {
+    existingSources.add(normalizedSource);
+  }
+  map.set(normalizedToken, existingSources);
+}
+
+function isLinkItemToken(token = "") {
+  return String(token || "").trim().toLowerCase().endsWith(LINK_ITEM_TOKEN_SUFFIX);
+}
+
+async function readFileIfExists(filePath = "") {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch (error) {
+    const errorCode = String(error?.code || "").trim().toUpperCase();
+    if (READ_FILE_IGNORE_ERROR_CODES.has(errorCode)) {
+      return "";
+    }
+    throw error;
+  }
+}
+
+async function resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {}) {
+  const source = ensureObject(installedPackageEntry.source);
+  const descriptorRelativePath = String(source.descriptorPath || "").trim();
+  if (!descriptorRelativePath) {
+    return null;
+  }
+
+  const descriptorAbsolutePath = path.resolve(appRoot, descriptorRelativePath);
+  const descriptorSource = await readFileIfExists(descriptorAbsolutePath);
+  if (!descriptorSource) {
+    return null;
+  }
+
+  let descriptorModule = null;
+  try {
+    descriptorModule = await import(`${pathToFileURL(descriptorAbsolutePath).href}?t=${Date.now()}_${Math.random()}`);
+  } catch {
+    return null;
+  }
+
+  const descriptor = ensureObject(descriptorModule?.default);
+  if (Object.keys(descriptor).length < 1) {
+    return null;
+  }
+
+  const resolvedPackageId = String(descriptor.packageId || packageId || "").trim();
+  if (!resolvedPackageId) {
+    return null;
+  }
+
+  return Object.freeze({
+    packageId: resolvedPackageId,
+    descriptor
+  });
+}
+
+async function collectProviderSourceFiles(rootPath = "") {
+  const files = [];
+  const stack = [path.resolve(String(rootPath || ""))];
+
+  while (stack.length > 0) {
+    const currentPath = stack.pop();
+    let entries = [];
+    try {
+      entries = await readdir(currentPath, { withFileTypes: true });
+    } catch (error) {
+      const errorCode = String(error?.code || "").trim().toUpperCase();
+      if (READ_DIRECTORY_IGNORE_ERROR_CODES.has(errorCode)) {
+        continue;
+      }
+      throw error;
+    }
+
+    for (const entry of entries) {
+      const entryPath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(entryPath);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      const extension = path.extname(entry.name).toLowerCase();
+      if (PROVIDER_SOURCE_EXTENSIONS.has(extension)) {
+        files.push(entryPath);
+      }
+    }
+  }
+
+  return files.sort((left, right) => left.localeCompare(right));
+}
 
 function createListCommands(ctx = {}) {
   const {
@@ -14,7 +139,9 @@ function createListCommands(ctx = {}) {
     loadPackageRegistry,
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
+    resolveInstalledNodeModulePackageEntry,
     discoverShellOutletTargetsFromApp,
+    normalizePlacementContributions,
     resolvePackageKind
   } = ctx;
 
@@ -50,6 +177,11 @@ function createListCommands(ctx = {}) {
     const shouldListGenerators = !mode || mode === "generators";
     if (mode === "placements") {
       throw createCliError('list mode "placements" moved to a dedicated command: jskit list-placements.');
+    }
+    if (mode === "placement-component-tokens") {
+      throw createCliError(
+        'list mode "placement-component-tokens" moved to a dedicated command: jskit list-link-items.'
+      );
     }
 
     if (!shouldListBundles && !shouldListPackages && !shouldListGenerators) {
@@ -283,9 +415,144 @@ function createListCommands(ctx = {}) {
     return 0;
   }
 
+  async function commandListLinkItems({ options, cwd, stdout }) {
+    const appRoot = await resolveAppRootFromCwd(cwd);
+    const tokenPrefixFilter = String(options?.inlineOptions?.prefix || "").trim();
+    const includeAllClientContainerTokens = options?.all === true;
+    const onlyLinkItemTokens = !includeAllClientContainerTokens;
+    const { lock } = await loadLockFile(appRoot);
+    const packageRegistry = await loadPackageRegistry();
+    const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
+    const installedPackageEntries = ensureObject(lock.installedPackages);
+    const installedPackageIds = sortStrings(Object.keys(installedPackageEntries));
+
+    const packageEntryById = new Map();
+    for (const [packageId, packageEntry] of packageRegistry.entries()) {
+      packageEntryById.set(packageId, packageEntry);
+    }
+    for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
+      packageEntryById.set(packageId, packageEntry);
+    }
+    for (const packageId of installedPackageIds) {
+      if (packageEntryById.has(packageId)) {
+        continue;
+      }
+      const installedPackageEntry = ensureObject(installedPackageEntries[packageId]);
+      const descriptorFromLockEntry = await resolveDescriptorFromLockEntry({
+        appRoot,
+        packageId,
+        installedPackageEntry
+      });
+      if (descriptorFromLockEntry) {
+        packageEntryById.set(packageId, descriptorFromLockEntry);
+        packageEntryById.set(descriptorFromLockEntry.packageId, descriptorFromLockEntry);
+        continue;
+      }
+      if (typeof resolveInstalledNodeModulePackageEntry !== "function") {
+        continue;
+      }
+      const resolvedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
+        appRoot,
+        packageId
+      });
+      if (resolvedNodeModuleEntry) {
+        packageEntryById.set(resolvedNodeModuleEntry.packageId, resolvedNodeModuleEntry);
+      }
+    }
+
+    const tokenSourceByToken = new Map();
+    for (const packageId of installedPackageIds) {
+      const packageEntry = packageEntryById.get(packageId) || null;
+      if (!packageEntry) {
+        continue;
+      }
+      const descriptor = ensureObject(packageEntry.descriptor);
+      const metadata = ensureObject(descriptor.metadata);
+      const ui = ensureObject(metadata.ui);
+      const placements = ensureObject(ui.placements);
+      const contributions = normalizePlacementContributions(placements.contributions);
+      for (const contribution of contributions) {
+        const componentToken = String(contribution.componentToken || "").trim();
+        if (!componentToken) {
+          continue;
+        }
+        const contributionSource = String(contribution.source || "").trim();
+        const sourceLabel = contributionSource
+          ? `package:${packageId}:${contributionSource}`
+          : `package:${packageId}:metadata.ui.placements.contributions`;
+        appendTokenSource(tokenSourceByToken, componentToken, sourceLabel);
+      }
+
+      if (includeAllClientContainerTokens) {
+        const apiSummary = ensureObject(metadata.apiSummary);
+        const containerTokens = ensureObject(apiSummary.containerTokens);
+        const clientTokens = ensureArray(containerTokens.client).map((value) => String(value || "").trim()).filter(Boolean);
+        for (const clientToken of clientTokens) {
+          appendTokenSource(tokenSourceByToken, clientToken, `package:${packageId}:metadata.apiSummary.containerTokens.client`);
+        }
+      }
+    }
+
+    const placementSourcePath = path.join(appRoot, PLACEMENT_FILE_RELATIVE_PATH);
+    const placementSource = await readFileIfExists(placementSourcePath);
+    for (const token of collectTokenMatches(placementSource, COMPONENT_TOKEN_PATTERN)) {
+      appendTokenSource(tokenSourceByToken, token, `app:${normalizeRelativePosixPath(PLACEMENT_FILE_RELATIVE_PATH)}`);
+    }
+
+    const providersRootPath = path.join(appRoot, MAIN_CLIENT_PROVIDERS_RELATIVE_PATH);
+    const providerSourceFiles = await collectProviderSourceFiles(providersRootPath);
+    for (const providerSourceFile of providerSourceFiles) {
+      const providerSource = await readFileIfExists(providerSourceFile);
+      if (!providerSource) {
+        continue;
+      }
+      const providerRelativePath = normalizeRelativePosixPath(path.relative(appRoot, providerSourceFile));
+      for (const token of collectTokenMatches(providerSource, REGISTER_MAIN_CLIENT_COMPONENT_PATTERN)) {
+        appendTokenSource(tokenSourceByToken, token, `app:${providerRelativePath}`);
+      }
+    }
+
+    const tokens = sortStrings([...tokenSourceByToken.keys()])
+      .filter((token) => !tokenPrefixFilter || token.startsWith(tokenPrefixFilter))
+      .filter((token) => !onlyLinkItemTokens || isLinkItemToken(token))
+      .map((token) => ({
+        token,
+        sources: sortStrings([...(tokenSourceByToken.get(token) || new Set())])
+      }));
+
+    if (options.json) {
+      stdout.write(`${JSON.stringify({ placementComponentTokens: tokens }, null, 2)}\n`);
+      return 0;
+    }
+
+    const color = createColorFormatter(stdout);
+    const lines = [color.heading("Available placement component tokens:")];
+    lines.push(
+      color.dim(
+        includeAllClientContainerTokens
+          ? "Showing all discovered tokens (--all), including non-link-item/container/runtime tokens."
+          : 'Showing link-item tokens only (token must end with "link-item"). Tip: use --all for full token list.'
+      )
+    );
+    if (tokens.length < 1) {
+      lines.push("- none");
+    } else {
+      for (const entry of tokens) {
+        const token = String(entry.token || "").trim();
+        const sources = ensureArray(entry.sources).map((value) => String(value || "").trim()).filter(Boolean);
+        const sourceLabel = sources.length > 0 ? ` ${color.dim(`[${sources.join(", ")}]`)}` : "";
+        lines.push(`- ${color.item(token)}${sourceLabel}`);
+      }
+    }
+
+    stdout.write(`${lines.join("\n")}\n`);
+    return 0;
+  }
+
   return {
     commandList,
-    commandListPlacements
+    commandListPlacements,
+    commandListLinkItems
   };
 }
 

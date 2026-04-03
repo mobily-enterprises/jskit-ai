@@ -172,8 +172,91 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.reports-dashboard\.menu"/);
     assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /componentToken: "users\.web\.shell\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /workspaceSuffix: "\/reports-dashboard"/);
     assert.match(placementSource, /label: "Reports Dashboard"/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page supports placement-component-token and auto nestedChildren placement-to", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-nested-children");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-nested-children" });
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "--name",
+        "Notes",
+        "--surface",
+        "admin",
+        "--directory-prefix",
+        "contacts/[contactId]/(nestedChildren)",
+        "--placement",
+        "shell-layout:secondary-menu",
+        "--placement-component-token",
+        "local.main.ui.tab-link-item"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const pagePath = path.join(
+      appRoot,
+      "src",
+      "pages",
+      "admin",
+      "contacts",
+      "[contactId]",
+      "(nested-children)",
+      "notes",
+      "index.vue"
+    );
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    assert.equal(await fileExists(pagePath), true);
+
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]\/notes"/);
+    assert.match(placementSource, /nonWorkspaceSuffix: "\/contacts\/\[contactId\]\/notes"/);
+    assert.match(placementSource, /to: "\.\/notes"/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page supports explicit placement-to override", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-placement-to");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-placement-to" });
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "--name",
+        "Notes",
+        "--surface",
+        "admin",
+        "--directory-prefix",
+        "contacts/[contactId]/(nestedChildren)",
+        "--placement",
+        "shell-layout:secondary-menu",
+        "--placement-component-token",
+        "local.main.ui.tab-link-item",
+        "--placement-to",
+        "./custom-notes"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(placementSource, /to: "\.\/custom-notes"/);
   });
 });
 

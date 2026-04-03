@@ -39,6 +39,50 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Placement target",
       promptHint: "Optional host:position target (defaults to app ShellOutlet default target)."
+    },
+    "placement-component-token": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Placement component token",
+      promptHint:
+        "Optional component token override for generated menu placement (example: local.main.ui.tab-link-item)."
+    },
+    "placement-to": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Placement to",
+      promptHint:
+        "Optional explicit props.to value for generated menu placement (example: ./notes). If omitted and directory-prefix includes a nestedChildren route group, defaults to ./<page-slug>."
+    },
+    file: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Target Vue file",
+      promptHint: "Vue SFC path relative to app root (used by outlet subcommand)."
+    },
+    host: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Outlet host",
+      promptHint: "ShellOutlet host value to inject into target file."
+    },
+    position: {
+      required: false,
+      inputType: "text",
+      defaultValue: "sub-pages",
+      promptLabel: "Outlet position",
+      promptHint: "ShellOutlet position value to inject into target file."
+    },
+    mode: {
+      required: false,
+      inputType: "text",
+      defaultValue: "routed",
+      promptLabel: "Outlet mode",
+      promptHint: "routed | outlet-only (routed injects RouterView when missing)."
     }
   },
   dependsOn: [],
@@ -57,13 +101,28 @@ export default Object.freeze({
   metadata: {
     generatorPrimarySubcommand: "page",
     generatorSubcommands: {
+      page: {
+        description: "Scaffold a non-CRUD page and add a menu placement entry.",
+        optionNames: ["name", "surface", "directory-prefix", "placement", "placement-component-token", "placement-to"]
+      },
       element: {
         entrypoint: "src/server/subcommands/element.js",
-        export: "runGeneratorSubcommand"
+        export: "runGeneratorSubcommand",
+        description: "Scaffold a reusable UI element component and register a placement.",
+        optionNames: ["name", "surface", "path", "placement"]
       },
       container: {
         entrypoint: "src/server/subcommands/container.js",
-        export: "runGeneratorSubcommand"
+        export: "runGeneratorSubcommand",
+        description: "Scaffold a routed section container page with a tab outlet. Adds a menu entry only when --placement is passed.",
+        optionNames: ["name", "surface", "directory-prefix", "path", "placement"]
+      },
+      outlet: {
+        entrypoint: "src/server/subcommands/outlet.js",
+        export: "runGeneratorSubcommand",
+        description: "Inject a ShellOutlet block into an existing Vue page/component.",
+        optionNames: ["file", "host", "position", "mode"],
+        requiredOptionNames: ["file", "host"]
       }
     },
     apiSummary: {
@@ -107,7 +166,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}",
         value:
-          "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"ui-generator.page.${option:name|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:name|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:name|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"ui-generator.page.${option:name|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated UI page menu placement.",
         category: "ui-generator",
         id: "ui-generator-page-placement-menu-${option:name|snake}",

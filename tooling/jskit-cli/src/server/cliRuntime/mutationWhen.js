@@ -55,11 +55,9 @@ function normalizeMutationWhen(value) {
   const allConditions = ensureArray(source.all)
     .map((entry) => normalizeMutationWhen(entry))
     .filter(Boolean);
-  if (allConditions.length > 0) {
-    return {
-      all: allConditions
-    };
-  }
+  const anyConditions = ensureArray(source.any)
+    .map((entry) => normalizeMutationWhen(entry))
+    .filter(Boolean);
 
   const option = String(source.option || "").trim();
   const config = String(source.config || "").trim();
@@ -70,11 +68,13 @@ function normalizeMutationWhen(value) {
   const includes = ensureArray(source.in).map((entry) => String(entry || "").trim()).filter(Boolean);
   const excludes = ensureArray(source.notIn).map((entry) => String(entry || "").trim()).filter(Boolean);
 
-  if (!option && !config) {
+  if (!option && !config && allConditions.length < 1 && anyConditions.length < 1) {
     return null;
   }
 
   return {
+    all: allConditions,
+    any: anyConditions,
     option,
     config,
     equals,
@@ -217,7 +217,7 @@ function shouldApplyMutationWhen(
 
   const allConditions = ensureArray(when.all).filter((entry) => entry && typeof entry === "object");
   if (allConditions.length > 0) {
-    return allConditions.every((entry) =>
+    const allMatch = allConditions.every((entry) =>
       shouldApplyMutationWhen(entry, {
         options,
         configContext,
@@ -225,6 +225,24 @@ function shouldApplyMutationWhen(
         mutationContext
       })
     );
+    if (!allMatch) {
+      return false;
+    }
+  }
+
+  const anyConditions = ensureArray(when.any).filter((entry) => entry && typeof entry === "object");
+  if (anyConditions.length > 0) {
+    const anyMatch = anyConditions.some((entry) =>
+      shouldApplyMutationWhen(entry, {
+        options,
+        configContext,
+        packageId,
+        mutationContext
+      })
+    );
+    if (!anyMatch) {
+      return false;
+    }
   }
 
   const optionName = String(when.option || "").trim();

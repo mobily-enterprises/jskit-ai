@@ -286,6 +286,48 @@ test("list-placements includes installed package metadata outlets", async () => 
   });
 });
 
+test("list-placements discovers route meta placement outlets", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placements-container-outlet-app");
+    await createMinimalApp(appRoot, { name: "list-placements-container-outlet-app" });
+    await writeVueFile(
+      appRoot,
+      "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue",
+      `<template><section /></template>
+
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "placements": {
+        "outlets": [
+          {
+            "host": "contact-tools",
+            "position": "sub-pages"
+          }
+        ]
+      }
+    }
+  }
+}
+</route>
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-placements"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(
+      stdout,
+      /contact-tools:sub-pages \[src\/pages\/w\/\[workspaceSlug\]\/admin\/contacts\/\[contactId\]\/contact-tools\.vue\]/
+    );
+  });
+});
+
 test("list placements mode reports dedicated command migration", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-migration-app");
@@ -300,6 +342,204 @@ test("list placements mode reports dedicated command migration", async () => {
     assert.match(
       String(result.stderr || ""),
       /moved to a dedicated command: jskit list-placements/i
+    );
+  });
+});
+
+test("list-link-items discovers placement-linked tokens from app files and installed package metadata", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placement-component-tokens-app");
+    await createMinimalApp(appRoot, {
+      name: "list-placement-component-tokens-app",
+      installedPackages: {
+        "@example/users-web": {
+          packageId: "@example/users-web",
+          source: {
+            type: "npm-installed-package",
+            descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+          }
+        }
+      }
+    });
+    await writeVueFile(
+      appRoot,
+      "src/placement.js",
+      `function addPlacement() {}
+
+addPlacement({
+  id: "demo.notes",
+  host: "shell-layout",
+  position: "primary-menu",
+  componentToken: "local.main.ui.tab-link-item"
+});
+`,
+    );
+    await writeVueFile(
+      appRoot,
+      "packages/main/src/client/providers/MainClientProvider.js",
+      `function registerMainClientComponent() {}
+registerMainClientComponent("local.main.ui.custom-pill", () => null);
+`
+    );
+    await writeVueFile(
+      appRoot,
+      "node_modules/@example/users-web/package.descriptor.mjs",
+      `export default {
+  packageId: "@example/users-web",
+  metadata: {
+    apiSummary: {
+      containerTokens: {
+        client: ["example.users.extra-token"]
+      }
+    },
+    ui: {
+      placements: {
+        contributions: [
+          {
+            id: "users.workspace.menu.demo",
+            host: "shell-layout",
+            position: "primary-menu",
+            componentToken: "example.users.menu-link-item",
+            source: "mutations.text#users-demo-placement"
+          }
+        ]
+      }
+    }
+  }
+};
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-link-items"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Available placement component tokens:/);
+    assert.match(stdout, /Showing link-item tokens only/);
+    assert.match(stdout, /local\.main\.ui\.tab-link-item/);
+    assert.match(stdout, /example\.users\.menu-link-item/);
+    assert.doesNotMatch(stdout, /local\.main\.ui\.custom-pill/);
+    assert.doesNotMatch(stdout, /example\.users\.extra-token/);
+  });
+});
+
+test("list-link-items --all includes declared client container tokens", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placement-component-tokens-all-app");
+    await createMinimalApp(appRoot, {
+      name: "list-placement-component-tokens-all-app",
+      installedPackages: {
+        "@example/users-web": {
+          packageId: "@example/users-web",
+          source: {
+            type: "npm-installed-package",
+            descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+          }
+        }
+      }
+    });
+    await writeVueFile(
+      appRoot,
+      "node_modules/@example/users-web/package.descriptor.mjs",
+      `export default {
+  packageId: "@example/users-web",
+  metadata: {
+    apiSummary: {
+      containerTokens: {
+        client: ["example.users.extra-token"]
+      }
+    },
+    ui: {
+      placements: {
+        contributions: []
+      }
+    }
+  }
+};
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-link-items", "--all"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /--all/);
+    assert.match(stdout, /example\.users\.extra-token/);
+  });
+});
+
+test("list-link-items --json returns structured token payload", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placement-component-tokens-json-app");
+    await createMinimalApp(appRoot, { name: "list-placement-component-tokens-json-app" });
+    await writeVueFile(
+      appRoot,
+      "src/placement.js",
+      `function addPlacement() {}
+addPlacement({ componentToken: "local.main.ui.tab-link-item" });
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-link-items", "--json"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const payload = JSON.parse(String(result.stdout || "{}"));
+    assert.equal(Array.isArray(payload.placementComponentTokens), true);
+    assert.equal(
+      payload.placementComponentTokens.some((entry) => String(entry?.token || "").trim() === "local.main.ui.tab-link-item"),
+      true
+    );
+  });
+});
+
+test("list-link-items supports --prefix filtering", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placement-component-tokens-prefix-app");
+    await createMinimalApp(appRoot, { name: "list-placement-component-tokens-prefix-app" });
+    await writeVueFile(
+      appRoot,
+      "src/placement.js",
+      `function addPlacement() {}
+addPlacement({ componentToken: "local.main.ui.tab-link-item" });
+addPlacement({ componentToken: "users.web.shell.menu-link-item" });
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-link-items", "--prefix", "local.main."]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /local\.main\.ui\.tab-link-item/);
+    assert.doesNotMatch(stdout, /users\.web\.shell\.menu-link-item/);
+  });
+});
+
+test("list placement-component-tokens mode reports dedicated command migration", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placement-component-tokens-migration-app");
+    await createMinimalApp(appRoot, { name: "list-placement-component-tokens-migration-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "placement-component-tokens"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /moved to a dedicated command: jskit list-link-items/i
     );
   });
 });

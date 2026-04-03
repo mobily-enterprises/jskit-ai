@@ -81,6 +81,22 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Menu placement",
       promptHint: "Optional host:position target (defaults to ShellLayout default outlet)."
+    },
+    "placement-component-token": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Placement component token",
+      promptHint:
+        "Optional component token override for generated menu placement. Use local.main.ui.tab-link-item for routed tab links (auto-provisions src/components/TabLinkItem.vue + MainClientProvider registration)."
+    },
+    "placement-to": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Placement to",
+      promptHint:
+        "Optional explicit props.to value for generated menu placement (example: ./pets). Required when adding placement for dynamic directory-prefix/route-path values."
     }
   },
   dependsOn: [],
@@ -204,7 +220,7 @@ export default Object.freeze({
         skipIfContains:
           "jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}",
         value:
-          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}\",\n      nonWorkspaceSuffix: \"/${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated UI menu placement.",
         category: "ui-generator",
         id: "ui-generator-placement-menu",
@@ -219,8 +235,32 @@ export default Object.freeze({
               in: ["list"]
             },
             {
-              option: "route-path",
-              notContains: "["
+              any: [
+                {
+                  all: [
+                    {
+                      option: "route-path",
+                      notContains: "["
+                    },
+                    {
+                      option: "directory-prefix",
+                      notContains: "["
+                    }
+                  ]
+                },
+                {
+                  all: [
+                    {
+                      option: "placement",
+                      contains: ":"
+                    },
+                    {
+                      option: "placement-to",
+                      notEquals: ""
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }

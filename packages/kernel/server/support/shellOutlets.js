@@ -12,6 +12,125 @@ import {
 
 const VUE_DISCOVERY_IGNORED_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
 const LOCK_FILE_RELATIVE_PATH = ".jskit/lock.json";
+const ROUTE_TAG_PATTERN = /<route\b([^>]*)>([\s\S]*?)<\/route>/g;
+const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
+
+function parseTagAttributes(attributesSource = "") {
+  const attributes = {};
+  const source = String(attributesSource || "");
+  for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
+    const attributeName = normalizeText(match[1]);
+    if (!attributeName) {
+      continue;
+    }
+
+    const hasValue = match[2] != null || match[3] != null;
+    const attributeValue = hasValue ? String(match[2] ?? match[3] ?? "") : true;
+    attributes[attributeName] = attributeValue;
+  }
+
+  return attributes;
+}
+
+function isDefaultEnabled(value) {
+  if (value === true) {
+    return true;
+  }
+  if (value === false || value == null) {
+    return false;
+  }
+
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function normalizeAppRouteOutletTarget({
+  outlet = {},
+  sourcePath = ""
+} = {}) {
+  const outletRecord = normalizeObject(outlet);
+  const outletTargetId = normalizeShellOutletTargetId(
+    `${normalizeText(outletRecord.host)}:${normalizeText(outletRecord.position)}`
+  );
+  if (!outletTargetId) {
+    return null;
+  }
+
+  const separatorIndex = outletTargetId.indexOf(":");
+  const host = outletTargetId.slice(0, separatorIndex);
+  const position = outletTargetId.slice(separatorIndex + 1);
+  return Object.freeze({
+    id: outletTargetId,
+    host,
+    position,
+    default: isDefaultEnabled(outletRecord.default),
+    sourcePath
+  });
+}
+
+function discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {}) {
+  const sourceText = String(source || "");
+  const resolvedContext = normalizeText(context) || "shell layout";
+  const targetById = new Map();
+  let defaultTargetId = "";
+
+  for (const routeTagMatch of sourceText.matchAll(ROUTE_TAG_PATTERN)) {
+    const routeTagAttributes = parseTagAttributes(routeTagMatch[1]);
+    const routeTagLanguage = normalizeText(routeTagAttributes.lang).toLowerCase();
+    if (routeTagLanguage !== "json") {
+      continue;
+    }
+
+    const routeMetaSource = String(routeTagMatch[2] || "").trim();
+    if (!routeMetaSource) {
+      continue;
+    }
+
+    let routeMetaRecord = null;
+    try {
+      routeMetaRecord = JSON.parse(routeMetaSource);
+    } catch (error) {
+      throw new Error(
+        `${resolvedContext} contains invalid <route lang="json"> block: ${String(error?.message || error || "unknown error")}`
+      );
+    }
+
+    const routeMeta = normalizeObject(normalizeObject(routeMetaRecord).meta);
+    const jskitMeta = normalizeObject(routeMeta.jskit);
+    const placementsMeta = normalizeObject(jskitMeta.placements);
+    const outlets = Array.isArray(placementsMeta.outlets) ? placementsMeta.outlets : [];
+    for (const outlet of outlets) {
+      const normalizedTarget = normalizeAppRouteOutletTarget({
+        outlet,
+        sourcePath: resolvedContext
+      });
+      if (!normalizedTarget) {
+        continue;
+      }
+      if (targetById.has(normalizedTarget.id)) {
+        throw new Error(`${resolvedContext} contains duplicate route meta placement target "${normalizedTarget.id}".`);
+      }
+      if (normalizedTarget.default === true) {
+        if (defaultTargetId && defaultTargetId !== normalizedTarget.id) {
+          throw new Error(
+            `${resolvedContext} defines multiple default route meta placement targets: "${defaultTargetId}" and "${normalizedTarget.id}".`
+          );
+        }
+        defaultTargetId = normalizedTarget.id;
+      }
+      targetById.set(normalizedTarget.id, normalizedTarget);
+    }
+  }
+
+  return Object.freeze({
+    targets: Object.freeze([...targetById.values()]),
+    defaultTargetId
+  });
+}
 
 async function collectVueFilePaths(rootDirectoryPath) {
   const absoluteRoot = path.resolve(String(rootDirectoryPath || ""));
@@ -154,15 +273,27 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
   for (const absoluteFilePath of vueFiles) {
     const relativePath = toPosixPath(path.relative(resolvedAppRoot, absoluteFilePath));
     const source = await readFile(absoluteFilePath, "utf8");
-    if (!source.includes("<ShellOutlet")) {
+    if (!source.includes("<ShellOutlet") && !source.includes("<route")) {
       continue;
     }
 
-    const discovered = discoverShellOutletTargetsFromVueSource(source, {
-      context: relativePath
-    });
-    const targets = Array.isArray(discovered.targets) ? discovered.targets : [];
-    for (const target of targets) {
+    const discoveredShellOutlets = source.includes("<ShellOutlet")
+      ? discoverShellOutletTargetsFromVueSource(source, {
+          context: relativePath
+        })
+      : { targets: [], defaultTargetId: "" };
+    const discoveredRouteMetaOutlets = source.includes("<route")
+      ? discoverRouteMetaOutletTargetsFromVueSource(source, {
+          context: relativePath
+        })
+      : { targets: [], defaultTargetId: "" };
+    const discoveredTargets = [
+      ...(Array.isArray(discoveredShellOutlets.targets) ? discoveredShellOutlets.targets : []),
+      ...(Array.isArray(discoveredRouteMetaOutlets.targets)
+        ? discoveredRouteMetaOutlets.targets
+        : [])
+    ];
+    for (const target of discoveredTargets) {
       if (!targetById.has(target.id)) {
         targetById.set(
           target.id,
@@ -174,20 +305,21 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
       }
     }
 
-    const discoveredDefaultTargetId = normalizeShellOutletTargetId(discovered.defaultTargetId);
-    if (!discoveredDefaultTargetId) {
-      continue;
-    }
+    const discoveredDefaultTargetIds = [
+      normalizeShellOutletTargetId(discoveredShellOutlets.defaultTargetId),
+      normalizeShellOutletTargetId(discoveredRouteMetaOutlets.defaultTargetId)
+    ].filter(Boolean);
+    for (const discoveredDefaultTargetId of discoveredDefaultTargetIds) {
+      if (defaultTargetId && discoveredDefaultTargetId !== defaultTargetId) {
+        throw new Error(
+          `Multiple default ShellOutlet targets found in app source: "${defaultTargetId}" (${defaultTargetSource}) and ` +
+          `"${discoveredDefaultTargetId}" (${relativePath}).`
+        );
+      }
 
-    if (defaultTargetId && discoveredDefaultTargetId !== defaultTargetId) {
-      throw new Error(
-        `Multiple default ShellOutlet targets found in app source: "${defaultTargetId}" (${defaultTargetSource}) and ` +
-        `"${discoveredDefaultTargetId}" (${relativePath}).`
-      );
+      defaultTargetId = discoveredDefaultTargetId;
+      defaultTargetSource = relativePath;
     }
-
-    defaultTargetId = discoveredDefaultTargetId;
-    defaultTargetSource = relativePath;
   }
 
   const packageTargets = await collectInstalledPackageOutletTargets(resolvedAppRoot);

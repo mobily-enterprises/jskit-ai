@@ -27,7 +27,24 @@ const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const CONTAINER_TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const DEFAULT_MENU_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
-const CONTAINER_MENU_COMPONENT_TOKEN = "local.main.ui.section-shell.tab-link-item";
+const CONTAINER_MENU_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+
+function splitPathSegments(value = "") {
+  return normalizeText(value)
+    .replaceAll("\\", "/")
+    .split("/")
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+}
+
+function isRouteGroupSegment(value = "") {
+  const source = normalizeText(value);
+  return source.startsWith("(") && source.endsWith(")");
+}
+
+function joinPathSegments(segments = []) {
+  return (Array.isArray(segments) ? segments : []).join("/");
+}
 
 function resolveContainerOption(options = {}) {
   const container = normalizeText(options?.container).toLowerCase();
@@ -45,22 +62,41 @@ function resolveContainerOption(options = {}) {
 }
 
 function resolveRoutePathWithContainer(options = {}) {
-  const routePath = normalizeText(options?.["route-path"]);
-  if (!routePath) {
-    return "";
-  }
-
   const container = resolveContainerOption(options);
-  if (!container) {
-    return routePath;
-  }
+  const routeSegments = [
+    ...splitPathSegments(options?.["directory-prefix"]),
+    ...splitPathSegments(container),
+    ...splitPathSegments(options?.["route-path"])
+  ];
+  return joinPathSegments(routeSegments);
+}
 
-  return `${container}/${routePath}`;
+function resolvePlacementUrlSuffix(options = {}) {
+  const routeSegments = splitPathSegments(resolveRoutePathWithContainer(options))
+    .filter((segment) => !isRouteGroupSegment(segment));
+  if (routeSegments.length < 1) {
+    return "/";
+  }
+  return `/${joinPathSegments(routeSegments)}`;
 }
 
 function resolveMenuComponentToken(options = {}) {
+  const explicitToken = normalizeText(options?.["placement-component-token"]);
+  if (explicitToken) {
+    return explicitToken;
+  }
+
   const container = resolveContainerOption(options);
   return container ? CONTAINER_MENU_COMPONENT_TOKEN : DEFAULT_MENU_COMPONENT_TOKEN;
+}
+
+function resolveMenuToPropLine(options = {}) {
+  const placementTo = normalizeText(options?.["placement-to"]);
+  if (!placementTo) {
+    return "";
+  }
+
+  return `      to: ${JSON.stringify(placementTo)},\n`;
 }
 
 async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {}) {
@@ -69,7 +105,7 @@ async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation }
   }
 
   const routePath = resolveRoutePathWithContainer(options);
-  if (!routePath || routePath.includes("[")) {
+  if (!routePath) {
     return null;
   }
 
@@ -338,7 +374,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
     __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(menuPlacementTarget?.host),
     __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(menuPlacementTarget?.position),
-    __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options)
+    __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options),
+    __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
+    __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
+    __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(options)
   };
 }
 

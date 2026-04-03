@@ -1049,7 +1049,7 @@ test("buildUiTemplateContext defaults list placement to container host when cont
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "practice");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "sub-pages");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.section-shell.tab-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
   });
 });
 
@@ -1103,5 +1103,87 @@ test("buildUiTemplateContext applies explicit placement override and validates t
         }),
       /option "container" must be a single host token/
     );
+  });
+});
+
+test("buildUiTemplateContext allows placement component token override", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "ops/customers",
+        operations: "list",
+        placement: "shell-layout:secondary-menu",
+        "placement-component-token": "local.main.ui.tab-link-item",
+        "resource-file": resourceFile,
+      }
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+  });
+});
+
+test("buildUiTemplateContext renders optional placement-to props line", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(appRoot);
+
+    const defaultContext = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "ops/customers",
+        operations: "list",
+        placement: "shell-layout:secondary-menu",
+        "resource-file": resourceFile,
+      }
+    });
+    assert.equal(defaultContext.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
+
+    const explicitToContext = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "route-path": "ops/customers",
+        operations: "list",
+        placement: "shell-layout:secondary-menu",
+        "placement-to": "./pets",
+        "resource-file": resourceFile,
+      }
+    });
+    assert.equal(explicitToContext.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./pets\",\n");
+  });
+});
+
+test("buildUiTemplateContext strips route-group filesystem segments from menu URL suffix", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/customers/src/shared/customerResource.js";
+    await writeResource(appRoot, resourceFile, FULL_RESOURCE_SOURCE);
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "customers-ui",
+        "api-path": "/crud/customers",
+        "directory-prefix": "ops/(nestedChildren)",
+        "route-path": "customers",
+        operations: "list",
+        placement: "shell-layout:secondary-menu",
+        "resource-file": resourceFile
+      }
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/ops/customers");
+    assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/ops/customers");
   });
 });

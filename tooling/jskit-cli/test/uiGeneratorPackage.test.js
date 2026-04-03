@@ -18,6 +18,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   await mkdir(path.join(appRoot, "src"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "pages", "admin"), { recursive: true });
+  await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
   await writeFile(
     path.join(appRoot, "package.json"),
@@ -78,6 +79,35 @@ export default function getPlacements() {
     <ShellOutlet host="shell-layout" position="secondary-menu" />
   </div>
 </template>
+`,
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+    `const mainClientComponents = [];
+
+function registerMainClientComponent(componentToken, resolveComponent) {
+  const token = String(componentToken || "").trim();
+  if (!token || typeof resolveComponent !== "function") {
+    return;
+  }
+  mainClientComponents.push(
+    Object.freeze({
+      token,
+      resolveComponent
+    })
+  );
+}
+
+class MainClientProvider {
+  static id = "local.main.client";
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
+};
 `,
     "utf8"
   );
@@ -201,6 +231,9 @@ async function generateCrudUiPackage(
     routePath = "ops/customers-ui",
     idParam = "customerId",
     placement = "",
+    placementComponentToken = "",
+    placementTo = "",
+    directoryPrefix = "",
     command = ""
   } = {}
 ) {
@@ -223,7 +256,12 @@ async function generateCrudUiPackage(
     apiPath,
     "--route-path",
     routePath,
+    ...(String(directoryPrefix || "").trim() ? ["--directory-prefix", String(directoryPrefix || "").trim()] : []),
     ...(String(placement || "").trim() ? ["--placement", String(placement || "").trim()] : []),
+    ...(String(placementComponentToken || "").trim()
+      ? ["--placement-component-token", String(placementComponentToken || "").trim()]
+      : []),
+    ...(String(placementTo || "").trim() ? ["--placement-to", String(placementTo || "").trim()] : []),
     "--id-param",
     idParam
   ];
@@ -457,6 +495,148 @@ test("generate @jskit-ai/crud-ui-generator does not append menu placement for dy
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:addresses:::contacts\/\[contactId\]\/addresses/);
     assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/addresses"/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator does not append menu placement for dynamic directory-prefix", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-dynamic-prefix-no-menu");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-prefix-no-menu" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      namespace: "pets",
+      apiPath: "/pets",
+      operations: "list,view,new,edit",
+      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
+      routePath: "pets",
+      idParam: "petId"
+    });
+
+    const dynamicListPagePath = path.join(
+      appRoot,
+      "src",
+      "pages",
+      "admin",
+      "contacts",
+      "[contactId]",
+      "(nested-children)",
+      "pets",
+      "index.vue"
+    );
+    assert.equal(await fileExists(dynamicListPagePath), true);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:pets:contacts\/\[contactId\]\/\(nested-children\)::pets/);
+    assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/pets"/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator appends placement for dynamic directory-prefix when explicit placement and placement-to are provided", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-dynamic-prefix-placement");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-prefix-placement" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      namespace: "pets",
+      apiPath: "/pets",
+      operations: "list,view,new,edit",
+      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
+      routePath: "pets",
+      idParam: "petId",
+      placement: "shell-layout:secondary-menu",
+      placementComponentToken: "local.main.ui.tab-link-item",
+      placementTo: "./pets"
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /jskit:ui-generator\.menu:pets:contacts\/\[contactId\]\/\(nested-children\)::pets/);
+    assert.match(placementSource, /host: "shell-layout"/);
+    assert.match(placementSource, /position: "secondary-menu"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /to: "\.\/pets"/);
+
+    const tabLinkComponentPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
+    assert.equal(await fileExists(tabLinkComponentPath), true);
+    const tabLinkSource = await readFile(tabLinkComponentPath, "utf8");
+    assert.equal(tabLinkSource.includes("source.replace(/\\[([^\\]]+)\\]/g"), true);
+    assert.equal(tabLinkSource.includes("source.replace(/[([^]]+)]/g"), false);
+
+    const providerSource = await readFile(
+      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+      "utf8"
+    );
+    assert.match(providerSource, /import TabLinkItem from "\/src\/components\/TabLinkItem\.vue";/);
+    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator does not duplicate existing local.main.ui.tab-link-item registrations", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-existing-tab-link-token");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-existing-tab-link-token" });
+    await writeCustomerResource(appRoot);
+
+    await writeFile(
+      path.join(appRoot, "src", "components", "SectionShellTabLinkItem.vue"),
+      "<template><div /></template>\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+      `import SectionShellTabLinkItem from "/src/components/SectionShellTabLinkItem.vue";
+
+const mainClientComponents = [];
+
+function registerMainClientComponent(componentToken, resolveComponent) {
+  const token = String(componentToken || "").trim();
+  if (!token || typeof resolveComponent !== "function") {
+    return;
+  }
+  mainClientComponents.push(
+    Object.freeze({
+      token,
+      resolveComponent
+    })
+  );
+}
+
+registerMainClientComponent("local.main.ui.tab-link-item", () => SectionShellTabLinkItem);
+
+class MainClientProvider {
+  static id = "local.main.client";
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
+};
+`,
+      "utf8"
+    );
+
+    await generateCrudUiPackage(appRoot, {
+      namespace: "pets",
+      apiPath: "/pets",
+      operations: "list,view,new,edit",
+      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
+      routePath: "pets",
+      idParam: "petId",
+      placement: "shell-layout:secondary-menu",
+      placementComponentToken: "local.main.ui.tab-link-item",
+      placementTo: "./pets"
+    });
+
+    const providerSource = await readFile(
+      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+      "utf8"
+    );
+    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => SectionShellTabLinkItem\);/);
+    assert.doesNotMatch(providerSource, /import TabLinkItem from "\/src\/components\/TabLinkItem\.vue";/);
+    assert.doesNotMatch(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
+
+    const tabLinkComponentPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
+    assert.equal(await fileExists(tabLinkComponentPath), false);
   });
 });
 

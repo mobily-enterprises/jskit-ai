@@ -58,6 +58,9 @@ function createRunCli({
       if (command === "list-placements") {
         return await commandHandlers.commandListPlacements({ options, cwd, stdout });
       }
+      if (command === "list-link-items") {
+        return await commandHandlers.commandListLinkItems({ options, cwd, stdout });
+      }
       if (command === "show") {
         return await commandHandlers.commandShow({ positional, options, stdout });
       }
