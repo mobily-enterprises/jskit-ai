@@ -7,6 +7,7 @@ import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 import { createViewUiRuntime } from "./viewUiRuntime.js";
 import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
+import { resolveRouteParamNamesInOrder } from "./routeTemplateHelpers.js";
 
 function useView({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -37,6 +38,7 @@ function useView({
   const viewUiRuntime = createViewUiRuntime({
     recordIdParam,
     routeParams: routeParams ?? computed(() => route?.params || {}),
+    routeParamNames: computed(() => resolveRouteParamNamesInOrder(route)),
     routePath: computed(() => route?.path || ""),
     routeRecordId,
     apiUrlTemplate,

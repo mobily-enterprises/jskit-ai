@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  hasValue,
   normalizeBoolean,
   normalizeFiniteInteger,
   normalizeFiniteNumber,
@@ -14,6 +15,19 @@ import {
   normalizeText,
   normalizeUniqueTextList
 } from "./normalize.js";
+
+test("hasValue returns false for nullish and blank text, true otherwise", () => {
+  assert.equal(hasValue(null), false);
+  assert.equal(hasValue(undefined), false);
+  assert.equal(hasValue(""), false);
+  assert.equal(hasValue("   "), false);
+  assert.equal(hasValue("0"), true);
+  assert.equal(hasValue("-"), true);
+  assert.equal(hasValue(0), true);
+  assert.equal(hasValue(false), true);
+  assert.equal(hasValue([]), true);
+  assert.equal(hasValue({}), true);
+});
 
 test("normalizeQueryToken trims, lowercases, and falls back when empty", () => {
   assert.equal(normalizeQueryToken("  Admin  "), "admin");

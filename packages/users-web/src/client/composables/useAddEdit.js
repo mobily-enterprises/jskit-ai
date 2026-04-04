@@ -14,6 +14,7 @@ import {
 import {
   resolveResourceMessages
 } from "./scopeHelpers.js";
+import { resolveRouteParamNamesInOrder } from "./routeTemplateHelpers.js";
 
 function useAddEdit({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -53,6 +54,7 @@ function useAddEdit({
   const addEditUiRuntime = createAddEditUiRuntime({
     recordIdParam,
     routeParams: routeParams ?? computed(() => route?.params || {}),
+    routeParamNames: computed(() => resolveRouteParamNamesInOrder(route)),
     routePath: computed(() => route?.path || ""),
     routeRecordId,
     apiUrlTemplate,
