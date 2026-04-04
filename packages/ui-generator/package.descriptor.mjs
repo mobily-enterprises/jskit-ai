@@ -33,6 +33,14 @@ export default Object.freeze({
       promptLabel: "Page directory prefix",
       promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
     },
+    "route-path": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Route path",
+      promptHint:
+        "Optional explicit container route path (example: contact-tools or contacts/[contactId]). Defaults to --name."
+    },
     placement: {
       required: false,
       inputType: "text",
@@ -115,7 +123,7 @@ export default Object.freeze({
         entrypoint: "src/server/subcommands/container.js",
         export: "runGeneratorSubcommand",
         description: "Scaffold a routed section container page with a tab outlet. Adds a menu entry only when --placement is passed.",
-        optionNames: ["name", "surface", "directory-prefix", "path", "placement"]
+        optionNames: ["name", "surface", "directory-prefix", "route-path", "path", "placement"]
       },
       outlet: {
         entrypoint: "src/server/subcommands/outlet.js",

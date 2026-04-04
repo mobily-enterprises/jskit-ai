@@ -2,6 +2,24 @@ import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validato
 import { asPlainObject } from "./scopeHelpers.js";
 import { toRouteParamValue } from "./routeTemplateHelpers.js";
 
+const EMPTY_FIELD_ERROR_LIST = Object.freeze([]);
+const fieldErrorListCache = new Map();
+
+function resolveStableFieldErrorList(fieldKey, message) {
+  if (!message) {
+    return EMPTY_FIELD_ERROR_LIST;
+  }
+
+  const cacheKey = `${fieldKey}::${message}`;
+  if (fieldErrorListCache.has(cacheKey)) {
+    return fieldErrorListCache.get(cacheKey);
+  }
+
+  const nextValue = Object.freeze([message]);
+  fieldErrorListCache.set(cacheKey, nextValue);
+  return nextValue;
+}
+
 function normalizeCrudFormFields(fields = []) {
   const normalizedFields = [];
   const seenKeys = new Set();
@@ -150,11 +168,12 @@ function resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "") {
 
   const source = asPlainObject(fieldErrors);
   const message = String(source[key] || "").trim();
+
   if (!message) {
-    return [];
+    return resolveStableFieldErrorList(key, "");
   }
 
-  return [message];
+  return resolveStableFieldErrorList(key, message);
 }
 
 function parseCrudResourceOperationInput({
@@ -167,12 +186,13 @@ function parseCrudResourceOperationInput({
   const operations = asPlainObject(asPlainObject(resource).operations);
   const operation = asPlainObject(operations[normalizedOperationName]);
 
-  return validateOperationSection({
+  const parsed = validateOperationSection({
     operation,
     section: "bodyValidator",
     value: rawPayload,
     context
   });
+  return parsed;
 }
 
 export {

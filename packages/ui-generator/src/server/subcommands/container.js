@@ -59,6 +59,18 @@ function normalizeRoutePrefix(value = "") {
   return parts.join("/");
 }
 
+function resolveContainerRoutePath({ name = "", routePath = "" } = {}) {
+  const rawRoutePath = normalizeText(routePath);
+  const normalizedRoutePath = normalizeRoutePrefix(routePath);
+  if (rawRoutePath && !normalizedRoutePath) {
+    throw new Error("ui-generator container requires a valid --route-path when provided.");
+  }
+  if (normalizedRoutePath) {
+    return normalizedRoutePath;
+  }
+  return toKebabCase(name);
+}
+
 function parseTagAttributes(attributesSource = "") {
   const attributes = {};
   const source = String(attributesSource || "");
@@ -502,12 +514,16 @@ async function runGeneratorSubcommand({
   const surface = requireOption(options, "surface", { context: "ui-generator container" }).toLowerCase();
   const routePrefix = normalizeRoutePrefix(options?.["directory-prefix"]);
   const componentDirectory = normalizeText(options?.path) || DEFAULT_COMPONENT_DIRECTORY;
+  const containerRoutePath = resolveContainerRoutePath({
+    name,
+    routePath: options?.["route-path"]
+  });
   const containerSlug = toKebabCase(name);
-  if (!containerSlug) {
+  if (!containerSlug || !containerRoutePath) {
     throw new Error("ui-generator container requires a valid --name.");
   }
 
-  const routePath = routePrefix ? `${routePrefix}/${containerSlug}` : containerSlug;
+  const routePath = routePrefix ? `${routePrefix}/${containerRoutePath}` : containerRoutePath;
   const pagesDirectory = await resolveSurfacePagesDirectory(resolvedAppRoot, surface);
   const containerFilePath = path.join(pagesDirectory, `${routePath}.vue`);
   const containerRelativePath = toPosixPath(path.relative(resolvedAppRoot, containerFilePath));

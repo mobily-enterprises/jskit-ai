@@ -100,7 +100,31 @@ function normalizeIfInSource(source, normalized, fieldName, normalizer = (value)
     return normalized;
   }
 
-  normalized[normalizedFieldName] = normalizer(sourceValue);
+  try {
+    normalized[normalizedFieldName] = normalizer(sourceValue);
+  } catch (error) {
+    const normalizedMessage = normalizeText(error?.message, {
+      fallback: `${normalizedFieldName} is invalid.`
+    });
+    const sourceDetails = isRecord(error?.details) ? error.details : {};
+    const sourceFieldErrors = isRecord(error?.fieldErrors)
+      ? { ...error.fieldErrors }
+      : isRecord(sourceDetails.fieldErrors)
+        ? { ...sourceDetails.fieldErrors }
+        : {};
+
+    if (!normalizeText(sourceFieldErrors[normalizedFieldName])) {
+      sourceFieldErrors[normalizedFieldName] = normalizedMessage;
+    }
+
+    const normalizedError = error instanceof Error ? error : new Error(normalizedMessage);
+    normalizedError.fieldErrors = sourceFieldErrors;
+    normalizedError.details = {
+      ...sourceDetails,
+      fieldErrors: sourceFieldErrors
+    };
+    throw normalizedError;
+  }
   return normalized;
 }
 

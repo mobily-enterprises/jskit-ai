@@ -81,6 +81,61 @@ test("mapOperationIssues falls back to keyword/global messages", () => {
   assert.equal(mapped.fieldErrors.extra, "Unexpected field.");
 });
 
+test("mapOperationIssues maps conditional schema failures to field errors", () => {
+  const conditionalSchema = Type.Object(
+    {
+      isVaccinated: Type.Boolean(),
+      adenovirusValidTo: Type.Optional(Type.String({ format: "date" }))
+    },
+    {
+      if: {
+        properties: {
+          isVaccinated: {
+            const: true
+          }
+        }
+      },
+      then: {
+        required: ["adenovirusValidTo"]
+      },
+      messages: {
+        if: "Adenovirus valid-to date is required when vaccinated."
+      }
+    }
+  );
+
+  const issues = [...Errors(conditionalSchema, { isVaccinated: true })];
+  const mapped = mapOperationIssues(issues, conditionalSchema);
+
+  assert.equal(mapped.fieldErrors.adenovirusValidTo, "Adenovirus valid-to date is required when vaccinated.");
+  assert.deepEqual(mapped.globalErrors, []);
+});
+
+test("mapOperationIssues suppresses redundant root anyOf global issue when field errors exist", () => {
+  const unionSchema = Type.Union([
+    Type.Object(
+      {
+        kind: Type.Literal("dog"),
+        bark: Type.String({ minLength: 1 })
+      },
+      { additionalProperties: false }
+    ),
+    Type.Object(
+      {
+        kind: Type.Literal("cat"),
+        meow: Type.String({ minLength: 1 })
+      },
+      { additionalProperties: false }
+    )
+  ]);
+
+  const issues = [...Errors(unionSchema, { kind: "dog", bark: "" })];
+  const mapped = mapOperationIssues(issues, unionSchema);
+
+  assert.equal(typeof mapped.fieldErrors.bark, "string");
+  assert.deepEqual(mapped.globalErrors, []);
+});
+
 test("schema message helpers resolve field and root messages", () => {
   const nameSchema = resolveFieldSchema(sampleSchema, "name");
   assert.equal(typeof nameSchema, "object");

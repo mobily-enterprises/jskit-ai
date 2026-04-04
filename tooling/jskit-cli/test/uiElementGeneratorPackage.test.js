@@ -303,3 +303,45 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });
+
+test("generate @jskit-ai/ui-generator container supports explicit dynamic route-path", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-container-generator-dynamic-route");
+    await createMinimalApp(appRoot, { name: "ui-container-generator-dynamic-route" });
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "container",
+        "--name",
+        "Contact",
+        "--surface",
+        "admin",
+        "--directory-prefix",
+        "contacts",
+        "--route-path",
+        "[contactId]"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const containerPath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
+    const tabLinkPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
+
+    assert.equal(await fileExists(containerPath), true);
+    assert.equal(await fileExists(sectionShellPath), true);
+    assert.equal(await fileExists(tabLinkPath), true);
+
+    const containerSource = await readFile(containerPath, "utf8");
+    assert.match(containerSource, /<RouterView \/>/);
+    assert.match(containerSource, /host="contact"/);
+
+    const providerSource = await readFile(providerPath, "utf8");
+    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
+  });
+});
