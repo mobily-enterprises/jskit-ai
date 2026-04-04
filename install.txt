@@ -119,7 +119,7 @@ npx jskit generate crud-ui-generator --namespace addresses --surface admin --ope
 
 
 ----------------------------------------------------
-PETS WITHIN contacts
+PETS WITHIN contacts, EMBEDDED
 
   npx jskit generate ui-generator outlet \
       --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
@@ -138,8 +138,36 @@ PETS WITHIN contacts
     --placement-to ./pets \
     --id-param petId
 
+
+Then...
+
+  npx jskit generate ui-generator page \
+    --name "Notes" \
+    --surface admin \
+    --directory-prefix "contacts/[contactId]/(nestedChildren)" \
+    --placement contact-view:sub-pages \
+    --placement-component-token local.main.ui.tab-link-item
 ------------------------------------------------------------------------------
 
+
+----------------------------------------------------
+MULTI TAB contacts, NOT embedded
+
+  npx jskit generate crud-ui-generator \
+    --namespace pets \
+    --surface admin \
+    --operations list,view,new,edit \
+    --resource-file packages/pets/src/shared/petResource.js \
+    --directory-prefix "contacts/[contactId]" \
+    --route-path "pets" \
+    --id-param petId
+
+
+
+(Plus add links back and forth and add header... WAY BETTER!!!)
+
+
+-----------------------------------------------------
 
 FIGURE OUT:
 

@@ -46,6 +46,12 @@ Generate a route container page with nested outlet (for embedded sub-pages):
 npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin
 ```
 
+Generate a route container with explicit dynamic route path:
+
+```bash
+npx jskit generate @jskit-ai/ui-generator container --name "Contact" --surface admin --directory-prefix contacts --route-path "[contactId]"
+```
+
 Add a shell menu entry for that container (optional):
 
 ```bash
@@ -70,7 +76,7 @@ npx jskit generate @jskit-ai/ui-generator outlet
 
 - `page`: `--name --surface [--directory-prefix] [--placement]`
 - `element`: `--name --surface [--path] [--placement]`
-- `container`: `--name --surface [--directory-prefix] [--placement]`
+- `container`: `--name --surface [--directory-prefix] [--route-path] [--placement]`
 - `outlet`: `--file --host [--position] [--mode]`
 
 `page` also supports:

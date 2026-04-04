@@ -168,6 +168,56 @@ test("ui-generator container preserves bracket route params in directory-prefix"
   });
 });
 
+test("ui-generator container supports explicit route-path for dynamic container files", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "container",
+      options: {
+        name: "Contact",
+        surface: "admin",
+        "directory-prefix": "contacts",
+        "route-path": "[contactId]"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [
+      "packages/main/src/client/providers/MainClientProvider.js",
+      "src/components/SectionContainerShell.vue",
+      "src/components/TabLinkItem.vue",
+      "src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue"
+    ]);
+
+    const containerSource = await readFile(
+      path.join(appRoot, "src", "pages", "w", "[workspaceSlug]", "admin", "contacts", "[contactId].vue"),
+      "utf8"
+    );
+    assert.match(containerSource, /host="contact"/);
+    assert.match(containerSource, /<RouterView \/>/);
+  });
+});
+
+test("ui-generator container rejects invalid explicit route-path values", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "container",
+        options: {
+          name: "Contact",
+          surface: "admin",
+          "route-path": "---"
+        }
+      }),
+      /ui-generator container requires a valid --route-path when provided\./
+    );
+  });
+});
+
 test("ui-generator container appends menu placement only when --placement is provided", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
