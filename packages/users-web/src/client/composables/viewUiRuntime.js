@@ -3,7 +3,7 @@ import { asPlainObject } from "./scopeHelpers.js";
 import {
   normalizeRouteParamName,
   resolveRouteParamsSource,
-  resolveRoutePathnameSource,
+  resolveScopedRoutePathname,
   resolveRouteTemplateLocation,
   toRouteParamValue
 } from "./routeTemplateHelpers.js";
@@ -22,6 +22,7 @@ function resolveRecordId({ routeParams, recordIdParam, routeRecordId }) {
 function createViewUiRuntime({
   recordIdParam = "recordId",
   routeParams = null,
+  routeParamNames = null,
   routePath = "",
   routeRecordId = null,
   apiUrlTemplate = "",
@@ -53,10 +54,18 @@ function createViewUiRuntime({
         routeRecordId
       });
     sourceParams[normalizedRecordIdParam] = resolvedRecordId;
+    const currentPathname = resolveScopedRoutePathname({
+      currentPathname: routePath,
+      params: currentRouteParams,
+      orderedParamNames: routeParamNames,
+      anchorParamName: normalizedRecordIdParam,
+      anchorParamValue: resolvedRecordId,
+      anchorMode: "at"
+    });
 
     return resolveRouteTemplateLocation(normalizedTemplate, {
       params: sourceParams,
-      currentPathname: resolveRoutePathnameSource(routePath)
+      currentPathname
     });
   }
 

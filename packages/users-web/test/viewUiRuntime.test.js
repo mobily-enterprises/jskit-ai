@@ -23,6 +23,41 @@ test("createViewUiRuntime resolves api/list/edit paths with nested params", () =
   assert.equal(runtime.resolveParams("./edit"), "/users/user-7/addresses/addr-42/edit");
 });
 
+test("createViewUiRuntime resolves view links from the record pathname when route is nested", () => {
+  const runtime = createViewUiRuntime({
+    recordIdParam: "contactId",
+    routeParams: ref({
+      workspaceSlug: "dogandgroom",
+      contactId: "541841",
+      petId: "715528"
+    }),
+    routeParamNames: ref(["workspaceSlug", "contactId", "petId"]),
+    routePath: ref("/w/dogandgroom/admin/contacts/541841/pets/715528"),
+    listUrlTemplate: "..",
+    editUrlTemplate: "./edit"
+  });
+
+  assert.equal(runtime.listUrl.value, "/w/dogandgroom/admin/contacts");
+  assert.equal(runtime.editUrl.value, "/w/dogandgroom/admin/contacts/541841/edit");
+  assert.equal(runtime.resolveParams("./edit"), "/w/dogandgroom/admin/contacts/541841/edit");
+});
+
+test("createViewUiRuntime uses route param order when repeated values are present", () => {
+  const runtime = createViewUiRuntime({
+    recordIdParam: "contactId",
+    routeParams: ref({
+      workspaceSlug: "123",
+      contactId: "123",
+      petId: "123"
+    }),
+    routeParamNames: ref(["workspaceSlug", "contactId", "petId"]),
+    routePath: ref("/w/123/admin/contacts/123/pets/123"),
+    editUrlTemplate: "./edit"
+  });
+
+  assert.equal(runtime.editUrl.value, "/w/123/admin/contacts/123/edit");
+});
+
 test("createViewUiRuntime uses explicit routeRecordId when route params do not include id", () => {
   const runtime = createViewUiRuntime({
     recordIdParam: "addressId",

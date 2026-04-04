@@ -4,7 +4,7 @@ import {
   normalizeRouteParamName,
   toRouteParamValue,
   resolveRouteParamsSource,
-  resolveRoutePathnameSource,
+  resolveScopedRoutePathname,
   resolveRouteTemplateLocation
 } from "./routeTemplateHelpers.js";
 
@@ -23,6 +23,7 @@ function createListUiRuntime({
   recordIdParam = "recordId",
   recordIdSelector = null,
   routeParams = null,
+  routeParamNames = null,
   routePath = "",
   viewUrlTemplate = "",
   editUrlTemplate = ""
@@ -44,12 +45,23 @@ function createListUiRuntime({
       return "";
     }
 
+    const currentRouteParams = resolveRouteParamsSource(routeParams);
+    const sourceParams = {
+      ...currentRouteParams,
+      ...asPlainObject(extraParams)
+    };
+    const currentPathname = resolveScopedRoutePathname({
+      currentPathname: routePath,
+      params: currentRouteParams,
+      orderedParamNames: routeParamNames,
+      anchorParamName: normalizedRecordIdParam,
+      anchorParamValue: currentRouteParams[normalizedRecordIdParam],
+      anchorMode: "before"
+    });
+
     return resolveRouteTemplateLocation(normalizedTemplate, {
-      params: {
-        ...resolveRouteParamsSource(routeParams),
-        ...asPlainObject(extraParams)
-      },
-      currentPathname: resolveRoutePathnameSource(routePath)
+      params: sourceParams,
+      currentPathname
     });
   }
 

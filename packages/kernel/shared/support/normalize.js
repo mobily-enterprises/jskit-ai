@@ -3,6 +3,18 @@ function normalizeText(value, { fallback = "" } = {}) {
   return normalized || fallback;
 }
 
+function hasValue(value) {
+  if (value == null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return normalizeText(value).length > 0;
+  }
+
+  return true;
+}
+
 function normalizeBoolean(value) {
   if (typeof value === "boolean") {
     return value;
@@ -193,6 +205,7 @@ function ensureNonEmptyText(value, label = "value") {
 
 export {
   normalizeText,
+  hasValue,
   normalizeBoolean,
   normalizeFiniteNumber,
   normalizeFiniteInteger,

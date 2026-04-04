@@ -94,7 +94,7 @@ test("ui-generator container subcommand creates parent route container with Shel
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
       "src/components/SectionContainerShell.vue",
-      "src/components/SectionShellTabLinkItem.vue",
+      "src/components/TabLinkItem.vue",
       "src/pages/w/[workspaceSlug]/admin/practice.vue"
     ]);
 
@@ -114,9 +114,9 @@ test("ui-generator container subcommand creates parent route container with Shel
     const sectionShellSource = await readFile(path.join(appRoot, "src", "components", "SectionContainerShell.vue"), "utf8");
     assert.match(sectionShellSource, /<ShellOutlet :host="props\.host" :position="props\.position" \/>/);
 
-    const tabLinkSource = await readFile(path.join(appRoot, "src", "components", "SectionShellTabLinkItem.vue"), "utf8");
+    const tabLinkSource = await readFile(path.join(appRoot, "src", "components", "TabLinkItem.vue"), "utf8");
     assert.match(tabLinkSource, /useWorkspaceRouteContext/);
-    assert.match(tabLinkSource, /class="section-shell-tab-link text-none"/);
+    assert.match(tabLinkSource, /class="tab-link-item text-none"/);
     assert.equal(tabLinkSource.includes("source.replace(/\\[([^\\]]+)\\]/g"), true);
     assert.equal(tabLinkSource.includes("source.replace(/[([^]]+)]/g"), false);
 
@@ -126,7 +126,7 @@ test("ui-generator container subcommand creates parent route container with Shel
     );
     assert.match(
       providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => SectionShellTabLinkItem\);/
+      /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/
     );
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
@@ -151,7 +151,7 @@ test("ui-generator container preserves bracket route params in directory-prefix"
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
       "src/components/SectionContainerShell.vue",
-      "src/components/SectionShellTabLinkItem.vue",
+      "src/components/TabLinkItem.vue",
       "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue"
     ]);
 
@@ -185,7 +185,7 @@ test("ui-generator container appends menu placement only when --placement is pro
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
       "src/components/SectionContainerShell.vue",
-      "src/components/SectionShellTabLinkItem.vue",
+      "src/components/TabLinkItem.vue",
       "src/pages/w/[workspaceSlug]/admin/practice.vue",
       "src/placement.js"
     ]);

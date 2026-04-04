@@ -455,6 +455,7 @@ function useList({
     recordIdParam,
     recordIdSelector,
     routeParams: computed(() => operationScope.routeContext.route?.params || {}),
+    routeParamNames: computed(() => resolveRouteParamNamesInOrder(operationScope.routeContext.route)),
     routePath: computed(() => operationScope.routeContext.route?.path || ""),
     viewUrlTemplate,
     editUrlTemplate

@@ -24,8 +24,8 @@ import {
 
 const CONTAINER_OUTLET_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
-const SECTION_TAB_LINK_COMPONENT = "SectionShellTabLinkItem";
-const SECTION_TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const TAB_LINK_COMPONENT = "TabLinkItem";
+const TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
 const ROUTE_TAG_PATTERN = /<route\b([^>]*)>([\s\S]*?)<\/route>/;
 const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
 
@@ -300,7 +300,7 @@ const resolvedSubtitle = computed(() => String(props.subtitle || "").trim());
   scrollbar-width: thin;
 }
 
-.section-container-shell__tabs :deep(.section-shell-tab-link) {
+.section-container-shell__tabs :deep(.tab-link-item) {
   flex: 0 0 auto;
 }
 
@@ -314,7 +314,7 @@ const resolvedSubtitle = computed(() => String(props.subtitle || "").trim());
 `;
 }
 
-function renderSectionShellTabLinkItemSource() {
+function renderTabLinkItemSource() {
   return `<script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
@@ -432,7 +432,7 @@ const isActive = computed(() => {
 <template>
   <v-btn
     v-if="resolvedTo"
-    class="section-shell-tab-link text-none"
+    class="tab-link-item text-none"
     :to="resolvedTo"
     rounded="pill"
     size="small"
@@ -523,7 +523,7 @@ async function runGeneratorSubcommand({
   );
   const sectionTabLinkPath = resolvePathWithinApp(
     resolvedAppRoot,
-    path.join(componentDirectory, `${SECTION_TAB_LINK_COMPONENT}.vue`),
+    path.join(componentDirectory, `${TAB_LINK_COMPONENT}.vue`),
     {
       context: "ui-generator container"
     }
@@ -563,7 +563,7 @@ async function runGeneratorSubcommand({
   if (!existingSectionTabLinkSource) {
     if (dryRun !== true) {
       await mkdir(path.dirname(sectionTabLinkPath.absolutePath), { recursive: true });
-      await writeFile(sectionTabLinkPath.absolutePath, renderSectionShellTabLinkItemSource(), "utf8");
+      await writeFile(sectionTabLinkPath.absolutePath, renderTabLinkItemSource(), "utf8");
     }
     touchedFiles.add(sectionTabLinkPath.relativePath);
   }
@@ -575,9 +575,9 @@ async function runGeneratorSubcommand({
     );
   }
 
-  const providerImportLine = `import ${SECTION_TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(componentDirectory, `${SECTION_TAB_LINK_COMPONENT}.vue`))}";`;
+  const providerImportLine = `import ${TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(componentDirectory, `${TAB_LINK_COMPONENT}.vue`))}";`;
   const providerRegisterLine =
-    `registerMainClientComponent("${SECTION_TAB_LINK_COMPONENT_TOKEN}", () => ${SECTION_TAB_LINK_COMPONENT});`;
+    `registerMainClientComponent("${TAB_LINK_COMPONENT_TOKEN}", () => ${TAB_LINK_COMPONENT});`;
   const providerImportApplied = insertImportIfMissing(providerSource, providerImportLine);
   const providerRegisterApplied = insertBeforeClassDeclaration(
     providerImportApplied.content,
