@@ -2377,6 +2377,13 @@
             "promptLabel": "Page directory prefix",
             "promptHint": "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
           },
+          "route-path": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Route path",
+            "promptHint": "Optional explicit container route path (example: contact-tools or contacts/[contactId]). Defaults to --name."
+          },
           "placement": {
             "required": false,
             "inputType": "text",
@@ -2475,6 +2482,7 @@
                 "name",
                 "surface",
                 "directory-prefix",
+                "route-path",
                 "path",
                 "placement"
               ]

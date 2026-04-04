@@ -1,5 +1,6 @@
 import { Check, Errors } from "typebox/value";
 import { mapOperationIssues } from "./operationMessages.js";
+import { resolveFieldErrors } from "../support/fieldErrors.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function defaultNormalize(value) {
@@ -49,7 +50,47 @@ function validateOperationSection({
     ? sectionDefinition.normalize
     : defaultNormalize;
 
-  const normalized = normalize(value, context);
+  let normalized = null;
+  try {
+    normalized = normalize(value, context);
+  } catch (error) {
+    const explicitFieldErrors = resolveFieldErrors(error);
+    if (Object.keys(explicitFieldErrors).length > 0) {
+      return {
+        ok: false,
+        value: null,
+        normalized: value,
+        fieldErrors: explicitFieldErrors,
+        globalErrors: [],
+        issues: []
+      };
+    }
+
+    // If normalization throws, still surface field-level schema issues when possible.
+    const fallbackIssues = Check(schema, value) ? [] : [...Errors(schema, value)];
+    if (fallbackIssues.length > 0) {
+      const mapped = mapOperationIssues(fallbackIssues, schema);
+      return {
+        ok: false,
+        value: null,
+        normalized: value,
+        fieldErrors: mapped.fieldErrors,
+        globalErrors: mapped.globalErrors,
+        issues: fallbackIssues
+      };
+    }
+
+    const fallbackMessage = String(error?.message || "Invalid value.").trim() || "Invalid value.";
+    return {
+      ok: false,
+      value: null,
+      normalized: value,
+      fieldErrors: {},
+      globalErrors: [fallbackMessage],
+      issues: []
+    };
+  }
+
   const issues = Check(schema, normalized) ? [] : [...Errors(schema, normalized)];
   const mapped = mapOperationIssues(issues, schema);
 

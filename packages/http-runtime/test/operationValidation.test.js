@@ -90,6 +90,140 @@ test("validateOperationSection returns shared field errors", () => {
   assert.equal(parsed.fieldErrors.rogueField, "Unexpected field.");
 });
 
+test("validateOperationSection converts normalizer throws into validation result", () => {
+  const operationWithThrowingNormalizer = Object.freeze({
+    method: "PATCH",
+    bodyValidator: {
+      schema: Type.Object(
+        {
+          temperament: Type.String({
+            enum: ["calm", "playful"]
+          })
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      normalize(value) {
+        if (value?.temperament === "unknowne") {
+          throw new Error("Invalid pet temperament \"unknowne\".");
+        }
+
+        return value;
+      }
+    }
+  });
+
+  const parsed = validateOperationSection({
+    operation: operationWithThrowingNormalizer,
+    section: "bodyValidator",
+    value: {
+      temperament: "unknowne"
+    }
+  });
+
+  assert.equal(parsed.ok, false);
+  assert.equal(typeof parsed.fieldErrors.temperament, "string");
+});
+
+test("validateOperationSection prefers explicit thrown fieldErrors over raw fallback issues", () => {
+  const operationWithFieldScopedThrow = Object.freeze({
+    method: "PATCH",
+    bodyValidator: {
+      schema: Type.Object(
+        {
+          temperament: Type.String({
+            enum: ["calm", "playful"]
+          }),
+          photoUpdatedAt: Type.Union([
+            Type.String({
+              format: "date-time",
+              minLength: 1
+            }),
+            Type.Null()
+          ]),
+          adenovirusValidTo: Type.Union([
+            Type.String({
+              format: "date",
+              minLength: 1
+            }),
+            Type.Null()
+          ])
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      normalize() {
+        const error = new Error("Invalid pet temperament \"unknowne\".");
+        error.details = {
+          fieldErrors: {
+            temperament: "Invalid pet temperament \"unknowne\"."
+          }
+        };
+        throw error;
+      }
+    }
+  });
+
+  const parsed = validateOperationSection({
+    operation: operationWithFieldScopedThrow,
+    section: "bodyValidator",
+    value: {
+      temperament: "unknowne",
+      photoUpdatedAt: "",
+      adenovirusValidTo: ""
+    }
+  });
+
+  assert.equal(parsed.ok, false);
+  assert.deepEqual(parsed.fieldErrors, {
+    temperament: "Invalid pet temperament \"unknowne\"."
+  });
+  assert.deepEqual(parsed.globalErrors, []);
+});
+
+test("validateOperationSection maps conditional validation failures to field errors", () => {
+  const operationWithConditionalConstraint = Object.freeze({
+    method: "PATCH",
+    bodyValidator: {
+      schema: Type.Object(
+        {
+          isVaccinated: Type.Boolean(),
+          adenovirusValidTo: Type.Optional(Type.String({ format: "date" }))
+        },
+        {
+          if: {
+            properties: {
+              isVaccinated: {
+                const: true
+              }
+            }
+          },
+          then: {
+            required: ["adenovirusValidTo"]
+          },
+          messages: {
+            if: "Adenovirus valid-to date is required when vaccinated."
+          }
+        }
+      )
+    }
+  });
+
+  const parsed = validateOperationSection({
+    operation: operationWithConditionalConstraint,
+    section: "bodyValidator",
+    value: {
+      isVaccinated: true
+    }
+  });
+
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.fieldErrors.adenovirusValidTo, "Adenovirus valid-to date is required when vaccinated.");
+  assert.deepEqual(parsed.globalErrors, []);
+});
+
 test("validateOperationInput validates params/query/body together", () => {
   const viewOperation = Object.freeze({
     method: "GET",

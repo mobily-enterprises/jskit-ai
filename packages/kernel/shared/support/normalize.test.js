@@ -114,6 +114,29 @@ test("normalizeIfInSource passes through nullish values without normalizer", () 
   });
 });
 
+test("normalizeIfInSource annotates thrown normalizer errors with fieldErrors", () => {
+  const source = {
+    temperament: "unknowne"
+  };
+  const normalized = {};
+
+  assert.throws(
+    () =>
+      normalizeIfInSource(source, normalized, "temperament", () => {
+        throw new Error("Invalid pet temperament \"unknowne\".");
+      }),
+    (error) => {
+      assert.deepEqual(error?.fieldErrors, {
+        temperament: "Invalid pet temperament \"unknowne\"."
+      });
+      assert.deepEqual(error?.details?.fieldErrors, {
+        temperament: "Invalid pet temperament \"unknowne\"."
+      });
+      return true;
+    }
+  );
+});
+
 test("normalizeIfInSource validates target and function arguments", () => {
   assert.throws(
     () => normalizeIfInSource({ firstName: "Ada" }, null, "firstName", normalizeText),
