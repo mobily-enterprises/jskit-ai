@@ -83,7 +83,7 @@ npx jskit generate @jskit-ai/ui-generator outlet
 
 - `container` creates app-owned scaffolding:
   - `src/components/SectionContainerShell.vue` (shared container shell with responsive tab row)
-  - `src/components/SectionShellTabLinkItem.vue` (tab link item token component)
+  - `src/components/TabLinkItem.vue` (tab link item token component)
   - `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
   - `<route>.vue` as a thin wrapper around `SectionContainerShell` + `<RouterView />`, with route meta outlet declaration at `meta.jskit.placements.outlets`
   - no shell menu placement is added unless `--placement` is explicitly provided

@@ -577,14 +577,14 @@ test("generate @jskit-ai/crud-ui-generator does not duplicate existing local.mai
     await writeCustomerResource(appRoot);
 
     await writeFile(
-      path.join(appRoot, "src", "components", "SectionShellTabLinkItem.vue"),
+      path.join(appRoot, "src", "components", "ExistingTabLinkItem.vue"),
       "<template><div /></template>\n",
       "utf8"
     );
 
     await writeFile(
       path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
-      `import SectionShellTabLinkItem from "/src/components/SectionShellTabLinkItem.vue";
+      `import ExistingTabLinkItem from "/src/components/ExistingTabLinkItem.vue";
 
 const mainClientComponents = [];
 
@@ -601,7 +601,7 @@ function registerMainClientComponent(componentToken, resolveComponent) {
   );
 }
 
-registerMainClientComponent("local.main.ui.tab-link-item", () => SectionShellTabLinkItem);
+registerMainClientComponent("local.main.ui.tab-link-item", () => ExistingTabLinkItem);
 
 class MainClientProvider {
   static id = "local.main.client";
@@ -631,7 +631,7 @@ export {
       path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
       "utf8"
     );
-    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => SectionShellTabLinkItem\);/);
+    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => ExistingTabLinkItem\);/);
     assert.doesNotMatch(providerSource, /import TabLinkItem from "\/src\/components\/TabLinkItem\.vue";/);
     assert.doesNotMatch(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
 
