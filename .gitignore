@@ -11,6 +11,7 @@ coverage/
 coverage-client/
 coverage-vue/
 data/
+.tmp/
 *.swp
 .jscpd/*
 !.jscpd/baseline.json
