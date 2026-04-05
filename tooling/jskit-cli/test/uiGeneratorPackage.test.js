@@ -387,7 +387,9 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.doesNotMatch(viewPageSource, /function toRouteRecordId/);
     assert.doesNotMatch(viewPageSource, /useRoute/);
     assert.doesNotMatch(viewPageSource, /const record = computed/);
-    assert.match(viewPageSource, /<v-card-title class="px-0">Customer<\/v-card-title>/);
+    assert.match(viewPageSource, /view\.resolveRecordTitle\(view\.record,\s*\{/);
+    assert.match(viewPageSource, /fallbackKey:\s*UI_VIEW_TITLE_FALLBACK_FIELD_KEY,/);
+    assert.match(viewPageSource, /defaultValue:\s*"Customer"/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
     assert.match(newPageSource, /useCrudSchemaForm/);

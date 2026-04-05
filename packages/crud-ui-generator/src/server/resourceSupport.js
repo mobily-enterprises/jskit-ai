@@ -281,6 +281,62 @@ function toFieldLabel(key) {
     .join(" ");
 }
 
+function isSupportedSelectOptionValue(value) {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function toSelectOptionLabel(value) {
+  if (typeof value === "string") {
+    const normalizedValue = normalizeText(value);
+    return normalizedValue ? toFieldLabel(normalizedValue) : "";
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+}
+
+function toSelectOptionIdentity(value) {
+  return `${typeof value}:${String(value)}`;
+}
+
+function normalizeFieldUiOptions(rawOptions, { context = "resource fieldMeta ui.options" } = {}) {
+  if (rawOptions === undefined || rawOptions === null) {
+    return [];
+  }
+  if (!Array.isArray(rawOptions)) {
+    throw new Error(`${context} must be an array of { value, label? } entries.`);
+  }
+
+  const options = [];
+  const seenValues = new Set();
+  for (const [index, rawEntry] of rawOptions.entries()) {
+    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
+      throw new Error(`${context}[${index}] must be an object.`);
+    }
+
+    const value = rawEntry.value;
+    if (!isSupportedSelectOptionValue(value)) {
+      throw new Error(`${context}[${index}].value must be a string, number, or boolean.`);
+    }
+
+    const identity = toSelectOptionIdentity(value);
+    if (seenValues.has(identity)) {
+      continue;
+    }
+    seenValues.add(identity);
+
+    const explicitLabel = normalizeText(rawEntry.label);
+    const fallbackLabel = toSelectOptionLabel(value);
+    options.push({
+      value,
+      label: explicitLabel || fallbackLabel || String(value)
+    });
+  }
+
+  return options;
+}
+
 function stripLookupIdSuffix(key = "") {
   const normalizedKey = normalizeText(key);
   if (!normalizedKey) {
@@ -425,6 +481,9 @@ function buildResourceFieldMetaMap(resource = {}) {
     }
 
     const relation = normalizeLookupRelation(rawEntry.relation);
+    const fieldUiOptions = normalizeFieldUiOptions(rawEntry?.ui?.options, {
+      context: `resource.fieldMeta["${key}"].ui.options`
+    });
     if (relation) {
       nextEntry.relation = relation;
       const formControl = checkCrudLookupFormControl(rawEntry?.ui?.formControl, {
@@ -436,6 +495,12 @@ function buildResourceFieldMetaMap(resource = {}) {
           formControl
         };
       }
+    }
+    if (fieldUiOptions.length > 0) {
+      nextEntry.ui = {
+        ...(nextEntry.ui || {}),
+        options: fieldUiOptions
+      };
     }
 
     map[key] = nextEntry;
@@ -559,6 +624,16 @@ function createFormFieldDefinitions(
 
     const schemaType = resolveSchemaType(schema);
     const relation = toLookupRelation(fieldMetaMap, key, { lookupContainerKey });
+    const fieldUiOptions = Array.isArray(fieldMetaMap?.[key]?.ui?.options)
+      ? fieldMetaMap[key].ui.options
+      : [];
+    const schemaEnumValues = Array.isArray(schemaType.schema?.enum) ? schemaType.schema.enum : [];
+    if (!relation && schemaEnumValues.length > 0 && fieldUiOptions.length < 1) {
+      throw new Error(
+        `resource form field "${key}" defines schema enum values but is missing resource.fieldMeta["${key}"].ui.options.`
+      );
+    }
+    const selectOptions = relation ? [] : fieldUiOptions;
     const lookupFormControl = relation
       ? checkCrudLookupFormControl(fieldMetaMap?.[key]?.ui?.formControl, {
           context: `resource.fieldMeta["${key}"].ui.formControl`,
@@ -573,9 +648,14 @@ function createFormFieldDefinitions(
       nullable: schemaType.nullable,
       relation,
       inputType: resolveFormInputType(schemaType.type, schemaType.format),
-      component: resolveFormFieldComponent(schemaType.type, relation),
+      component: selectOptions.length > 0
+        ? "select"
+        : resolveFormFieldComponent(schemaType.type, relation),
       maxLength: toPositiveInteger(schemaType.schema?.maxLength)
     };
+    if (selectOptions.length > 0) {
+      fieldDefinition.options = selectOptions;
+    }
     if (normalizedParentRouteParamKey && key === normalizedParentRouteParamKey) {
       fieldDefinition.hidden = true;
       fieldDefinition.routeParamKey = normalizedParentRouteParamKey;
@@ -620,6 +700,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function serializeTemplateBindingValue(value) {
+  return JSON.stringify(value).replaceAll("'", "\\u0027");
 }
 
 function buildListHeaderColumns(fields = []) {
@@ -723,11 +807,25 @@ function buildFormColumns(fields = []) {
                 label="${label}"
                 color="primary"
                 hide-details="auto"
-                :disabled="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
+                :disabled="formRuntime.addEdit.isFieldLocked"
+                :error-messages='${fieldErrorExpression}'
+              />
+            </v-col>`;
+      }
+
+      if (component === "select") {
+        const selectOptions = Array.isArray(field?.options) ? field.options : [];
+        return `            <v-col cols="12" md="6">
+              <v-select
+                v-model="${formAccessor}"
+                label="${label}"
+                variant="outlined"
+                density="comfortable"
+                :items='${serializeTemplateBindingValue(selectOptions)}'
+                item-title="label"
+                item-value="value"
+                :disabled="formRuntime.addEdit.isFieldLocked"
+                :clearable="${field.nullable === true ? "true" : "false"}"
                 :error-messages='${fieldErrorExpression}'
               />
             </v-col>`;
@@ -753,11 +851,7 @@ function buildFormColumns(fields = []) {
                 item-value="value"
                 ${lookupNoFilterLine}
                 :loading='resolveLookupLoading(${JSON.stringify(key)})'
-                :disabled="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
+                :disabled="formRuntime.addEdit.isFieldLocked"
                 :clearable="${field.nullable === true ? "true" : "false"}"
                 :error-messages='${fieldErrorExpression}'
               />
@@ -776,11 +870,7 @@ function buildFormColumns(fields = []) {
                 variant="outlined"
                 density="comfortable"
                 :maxlength="${maxLength}"
-                :readonly="
-                  !formRuntime.addEdit.canSave ||
-                  formRuntime.addEdit.isSaving ||
-                  formRuntime.addEdit.isRefetching
-                "
+                :readonly="formRuntime.addEdit.isFieldLocked"
                 :error-messages='${fieldErrorExpression}'
               />
             </v-col>`;

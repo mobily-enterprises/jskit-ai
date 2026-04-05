@@ -136,6 +136,12 @@ function useAddEdit({
   const isInitialLoading = operationScope.isLoading(endpointResource.isInitialLoading);
   const isFetching = operationScope.isLoading(endpointResource.isFetching);
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
+  const isFieldLocked = computed(() =>
+    Boolean(!canSave.value || addEdit.saving.value || isRefetching.value)
+  );
+  const isSubmitDisabled = computed(() =>
+    Boolean(isInitialLoading.value || isRefetching.value || !canSave.value)
+  );
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
   setupOperationErrorReporting({
@@ -150,6 +156,8 @@ function useAddEdit({
     isInitialLoading,
     isFetching,
     isRefetching,
+    isFieldLocked,
+    isSubmitDisabled,
     isLoading,
     isSaving: addEdit.saving,
     fieldErrors: addEdit.fieldErrors,

@@ -4,7 +4,14 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">${option:namespace|singular|pascal|default(Record)}</v-card-title>
+            <v-card-title class="px-0">
+              {{
+                view.resolveRecordTitle(view.record, {
+                  fallbackKey: UI_VIEW_TITLE_FALLBACK_FIELD_KEY,
+                  defaultValue: "${option:namespace|singular|pascal|default(Record)}"
+                })
+              }}
+            </v-card-title>
             <v-card-subtitle class="px-0">View and manage this ${option:namespace|singular|default(record)}.</v-card-subtitle>
           </div>
           <v-spacer />
@@ -56,6 +63,7 @@ const UI_API_BASE_URL = "${option:api-path|trim}";
 const UI_VIEW_API_URL = `${UI_API_BASE_URL}/:${UI_RECORD_ID_PARAM}`;
 const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
 const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? "./edit" : "";
+const UI_VIEW_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
 const view = useView({

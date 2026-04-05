@@ -4,10 +4,13 @@ import { asPlainObject } from "./scopeHelpers.js";
 
 const LOOKUP_LABEL_COMPOSITION_CANDIDATES = Object.freeze([
   Object.freeze(["name", "surname"]),
+  Object.freeze(["name", "lastName"]),
   Object.freeze(["firstName", "surname"]),
+  Object.freeze(["firstName", "lastName"]),
   Object.freeze(["name"]),
   Object.freeze(["firstName"])
 ]);
+const DEFAULT_RECORD_TITLE = "-";
 
 function hasDisplayValue(value) {
   if (value == null) {
@@ -20,9 +23,8 @@ function hasDisplayValue(value) {
   return true;
 }
 
-function resolveLookupItemLabel(item = {}, labelKey = "") {
-  const source = asPlainObject(item);
-  for (const candidate of LOOKUP_LABEL_COMPOSITION_CANDIDATES) {
+function resolveComposedLabel(source = {}, candidates = LOOKUP_LABEL_COMPOSITION_CANDIDATES) {
+  for (const candidate of candidates) {
     const parts = [];
     for (const key of candidate) {
       const part = normalizeText(source[key]);
@@ -37,12 +39,41 @@ function resolveLookupItemLabel(item = {}, labelKey = "") {
     }
   }
 
+  return "";
+}
+
+function resolveLookupItemLabel(item = {}, labelKey = "") {
+  const source = asPlainObject(item);
+  const composedLabel = resolveComposedLabel(source);
+  if (composedLabel) {
+    return composedLabel;
+  }
+
   const normalizedLabelKey = normalizeText(labelKey);
   if (!normalizedLabelKey) {
     return "";
   }
 
   return normalizeText(source[normalizedLabelKey]);
+}
+
+function resolveRecordTitle(record = {}, { fallbackKey = "", defaultValue = DEFAULT_RECORD_TITLE } = {}) {
+  const source = asPlainObject(record);
+  const composedLabel = resolveComposedLabel(source);
+  if (composedLabel) {
+    return composedLabel;
+  }
+
+  const normalizedFallbackKey = normalizeText(fallbackKey);
+  if (normalizedFallbackKey) {
+    const fallbackValue = normalizeText(source[normalizedFallbackKey]);
+    if (fallbackValue) {
+      return fallbackValue;
+    }
+  }
+
+  const normalizedDefaultValue = normalizeText(defaultValue);
+  return normalizedDefaultValue || DEFAULT_RECORD_TITLE;
 }
 
 function resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = "", labelKey = "") {
@@ -103,5 +134,6 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = 
 
 export {
   resolveLookupItemLabel,
-  resolveLookupFieldDisplayValue
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
 };

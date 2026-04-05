@@ -193,6 +193,7 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
     assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.updatedAt/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.vip/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.updatedAt/);
+    assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_LIST_REALTIME_EVENTS__, "[\"customers.record.changed\"]");
@@ -495,7 +496,146 @@ export { resource };
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "false");
     assert.equal(context.__JSKIT_UI_HAS_EDIT_ROUTE__, "false");
+    assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"fullName\"");
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
+  });
+});
+
+test("buildUiTemplateContext renders enum fields as select controls in forms", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/pets/src/shared/petResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const resource = {
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            temperament: { type: "string", enum: ["relaxed", "friendly_excitable", "unknown"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            temperament: { type: "string", enum: ["relaxed", "friendly_excitable", "unknown"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "temperament",
+      ui: {
+        formControl: "select",
+        options: [
+          { value: "relaxed", label: "Relaxed" },
+          { value: "friendly_excitable", label: "Friendly / Excitable" },
+          { value: "unknown", label: "Unknown temperament" }
+        ]
+      }
+    }
+  ]
+};
+
+export { resource };
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "pets-ui",
+        "api-path": "/pets",
+        operations: "new,edit",
+        "resource-file": resourceFile
+      }
+    });
+
+    const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
+    const temperament = createFields.find((field) => field.key === "temperament");
+    assert.ok(temperament);
+    assert.equal(temperament.component, "select");
+    assert.deepEqual(temperament.options, [
+      { value: "relaxed", label: "Relaxed" },
+      { value: "friendly_excitable", label: "Friendly / Excitable" },
+      { value: "unknown", label: "Unknown temperament" }
+    ]);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /:disabled="formRuntime\.addEdit\.isFieldLocked"/);
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /!formRuntime\.addEdit\.canSave/);
+  });
+});
+
+test("buildUiTemplateContext fails when enum schema field omits resource fieldMeta ui.options", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/pets/src/shared/petResource.js";
+    await writeResource(
+      appRoot,
+      resourceFile,
+      `const resource = {
+  operations: {
+    create: {
+      bodyValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            temperament: { type: "string", enum: ["relaxed", "unknown"] }
+          }
+        }
+      },
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            id: { type: "integer" }
+          }
+        }
+      }
+    }
+  }
+};
+
+export { resource };
+`
+    );
+
+    await assert.rejects(
+      () =>
+        buildUiTemplateContext({
+          appRoot,
+          options: {
+            namespace: "pets-ui",
+            "api-path": "/pets",
+            operations: "new",
+            "resource-file": resourceFile
+          }
+        }),
+      /schema enum values but is missing resource\.fieldMeta\["temperament"\]\.ui\.options/
+    );
   });
 });
 

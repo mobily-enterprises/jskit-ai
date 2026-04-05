@@ -751,32 +751,34 @@ function renderMigrationForeignKeyLines(snapshot) {
   return lines.join("\n");
 }
 
-function mergeFieldMetaEntries(baseEntries = [], patchEntries = []) {
+function mergeFieldMetaEntries(...entryGroups) {
   const mergedByKey = new Map();
-  for (const sourceEntry of [...baseEntries, ...patchEntries]) {
-    const key = normalizeText(sourceEntry?.key);
-    if (!key) {
-      continue;
-    }
-    const existing = mergedByKey.get(key) || {};
-    const next = {
-      ...existing,
-      ...sourceEntry,
-      key
-    };
-    if (existing.relation || sourceEntry.relation) {
-      next.relation = {
-        ...(existing.relation && typeof existing.relation === "object" ? existing.relation : {}),
-        ...(sourceEntry.relation && typeof sourceEntry.relation === "object" ? sourceEntry.relation : {})
+  for (const sourceEntries of entryGroups) {
+    for (const sourceEntry of Array.isArray(sourceEntries) ? sourceEntries : []) {
+      const key = normalizeText(sourceEntry?.key);
+      if (!key) {
+        continue;
+      }
+      const existing = mergedByKey.get(key) || {};
+      const next = {
+        ...existing,
+        ...sourceEntry,
+        key
       };
+      if (existing.relation || sourceEntry.relation) {
+        next.relation = {
+          ...(existing.relation && typeof existing.relation === "object" ? existing.relation : {}),
+          ...(sourceEntry.relation && typeof sourceEntry.relation === "object" ? sourceEntry.relation : {})
+        };
+      }
+      if (existing.ui || sourceEntry.ui) {
+        next.ui = {
+          ...(existing.ui && typeof existing.ui === "object" ? existing.ui : {}),
+          ...(sourceEntry.ui && typeof sourceEntry.ui === "object" ? sourceEntry.ui : {})
+        };
+      }
+      mergedByKey.set(key, next);
     }
-    if (existing.ui || sourceEntry.ui) {
-      next.ui = {
-        ...(existing.ui && typeof existing.ui === "object" ? existing.ui : {}),
-        ...(sourceEntry.ui && typeof sourceEntry.ui === "object" ? sourceEntry.ui : {})
-      };
-    }
-    mergedByKey.set(key, next);
   }
 
   return [...mergedByKey.values()].sort((left, right) => left.key.localeCompare(right.key));
@@ -789,6 +791,87 @@ function resolveLookupNamespaceFromTableName(tableName = "") {
   }
 
   return normalizedTableName.replace(/_/g, "-");
+}
+
+function toFieldLabel(key = "") {
+  const normalizedKey = normalizeText(key);
+  if (!normalizedKey) {
+    return "";
+  }
+
+  const words = normalizedKey
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_\-.]+/g, " ")
+    .split(/\s+/)
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+  if (words.length < 1) {
+    return "";
+  }
+
+  return words
+    .map((entry) => `${entry.slice(0, 1).toUpperCase()}${entry.slice(1)}`)
+    .join(" ");
+}
+
+function isSupportedSelectOptionValue(value) {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function toSelectOptionIdentity(value) {
+  return `${typeof value}:${String(value)}`;
+}
+
+function toSelectOptionLabel(value) {
+  if (typeof value === "string") {
+    return toFieldLabel(value) || value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+}
+
+function normalizeFieldMetaUiOptions(rawOptions = []) {
+  if (!Array.isArray(rawOptions)) {
+    return [];
+  }
+
+  const options = [];
+  const seenValues = new Set();
+  for (const rawEntry of rawOptions) {
+    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
+      continue;
+    }
+    const value = rawEntry.value;
+    if (!isSupportedSelectOptionValue(value)) {
+      continue;
+    }
+
+    const identity = toSelectOptionIdentity(value);
+    if (seenValues.has(identity)) {
+      continue;
+    }
+    seenValues.add(identity);
+
+    const explicitLabel = normalizeText(rawEntry.label);
+    options.push({
+      value,
+      label: explicitLabel || toSelectOptionLabel(value) || String(value)
+    });
+  }
+
+  return options;
+}
+
+function resolveEnumFieldMetaUiOptions(enumValues = []) {
+  const options = Array.isArray(enumValues)
+    ? enumValues.map((value) => ({
+        value,
+        label: toSelectOptionLabel(value)
+      }))
+    : [];
+  return normalizeFieldMetaUiOptions(options);
 }
 
 function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
@@ -858,7 +941,33 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
     });
   }
 
-  return mergeFieldMetaEntries(dbColumnEntries, relationEntries);
+  const relationFieldKeys = new Set(
+    relationEntries
+      .map((entry) => normalizeText(entry?.key))
+      .filter(Boolean)
+  );
+  const enumEntries = [];
+  for (const column of fieldColumnsByKey.values()) {
+    const key = normalizeText(column?.key);
+    if (!key || relationFieldKeys.has(key)) {
+      continue;
+    }
+
+    const options = resolveEnumFieldMetaUiOptions(column?.enumValues);
+    if (options.length < 1) {
+      continue;
+    }
+
+    enumEntries.push({
+      key,
+      ui: {
+        formControl: "select",
+        options
+      }
+    });
+  }
+
+  return mergeFieldMetaEntries(dbColumnEntries, relationEntries, enumEntries);
 }
 
 function renderFieldMetaEntryLines(entry = {}) {
@@ -896,17 +1005,39 @@ function renderFieldMetaEntryLines(entry = {}) {
     topLevelProperties.push(relationLines.join("\n"));
   }
 
+  const fieldUiOptions = normalizeFieldMetaUiOptions(entry?.ui?.options);
   const formControl = checkCrudLookupFormControl(entry?.ui?.formControl, {
     context: `resource.fieldMeta["${normalizeText(entry.key)}"].ui.formControl`,
-    defaultValue: relation ? "autocomplete" : ""
+    defaultValue: relation ? "autocomplete" : (fieldUiOptions.length > 0 ? "select" : "")
   });
-  if (formControl) {
+  if (formControl || fieldUiOptions.length > 0) {
+    const uiPropertyBlocks = [];
+    if (formControl) {
+      uiPropertyBlocks.push([
+        `formControl: ${JSON.stringify(formControl)}${relation ? " // or \"select\"" : ""}`
+      ]);
+    }
+    if (fieldUiOptions.length > 0) {
+      const optionsJsonLines = JSON.stringify(fieldUiOptions, null, 2).split("\n");
+      const optionPropertyLines = [`options: ${optionsJsonLines[0]}`];
+      for (const jsonLine of optionsJsonLines.slice(1)) {
+        optionPropertyLines.push(jsonLine);
+      }
+      uiPropertyBlocks.push(optionPropertyLines);
+    }
+
+    const uiLines = ["ui: {"];
+    for (const [propertyIndex, propertyLines] of uiPropertyBlocks.entries()) {
+      const isLastProperty = propertyIndex >= uiPropertyBlocks.length - 1;
+      const propertySuffix = isLastProperty ? "" : ",";
+      for (const [lineIndex, line] of propertyLines.entries()) {
+        const isLastLine = lineIndex >= propertyLines.length - 1;
+        uiLines.push(`  ${line}${isLastLine ? propertySuffix : ""}`);
+      }
+    }
+    uiLines.push("}");
     topLevelProperties.push(
-      [
-        "ui: {",
-        `  formControl: ${JSON.stringify(formControl)} // or "select"`,
-        "}"
-      ].join("\n")
+      uiLines.join("\n")
     );
   }
 

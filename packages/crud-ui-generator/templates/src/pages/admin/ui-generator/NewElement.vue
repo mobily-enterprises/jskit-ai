@@ -12,11 +12,7 @@
           <v-btn
             color="primary"
             :loading="formRuntime.addEdit.isSaving"
-            :disabled="
-              formRuntime.addEdit.isInitialLoading ||
-              formRuntime.addEdit.isRefetching ||
-              !formRuntime.addEdit.canSave
-            "
+            :disabled="formRuntime.addEdit.isSubmitDisabled"
             @click="formRuntime.addEdit.submit"
           >
             Save ${option:namespace|singular|default(record)}

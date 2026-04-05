@@ -285,6 +285,47 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
 
+test("buildReplacementsFromSnapshot renders enum field meta options as select controls", () => {
+  const baseSnapshot = createSnapshot({
+    hasWorkspaceOwnerColumn: false,
+    hasUserOwnerColumn: false
+  });
+  const snapshot = {
+    ...baseSnapshot,
+    columns: Object.freeze([
+      ...baseSnapshot.columns,
+      Object.freeze({
+        name: "temperament",
+        key: "temperament",
+        dataType: "enum",
+        columnType: "enum('relaxed','friendly_excitable','unknown')",
+        typeKind: "string",
+        nullable: false,
+        hasDefault: false,
+        defaultValue: null,
+        autoIncrement: false,
+        unsigned: false,
+        extra: "",
+        maxLength: null,
+        numericPrecision: null,
+        numericScale: null,
+        enumValues: Object.freeze(["relaxed", "friendly_excitable", "unknown"])
+      })
+    ])
+  };
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    snapshot,
+    resolvedOwnershipFilter: "public"
+  });
+
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "temperament"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /formControl: "select"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /options: \[/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /"value": "friendly_excitable"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /"label": "Friendly Excitable"/);
+});
+
 test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
   const line = __testables.renderMigrationColumnLine(
     {
