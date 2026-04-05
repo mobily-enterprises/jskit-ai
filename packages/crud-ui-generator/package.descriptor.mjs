@@ -179,7 +179,7 @@ export default Object.freeze({
         }
       },
       {
-        from: "templates/src/pages/admin/ui-generator/NewElement.vue",
+        from: "templates/src/pages/admin/ui-generator/NewWrapperElement.vue",
         toSurface: "${option:surface|lower}",
         toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/new.vue",
         reason: "Install generated new page.",
@@ -190,12 +190,20 @@ export default Object.freeze({
           export: "buildUiTemplateContext"
         },
         when: {
-          option: "operations",
-          in: ["new"]
+          all: [
+            {
+              option: "operations",
+              in: ["new"]
+            },
+            {
+              option: "operations",
+              in: ["edit"]
+            }
+          ]
         }
       },
       {
-        from: "templates/src/pages/admin/ui-generator/EditElement.vue",
+        from: "templates/src/pages/admin/ui-generator/EditWrapperElement.vue",
         toSurface: "${option:surface|lower}",
         toSurfacePath:
           "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
@@ -207,8 +215,115 @@ export default Object.freeze({
           export: "buildUiTemplateContext"
         },
         when: {
-          option: "operations",
-          in: ["edit"]
+          all: [
+            {
+              option: "operations",
+              in: ["new"]
+            },
+            {
+              option: "operations",
+              in: ["edit"]
+            }
+          ]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/AddEditForm.vue",
+        toSurface: "${option:surface|lower}",
+        toSurfacePath:
+          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/_components/${option:namespace|singular|pascal|default(Record)}AddEditForm.vue",
+        reason: "Install generated shared add/edit form component.",
+        category: "ui-generator",
+        id: "ui-generator-page-add-edit-form-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
+        when: {
+          all: [
+            {
+              option: "operations",
+              in: ["new"]
+            },
+            {
+              option: "operations",
+              in: ["edit"]
+            }
+          ]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/AddEditFormFields.js",
+        toSurface: "${option:surface|lower}",
+        toSurfacePath:
+          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/_components/${option:namespace|singular|pascal|default(Record)}AddEditFormFields.js",
+        reason: "Install generated shared add/edit form field definitions.",
+        category: "ui-generator",
+        id: "ui-generator-page-add-edit-form-fields-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
+        when: {
+          all: [
+            {
+              option: "operations",
+              in: ["new"]
+            },
+            {
+              option: "operations",
+              in: ["edit"]
+            }
+          ]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/NewElement.vue",
+        toSurface: "${option:surface|lower}",
+        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/new.vue",
+        reason: "Install generated new page.",
+        category: "ui-generator",
+        id: "ui-generator-page-new-standalone-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
+        when: {
+          all: [
+            {
+              option: "operations",
+              in: ["new"]
+            },
+            {
+              option: "operations",
+              notIn: ["edit"]
+            }
+          ]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/EditElement.vue",
+        toSurface: "${option:surface|lower}",
+        toSurfacePath:
+          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
+        reason: "Install generated edit page.",
+        category: "ui-generator",
+        id: "ui-generator-page-edit-standalone-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildUiTemplateContext"
+        },
+        when: {
+          all: [
+            {
+              option: "operations",
+              in: ["edit"]
+            },
+            {
+              option: "operations",
+              notIn: ["new"]
+            }
+          ]
         }
       }
     ],

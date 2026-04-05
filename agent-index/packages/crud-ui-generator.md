@@ -92,17 +92,34 @@ Local functions
 - `toPosixPath(value = "")`
 - `resolveOperation(rawOperation = "")`
 - `resolveTargetFilePath(appRoot, targetFile)`
+- `resolvePathWithinAppRoot(appRoot, absolutePath)`
 - `inferResourceOptionsFromSource(screenSource = "")`
 - `resolveResourceOptions(options = {}, inferredOptions = {})`
 - `resolveOperationFields(resource, operationName)`
 - `resolveFieldDefinition(fields = [], fieldKey = "")`
 - `insertBeforeAnchor(source, { anchor = "", snippet = "" } = {})`
+- `resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {})`
 - `buildAnchorInsertions(operationName, field)`
+- `resolveGeneratedTargetComment(source = "", commentName = "")`
+- `resolveOperationTargetFiles({ appRoot, operationName, targetAbsolutePath, source = "" } = {})`
 - `parseSubcommandArgs(args = [])`
 
 ### templates
 
+### `templates/src/pages/admin/ui-generator/AddEditForm.vue`
+Exports
+- None
+
+### `templates/src/pages/admin/ui-generator/AddEditFormFields.js`
+Exports
+- `UI_CREATE_FORM_FIELDS`
+- `UI_EDIT_FORM_FIELDS`
+
 ### `templates/src/pages/admin/ui-generator/EditElement.vue`
+Exports
+- None
+
+### `templates/src/pages/admin/ui-generator/EditWrapperElement.vue`
 Exports
 - None
 
@@ -111,6 +128,10 @@ Exports
 - None
 
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
+Exports
+- None
+
+### `templates/src/pages/admin/ui-generator/NewWrapperElement.vue`
 Exports
 - None
 

@@ -69,6 +69,25 @@ function resolveTargetFilePath(appRoot, targetFile) {
   };
 }
 
+function resolvePathWithinAppRoot(appRoot, absolutePath) {
+  const appRootAbsolute = path.resolve(String(appRoot || ""));
+  const resolvedAbsolutePath = path.resolve(String(absolutePath || ""));
+  const relativePath = path.relative(appRootAbsolute, resolvedAbsolutePath);
+  if (
+    !relativePath ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error("crud-ui-generator field target file must stay within app root.");
+  }
+
+  return {
+    absolutePath: resolvedAbsolutePath,
+    relativePath
+  };
+}
+
 function inferResourceOptionsFromSource(screenSource = "") {
   const source = String(screenSource || "");
   const importPattern = /import\s*\{\s*resource(?:\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*))?\s*\}\s*from\s*["']\/([^"']+)["'];?/g;
@@ -171,22 +190,26 @@ function insertBeforeAnchor(source, { anchor = "", snippet = "" } = {}) {
     };
   }
 
-  if (String(source || "").includes(normalizedSnippet)) {
+  const sourceText = String(source || "");
+  const escapedAnchor = normalizedAnchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const anchorLinePattern = new RegExp(`^([ \\t]*)${escapedAnchor}[ \\t]*$`, "m");
+  const anchorLineMatch = anchorLinePattern.exec(sourceText);
+  if (!anchorLineMatch) {
+    throw new Error(`crud-ui-generator field could not find anchor: ${normalizedAnchor}`);
+  }
+  const anchorLineIndex = Number(anchorLineMatch.index ?? -1);
+  const anchorIndent = String(anchorLineMatch[1] || "");
+  const alignedAnchorLine = `${anchorIndent}${normalizedAnchor}`;
+  const scopedSource = sourceText.slice(resolveAnchorScopeStart(sourceText, {
+    anchorIndex: anchorLineIndex,
+    anchor: normalizedAnchor
+  }), anchorLineIndex);
+  if (scopedSource.includes(normalizedSnippet)) {
     return {
       content: source,
       changed: false
     };
   }
-
-  const sourceText = String(source || "");
-  const escapedAnchor = normalizedAnchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const anchorLinePattern = new RegExp(`^([ \\t]*)${escapedAnchor}[ \\t]*$`, "m");
-  const anchorLineMatch = sourceText.match(anchorLinePattern);
-  if (!anchorLineMatch) {
-    throw new Error(`crud-ui-generator field could not find anchor: ${normalizedAnchor}`);
-  }
-  const anchorIndent = String(anchorLineMatch[1] || "");
-  const alignedAnchorLine = `${anchorIndent}${normalizedAnchor}`;
 
   return {
     content: sourceText.replace(anchorLinePattern, `${normalizedSnippet}\n${alignedAnchorLine}`),
@@ -194,14 +217,47 @@ function insertBeforeAnchor(source, { anchor = "", snippet = "" } = {}) {
   };
 }
 
+function resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {}) {
+  const sourceText = String(source || "");
+  const resolvedAnchorIndex = Number.isInteger(anchorIndex) ? anchorIndex : -1;
+  if (resolvedAnchorIndex <= 0) {
+    return 0;
+  }
+
+  const normalizedAnchor = String(anchor || "");
+  let familyToken = "";
+  if (normalizedAnchor.includes("jskit:crud-ui-fields:")) {
+    familyToken = "jskit:crud-ui-fields:";
+  } else if (normalizedAnchor.includes("jskit:crud-ui-form-fields:")) {
+    familyToken = "jskit:crud-ui-form-fields:";
+  }
+  if (!familyToken) {
+    return 0;
+  }
+
+  const previousFamilyMarkerIndex = sourceText.lastIndexOf(familyToken, resolvedAnchorIndex - 1);
+  if (previousFamilyMarkerIndex < 0) {
+    return 0;
+  }
+
+  const previousLineEndIndex = sourceText.indexOf("\n", previousFamilyMarkerIndex);
+  if (previousLineEndIndex < 0) {
+    return 0;
+  }
+
+  return previousLineEndIndex + 1;
+}
+
 function buildAnchorInsertions(operationName, field) {
   if (operationName === "list") {
     return [
       {
+        targetKind: "screen",
         anchor: "<!-- jskit:crud-ui-fields:list-header -->",
         snippet: buildListHeaderColumns([field])
       },
       {
+        targetKind: "screen",
         anchor: "<!-- jskit:crud-ui-fields:list-row -->",
         snippet: buildListRowColumns([field])
       }
@@ -211,6 +267,7 @@ function buildAnchorInsertions(operationName, field) {
   if (operationName === "view") {
     return [
       {
+        targetKind: "screen",
         anchor: "<!-- jskit:crud-ui-fields:view -->",
         snippet: buildViewColumns([field])
       }
@@ -220,10 +277,12 @@ function buildAnchorInsertions(operationName, field) {
   if (operationName === "new") {
     return [
       {
+        targetKind: "screen",
         anchor: "<!-- jskit:crud-ui-fields:new -->",
         snippet: buildFormColumns([field])
       },
       {
+        targetKind: "form-fields",
         anchor: "// jskit:crud-ui-form-fields:new",
         snippet: renderObjectPushLines("UI_CREATE_FORM_FIELDS", [field])
       }
@@ -232,14 +291,65 @@ function buildAnchorInsertions(operationName, field) {
 
   return [
     {
+      targetKind: "screen",
       anchor: "<!-- jskit:crud-ui-fields:edit -->",
       snippet: buildFormColumns([field])
     },
     {
+      targetKind: "form-fields",
       anchor: "// jskit:crud-ui-form-fields:edit",
       snippet: renderObjectPushLines("UI_EDIT_FORM_FIELDS", [field])
     }
   ];
+}
+
+function resolveGeneratedTargetComment(source = "", commentName = "") {
+  const escapedCommentName = String(commentName || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^\\s*//\\s*jskit:${escapedCommentName}\\s+(.+?)\\s*$`, "m");
+  const match = String(source || "").match(pattern);
+  return normalizeText(match?.[1]);
+}
+
+function resolveOperationTargetFiles({
+  appRoot,
+  operationName,
+  targetAbsolutePath,
+  source = ""
+} = {}) {
+  if (operationName !== "new" && operationName !== "edit") {
+    const targetFile = resolvePathWithinAppRoot(appRoot, targetAbsolutePath);
+    return {
+      screen: targetFile,
+      "form-fields": targetFile
+    };
+  }
+
+  const directScreenAnchor =
+    operationName === "new" ? "<!-- jskit:crud-ui-fields:new -->" : "<!-- jskit:crud-ui-fields:edit -->";
+  const directFormFieldsAnchor =
+    operationName === "new" ? "// jskit:crud-ui-form-fields:new" : "// jskit:crud-ui-form-fields:edit";
+
+  const sourceText = String(source || "");
+  if (sourceText.includes(directScreenAnchor) && sourceText.includes(directFormFieldsAnchor)) {
+    const targetFile = resolvePathWithinAppRoot(appRoot, targetAbsolutePath);
+    return {
+      screen: targetFile,
+      "form-fields": targetFile
+    };
+  }
+
+  const screenTarget = resolveGeneratedTargetComment(sourceText, "crud-ui-fields-target");
+  const formFieldsTarget = resolveGeneratedTargetComment(sourceText, "crud-ui-form-fields-target");
+  if (!screenTarget || !formFieldsTarget) {
+    throw new Error(
+      `crud-ui-generator field could not find direct ${operationName} anchors or generated shared-form target comments in ${toPosixPath(path.relative(appRoot, targetAbsolutePath))}.`
+    );
+  }
+
+  return {
+    screen: resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), screenTarget)),
+    "form-fields": resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), formFieldsTarget))
+  };
 }
 
 function parseSubcommandArgs(args = []) {
@@ -289,23 +399,57 @@ async function runGeneratorSubcommand({
   const fields = resolveOperationFields(resource, operationName);
   const field = resolveFieldDefinition(fields, fieldKey);
   const insertions = buildAnchorInsertions(operationName, field);
+  const operationTargets = resolveOperationTargetFiles({
+    appRoot,
+    operationName,
+    targetAbsolutePath,
+    source: originalSource
+  });
 
-  let nextSource = originalSource;
+  const fileStates = new Map();
+  fileStates.set(targetAbsolutePath, {
+    source: originalSource,
+    changed: false,
+    path: resolvePathWithinAppRoot(appRoot, targetAbsolutePath)
+  });
+
   let changed = false;
   for (const insertion of insertions) {
-    const applied = insertBeforeAnchor(nextSource, insertion);
-    nextSource = applied.content;
+    const targetFile = operationTargets[insertion.targetKind] || operationTargets.screen;
+    let state = fileStates.get(targetFile.absolutePath);
+    if (!state) {
+      state = {
+        source: await readFile(targetFile.absolutePath, "utf8"),
+        changed: false,
+        path: targetFile
+      };
+      fileStates.set(targetFile.absolutePath, state);
+    }
+
+    const applied = insertBeforeAnchor(state.source, insertion);
+    state.source = applied.content;
+    state.changed = state.changed || applied.changed;
     changed = changed || applied.changed;
   }
 
   if (changed && dryRun !== true) {
-    await writeFile(targetAbsolutePath, nextSource, "utf8");
+    for (const state of fileStates.values()) {
+      if (!state.changed) {
+        continue;
+      }
+      await writeFile(state.path.absolutePath, state.source, "utf8");
+    }
   }
 
+  const touchedFiles = Array.from(fileStates.values())
+    .filter((state) => state.changed)
+    .map((state) => toPosixPath(state.path.relativePath))
+    .sort();
+
   return {
-    touchedFiles: changed ? [toPosixPath(targetRelativePath)] : [],
+    touchedFiles,
     summary: changed
-      ? `Added field "${field.key}" to ${operationName} in ${toPosixPath(targetRelativePath)}.`
+      ? `Added field "${field.key}" to ${operationName} in ${touchedFiles.join(", ")}.`
       : `Field "${field.key}" already exists in ${operationName} for ${toPosixPath(targetRelativePath)}.`
   };
 }

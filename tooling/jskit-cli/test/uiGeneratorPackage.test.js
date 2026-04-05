@@ -214,6 +214,8 @@ function resolveGeneratedPaths(appRoot) {
     viewPagePath: path.join(generatedRoot, "[customerId]", "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
     editPagePath: path.join(generatedRoot, "[customerId]", "edit.vue"),
+    addEditFormPath: path.join(generatedRoot, "_components", "CustomerAddEditForm.vue"),
+    addEditFormFieldsPath: path.join(generatedRoot, "_components", "CustomerAddEditFormFields.js"),
     listElementPath: path.join(generatedRoot, "ListCustomersElement.vue"),
     viewElementPath: path.join(generatedRoot, "ViewCustomerElement.vue"),
     newElementPath: path.join(generatedRoot, "NewCustomerElement.vue"),
@@ -349,6 +351,8 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.equal(await fileExists(paths.viewPagePath), true, paths.viewPagePath);
     assert.equal(await fileExists(paths.newPagePath), true, paths.newPagePath);
     assert.equal(await fileExists(paths.editPagePath), true, paths.editPagePath);
+    assert.equal(await fileExists(paths.addEditFormPath), true, paths.addEditFormPath);
+    assert.equal(await fileExists(paths.addEditFormFieldsPath), true, paths.addEditFormFieldsPath);
     assert.equal(await fileExists(paths.listElementPath), false, paths.listElementPath);
     assert.equal(await fileExists(paths.viewElementPath), false, paths.viewElementPath);
     assert.equal(await fileExists(paths.newElementPath), false, paths.newElementPath);
@@ -398,9 +402,12 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(newPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(newPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(newPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(newPageSource, /:error-messages='formRuntime\.resolveFieldErrors\("firstName"\)'/);
-    assert.doesNotMatch(newPageSource, /v-for="field in formRuntime\.formFields"/);
-    assert.match(newPageSource, /v-model="formRuntime\.form\.firstName"/);
+    assert.match(newPageSource, /const UI_CANCEL_URL = UI_LIST_URL;/);
+    assert.match(newPageSource, /CustomerAddEditForm/);
+    assert.match(newPageSource, /UI_CREATE_FORM_FIELDS/);
+    assert.match(newPageSource, /jskit:crud-ui-fields-target \.\/_components\/CustomerAddEditForm\.vue/);
+    assert.match(newPageSource, /jskit:crud-ui-form-fields-target \.\/_components\/CustomerAddEditFormFields\.js/);
+    assert.doesNotMatch(newPageSource, /v-model="formRuntime\.form\.firstName"/);
     assert.doesNotMatch(newPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(newPageSource, /function toRouteRecordId/);
     assert.match(newPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
@@ -414,15 +421,55 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(editPageSource, /routeRecordId,/);
     assert.match(editPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
     assert.match(editPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(editPageSource, /:error-messages='formRuntime\.resolveFieldErrors\("email"\)'/);
-    assert.doesNotMatch(editPageSource, /v-for="field in formRuntime\.formFields"/);
-    assert.match(editPageSource, /v-model="formRuntime\.form\.email"/);
+    assert.match(editPageSource, /CustomerAddEditForm/);
+    assert.match(editPageSource, /UI_EDIT_FORM_FIELDS/);
+    assert.match(editPageSource, /if \(!resolvedPath\) \{\s*return "";\s*\}/);
+    assert.match(editPageSource, /jskit:crud-ui-fields-target \.\.\/_components\/CustomerAddEditForm\.vue/);
+    assert.match(editPageSource, /jskit:crud-ui-form-fields-target \.\.\/_components\/CustomerAddEditFormFields\.js/);
+    assert.doesNotMatch(editPageSource, /v-model="formRuntime\.form\.email"/);
     assert.doesNotMatch(editPageSource, /function resolveTemplateUrl/);
     assert.doesNotMatch(editPageSource, /function toRouteRecordId/);
     assert.match(editPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
 
+    const addEditFormSource = await readFile(paths.addEditFormPath, "utf8");
+    assert.match(addEditFormSource, /<template v-if="mode === 'new'">/);
+    assert.match(addEditFormSource, /<!-- jskit:crud-ui-fields:new -->/);
+    assert.match(addEditFormSource, /<!-- jskit:crud-ui-fields:edit -->/);
+    assert.match(addEditFormSource, /v-model="formRuntime\.form\.firstName"/);
+    assert.match(addEditFormSource, /v-model="formRuntime\.form\.email"/);
+
+    const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
+    assert.match(addEditFormFieldsSource, /const UI_CREATE_FORM_FIELDS = \[];/);
+    assert.match(addEditFormFieldsSource, /const UI_EDIT_FORM_FIELDS = \[];/);
+    assert.match(addEditFormFieldsSource, /jskit:crud-ui-form-fields:new/);
+    assert.match(addEditFormFieldsSource, /jskit:crud-ui-form-fields:edit/);
+
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator with operations=new,edit omits invalid cancel targets", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-generator-app-new-edit-only");
+    await createMinimalApp(appRoot, { name: "ui-generator-app-new-edit-only" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, { operations: "new,edit" });
+
+    const paths = resolveGeneratedPaths(appRoot);
+    assert.equal(await fileExists(paths.listPagePath), false);
+    assert.equal(await fileExists(paths.viewPagePath), false);
+
+    const newPageSource = await readFile(paths.newPagePath, "utf8");
+    assert.match(newPageSource, /const UI_LIST_URL = false \? "\.\." : "";/);
+    assert.match(newPageSource, /const UI_VIEW_URL = false \? `\.\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
+    assert.match(newPageSource, /const UI_CANCEL_URL = UI_LIST_URL;/);
+
+    const editPageSource = await readFile(paths.editPagePath, "utf8");
+    assert.match(editPageSource, /const UI_LIST_URL = false \? "\.\.\/\.\." : "";/);
+    assert.match(editPageSource, /const UI_VIEW_URL = false \? "\.\." : "";/);
+    assert.match(editPageSource, /const UI_CANCEL_URL = UI_VIEW_URL \|\| UI_LIST_URL;/);
+    assert.match(editPageSource, /if \(!resolvedPath\) \{\s*return "";\s*\}/);
   });
 });
 
@@ -689,9 +736,18 @@ test("generate @jskit-ai/crud-ui-generator applies display-fields filter to list
     assert.doesNotMatch(viewPageSource, /view\.record\?\.vip/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "firstName"/);
-    assert.match(newPageSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "email"/);
-    assert.doesNotMatch(newPageSource, /"key": "vip"/);
+    assert.match(newPageSource, /CustomerAddEditForm/);
+    assert.doesNotMatch(newPageSource, /v-model="formRuntime\.form\.vip"/);
+
+    const addEditFormSource = await readFile(paths.addEditFormPath, "utf8");
+    assert.match(addEditFormSource, /v-model="formRuntime\.form\.firstName"/);
+    assert.match(addEditFormSource, /v-model="formRuntime\.form\.email"/);
+    assert.doesNotMatch(addEditFormSource, /v-model="formRuntime\.form\.vip"/);
+
+    const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
+    assert.match(addEditFormFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "firstName"/);
+    assert.match(addEditFormFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "email"/);
+    assert.doesNotMatch(addEditFormFieldsSource, /"key": "vip"/);
   });
 });
 
