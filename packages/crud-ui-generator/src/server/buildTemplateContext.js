@@ -245,6 +245,22 @@ function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
   return fallbackFields;
 }
 
+function resolveViewTitleFallbackFieldKey(fields = []) {
+  const sourceFields = Array.isArray(fields) ? fields : [];
+  for (const field of sourceFields) {
+    if (normalizeText(field?.type).toLowerCase() !== "string") {
+      continue;
+    }
+
+    const key = normalizeText(field?.key);
+    if (key) {
+      return key;
+    }
+  }
+
+  return "";
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const selectedOperations = parseOperationsOption(options);
   const selectedDisplayFields = parseDisplayFieldsOption(options);
@@ -334,6 +350,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const viewFields = hasViewOperation
     ? filterDisplayFields(selectedDisplayFields, ensureFields(viewFieldsAll))
     : createFieldDefinitions({});
+  const viewTitleFallbackFieldKey = hasViewOperation
+    ? resolveViewTitleFallbackFieldKey(viewFieldsAll)
+    : "";
   const createFields = hasNewOperation
     ? filterDisplayFields(selectedDisplayFields, createFieldsAll)
     : [];
@@ -361,6 +380,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
+    __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(viewTitleFallbackFieldKey),
     __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(defaultRecordChangedEvent),
     __JSKIT_UI_HAS_LIST_ROUTE__: hasListOperation ? "true" : "false",
     __JSKIT_UI_HAS_VIEW_ROUTE__: hasViewOperation ? "true" : "false",

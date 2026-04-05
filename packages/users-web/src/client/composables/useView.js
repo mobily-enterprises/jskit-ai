@@ -6,7 +6,7 @@ import { useEndpointResource } from "./useEndpointResource.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
 import { setupOperationErrorReporting } from "./operationUiHelpers.js";
 import { createViewUiRuntime } from "./viewUiRuntime.js";
-import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
+import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "./crudLookupFieldLabelSupport.js";
 import { resolveRouteParamNamesInOrder } from "./routeTemplateHelpers.js";
 
 function useView({
@@ -116,6 +116,7 @@ function useView({
     editUrl: viewUiRuntime.editUrl,
     resolveParams: viewUiRuntime.resolveParams,
     resolveFieldDisplay: resolveLookupFieldDisplayValue,
+    resolveRecordTitle,
     canView,
     isLoading,
     isFetching,

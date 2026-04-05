@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   resolveLookupItemLabel,
-  resolveLookupFieldDisplayValue
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
 } from "../src/client/composables/crudLookupFieldLabelSupport.js";
 
 test("resolveLookupItemLabel composes name + surname", () => {
@@ -24,6 +25,19 @@ test("resolveLookupItemLabel composes firstName + surname", () => {
       {
         firstName: "Ana",
         surname: "Marin"
+      },
+      "name"
+    ),
+    "Ana Marin"
+  );
+});
+
+test("resolveLookupItemLabel composes firstName + lastName", () => {
+  assert.equal(
+    resolveLookupItemLabel(
+      {
+        firstName: "Ana",
+        lastName: "Marin"
       },
       "name"
     ),
@@ -57,6 +71,42 @@ test("resolveLookupItemLabel resolves name when surname is missing", () => {
 
 test("resolveLookupItemLabel returns empty when no label fields match", () => {
   assert.equal(resolveLookupItemLabel({ id: 42 }, "name"), "");
+});
+
+test("resolveRecordTitle composes name-like fields before fallback key", () => {
+  assert.equal(
+    resolveRecordTitle(
+      {
+        firstName: "Ana",
+        lastName: "Marin",
+        title: "Ignored"
+      },
+      {
+        fallbackKey: "title",
+        defaultValue: "Record"
+      }
+    ),
+    "Ana Marin"
+  );
+});
+
+test("resolveRecordTitle falls back to provided field key", () => {
+  assert.equal(
+    resolveRecordTitle(
+      {
+        title: "Harbor Visit"
+      },
+      {
+        fallbackKey: "title",
+        defaultValue: "Record"
+      }
+    ),
+    "Harbor Visit"
+  );
+});
+
+test('resolveRecordTitle falls back to "-" when no title data exists', () => {
+  assert.equal(resolveRecordTitle({}, { fallbackKey: "title", defaultValue: "" }), "-");
 });
 
 test("resolveLookupFieldDisplayValue returns hydrated label for lookup fields", () => {
