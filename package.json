@@ -18,7 +18,8 @@
     "docs:preview": "vitepress preview docs",
     "files:checklist": "./scripts/files-checklist.sh",
     "release:npm": "node ./scripts/release-npm.mjs",
-    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run"
+    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run",
+    "agents:build-index": "node ./scripts/build-agent-index.mjs"
   },
   "workspaces": [
     "packages/*",
