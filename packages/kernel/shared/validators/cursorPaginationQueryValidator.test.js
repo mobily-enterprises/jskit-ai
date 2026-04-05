@@ -9,17 +9,13 @@ test("cursorPaginationQueryValidator normalizes numeric strings as cursor text",
   });
 });
 
-test("cursorPaginationQueryValidator keeps opaque cursor strings", () => {
-  assert.deepEqual(cursorPaginationQueryValidator.normalize({ cursor: "abc", limit: "-1" }), {
-    cursor: "abc",
-    limit: 0
-  });
-});
-
-test("cursorPaginationQueryValidator trims opaque cursor strings", () => {
-  assert.deepEqual(cursorPaginationQueryValidator.normalize({ cursor: "  offset:3  " }), {
-    cursor: "offset:3"
-  });
+test("cursorPaginationQueryValidator schema rejects opaque cursor strings", () => {
+  assert.equal(
+    cursorPaginationQueryValidator.schema.properties.cursor.anyOf.some(
+      (entry) => entry.type === "string" && entry.pattern === "^[1-9][0-9]*$"
+    ),
+    true
+  );
 });
 
 test("cursorPaginationQueryValidator keeps absent keys absent", () => {

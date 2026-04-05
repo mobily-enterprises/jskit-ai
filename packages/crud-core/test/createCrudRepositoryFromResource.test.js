@@ -687,6 +687,26 @@ test("createCrudRepositoryFromResource applies ordered cursors using the configu
   assert.ok(!calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 7));
 });
 
+test("createCrudRepositoryFromResource rejects malformed ordered cursors", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      orderBy: [
+        { column: "created_at", direction: "desc" }
+      ]
+    }
+  });
+  const { knex } = createListKnexDouble([]);
+  const repository = createRepository(knex);
+
+  await assert.rejects(
+    () => repository.list({
+      cursor: "not-a-real-cursor",
+      limit: 2
+    }),
+    /Invalid cursor/
+  );
+});
+
 test("createCrudRepositoryFromResource preserves Date cursor values for datetime sort columns", async () => {
   const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
     list: {

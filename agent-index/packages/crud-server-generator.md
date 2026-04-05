@@ -66,6 +66,7 @@ Local functions
 - `resolveEnumFieldMetaUiOptions(enumValues = [])`
 - `renderFieldMetaEntryLines(entry = {})`
 - `renderResourceFieldMetaPushLines(entries = [])`
+- `renderRepositoryListConfigLines(snapshot = {})`
 - `buildReplacementsFromSnapshot({ snapshot, resolvedOwnershipFilter })`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`
@@ -153,6 +154,10 @@ Exports
 - `${option:namespace|pascal`
 Local functions
 - `resolveCrudPolicyFromApp(app)`
+
+### `templates/src/local-package/server/listConfig.js`
+Exports
+- `LIST_CONFIG`
 
 ### `templates/src/local-package/server/registerRoutes.js`
 Exports

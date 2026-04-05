@@ -1,5 +1,6 @@
 import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import { Check, Errors } from "typebox/value";
 import {
@@ -226,12 +227,20 @@ function decodeOrderedListCursor(cursor = "", orderBy = []) {
     const payload = JSON.parse(decoded);
     const values = Array.isArray(payload?.values) ? payload.values : null;
     if (!values || values.length !== normalizedOrderBy.length) {
-      return null;
+      throw new AppError(400, "Invalid cursor.", {
+        code: "INVALID_CURSOR"
+      });
     }
 
     return values.map((value) => decodeOrderedListCursorValue(value));
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError(400, "Invalid cursor.", {
+      code: "INVALID_CURSOR"
+    });
   }
 }
 

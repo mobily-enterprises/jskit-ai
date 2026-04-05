@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_LIST_LIMIT,
   normalizeCrudListLimit,
+  normalizeCrudListCursor,
   requireCrudTableName,
   buildWritePayload,
   mapRecordRow,
@@ -87,6 +88,15 @@ test("normalizeCrudListLimit enforces fallback and max", () => {
   assert.equal(normalizeCrudListLimit(200), 100);
 });
 
+test("normalizeCrudListCursor rejects malformed id cursors", () => {
+  assert.equal(normalizeCrudListCursor("7"), 7);
+  assert.equal(normalizeCrudListCursor(""), 0);
+  assert.throws(
+    () => normalizeCrudListCursor("abc"),
+    /Invalid cursor/
+  );
+});
+
 test("requireCrudTableName trims and rejects empty values", () => {
   assert.equal(requireCrudTableName("  crud_customers  "), "crud_customers");
 
@@ -162,6 +172,14 @@ test("applyCrudListQueryFilters can skip id cursor filtering for ordered lists",
 
   assert.equal(result, query);
   assert.deepEqual(calls, []);
+});
+
+test("applyCrudListQueryFilters rejects malformed id cursors", () => {
+  const { query } = createQueryDouble();
+  assert.throws(
+    () => applyCrudListQueryFilters(query, { cursor: "abc" }),
+    /Invalid cursor/
+  );
 });
 
 test("applyCrudListQueryFilters applies parent FK filters from allowed columns", () => {

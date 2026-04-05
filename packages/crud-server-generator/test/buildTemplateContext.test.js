@@ -489,14 +489,34 @@ test("crud repository template defines explicit one-line CRUD methods over repos
     templateSource,
     /from "@jskit-ai\/crud-core\/server\/repositoryMethods";/
   );
+  assert.match(templateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
   assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
-  assert.match(templateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
   assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryListByIds\(repositoryRuntime, knex, ids, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
+});
+
+test("crud actions and routes templates share LIST_CONFIG for cursor validation", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const actionsTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "actions.js");
+  const registerRoutesTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "registerRoutes.js");
+  const listConfigTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "listConfig.js");
+
+  const actionsTemplateSource = await readFile(actionsTemplatePath, "utf8");
+  const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
+  const listConfigTemplateSource = await readFile(listConfigTemplatePath, "utf8");
+
+  assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
+  assert.match(actionsTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
+  assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(registerRoutesTemplateSource, /createCrudCursorPaginationQueryValidator/);
+  assert.match(registerRoutesTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
+  assert.match(registerRoutesTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(listConfigTemplateSource, /const LIST_CONFIG = Object\.freeze\(\{/);
+  assert.match(listConfigTemplateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
 });
 
 test("crud service template defines explicit service methods and semi-explicit default events", async () => {

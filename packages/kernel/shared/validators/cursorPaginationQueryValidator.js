@@ -21,12 +21,7 @@ function normalizeCursorPaginationQuery(input = {}) {
 const cursorPaginationQueryValidator = Object.freeze({
   schema: Type.Object(
     {
-      cursor: Type.Optional(
-        Type.Union([
-          Type.Integer({ minimum: 1 }),
-          Type.String({ minLength: 1 })
-        ])
-      ),
+      cursor: Type.Optional(positiveIntegerValidator.schema),
       limit: Type.Optional(positiveIntegerValidator.schema)
     },
     { additionalProperties: false }

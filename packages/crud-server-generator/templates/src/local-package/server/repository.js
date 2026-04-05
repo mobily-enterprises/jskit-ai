@@ -9,10 +9,7 @@ import {
   crudRepositoryDeleteById
 } from "@jskit-ai/crud-core/server/repositoryMethods";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-
-const LIST_CONFIG = Object.freeze({
-__JSKIT_CRUD_LIST_CONFIG_LINES__
-});
+import { LIST_CONFIG } from "./listConfig.js";
 
 const repositoryRuntime = createCrudRepositoryRuntime(resource, {
   context: "${option:namespace|snake} repository",

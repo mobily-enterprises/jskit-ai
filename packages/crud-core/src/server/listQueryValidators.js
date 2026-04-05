@@ -1,5 +1,9 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
+import {
+  normalizeObjectInput,
+  positiveIntegerValidator,
+  cursorPaginationQueryValidator
+} from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudLookupFieldKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
 
@@ -41,6 +45,55 @@ const lookupIncludeQueryValidator = Object.freeze({
   }
 });
 
+function resolveCrudListUsesOrderedCursor(list = {}) {
+  const orderBy = Array.isArray(list?.orderBy) ? list.orderBy : [];
+  for (const entry of orderBy) {
+    if (typeof entry === "string" && normalizeText(entry)) {
+      return true;
+    }
+    if (entry && typeof entry === "object" && !Array.isArray(entry) && normalizeText(entry.column)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function createCrudCursorPaginationQueryValidator(list = {}) {
+  if (resolveCrudListUsesOrderedCursor(list) !== true) {
+    return cursorPaginationQueryValidator;
+  }
+
+  return Object.freeze({
+    schema: Type.Object(
+      {
+        cursor: Type.Optional(
+          Type.Union([
+            positiveIntegerValidator.schema,
+            Type.String({ minLength: 1 })
+          ])
+        ),
+        limit: Type.Optional(positiveIntegerValidator.schema)
+      },
+      { additionalProperties: false }
+    ),
+    normalize(payload = {}) {
+      const source = normalizeObjectInput(payload);
+      const normalized = {};
+
+      if (Object.hasOwn(source, "cursor")) {
+        normalized.cursor = normalizeText(source.cursor);
+      }
+
+      if (Object.hasOwn(source, "limit")) {
+        normalized.limit = positiveIntegerValidator.normalize(source.limit);
+      }
+
+      return normalized;
+    }
+  });
+}
+
 function resolveCrudParentFilterKeys(resource = {}) {
   const createSchemaProperties = resource?.operations?.create?.bodyValidator?.schema?.properties;
   const allowedKeys = createSchemaProperties && typeof createSchemaProperties === "object" && !Array.isArray(createSchemaProperties)
@@ -80,6 +133,7 @@ function createCrudParentFilterQueryValidator(resource = {}) {
 }
 
 export {
+  createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   resolveCrudParentFilterKeys,

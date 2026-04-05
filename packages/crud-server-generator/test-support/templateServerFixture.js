@@ -24,7 +24,7 @@ const TEMPLATE_REPLACEMENTS = Object.freeze([
     [
       "  // defaultLimit: 20,",
       "  // maxLimit: 100,",
-      "  // searchColumns: [\"name\"]"
+      "  // searchColumns: [\"name\"],"
     ].join("\n")
   ]
 ]);
@@ -153,7 +153,7 @@ async function createTemplateServerFixture() {
   );
   await writeFile(path.join(sharedRoot, "customerResource.js"), buildResourceStubSource(), "utf8");
 
-  for (const fileName of ["actionIds.js", "actions.js", "registerRoutes.js", "repository.js", "service.js"]) {
+  for (const fileName of ["actionIds.js", "actions.js", "listConfig.js", "registerRoutes.js", "repository.js", "service.js"]) {
     await renderServerTemplateFile(serverRoot, fileName);
   }
 

@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
@@ -9,6 +10,28 @@ import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldMetaSupport.
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
+
+function normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {}) {
+  if (cursor === undefined || cursor === null) {
+    return allowEmpty === true ? 0 : null;
+  }
+
+  const normalizedCursor = typeof cursor === "string"
+    ? cursor.trim()
+    : cursor;
+  if (normalizedCursor === "" || normalizedCursor === 0 || normalizedCursor === "0") {
+    return allowEmpty === true ? 0 : null;
+  }
+
+  const numericCursor = Number(normalizedCursor);
+  if (!Number.isInteger(numericCursor) || numericCursor < 1) {
+    throw new AppError(400, "Invalid cursor.", {
+      code: "INVALID_CURSOR"
+    });
+  }
+
+  return numericCursor;
+}
 
 function normalizeCrudListLimit(value, { fallback = DEFAULT_LIST_LIMIT, max = MAX_LIST_LIMIT } = {}) {
   const parsed = Number(value);
@@ -281,11 +304,12 @@ function applyCrudListQueryFilters(
     });
   }
 
-  const numericCursor = Number(cursor);
-  const normalizedCursor = Number.isInteger(numericCursor) && numericCursor > 0 ? numericCursor : 0;
   const normalizedIdColumn = String(idColumn || "").trim() || "id";
-  if (applyCursor !== false && normalizedCursor > 0) {
-    nextQuery = nextQuery.where(normalizedIdColumn, ">", normalizedCursor);
+  if (applyCursor !== false) {
+    const normalizedCursor = normalizeCrudListCursor(cursor);
+    if (normalizedCursor > 0) {
+      nextQuery = nextQuery.where(normalizedIdColumn, ">", normalizedCursor);
+    }
   }
 
   return nextQuery;
@@ -320,6 +344,7 @@ export {
   DEFAULT_LIST_LIMIT,
   MAX_LIST_LIMIT,
   normalizeCrudListLimit,
+  normalizeCrudListCursor,
   requireCrudTableName,
   deriveRepositoryMappingFromResource,
   applyCrudListQueryFilters,

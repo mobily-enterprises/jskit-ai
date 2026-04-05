@@ -7,6 +7,7 @@ import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import {
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
+  createCrudCursorPaginationQueryValidator,
   createCrudParentFilterQueryValidator,
   resolveCrudParentFilterKeys
 } from "../src/server/listQueryValidators.js";
@@ -45,6 +46,29 @@ test("lookupIncludeQueryValidator keeps include optional when merged with pagina
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("createCrudCursorPaginationQueryValidator keeps numeric cursor validation for unordered lists", () => {
+  const validator = createCrudCursorPaginationQueryValidator({});
+
+  assert.equal(validator, cursorPaginationQueryValidator);
+});
+
+test("createCrudCursorPaginationQueryValidator allows opaque cursor strings for ordered lists", () => {
+  const validator = createCrudCursorPaginationQueryValidator({
+    orderBy: [
+      {
+        column: "created_at",
+        direction: "desc"
+      }
+    ]
+  });
+
+  assert.notEqual(validator, cursorPaginationQueryValidator);
+  assert.deepEqual(validator.normalize({ cursor: "  offset:3  ", limit: "25" }), {
+    cursor: "offset:3",
+    limit: 25
+  });
 });
 
 test("resolveCrudParentFilterKeys returns lookup keys that exist in create schema", () => {
