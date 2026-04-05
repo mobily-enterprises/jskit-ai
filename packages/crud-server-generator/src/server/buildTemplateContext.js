@@ -1064,6 +1064,29 @@ function renderResourceFieldMetaPushLines(entries = []) {
   return sourceEntries.map((entry) => renderFieldMetaEntryLines(entry)).join("\n\n");
 }
 
+function renderRepositoryListConfigLines(snapshot = {}) {
+  const commentLines = [
+    "  // defaultLimit: 20,",
+    "  // maxLimit: 100,",
+    "  // searchColumns: [\"name\"]"
+  ];
+  const sourceColumns = Array.isArray(snapshot?.columns) ? snapshot.columns : [];
+  const hasCreatedAtColumn = sourceColumns.some((column = {}) => normalizeText(column?.name) === "created_at");
+  if (!hasCreatedAtColumn) {
+    return commentLines.join("\n");
+  }
+
+  return [
+    ...commentLines,
+    "  orderBy: [",
+    "    {",
+    "      column: \"created_at\",",
+    "      direction: \"desc\"",
+    "    }",
+    "  ]"
+  ].join("\n");
+}
+
 function buildReplacementsFromSnapshot({
   snapshot,
   resolvedOwnershipFilter
@@ -1133,6 +1156,7 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__: renderResourceOutputNormalizationLines(outputColumns),
     __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__: JSON.stringify(createRequiredFieldKeys),
     __JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__: renderResourceFieldMetaPushLines(fieldMetaEntries),
+    __JSKIT_CRUD_LIST_CONFIG_LINES__: renderRepositoryListConfigLines(snapshot),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
     __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot)

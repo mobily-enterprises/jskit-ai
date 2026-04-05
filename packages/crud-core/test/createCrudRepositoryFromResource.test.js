@@ -22,11 +22,37 @@ function createListKnexDouble(
     let firstMode = false;
     const whereGroup = {
       where(...args) {
+        if (args.length === 1 && typeof args[0] === "function") {
+          calls.push(["innerWhereCallback"]);
+          args[0](whereGroup);
+          return whereGroup;
+        }
         calls.push(["where", ...args]);
         return whereGroup;
       },
       orWhere(...args) {
+        if (args.length === 1 && typeof args[0] === "function") {
+          calls.push(["innerOrWhereCallback"]);
+          args[0](whereGroup);
+          return whereGroup;
+        }
         calls.push(["orWhere", ...args]);
+        return whereGroup;
+      },
+      whereNull(...args) {
+        calls.push(["whereNull", ...args]);
+        return whereGroup;
+      },
+      orWhereNull(...args) {
+        calls.push(["orWhereNull", ...args]);
+        return whereGroup;
+      },
+      whereNotNull(...args) {
+        calls.push(["whereNotNull", ...args]);
+        return whereGroup;
+      },
+      orWhereNotNull(...args) {
+        calls.push(["orWhereNotNull", ...args]);
         return whereGroup;
       },
       whereRaw(...args) {
@@ -49,12 +75,41 @@ function createListKnexDouble(
         calls.push(["where", ...args]);
         return query;
       },
+      orWhere(...args) {
+        if (args.length === 1 && typeof args[0] === "function") {
+          calls.push(["orWhereCallback"]);
+          args[0](whereGroup);
+          return query;
+        }
+        calls.push(["orWhere", ...args]);
+        return query;
+      },
+      whereNull(...args) {
+        calls.push(["whereNull", ...args]);
+        return query;
+      },
+      orWhereNull(...args) {
+        calls.push(["orWhereNull", ...args]);
+        return query;
+      },
+      whereNotNull(...args) {
+        calls.push(["whereNotNull", ...args]);
+        return query;
+      },
+      orWhereNotNull(...args) {
+        calls.push(["orWhereNotNull", ...args]);
+        return query;
+      },
       whereRaw(...args) {
         calls.push(["whereRaw", ...args]);
         return query;
       },
       orderBy(...args) {
         calls.push(["orderBy", ...args]);
+        return query;
+      },
+      orderByRaw(...args) {
+        calls.push(["orderByRaw", ...args]);
         return query;
       },
       clearOrder() {
@@ -568,6 +623,95 @@ test("createCrudRepositoryFromResource allows list tuning through list config", 
 
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "first_name" && call[2] === "like" && call[3] === "%to%"));
   assert.ok(calls.some((call) => call[0] === "limit" && call[1] === 3));
+});
+
+test("createCrudRepositoryFromResource supports declarative ordered list pagination", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      defaultLimit: 2,
+      orderBy: [
+        { column: "created_at", direction: "desc" }
+      ]
+    }
+  });
+  const rows = [
+    { contact_id: 9, first_name: "Tina", created_at: "2026-04-05T10:00:00.000Z" },
+    { contact_id: 7, first_name: "Tony", created_at: "2026-04-04T09:00:00.000Z" },
+    { contact_id: 6, first_name: "Tom", created_at: "2026-04-03T08:00:00.000Z" }
+  ];
+  const { knex, calls } = createListKnexDouble(rows);
+  const repository = createRepository(knex);
+
+  const result = await repository.list();
+
+  assert.deepEqual(result, {
+    items: [
+      { id: 9, firstName: "Tina" },
+      { id: 7, firstName: "Tony" }
+    ],
+    nextCursor: Buffer.from(
+      JSON.stringify({ values: ["2026-04-04T09:00:00.000Z", 7] }),
+      "utf8"
+    ).toString("base64url")
+  });
+  assert.ok(calls.some((call) => call[0] === "orderByRaw" && call[1] === "?? is null asc" && call[2]?.[0] === "created_at"));
+  assert.ok(calls.some((call) => call[0] === "orderBy" && call[1] === "created_at" && call[2] === "desc"));
+  assert.ok(calls.some((call) => call[0] === "orderBy" && call[1] === "contact_id" && call[2] === "desc"));
+});
+
+test("createCrudRepositoryFromResource applies ordered cursors using the configured sort tuple", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      orderBy: [
+        { column: "created_at", direction: "desc" }
+      ]
+    }
+  });
+  const { knex, calls } = createListKnexDouble([
+    { contact_id: 6, first_name: "Tom", created_at: "2026-04-03T08:00:00.000Z" }
+  ]);
+  const repository = createRepository(knex);
+  const cursor = Buffer.from(
+    JSON.stringify({ values: ["2026-04-04T09:00:00.000Z", 7] }),
+    "utf8"
+  ).toString("base64url");
+
+  await repository.list({
+    cursor,
+    limit: 2
+  });
+
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "created_at" && call[2] === "<" && call[3] === "2026-04-04T09:00:00.000Z"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "created_at" && call[2] === "2026-04-04T09:00:00.000Z"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === "<" && call[3] === 7));
+  assert.ok(!calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 7));
+});
+
+test("createCrudRepositoryFromResource ordered cursors handle null primary sort values", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      orderBy: [
+        { column: "created_at", direction: "desc" }
+      ]
+    }
+  });
+  const { knex, calls } = createListKnexDouble([
+    { contact_id: 6, first_name: "Tom", created_at: null }
+  ]);
+  const repository = createRepository(knex);
+  const cursor = Buffer.from(
+    JSON.stringify({ values: [null, 7] }),
+    "utf8"
+  ).toString("base64url");
+
+  await repository.list({
+    cursor,
+    limit: 2
+  });
+
+  assert.ok(calls.some((call) => call[0] === "whereNull" && call[1] === "created_at"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === "<" && call[3] === 7));
+  assert.ok(!calls.some((call) => call[0] === "whereNotNull" && call[1] === "created_at"));
 });
 
 test("createCrudRepositoryFromResource exposes listByIds for lookup providers", async () => {

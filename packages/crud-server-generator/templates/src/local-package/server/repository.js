@@ -11,9 +11,7 @@ import {
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
 const LIST_CONFIG = Object.freeze({
-  // defaultLimit: 20,
-  // maxLimit: 100,
-  // searchColumns: ["name"]
+__JSKIT_CRUD_LIST_CONFIG_LINES__
 });
 
 const repositoryRuntime = createCrudRepositoryRuntime(resource, {

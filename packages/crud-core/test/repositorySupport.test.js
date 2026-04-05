@@ -16,11 +16,41 @@ function createQueryDouble() {
   const calls = [];
   const whereQuery = {
     where(...args) {
+      if (args.length === 1 && typeof args[0] === "function") {
+        calls.push(["innerWhereCallback"]);
+        args[0](whereQuery);
+        return whereQuery;
+      }
       calls.push(["innerWhere", ...args]);
       return whereQuery;
     },
     orWhere(...args) {
+      if (args.length === 1 && typeof args[0] === "function") {
+        calls.push(["innerOrWhereCallback"]);
+        args[0](whereQuery);
+        return whereQuery;
+      }
       calls.push(["innerOrWhere", ...args]);
+      return whereQuery;
+    },
+    whereNull(...args) {
+      calls.push(["innerWhereNull", ...args]);
+      return whereQuery;
+    },
+    orWhereNull(...args) {
+      calls.push(["innerOrWhereNull", ...args]);
+      return whereQuery;
+    },
+    whereNotNull(...args) {
+      calls.push(["innerWhereNotNull", ...args]);
+      return whereQuery;
+    },
+    orWhereNotNull(...args) {
+      calls.push(["innerOrWhereNotNull", ...args]);
+      return whereQuery;
+    },
+    whereRaw(...args) {
+      calls.push(["innerWhereRaw", ...args]);
       return whereQuery;
     }
   };
@@ -117,6 +147,17 @@ test("applyCrudListQueryFilters skips search and cursor when inputs are empty", 
     cursor: 0,
     q: "  ",
     searchColumns: []
+  });
+
+  assert.equal(result, query);
+  assert.deepEqual(calls, []);
+});
+
+test("applyCrudListQueryFilters can skip id cursor filtering for ordered lists", () => {
+  const { query, calls } = createQueryDouble();
+  const result = applyCrudListQueryFilters(query, {
+    cursor: "9",
+    applyCursor: false
   });
 
   assert.equal(result, query);

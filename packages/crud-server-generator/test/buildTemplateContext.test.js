@@ -9,8 +9,30 @@ import { buildTemplateContext, __testables } from "../src/server/buildTemplateCo
 function createSnapshot({
   tableName = "contacts",
   hasWorkspaceOwnerColumn = true,
-  hasUserOwnerColumn = true
+  hasUserOwnerColumn = true,
+  hasCreatedAtColumn = true
 } = {}) {
+  const createdAtColumn = hasCreatedAtColumn
+    ? [
+        Object.freeze({
+          name: "created_at",
+          key: "createdAt",
+          dataType: "datetime",
+          columnType: "datetime",
+          typeKind: "datetime",
+          nullable: false,
+          hasDefault: true,
+          defaultValue: "CURRENT_TIMESTAMP",
+          autoIncrement: false,
+          unsigned: false,
+          extra: "",
+          maxLength: null,
+          numericPrecision: null,
+          numericScale: null,
+          enumValues: Object.freeze([])
+        })
+      ]
+    : [];
   return Object.freeze({
     tableName,
     idColumn: "id",
@@ -86,6 +108,7 @@ function createSnapshot({
         numericScale: null,
         enumValues: Object.freeze([])
       }),
+      ...createdAtColumn,
       Object.freeze({
         name: "updated_at",
         key: "updatedAt",
@@ -223,12 +246,30 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
     /firstName: normalizeIfPresent\(source\.firstName, normalizeText\),/
   );
+  assert.match(
+    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
+    /orderBy: \[\s+{\s+column: "created_at",\s+direction: "desc"\s+}\s+\]/s
+  );
   assert.doesNotMatch(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
     /== null \?/
   );
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
+});
+
+test("buildReplacementsFromSnapshot omits default list ordering when created_at is absent", () => {
+  const snapshot = createSnapshot({
+    hasCreatedAtColumn: false
+  });
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
+    snapshot,
+    resolvedOwnershipFilter: "workspace_user"
+  });
+
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /orderBy/);
+  assert.match(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /searchColumns/);
 });
 
 test("buildReplacementsFromSnapshot renders append-only field meta entries from foreign keys", () => {
@@ -445,6 +486,7 @@ test("crud repository template defines explicit one-line CRUD methods over repos
     /from "@jskit-ai\/crud-core\/server\/repositoryMethods";/
   );
   assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
+  assert.match(templateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
   assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryListByIds\(repositoryRuntime, knex, ids, options, callOptions\);/);

@@ -18,7 +18,15 @@ const TEMPLATE_REPLACEMENTS = Object.freeze([
   ["${option:namespace|camel}", CRUD_NAMESPACE.camel],
   ["${option:namespace|singular|camel}", CRUD_NAMESPACE.singularCamel],
   ["${option:namespace|pascal}", CRUD_NAMESPACE.pascal],
-  ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")]
+  ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")],
+  [
+    "__JSKIT_CRUD_LIST_CONFIG_LINES__",
+    [
+      "  // defaultLimit: 20,",
+      "  // maxLimit: 100,",
+      "  // searchColumns: [\"name\"]"
+    ].join("\n")
+  ]
 ]);
 
 function applyTemplateReplacements(sourceText = "") {

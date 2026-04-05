@@ -222,6 +222,7 @@ function applyCrudListQueryFilters(
   {
     idColumn = "id",
     cursor = 0,
+    applyCursor = true,
     q = "",
     searchColumns = [],
     parentFilters = {},
@@ -283,7 +284,7 @@ function applyCrudListQueryFilters(
   const numericCursor = Number(cursor);
   const normalizedCursor = Number.isInteger(numericCursor) && numericCursor > 0 ? numericCursor : 0;
   const normalizedIdColumn = String(idColumn || "").trim() || "id";
-  if (normalizedCursor > 0) {
+  if (applyCursor !== false && normalizedCursor > 0) {
     nextQuery = nextQuery.where(normalizedIdColumn, ">", normalizedCursor);
   }
 
