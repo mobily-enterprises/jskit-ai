@@ -7,7 +7,8 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
-  resolveCrudLookupFieldKeys
+  resolveCrudLookupFieldKeys,
+  resolveCrudLookupFieldKeyFromRouteParam
 } from "./crudLookup.js";
 
 test("normalizeCrudLookupApiPath normalizes and rejects root", () => {
@@ -69,6 +70,7 @@ test("resolveCrudLookupFieldKeys returns lookup field keys with optional allow-l
       },
       {
         key: "vetId",
+        parentRouteParamKey: "primaryVetId",
         relation: {
           kind: "lookup",
           apiPath: "/vets",
@@ -80,4 +82,37 @@ test("resolveCrudLookupFieldKeys returns lookup field keys with optional allow-l
 
   assert.deepEqual(resolveCrudLookupFieldKeys(resource), ["contactId", "vetId"]);
   assert.deepEqual(resolveCrudLookupFieldKeys(resource, { allowKeys: ["vetId", "missing"] }), ["vetId"]);
+});
+
+test("resolveCrudLookupFieldKeyFromRouteParam matches parent route param aliases to canonical lookup field keys", () => {
+  const resource = {
+    fieldMeta: [
+      {
+        key: "staffContactId",
+        parentRouteParamKey: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "serviceId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/services",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+
+  assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "contactId"), "staffContactId");
+  assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "staffContactId"), "staffContactId");
+  assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "serviceId"), "serviceId");
+  assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "unknown"), "");
+  assert.equal(
+    resolveCrudLookupFieldKeyFromRouteParam(resource, "contactId", { allowKeys: ["serviceId"] }),
+    ""
+  );
 });

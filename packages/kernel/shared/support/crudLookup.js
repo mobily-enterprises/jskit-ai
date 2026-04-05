@@ -64,7 +64,7 @@ function resolveCrudLookupContainerKey(resource = {}, options = {}) {
   return normalizeCrudLookupContainerKey(lookup?.containerKey, options);
 }
 
-function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
+function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   const source = resource && typeof resource === "object" && !Array.isArray(resource) ? resource : {};
   const entries = Array.isArray(source.fieldMeta) ? source.fieldMeta : [];
   const allowedKeySet = new Set(
@@ -97,10 +97,37 @@ function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
     }
 
     seenKeys.add(key);
-    keys.push(key);
+    keys.push(
+      Object.freeze({
+        key,
+        parentRouteParamKey: normalizeText(entry.parentRouteParamKey)
+      })
+    );
   }
 
   return Object.freeze(keys);
+}
+
+function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
+  return Object.freeze(
+    resolveCrudLookupFieldEntries(resource, { allowKeys })
+      .map(({ key }) => key)
+  );
+}
+
+function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {}) {
+  const normalizedRouteParamKey = normalizeText(routeParamKey);
+  if (!normalizedRouteParamKey) {
+    return "";
+  }
+
+  for (const entry of resolveCrudLookupFieldEntries(resource, { allowKeys })) {
+    if (entry.key === normalizedRouteParamKey || entry.parentRouteParamKey === normalizedRouteParamKey) {
+      return entry.key;
+    }
+  }
+
+  return "";
 }
 
 export {
@@ -110,5 +137,6 @@ export {
   resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
-  resolveCrudLookupFieldKeys
+  resolveCrudLookupFieldKeys,
+  resolveCrudLookupFieldKeyFromRouteParam
 };

@@ -129,6 +129,42 @@ test("createCrudParentFilterQueryValidator normalizes configured parent filters"
   });
 });
 
+test("createCrudParentFilterQueryValidator keeps canonical field keys when fieldMeta declares parent route aliases", () => {
+  const validator = createCrudParentFilterQueryValidator({
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              staffContactId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "staffContactId",
+        parentRouteParamKey: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    ]
+  });
+
+  assert.deepEqual(Object.keys(validator.schema.properties), ["staffContactId"]);
+  assert.deepEqual(validator.normalize({
+    staffContactId: " 42 ",
+    contactId: " 99 "
+  }), {
+    staffContactId: "42"
+  });
+});
+
 test("createCrudParentFilterQueryValidator keeps parent filters optional when merged", () => {
   const parentValidator = createCrudParentFilterQueryValidator({
     operations: {
