@@ -1,4 +1,8 @@
 import {
+  readdir,
+  readFile
+} from "node:fs/promises";
+import {
   ensureArray,
   ensureObject,
   sortStrings
@@ -15,8 +19,41 @@ function createHealthCommands(ctx = {}) {
     hydratePackageRegistryFromInstalledNodeModules,
     inspectPackageOfferings,
     fileExists,
+    normalizeRelativePath,
     path
   } = ctx;
+
+  const MDI_SVG_MAIN_ENTRY_CANDIDATES = Object.freeze([
+    "src/main.js",
+    "src/main.mjs",
+    "src/main.ts"
+  ]);
+  const MDI_SVG_SCAN_ROOTS = Object.freeze([
+    "src",
+    "packages"
+  ]);
+  const MDI_SVG_IGNORED_DIRECTORY_NAMES = new Set([
+    ".git",
+    ".jskit",
+    ".build",
+    "coverage",
+    "dist",
+    "docs",
+    "LEGACY",
+    "node_modules",
+    "test",
+    "tests",
+    "__tests__"
+  ]);
+  const MDI_SVG_IGNORED_FILE_PATTERNS = Object.freeze([
+    /\.spec\./i,
+    /\.test\./i,
+    /\.vitest\./i
+  ]);
+  const DIRECT_MDI_LITERAL_ICON_PATTERN =
+    /<(v-[a-z0-9-]+)[^>]*?\b(icon|prepend-icon|append-icon)\s*=\s*(['"])(mdi-[^'"]+)\3/gi;
+  const DIRECT_MDI_BOUND_LITERAL_ICON_PATTERN =
+    /<(v-[a-z0-9-]+)[^>]*?(?::|v-bind:)(icon|prepend-icon|append-icon)\s*=\s*(['"])(['"])(mdi-[^'"]+)\4\3/gi;
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -115,6 +152,104 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  async function appUsesVuetifyMdiSvg(appRoot) {
+    for (const relativePath of MDI_SVG_MAIN_ENTRY_CANDIDATES) {
+      const absolutePath = path.join(appRoot, relativePath);
+      if (!(await fileExists(absolutePath))) {
+        continue;
+      }
+      const fileContent = await readFile(absolutePath, "utf8");
+      if (fileContent.includes("vuetify/iconsets/mdi-svg")) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function shouldSkipMdiSvgDoctorDirectory(directoryName = "") {
+    return MDI_SVG_IGNORED_DIRECTORY_NAMES.has(String(directoryName || "").trim());
+  }
+
+  function shouldSkipMdiSvgDoctorFile(fileName = "") {
+    const normalizedFileName = String(fileName || "").trim();
+    if (!normalizedFileName.endsWith(".vue")) {
+      return true;
+    }
+    return MDI_SVG_IGNORED_FILE_PATTERNS.some((pattern) => pattern.test(normalizedFileName));
+  }
+
+  async function collectVueSourceFiles(rootDirectory, collected = []) {
+    if (!(await fileExists(rootDirectory))) {
+      return collected;
+    }
+
+    const entries = await readdir(rootDirectory, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const entry of entries) {
+      const entryPath = path.join(rootDirectory, entry.name);
+      if (entry.isDirectory()) {
+        if (shouldSkipMdiSvgDoctorDirectory(entry.name)) {
+          continue;
+        }
+        await collectVueSourceFiles(entryPath, collected);
+        continue;
+      }
+      if (entry.isFile() && !shouldSkipMdiSvgDoctorFile(entry.name)) {
+        collected.push(entryPath);
+      }
+    }
+
+    return collected;
+  }
+
+  function resolveLineNumberFromIndex(sourceText = "", index = 0) {
+    return String(sourceText || "").slice(0, Math.max(0, index)).split("\n").length;
+  }
+
+  function collectDirectMdiSvgTemplateIconIssues({ sourceText, relativePath, issues }) {
+    DIRECT_MDI_LITERAL_ICON_PATTERN.lastIndex = 0;
+    for (const match of sourceText.matchAll(DIRECT_MDI_LITERAL_ICON_PATTERN)) {
+      const [, tagName = "v-component", propName = "icon", , rawIcon = ""] = match;
+      const lineNumber = resolveLineNumberFromIndex(sourceText, match.index || 0);
+      issues.push(
+        `${relativePath}:${lineNumber}: raw "${rawIcon}" passed to <${tagName}> ${propName} while the app uses vuetify/iconsets/mdi-svg. Use an @mdi/js path or a Vuetify alias.`
+      );
+    }
+
+    DIRECT_MDI_BOUND_LITERAL_ICON_PATTERN.lastIndex = 0;
+    for (const match of sourceText.matchAll(DIRECT_MDI_BOUND_LITERAL_ICON_PATTERN)) {
+      const [, tagName = "v-component", propName = "icon", , , rawIcon = ""] = match;
+      const lineNumber = resolveLineNumberFromIndex(sourceText, match.index || 0);
+      issues.push(
+        `${relativePath}:${lineNumber}: raw "${rawIcon}" passed to <${tagName}> ${propName} while the app uses vuetify/iconsets/mdi-svg. Use an @mdi/js path or a Vuetify alias.`
+      );
+    }
+  }
+
+  async function collectMdiSvgDoctorIssues({ appRoot, issues }) {
+    if (!(await appUsesVuetifyMdiSvg(appRoot))) {
+      return;
+    }
+
+    const vueFilePaths = [];
+    for (const relativeRoot of MDI_SVG_SCAN_ROOTS) {
+      await collectVueSourceFiles(path.join(appRoot, relativeRoot), vueFilePaths);
+    }
+
+    vueFilePaths.sort((left, right) => left.localeCompare(right));
+
+    for (const absolutePath of vueFilePaths) {
+      const sourceText = await readFile(absolutePath, "utf8");
+      collectDirectMdiSvgTemplateIconIssues({
+        sourceText,
+        relativePath: normalizeRelativePath(appRoot, absolutePath),
+        issues
+      });
+    }
+  }
+
   function collectDiLabelParityIssuesForPackage({ packageEntry, packageInsights }) {
     const packageId = String(packageEntry?.packageId || "").trim();
     const descriptor = ensureObject(packageEntry?.descriptor);
@@ -198,6 +333,11 @@ function createHealthCommands(ctx = {}) {
         }
       }
     }
+
+    await collectMdiSvgDoctorIssues({
+      appRoot,
+      issues
+    });
 
     const payload = {
       appRoot,

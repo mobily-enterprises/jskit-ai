@@ -1,3 +1,4 @@
+import * as mdiIcons from "@mdi/js";
 import {
   mdiAccountCircleOutline,
   mdiAccountCogOutline,
@@ -25,6 +26,26 @@ const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
   admin: mdiShieldCrownOutline,
   console: mdiConsoleNetworkOutline
 });
+
+function resolveExplicitIconValue(explicitIcon = "") {
+  const normalizedExplicitIcon = normalizeText(explicitIcon);
+  if (!normalizedExplicitIcon) {
+    return "";
+  }
+
+  if (!normalizedExplicitIcon.startsWith("mdi-")) {
+    return normalizedExplicitIcon;
+  }
+
+  const iconKey = normalizedExplicitIcon
+    .slice("mdi-".length)
+    .split("-")
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join("");
+  const exportName = `mdi${iconKey}`;
+  const resolvedIcon = mdiIcons[exportName];
+  return typeof resolvedIcon === "string" && resolvedIcon ? resolvedIcon : normalizedExplicitIcon;
+}
 
 function normalizePathname(value) {
   const normalizedValue = normalizeText(value);
@@ -70,9 +91,9 @@ function resolveSurfaceSwitchIdFromLabel(label = "") {
 }
 
 function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
-  const normalizedExplicitIcon = normalizeText(explicitIcon);
-  if (normalizedExplicitIcon) {
-    return normalizedExplicitIcon;
+  const resolvedExplicitIcon = resolveExplicitIconValue(explicitIcon);
+  if (resolvedExplicitIcon) {
+    return resolvedExplicitIcon;
   }
 
   const normalizedSurfaceId = normalizeText(surfaceId).toLowerCase();
@@ -80,9 +101,9 @@ function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
 }
 
 function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
-  const normalizedIcon = normalizeText(icon);
-  if (normalizedIcon) {
-    return normalizedIcon;
+  const resolvedExplicitIcon = resolveExplicitIconValue(icon);
+  if (resolvedExplicitIcon) {
+    return resolvedExplicitIcon;
   }
 
   const normalizedLabel = normalizeText(label).toLowerCase();

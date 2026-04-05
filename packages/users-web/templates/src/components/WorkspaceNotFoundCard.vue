@@ -1,4 +1,5 @@
 <script setup>
+import { mdiAlertCircleOutline } from "@mdi/js";
 import { computed } from "vue";
 
 const props = defineProps({
@@ -20,7 +21,7 @@ const normalizedMessage = computed(() => String(props.message || "").trim() || "
   <v-card rounded="lg" elevation="1" border>
     <v-card-item>
       <template #prepend>
-        <v-icon icon="mdi-alert-circle-outline" color="error" />
+        <v-icon :icon="mdiAlertCircleOutline" color="error" />
       </template>
       <v-card-title class="text-h5">Unavailable</v-card-title>
       <v-card-subtitle>{{ normalizedSurfaceLabel }} surface.</v-card-subtitle>
