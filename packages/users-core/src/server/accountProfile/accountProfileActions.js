@@ -95,10 +95,17 @@ const accountProfileActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
+      const avatarUpload = {
+        stream: input.stream,
+        mimeType: input.mimeType,
+        fileName: input.fileName,
+        uploadDimension: input.uploadDimension
+      };
+
       return deps.accountProfileService.uploadAvatar(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input,
+        avatarUpload,
         {
           context
         }
@@ -125,7 +132,6 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.deleteAvatar(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input,
         {
           context
         }

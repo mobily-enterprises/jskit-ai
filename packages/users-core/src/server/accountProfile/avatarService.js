@@ -39,14 +39,14 @@ function createService({ usersRepository, avatarStorageService, avatarPolicy } =
     return profile;
   }
 
-  async function uploadForUser(user, payload = {}) {
+  async function uploadForUser(user, avatarUpload = {}) {
     const profile = await resolveProfile(user);
-    validateUploadMimeType(payload?.mimeType, resolvedAvatarPolicy, {
+    validateUploadMimeType(avatarUpload?.mimeType, resolvedAvatarPolicy, {
       fieldName: "avatar",
       label: "Avatar"
     });
 
-    const buffer = await readAvatarBuffer(payload.stream, {
+    const buffer = await readAvatarBuffer(avatarUpload?.stream, {
       maxBytes: resolvedAvatarPolicy.maxUploadBytes
     });
 

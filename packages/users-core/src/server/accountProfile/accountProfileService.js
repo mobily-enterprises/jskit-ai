@@ -66,11 +66,11 @@ function createService({
     };
   }
 
-  async function uploadAvatar(request, user, payload = {}, options = {}) {
+  async function uploadAvatar(request, user, avatarUpload = {}, options = {}) {
     void options;
 
-    const avatarUpload = await avatarService.uploadForUser(user, payload);
-    const profile = avatarUpload?.profile || null;
+    const result = await avatarService.uploadForUser(user, avatarUpload);
+    const profile = result?.profile || null;
     if (!profile) {
       throw new AppError(500, "Avatar upload completed without a profile result.");
     }
@@ -86,7 +86,7 @@ function createService({
     });
   }
 
-  async function deleteAvatar(request, user, _payload = {}, options = {}) {
+  async function deleteAvatar(request, user, options = {}) {
     void options;
 
     const profile = await avatarService.clearForUser(user);
@@ -101,7 +101,7 @@ function createService({
     });
   }
 
-  async function readAvatar(_request, user, _payload = {}, options = {}) {
+  async function readAvatar(_request, user, options = {}) {
     void options;
 
     const avatar = await avatarService.readForUser(user);

@@ -44,6 +44,45 @@ function resolveFormFieldType(field = {}) {
   return String(field.type || "").trim().toLowerCase();
 }
 
+function resolveFormFieldFormat(field = {}) {
+  return String(field.format || "").trim().toLowerCase();
+}
+
+function padDateTimePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function toDateTimeLocalInputValue(value) {
+  if (value == null || value === "") {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return [
+    date.getFullYear(),
+    padDateTimePart(date.getMonth() + 1),
+    padDateTimePart(date.getDate())
+  ].join("-") + `T${padDateTimePart(date.getHours())}:${padDateTimePart(date.getMinutes())}`;
+}
+
+function toIsoUtcDateTimeValue(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return normalized;
+  }
+
+  return date.toISOString();
+}
+
 function resolveFormFieldInitialValue(field = {}) {
   if (Object.prototype.hasOwnProperty.call(field, "initialValue")) {
     return field.initialValue;
@@ -76,6 +115,7 @@ function buildCrudFormPayload(fields = [], model = {}) {
   for (const field of normalizeCrudFormFields(fields)) {
     const fieldKey = field.key;
     const fieldType = resolveFormFieldType(field);
+    const fieldFormat = resolveFormFieldFormat(field);
     const rawValue = sourceModel[fieldKey];
 
     if (fieldType === "boolean") {
@@ -100,6 +140,16 @@ function buildCrudFormPayload(fields = [], model = {}) {
       continue;
     }
 
+    if (fieldFormat === "date-time") {
+      const normalizedValue = toIsoUtcDateTimeValue(rawValue);
+      if (!normalizedValue) {
+        continue;
+      }
+
+      payload[fieldKey] = normalizedValue;
+      continue;
+    }
+
     payload[fieldKey] = rawValue;
   }
 
@@ -112,6 +162,7 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
   for (const field of normalizeCrudFormFields(fields)) {
     const fieldKey = field.key;
     const fieldType = resolveFormFieldType(field);
+    const fieldFormat = resolveFormFieldFormat(field);
     const rawValue = sourcePayload[fieldKey];
 
     if (fieldType === "boolean") {
@@ -121,6 +172,11 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
 
     if (fieldType === "integer" || fieldType === "number") {
       targetModel[fieldKey] = rawValue == null ? "" : String(rawValue);
+      continue;
+    }
+
+    if (fieldFormat === "date-time") {
+      targetModel[fieldKey] = toDateTimeLocalInputValue(rawValue);
       continue;
     }
 
