@@ -687,6 +687,52 @@ test("createCrudRepositoryFromResource applies ordered cursors using the configu
   assert.ok(!calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 7));
 });
 
+test("createCrudRepositoryFromResource preserves Date cursor values for datetime sort columns", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      defaultLimit: 2,
+      orderBy: [
+        { column: "created_at", direction: "desc" }
+      ]
+    }
+  });
+  const createdAt = new Date("2026-04-04T09:00:00.000Z");
+  const olderCreatedAt = new Date("2026-04-03T08:00:00.000Z");
+  const { knex, calls } = createListKnexDouble([
+    { contact_id: 9, first_name: "Tina", created_at: createdAt },
+    { contact_id: 7, first_name: "Tony", created_at: createdAt },
+    { contact_id: 6, first_name: "Tom", created_at: olderCreatedAt }
+  ]);
+  const repository = createRepository(knex);
+
+  const first = await repository.list();
+  const firstCallCount = calls.length;
+
+  await repository.list({
+    cursor: first.nextCursor,
+    limit: 2
+  });
+
+  const secondCallEntries = calls.slice(firstCallCount);
+  const afterCall = secondCallEntries.find((call) => (
+    call[0] === "where" &&
+    call[1] === "created_at" &&
+    call[2] === "<"
+  ));
+  const equalityCall = secondCallEntries.find((call) => (
+    call[0] === "where" &&
+    call[1] === "created_at" &&
+    call[2] instanceof Date
+  ));
+
+  assert.ok(first.nextCursor);
+  assert.ok(afterCall);
+  assert.ok(afterCall[3] instanceof Date);
+  assert.equal(afterCall[3].toISOString(), createdAt.toISOString());
+  assert.ok(equalityCall);
+  assert.equal(equalityCall[2].toISOString(), createdAt.toISOString());
+});
+
 test("createCrudRepositoryFromResource ordered cursors handle null primary sort values", async () => {
   const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
     list: {

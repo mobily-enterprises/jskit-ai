@@ -24,6 +24,9 @@ const LIST_ORDER_DIRECTION_ASC = "asc";
 const LIST_ORDER_DIRECTION_DESC = "desc";
 const LIST_ORDER_NULLS_FIRST = "first";
 const LIST_ORDER_NULLS_LAST = "last";
+const ORDERED_LIST_CURSOR_VALUE_TYPE_KEY = "__jskitCursorValueType";
+const ORDERED_LIST_CURSOR_VALUE_KEY = "value";
+const ORDERED_LIST_CURSOR_VALUE_TYPE_DATE = "date";
 
 function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}) {
   const resourceName = normalizeText(resource.resource);
@@ -155,6 +158,43 @@ function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idCol
   });
 }
 
+function encodeOrderedListCursorValue(value = null) {
+  if (value instanceof Date) {
+    return {
+      [ORDERED_LIST_CURSOR_VALUE_TYPE_KEY]: ORDERED_LIST_CURSOR_VALUE_TYPE_DATE,
+      [ORDERED_LIST_CURSOR_VALUE_KEY]: value.toISOString()
+    };
+  }
+
+  return value === undefined ? null : value;
+}
+
+function decodeOrderedListCursorValue(value = null) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value === undefined ? null : value;
+  }
+
+  const valueType = normalizeText(value[ORDERED_LIST_CURSOR_VALUE_TYPE_KEY]).toLowerCase();
+  if (!valueType) {
+    return value;
+  }
+  if (valueType !== ORDERED_LIST_CURSOR_VALUE_TYPE_DATE) {
+    return value;
+  }
+
+  const normalizedValue = normalizeText(value[ORDERED_LIST_CURSOR_VALUE_KEY]);
+  if (!normalizedValue) {
+    throw new TypeError("Ordered list cursor date values require a non-empty value.");
+  }
+
+  const date = new Date(normalizedValue);
+  if (Number.isNaN(date.getTime())) {
+    throw new TypeError("Ordered list cursor date values must be valid dates.");
+  }
+
+  return date;
+}
+
 function encodeOrderedListCursor(row = null, orderBy = []) {
   if (!row || typeof row !== "object" || Array.isArray(row)) {
     return null;
@@ -167,7 +207,7 @@ function encodeOrderedListCursor(row = null, orderBy = []) {
 
   const values = normalizedOrderBy.map(({ column }) => (
     Object.hasOwn(row, column) && row[column] !== undefined
-      ? row[column]
+      ? encodeOrderedListCursorValue(row[column])
       : null
   ));
 
@@ -189,7 +229,7 @@ function decodeOrderedListCursor(cursor = "", orderBy = []) {
       return null;
     }
 
-    return values.map((value) => (value === undefined ? null : value));
+    return values.map((value) => decodeOrderedListCursorValue(value));
   } catch {
     return null;
   }
