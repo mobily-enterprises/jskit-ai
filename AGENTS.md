@@ -1,5 +1,8 @@
 # Agent Instructions for `jskit-ai`
 
+## Startup
+On startup, read every file in `agents/*` before making changes.
+
 ## Golden HARD RULE when adding or changing anything: 
   * No tricks. Code needs to be understood by a junior programmer
   * Best practices. Tidy. Minimal
