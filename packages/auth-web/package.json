@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,12 +18,12 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/auth-core": "0.1.21",
+    "@jskit-ai/auth-core": "0.1.22",
     "@mdi/js": "^7.4.47",
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/kernel": "0.1.22",
-    "@jskit-ai/shell-web": "0.1.21",
+    "@jskit-ai/kernel": "0.1.23",
+    "@jskit-ai/shell-web": "0.1.22",
     "vuetify": "^4.0.0",
-    "@jskit-ai/http-runtime": "0.1.21"
+    "@jskit-ai/http-runtime": "0.1.22"
   }
 }
