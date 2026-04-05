@@ -4,7 +4,7 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">${option:namespace|plural|pascal}</v-card-title>
+            <v-card-title class="px-0">{{ listHeadingTitle }}</v-card-title>
             <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)}.</v-card-subtitle>
           </div>
           <v-spacer />
@@ -82,6 +82,8 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import { resource as uiResource } from "/${option:resource-file|trim}";
 
@@ -127,6 +129,26 @@ const records = useList({
         events: UI_RECORD_CHANGED_EVENTS
       }
     : null
+});
+
+const parentTitle = useCrudListParentTitle({
+  listRuntime: records,
+  resource: uiResource,
+  adapter: UI_OPERATION_ADAPTER || undefined,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "list", "parent-title"],
+  placementSource: "ui-generator.${option:namespace|kebab}.list.parent-title",
+  fallbackLoadError: "Unable to load parent record.",
+  notFoundMessage: "Parent record not found."
+});
+
+const listHeadingTitle = computed(() => {
+  const resolvedParentTitle = String(parentTitle.title || "").trim();
+  if (!resolvedParentTitle) {
+    return "${option:route-path|pascal}";
+  }
+
+  return `${option:route-path|pascal} for ${resolvedParentTitle}`;
 });
 </script>
 

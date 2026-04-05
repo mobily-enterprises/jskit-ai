@@ -217,6 +217,17 @@ Local functions
 - `normalizeErrorStatus(error)`
 - `isGenericTransportMessage(error)`
 
+### `src/client/composables/internal/crudListParentTitleSupport.js`
+Exports
+- `resolveCrudListParentDescriptor({ resource = {}, route = null, recordIdParam = "recordId" } = {})`
+- `resolveCrudListParentRecordTitle(record = {}, descriptor = null)`
+- `resolveCrudListParentTitleFromItems(items = [], descriptor = null)`
+Local functions
+- `singularizeLabel(value = "")`
+- `toTitleLabel(value = "")`
+- `resolveEntityLabel(routeParamKey = "", relationNamespace = "")`
+- `resolveLookupFieldMeta(resource = {}, fieldKey = "")`
+
 ### `src/client/composables/internal/useOperationScope.js`
 Exports
 - `useOperationScope({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", placementSource = "users-web.operation", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
@@ -365,6 +376,12 @@ Exports
 ### `src/client/composables/useCommandCore.js`
 Exports
 - `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} } = {})`
+
+### `src/client/composables/useCrudListParentTitle.js`
+Exports
+- `useCrudListParentTitle({ listRuntime = null, resource = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = ["users-web", "crud-list-parent-title"], placementSource = "users-web.crud-list-parent-title", fallbackLoadError = "Unable to load parent record.", notFoundMessage = "Parent record not found.", route = null, viewRuntimeFactory = useView } = {})`
+Local functions
+- `normalizeQueryKeyPrefix(value = [])`
 
 ### `src/client/composables/useCrudSchemaForm.js`
 Exports
