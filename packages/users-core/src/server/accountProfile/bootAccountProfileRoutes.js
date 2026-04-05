@@ -1,5 +1,6 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
+import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multipart/readSingleMultipartFile";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 
@@ -113,24 +114,21 @@ function bootAccountProfileRoutes(app) {
       )
     },
     async function (request, reply) {
-      const filePart = await request.file();
-      if (!filePart) {
-        throw new AppError(400, "Validation failed.", {
-          details: {
-            fieldErrors: {
-              avatar: "Avatar file is required."
-            }
-          }
-        });
-      }
+      const filePart = await readSingleMultipartFile(request, {
+        fieldName: "avatar",
+        required: true,
+        fieldErrorKey: "avatar",
+        label: "Avatar",
+        maxBytes: DEFAULT_IMAGE_UPLOAD_MAX_BYTES
+      });
 
       const uploadDimension = filePart.fields?.uploadDimension?.value;
       const response = await request.executeAction({
         actionId: "settings.profile.avatar.upload",
         input: {
-          stream: filePart.file,
-          mimeType: filePart.mimetype,
-          fileName: filePart.filename,
+          stream: filePart.stream,
+          mimeType: filePart.mimeType,
+          fileName: filePart.fileName,
           uploadDimension
         }
       });

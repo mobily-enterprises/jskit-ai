@@ -1,0 +1,21 @@
+{
+  "name": "@jskit-ai/uploads-runtime",
+  "version": "0.1.1",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./shared": "./src/shared/index.js",
+    "./server/providers/UploadsRuntimeServiceProvider": "./src/server/providers/UploadsRuntimeServiceProvider.js",
+    "./server/multipart/registerMultipartSupport": "./src/server/multipart/registerMultipartSupport.js",
+    "./server/multipart/readSingleMultipartFile": "./src/server/multipart/readSingleMultipartFile.js",
+    "./server/policy/uploadPolicy": "./src/server/policy/uploadPolicy.js",
+    "./server/storage/createUploadStorageService": "./src/server/storage/createUploadStorageService.js"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.4.0",
+    "@jskit-ai/kernel": "0.1.23"
+  }
+}

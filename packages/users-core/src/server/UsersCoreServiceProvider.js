@@ -23,13 +23,12 @@ import { registerAccountNotifications } from "./accountNotifications/registerAcc
 import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
-import { registerAvatarMultipartSupport } from "./accountProfile/registerAvatarMultipartSupport.js";
 import { registerUsersCoreActionSurfaceSources } from "./support/workspaceActionSurfaces.js";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
 
-  static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider"];
+  static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider", "runtime.uploads"];
 
   register(app) {
     registerUsersCoreActionSurfaceSources(app);
@@ -58,7 +57,6 @@ class UsersCoreServiceProvider {
       bootWorkspaceSettings(app);
       bootWorkspaceMembers(app);
     }
-    await registerAvatarMultipartSupport(app);
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);

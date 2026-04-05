@@ -1,8 +1,8 @@
 import fastifyMultipart from "@fastify/multipart";
 
-async function registerAvatarMultipartSupport(app) {
+async function registerMultipartSupport(app) {
   if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
-    throw new Error("registerAvatarMultipartSupport requires application has()/make().");
+    throw new Error("registerMultipartSupport requires application has()/make().");
   }
 
   if (!app.has("jskit.fastify")) {
@@ -11,15 +11,15 @@ async function registerAvatarMultipartSupport(app) {
 
   const fastify = app.make("jskit.fastify");
   if (!fastify || typeof fastify.register !== "function") {
-    throw new Error("registerAvatarMultipartSupport requires Fastify register().");
+    throw new Error("registerMultipartSupport requires Fastify register().");
   }
 
-  if (fastify["jskit.users-core.avatar.multipart.support"] === true) {
+  if (fastify["jskit.uploads-runtime.multipart.support"] === true) {
     return;
   }
 
   if (typeof fastify.hasContentTypeParser === "function" && fastify.hasContentTypeParser("multipart")) {
-    Object.defineProperty(fastify, "jskit.users-core.avatar.multipart.support", {
+    Object.defineProperty(fastify, "jskit.uploads-runtime.multipart.support", {
       value: true,
       configurable: false,
       enumerable: false,
@@ -29,7 +29,7 @@ async function registerAvatarMultipartSupport(app) {
   }
 
   await fastify.register(fastifyMultipart);
-  Object.defineProperty(fastify, "jskit.users-core.avatar.multipart.support", {
+  Object.defineProperty(fastify, "jskit.uploads-runtime.multipart.support", {
     value: true,
     configurable: false,
     enumerable: false,
@@ -37,4 +37,4 @@ async function registerAvatarMultipartSupport(app) {
   });
 }
 
-export { registerAvatarMultipartSupport };
+export { registerMultipartSupport };

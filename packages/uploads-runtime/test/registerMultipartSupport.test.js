@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { registerAvatarMultipartSupport } from "../src/server/accountProfile/registerAvatarMultipartSupport.js";
+import { registerMultipartSupport } from "../src/server/multipart/registerMultipartSupport.js";
 
 function createAppStub({ hasFastify = true, fastify = null } = {}) {
   const resolvedFastify =
@@ -26,12 +26,12 @@ function createAppStub({ hasFastify = true, fastify = null } = {}) {
   };
 }
 
-test("registerAvatarMultipartSupport returns early when Fastify is not available", async () => {
+test("registerMultipartSupport returns early when Fastify is not available", async () => {
   const app = createAppStub({ hasFastify: false });
-  await assert.doesNotReject(async () => registerAvatarMultipartSupport(app));
+  await assert.doesNotReject(async () => registerMultipartSupport(app));
 });
 
-test("registerAvatarMultipartSupport registers multipart parser only once", async () => {
+test("registerMultipartSupport registers multipart parser only once", async () => {
   let registerCount = 0;
   const fastify = {
     register: async () => {
@@ -41,13 +41,13 @@ test("registerAvatarMultipartSupport registers multipart parser only once", asyn
   };
   const app = createAppStub({ fastify });
 
-  await registerAvatarMultipartSupport(app);
-  await registerAvatarMultipartSupport(app);
+  await registerMultipartSupport(app);
+  await registerMultipartSupport(app);
 
   assert.equal(registerCount, 1);
 });
 
-test("registerAvatarMultipartSupport skips registration when parser already exists", async () => {
+test("registerMultipartSupport skips registration when parser already exists", async () => {
   let registerCount = 0;
   const fastify = {
     register: async () => {
@@ -57,7 +57,7 @@ test("registerAvatarMultipartSupport skips registration when parser already exis
   };
   const app = createAppStub({ fastify });
 
-  await registerAvatarMultipartSupport(app);
+  await registerMultipartSupport(app);
 
   assert.equal(registerCount, 0);
 });
