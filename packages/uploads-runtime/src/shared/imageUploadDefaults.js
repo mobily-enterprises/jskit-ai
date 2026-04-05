@@ -1,0 +1,7 @@
+const DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
+const DEFAULT_IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+
+export {
+  DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES,
+  DEFAULT_IMAGE_UPLOAD_MAX_BYTES
+};

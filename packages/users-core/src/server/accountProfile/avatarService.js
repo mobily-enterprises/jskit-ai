@@ -1,63 +1,24 @@
-import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { DEFAULT_IMAGE_UPLOAD_POLICY } from "@jskit-ai/uploads-runtime/shared";
+import {
+  normalizeUploadPolicy,
+  readUploadBuffer,
+  validateUploadMimeType
+} from "@jskit-ai/uploads-runtime/server/policy/uploadPolicy";
 import { resolveUserProfile } from "../common/services/accountContextService.js";
 
-const DEFAULT_AVATAR_POLICY = Object.freeze({
-  allowedMimeTypes: Object.freeze(["image/jpeg", "image/png", "image/webp"]),
-  maxUploadBytes: 5 * 1024 * 1024
-});
+const DEFAULT_AVATAR_POLICY = DEFAULT_IMAGE_UPLOAD_POLICY;
 
 function resolveAvatarPolicy(policy = {}) {
-  const source = policy && typeof policy === "object" ? policy : {};
-  const allowedMimeTypes =
-    Array.isArray(source.allowedMimeTypes) && source.allowedMimeTypes.length > 0
-      ? source.allowedMimeTypes
-          .map((value) => String(value || "").trim().toLowerCase())
-          .filter((value) => value.length > 0)
-      : [...DEFAULT_AVATAR_POLICY.allowedMimeTypes];
-  const normalizedMaxUploadBytes = Number(source.maxUploadBytes);
-  const maxUploadBytes =
-    Number.isInteger(normalizedMaxUploadBytes) && normalizedMaxUploadBytes > 0
-      ? normalizedMaxUploadBytes
-      : DEFAULT_AVATAR_POLICY.maxUploadBytes;
-
-  return Object.freeze({
-    allowedMimeTypes: Object.freeze(allowedMimeTypes),
-    maxUploadBytes
-  });
+  return normalizeUploadPolicy(policy, DEFAULT_AVATAR_POLICY);
 }
 
 async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUploadBytes } = {}) {
-  if (!stream || typeof stream.on !== "function") {
-    throw new TypeError("Avatar upload stream is required.");
-  }
-
-  const chunks = [];
-  let total = 0;
-
-  for await (const chunk of stream) {
-    const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    total += bufferChunk.length;
-
-    if (total > maxBytes) {
-      throw createValidationError({
-        avatar: `Avatar file is too large. Maximum allowed size is ${Math.floor(maxBytes / (1024 * 1024))}MB.`
-      });
-    }
-
-    chunks.push(bufferChunk);
-  }
-
-  if (chunks.length === 0) {
-    throw createValidationError({
-      avatar: "Avatar file is empty."
-    });
-  }
-
-  return Buffer.concat(chunks);
-}
-
-function normalizeMimeType(value) {
-  return String(value || "").trim().toLowerCase();
+  return readUploadBuffer(stream, {
+    maxBytes,
+    fieldName: "avatar",
+    label: "Avatar"
+  });
 }
 
 function createService({ usersRepository, avatarStorageService, avatarPolicy } = {}) {
@@ -80,12 +41,10 @@ function createService({ usersRepository, avatarStorageService, avatarPolicy } =
 
   async function uploadForUser(user, payload = {}) {
     const profile = await resolveProfile(user);
-    const mimeType = normalizeMimeType(payload?.mimeType);
-    if (!resolvedAvatarPolicy.allowedMimeTypes.includes(mimeType)) {
-      throw createValidationError({
-        avatar: `Avatar must be one of: ${resolvedAvatarPolicy.allowedMimeTypes.join(", ")}.`
-      });
-    }
+    validateUploadMimeType(payload?.mimeType, resolvedAvatarPolicy, {
+      fieldName: "avatar",
+      label: "Avatar"
+    });
 
     const buffer = await readAvatarBuffer(payload.stream, {
       maxBytes: resolvedAvatarPolicy.maxUploadBytes

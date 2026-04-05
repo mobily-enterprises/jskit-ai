@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -24,11 +24,11 @@
     "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.21",
-    "@jskit-ai/database-runtime": "0.1.22",
-    "@jskit-ai/http-runtime": "0.1.21",
-    "@jskit-ai/kernel": "0.1.22",
-    "@fastify/multipart": "^9.4.0",
+    "@jskit-ai/auth-core": "0.1.22",
+    "@jskit-ai/database-runtime": "0.1.23",
+    "@jskit-ai/http-runtime": "0.1.22",
+    "@jskit-ai/kernel": "0.1.23",
+    "@jskit-ai/uploads-runtime": "0.1.1",
     "@fastify/type-provider-typebox": "^6.1.0",
     "typebox": "^1.0.81"
   }
