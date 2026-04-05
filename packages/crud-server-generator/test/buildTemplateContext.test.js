@@ -9,8 +9,30 @@ import { buildTemplateContext, __testables } from "../src/server/buildTemplateCo
 function createSnapshot({
   tableName = "contacts",
   hasWorkspaceOwnerColumn = true,
-  hasUserOwnerColumn = true
+  hasUserOwnerColumn = true,
+  hasCreatedAtColumn = true
 } = {}) {
+  const createdAtColumn = hasCreatedAtColumn
+    ? [
+        Object.freeze({
+          name: "created_at",
+          key: "createdAt",
+          dataType: "datetime",
+          columnType: "datetime",
+          typeKind: "datetime",
+          nullable: false,
+          hasDefault: true,
+          defaultValue: "CURRENT_TIMESTAMP",
+          autoIncrement: false,
+          unsigned: false,
+          extra: "",
+          maxLength: null,
+          numericPrecision: null,
+          numericScale: null,
+          enumValues: Object.freeze([])
+        })
+      ]
+    : [];
   return Object.freeze({
     tableName,
     idColumn: "id",
@@ -86,6 +108,7 @@ function createSnapshot({
         numericScale: null,
         enumValues: Object.freeze([])
       }),
+      ...createdAtColumn,
       Object.freeze({
         name: "updated_at",
         key: "updatedAt",
@@ -223,12 +246,34 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
     /firstName: normalizeIfPresent\(source\.firstName, normalizeText\),/
   );
+  assert.match(
+    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
+    /orderBy: \[\s+{\s+column: "created_at",\s+direction: "desc"\s+}\s+\]/s
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
+    /\/\/ searchColumns: \["name"\],\s+orderBy:/s
+  );
   assert.doesNotMatch(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
     /== null \?/
   );
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
+});
+
+test("buildReplacementsFromSnapshot omits default list ordering when created_at is absent", () => {
+  const snapshot = createSnapshot({
+    hasCreatedAtColumn: false
+  });
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
+    snapshot,
+    resolvedOwnershipFilter: "workspace_user"
+  });
+
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /orderBy/);
+  assert.match(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /searchColumns/);
 });
 
 test("buildReplacementsFromSnapshot renders append-only field meta entries from foreign keys", () => {
@@ -444,6 +489,7 @@ test("crud repository template defines explicit one-line CRUD methods over repos
     templateSource,
     /from "@jskit-ai\/crud-core\/server\/repositoryMethods";/
   );
+  assert.match(templateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
   assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
   assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
@@ -451,6 +497,26 @@ test("crud repository template defines explicit one-line CRUD methods over repos
   assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
+});
+
+test("crud actions and routes templates share LIST_CONFIG for cursor validation", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const actionsTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "actions.js");
+  const registerRoutesTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "registerRoutes.js");
+  const listConfigTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "listConfig.js");
+
+  const actionsTemplateSource = await readFile(actionsTemplatePath, "utf8");
+  const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
+  const listConfigTemplateSource = await readFile(listConfigTemplatePath, "utf8");
+
+  assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
+  assert.match(actionsTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
+  assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(registerRoutesTemplateSource, /createCrudCursorPaginationQueryValidator/);
+  assert.match(registerRoutesTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
+  assert.match(registerRoutesTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(listConfigTemplateSource, /const LIST_CONFIG = Object\.freeze\(\{/);
+  assert.match(listConfigTemplateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
 });
 
 test("crud service template defines explicit service methods and semi-explicit default events", async () => {

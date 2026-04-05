@@ -134,10 +134,13 @@ Local functions
 
 ### `src/server/listQueryValidators.js`
 Exports
+- `createCrudCursorPaginationQueryValidator(list = {})`
 - `listSearchQueryValidator`
 - `lookupIncludeQueryValidator`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
+Local functions
+- `resolveCrudListUsesOrderedCursor(list = {})`
 
 ### `src/server/lookupHydration.js`
 Exports
@@ -193,7 +196,19 @@ Exports
 Local functions
 - `resolveRepositoryDefaults(resource = {}, repositoryMapping = {})`
 - `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
-- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [])`
+- `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
+- `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
+- `normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {})`
+- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {})`
+- `encodeOrderedListCursorValue(value = null)`
+- `decodeOrderedListCursorValue(value = null)`
+- `encodeOrderedListCursor(row = null, orderBy = [])`
+- `decodeOrderedListCursor(cursor = "", orderBy = [])`
+- `applyOrderedListCursorEquality(query, descriptor = {}, value = null)`
+- `applyOrderedListCursorAfterBranch(query, descriptor = {}, value = null)`
+- `canApplyOrderedListCursorAfterBranch(descriptor = {}, value = null)`
+- `appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [], index = 0, { useOr = false } = {})`
+- `applyOrderedListCursorFilter(query, { orderBy = [], cursor = "" } = {})`
 - `resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {})`
 - `formatOutputValidationError(error = {})`
 - `normalizeRepositoryOutputRecord(runtime, record = {}, { operation = "read" } = {})`
@@ -207,7 +222,8 @@ Local functions
 - `applyCrudRepositoryRecordHook(record = null, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "transformReturnedRecord" } = {})`
 - `applyCrudRepositoryOutputHook(output, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "finalizeOutput", validateOutput = null } = {})`
 - `applyCrudRepositoryAfterWriteHook(meta = {}, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "afterWrite" } = {})`
-- `enforceCrudRepositoryListControls(dbQuery, { idColumn = "id", limit = DEFAULT_LIST_LIMIT + 1 } = {})`
+- `applyOrderedListControls(dbQuery, orderBy = [])`
+- `enforceCrudRepositoryListControls(dbQuery, { idColumn = "id", limit = DEFAULT_LIST_LIMIT + 1, orderBy = [] } = {})`
 - `createCrudRepositoryHookContextBase(runtime, repositoryOptions = {}, callOptions = {})`
 
 ### `src/server/repositorySupport.js`
@@ -215,9 +231,10 @@ Exports
 - `DEFAULT_LIST_LIMIT`
 - `MAX_LIST_LIMIT`
 - `normalizeCrudListLimit(value, { fallback = DEFAULT_LIST_LIMIT, max = MAX_LIST_LIMIT } = {})`
+- `normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {})`
 - `requireCrudTableName(tableName, { context = "crudRepository" } = {})`
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
-- `applyCrudListQueryFilters(query, { idColumn = "id", cursor = 0, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
+- `applyCrudListQueryFilters(query, { idColumn = "id", cursor = 0, applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
 - `mapRecordRow(row, fieldKeys = [], overrides = {})`
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {})`
 - `resolveColumnName(fieldKey, overrides = {})`

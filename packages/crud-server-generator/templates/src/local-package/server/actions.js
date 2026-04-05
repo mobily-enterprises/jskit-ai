@@ -1,8 +1,8 @@
 import {
-  cursorPaginationQueryValidator,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import {
+  createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   createCrudParentFilterQueryValidator
@@ -10,7 +10,9 @@ import {
 import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
+import { LIST_CONFIG } from "./listConfig.js";
 
+const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 
 function requireActionSurface(surface = "") {
@@ -37,7 +39,7 @@ function createActions({ surface = "" } = {}) {
       },
       inputValidator: [
         workspaceSlugParamsValidator,
-        cursorPaginationQueryValidator,
+        listCursorPaginationQueryValidator,
         listSearchQueryValidator,
         listParentFilterQueryValidator,
         lookupIncludeQueryValidator

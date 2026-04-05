@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { normalizeText } from "../support/normalize.js";
 import { normalizeObjectInput } from "./inputNormalization.js";
 import { positiveIntegerValidator } from "./recordIdParamsValidator.js";
 
@@ -7,7 +8,7 @@ function normalizeCursorPaginationQuery(input = {}) {
   const normalized = {};
 
   if (Object.hasOwn(source, "cursor")) {
-    normalized.cursor = positiveIntegerValidator.normalize(source.cursor);
+    normalized.cursor = normalizeText(source.cursor);
   }
 
   if (Object.hasOwn(source, "limit")) {

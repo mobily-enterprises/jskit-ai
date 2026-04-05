@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_LIST_LIMIT,
   normalizeCrudListLimit,
+  normalizeCrudListCursor,
   requireCrudTableName,
   buildWritePayload,
   mapRecordRow,
@@ -16,11 +17,41 @@ function createQueryDouble() {
   const calls = [];
   const whereQuery = {
     where(...args) {
+      if (args.length === 1 && typeof args[0] === "function") {
+        calls.push(["innerWhereCallback"]);
+        args[0](whereQuery);
+        return whereQuery;
+      }
       calls.push(["innerWhere", ...args]);
       return whereQuery;
     },
     orWhere(...args) {
+      if (args.length === 1 && typeof args[0] === "function") {
+        calls.push(["innerOrWhereCallback"]);
+        args[0](whereQuery);
+        return whereQuery;
+      }
       calls.push(["innerOrWhere", ...args]);
+      return whereQuery;
+    },
+    whereNull(...args) {
+      calls.push(["innerWhereNull", ...args]);
+      return whereQuery;
+    },
+    orWhereNull(...args) {
+      calls.push(["innerOrWhereNull", ...args]);
+      return whereQuery;
+    },
+    whereNotNull(...args) {
+      calls.push(["innerWhereNotNull", ...args]);
+      return whereQuery;
+    },
+    orWhereNotNull(...args) {
+      calls.push(["innerOrWhereNotNull", ...args]);
+      return whereQuery;
+    },
+    whereRaw(...args) {
+      calls.push(["innerWhereRaw", ...args]);
       return whereQuery;
     }
   };
@@ -55,6 +86,15 @@ test("normalizeCrudListLimit enforces fallback and max", () => {
   assert.equal(normalizeCrudListLimit(0), DEFAULT_LIST_LIMIT);
   assert.equal(normalizeCrudListLimit(5), 5);
   assert.equal(normalizeCrudListLimit(200), 100);
+});
+
+test("normalizeCrudListCursor rejects malformed id cursors", () => {
+  assert.equal(normalizeCrudListCursor("7"), 7);
+  assert.equal(normalizeCrudListCursor(""), 0);
+  assert.throws(
+    () => normalizeCrudListCursor("abc"),
+    /Invalid cursor/
+  );
 });
 
 test("requireCrudTableName trims and rejects empty values", () => {
@@ -121,6 +161,25 @@ test("applyCrudListQueryFilters skips search and cursor when inputs are empty", 
 
   assert.equal(result, query);
   assert.deepEqual(calls, []);
+});
+
+test("applyCrudListQueryFilters can skip id cursor filtering for ordered lists", () => {
+  const { query, calls } = createQueryDouble();
+  const result = applyCrudListQueryFilters(query, {
+    cursor: "9",
+    applyCursor: false
+  });
+
+  assert.equal(result, query);
+  assert.deepEqual(calls, []);
+});
+
+test("applyCrudListQueryFilters rejects malformed id cursors", () => {
+  const { query } = createQueryDouble();
+  assert.throws(
+    () => applyCrudListQueryFilters(query, { cursor: "abc" }),
+    /Invalid cursor/
+  );
 });
 
 test("applyCrudListQueryFilters applies parent FK filters from allowed columns", () => {
