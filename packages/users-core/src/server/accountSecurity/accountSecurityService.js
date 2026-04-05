@@ -10,10 +10,10 @@ import {
 
 function createService({
   userSettingsRepository,
-  userProfilesRepository,
+  usersRepository,
   authService
 } = {}) {
-  if (!userSettingsRepository || !userProfilesRepository) {
+  if (!userSettingsRepository || !usersRepository) {
     throw new Error("accountSecurityService requires repositories.");
   }
 
@@ -40,7 +40,7 @@ function createService({
       throw new AppError(501, "Password method toggle is not available.");
     }
 
-    const profile = await resolveUserProfile(userProfilesRepository, user);
+    const profile = await resolveUserProfile(usersRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }

@@ -11,7 +11,7 @@ function registerAccountSecurity(app) {
     const authService = scope.has("authService") ? scope.make("authService") : null;
     return createAccountSecurityService({
       userSettingsRepository: scope.make("userSettingsRepository"),
-      userProfilesRepository: scope.make("userProfilesRepository"),
+      usersRepository: scope.make("usersRepository"),
       authService
     });
   });

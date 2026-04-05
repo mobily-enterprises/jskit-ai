@@ -1,9 +1,9 @@
-import { normalizeIdentity } from "../repositories/userProfilesRepository.js";
+import { normalizeIdentity } from "../repositories/usersRepository.js";
 
-async function resolveUserProfile(userProfilesRepository, user) {
+async function resolveUserProfile(usersRepository, user) {
   const identity = normalizeIdentity(user);
   if (identity) {
-    const profile = await userProfilesRepository.findByIdentity(identity);
+    const profile = await usersRepository.findByIdentity(identity);
     if (profile) {
       return profile;
     }
@@ -11,7 +11,7 @@ async function resolveUserProfile(userProfilesRepository, user) {
 
   const userId = Number(user?.id);
   if (Number.isInteger(userId) && userId > 0) {
-    const profileById = await userProfilesRepository.findById(userId);
+    const profileById = await usersRepository.findById(userId);
     if (profileById) {
       return profileById;
     }

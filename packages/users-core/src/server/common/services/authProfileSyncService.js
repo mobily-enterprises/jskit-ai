@@ -1,5 +1,5 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeIdentity } from "../repositories/userProfilesRepository.js";
+import { normalizeIdentity } from "../repositories/usersRepository.js";
 
 function buildNormalizedIdentityKey(identityLike) {
   const identity = normalizeIdentity(identityLike);
@@ -53,12 +53,12 @@ function requireSynchronizedProfile(profile) {
   throw new Error("Profile synchronization failed.");
 }
 
-function createService({ userProfilesRepository, workspaceProvisioningService = null, userSettingsRepository = null } = {}) {
-  if (!userProfilesRepository || typeof userProfilesRepository.findByIdentity !== "function") {
-    throw new Error("authProfileSyncService requires userProfilesRepository.findByIdentity().");
+function createService({ usersRepository, workspaceProvisioningService = null, userSettingsRepository = null } = {}) {
+  if (!usersRepository || typeof usersRepository.findByIdentity !== "function") {
+    throw new Error("authProfileSyncService requires usersRepository.findByIdentity().");
   }
-  if (typeof userProfilesRepository.upsert !== "function") {
-    throw new Error("authProfileSyncService requires userProfilesRepository.upsert().");
+  if (typeof usersRepository.upsert !== "function") {
+    throw new Error("authProfileSyncService requires usersRepository.upsert().");
   }
   if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
     throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
@@ -66,7 +66,7 @@ function createService({ userProfilesRepository, workspaceProvisioningService = 
 
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
-    return userProfilesRepository.findByIdentity(
+    return usersRepository.findByIdentity(
       {
         provider: normalized.authProvider,
         providerUserId: normalized.authProviderUserSid
@@ -77,7 +77,7 @@ function createService({ userProfilesRepository, workspaceProvisioningService = 
 
   async function upsertByIdentity(profileLike, options = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
-    return userProfilesRepository.upsert(
+    return usersRepository.upsert(
       {
         authProvider: normalized.authProvider,
         authProviderUserSid: normalized.authProviderUserSid,
@@ -118,8 +118,8 @@ function createService({ userProfilesRepository, workspaceProvisioningService = 
     if (options?.trx) {
       return runSync(options.trx);
     }
-    if (typeof userProfilesRepository.withTransaction === "function") {
-      return userProfilesRepository.withTransaction((trx) => runSync(trx));
+    if (typeof usersRepository.withTransaction === "function") {
+      return usersRepository.withTransaction((trx) => runSync(trx));
     }
     return runSync();
   }

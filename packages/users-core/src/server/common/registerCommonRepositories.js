@@ -1,4 +1,4 @@
-import { createRepository as createUserProfilesRepository } from "./repositories/userProfilesRepository.js";
+import { createRepository as createUsersRepository } from "./repositories/usersRepository.js";
 import { createRepository as createUserSettingsRepository } from "./repositories/userSettingsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./repositories/workspacesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./repositories/workspaceMembershipsRepository.js";
@@ -10,9 +10,9 @@ function registerCommonRepositories(app) {
     throw new Error("registerCommonRepositories requires application singleton().");
   }
 
-  app.singleton("userProfilesRepository", (scope) => {
+  app.singleton("usersRepository", (scope) => {
     const knex = scope.make("jskit.database.knex");
-    return createUserProfilesRepository(knex);
+    return createUsersRepository(knex);
   });
 
   app.singleton("userSettingsRepository", (scope) => {

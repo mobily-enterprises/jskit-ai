@@ -17,7 +17,7 @@ function registerWorkspaceBootstrap(app) {
         ? scope.make("users.workspace.pending-invitations.service")
         : null,
       workspaceInvitationsEnabled,
-      userProfilesRepository: scope.make("userProfilesRepository"),
+      usersRepository: scope.make("usersRepository"),
       userSettingsRepository: scope.make("userSettingsRepository"),
       appConfig: resolveAppConfig(scope),
       tenancyProfile: scope.make("users.tenancy.profile"),
