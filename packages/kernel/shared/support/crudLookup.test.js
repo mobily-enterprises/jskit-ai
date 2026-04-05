@@ -116,3 +116,29 @@ test("resolveCrudLookupFieldKeyFromRouteParam matches parent route param aliases
     ""
   );
 });
+
+test("resolveCrudLookupFieldKeyFromRouteParam prefers exact field keys before alias matches", () => {
+  const resource = {
+    fieldMeta: [
+      {
+        key: "staffContactId",
+        parentRouteParamKey: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+
+  assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "contactId"), "contactId");
+});

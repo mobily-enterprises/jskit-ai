@@ -121,8 +121,15 @@ function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = 
     return "";
   }
 
-  for (const entry of resolveCrudLookupFieldEntries(resource, { allowKeys })) {
-    if (entry.key === normalizedRouteParamKey || entry.parentRouteParamKey === normalizedRouteParamKey) {
+  const entries = resolveCrudLookupFieldEntries(resource, { allowKeys });
+  for (const entry of entries) {
+    if (entry.key === normalizedRouteParamKey) {
+      return entry.key;
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.parentRouteParamKey === normalizedRouteParamKey) {
       return entry.key;
     }
   }
