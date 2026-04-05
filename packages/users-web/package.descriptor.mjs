@@ -1,12 +1,13 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.36",
+  version: "0.1.37",
   kind: "runtime",
   description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
+    "@jskit-ai/uploads-image-web",
     "@jskit-ai/users-core"
   ],
   capabilities: {
@@ -32,17 +33,6 @@ export default Object.freeze({
     }
   },
   metadata: {
-    client: {
-      optimizeDeps: {
-        include: [
-          "@uppy/core",
-          "@uppy/dashboard",
-          "@uppy/image-editor",
-          "@uppy/compressor",
-          "@uppy/xhr-upload"
-        ]
-      }
-    },
     apiSummary: {
       surfaces: [
         {
@@ -241,16 +231,12 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@uppy/compressor": "^3.1.0",
-        "@uppy/core": "^5.2.0",
-        "@uppy/dashboard": "^5.1.1",
-        "@uppy/image-editor": "^4.2.0",
-        "@uppy/xhr-upload": "^5.1.1",
-        "@jskit-ai/http-runtime": "0.1.21",
-        "@jskit-ai/realtime": "0.1.21",
-        "@jskit-ai/kernel": "0.1.22",
-        "@jskit-ai/shell-web": "0.1.21",
-        "@jskit-ai/users-core": "0.1.31",
+        "@jskit-ai/http-runtime": "0.1.22",
+        "@jskit-ai/realtime": "0.1.22",
+        "@jskit-ai/kernel": "0.1.23",
+        "@jskit-ai/shell-web": "0.1.22",
+        "@jskit-ai/uploads-image-web": "0.1.1",
+        "@jskit-ai/users-core": "0.1.32",
         "vuetify": "^4.0.0"
       },
       dev: {}
