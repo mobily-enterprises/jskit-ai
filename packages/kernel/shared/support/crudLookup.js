@@ -108,11 +108,26 @@ function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   return Object.freeze(keys);
 }
 
+function resolveCrudLookupCreateSchemaKeys(resource = {}) {
+  const createSchemaProperties = resource?.operations?.create?.bodyValidator?.schema?.properties;
+  if (!createSchemaProperties || typeof createSchemaProperties !== "object" || Array.isArray(createSchemaProperties)) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(Object.keys(createSchemaProperties));
+}
+
 function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
   return Object.freeze(
     resolveCrudLookupFieldEntries(resource, { allowKeys })
       .map(({ key }) => key)
   );
+}
+
+function resolveCrudParentFilterKeys(resource = {}) {
+  return resolveCrudLookupFieldKeys(resource, {
+    allowKeys: resolveCrudLookupCreateSchemaKeys(resource)
+  });
 }
 
 function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {}) {
@@ -137,6 +152,12 @@ function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = 
   return "";
 }
 
+function resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "") {
+  return resolveCrudLookupFieldKeyFromRouteParam(resource, routeParamKey, {
+    allowKeys: resolveCrudLookupCreateSchemaKeys(resource)
+  });
+}
+
 export {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
@@ -145,5 +166,7 @@ export {
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys,
-  resolveCrudLookupFieldKeyFromRouteParam
+  resolveCrudParentFilterKeys,
+  resolveCrudLookupFieldKeyFromRouteParam,
+  resolveCrudParentFilterFieldKeyFromRouteParam
 };

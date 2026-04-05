@@ -2,7 +2,7 @@ import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudLookupFieldKeyFromRouteParam } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudParentFilterFieldKeyFromRouteParam } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
@@ -167,7 +167,7 @@ function useList({
         continue;
       }
 
-      const matchedFieldKey = resolveCrudLookupFieldKeyFromRouteParam(resource, name);
+      const matchedFieldKey = resolveCrudParentFilterFieldKeyFromRouteParam(resource, name);
       if (!matchedFieldKey) {
         continue;
       }

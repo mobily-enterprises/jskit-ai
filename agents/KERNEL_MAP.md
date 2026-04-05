@@ -34,9 +34,12 @@ Exports
 - `normalizeCrudLookupContainerKey(value, { defaultValue = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY, context = "crud lookup container key" } = {})`
 - `resolveCrudLookupContainerKey(resource = {}, options = {})`
 - `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
+- `resolveCrudParentFilterKeys(resource = {})`
 - `resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {})`
+- `resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "")`
 Local functions
 - `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
+- `resolveCrudLookupCreateSchemaKeys(resource = {})`
 
 ### `support/deepFreeze.js`
 Exports

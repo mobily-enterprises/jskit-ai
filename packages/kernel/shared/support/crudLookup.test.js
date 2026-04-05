@@ -7,8 +7,10 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
+  resolveCrudParentFilterKeys,
   resolveCrudLookupFieldKeys,
-  resolveCrudLookupFieldKeyFromRouteParam
+  resolveCrudLookupFieldKeyFromRouteParam,
+  resolveCrudParentFilterFieldKeyFromRouteParam
 } from "./crudLookup.js";
 
 test("normalizeCrudLookupApiPath normalizes and rejects root", () => {
@@ -141,4 +143,81 @@ test("resolveCrudLookupFieldKeyFromRouteParam prefers exact field keys before al
   };
 
   assert.equal(resolveCrudLookupFieldKeyFromRouteParam(resource, "contactId"), "contactId");
+});
+
+test("resolveCrudParentFilterKeys keeps only lookup keys that are writable through create", () => {
+  const resource = {
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              serviceId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "staffContactId",
+        parentRouteParamKey: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "serviceId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/services",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+
+  assert.deepEqual(resolveCrudParentFilterKeys(resource), ["serviceId"]);
+});
+
+test("resolveCrudParentFilterFieldKeyFromRouteParam uses the same allowed keys as server parent filters", () => {
+  const resource = {
+    operations: {
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              serviceId: { type: "integer" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "staffContactId",
+        parentRouteParamKey: "contactId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      {
+        key: "serviceId",
+        relation: {
+          kind: "lookup",
+          apiPath: "/services",
+          valueKey: "id"
+        }
+      }
+    ]
+  };
+
+  assert.equal(resolveCrudParentFilterFieldKeyFromRouteParam(resource, "contactId"), "");
+  assert.equal(resolveCrudParentFilterFieldKeyFromRouteParam(resource, "serviceId"), "serviceId");
 });
