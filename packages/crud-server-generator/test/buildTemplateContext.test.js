@@ -250,6 +250,10 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
     /orderBy: \[\s+{\s+column: "created_at",\s+direction: "desc"\s+}\s+\]/s
   );
+  assert.match(
+    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
+    /\/\/ searchColumns: \["name"\],\s+orderBy:/s
+  );
   assert.doesNotMatch(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
     /== null \?/

@@ -1068,7 +1068,7 @@ function renderRepositoryListConfigLines(snapshot = {}) {
   const commentLines = [
     "  // defaultLimit: 20,",
     "  // maxLimit: 100,",
-    "  // searchColumns: [\"name\"]"
+    "  // searchColumns: [\"name\"],"
   ];
   const sourceColumns = Array.isArray(snapshot?.columns) ? snapshot.columns : [];
   const hasCreatedAtColumn = sourceColumns.some((column = {}) => normalizeText(column?.name) === "created_at");
