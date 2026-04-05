@@ -78,7 +78,7 @@ function bootAccountProfileRoutes(app) {
       }
     },
     async function (request, reply) {
-      const avatar = await accountProfileService.readAvatar(request, request.user, {}, {
+      const avatar = await accountProfileService.readAvatar(request, request.user, {
         context: {
           actor: request.user
         }

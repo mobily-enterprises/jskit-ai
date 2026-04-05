@@ -62,6 +62,24 @@ test("buildCrudFormPayload normalizes booleans and numbers while skipping empty 
   });
 });
 
+test("buildCrudFormPayload and applyCrudPayloadToForm round-trip date-time fields", () => {
+  const fields = [
+    { key: "scheduledAt", type: "string", format: "date-time" }
+  ];
+  const payload = buildCrudFormPayload(fields, {
+    scheduledAt: "2024-01-02T03:04"
+  });
+
+  assert.match(payload.scheduledAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/);
+
+  const form = reactive({
+    scheduledAt: ""
+  });
+  applyCrudPayloadToForm(fields, form, payload);
+
+  assert.equal(form.scheduledAt, "2024-01-02T03:04");
+});
+
 test("applyCrudPayloadToForm maps payload values into reactive form model", () => {
   const form = reactive({
     name: "",
