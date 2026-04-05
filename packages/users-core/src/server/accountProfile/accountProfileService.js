@@ -9,16 +9,16 @@ import {
 
 function createService({
   userSettingsRepository,
-  userProfilesRepository,
+  usersRepository,
   authService,
   avatarService
 } = {}) {
-  if (!userSettingsRepository || !userProfilesRepository || !avatarService) {
+  if (!userSettingsRepository || !usersRepository || !avatarService) {
     throw new Error("accountProfileService requires repositories and avatarService.");
   }
 
   async function getForUser(request, user, options = {}) {
-    const profile = await resolveUserProfile(userProfilesRepository, user);
+    const profile = await resolveUserProfile(usersRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }
@@ -35,7 +35,7 @@ function createService({
   }
 
   async function updateProfile(request, user, payload = {}, options = {}) {
-    const profile = await resolveUserProfile(userProfilesRepository, user);
+    const profile = await resolveUserProfile(usersRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }
@@ -49,7 +49,7 @@ function createService({
     }
 
     if (!updatedProfile) {
-      updatedProfile = await userProfilesRepository.updateDisplayNameById(profile.id, payload.displayName);
+      updatedProfile = await usersRepository.updateDisplayNameById(profile.id, payload.displayName);
     }
 
     const settings = await userSettingsRepository.ensureForUserId(updatedProfile.id);

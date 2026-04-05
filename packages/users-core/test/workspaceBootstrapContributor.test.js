@@ -39,7 +39,7 @@ test("workspace bootstrap contributor passes actor context to pending invites se
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return profile;
       }
@@ -101,7 +101,7 @@ test("workspace bootstrap contributor seeds the initial console owner on authent
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return profile;
       }
@@ -162,7 +162,7 @@ test("workspace bootstrap contributor emits canonical tenancy profile from users
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return null;
       }
@@ -228,7 +228,7 @@ test("workspace bootstrap contributor resolves workspace slug from bootstrap que
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return profile;
       }
@@ -291,7 +291,7 @@ test("workspace bootstrap contributor returns global payload with requestedWorks
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return profile;
       }
@@ -363,7 +363,7 @@ test("workspace bootstrap contributor returns requestedWorkspace=not_found when 
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return profile;
       }
@@ -427,7 +427,7 @@ test("workspace bootstrap contributor returns requestedWorkspace=unauthenticated
         return [];
       }
     },
-    userProfilesRepository: {
+    usersRepository: {
       async findByIdentity() {
         return null;
       }

@@ -230,7 +230,7 @@ function mapUserSettingsBootstrap(settings = {}) {
 function createWorkspaceBootstrapContributor({
   workspaceService,
   workspacePendingInvitationsService,
-  userProfilesRepository,
+  usersRepository,
   userSettingsRepository,
   workspaceInvitationsEnabled = false,
   appConfig = {},
@@ -255,8 +255,8 @@ function createWorkspaceBootstrapContributor({
       serviceLabel: "workspacePendingInvitationsService"
     });
   }
-  requireServiceMethod(userProfilesRepository, "findByIdentity", contributorId, {
-    serviceLabel: "userProfilesRepository"
+  requireServiceMethod(usersRepository, "findByIdentity", contributorId, {
+    serviceLabel: "usersRepository"
   });
   requireServiceMethod(userSettingsRepository, "ensureForUserId", contributorId, {
     serviceLabel: "userSettingsRepository"
@@ -317,7 +317,7 @@ function createWorkspaceBootstrapContributor({
 
       if (normalizedUser) {
         const latestProfile =
-          (await userProfilesRepository.findByIdentity({
+          (await usersRepository.findByIdentity({
             provider: normalizedUser.authProvider,
             providerUserId: normalizedUser.authProviderUserSid
           })) || normalizedUser;

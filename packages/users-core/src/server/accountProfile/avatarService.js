@@ -60,9 +60,9 @@ function normalizeMimeType(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function createService({ userProfilesRepository, avatarStorageService, avatarPolicy } = {}) {
-  if (!userProfilesRepository) {
-    throw new TypeError("avatarService requires userProfilesRepository.");
+function createService({ usersRepository, avatarStorageService, avatarPolicy } = {}) {
+  if (!usersRepository) {
+    throw new TypeError("avatarService requires usersRepository.");
   }
   if (!avatarStorageService) {
     throw new TypeError("avatarService requires avatarStorageService.");
@@ -71,7 +71,7 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
   const resolvedAvatarPolicy = resolveAvatarPolicy(avatarPolicy);
 
   async function resolveProfile(user) {
-    const profile = await resolveUserProfile(userProfilesRepository, user);
+    const profile = await resolveUserProfile(usersRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }
@@ -98,7 +98,7 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
       buffer
     });
 
-    const updatedProfile = await userProfilesRepository.updateAvatarById(profile.id, {
+    const updatedProfile = await usersRepository.updateAvatarById(profile.id, {
       avatarStorageKey: savedAvatar.storageKey,
       avatarVersion,
       avatarUpdatedAt: new Date(avatarVersionMs)
@@ -114,7 +114,7 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
     if (profile.avatarStorageKey) {
       await avatarStorageService.deleteAvatar(profile.avatarStorageKey);
     }
-    return userProfilesRepository.clearAvatarById(profile.id);
+    return usersRepository.clearAvatarById(profile.id);
   }
 
   async function readForUser(user) {

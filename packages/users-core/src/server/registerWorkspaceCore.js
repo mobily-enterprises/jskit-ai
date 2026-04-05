@@ -29,7 +29,7 @@ function registerWorkspaceCore(app) {
 
   app.singleton("users.profile.sync.service", (scope) => {
     return createAuthProfileSyncService({
-      userProfilesRepository: scope.make("userProfilesRepository"),
+      usersRepository: scope.make("usersRepository"),
       userSettingsRepository: scope.make("userSettingsRepository"),
       workspaceProvisioningService: scope.make("users.workspace.service")
     });

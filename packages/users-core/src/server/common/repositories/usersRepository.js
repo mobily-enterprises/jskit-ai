@@ -104,7 +104,7 @@ async function resolveUniqueUsername(client, baseUsername, { excludeUserId = 0 }
 
 function createRepository(knex) {
   if (typeof knex !== "function") {
-    throw new TypeError("userProfilesRepository requires knex.");
+    throw new TypeError("usersRepository requires knex.");
   }
 
   async function findById(userId, options = {}) {

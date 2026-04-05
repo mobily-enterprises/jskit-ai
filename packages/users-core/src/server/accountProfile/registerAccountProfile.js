@@ -20,7 +20,7 @@ function registerAccountProfile(app) {
 
   app.singleton("users.avatar.service", (scope) =>
     createAvatarService({
-      userProfilesRepository: scope.make("userProfilesRepository"),
+      usersRepository: scope.make("usersRepository"),
       avatarStorageService: scope.make("users.avatar.storage.service")
     })
   );
@@ -30,7 +30,7 @@ function registerAccountProfile(app) {
     (scope) =>
       createAccountProfileService({
         userSettingsRepository: scope.make("userSettingsRepository"),
-        userProfilesRepository: scope.make("userProfilesRepository"),
+        usersRepository: scope.make("usersRepository"),
         authService: scope.make("authService"),
         avatarService: scope.make("users.avatar.service")
       }),
