@@ -2,7 +2,7 @@ import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudLookupFieldKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudParentFilterFieldKeyFromRouteParam } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import { useListCore } from "./useListCore.js";
 import { resolveOperationAdapter } from "./operationAdapters.js";
@@ -153,12 +153,6 @@ function useList({
     return resolveWritableQueryParamBindings(queryParamDescriptors.value);
   });
   const parentRouteFilter = computed(() => {
-    const lookupFieldKeys = resolveCrudLookupFieldKeys(resource);
-    if (lookupFieldKeys.length < 1) {
-      return null;
-    }
-
-    const lookupFieldKeySet = new Set(lookupFieldKeys);
     const sourceRoute = operationScope.routeContext.route;
     const orderedRouteParamNames = resolveRouteParamNamesInOrder(sourceRoute);
     if (orderedRouteParamNames.length < 1) {
@@ -166,13 +160,22 @@ function useList({
     }
 
     const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
-    const parentParamName = [...orderedRouteParamNames]
-      .reverse()
-      .find((name) => (
-        name !== "workspaceSlug" &&
-        name !== normalizedRecordIdParam &&
-        lookupFieldKeySet.has(name)
-      )) || "";
+    let parentParamName = "";
+    let parentFieldKey = "";
+    for (const name of [...orderedRouteParamNames].reverse()) {
+      if (name === "workspaceSlug" || name === normalizedRecordIdParam) {
+        continue;
+      }
+
+      const matchedFieldKey = resolveCrudParentFilterFieldKeyFromRouteParam(resource, name);
+      if (!matchedFieldKey) {
+        continue;
+      }
+
+      parentParamName = name;
+      parentFieldKey = matchedFieldKey;
+      break;
+    }
     if (!parentParamName) {
       return null;
     }
@@ -184,7 +187,7 @@ function useList({
     }
 
     return Object.freeze({
-      key: parentParamName,
+      key: parentFieldKey,
       value: parentParamValue
     });
   });

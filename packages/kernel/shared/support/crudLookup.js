@@ -64,7 +64,7 @@ function resolveCrudLookupContainerKey(resource = {}, options = {}) {
   return normalizeCrudLookupContainerKey(lookup?.containerKey, options);
 }
 
-function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
+function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   const source = resource && typeof resource === "object" && !Array.isArray(resource) ? resource : {};
   const entries = Array.isArray(source.fieldMeta) ? source.fieldMeta : [];
   const allowedKeySet = new Set(
@@ -97,10 +97,65 @@ function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
     }
 
     seenKeys.add(key);
-    keys.push(key);
+    keys.push(
+      Object.freeze({
+        key,
+        parentRouteParamKey: normalizeText(entry.parentRouteParamKey)
+      })
+    );
   }
 
   return Object.freeze(keys);
+}
+
+function resolveCrudLookupCreateSchemaKeys(resource = {}) {
+  const createSchemaProperties = resource?.operations?.create?.bodyValidator?.schema?.properties;
+  if (!createSchemaProperties || typeof createSchemaProperties !== "object" || Array.isArray(createSchemaProperties)) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(Object.keys(createSchemaProperties));
+}
+
+function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {
+  return Object.freeze(
+    resolveCrudLookupFieldEntries(resource, { allowKeys })
+      .map(({ key }) => key)
+  );
+}
+
+function resolveCrudParentFilterKeys(resource = {}) {
+  return resolveCrudLookupFieldKeys(resource, {
+    allowKeys: resolveCrudLookupCreateSchemaKeys(resource)
+  });
+}
+
+function resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {}) {
+  const normalizedRouteParamKey = normalizeText(routeParamKey);
+  if (!normalizedRouteParamKey) {
+    return "";
+  }
+
+  const entries = resolveCrudLookupFieldEntries(resource, { allowKeys });
+  for (const entry of entries) {
+    if (entry.key === normalizedRouteParamKey) {
+      return entry.key;
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.parentRouteParamKey === normalizedRouteParamKey) {
+      return entry.key;
+    }
+  }
+
+  return "";
+}
+
+function resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "") {
+  return resolveCrudLookupFieldKeyFromRouteParam(resource, routeParamKey, {
+    allowKeys: resolveCrudLookupCreateSchemaKeys(resource)
+  });
 }
 
 export {
@@ -110,5 +165,8 @@ export {
   resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
-  resolveCrudLookupFieldKeys
+  resolveCrudLookupFieldKeys,
+  resolveCrudParentFilterKeys,
+  resolveCrudLookupFieldKeyFromRouteParam,
+  resolveCrudParentFilterFieldKeyFromRouteParam
 };

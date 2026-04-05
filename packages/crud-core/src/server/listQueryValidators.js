@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudLookupFieldKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 const listSearchQueryValidator = Object.freeze({
   schema: Type.Object(
@@ -42,13 +42,7 @@ const lookupIncludeQueryValidator = Object.freeze({
 });
 
 function resolveCrudParentFilterKeys(resource = {}) {
-  const createSchemaProperties = resource?.operations?.create?.bodyValidator?.schema?.properties;
-  const allowedKeys = createSchemaProperties && typeof createSchemaProperties === "object" && !Array.isArray(createSchemaProperties)
-    ? Object.keys(createSchemaProperties)
-    : [];
-  return resolveCrudLookupFieldKeys(resource, {
-    allowKeys: allowedKeys
-  });
+  return resolveSharedCrudParentFilterKeys(resource);
 }
 
 function createCrudParentFilterQueryValidator(resource = {}) {
