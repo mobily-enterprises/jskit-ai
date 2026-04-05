@@ -714,6 +714,71 @@ test("createCrudRepositoryFromResource ordered cursors handle null primary sort 
   assert.ok(!calls.some((call) => call[0] === "whereNotNull" && call[1] === "created_at"));
 });
 
+test("createCrudRepositoryFromResource keeps ordered cursor prefix grouping for multi-column sorts", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
+    list: {
+      orderBy: [
+        { column: "created_at", direction: "desc" },
+        { column: "last_name", direction: "desc" }
+      ]
+    }
+  });
+  const { knex, calls } = createListKnexDouble([
+    {
+      contact_id: 6,
+      first_name: "Tom",
+      last_name: "Taylor",
+      created_at: "2026-04-03T08:00:00.000Z"
+    }
+  ]);
+  const repository = createRepository(knex);
+  const cursor = Buffer.from(
+    JSON.stringify({ values: ["2026-04-04T09:00:00.000Z", "Taylor", 7] }),
+    "utf8"
+  ).toString("base64url");
+
+  await repository.list({
+    cursor,
+    limit: 2
+  });
+
+  const createdAtEqualityIndex = calls.findIndex((call) => (
+    call[0] === "where" &&
+    call[1] === "created_at" &&
+    call[2] === "2026-04-04T09:00:00.000Z"
+  ));
+  const nestedGroupIndex = calls.findIndex((call, index) => (
+    index > createdAtEqualityIndex &&
+    call[0] === "innerWhereCallback"
+  ));
+  const lastNameAfterIndex = calls.findIndex((call, index) => (
+    index > nestedGroupIndex &&
+    call[0] === "where" &&
+    call[1] === "last_name" &&
+    call[2] === "<" &&
+    call[3] === "Taylor"
+  ));
+  const lastNameEqualityIndex = calls.findIndex((call, index) => (
+    index > lastNameAfterIndex &&
+    call[0] === "where" &&
+    call[1] === "last_name" &&
+    call[2] === "Taylor"
+  ));
+  const idAfterIndex = calls.findIndex((call, index) => (
+    index > lastNameEqualityIndex &&
+    call[0] === "where" &&
+    call[1] === "contact_id" &&
+    call[2] === "<" &&
+    call[3] === 7
+  ));
+
+  assert.ok(createdAtEqualityIndex >= 0);
+  assert.ok(nestedGroupIndex > createdAtEqualityIndex);
+  assert.ok(lastNameAfterIndex > nestedGroupIndex);
+  assert.ok(lastNameEqualityIndex > lastNameAfterIndex);
+  assert.ok(idAfterIndex > lastNameEqualityIndex);
+});
+
 test("createCrudRepositoryFromResource exposes listByIds for lookup providers", async () => {
   const createRepository = createCrudRepositoryFromResource(createResourceFixture());
   const { knex, calls } = createListKnexDouble([

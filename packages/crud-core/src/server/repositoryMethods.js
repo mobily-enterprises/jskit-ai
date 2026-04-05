@@ -256,7 +256,9 @@ function appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [],
   const equalityMethod = useOr === true || addedBranch === true ? "orWhere" : "where";
   query[equalityMethod]((equalQuery) => {
     applyOrderedListCursorEquality(equalQuery, descriptor, currentValue);
-    appendOrderedListCursorBranches(equalQuery, orderBy, cursorValues, index + 1);
+    equalQuery.where((nestedQuery) => {
+      appendOrderedListCursorBranches(nestedQuery, orderBy, cursorValues, index + 1);
+    });
   });
   return true;
 }
