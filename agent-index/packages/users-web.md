@@ -209,6 +209,8 @@ Local functions
 - `resolveFormFieldType(field = {})`
 - `resolveFormFieldFormat(field = {})`
 - `padDateTimePart(value)`
+- `normalizeTimeWhitespace(value)`
+- `toTimeInputValue(value)`
 - `toDateTimeLocalInputValue(value)`
 - `toIsoUtcDateTimeValue(value)`
 - `resolveFormFieldInitialValue(field = {})`

@@ -80,6 +80,68 @@ test("buildCrudFormPayload and applyCrudPayloadToForm round-trip date-time field
   assert.equal(form.scheduledAt, "2024-01-02T03:04");
 });
 
+test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
+  const fields = [
+    { key: "fromTime", type: "string", format: "time" },
+    { key: "toTime", type: "string", format: "time" }
+  ];
+
+  const payload = buildCrudFormPayload(fields, {
+    fromTime: "06:13 PM",
+    toTime: "18:45:00"
+  });
+
+  assert.deepEqual(payload, {
+    fromTime: "18:13",
+    toTime: "18:45"
+  });
+});
+
+test("buildCrudFormPayload serializes cleared nullable typed fields as null", () => {
+  const payload = buildCrudFormPayload(
+    [
+      { key: "serviceId", type: "integer", nullable: true },
+      { key: "fromDate", type: "string", format: "date", nullable: true },
+      { key: "scheduledAt", type: "string", format: "date-time", nullable: true },
+      { key: "fromTime", type: "string", format: "time", nullable: true }
+    ],
+    {
+      serviceId: null,
+      fromDate: "",
+      scheduledAt: "",
+      fromTime: ""
+    }
+  );
+
+  assert.deepEqual(payload, {
+    serviceId: null,
+    fromDate: null,
+    scheduledAt: null,
+    fromTime: null
+  });
+});
+
+test("applyCrudPayloadToForm normalizes time fields for form inputs", () => {
+  const fields = [
+    { key: "fromTime", type: "string", format: "time" },
+    { key: "toTime", type: "string", format: "time" }
+  ];
+  const form = reactive({
+    fromTime: "",
+    toTime: ""
+  });
+
+  applyCrudPayloadToForm(fields, form, {
+    fromTime: "18:13:00",
+    toTime: "06:45 PM"
+  });
+
+  assert.deepEqual(form, {
+    fromTime: "18:13",
+    toTime: "18:45"
+  });
+});
+
 test("applyCrudPayloadToForm maps payload values into reactive form model", () => {
   const form = reactive({
     name: "",

@@ -521,7 +521,7 @@ test("crud actions and routes templates share LIST_CONFIG for cursor validation"
   assert.match(listConfigTemplateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
 });
 
-test("crud service template defines explicit service methods and semi-explicit default events", async () => {
+test("crud service template defines explicit service methods over shared service primitives and preserves overridable default events", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "service.js");
   const templateSource = await readFile(templatePath, "utf8");
@@ -532,16 +532,81 @@ test("crud service template defines explicit service methods and semi-explicit d
   );
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/fieldAccess";/
+    /from "@jskit-ai\/crud-core\/server\/serviceMethods";/
   );
-  assert.match(templateSource, /const baseServiceEvents = createCrudServiceEvents\(/);
-  assert.match(templateSource, /const fieldAccessRuntime = createCrudFieldAccessRuntime\(/);
+  assert.match(templateSource, /const serviceRuntime = createCrudServiceRuntime\(resource,/);
+  assert.match(templateSource, /const baseServiceEvents = createCrudServiceEvents\(resource,/);
   assert.match(templateSource, /const serviceEvents = Object\.freeze\(\{/);
   assert.match(templateSource, /createRecord: \[\.\.\.baseServiceEvents\.createRecord\],/);
+  assert.match(templateSource, /function createService\(\{ \$\{option:namespace\|camel\}Repository, fieldAccess = DEFAULT_FIELD_ACCESS \} = \{\}\)/);
   assert.match(templateSource, /async function listRecords\(query = \{\}, options = \{\}\)/);
-  assert.match(templateSource, /return fieldAccessRuntime\.filterReadableListResult\(result, fieldAccess, \{/);
-  assert.match(templateSource, /const writablePayload = await fieldAccessRuntime\.enforceWritablePayload\(payload, fieldAccess, \{/);
-  assert.match(templateSource, /throw new AppError\(404, "Record not found\."\);/);
+  assert.match(templateSource, /return crudServiceListRecords\(serviceRuntime, \$\{option:namespace\|camel\}Repository, fieldAccess, query, options\);/);
+  assert.match(templateSource, /async function updateRecord\(recordId, payload = \{\}, options = \{\}\)/);
+  assert.match(templateSource, /return crudServiceUpdateRecord\(serviceRuntime, \$\{option:namespace\|camel\}Repository, fieldAccess, recordId, payload, options\);/);
+  assert.match(templateSource, /return Object\.freeze\(\{/);
+});
+
+test("crud generator renders time columns with html-time-compatible schemas", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(testDirectory, "..", "src", "server", "buildTemplateContext.js");
+  const templateSource = await readFile(templatePath, "utf8");
+
+  assert.match(
+    templateSource,
+    /NULLABLE_HTML_TIME_STRING_SCHEMA/
+  );
+  assert.match(
+    templateSource,
+    /HTML_TIME_STRING_SCHEMA/
+  );
+  assert.doesNotMatch(templateSource, /format: "time"/);
+});
+
+test("buildReplacementsFromSnapshot uses shared framework time schemas in generated resources", () => {
+  const snapshot = createSnapshot({
+    tableName: "opening_hours"
+  });
+  const timeColumn = Object.freeze({
+    name: "from_time",
+    key: "fromTime",
+    dataType: "time",
+    columnType: "time",
+    typeKind: "time",
+    nullable: true,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null,
+    enumValues: Object.freeze([])
+  });
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    snapshot: {
+      ...snapshot,
+      columns: Object.freeze([...snapshot.columns, timeColumn])
+    },
+    resolvedOwnershipFilter: "workspace_user"
+  });
+
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
+    /NULLABLE_HTML_TIME_STRING_SCHEMA/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /fromTime: NULLABLE_HTML_TIME_STRING_SCHEMA/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /fromTime: NULLABLE_HTML_TIME_STRING_SCHEMA/
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /Type\.String\(\{ pattern:/
+  );
 });
 
 test("crud provider template uses shared lookup provider helpers instead of inline wiring", async () => {

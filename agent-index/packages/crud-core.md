@@ -249,6 +249,17 @@ Local functions
 Exports
 - `createCrudServiceEvents(resource = {}, { context = "crudService" } = {})`
 
+### `src/server/serviceMethods.js`
+Exports
+- `createCrudServiceRuntime(resource = {}, { context = "crudService" } = {})`
+- `crudServiceListRecords(runtime, repository, fieldAccess = {}, query = {}, options = {})`
+- `crudServiceGetRecord(runtime, repository, fieldAccess = {}, recordId, options = {})`
+- `crudServiceCreateRecord(runtime, repository, fieldAccess = {}, payload = {}, options = {})`
+- `crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, recordId, payload = {}, options = {})`
+- `crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, recordId, options = {})`
+Local functions
+- `requireCrudServiceRepository(runtime = {}, repository = null)`
+
 ### `src/shared/crudFieldMetaSupport.js`
 Exports
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`

@@ -1,0 +1,161 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  createCrudServiceRuntime,
+  crudServiceListRecords,
+  crudServiceGetRecord,
+  crudServiceCreateRecord,
+  crudServiceUpdateRecord,
+  crudServiceDeleteRecord
+} from "../src/server/serviceMethods.js";
+
+function createResourceWithOutputSchema(overrides = {}) {
+  return {
+    resource: "contacts",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              name: { type: "string" }
+            },
+            required: ["id", "name"]
+          }
+        }
+      }
+    },
+    ...overrides
+  };
+}
+
+function createRepositoryDouble(overrides = {}) {
+  return {
+    async list(query) {
+      return { items: [query], nextCursor: null };
+    },
+    async findById(recordId) {
+      return recordId === 1 ? { id: 1, name: "Existing" } : null;
+    },
+    async create(payload) {
+      return { id: 2, ...payload };
+    },
+    async updateById(recordId, payload) {
+      if (recordId !== 1) {
+        return null;
+      }
+      return { id: 1, ...payload };
+    },
+    async deleteById(recordId) {
+      if (recordId !== 1) {
+        return null;
+      }
+      return { id: 1, deleted: true };
+    },
+    ...overrides
+  };
+}
+
+test("serviceMethods expose CRUD service behavior without the factory wrapper", async () => {
+  const runtime = createCrudServiceRuntime({
+    resource: "contacts"
+  });
+  const repository = createRepositoryDouble();
+
+  assert.deepEqual(
+    await crudServiceListRecords(runtime, repository, {}, { limit: 2 }, {}),
+    { items: [{ limit: 2 }], nextCursor: null }
+  );
+  assert.deepEqual(await crudServiceGetRecord(runtime, repository, {}, 1, {}), { id: 1, name: "Existing" });
+  assert.deepEqual(await crudServiceCreateRecord(runtime, repository, {}, { name: "A" }, {}), { id: 2, name: "A" });
+  assert.deepEqual(await crudServiceUpdateRecord(runtime, repository, {}, 1, { name: "B" }, {}), { id: 1, name: "B" });
+  assert.deepEqual(await crudServiceDeleteRecord(runtime, repository, {}, 1, {}), { id: 1, deleted: true });
+});
+
+test("serviceMethods apply patch normalization using the existing record and map field errors", async () => {
+  const runtime = createCrudServiceRuntime({
+    resource: "contacts",
+    operations: {
+      patch: {
+        bodyValidator: {
+          normalize(payload = {}, context = {}) {
+            if (payload.name === "bad") {
+              const error = new Error("Validation failed.");
+              error.details = {
+                fieldErrors: {
+                  name: "Invalid."
+                }
+              };
+              throw error;
+            }
+            return {
+              ...payload,
+              name: `${payload.name} normalized`,
+              existingName: context.existingRecord?.name || ""
+            };
+          }
+        }
+      },
+      view: createResourceWithOutputSchema().operations.view
+    }
+  });
+  const updateCalls = [];
+  const repository = createRepositoryDouble({
+    async updateById(recordId, payload) {
+      updateCalls.push({ recordId, payload });
+      return { id: recordId, ...payload };
+    }
+  });
+
+  const updated = await crudServiceUpdateRecord(runtime, repository, {}, 1, { name: "good" }, {});
+
+  assert.deepEqual(updateCalls, [
+    {
+      recordId: 1,
+      payload: {
+        name: "good normalized",
+        existingName: "Existing"
+      }
+    }
+  ]);
+  assert.deepEqual(updated, {
+    id: 1,
+    name: "good normalized",
+    existingName: "Existing"
+  });
+
+  await assert.rejects(
+    () => crudServiceUpdateRecord(runtime, repository, {}, 1, { name: "bad" }, {}),
+    (error) => (
+      error?.status === 400 &&
+      error?.details?.fieldErrors?.name === "Invalid."
+    )
+  );
+});
+
+test("serviceMethods enforce writable field access policies and allow readable filtering", async () => {
+  const runtime = createCrudServiceRuntime(createResourceWithOutputSchema());
+  const createCalls = [];
+  const repository = createRepositoryDouble({
+    async create(payload) {
+      createCalls.push(payload);
+      return { id: 2, ...payload };
+    }
+  });
+  const fieldAccess = {
+    readable: () => ["id", "name"],
+    writable: () => ["name"],
+    writeMode: "strip"
+  };
+
+  const created = await crudServiceCreateRecord(runtime, repository, fieldAccess, {
+    name: "Allowed",
+    secret: "Blocked"
+  }, {});
+  const viewed = await crudServiceGetRecord(runtime, repository, fieldAccess, 1, {});
+
+  assert.deepEqual(createCalls, [{ name: "Allowed" }]);
+  assert.deepEqual(created, { id: 2, name: "Allowed" });
+  assert.deepEqual(viewed, { id: 1, name: "Existing" });
+});

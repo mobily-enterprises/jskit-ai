@@ -369,7 +369,9 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   } else if (typeKind === "date") {
     schemaExpression = 'Type.String({ format: "date", minLength: 1 })';
   } else if (typeKind === "time") {
-    schemaExpression = 'Type.String({ format: "time", minLength: 1 })';
+    return column.nullable === true
+      ? "NULLABLE_HTML_TIME_STRING_SCHEMA"
+      : "HTML_TIME_STRING_SCHEMA";
   } else if (typeKind === "json") {
     schemaExpression = "Type.Any()";
   }
@@ -378,6 +380,17 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
     return `Type.Union([${schemaExpression}, Type.Null()])`;
   }
   return schemaExpression;
+}
+
+function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false } = {}) {
+  const imports = [
+    "normalizeObjectInput",
+    "createCursorListValidator"
+  ];
+  if (needsHtmlTimeSchemas) {
+    imports.push("HTML_TIME_STRING_SCHEMA", "NULLABLE_HTML_TIME_STRING_SCHEMA");
+  }
+  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/validators";`;
 }
 
 function renderInputNormalizer(column) {
@@ -1113,6 +1126,7 @@ function buildReplacementsFromSnapshot({
   const needsNullableDateInput = writableColumns.some(
     (column) => column.typeKind === "date" && column.nullable === true
   );
+  const needsHtmlTimeSchemas = resourceColumns.some((column) => column.typeKind === "time");
   const needsDate = resourceColumns.some((column) => column.typeKind === "date");
   const needsJson = resourceColumns.some((column) => column.typeKind === "json");
   const needsNormalizeText = resourceColumns.some((column) =>
@@ -1130,6 +1144,9 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
+    __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
+      needsHtmlTimeSchemas
+    }),
     __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
       needsToIsoString: needsDateTimeOutput || needsDate,
       needsToDatabaseDateTimeUtc: needsDateTimeInput

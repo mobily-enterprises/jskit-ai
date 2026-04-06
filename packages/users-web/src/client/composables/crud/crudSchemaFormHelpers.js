@@ -52,6 +52,45 @@ function padDateTimePart(value) {
   return String(value).padStart(2, "0");
 }
 
+function normalizeTimeWhitespace(value) {
+  return String(value ?? "").replaceAll(/\s+/gu, " ").trim();
+}
+
+function toTimeInputValue(value) {
+  const normalized = normalizeTimeWhitespace(value);
+  if (!normalized) {
+    return "";
+  }
+
+  const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/u);
+  if (twentyFourHourMatch) {
+    const hours = Number(twentyFourHourMatch[1]);
+    const minutes = Number(twentyFourHourMatch[2]);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${padDateTimePart(hours)}:${padDateTimePart(minutes)}`;
+    }
+    return normalized;
+  }
+
+  const meridiemMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([ap]\.?m\.?)$/iu);
+  if (!meridiemMatch) {
+    return normalized;
+  }
+
+  const rawHours = Number(meridiemMatch[1]);
+  const minutes = Number(meridiemMatch[2]);
+  if (rawHours < 1 || rawHours > 12 || minutes < 0 || minutes > 59) {
+    return normalized;
+  }
+
+  let hours = rawHours % 12;
+  if (String(meridiemMatch[3] || "").toLowerCase().startsWith("p")) {
+    hours += 12;
+  }
+
+  return `${padDateTimePart(hours)}:${padDateTimePart(minutes)}`;
+}
+
 function toDateTimeLocalInputValue(value) {
   if (value == null || value === "") {
     return "";
@@ -99,6 +138,23 @@ function resolveFormFieldInitialValue(field = {}) {
   return "";
 }
 
+function shouldSerializeClearedFieldAsNull(field = {}) {
+  if (field?.nullable !== true) {
+    return false;
+  }
+
+  const fieldType = resolveFormFieldType(field);
+  const fieldFormat = resolveFormFieldFormat(field);
+
+  return (
+    fieldType === "integer" ||
+    fieldType === "number" ||
+    fieldFormat === "date" ||
+    fieldFormat === "date-time" ||
+    fieldFormat === "time"
+  );
+}
+
 function createCrudFormModel(fields = []) {
   const model = {};
   for (const field of normalizeCrudFormFields(fields)) {
@@ -116,6 +172,7 @@ function buildCrudFormPayload(fields = [], model = {}) {
     const fieldKey = field.key;
     const fieldType = resolveFormFieldType(field);
     const fieldFormat = resolveFormFieldFormat(field);
+    const clearAsNull = shouldSerializeClearedFieldAsNull(field);
     const rawValue = sourceModel[fieldKey];
 
     if (fieldType === "boolean") {
@@ -126,6 +183,9 @@ function buildCrudFormPayload(fields = [], model = {}) {
     if (fieldType === "integer" || fieldType === "number") {
       const normalizedValue = String(rawValue ?? "").trim();
       if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
         continue;
       }
 
@@ -137,12 +197,44 @@ function buildCrudFormPayload(fields = [], model = {}) {
     }
 
     if (rawValue == null) {
+      if (clearAsNull) {
+        payload[fieldKey] = null;
+      }
+      continue;
+    }
+
+    if (fieldFormat === "date") {
+      const normalizedValue = String(rawValue).trim();
+      if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
+        continue;
+      }
+
+      payload[fieldKey] = normalizedValue;
       continue;
     }
 
     if (fieldFormat === "date-time") {
       const normalizedValue = toIsoUtcDateTimeValue(rawValue);
       if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
+        continue;
+      }
+
+      payload[fieldKey] = normalizedValue;
+      continue;
+    }
+
+    if (fieldFormat === "time") {
+      const normalizedValue = toTimeInputValue(rawValue);
+      if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
         continue;
       }
 
@@ -177,6 +269,11 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
 
     if (fieldFormat === "date-time") {
       targetModel[fieldKey] = toDateTimeLocalInputValue(rawValue);
+      continue;
+    }
+
+    if (fieldFormat === "time") {
+      targetModel[fieldKey] = toTimeInputValue(rawValue);
       continue;
     }
 

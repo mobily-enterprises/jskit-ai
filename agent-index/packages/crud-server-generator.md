@@ -43,6 +43,7 @@ Local functions
 - `renderObjectPropertyKey(value)`
 - `renderIntegerSchema(column)`
 - `renderStringSchema(column, { forOutput = false } = {})`
+- `renderResourceValidatorsImport({ needsHtmlTimeSchemas = false } = {})`
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false } = {})`
 - `renderResourceInputNormalizationLines(columns)`
 - `renderResourceOutputNormalizationLines(columns)`

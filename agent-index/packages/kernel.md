@@ -426,11 +426,18 @@ Exports
 Local functions
 - `normalizeCursorPaginationQuery(input = {})`
 
+### `shared/validators/htmlTimeSchemas.js`
+Exports
+- `HTML_TIME_STRING_SCHEMA`
+- `NULLABLE_HTML_TIME_STRING_SCHEMA`
+
 ### `shared/validators/index.js`
 Exports
 - `normalizeObjectInput`
 - `createCursorListValidator`
 - `cursorPaginationQueryValidator`
+- `HTML_TIME_STRING_SCHEMA`
+- `NULLABLE_HTML_TIME_STRING_SCHEMA`
 - `mergeObjectSchemas`
 - `mergeValidators`
 - `nestValidator`
