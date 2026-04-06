@@ -138,6 +138,23 @@ function resolveFormFieldInitialValue(field = {}) {
   return "";
 }
 
+function shouldSerializeClearedFieldAsNull(field = {}) {
+  if (field?.nullable !== true) {
+    return false;
+  }
+
+  const fieldType = resolveFormFieldType(field);
+  const fieldFormat = resolveFormFieldFormat(field);
+
+  return (
+    fieldType === "integer" ||
+    fieldType === "number" ||
+    fieldFormat === "date" ||
+    fieldFormat === "date-time" ||
+    fieldFormat === "time"
+  );
+}
+
 function createCrudFormModel(fields = []) {
   const model = {};
   for (const field of normalizeCrudFormFields(fields)) {
@@ -155,6 +172,7 @@ function buildCrudFormPayload(fields = [], model = {}) {
     const fieldKey = field.key;
     const fieldType = resolveFormFieldType(field);
     const fieldFormat = resolveFormFieldFormat(field);
+    const clearAsNull = shouldSerializeClearedFieldAsNull(field);
     const rawValue = sourceModel[fieldKey];
 
     if (fieldType === "boolean") {
@@ -165,6 +183,9 @@ function buildCrudFormPayload(fields = [], model = {}) {
     if (fieldType === "integer" || fieldType === "number") {
       const normalizedValue = String(rawValue ?? "").trim();
       if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
         continue;
       }
 
@@ -176,12 +197,31 @@ function buildCrudFormPayload(fields = [], model = {}) {
     }
 
     if (rawValue == null) {
+      if (clearAsNull) {
+        payload[fieldKey] = null;
+      }
+      continue;
+    }
+
+    if (fieldFormat === "date") {
+      const normalizedValue = String(rawValue).trim();
+      if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
+        continue;
+      }
+
+      payload[fieldKey] = normalizedValue;
       continue;
     }
 
     if (fieldFormat === "date-time") {
       const normalizedValue = toIsoUtcDateTimeValue(rawValue);
       if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
         continue;
       }
 
@@ -192,6 +232,9 @@ function buildCrudFormPayload(fields = [], model = {}) {
     if (fieldFormat === "time") {
       const normalizedValue = toTimeInputValue(rawValue);
       if (!normalizedValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
         continue;
       }
 

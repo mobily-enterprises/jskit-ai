@@ -97,6 +97,30 @@ test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
   });
 });
 
+test("buildCrudFormPayload serializes cleared nullable typed fields as null", () => {
+  const payload = buildCrudFormPayload(
+    [
+      { key: "serviceId", type: "integer", nullable: true },
+      { key: "fromDate", type: "string", format: "date", nullable: true },
+      { key: "scheduledAt", type: "string", format: "date-time", nullable: true },
+      { key: "fromTime", type: "string", format: "time", nullable: true }
+    ],
+    {
+      serviceId: null,
+      fromDate: "",
+      scheduledAt: "",
+      fromTime: ""
+    }
+  );
+
+  assert.deepEqual(payload, {
+    serviceId: null,
+    fromDate: null,
+    scheduledAt: null,
+    fromTime: null
+  });
+});
+
 test("applyCrudPayloadToForm normalizes time fields for form inputs", () => {
   const fields = [
     { key: "fromTime", type: "string", format: "time" },
