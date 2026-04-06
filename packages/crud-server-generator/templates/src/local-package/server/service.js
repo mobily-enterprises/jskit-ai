@@ -1,12 +1,18 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createCrudServiceEvents } from "@jskit-ai/crud-core/server/serviceEvents";
-import { createCrudFieldAccessRuntime } from "@jskit-ai/crud-core/server/fieldAccess";
+import {
+  createCrudServiceRuntime,
+  crudServiceListRecords,
+  crudServiceGetRecord,
+  crudServiceCreateRecord,
+  crudServiceUpdateRecord,
+  crudServiceDeleteRecord
+} from "@jskit-ai/crud-core/server/serviceMethods";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 
-const baseServiceEvents = createCrudServiceEvents(resource, {
+const serviceRuntime = createCrudServiceRuntime(resource, {
   context: "${option:namespace|camel}Service"
 });
-const fieldAccessRuntime = createCrudFieldAccessRuntime(resource, {
+const baseServiceEvents = createCrudServiceEvents(resource, {
   context: "${option:namespace|camel}Service"
 });
 
@@ -37,77 +43,24 @@ const DEFAULT_FIELD_ACCESS = Object.freeze({
 });
 
 function createService({ ${option:namespace|camel}Repository, fieldAccess = DEFAULT_FIELD_ACCESS } = {}) {
-  if (!${option:namespace|camel}Repository) {
-    throw new Error("${option:namespace|camel}Service requires ${option:namespace|camel}Repository.");
-  }
-
   async function listRecords(query = {}, options = {}) {
-    const result = await ${option:namespace|camel}Repository.list(query, options);
-    return fieldAccessRuntime.filterReadableListResult(result, fieldAccess, {
-      action: "list",
-      query,
-      options,
-      context: options?.context
-    });
+    return crudServiceListRecords(serviceRuntime, ${option:namespace|camel}Repository, fieldAccess, query, options);
   }
 
   async function getRecord(recordId, options = {}) {
-    const record = await ${option:namespace|camel}Repository.findById(recordId, options);
-    if (!record) {
-      throw new AppError(404, "Record not found.");
-    }
-    return fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
-      action: "view",
-      recordId,
-      options,
-      context: options?.context
-    });
+    return crudServiceGetRecord(serviceRuntime, ${option:namespace|camel}Repository, fieldAccess, recordId, options);
   }
 
   async function createRecord(payload = {}, options = {}) {
-    const writablePayload = await fieldAccessRuntime.enforceWritablePayload(payload, fieldAccess, {
-      action: "create",
-      payload,
-      options,
-      context: options?.context
-    });
-    const record = await ${option:namespace|camel}Repository.create(writablePayload, options);
-    if (!record) {
-      throw new Error("${option:namespace|camel}Service could not load the created record.");
-    }
-    return fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
-      action: "create",
-      options,
-      context: options?.context
-    });
+    return crudServiceCreateRecord(serviceRuntime, ${option:namespace|camel}Repository, fieldAccess, payload, options);
   }
 
   async function updateRecord(recordId, payload = {}, options = {}) {
-    const writablePayload = await fieldAccessRuntime.enforceWritablePayload(payload, fieldAccess, {
-      action: "update",
-      recordId,
-      payload,
-      options,
-      context: options?.context
-    });
-    const record = await ${option:namespace|camel}Repository.updateById(recordId, writablePayload, options);
-    if (!record) {
-      throw new AppError(404, "Record not found.");
-    }
-    return fieldAccessRuntime.filterReadableRecord(record, fieldAccess, {
-      action: "update",
-      recordId,
-      options,
-      context: options?.context
-    });
+    return crudServiceUpdateRecord(serviceRuntime, ${option:namespace|camel}Repository, fieldAccess, recordId, payload, options);
   }
 
   async function deleteRecord(recordId, options = {}) {
-    const deleted = await ${option:namespace|camel}Repository.deleteById(recordId, options);
-    if (!deleted) {
-      throw new AppError(404, "Record not found.");
-    }
-    return deleted;
+    return crudServiceDeleteRecord(serviceRuntime, ${option:namespace|camel}Repository, fieldAccess, recordId, options);
   }
 
   return Object.freeze({

@@ -1,9 +1,6 @@
 import { Type } from "typebox";
 __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__
-import {
-  normalizeObjectInput,
-  createCursorListValidator
-} from "@jskit-ai/kernel/shared/validators";
+__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__
 __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__
 __JSKIT_CRUD_RESOURCE_JSON_IMPORT__
 

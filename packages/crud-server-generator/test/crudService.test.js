@@ -47,6 +47,7 @@ test("crudService delegates CRUD operations to the repository", async () => {
     ["list", { limit: 10 }],
     ["findById", 3],
     ["create", { textField: "Example", dateField: "2026-03-11", numberField: 3 }],
+    ["findById", 4],
     ["updateById", 4, { textField: "Changed" }],
     ["deleteById", 5]
   ]);
@@ -93,6 +94,48 @@ test("crudService exports default realtime events for create/update/delete", () 
   assert.equal(serviceEvents.createRecord[0].realtime.event, "customers.record.changed");
   assert.equal(serviceEvents.updateRecord[0].realtime.event, "customers.record.changed");
   assert.equal(serviceEvents.deleteRecord[0].realtime.event, "customers.record.changed");
+});
+
+test("crudService passes existing records into patch normalization via the shared CRUD service", async () => {
+  const calls = [];
+  const service = createService({
+    customersRepository: {
+      async list() {
+        return { items: [], nextCursor: null };
+      },
+      async findById(recordId) {
+        calls.push(["findById", recordId]);
+        return {
+          id: recordId,
+          textField: "Existing",
+          dateField: "2026-03-11T00:00:00.000Z",
+          numberField: 3
+        };
+      },
+      async create(payload) {
+        return { id: 1, ...payload };
+      },
+      async updateById(recordId, payload) {
+        calls.push(["updateById", recordId, payload]);
+        return {
+          id: recordId,
+          textField: payload.textField || "",
+          dateField: "2026-03-11T00:00:00.000Z",
+          numberField: payload.numberField ?? 0
+        };
+      },
+      async deleteById(recordId) {
+        return { id: recordId, deleted: true };
+      }
+    }
+  });
+
+  await service.updateRecord(4, { textField: "Changed" }, {});
+
+  assert.deepEqual(calls, [
+    ["findById", 4],
+    ["updateById", 4, { textField: "Changed" }]
+  ]);
 });
 
 test("crudService supports optional fieldAccess hooks for writable filtering", async () => {
