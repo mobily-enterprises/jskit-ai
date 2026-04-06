@@ -214,6 +214,7 @@ Local functions
 - `toDateTimeLocalInputValue(value)`
 - `toIsoUtcDateTimeValue(value)`
 - `resolveFormFieldInitialValue(field = {})`
+- `shouldSerializeClearedFieldAsNull(field = {})`
 
 ### `src/client/composables/internal/crudListParentTitleSupport.js`
 Exports

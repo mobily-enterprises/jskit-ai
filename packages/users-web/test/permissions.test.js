@@ -30,6 +30,6 @@ test("arePermissionListsEqual returns false for different permission sets", () =
 });
 
 test("hasPermission supports namespace wildcard matches", () => {
-  assert.equal(hasPermission(["crud_contacts.*"], "crud_contacts.update"), true);
-  assert.equal(hasPermission(["crud_contacts.*"], "crud_projects.update"), false);
+  assert.equal(hasPermission(["crud.contacts.*"], "crud.contacts.update"), true);
+  assert.equal(hasPermission(["crud.contacts.*"], "crud.projects.update"), false);
 });

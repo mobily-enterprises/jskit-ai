@@ -7,7 +7,7 @@ import {
   hasPermission
 } from "../src/shared/roles.js";
 
-test("createWorkspaceRoleCatalog resolves role descriptors only from appConfig.workspaceRoles", () => {
+test("createWorkspaceRoleCatalog resolves role descriptors only from appConfig.roleCatalog", () => {
   const emptyCatalog = createWorkspaceRoleCatalog();
   assert.deepEqual(emptyCatalog.roles, []);
   assert.deepEqual(emptyCatalog.assignableRoleIds, []);
@@ -15,8 +15,10 @@ test("createWorkspaceRoleCatalog resolves role descriptors only from appConfig.w
   assert.equal(emptyCatalog.collaborationEnabled, false);
 
   const appConfig = {
-    workspaceRoles: {
-      defaultInviteRole: "editor",
+    roleCatalog: {
+      workspace: {
+        defaultInviteRole: "editor"
+      },
       roles: {
         owner: {
           assignable: false,
@@ -24,7 +26,7 @@ test("createWorkspaceRoleCatalog resolves role descriptors only from appConfig.w
         },
         editor: {
           assignable: true,
-          permissions: ["crud_contacts.*"]
+          permissions: ["crud.contacts.*"]
         }
       }
     }
@@ -35,7 +37,90 @@ test("createWorkspaceRoleCatalog resolves role descriptors only from appConfig.w
   assert.equal(roleCatalog.defaultInviteRole, "editor");
   assert.equal(roleCatalog.assignableRoleIds.includes("editor"), true);
   assert.deepEqual(resolveRolePermissions("owner", appConfig), ["workspace.settings.update"]);
-  assert.equal(hasPermission(editorRole?.permissions, "crud_contacts.update"), true);
+  assert.equal(hasPermission(editorRole?.permissions, "crud.contacts.update"), true);
+});
+
+test("createWorkspaceRoleCatalog resolves inherited role permissions with parent permissions first", () => {
+  const appConfig = {
+    roleCatalog: {
+      workspace: {
+        defaultInviteRole: "member"
+      },
+      roles: {
+        member: {
+          assignable: true,
+          permissions: [
+            "workspace.settings.view",
+            "crud.contacts.list"
+          ]
+        },
+        admin: {
+          assignable: true,
+          inherits: "member",
+          permissions: [
+            "workspace.settings.update",
+            "workspace.members.manage",
+            "workspace.settings.view"
+          ]
+        }
+      }
+    }
+  };
+
+  const roleCatalog = createWorkspaceRoleCatalog(appConfig);
+  const adminRole = roleCatalog.roles.find((role) => role.id === "admin");
+
+  assert.deepEqual(adminRole, {
+    id: "admin",
+    assignable: true,
+    permissions: [
+      "workspace.settings.view",
+      "crud.contacts.list",
+      "workspace.settings.update",
+      "workspace.members.manage"
+    ]
+  });
+});
+
+test("createWorkspaceRoleCatalog rejects unknown inherited roles", () => {
+  assert.throws(
+    () =>
+      createWorkspaceRoleCatalog({
+        roleCatalog: {
+          roles: {
+            admin: {
+              assignable: true,
+              inherits: "member",
+              permissions: []
+            }
+          }
+        }
+      }),
+    /inherits unknown role "member"/
+  );
+});
+
+test("createWorkspaceRoleCatalog rejects circular inherited roles", () => {
+  assert.throws(
+    () =>
+      createWorkspaceRoleCatalog({
+        roleCatalog: {
+          roles: {
+            member: {
+              assignable: true,
+              inherits: "admin",
+              permissions: []
+            },
+            admin: {
+              assignable: true,
+              inherits: "member",
+              permissions: []
+            }
+          }
+        }
+      }),
+    /circular inheritance/
+  );
 });
 
 test("cloneWorkspaceRoleCatalog normalizes role ids and returns detached arrays", () => {

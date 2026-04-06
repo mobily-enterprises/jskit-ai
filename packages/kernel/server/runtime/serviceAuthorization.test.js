@@ -88,12 +88,12 @@ test("requireAuth allows namespace wildcard permissions", () => {
       {
         context: {
           actor: { id: 1 },
-          permissions: ["crud_contacts.*"]
+          permissions: ["crud.contacts.*"]
         }
       },
       {
         require: "all",
-        permissions: ["crud_contacts.update"]
+        permissions: ["crud.contacts.update"]
       }
     )
   );

@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/common/services/workspaceContextService.js";
 
-function createWorkspaceRoles() {
+function createRoleCatalog() {
   return {
-    defaultInviteRole: "member",
+    workspace: {
+      defaultInviteRole: "member"
+    },
     roles: {
       owner: {
         assignable: false,
@@ -21,7 +23,7 @@ function createWorkspaceRoles() {
 function createWorkspaceServiceFixture({
   tenancyMode = "workspaces",
   tenancyPolicy = {},
-  workspaceRoles = createWorkspaceRoles(),
+  roleCatalog = createRoleCatalog(),
   additionalWorkspaces = [],
   userWorkspaceRows = null,
   membershipResolver = null,
@@ -69,7 +71,7 @@ function createWorkspaceServiceFixture({
     appConfig: {
       tenancyMode,
       tenancyPolicy,
-      workspaceRoles: workspaceRoles && typeof workspaceRoles === "object" ? { ...workspaceRoles } : workspaceRoles
+      roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
     },
     workspacesRepository: {
       async findBySlug(slug) {
@@ -404,7 +406,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   const service = createService({
     appConfig: {
       tenancyMode: "personal",
-      workspaceRoles: createWorkspaceRoles()
+      roleCatalog: createRoleCatalog()
     },
     workspacesRepository: {
       async findBySlug(slug) {
@@ -468,10 +470,12 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   assert.deepEqual(context.permissions, ["*"]);
 });
 
-test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions from appConfig.workspaceRoles", async () => {
+test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions from appConfig.roleCatalog", async () => {
   const { service } = createWorkspaceServiceFixture({
-    workspaceRoles: {
-      defaultInviteRole: "member",
+    roleCatalog: {
+      workspace: {
+        defaultInviteRole: "member"
+      },
       roles: {
         owner: {
           assignable: false,

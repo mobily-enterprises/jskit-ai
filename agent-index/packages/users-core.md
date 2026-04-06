@@ -567,7 +567,8 @@ Exports
 Local functions
 - `asRecord(value)`
 - `normalizeRoleId(value)`
-- `createRoleDescriptor(roleSid, configuredDefinition)`
+- `resolveInheritedRolePermissions(roleSid, configuredRoles = {}, seenRoleIds = new Set())`
+- `createRoleDescriptor(roleSid, configuredDefinition, configuredRoles = {})`
 - `listConfiguredRoleIds(appConfig = {})`
 - `resolveConfiguredDefaultInviteRole(appConfig = {})`
 - `normalizeConfiguredRoles(appConfig = {})`
@@ -647,9 +648,9 @@ Local functions
 
 ### templates
 
-### `templates/config/workspaceRoles.js`
+### `templates/config/roles.js`
 Exports
-- `workspaceRoles`
+- `roleCatalog`
 
 ### `templates/migrations/users_core_console_owner.cjs`
 Exports
