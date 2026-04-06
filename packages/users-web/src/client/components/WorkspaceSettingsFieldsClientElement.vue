@@ -176,7 +176,7 @@ import {
   DEFAULT_WORKSPACE_LIGHT_PALETTE,
   resolveWorkspaceThemePalettes
 } from "@jskit-ai/users-core/shared/settings";
-import { useAddEdit } from "../composables/useAddEdit.js";
+import { useAddEdit } from "../composables/records/useAddEdit.js";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";

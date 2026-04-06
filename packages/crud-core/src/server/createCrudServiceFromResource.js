@@ -1,4 +1,5 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireCrudNamespace } from "../shared/crudNamespaceSupport.js";
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
 import { createCrudServiceEvents } from "./serviceEvents.js";
@@ -56,14 +57,47 @@ function createCrudServiceFromResource(resource = {}, { context = "crudService" 
     }
 
     async function updateRecord(recordId, payload = {}, options = {}) {
+      const existingRecord = await repository.findById(recordId, options);
+      if (!existingRecord) {
+        throw new AppError(404, "Record not found.");
+      }
+
       const writablePayload = await fieldAccessRuntime.enforceWritablePayload(payload, fieldAccess, {
         action: "update",
         recordId,
         payload,
         options,
-        context: options?.context
+        context: options?.context,
+        existingRecord
       });
-      const record = await repository.updateById(recordId, writablePayload, options);
+
+      const patchBodyValidator = resource?.operations?.patch?.bodyValidator;
+      let normalizedPatch = writablePayload;
+      if (patchBodyValidator && typeof patchBodyValidator.normalize === "function") {
+        try {
+          normalizedPatch = await patchBodyValidator.normalize(writablePayload, {
+            phase: "crudPatch",
+            action: "update",
+            recordId,
+            existingRecord,
+            context: options?.context
+          });
+        } catch (error) {
+          const explicitFieldErrors = isRecord(error?.fieldErrors)
+            ? error.fieldErrors
+            : (
+                isRecord(error?.details?.fieldErrors)
+                  ? error.details.fieldErrors
+                  : null
+              );
+          if (explicitFieldErrors) {
+            throw createValidationError(explicitFieldErrors);
+          }
+          throw error;
+        }
+      }
+
+      const record = await repository.updateById(recordId, normalizedPatch, options);
       if (!record) {
         throw new AppError(404, "Record not found.");
       }

@@ -1,4 +1,4 @@
-import { useOperationScope } from "./internal/useOperationScope.js";
+import { useOperationScope } from "../internal/useOperationScope.js";
 
 const USERS_OPERATION_ADAPTER_ID = "users-default";
 

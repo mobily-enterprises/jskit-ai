@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { computed, ref } from "vue";
-import { resolveEnabledRef } from "../src/client/composables/refValueHelpers.js";
+import { resolveEnabledRef } from "../src/client/composables/support/refValueHelpers.js";
 
 test("resolveEnabledRef unwraps refs", () => {
   assert.equal(resolveEnabledRef(ref(true)), true);

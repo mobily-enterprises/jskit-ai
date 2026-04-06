@@ -4,7 +4,7 @@ import {
   extractRouteParamNames,
   resolveScopedRoutePathname,
   resolveRouteParamNamesInOrder
-} from "../src/client/composables/routeTemplateHelpers.js";
+} from "../src/client/composables/support/routeTemplateHelpers.js";
 
 test("extractRouteParamNames reads dynamic params from route templates", () => {
   assert.deepEqual(

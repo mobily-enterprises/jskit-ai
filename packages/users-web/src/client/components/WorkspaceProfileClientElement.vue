@@ -71,7 +71,7 @@ import { computed, reactive } from "vue";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { workspaceResource } from "@jskit-ai/users-core/shared/resources/workspaceResource";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { useAddEdit } from "../composables/useAddEdit.js";
+import { useAddEdit } from "../composables/records/useAddEdit.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
 
 const emit = defineEmits(["saved"]);

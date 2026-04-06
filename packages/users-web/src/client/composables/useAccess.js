@@ -1,10 +1,10 @@
 import { computed } from "vue";
 import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
-import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import { resolveEnabledRef, resolveTextRef } from "./support/refValueHelpers.js";
 import {
   normalizeAccessMode,
   resolveAccessModeEnabled
-} from "./scopeHelpers.js";
+} from "./support/scopeHelpers.js";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 function asPermissionList(value) {

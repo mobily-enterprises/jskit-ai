@@ -7,7 +7,7 @@ import {
   resolvePermissionAccess,
   resolveEnabled,
   resolveQueryKey
-} from "../scopeHelpers.js";
+} from "../support/scopeHelpers.js";
 
 function normalizePermissionSets(permissionSets = {}) {
   const source = permissionSets && typeof permissionSets === "object" && !Array.isArray(permissionSets)

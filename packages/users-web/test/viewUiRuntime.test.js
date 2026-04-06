@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { createViewUiRuntime } from "../src/client/composables/viewUiRuntime.js";
+import { createViewUiRuntime } from "../src/client/composables/runtime/viewUiRuntime.js";
 
 test("createViewUiRuntime resolves api/list/edit paths with nested params", () => {
   const runtime = createViewUiRuntime({

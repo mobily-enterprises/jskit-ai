@@ -13,7 +13,15 @@ test("users-web exports are explicit and aligned with production/template usage"
     repoRoot: REPO_ROOT,
     packageDir: PACKAGE_DIR,
     packageId: "@jskit-ai/users-web",
-    requiredExports: ["./client"]
+    requiredExports: [
+      "./client",
+      "./client/composables/useAddEdit",
+      "./client/composables/useList",
+      "./client/composables/useView",
+      "./client/composables/useCrudAddEdit",
+      "./client/composables/useCrudList",
+      "./client/composables/useCrudView"
+    ]
   });
 
   assert.deepEqual(

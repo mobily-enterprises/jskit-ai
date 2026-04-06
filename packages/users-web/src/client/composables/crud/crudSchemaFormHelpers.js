@@ -1,6 +1,6 @@
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { asPlainObject } from "./scopeHelpers.js";
-import { toRouteParamValue } from "./routeTemplateHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
+import { toRouteParamValue } from "../support/routeTemplateHelpers.js";
 
 const EMPTY_FIELD_ERROR_LIST = Object.freeze([]);
 const fieldErrorListCache = new Map();

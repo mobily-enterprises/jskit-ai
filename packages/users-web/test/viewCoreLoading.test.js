@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { useViewCore } from "../src/client/composables/useViewCore.js";
+import { useViewCore } from "../src/client/composables/runtime/useViewCore.js";
 
 test("useViewCore prefers resource isInitialLoading/isFetching signals when provided", () => {
   const resource = {

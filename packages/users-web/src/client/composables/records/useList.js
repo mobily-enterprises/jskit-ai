@@ -2,17 +2,16 @@ import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudParentFilterFieldKeyFromRouteParam } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { useListCore } from "./useListCore.js";
-import { resolveOperationAdapter } from "./operationAdapters.js";
-import { setupOperationErrorReporting } from "./operationUiHelpers.js";
-import { createListUiRuntime } from "./listUiRuntime.js";
-import { asPlainObject } from "./scopeHelpers.js";
+import { useListCore } from "../runtime/useListCore.js";
+import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
+import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
+import { createListUiRuntime } from "../runtime/listUiRuntime.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 import {
   normalizeListSearchConfig,
   matchesLocalSearch
-} from "./listSearchSupport.js";
+} from "../support/listSearchSupport.js";
 import {
   normalizeListSyncToRouteConfig,
   resolveQueryParamDescriptors,
@@ -24,13 +23,10 @@ import {
   buildRouteQueryCompareToken,
   mergeManagedQueryParamKeyHistory,
   resolveRouteSyncManagedKeys
-} from "./listQueryParamSupport.js";
-import { resolveLookupFieldDisplayValue } from "./crudLookupFieldLabelSupport.js";
+} from "../support/listQueryParamSupport.js";
 import {
   resolveRouteParamNamesInOrder,
-  resolveRouteParamsSource,
-  toRouteParamValue
-} from "./routeTemplateHelpers.js";
+} from "../support/routeTemplateHelpers.js";
 
 const EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST = Object.freeze([]);
 
@@ -51,13 +47,13 @@ function useList({
   queryOptions,
   realtime = null,
   adapter = null,
-  resource = null,
   recordIdParam = "recordId",
   recordIdSelector = null,
   viewUrlTemplate = "",
   editUrlTemplate = "",
   search = null,
   queryParams = null,
+  requestQueryParams = null,
   syncToRoute = false
 } = {}) {
   const searchConfig = normalizeListSearchConfig(search);
@@ -142,54 +138,24 @@ function useList({
   const queryParamDescriptors = computed(() => {
     return resolveQueryParamDescriptors(queryParams, queryParamsContext.value);
   });
+  const requestQueryParamDescriptors = computed(() => {
+    return resolveQueryParamDescriptors(requestQueryParams, queryParamsContext.value);
+  });
   const declaredQueryParamKeys = computed(() => {
     return queryParamDescriptors.value.map((descriptor) => descriptor.key);
   });
   const activeQueryParamEntries = computed(() => {
     return resolveActiveQueryParamEntries(queryParamDescriptors.value);
   });
+  const activeRequestQueryParamEntries = computed(() => {
+    return resolveActiveQueryParamEntries(requestQueryParamDescriptors.value);
+  });
   const activeQueryParamsToken = computed(() => buildQueryParamEntriesToken(activeQueryParamEntries.value));
+  const activeRequestQueryParamsToken = computed(() => {
+    return buildQueryParamEntriesToken(activeRequestQueryParamEntries.value);
+  });
   const writableQueryParamBindings = computed(() => {
     return resolveWritableQueryParamBindings(queryParamDescriptors.value);
-  });
-  const parentRouteFilter = computed(() => {
-    const sourceRoute = operationScope.routeContext.route;
-    const orderedRouteParamNames = resolveRouteParamNamesInOrder(sourceRoute);
-    if (orderedRouteParamNames.length < 1) {
-      return null;
-    }
-
-    const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
-    let parentParamName = "";
-    let parentFieldKey = "";
-    for (const name of [...orderedRouteParamNames].reverse()) {
-      if (name === "workspaceSlug" || name === normalizedRecordIdParam) {
-        continue;
-      }
-
-      const matchedFieldKey = resolveCrudParentFilterFieldKeyFromRouteParam(resource, name);
-      if (!matchedFieldKey) {
-        continue;
-      }
-
-      parentParamName = name;
-      parentFieldKey = matchedFieldKey;
-      break;
-    }
-    if (!parentParamName) {
-      return null;
-    }
-
-    const routeParams = resolveRouteParamsSource(sourceRoute?.params || {});
-    const parentParamValue = toRouteParamValue(routeParams[parentParamName]);
-    if (!parentParamValue) {
-      return null;
-    }
-
-    return Object.freeze({
-      key: parentFieldKey,
-      value: parentParamValue
-    });
   });
   const activeSearchQuery = computed(() => {
     if (searchConfig.enabled !== true) {
@@ -216,11 +182,11 @@ function useList({
       }
     }
 
-    const parentFilter = parentRouteFilter.value;
-    if (parentFilter) {
-      searchParams.set(parentFilter.key, parentFilter.value);
+    for (const entry of activeRequestQueryParamEntries.value) {
+      for (const value of entry.values) {
+        searchParams.append(entry.key, value);
+      }
     }
-
     for (const entry of activeQueryParamEntries.value) {
       for (const value of entry.values) {
         searchParams.append(entry.key, value);
@@ -241,9 +207,8 @@ function useList({
       : sourceQueryKey == null
         ? []
         : [sourceQueryKey];
-    const parentFilter = parentRouteFilter.value;
-    if (parentFilter) {
-      baseQueryKey.push("__parent__", parentFilter.key, parentFilter.value);
+    if (activeRequestQueryParamsToken.value) {
+      baseQueryKey.push("__request_query__", activeRequestQueryParamsToken.value);
     }
     if (querySearchEnabled.value) {
       baseQueryKey.push("__search__", searchConfig.queryParam, activeSearchQuery.value);
@@ -433,6 +398,13 @@ function useList({
 
     list.trimToFirstPage();
   });
+  watch(activeRequestQueryParamsToken, (nextValue, previousValue) => {
+    if (nextValue === previousValue) {
+      return;
+    }
+
+    list.trimToFirstPage();
+  });
   const filteredItems = computed(() => {
     const sourceItems = Array.isArray(list.items.value) ? list.items.value : [];
     if (searchConfig.enabled !== true || searchConfig.mode !== "local") {
@@ -497,7 +469,6 @@ function useList({
     resolveParams: listUiRuntime.resolveParams,
     resolveViewUrl: listUiRuntime.resolveViewUrl,
     resolveEditUrl: listUiRuntime.resolveEditUrl,
-    resolveFieldDisplay: resolveLookupFieldDisplayValue,
     searchEnabled: searchConfig.enabled,
     searchMode: searchConfig.mode,
     searchQuery,

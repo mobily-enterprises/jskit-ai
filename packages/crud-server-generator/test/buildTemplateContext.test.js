@@ -497,6 +497,8 @@ test("crud repository template defines explicit one-line CRUD methods over repos
   assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
   assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
+  assert.doesNotMatch(templateSource, /listByForeignIds/);
+  assert.doesNotMatch(templateSource, /crudRepository requires knex/);
 });
 
 test("crud actions and routes templates share LIST_CONFIG for cursor validation", async () => {

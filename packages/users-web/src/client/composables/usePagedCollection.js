@@ -1,8 +1,8 @@
 import { computed, unref } from "vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
-import { asPlainObject } from "./scopeHelpers.js";
-import { resolveEnabledRef } from "./refValueHelpers.js";
-import { toQueryErrorMessage } from "./errorMessageHelpers.js";
+import { asPlainObject } from "./support/scopeHelpers.js";
+import { resolveEnabledRef } from "./support/refValueHelpers.js";
+import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
 
 function defaultSelectItems(page) {
   return Array.isArray(page?.items) ? page.items : [];

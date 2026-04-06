@@ -1,10 +1,10 @@
 import { computed } from "vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
-import { usersWebHttpClient } from "../lib/httpClient.js";
-import { asPlainObject } from "./scopeHelpers.js";
-import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
-import { toQueryErrorMessage } from "./errorMessageHelpers.js";
-import { hasResolvedQueryData } from "./resourceLoadStateHelpers.js";
+import { usersWebHttpClient } from "../../lib/httpClient.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
+import { toQueryErrorMessage } from "../support/errorMessageHelpers.js";
+import { hasResolvedQueryData } from "../support/resourceLoadStateHelpers.js";
 
 function useEndpointResource({
   queryKey,

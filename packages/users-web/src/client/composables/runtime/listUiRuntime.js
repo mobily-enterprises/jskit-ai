@@ -1,12 +1,12 @@
 import { computed } from "vue";
-import { asPlainObject } from "./scopeHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 import {
   normalizeRouteParamName,
   toRouteParamValue,
   resolveRouteParamsSource,
   resolveScopedRoutePathname,
   resolveRouteTemplateLocation
-} from "./routeTemplateHelpers.js";
+} from "../support/routeTemplateHelpers.js";
 
 function resolveRecordId(record, recordIdSelector) {
   const item = asPlainObject(record);

@@ -1,6 +1,6 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeCrudLookupContainerKey } from "@jskit-ai/kernel/shared/support/crudLookup";
-import { asPlainObject } from "./scopeHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 
 const LOOKUP_LABEL_COMPOSITION_CANDIDATES = Object.freeze([
   Object.freeze(["name", "surname"]),

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { createListUiRuntime } from "../src/client/composables/listUiRuntime.js";
+import { createListUiRuntime } from "../src/client/composables/runtime/listUiRuntime.js";
 
 test("createListUiRuntime resolves row keys and relative route templates from string record ids", () => {
   const items = ref([{ uuid: "abc 123" }]);

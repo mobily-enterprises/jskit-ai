@@ -5,12 +5,12 @@ import {
   normalizeCrudLookupContainerKey,
   resolveCrudLookupApiPathFromNamespace
 } from "@jskit-ai/kernel/shared/support/crudLookup";
-import { useList } from "./useList.js";
+import { useList } from "../records/useList.js";
 import {
   resolveLookupItemLabel,
   resolveLookupFieldDisplayValue
 } from "./crudLookupFieldLabelSupport.js";
-import { asPlainObject } from "./scopeHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 
 function normalizeQueryKeyPrefix(value) {
   const source = Array.isArray(value) ? value : [];

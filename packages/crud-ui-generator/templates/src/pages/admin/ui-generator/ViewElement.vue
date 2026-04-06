@@ -55,7 +55,7 @@ __JSKIT_UI_VIEW_COLUMNS__
 </template>
 
 <script setup>
-import { useView } from "@jskit-ai/users-web/client/composables/useView";
+import { useCrudView } from "@jskit-ai/users-web/client/composables/useCrudView";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
@@ -66,7 +66,7 @@ const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? "./edit" : "";
 const UI_VIEW_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
-const view = useView({
+const view = useCrudView({
   adapter: UI_OPERATION_ADAPTER || undefined,
   apiUrlTemplate: UI_VIEW_API_URL,
   recordIdParam: UI_RECORD_ID_PARAM,

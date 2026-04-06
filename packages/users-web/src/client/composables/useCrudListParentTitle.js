@@ -4,8 +4,8 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveRouteParamsSource,
   toRouteParamValue
-} from "./routeTemplateHelpers.js";
-import { useView } from "./useView.js";
+} from "./support/routeTemplateHelpers.js";
+import { useView } from "./records/useView.js";
 import {
   resolveCrudListParentDescriptor,
   resolveCrudListParentRecordTitle,
