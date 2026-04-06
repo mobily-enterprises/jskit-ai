@@ -396,8 +396,8 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(viewPageSource, /defaultValue:\s*"Customer"/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /useCrudSchemaForm/);
-    assert.match(newPageSource, /const formRuntime = useCrudSchemaForm\(/);
+    assert.match(newPageSource, /useCrudAddEdit/);
+    assert.match(newPageSource, /const formRuntime = useCrudAddEdit\(/);
     assert.match(newPageSource, /writeMethod: "POST"/);
     assert.match(newPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
     assert.match(newPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
@@ -413,8 +413,8 @@ test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all
     assert.match(newPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /useCrudSchemaForm/);
-    assert.match(editPageSource, /const formRuntime = useCrudSchemaForm\(/);
+    assert.match(editPageSource, /useCrudAddEdit/);
+    assert.match(editPageSource, /const formRuntime = useCrudAddEdit\(/);
     assert.match(editPageSource, /writeMethod: "PATCH"/);
     assert.match(editPageSource, /apiUrlTemplate: UI_EDIT_API_URL,/);
     assert.match(editPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);

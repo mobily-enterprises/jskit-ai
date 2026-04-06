@@ -9,7 +9,7 @@
           </div>
           <v-spacer />
           <div class="d-flex ga-2 flex-wrap">
-            <v-btn v-if="cancelTo" variant="tonal" :to="cancelTo">Cancel</v-btn>
+            <v-btn v-if="cancelTo" variant="tonal" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
             <v-btn
               color="primary"
               :loading="formRuntime.addEdit.isSaving"
@@ -48,7 +48,7 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   mode: {
     type: String,
     default: "new"
@@ -90,4 +90,16 @@ defineProps({
     required: true
   }
 });
+
+function resolveCancelTo(target) {
+  if (!target) {
+    return "";
+  }
+
+  if (typeof target === "string") {
+    return props.formRuntime.addEdit.resolveParams(target);
+  }
+
+  return target;
+}
 </script>

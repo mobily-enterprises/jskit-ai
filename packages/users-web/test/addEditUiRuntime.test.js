@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { createAddEditUiRuntime } from "../src/client/composables/addEditUiRuntime.js";
+import { createAddEditUiRuntime } from "../src/client/composables/runtime/addEditUiRuntime.js";
 
 test("createAddEditUiRuntime resolves api/list/cancel paths from route params", () => {
   const runtime = createAddEditUiRuntime({

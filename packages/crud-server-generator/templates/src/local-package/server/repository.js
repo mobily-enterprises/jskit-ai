@@ -3,7 +3,6 @@ import {
   crudRepositoryList,
   crudRepositoryFindById,
   crudRepositoryListByIds,
-  crudRepositoryListByForeignIds,
   crudRepositoryCreate,
   crudRepositoryUpdateById,
   crudRepositoryDeleteById
@@ -17,10 +16,6 @@ const repositoryRuntime = createCrudRepositoryRuntime(resource, {
 });
 
 function createRepository(knex, options = {}) {
-  if (typeof knex !== "function") {
-    throw new TypeError("crudRepository requires knex.");
-  }
-
   async function list(query = {}, callOptions = {}) {
     return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions);
   }
@@ -31,17 +26,6 @@ function createRepository(knex, options = {}) {
 
   async function listByIds(ids = [], callOptions = {}) {
     return crudRepositoryListByIds(repositoryRuntime, knex, ids, options, callOptions);
-  }
-
-  async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
-    return crudRepositoryListByForeignIds(
-      repositoryRuntime,
-      knex,
-      ids,
-      foreignKey,
-      options,
-      callOptions
-    );
   }
 
   async function create(payload = {}, callOptions = {}) {
@@ -60,7 +44,6 @@ function createRepository(knex, options = {}) {
     list,
     findById,
     listByIds,
-    listByForeignIds,
     create,
     updateById,
     deleteById

@@ -1,9 +1,9 @@
 import { computed } from "vue";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
-import { usersWebHttpClient } from "../lib/httpClient.js";
-import { asPlainObject } from "./scopeHelpers.js";
-import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
-import { usePagedCollection } from "./usePagedCollection.js";
+import { usersWebHttpClient } from "../../lib/httpClient.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
+import { usePagedCollection } from "../usePagedCollection.js";
 
 function appendPageParam(path, pageParam) {
   const normalizedPath = String(path || "").trim();

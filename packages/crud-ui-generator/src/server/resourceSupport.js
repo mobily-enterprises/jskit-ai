@@ -845,6 +845,7 @@ function buildFormColumns(fields = []) {
                 label="${label}"
                 variant="outlined"
                 density="comfortable"
+                autocomplete="off"
                 :items='resolveLookupItems(${JSON.stringify(key)}, { selectedValue: ${formAccessor}, selectedRecord: formRuntime.addEdit.resource.data })'
                 ${lookupSearchBindings}
                 item-title="label"

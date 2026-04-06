@@ -1,7 +1,7 @@
 import "@jskit-ai/uploads-image-web/client/styles";
 import { createManagedImageAssetRuntime } from "@jskit-ai/uploads-image-web/client/composables/createManagedImageAssetRuntime";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
-import { usersWebHttpClient } from "../lib/httpClient.js";
+import { usersWebHttpClient } from "../../lib/httpClient.js";
 
 function createAccountSettingsAvatarUploadRuntime({
   queryClient,

@@ -1,14 +1,14 @@
 import { proxyRefs } from "vue";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { useCommandCore } from "./useCommandCore.js";
-import { useEndpointResource } from "./useEndpointResource.js";
+import { useCommandCore } from "./runtime/useCommandCore.js";
+import { useEndpointResource } from "./runtime/useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
-import { useUiFeedback } from "./useUiFeedback.js";
-import { useFieldErrorBag } from "./useFieldErrorBag.js";
+import { useUiFeedback } from "./runtime/useUiFeedback.js";
+import { useFieldErrorBag } from "./runtime/useFieldErrorBag.js";
 import {
   setupRouteChangeCleanup,
   setupOperationErrorReporting
-} from "./operationUiHelpers.js";
+} from "./runtime/operationUiHelpers.js";
 
 function useCommand({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,

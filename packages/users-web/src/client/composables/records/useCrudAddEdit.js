@@ -1,17 +1,20 @@
 import { computed, proxyRefs, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { asPlainObject } from "./scopeHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 import { useAddEdit } from "./useAddEdit.js";
+import {
+  resolveCrudBoundValues,
+} from "../crud/crudBindingSupport.js";
 import {
   normalizeCrudFormFields,
   createCrudFormModel,
   buildCrudFormPayload,
   applyCrudPayloadToForm,
-  applyCrudRouteBoundFieldValues,
+  resolveCrudRouteBoundFieldValues,
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
-} from "./crudSchemaFormHelpers.js";
-import { hasResolvedQueryData } from "./resourceLoadStateHelpers.js";
+} from "../crud/crudSchemaFormHelpers.js";
+import { hasResolvedQueryData } from "../support/resourceLoadStateHelpers.js";
 
 function normalizeFieldErrorKeys(keys = []) {
   return Array.isArray(keys)
@@ -36,12 +39,13 @@ function normalizeSaveSuccessOptions(options = {}) {
   });
 }
 
-function useCrudSchemaForm({
+function useCrudAddEdit({
   resource = null,
   operationName = "",
   formFields = [],
   addEditOptions = {},
   saveSuccess = {},
+  fieldBinding = null,
   createModel = null,
   buildPayload = null,
   mapPayloadToModel = null,
@@ -61,18 +65,31 @@ function useCrudSchemaForm({
     ? asPlainObject(createModel(normalizedFields))
     : createCrudFormModel(normalizedFields);
   const form = hasProvidedModel ? providedModel : reactive(defaultModel);
+  const boundFieldValues = computed(() => {
+    return resolveCrudBoundValues({
+      binding: fieldBinding,
+      routeValues: resolveCrudRouteBoundFieldValues(normalizedFields, route?.params || {}),
+      context: Object.freeze({
+        route,
+        fields: normalizedFields
+      })
+    });
+  });
 
-  function applyRouteBoundValues(target = {}) {
-    return applyCrudRouteBoundFieldValues(normalizedFields, target, route?.params || {});
+  function applyBoundFieldValues(target = {}) {
+    Object.assign(target, boundFieldValues.value);
+    return target;
   }
 
-  applyRouteBoundValues(form);
   watch(
-    () => route?.params,
+    boundFieldValues,
     () => {
-      applyRouteBoundValues(form);
+      applyBoundFieldValues(form);
     },
-    { deep: true }
+    {
+      immediate: true,
+      deep: true
+    }
   );
   const parseInputOverride = typeof parseInput === "function"
     ? parseInput
@@ -109,7 +126,7 @@ function useCrudSchemaForm({
           fields: normalizedFields
         })
       : buildCrudFormPayload(normalizedFields, model);
-    applyRouteBoundValues(payload);
+    applyBoundFieldValues(payload);
 
     return payload;
   }
@@ -120,12 +137,12 @@ function useCrudSchemaForm({
           ...context,
           fields: normalizedFields
         });
-        applyRouteBoundValues(model);
+        applyBoundFieldValues(model);
       }
     : (shouldApplyDefaultMapPayload
         ? (model = {}, payload = {}) => {
             applyCrudPayloadToForm(normalizedFields, model, payload);
-            applyRouteBoundValues(model);
+            applyBoundFieldValues(model);
           }
         : undefined);
 
@@ -200,4 +217,4 @@ function useCrudSchemaForm({
   });
 }
 
-export { useCrudSchemaForm };
+export { useCrudAddEdit };

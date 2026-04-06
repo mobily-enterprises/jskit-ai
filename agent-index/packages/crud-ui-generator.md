@@ -109,6 +109,8 @@ Local functions
 ### `templates/src/pages/admin/ui-generator/AddEditForm.vue`
 Exports
 - None
+Local functions
+- `resolveCancelTo(target)`
 
 ### `templates/src/pages/admin/ui-generator/AddEditFormFields.js`
 Exports

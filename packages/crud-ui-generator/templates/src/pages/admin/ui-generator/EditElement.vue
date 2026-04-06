@@ -48,7 +48,7 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useCrudSchemaForm } from "@jskit-ai/users-web/client/composables/useCrudSchemaForm";
+import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
 import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
 import { resource as uiResource } from "/${option:resource-file|trim}";
 
@@ -94,7 +94,7 @@ const {
   setLookupSearch
 } = lookupFieldRuntime;
 
-const formRuntime = useCrudSchemaForm({
+const formRuntime = useCrudAddEdit({
   resource: uiResource,
   operationName: "patch",
   formFields: UI_EDIT_FORM_FIELDS,

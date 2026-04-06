@@ -19,9 +19,9 @@ import {
 import {
   useWorkspaceSurfaceId
 } from "./useWorkspaceSurfaceId.js";
-import { useAddEdit } from "./useAddEdit.js";
+import { useAddEdit } from "./records/useAddEdit.js";
 import { useCommand } from "./useCommand.js";
-import { useView } from "./useView.js";
+import { useView } from "./records/useView.js";
 import { usePaths } from "./usePaths.js";
 import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
 import {
@@ -34,16 +34,16 @@ import {
   NUMBER_FORMAT_OPTIONS,
   THEME_OPTIONS,
   TIME_ZONE_OPTIONS
-} from "./accountSettingsRuntimeConstants.js";
+} from "./account-settings/accountSettingsRuntimeConstants.js";
 import {
   normalizeAvatarSize,
   normalizePendingInvite,
   normalizeReturnToPath,
   normalizeSettingsPayload,
   resolveAllowedReturnToOrigins
-} from "./accountSettingsRuntimeHelpers.js";
-import { createAccountSettingsAvatarUploadRuntime } from "./accountSettingsAvatarUploadRuntime.js";
-import { createAccountSettingsInvitesRuntime } from "./accountSettingsInvitesRuntime.js";
+} from "./account-settings/accountSettingsRuntimeHelpers.js";
+import { createAccountSettingsAvatarUploadRuntime } from "./account-settings/accountSettingsAvatarUploadRuntime.js";
+import { createAccountSettingsInvitesRuntime } from "./account-settings/accountSettingsInvitesRuntime.js";
 
 function useAccountSettingsRuntime() {
   const route = useRoute();

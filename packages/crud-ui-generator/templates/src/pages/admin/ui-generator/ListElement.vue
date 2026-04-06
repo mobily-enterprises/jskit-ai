@@ -84,7 +84,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 <script setup>
 import { computed } from "vue";
 import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";
-import { useList } from "@jskit-ai/users-web/client/composables/useList";
+import { useCrudList } from "@jskit-ai/users-web/client/composables/useCrudList";
 import { resource as uiResource } from "/${option:resource-file|trim}";
 
 const UI_OPERATION_ADAPTER = null;
@@ -96,7 +96,7 @@ const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
 
-const records = useList({
+const records = useCrudList({
   adapter: UI_OPERATION_ADAPTER || undefined,
   resource: uiResource,
   apiSuffix: UI_LIST_API_URL,

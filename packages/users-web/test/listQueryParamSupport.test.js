@@ -12,7 +12,7 @@ import {
   buildRouteQueryCompareToken,
   mergeManagedQueryParamKeyHistory,
   resolveRouteSyncManagedKeys
-} from "../src/client/composables/listQueryParamSupport.js";
+} from "../src/client/composables/support/listQueryParamSupport.js";
 
 test("normalizeListSyncToRouteConfig defaults", () => {
   assert.deepEqual(

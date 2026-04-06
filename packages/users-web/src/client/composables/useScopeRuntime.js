@@ -11,7 +11,7 @@ import {
   resolveAccessModeEnabled,
   normalizeOwnershipFilter,
   resolveApiSuffix
-} from "./scopeHelpers.js";
+} from "./support/scopeHelpers.js";
 
 function useScopeRuntime({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,

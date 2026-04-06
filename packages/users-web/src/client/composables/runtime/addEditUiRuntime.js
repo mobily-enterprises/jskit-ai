@@ -1,14 +1,14 @@
 import { computed, unref } from "vue";
-import { asPlainObject } from "./scopeHelpers.js";
+import { asPlainObject } from "../support/scopeHelpers.js";
 import {
   normalizeRouteParamName,
   resolveRouteParamsSource,
   resolveScopedRoutePathname,
   resolveRouteTemplateLocation,
   toRouteParamValue
-} from "./routeTemplateHelpers.js";
+} from "../support/routeTemplateHelpers.js";
 
-function resolveRecordId({ routeParams, recordIdParam, routeRecordId }) {
+function toResolvedRecordId({ routeParams, recordIdParam, routeRecordId }) {
   const explicitRecordId = toRouteParamValue(
     typeof routeRecordId === "function" ? routeRecordId() : unref(routeRecordId)
   );
@@ -19,22 +19,32 @@ function resolveRecordId({ routeParams, recordIdParam, routeRecordId }) {
   return toRouteParamValue(routeParams[recordIdParam]);
 }
 
-function createViewUiRuntime({
+function resolveSavedRecordId(payload, saveRecordIdSelector) {
+  const sourcePayload = asPlainObject(payload);
+  if (typeof saveRecordIdSelector === "function") {
+    return toRouteParamValue(saveRecordIdSelector(sourcePayload));
+  }
+
+  return toRouteParamValue(sourcePayload.id);
+}
+
+function createAddEditUiRuntime({
   recordIdParam = "recordId",
   routeParams = null,
   routeParamNames = null,
   routePath = "",
   routeRecordId = null,
   apiUrlTemplate = "",
+  viewUrlTemplate = "",
   listUrlTemplate = "",
-  editUrlTemplate = ""
+  saveRecordIdSelector = null
 } = {}) {
   const normalizedRecordIdParam = normalizeRouteParamName(recordIdParam, {
-    context: "useView recordIdParam"
+    context: "useAddEdit recordIdParam"
   });
   const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
+  const normalizedViewUrlTemplate = String(viewUrlTemplate || "").trim();
   const normalizedListUrlTemplate = String(listUrlTemplate || "").trim();
-  const normalizedEditUrlTemplate = String(editUrlTemplate || "").trim();
 
   function resolveTemplatePath(urlTemplate = "", extraParams = {}) {
     const normalizedTemplate = String(urlTemplate || "").trim();
@@ -48,7 +58,7 @@ function createViewUiRuntime({
       ...asPlainObject(extraParams)
     };
     const resolvedRecordId = toRouteParamValue(sourceParams[normalizedRecordIdParam]) ||
-      resolveRecordId({
+      toResolvedRecordId({
         routeParams: currentRouteParams,
         recordIdParam: normalizedRecordIdParam,
         routeRecordId
@@ -60,7 +70,7 @@ function createViewUiRuntime({
       orderedParamNames: routeParamNames,
       anchorParamName: normalizedRecordIdParam,
       anchorParamValue: resolvedRecordId,
-      anchorMode: "at"
+      anchorMode: "after"
     });
 
     return resolveRouteTemplateLocation(normalizedTemplate, {
@@ -70,27 +80,50 @@ function createViewUiRuntime({
   }
 
   const recordId = computed(() =>
-    resolveRecordId({
+    toResolvedRecordId({
       routeParams: resolveRouteParamsSource(routeParams),
       recordIdParam: normalizedRecordIdParam,
       routeRecordId
     })
   );
+
   const apiSuffix = computed(() => resolveTemplatePath(normalizedApiUrlTemplate));
   const listUrl = computed(() => resolveTemplatePath(normalizedListUrlTemplate));
-  const editUrl = computed(() => resolveTemplatePath(normalizedEditUrlTemplate));
+  const cancelUrl = computed(() => resolveTemplatePath(normalizedViewUrlTemplate) || listUrl.value);
 
   function resolveParams(urlTemplate = "", extraParams = {}) {
     return resolveTemplatePath(urlTemplate, extraParams);
+  }
+
+  function resolveViewUrl(recordIdLike = "") {
+    const targetRecordId = toRouteParamValue(recordIdLike);
+    if (!targetRecordId) {
+      return "";
+    }
+
+    return resolveTemplatePath(normalizedViewUrlTemplate, {
+      [normalizedRecordIdParam]: targetRecordId
+    });
+  }
+
+  function resolveSavedViewUrl(payload = {}) {
+    const targetRecordId = resolveSavedRecordId(payload, saveRecordIdSelector);
+    if (!targetRecordId) {
+      return "";
+    }
+
+    return resolveViewUrl(targetRecordId);
   }
 
   return Object.freeze({
     recordId,
     apiSuffix,
     listUrl,
-    editUrl,
-    resolveParams
+    cancelUrl,
+    resolveParams,
+    resolveViewUrl,
+    resolveSavedViewUrl
   });
 }
 
-export { createViewUiRuntime };
+export { createAddEditUiRuntime };

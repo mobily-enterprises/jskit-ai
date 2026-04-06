@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { hasResolvedQueryData } from "../src/client/composables/resourceLoadStateHelpers.js";
+import { hasResolvedQueryData } from "../src/client/composables/support/resourceLoadStateHelpers.js";
 
 test("hasResolvedQueryData returns true when the query succeeded", () => {
   const query = {

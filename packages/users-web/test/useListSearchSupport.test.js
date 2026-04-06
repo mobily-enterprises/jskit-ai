@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   normalizeListSearchConfig,
   matchesLocalSearch
-} from "../src/client/composables/listSearchSupport.js";
+} from "../src/client/composables/support/listSearchSupport.js";
 
 test("normalizeListSearchConfig defaults to disabled query search", () => {
   const config = normalizeListSearchConfig();

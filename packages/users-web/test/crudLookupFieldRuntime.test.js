@@ -4,7 +4,7 @@ import {
   resolveLookupItemLabel,
   resolveLookupFieldDisplayValue,
   resolveRecordTitle
-} from "../src/client/composables/crudLookupFieldLabelSupport.js";
+} from "../src/client/composables/crud/crudLookupFieldLabelSupport.js";
 
 test("resolveLookupItemLabel composes name + surname", () => {
   assert.equal(

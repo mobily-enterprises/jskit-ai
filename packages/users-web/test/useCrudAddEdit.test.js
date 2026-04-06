@@ -11,7 +11,7 @@ import {
   applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors,
   parseCrudResourceOperationInput
-} from "../src/client/composables/crudSchemaFormHelpers.js";
+} from "../src/client/composables/crud/crudSchemaFormHelpers.js";
 
 test("normalizeCrudFormFields trims keys, removes invalid entries, and deduplicates", () => {
   const fields = normalizeCrudFormFields([

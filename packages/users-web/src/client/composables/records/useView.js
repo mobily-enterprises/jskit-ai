@@ -1,13 +1,12 @@
 import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
 import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { useViewCore } from "./useViewCore.js";
-import { useEndpointResource } from "./useEndpointResource.js";
-import { resolveOperationAdapter } from "./operationAdapters.js";
-import { setupOperationErrorReporting } from "./operationUiHelpers.js";
-import { createViewUiRuntime } from "./viewUiRuntime.js";
-import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "./crudLookupFieldLabelSupport.js";
-import { resolveRouteParamNamesInOrder } from "./routeTemplateHelpers.js";
+import { useViewCore } from "../runtime/useViewCore.js";
+import { useEndpointResource } from "../runtime/useEndpointResource.js";
+import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
+import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
+import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
+import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useView({
   ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
@@ -115,8 +114,6 @@ function useView({
     listUrl: viewUiRuntime.listUrl,
     editUrl: viewUiRuntime.editUrl,
     resolveParams: viewUiRuntime.resolveParams,
-    resolveFieldDisplay: resolveLookupFieldDisplayValue,
-    resolveRecordTitle,
     canView,
     isLoading,
     isFetching,

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toQueryErrorMessage, toUiErrorMessage } from "../src/client/composables/errorMessageHelpers.js";
+import { toQueryErrorMessage, toUiErrorMessage } from "../src/client/composables/support/errorMessageHelpers.js";
 
 test("toQueryErrorMessage returns empty when query has no error", () => {
   assert.equal(toQueryErrorMessage(null, "Unable to load list."), "");

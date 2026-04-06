@@ -8,12 +8,12 @@ import {
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { useCommand } from "../composables/useCommand.js";
-import { useView } from "../composables/useView.js";
+import { useView } from "../composables/records/useView.js";
 import { usePaths } from "../composables/usePaths.js";
 import { useRealtimeQueryInvalidation } from "../composables/useRealtimeQueryInvalidation.js";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { normalizePendingInvite } from "../composables/accountSettingsRuntimeHelpers.js";
+import { normalizePendingInvite } from "../composables/account-settings/accountSettingsRuntimeHelpers.js";
 
 const route = useRoute();
 const router = useRouter();

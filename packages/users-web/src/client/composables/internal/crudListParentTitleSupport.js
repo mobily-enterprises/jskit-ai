@@ -4,8 +4,8 @@ import {
   resolveCrudLookupFieldKeyFromRouteParam
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "../crudLookupFieldLabelSupport.js";
-import { resolveRouteParamNamesInOrder, toRouteParamValue } from "../routeTemplateHelpers.js";
+import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "../crud/crudLookupFieldLabelSupport.js";
+import { resolveRouteParamNamesInOrder, toRouteParamValue } from "../support/routeTemplateHelpers.js";
 
 function singularizeLabel(value = "") {
   const normalizedValue = normalizeText(value);

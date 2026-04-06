@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { toUiErrorMessage } from "./errorMessageHelpers.js";
+import { toUiErrorMessage } from "../support/errorMessageHelpers.js";
 
 function useUiFeedback({
   initialType = "success",

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
 import { usersWebHttpClient } from "../lib/httpClient.js";
 import { buildBootstrapApiPath } from "../lib/bootstrap.js";
-import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
+import { resolveEnabledRef, resolveTextRef } from "./support/refValueHelpers.js";
 
 const DEFAULT_BOOTSTRAP_STALE_TIME_MS = 60_000;
 

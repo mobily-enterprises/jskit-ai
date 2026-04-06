@@ -6,7 +6,7 @@ import {
   normalizeOwnershipFilter,
   resolveApiSuffix,
   resolveResourceMessages
-} from "../src/client/composables/scopeHelpers.js";
+} from "../src/client/composables/support/scopeHelpers.js";
 
 test("resolveResourceMessages merges defaults with resource messages", () => {
   const messages = resolveResourceMessages(

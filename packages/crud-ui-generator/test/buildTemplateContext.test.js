@@ -173,6 +173,82 @@ const resource = {
 export { resource };
 `;
 
+const LOOKUP_RESOURCE_SOURCE = `const recordSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    serviceId: { type: ["integer", "null"] },
+    name: { type: "string" }
+  },
+  additionalProperties: false
+};
+
+const bodySchema = {
+  type: "object",
+  properties: {
+    serviceId: { type: ["integer", "null"] },
+    name: { type: "string", maxLength: 255 }
+  },
+  additionalProperties: false
+};
+
+const resource = {
+  operations: {
+    list: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: recordSchema
+            },
+            nextCursor: { type: ["string", "null"] }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: recordSchema
+      }
+    },
+    create: {
+      bodyValidator: {
+        schema: bodySchema
+      },
+      outputValidator: {
+        schema: recordSchema
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: bodySchema
+      },
+      outputValidator: {
+        schema: recordSchema
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "serviceId",
+      relation: {
+        kind: "lookup",
+        namespace: "services",
+        valueKey: "id"
+      },
+      ui: {
+        formControl: "autocomplete"
+      }
+    }
+  ]
+};
+
+export { resource };
+`;
+
 test("buildUiTemplateContext derives list/view/new/edit placeholders from resource validators", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/customers/src/shared/customerResource.js";
@@ -217,6 +293,26 @@ test("buildUiTemplateContext derives list/view/new/edit placeholders from resour
     assert.equal(createFields[2].component, "switch");
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /v-model="formRuntime\.form\.firstName"/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /v-model="formRuntime\.form\.email"/);
+  });
+});
+
+test("buildUiTemplateContext disables browser autofill on lookup autocomplete fields", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/availabilities/src/shared/availabilityResource.js";
+    await writeResource(appRoot, resourceFile, LOOKUP_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: {
+        namespace: "availabilities",
+        "api-path": "/availabilities",
+        operations: "new,edit",
+        "resource-file": resourceFile
+      }
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-autocomplete[\s\S]*autocomplete="off"/);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /<v-autocomplete[\s\S]*autocomplete="off"/);
   });
 });
 

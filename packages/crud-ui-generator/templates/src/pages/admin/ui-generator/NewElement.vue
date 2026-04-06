@@ -36,7 +36,7 @@ __JSKIT_UI_CREATE_FORM_COLUMNS__
 </template>
 
 <script setup>
-import { useCrudSchemaForm } from "@jskit-ai/users-web/client/composables/useCrudSchemaForm";
+import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
 import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
 import { resource as uiResource } from "/${option:resource-file|trim}";
 
@@ -69,7 +69,7 @@ const {
   setLookupSearch
 } = lookupFieldRuntime;
 
-const formRuntime = useCrudSchemaForm({
+const formRuntime = useCrudAddEdit({
   resource: uiResource,
   operationName: "create",
   formFields: UI_CREATE_FORM_FIELDS,
