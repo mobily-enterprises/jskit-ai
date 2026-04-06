@@ -95,7 +95,7 @@ export default Object.freeze({
         {
           method: "GET",
           path: "/api/w/:workspaceSlug/roles",
-          summary: "Get workspace role catalog by workspace slug."
+          summary: "Get role catalog by workspace slug."
         },
         {
           method: "GET",
@@ -290,12 +290,12 @@ export default Object.freeze({
         id: "users-core-app-owned-user-settings-fields"
       },
       {
-        from: "templates/config/workspaceRoles.js",
-        to: "config/workspaceRoles.js",
+        from: "templates/config/roles.js",
+        to: "config/roles.js",
         preserveOnRemove: true,
-        reason: "Install app-owned workspace role catalog in a dedicated config file.",
+        reason: "Install app-owned role catalog in a dedicated config file.",
         category: "users-core",
-        id: "users-core-app-owned-workspace-roles-config"
+        id: "users-core-app-owned-role-catalog-config"
       }
     ],
     text: [
@@ -362,11 +362,11 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "top",
-        skipIfContains: "import { workspaceRoles } from \"./workspaceRoles.js\";",
-        value: "import { workspaceRoles } from \"./workspaceRoles.js\";\n",
-        reason: "Load app-owned workspace role catalog from dedicated config file.",
+        skipIfContains: "import { roleCatalog } from \"./roles.js\";",
+        value: "import { roleCatalog } from \"./roles.js\";\n",
+        reason: "Load app-owned role catalog from dedicated config file.",
         category: "users-core",
-        id: "users-core-workspace-roles-public-import"
+        id: "users-core-role-catalog-public-import"
       },
       {
         op: "append-text",
@@ -428,11 +428,11 @@ export default Object.freeze({
         op: "append-text",
         file: "config/public.js",
         position: "bottom",
-        skipIfContains: "config.workspaceRoles = workspaceRoles;",
-        value: "\nconfig.workspaceRoles = workspaceRoles;\n",
-        reason: "Bind app-owned workspace role catalog onto public config.",
+        skipIfContains: "config.roleCatalog = roleCatalog;",
+        value: "\nconfig.roleCatalog = roleCatalog;\n",
+        reason: "Bind app-owned role catalog onto public config.",
         category: "users-core",
-        id: "users-core-workspace-roles-public-config"
+        id: "users-core-role-catalog-public-config"
       },
       {
         op: "append-text",

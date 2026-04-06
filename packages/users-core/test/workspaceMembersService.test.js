@@ -16,8 +16,10 @@ function authorizedOptions(permissions = []) {
 
 function createRoleCatalog() {
   return createWorkspaceRoleCatalog({
-    workspaceRoles: {
-      defaultInviteRole: "member",
+    roleCatalog: {
+      workspace: {
+        defaultInviteRole: "member"
+      },
       roles: {
         owner: {
           assignable: false,

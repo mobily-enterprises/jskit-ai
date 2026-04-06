@@ -20,10 +20,35 @@ function normalizeRoleId(value) {
     .toLowerCase();
 }
 
-function createRoleDescriptor(roleSid, configuredDefinition) {
+function resolveInheritedRolePermissions(roleSid, configuredRoles = {}, seenRoleIds = new Set()) {
+  if (seenRoleIds.has(roleSid)) {
+    throw new TypeError(`roleCatalog role "${roleSid}" has circular inheritance.`);
+  }
+
+  const source = asRecord(configuredRoles[roleSid]);
+  const inheritedRoleId = normalizeRoleId(source.inherits);
+  const directPermissions = normalizePermissionList(source.permissions);
+  if (!inheritedRoleId) {
+    return directPermissions;
+  }
+
+  if (!Object.hasOwn(configuredRoles, inheritedRoleId)) {
+    throw new TypeError(`roleCatalog role "${roleSid}" inherits unknown role "${inheritedRoleId}".`);
+  }
+
+  const nextSeenRoleIds = new Set(seenRoleIds);
+  nextSeenRoleIds.add(roleSid);
+
+  return normalizePermissionList([
+    ...resolveInheritedRolePermissions(inheritedRoleId, configuredRoles, nextSeenRoleIds),
+    ...directPermissions
+  ]);
+}
+
+function createRoleDescriptor(roleSid, configuredDefinition, configuredRoles = {}) {
   const source = asRecord(configuredDefinition);
   const assignable = roleSid === OWNER_ROLE_ID ? false : source.assignable === true;
-  const permissions = normalizePermissionList(source.permissions);
+  const permissions = resolveInheritedRolePermissions(roleSid, configuredRoles);
 
   return Object.freeze({
     id: roleSid,
@@ -38,12 +63,12 @@ function listConfiguredRoleIds(appConfig = {}) {
 }
 
 function resolveConfiguredDefaultInviteRole(appConfig = {}) {
-  return normalizeRoleId(appConfig?.workspaceRoles?.defaultInviteRole);
+  return normalizeRoleId(appConfig?.roleCatalog?.workspace?.defaultInviteRole);
 }
 
 function normalizeConfiguredRoles(appConfig = {}) {
-  const workspaceRoles = asRecord(appConfig?.workspaceRoles);
-  const configuredRoles = asRecord(workspaceRoles.roles);
+  const roleCatalog = asRecord(appConfig?.roleCatalog);
+  const configuredRoles = asRecord(roleCatalog.roles);
   const normalizedRoles = {};
 
   for (const [roleSid, roleDefinition] of Object.entries(configuredRoles)) {
@@ -60,7 +85,7 @@ function normalizeConfiguredRoles(appConfig = {}) {
 function createWorkspaceRoleCatalog(appConfig = {}) {
   const configuredRoles = normalizeConfiguredRoles(appConfig);
   const roleIds = listConfiguredRoleIds(appConfig);
-  const roles = roleIds.map((roleSid) => createRoleDescriptor(roleSid, configuredRoles[roleSid]));
+  const roles = roleIds.map((roleSid) => createRoleDescriptor(roleSid, configuredRoles[roleSid], configuredRoles));
   const assignableRoleIds = roles.filter((role) => role.assignable).map((role) => role.id);
   const configuredDefaultInviteRole = resolveConfiguredDefaultInviteRole(appConfig);
   const defaultInviteRole = assignableRoleIds.includes(configuredDefaultInviteRole)

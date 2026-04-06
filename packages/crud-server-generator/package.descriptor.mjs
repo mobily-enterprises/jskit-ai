@@ -247,6 +247,18 @@ export default Object.freeze({
         }
       }
     ],
-    text: []
+    text: [
+      {
+        op: "append-text",
+        file: "config/roles.js",
+        position: "bottom",
+        skipIfContains: "\"crud.${option:namespace|snake}.list\"",
+        value:
+          "\nroleCatalog.roles.member.permissions.push(\n  \"crud.${option:namespace|snake}.list\",\n  \"crud.${option:namespace|snake}.view\",\n  \"crud.${option:namespace|snake}.create\",\n  \"crud.${option:namespace|snake}.update\",\n  \"crud.${option:namespace|snake}.delete\"\n);\n",
+        reason: "Grant generated CRUD action permissions to the default member role in the app-owned role catalog.",
+        category: "crud",
+        id: "crud-role-catalog-permissions-${option:namespace|snake}"
+      }
+    ]
   }
 });

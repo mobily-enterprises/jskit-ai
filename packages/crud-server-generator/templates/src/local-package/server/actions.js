@@ -14,6 +14,13 @@ import { LIST_CONFIG } from "./listConfig.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
+const actionPermissions = Object.freeze({
+  list: "crud.${option:namespace|snake}.list",
+  view: "crud.${option:namespace|snake}.view",
+  create: "crud.${option:namespace|snake}.create",
+  update: "crud.${option:namespace|snake}.update",
+  delete: "crud.${option:namespace|snake}.delete"
+});
 
 function requireActionSurface(surface = "") {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
@@ -35,7 +42,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: {
-        require: "authenticated"
+        require: "all",
+        permissions: [actionPermissions.list]
       },
       inputValidator: [
         workspaceSlugParamsValidator,
@@ -64,7 +72,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: {
-        require: "authenticated"
+        require: "all",
+        permissions: [actionPermissions.view]
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, lookupIncludeQueryValidator],
       outputValidator: resource.operations.view.outputValidator,
@@ -88,7 +97,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: {
-        require: "authenticated"
+        require: "all",
+        permissions: [actionPermissions.create]
       },
       inputValidator: [
         workspaceSlugParamsValidator,
@@ -116,7 +126,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: {
-        require: "authenticated"
+        require: "all",
+        permissions: [actionPermissions.update]
       },
       inputValidator: [
         workspaceSlugParamsValidator,
@@ -145,7 +156,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: {
-        require: "authenticated"
+        require: "all",
+        permissions: [actionPermissions.delete]
       },
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
       outputValidator: resource.operations.delete.outputValidator,
