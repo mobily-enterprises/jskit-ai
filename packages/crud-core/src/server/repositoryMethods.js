@@ -1134,10 +1134,13 @@ async function crudRepositoryListByForeignIds(
 
 async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptions = {}, callOptions = {}, hooks = null) {
   const { client, tableName } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
-  const methodHooks = normalizeCrudRepositoryHooks(hooks, ["modifyPayload", "modifyQuery", "afterWrite"], {
+  const methodHooks = normalizeCrudRepositoryHooks(hooks, ["modifyPayload", "finalizeInsertPayload", "modifyQuery", "afterWrite"], {
     context: "crudRepositoryCreate"
   });
   const modifyCreatePayload = resolveOptionalCrudRepositoryHook(methodHooks, "modifyPayload", {
+    context: "crudRepositoryCreate"
+  });
+  const finalizeCreateInsertPayload = resolveOptionalCrudRepositoryHook(methodHooks, "finalizeInsertPayload", {
     context: "crudRepositoryCreate"
   });
   const modifyCreateQuery = resolveOptionalCrudRepositoryHook(methodHooks, "modifyQuery", {
@@ -1161,7 +1164,7 @@ async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptio
     }
   );
 
-  const insertPayload = buildWritePayload(sourcePayload, runtime.mapping.writeKeys, runtime.mapping.columnOverrides);
+  let insertPayload = buildWritePayload(sourcePayload, runtime.mapping.writeKeys, runtime.mapping.columnOverrides);
   const timestamp = toInsertDateTime();
   if (runtime.defaults.createdAtColumn && !Object.hasOwn(insertPayload, runtime.defaults.createdAtColumn)) {
     insertPayload[runtime.defaults.createdAtColumn] = timestamp;
@@ -1169,6 +1172,21 @@ async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptio
   if (runtime.defaults.updatedAtColumn && !Object.hasOwn(insertPayload, runtime.defaults.updatedAtColumn)) {
     insertPayload[runtime.defaults.updatedAtColumn] = timestamp;
   }
+  insertPayload = await applyCrudRepositoryPayloadHook(
+    insertPayload,
+    finalizeCreateInsertPayload,
+    {
+      payload: sourcePayload,
+      insertPayload: {
+        ...insertPayload
+      },
+      ...hookContextBase
+    },
+    {
+      context: "crudRepositoryCreate",
+      hookKey: "finalizeInsertPayload"
+    }
+  );
 
   let withOwners = applyVisibilityOwners(insertPayload, callOptions.visibilityContext);
   let createQuery = client(tableName);

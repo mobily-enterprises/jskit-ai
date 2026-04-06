@@ -1762,6 +1762,37 @@ test("createCrudRepositoryFromResource create hooks keep write-key filtering and
   assert.ok(state.insertPayloads[0].updated_at);
 });
 
+test("createCrudRepositoryFromResource create hooks support finalizeInsertPayload after write-key filtering", async () => {
+  const createRepository = createCrudRepositoryFromResource(createWritableHookResourceFixture());
+  const { knex, state } = createListKnexDouble([
+    {
+      contact_id: 11,
+      first_name: "Tony",
+      created_at: "2026-01-01 00:00:00",
+      updated_at: "2026-01-01 00:00:00"
+    }
+  ], {
+    insertResult: [11]
+  });
+  const repository = createRepository(knex);
+
+  await repository.create({
+    firstName: "Tony",
+    hiddenOwnerId: 44
+  }, {}, {
+    finalizeInsertPayload(insertPayload = {}, context = {}) {
+      return {
+        ...insertPayload,
+        hidden_owner_id: context.payload?.hiddenOwnerId ?? null
+      };
+    }
+  });
+
+  assert.equal(state.insertPayloads.length, 1);
+  assert.equal(state.insertPayloads[0].first_name, "Tony");
+  assert.equal(state.insertPayloads[0].hidden_owner_id, 44);
+});
+
 test("createCrudRepositoryFromResource create hooks reject read-phase hook keys", async () => {
   const createRepository = createCrudRepositoryFromResource(createWritableHookResourceFixture());
   const { knex } = createListKnexDouble([
