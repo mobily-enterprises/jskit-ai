@@ -83,6 +83,7 @@ async function enrichActionExecutionContext({
   request = null,
   actionId = "",
   version = null,
+  definition = null,
   input = {},
   deps = {},
   channel = "api",
@@ -108,6 +109,7 @@ async function enrichActionExecutionContext({
       request,
       actionId: normalizedActionId,
       version: version == null ? null : version,
+      definition,
       input: normalizedInput,
       deps: normalizedDeps,
       channel: normalizedChannel,
@@ -201,6 +203,10 @@ function attachRequestActionExecutor({
     if (!actionExecutor || typeof actionExecutor.execute !== "function") {
       throw new RouteRegistrationError(`"${normalizedActionExecutorToken}" must provide execute().`);
     }
+    const definition =
+      typeof actionExecutor.getDefinition === "function"
+        ? actionExecutor.getDefinition(source.actionId, source.version == null ? null : source.version)
+        : null;
 
     const baseContext = buildActionExecutionContext({
       request,
@@ -213,6 +219,7 @@ function attachRequestActionExecutor({
       request,
       actionId: source.actionId,
       version: source.version == null ? null : source.version,
+      definition,
       input: normalizedInput,
       deps: normalizedDeps,
       channel: normalizedChannel,

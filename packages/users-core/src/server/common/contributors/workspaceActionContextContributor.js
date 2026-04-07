@@ -2,6 +2,7 @@ import {
   normalizeObject,
   requireServiceMethod
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   checkRouteVisibility,
   USERS_ROUTE_VISIBILITY_PUBLIC,
@@ -9,45 +10,51 @@ import {
   USERS_ROUTE_VISIBILITY_WORKSPACE_USER
 } from "../../../shared/support/usersVisibility.js";
 import { resolveActionUser } from "../support/resolveActionUser.js";
-
-const WORKSPACE_CONTEXT_ACTION_IDS = Object.freeze([
-  "workspace.roles.list",
-  "workspace.settings.read",
-  "workspace.settings.update",
-  "workspace.members.list",
-  "workspace.member.role.update",
-  "workspace.member.remove",
-  "workspace.invites.list",
-  "workspace.invite.create",
-  "workspace.invite.revoke"
-]);
 const WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET = new Set([
   USERS_ROUTE_VISIBILITY_WORKSPACE,
   USERS_ROUTE_VISIBILITY_WORKSPACE_USER
 ]);
 
-function createWorkspaceActionContextContributor({ workspaceService } = {}) {
+function normalizeWorkspaceSurfaceIds(surfaceIds = []) {
+  const source = Array.isArray(surfaceIds) ? surfaceIds : [];
+  const normalized = new Set();
+
+  for (const entry of source) {
+    const surfaceId = normalizeSurfaceId(entry);
+    if (!surfaceId) {
+      continue;
+    }
+    normalized.add(surfaceId);
+  }
+
+  return normalized;
+}
+
+function createWorkspaceActionContextContributor({ workspaceService, workspaceSurfaceIds = [] } = {}) {
   const contributorId = "users.workspace.context";
+  const workspaceSurfaceIdSet = normalizeWorkspaceSurfaceIds(workspaceSurfaceIds);
 
   requireServiceMethod(workspaceService, "resolveWorkspaceContextForUserBySlug", contributorId);
 
   return Object.freeze({
     contributorId,
-    async contribute({ actionId, input, context, request } = {}) {
+    async contribute({ definition = null, input, context, request } = {}) {
       const payload = normalizeObject(input);
       if (!Object.hasOwn(payload, "workspaceSlug")) {
         return {};
       }
 
-      const actionName = String(actionId || "").trim();
-      const hasLegacyWorkspaceActionId = WORKSPACE_CONTEXT_ACTION_IDS.includes(actionName);
+      const actionSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
+      const hasWorkspaceActionSurface = actionSurfaces.some((surfaceId) => workspaceSurfaceIdSet.has(surfaceId));
+      const routeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);
+      const hasWorkspaceSurface = workspaceSurfaceIdSet.has(routeSurfaceId);
       const routeVisibilityInput =
         request && request.routeOptions && request.routeOptions.config
           ? request.routeOptions.config.visibility
           : USERS_ROUTE_VISIBILITY_PUBLIC;
       const routeVisibility = checkRouteVisibility(routeVisibilityInput);
       const hasWorkspaceRouteVisibility = WORKSPACE_VISIBILITY_ACTION_CONTEXT_SET.has(routeVisibility);
-      if (!hasLegacyWorkspaceActionId && !hasWorkspaceRouteVisibility) {
+      if (!hasWorkspaceActionSurface && !hasWorkspaceRouteVisibility && !hasWorkspaceSurface) {
         return {};
       }
 
