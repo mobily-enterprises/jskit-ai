@@ -237,7 +237,8 @@ const resource = {
       relation: {
         kind: "lookup",
         namespace: "services",
-        valueKey: "id"
+        valueKey: "id",
+        surfaceId: "console"
       },
       ui: {
         formControl: "autocomplete"
@@ -313,6 +314,11 @@ test("buildUiTemplateContext disables browser autofill on lookup autocomplete fi
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-autocomplete[\s\S]*autocomplete="off"/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /<v-autocomplete[\s\S]*autocomplete="off"/);
+
+    const createFields = JSON.parse(context.__JSKIT_UI_CREATE_FORM_FIELDS__);
+    const editFields = JSON.parse(context.__JSKIT_UI_EDIT_FORM_FIELDS__);
+    assert.equal(createFields[0].relation.surfaceId, "console");
+    assert.equal(editFields[0].relation.surfaceId, "console");
   });
 });
 

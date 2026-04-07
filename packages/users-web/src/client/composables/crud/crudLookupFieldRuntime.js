@@ -5,6 +5,7 @@ import {
   normalizeCrudLookupContainerKey,
   resolveCrudLookupApiPathFromNamespace
 } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { useList } from "../records/useList.js";
 import {
   resolveLookupItemLabel,
@@ -109,12 +110,14 @@ function createCrudLookupFieldRuntime({
       defaultValue: defaultLookupContainerKey,
       context: `createCrudLookupFieldRuntime formFields["${key}"].relation.containerKey`
     });
+    const relationSurfaceId = normalizeSurfaceId(rawRelation.surfaceId);
     if (!valueKey) {
       continue;
     }
 
     const runtime = useList({
       adapter: adapter || undefined,
+      ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
       apiSuffix: apiPath,
       queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
         ...normalizedQueryKeyPrefix,
@@ -147,6 +150,7 @@ function createCrudLookupFieldRuntime({
         kind: "lookup",
         namespace,
         ...(explicitApiPath ? { apiPath: explicitApiPath } : {}),
+        ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
         containerKey: relationLookupContainerKey,
         valueKey,
         ...(labelKey ? { labelKey } : {})
