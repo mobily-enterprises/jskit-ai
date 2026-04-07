@@ -331,7 +331,10 @@ function renderTabLinkItemSource() {
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
-import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
+import {
+  normalizeMenuLinkPathname,
+  resolveMenuLinkTarget
+} from "@jskit-ai/users-web/client/support/menuLinkTarget";
 
 const props = defineProps({
   label: {
@@ -362,78 +365,25 @@ const props = defineProps({
 
 const route = useRoute();
 const paths = usePaths();
-const { currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
-
-function normalizePathname(pathname = "") {
-  const source = String(pathname || "").trim();
-  if (!source) {
-    return "";
-  }
-
-  const queryIndex = source.indexOf("?");
-  const hashIndex = source.indexOf("#");
-  const cutoff =
-    queryIndex < 0
-      ? hashIndex
-      : hashIndex < 0
-        ? queryIndex
-        : Math.min(queryIndex, hashIndex);
-  return cutoff < 0 ? source : source.slice(0, cutoff);
-}
-
-function interpolateBracketParams(pathTemplate = "", params = {}) {
-  const source = String(pathTemplate || "").trim();
-  if (!source) {
-    return "";
-  }
-
-  return source.replace(/\\[([^\\]]+)\\]/g, (_match, rawKey) => {
-    const key = String(rawKey || "").trim();
-    if (!key) {
-      return "";
-    }
-    const value = params?.[key];
-    return value == null ? "[" + key + "]" : encodeURIComponent(String(value));
-  });
-}
-
-const targetSurfaceId = computed(() => {
-  const explicitSurface = String(props.surface || "").trim().toLowerCase();
-  if (explicitSurface && explicitSurface !== "*") {
-    return explicitSurface;
-  }
-  return String(currentSurfaceId.value || paths.currentSurfaceId.value || "").trim().toLowerCase();
-});
 
 const resolvedTo = computed(() => {
-  const explicitTo = String(props.to || "").trim();
-  if (explicitTo) {
-    if (explicitTo.startsWith("./")) {
-      const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
-      const suffixTemplate = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
-      const interpolatedSuffix = interpolateBracketParams(suffixTemplate, route.params || {});
-      if (interpolatedSuffix && !interpolatedSuffix.includes("[")) {
-        return paths.page(interpolatedSuffix, {
-          surface: targetSurfaceId.value,
-          mode: "auto"
-        });
-      }
+  return resolveMenuLinkTarget({
+    to: props.to,
+    surface: props.surface,
+    currentSurfaceId: paths.currentSurfaceId.value,
+    placementContext: paths.placementContext.value,
+    workspaceSuffix: props.workspaceSuffix,
+    nonWorkspaceSuffix: props.nonWorkspaceSuffix,
+    routeParams: route.params || {},
+    resolvePagePath(relativePath, options = {}) {
+      return paths.page(relativePath, options);
     }
-    return explicitTo;
-  }
-
-  const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
-  const suffix = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
-  const normalizedSuffix = String(suffix || "/").trim() || "/";
-  return paths.page(normalizedSuffix, {
-    surface: targetSurfaceId.value,
-    mode: "auto"
   });
 });
 
 const isActive = computed(() => {
-  const targetPathname = normalizePathname(resolvedTo.value);
-  const currentPathname = normalizePathname(route.fullPath || route.path);
+  const targetPathname = normalizeMenuLinkPathname(resolvedTo.value);
+  const currentPathname = normalizeMenuLinkPathname(route.fullPath || route.path);
   if (!targetPathname || !currentPathname) {
     return false;
   }

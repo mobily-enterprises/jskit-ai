@@ -20,7 +20,8 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
       "./client/composables/useCrudList",
-      "./client/composables/useCrudView"
+      "./client/composables/useCrudView",
+      "./client/support/menuLinkTarget"
     ]
   });
 

@@ -115,10 +115,10 @@ test("ui-generator container subcommand creates parent route container with Shel
     assert.match(sectionShellSource, /<ShellOutlet :host="props\.host" :position="props\.position" \/>/);
 
     const tabLinkSource = await readFile(path.join(appRoot, "src", "components", "TabLinkItem.vue"), "utf8");
-    assert.match(tabLinkSource, /useWorkspaceRouteContext/);
+    assert.match(tabLinkSource, /@jskit-ai\/users-web\/client\/support\/menuLinkTarget/);
+    assert.match(tabLinkSource, /resolveMenuLinkTarget/);
+    assert.match(tabLinkSource, /normalizeMenuLinkPathname/);
     assert.match(tabLinkSource, /class="tab-link-item text-none"/);
-    assert.equal(tabLinkSource.includes("source.replace(/\\[([^\\]]+)\\]/g"), true);
-    assert.equal(tabLinkSource.includes("source.replace(/[([^]]+)]/g"), false);
 
     const providerSource = await readFile(
       path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),

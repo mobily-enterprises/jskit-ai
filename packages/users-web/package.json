@@ -20,6 +20,7 @@
     "./client/composables/useAccountSettingsRuntime": "./src/client/composables/useAccountSettingsRuntime.js",
     "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js",
+    "./client/support/menuLinkTarget": "./src/client/support/menuLinkTarget.js",
     "./client/support/realtimeWorkspace": "./src/client/support/realtimeWorkspace.js"
   },
   "dependencies": {
