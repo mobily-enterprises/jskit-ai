@@ -12,6 +12,7 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -455,6 +456,10 @@ function normalizeLookupRelation(relation = {}) {
     if (containerKey) {
       normalized.containerKey = containerKey;
     }
+  }
+  const surfaceId = normalizeSurfaceId(relation.surfaceId);
+  if (surfaceId) {
+    normalized.surfaceId = surfaceId;
   }
   return normalized;
 }
