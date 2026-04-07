@@ -103,6 +103,28 @@ test("registerApiErrorHandler falls back to app_error code for AppError without 
   assert.equal(reply.payload.code, "app_error");
 });
 
+test("registerApiErrorHandler hides internal permission details for action permission denials", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+
+  const reply = createReplyStub();
+  const error = new AppError(403, "Forbidden.", {
+    code: "ACTION_PERMISSION_DENIED",
+    details: {
+      actionId: "crud.breeds.list",
+      permission: "crud.breeds.list"
+    }
+  });
+
+  fastify.errorHandler(error, {}, reply);
+
+  assert.equal(reply.statusCode, 403);
+  assert.deepEqual(reply.payload, {
+    error: "Forbidden.",
+    code: "ACTION_PERMISSION_DENIED"
+  });
+});
+
 test("registerApiErrorHandler includes internal_server_error code for unhandled 500 errors", () => {
   const fastify = createFastifyStub();
   registerApiErrorHandler(fastify, { isAppError });

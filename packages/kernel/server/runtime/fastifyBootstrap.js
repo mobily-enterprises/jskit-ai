@@ -144,6 +144,10 @@ function registerApiErrorHandler(
   const recordDbError = typeof onRecordDbError === "function" ? onRecordDbError : () => {};
   const captureServerError = typeof onCaptureServerError === "function" ? onCaptureServerError : () => {};
 
+  function shouldExposeAppErrorDetails(errorCode = "") {
+    return String(errorCode || "").trim() !== "ACTION_PERMISSION_DENIED";
+  }
+
   app.setErrorHandler((error, request, reply) => {
     const normalizedErrorCode = String(error?.code || "").trim();
     const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
@@ -177,7 +181,7 @@ function registerApiErrorHandler(
         error: error.message,
         code: appErrorCode
       };
-      if (error.details) {
+      if (error.details && shouldExposeAppErrorDetails(appErrorCode)) {
         payload.details = error.details;
         if (error.details.fieldErrors) {
           payload.fieldErrors = error.details.fieldErrors;

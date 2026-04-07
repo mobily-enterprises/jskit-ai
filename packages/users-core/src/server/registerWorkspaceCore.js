@@ -10,6 +10,7 @@ import { createWorkspaceActionContextContributor } from "./common/contributors/w
 import { createWorkspaceRouteVisibilityResolver } from "./common/contributors/workspaceRouteVisibilityResolver.js";
 import { createWorkspaceAuthPolicyContextResolver } from "./common/contributors/workspaceAuthPolicyContextResolver.js";
 import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
+import { resolveWorkspaceSurfaceIdsFromAppConfig } from "./support/workspaceActionSurfaces.js";
 
 
 function registerWorkspaceCore(app) {
@@ -62,8 +63,10 @@ function registerWorkspaceCore(app) {
   });
 
   registerActionContextContributor(app, "users.core.workspace.actionContextContributor", (scope) => {
+    const appConfig = resolveAppConfig(scope);
     return createWorkspaceActionContextContributor({
-      workspaceService: scope.make("users.workspace.service")
+      workspaceService: scope.make("users.workspace.service"),
+      workspaceSurfaceIds: resolveWorkspaceSurfaceIdsFromAppConfig(appConfig)
     });
   });
 

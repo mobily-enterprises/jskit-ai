@@ -96,17 +96,26 @@ test("registerRoutes attaches request.executeAction and applies action context c
 
   registerActionContextContributor(app, "test.auth.actionContextContributor", () => ({
     contributorId: "test.auth",
-    contribute({ request }) {
+    contribute({ request, definition }) {
       return {
         actor: request?.user || null,
         permissions: Array.isArray(request?.permissions) ? request.permissions.slice() : [],
         workspace: request?.workspace || null,
-        membership: request?.membership || null
+        membership: request?.membership || null,
+        requestMeta: {
+          definitionId: definition?.id || ""
+        }
       };
     }
   }));
 
   app.instance("actionExecutor", {
+    getDefinition(actionId) {
+      return {
+        id: actionId,
+        surfaces: ["coffie"]
+      };
+    },
     async execute(payload) {
       observed.push(payload);
       return {
@@ -195,6 +204,7 @@ test("registerRoutes attaches request.executeAction and applies action context c
   assert.equal(observed[0].context.surface, "coffie");
   assert.equal(observed[0].context.channel, "api");
   assert.equal(observed[0].context.requestMeta.commandId, "cmd-1");
+  assert.equal(observed[0].context.requestMeta.definitionId, "settings.read");
   assert.equal(observed[0].context.requestMeta.request, request);
 
   assert.equal(observed[1].actionId, "settings.override");

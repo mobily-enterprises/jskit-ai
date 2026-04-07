@@ -24,7 +24,8 @@ test("workspace action context contributor resolves workspace context for worksp
           permissions: ["workspace.settings.update"]
         };
       }
-    }
+    },
+    workspaceSurfaceIds: ["admin", "app"]
   });
 
   const request = {
@@ -35,7 +36,10 @@ test("workspace action context contributor resolves workspace context for worksp
   };
 
   const contribution = await contributor.contribute({
-    actionId: "workspace.settings.update",
+    definition: {
+      id: "workspace.settings.update",
+      surfaces: ["admin", "app"]
+    },
     input: {
       workspaceSlug: "Acme"
     },
@@ -118,7 +122,8 @@ test("workspace action context contributor always resolves and stores resolved c
           permissions: ["workspace.settings.update"]
         };
       }
-    }
+    },
+    workspaceSurfaceIds: ["admin", "app"]
   });
 
   const request = {
@@ -128,7 +133,10 @@ test("workspace action context contributor always resolves and stores resolved c
   };
 
   const contribution = await contributor.contribute({
-    actionId: "workspace.members.list",
+    definition: {
+      id: "workspace.members.list",
+      surfaces: ["admin", "app"]
+    },
     input: {
       workspaceSlug: "acme"
     },
@@ -205,7 +213,10 @@ test("workspace action context contributor resolves context for workspace-visibl
   };
 
   const contribution = await contributor.contribute({
-    actionId: "assistant.conversations.list",
+    definition: {
+      id: "assistant.conversations.list",
+      surfaces: ["admin"]
+    },
     input: {
       workspaceSlug: "acme"
     },
@@ -247,5 +258,87 @@ test("workspace action context contributor resolves context for workspace-visibl
       roleSid: "admin"
     },
     permissions: ["assistant.chat.use"]
+  });
+});
+
+test("workspace action context contributor resolves context for workspace surfaces even when route visibility is public", async () => {
+  const calls = [];
+  const contributor = createWorkspaceActionContextContributor({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options) {
+        calls.push({ user, workspaceSlug, options });
+        return {
+          workspace: {
+            id: 77,
+            slug: "acme"
+          },
+          membership: {
+            roleSid: "member"
+          },
+          permissions: ["crud.breeds.list"]
+        };
+      }
+    },
+    workspaceSurfaceIds: ["admin", "app"]
+  });
+
+  const request = {
+    user: {
+      id: 42
+    },
+    routeOptions: {
+      config: {
+        surface: "admin",
+        visibility: "public"
+      }
+    }
+  };
+
+  const contribution = await contributor.contribute({
+    definition: {
+      id: "crud.breeds.list",
+      surfaces: ["admin"]
+    },
+    input: {
+      workspaceSlug: "acme"
+    },
+    context: {
+      requestMeta: {
+        request
+      }
+    },
+    request
+  });
+
+  assert.deepEqual(calls, [
+    {
+      user: request.user,
+      workspaceSlug: "acme",
+      options: {
+        request
+      }
+    }
+  ]);
+  assert.deepEqual(contribution, {
+    requestMeta: {
+      resolvedWorkspaceContext: {
+        workspace: {
+          id: 77,
+          slug: "acme"
+        },
+        membership: {
+          roleSid: "member"
+        },
+        permissions: ["crud.breeds.list"]
+      }
+    },
+    workspace: {
+      id: 77,
+      slug: "acme"
+    },
+    membership: {
+      roleSid: "member"
+    },
+    permissions: ["crud.breeds.list"]
   });
 });
