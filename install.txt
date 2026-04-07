@@ -195,7 +195,32 @@ Then you can add a crud in there:
     --container practice \
     --route-path vets \
     --id-param vetId \
-    // --placement-component-token users.web.shell.surface-aware-menu-link-item
+   --placement-component-token users.web.shell.surface-aware-menu-link-item
+
+
+Or just a page:
+
+npx jskit generate @jskit-ai/ui-generator page \
+    --name "Availabilities" \
+    --surface admin \
+    --directory-prefix practice \
+    --placement practice:sub-pages \
+    --placement-component-token users.web.shell.surface-aware-menu-link-item \
+    --placement-to ./availabilities
+
+
+--------------------------------------------------------
+ADDING A CONSOLE SETTINGS (crud)
+
+ npx jskit generate @jskit-ai/crud-ui-generator \
+    --namespace breeds \
+    --surface console \
+    --resource-file packages/breeds/src/shared/breedResource.js \
+    --operations list,view,new,edit \
+    --container settings \
+    --placement console-settings:sections \
+    --placement-component-token users.web.shell.surface-aware-menu-link-item \
+    --id-param breedId
 
 
 
