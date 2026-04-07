@@ -1,9 +1,10 @@
 <script setup>
 import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { usePaths } from "../composables/usePaths.js";
-import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
+import { resolveMenuLinkTarget } from "../support/menuLinkTarget.js";
 
 const props = defineProps({
   label: {
@@ -36,34 +37,22 @@ const props = defineProps({
   }
 });
 
+const route = useRoute();
 const paths = usePaths();
 const { context: placementContext } = useWebPlacementContext();
 
-const targetSurfaceId = computed(() => {
-  const explicitSurface = String(props.surface || "").trim().toLowerCase();
-  if (explicitSurface && explicitSurface !== "*") {
-    return explicitSurface;
-  }
-
-  return String(paths.currentSurfaceId.value || "").trim().toLowerCase();
-});
-
 const resolvedTo = computed(() => {
-  const explicitTo = String(props.to || "").trim();
-  if (explicitTo) {
-    return explicitTo;
-  }
-
-  const workspaceRequired = surfaceRequiresWorkspaceFromPlacementContext(
-    placementContext.value,
-    targetSurfaceId.value
-  );
-  const suffix = workspaceRequired ? props.workspaceSuffix : props.nonWorkspaceSuffix;
-  const normalizedSuffix = String(suffix || "/").trim() || "/";
-
-  return paths.page(normalizedSuffix, {
-    surface: targetSurfaceId.value,
-    mode: "auto"
+  return resolveMenuLinkTarget({
+    to: props.to,
+    surface: props.surface,
+    currentSurfaceId: paths.currentSurfaceId.value,
+    placementContext: placementContext.value,
+    workspaceSuffix: props.workspaceSuffix,
+    nonWorkspaceSuffix: props.nonWorkspaceSuffix,
+    routeParams: route.params || {},
+    resolvePagePath(relativePath, options = {}) {
+      return paths.page(relativePath, options);
+    }
   });
 });
 

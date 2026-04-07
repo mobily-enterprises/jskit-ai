@@ -46,8 +46,6 @@ Local functions
 - `resolveSurfacePagesDirectory(appRoot = "", surfaceId = "")`
 - `renderSectionContainerShellSource()`
 - `renderTabLinkItemSource()`
-- `normalizePathname(pathname = "")`
-- `interpolateBracketParams(pathTemplate = "", params = {})`
 - `renderContainerPageSource({ surface = "", title = "", subtitle = "", containerHost = "", containerPosition = CONTAINER_OUTLET_POSITION, sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue" } = {})`
 
 ### `src/server/subcommands/element.js`

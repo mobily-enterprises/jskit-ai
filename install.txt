@@ -169,6 +169,38 @@ MULTI TAB contacts, NOT embedded
 
 -----------------------------------------------------
 
+ADD A CONTAINER TO THE WORKSPACE SETTINGS COG
+
+  npx jskit generate @jskit-ai/ui-generator container \
+    --name "Practice" \
+    --surface admin \
+    --placement workspace-tools:primary-menu
+
+
+Then you have:
+
+$ npx jskit list-placements
+Available placements:
+...
+- practice:sub-pages [src/pages/w/[workspaceSlug]/admin/practice.vue]
+$ 
+
+Then you can add a crud in there:
+
+  npx jskit generate @jskit-ai/crud-ui-generator \
+    --namespace vets \
+    --surface admin \
+    --resource-file packages/vets/src/shared/vetResource.js \
+    --operations list,view,new,edit \
+    --container practice \
+    --route-path vets \
+    --id-param vetId \
+    // --placement-component-token users.web.shell.surface-aware-menu-link-item
+
+
+
+-----------------------------------------------------
+
 FIGURE OUT:
 
 Use case for this:

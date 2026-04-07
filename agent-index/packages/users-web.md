@@ -671,6 +671,15 @@ Exports
 - `requireBoolean(value, label = "value", owner = "Contract")`
 - `requireFunction(value, label = "value", owner = "Contract")`
 
+### `src/client/support/menuLinkTarget.js`
+Exports
+- `normalizeMenuLinkPathname(pathname = "")`
+- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, workspaceSuffix = "/", nonWorkspaceSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
+Local functions
+- `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
+- `interpolateBracketParams(pathTemplate = "", params = {})`
+- `isRelativeMenuLinkTarget(target = "")`
+
 ### `src/client/support/realtimeWorkspace.js`
 Exports
 - `matchesCurrentWorkspaceEvent(payload = {}, workspaceSlug = "")`
