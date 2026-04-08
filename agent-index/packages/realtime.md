@@ -78,12 +78,15 @@ Local functions
 Exports
 - `createSocketIoServer({ httpServer = null, fastify = null, options = {}, ServerCtor = SocketIoServer } = {})`
 - `closeSocketIoServer(io)`
-- `REALTIME_REDIS_URL_ENV_KEY`
+- `REDIS_URL_ENV_KEY`
+- `REDIS_NAMESPACE_ENV_KEY`
 - `resolveRealtimeRedisUrl(env = {})`
-- `configureSocketIoRedisAdapter(io, { redisUrl = "" } = {})`
+- `resolveRealtimeRedisNamespace(env = {})`
+- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient } = {})`
 - `closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {})`
 Local functions
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
+- `buildSocketIoRedisAdapterKey(redisNamespace = "")`
 
 ### root
 

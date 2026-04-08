@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  REALTIME_REDIS_URL_ENV_KEY,
+  REDIS_URL_ENV_KEY,
+  REDIS_NAMESPACE_ENV_KEY,
   createSocketIoServer,
   closeSocketIoServer,
   resolveRealtimeRedisUrl,
+  resolveRealtimeRedisNamespace,
   configureSocketIoRedisAdapter,
   closeSocketIoRedisConnections
 } from "../src/server/runtime.js";
@@ -108,7 +110,15 @@ test("closeSocketIoServer swallows ERR_SERVER_NOT_RUNNING", async () => {
 
 test("resolveRealtimeRedisUrl reads and normalizes env URL", () => {
   assert.equal(resolveRealtimeRedisUrl({}), "");
-  assert.equal(resolveRealtimeRedisUrl({ [REALTIME_REDIS_URL_ENV_KEY]: " redis://localhost:6379 " }), "redis://localhost:6379");
+  assert.equal(resolveRealtimeRedisUrl({ [REDIS_URL_ENV_KEY]: " redis://localhost:6379 " }), "redis://localhost:6379");
+});
+
+test("resolveRealtimeRedisNamespace reads and normalizes env namespace", () => {
+  assert.equal(resolveRealtimeRedisNamespace({}), "");
+  assert.equal(
+    resolveRealtimeRedisNamespace({ [REDIS_NAMESPACE_ENV_KEY]: " app:production " }),
+    "app:production"
+  );
 });
 
 test("configureSocketIoRedisAdapter keeps memory mode when URL is empty", async () => {
@@ -146,4 +156,50 @@ test("closeSocketIoRedisConnections closes both clients when present", async () 
   });
 
   assert.deepEqual(calls, ["sub.quit", "pub.quit"]);
+});
+
+test("configureSocketIoRedisAdapter applies namespaced adapter key when redis namespace is set", async () => {
+  const adapterCalls = [];
+  const io = {
+    adapter(adapter) {
+      adapterCalls.push(adapter);
+    }
+  };
+  const connectionCalls = [];
+  const createRedisConnection = ({ url }) => {
+    const client = {
+      url,
+      async connect() {
+        connectionCalls.push(`${url}:connect`);
+      },
+      async quit() {},
+      duplicate() {
+        return {
+          async connect() {
+            connectionCalls.push(`${url}:duplicate.connect`);
+          },
+          async quit() {}
+        };
+      }
+    };
+    return client;
+  };
+  const createRedisAdapter = (pubClient, subClient, options) => ({
+    pubClient,
+    subClient,
+    options
+  });
+
+  const result = await configureSocketIoRedisAdapter(io, {
+    redisUrl: "redis://localhost:6379",
+    redisNamespace: "my-app:production",
+    createRedisConnection,
+    createRedisAdapter
+  });
+
+  assert.equal(connectionCalls.length, 2);
+  assert.equal(adapterCalls.length, 1);
+  assert.equal(adapterCalls[0].options?.key, "my-app:production:socket.io");
+  assert.equal(result.adapterKey, "my-app:production:socket.io");
+  assert.equal(result.redisNamespace, "my-app:production");
 });
