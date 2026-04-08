@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -26,12 +26,12 @@
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.27",
-    "@jskit-ai/kernel": "0.1.28",
-    "@jskit-ai/realtime": "0.1.27",
-    "@jskit-ai/shell-web": "0.1.27",
-    "@jskit-ai/uploads-image-web": "0.1.6",
-    "@jskit-ai/users-core": "0.1.38",
+    "@jskit-ai/http-runtime": "0.1.28",
+    "@jskit-ai/kernel": "0.1.29",
+    "@jskit-ai/realtime": "0.1.28",
+    "@jskit-ai/shell-web": "0.1.28",
+    "@jskit-ai/uploads-image-web": "0.1.7",
+    "@jskit-ai/users-core": "0.1.39",
     "vuetify": "^4.0.0"
   }
 }

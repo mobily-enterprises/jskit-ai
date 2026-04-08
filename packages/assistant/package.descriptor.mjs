@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.37",
+  version: "0.1.38",
   kind: "generator",
   description: "Generate an app-local assistant runtime and settings integration from explicit surface choices.",
   options: {
@@ -177,13 +177,13 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@local/assistant": "file:packages/assistant",
-        "@jskit-ai/assistant-core": "0.1.4",
-        "@jskit-ai/database-runtime": "0.1.28",
-        "@jskit-ai/http-runtime": "0.1.27",
-        "@jskit-ai/kernel": "0.1.28",
-        "@jskit-ai/shell-web": "0.1.27",
-        "@jskit-ai/users-core": "0.1.38",
-        "@jskit-ai/users-web": "0.1.43",
+        "@jskit-ai/assistant-core": "0.1.5",
+        "@jskit-ai/database-runtime": "0.1.29",
+        "@jskit-ai/http-runtime": "0.1.28",
+        "@jskit-ai/kernel": "0.1.29",
+        "@jskit-ai/shell-web": "0.1.28",
+        "@jskit-ai/users-core": "0.1.39",
+        "@jskit-ai/users-web": "0.1.44",
         "@tanstack/vue-query": "^5.90.5",
         "vuetify": "^4.0.0"
       },

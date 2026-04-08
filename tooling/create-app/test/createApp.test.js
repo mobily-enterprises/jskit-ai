@@ -450,7 +450,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     assert.equal(doctorResult.status, 0, doctorResult.stderr);
 
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
-    assert.equal(procfile, "web: npm run start\n");
+    assert.equal(procfile, "release: npm run db:migrate\nweb: npm run start\n");
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);

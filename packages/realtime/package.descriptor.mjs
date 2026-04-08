@@ -122,7 +122,7 @@ export default Object.freeze({
       {
         file: ".env",
         op: "upsert-env",
-        key: "REDIS_URL",
+        key: "REALTIME_REDIS_URL",
         value: "${option:realtime-redis-url}",
         reason: "Configure optional Redis backplane URL for realtime socket adapter.",
         category: "runtime-config",

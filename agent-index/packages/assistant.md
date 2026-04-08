@@ -64,6 +64,7 @@ Local functions
 Exports
 - `AssistantSurfaceClientElement`
 - `AssistantSettingsClientElement`
+- `AssistantClientProvider`
 - `useAssistantRuntime`
 
 ### `templates/src/local-package/client/providers/AssistantClientProvider.js`

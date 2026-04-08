@@ -1,3 +1,32 @@
+APP=beepollen
+DB="${APP}_db"
+SERVICE_DSN="$(dokku mariadb:info central_db --dsn)"
+BASE_DSN="${SERVICE_DSN%/*}"
+DB_USER="${SERVICE_DSN#mysql://}"
+DB_USER="${DB_USER%%:*}"
+
+dokku apps:destroy "$APP" --force || true
+dokku mariadb:enter central_db sh -lc "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mariadb -uroot -e 'DROP DATABASE IF EXISTS \`$DB\`;'"
+
+dokku apps:create "$APP"
+dokku mariadb:link central_db "$APP" --no-restart
+dokku redis:link central_redis "$APP" --no-restart
+
+dokku mariadb:enter central_db sh -lc "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mariadb -uroot -e 'CREATE DATABASE IF NOT EXISTS \`$DB\`
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$DB\`.* TO '\''$DB_USER'\''@'\''%'\''; FLUSH PRIVILEGES;'"
+
+dokku config:set "$APP" DATABASE_URL="${BASE_DSN}/${DB}" REDIS_NAMESPACE="${APP}:production"
+
+
+
+LOCAL MACHINE
+git remote add dokku dokku@appgenius.biz:beepollen
+
+
+
+
+
+
 LOCAL: Full app form template
 
 drop table  ai_conversations      ;
