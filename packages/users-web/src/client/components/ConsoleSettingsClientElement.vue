@@ -6,7 +6,7 @@
           <h1 class="text-h5 text-sm-h4 mb-3">Console settings</h1>
           <p class="text-body-2 text-sm-body-1 mb-0">
             No console settings are provided by <code>@jskit-ai/users-web</code>. Install a module that contributes
-            forms to <code>console.settings.forms</code>.
+            forms to <code>console-settings:forms</code>.
           </p>
         </v-sheet>
       </v-col>

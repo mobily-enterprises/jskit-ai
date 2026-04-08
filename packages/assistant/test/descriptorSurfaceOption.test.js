@@ -30,6 +30,8 @@ test("assistant descriptor routes workspace page + placements through surface op
   assert.match(String(menuPlacement?.value || ""), /\.split\(","\)/);
   assert.match(String(menuPlacement?.value || ""), /surfaces: assistantWorkspaceSurfaceIds\.length > 0 \? assistantWorkspaceSurfaceIds : \["\*"\]/);
   assert.doesNotMatch(String(menuPlacement?.value || ""), /surface:\s*"/);
-  assert.match(String(workspaceSettingsPlacement?.value || ""), /surfaces: \["\*"\]/);
-  assert.match(String(consoleSettingsPlacement?.value || ""), /surfaces: \["\*"\]/);
+  assert.match(String(workspaceSettingsPlacement?.value || ""), /host: "admin-settings"/);
+  assert.match(String(workspaceSettingsPlacement?.value || ""), /surfaces: \["admin"\]/);
+  assert.match(String(consoleSettingsPlacement?.value || ""), /host: "console-settings"/);
+  assert.match(String(consoleSettingsPlacement?.value || ""), /surfaces: \["console"\]/);
 });

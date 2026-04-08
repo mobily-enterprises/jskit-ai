@@ -8,7 +8,7 @@ function registerWorkspaceBootstrap(app) {
     throw new Error("registerWorkspaceBootstrap requires application singleton().");
   }
 
-  registerBootstrapPayloadContributor(app, "users.core.workspace.bootstrap.payloadContributor", (scope) => {
+  registerBootstrapPayloadContributor(app, "workspaces.core.bootstrap.payloadContributor", (scope) => {
     const workspaceInvitationsEnabled = scope.make("users.workspace.invitations.enabled");
 
     return createWorkspaceBootstrapContributor({
@@ -18,11 +18,8 @@ function registerWorkspaceBootstrap(app) {
         : null,
       workspaceInvitationsEnabled,
       usersRepository: scope.make("usersRepository"),
-      userSettingsRepository: scope.make("userSettingsRepository"),
       appConfig: resolveAppConfig(scope),
-      tenancyProfile: scope.make("users.tenancy.profile"),
-      authService: scope.make("authService"),
-      consoleService: scope.has("consoleService") ? scope.make("consoleService") : null
+      tenancyProfile: scope.make("users.tenancy.profile")
     });
   });
 }

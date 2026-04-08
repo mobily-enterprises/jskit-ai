@@ -13,19 +13,34 @@ drop table  workspaces            ;
 drop table  users                 ;
 
 
+
+# WORKSPACE APP
+
 export __APP=dogandgroom
-# npx @jskit-ai/create-app $__APP --tenancy-mode personal --target . --title $__APP
-../jskit-ai/tooling/create-app/bin/jskit-create-app.js  dogandgroom --tenancy-mode personal --target . --title $__APP --force
+
+../jskit-ai/tooling/create-app/bin/jskit-create-app.js \
+  "$__APP" \
+  --tenancy-mode personal \
+  --target . \
+  --title "$__APP" \
+  --force
+
 npm install --verbose
 npm run devlinks
 
-npx jskit add package auth-provider-supabase-core --auth-supabase-url https://glpphkajclpefydvepim.supabase.co --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb
+npx jskit add package auth-provider-supabase-core \
+  --auth-supabase-url https://glpphkajclpefydvepim.supabase.co \
+  --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb
+
 npx jskit add package shell-web
 npx jskit add package auth-web
 npx jskit add package database-runtime-mysql
 npx jskit add package users-web
+npx jskit add package workspaces-core
+npx jskit add package workspaces-web
 npx jskit add package realtime
 npx jskit add package @jskit-ai/assistant --surfaces=admin --ai-provider=deepseek
+
 npm install --verbose
 npm run devlinks
 npm run db:migrate
@@ -33,6 +48,38 @@ npm run db:migrate
 git init
 git add -A
 git commit -m "INIT"
+
+
+
+# SIMPLE APP
+
+export __APP=beepollen
+
+../jskit-ai/tooling/create-app/bin/jskit-create-app.js \
+  "$__APP" \
+  --tenancy-mode none \
+  --target . \
+  --title "$__APP" \
+  --force
+
+npm install --verbose
+npm run devlinks
+
+npx jskit add package auth-provider-supabase-core
+npx jskit add package shell-web
+npx jskit add package auth-web
+npx jskit add package database-runtime-mysql
+npx jskit add package users-web
+npx jskit add package realtime
+
+npm install --verbose
+npm run devlinks
+npm run db:migrate
+
+git init
+git add -A
+git commit -m "INIT"
+
 
 
 #mysqladmin -uroot -pppp  drop $__APP

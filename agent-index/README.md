@@ -27,6 +27,8 @@ Startup docs stay in `agents/`.
 - [uploads-runtime](/agent-index/packages/uploads-runtime.md)
 - [users-core](/agent-index/packages/users-core.md)
 - [users-web](/agent-index/packages/users-web.md)
+- [workspaces-core](/agent-index/packages/workspaces-core.md)
+- [workspaces-web](/agent-index/packages/workspaces-web.md)
 
 ## Tooling Maps
 - [config-eslint](/agent-index/tooling/config-eslint.md)
