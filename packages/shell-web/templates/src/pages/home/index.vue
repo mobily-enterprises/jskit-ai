@@ -46,6 +46,7 @@ const health = computed(() => {
         This is your primary landing page. Replace this content with your actual product home.
       </p>
       <div class="d-flex flex-wrap ga-3">
+        <v-btn color="primary" variant="flat" to="/home/settings">Open settings</v-btn>
         <v-btn color="primary" variant="flat" to="/console">Open console surface</v-btn>
         <v-btn color="secondary" variant="outlined" to="/auth/signout">Sign out</v-btn>
       </div>

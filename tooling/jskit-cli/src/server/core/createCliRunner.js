@@ -70,6 +70,7 @@ import {
   validateInlineOptionsForPackage
 } from "../cliRuntime/packageOptions.js";
 import {
+  resolvePackageTemplateRoot,
   cleanupMaterializedPackageRoots
 } from "../cliRuntime/packageTemplateResolution.js";
 import {
@@ -100,6 +101,7 @@ const commandHandlers = createCommandHandlers(
     resolveInstalledPackageIdInput,
     resolveInstalledNodeModulePackageEntry,
     hydratePackageRegistryFromInstalledNodeModules,
+    resolvePackageTemplateRoot,
     validateInlineOptionsForPackage,
     resolveLocalDependencyOrder,
     validatePlannedCapabilityClosure,

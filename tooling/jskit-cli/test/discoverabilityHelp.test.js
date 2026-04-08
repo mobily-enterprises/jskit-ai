@@ -100,6 +100,88 @@ async function writeRuntimePackageWithOptions(appRoot) {
   );
 }
 
+async function writeGeneratorPackageWithExamples(appRoot) {
+  const packageRoot = path.join(appRoot, "packages", "demo-generator");
+  await mkdir(packageRoot, { recursive: true });
+  await writeFile(
+    path.join(packageRoot, "package.json"),
+    `${JSON.stringify(
+      {
+        name: "@demo/generator",
+        version: "0.1.0",
+        type: "module"
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(packageRoot, "package.descriptor.mjs"),
+    `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "@demo/generator",
+  version: "0.1.0",
+  kind: "generator",
+  description: "Demo generator package for help examples.",
+  options: {
+    "runtime-surface": {
+      required: true,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Runtime surface",
+      promptHint: "Surface where the generated page will run."
+    }
+  },
+  dependsOn: [],
+  capabilities: {
+    provides: [],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: []
+    },
+    client: {
+      providers: []
+    }
+  },
+  metadata: {
+    generatorPrimarySubcommand: "install",
+    generatorSubcommands: {
+      install: {
+        description: "Install the generated package.",
+        examples: [
+          {
+            label: "App runtime",
+            lines: [
+              "npx jskit generate @demo/generator install \\\\",
+              "  --runtime-surface app"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    packageJson: {
+      scripts: {}
+    },
+    procfile: {},
+    files: [],
+    text: []
+  }
+});
+`,
+    "utf8"
+  );
+}
+
 test("generate <generatorId> help prints generator-specific option contract", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "discoverability-generate-help-app");
@@ -171,6 +253,26 @@ test("generate <generatorId> help <subcommand> prints primary subcommand contrac
     assert.match(stdout, /No positional arguments/);
     assert.match(stdout, /--namespace <text> \[required\]/);
     assert.match(stdout, /--directory-prefix <text> \[optional; default: <empty>\]/);
+  });
+});
+
+test("generate <generatorId> <subcommand> help prints package-provided examples", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "discoverability-generator-example-help-app");
+    await createMinimalApp(appRoot, { name: "discoverability-generator-example-help-app" });
+    await writeGeneratorPackageWithExamples(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@demo/generator", "install", "help"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Generator subcommand help: @demo\/generator install/);
+    assert.match(stdout, /Examples \(1\):/);
+    assert.match(stdout, /App runtime/);
+    assert.match(stdout, /npx jskit generate @demo\/generator install \\/);
   });
 });
 
