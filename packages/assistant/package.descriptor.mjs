@@ -1,10 +1,52 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.32",
-  kind: "runtime",
-  description: "Unified assistant module with streaming chat, transcript persistence, service-aware tool execution, and workspace UI.",
+  version: "0.1.37",
+  kind: "generator",
+  description: "Generate an app-local assistant runtime and settings integration from explicit surface choices.",
   options: {
+    "runtime-surface": {
+      required: true,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Runtime surface",
+      promptHint: "Enabled surface id where the assistant page will run."
+    },
+    "settings-surface": {
+      required: true,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Settings surface",
+      promptHint: "Enabled surface id whose settings outlet will host the assistant settings form."
+    },
+    "config-scope": {
+      required: true,
+      inputType: "text",
+      defaultValue: "global",
+      promptLabel: "Config scope",
+      promptHint: "global | workspace. Workspace scope requires both selected surfaces to requireWorkspace=true."
+    },
+    placement: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Menu placement",
+      promptHint: "Optional host:position target for the assistant page menu entry."
+    },
+    "placement-component-token": {
+      required: false,
+      inputType: "text",
+      defaultValue: "users.web.shell.surface-aware-menu-link-item",
+      promptLabel: "Placement component token",
+      promptHint: "Menu placement component token for the assistant page entry."
+    },
+    "menu-label": {
+      required: false,
+      inputType: "text",
+      defaultValue: "Assistant",
+      promptLabel: "Menu label",
+      promptHint: "Menu label for the assistant page entry."
+    },
     "ai-provider": {
       required: true,
       defaultValue: "openai",
@@ -30,105 +72,119 @@ export default Object.freeze({
       defaultValue: "120000",
       promptLabel: "AI timeout (ms)",
       promptHint: "Abort AI requests after this many milliseconds."
-    },
-    surfaces: {
-      required: true,
-      inputType: "text",
-      defaultValue: "admin",
-      promptLabel: "Target workspace surfaces",
-      promptHint: "Comma-separated workspace surface ids for assistant page + menu placement (for example: admin,app)."
     }
   },
-  dependsOn: [
-    "@jskit-ai/auth-core",
-    "@jskit-ai/database-runtime",
-    "@jskit-ai/http-runtime",
-    "@jskit-ai/realtime",
-    "@jskit-ai/users-core",
-    "@jskit-ai/users-web",
-    "@jskit-ai/workspaces-core",
-    "@jskit-ai/workspaces-web"
-  ],
+  dependsOn: [],
   capabilities: {
-    provides: ["assistant"],
-    requires: [
-      "runtime.actions",
-      "runtime.database",
-      "auth.policy",
-      "users.core",
-      "users.web",
-      "workspaces.core",
-      "workspaces.web",
-      "runtime.realtime.client"
-    ]
+    provides: ["assistant-generator"],
+    requires: []
   },
   runtime: {
     server: {
-      providers: [
-        {
-          entrypoint: "src/server/AssistantServiceProvider.js",
-          export: "AssistantServiceProvider"
-        }
-      ]
+      providers: []
     },
     client: {
-      providers: [
-        {
-          entrypoint: "src/client/providers/AssistantWebClientProvider.js",
-          export: "AssistantWebClientProvider"
-        }
-      ]
+      providers: []
     }
   },
   metadata: {
+    generatorPrimarySubcommand: "install",
+    generatorSubcommands: {
+      install: {
+        description: "Generate and install an app-local assistant runtime from explicit surface choices.",
+        examples: [
+          {
+            label: "App runtime, console settings, global config",
+            lines: [
+              "npx jskit generate @jskit-ai/assistant install \\",
+              "  --runtime-surface app \\",
+              "  --settings-surface console \\",
+              "  --config-scope global \\",
+              "  --placement shell-layout:primary-menu \\",
+              "  --menu-label Assistant \\",
+              "  --ai-provider openai \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+              "  --ai-base-url \"\" \\",
+              "  --ai-timeout-ms 120000 \\",
+              "  --run-npm-install"
+            ]
+          },
+          {
+            label: "App runtime, app settings, global config",
+            lines: [
+              "npx jskit generate @jskit-ai/assistant install \\",
+              "  --runtime-surface app \\",
+              "  --settings-surface app \\",
+              "  --config-scope global \\",
+              "  --placement shell-layout:primary-menu \\",
+              "  --menu-label Assistant \\",
+              "  --ai-provider openai \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+              "  --ai-base-url \"\" \\",
+              "  --ai-timeout-ms 120000 \\",
+              "  --run-npm-install"
+            ]
+          },
+          {
+            label: "Workspace runtime, console settings, global config",
+            lines: [
+              "npx jskit generate @jskit-ai/assistant install \\",
+              "  --runtime-surface admin \\",
+              "  --settings-surface console \\",
+              "  --config-scope global \\",
+              "  --placement shell-layout:primary-menu \\",
+              "  --menu-label Assistant \\",
+              "  --ai-provider openai \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+              "  --ai-base-url \"\" \\",
+              "  --ai-timeout-ms 120000 \\",
+              "  --run-npm-install"
+            ]
+          },
+          {
+            label: "Workspace runtime, workspace settings, workspace config",
+            lines: [
+              "npx jskit generate @jskit-ai/assistant install \\",
+              "  --runtime-surface admin \\",
+              "  --settings-surface admin \\",
+              "  --config-scope workspace \\",
+              "  --placement shell-layout:primary-menu \\",
+              "  --menu-label Assistant \\",
+              "  --ai-provider openai \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+              "  --ai-base-url \"\" \\",
+              "  --ai-timeout-ms 120000 \\",
+              "  --run-npm-install"
+            ]
+          }
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {
-          subpath: "./server/AssistantServiceProvider",
-          summary: "Exports assistant runtime provider."
-        },
-        {
-          subpath: "./client",
-          summary: "Exports assistant workspace element and composables."
-        },
-        {
-          subpath: "./shared",
-          summary: "Exports assistant API paths, query keys, stream events, and resource validators."
+          subpath: "./server/buildTemplateContext",
+          summary: "Builds deterministic assistant generator template context values from app surface metadata."
         }
       ],
       containerTokens: {
-        server: [
-          "assistant.ai.client",
-          "assistant.conversation.repository",
-          "assistant.message.repository",
-          "assistant.service.tool-catalog",
-          "assistant.settings.repository"
-        ],
-        client: [
-          "assistant.web.console-settings.element",
-          "assistant.web.workspace-settings.element"
-        ]
+        server: [],
+        client: []
       }
     }
   },
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/assistant": "0.1.32",
-        "@jskit-ai/auth-core": "0.1.23",
-        "@jskit-ai/database-runtime": "0.1.24",
-        "@jskit-ai/http-runtime": "0.1.23",
-        "@jskit-ai/kernel": "0.1.24",
-        "@jskit-ai/realtime": "0.1.23",
-        "@jskit-ai/users-core": "0.1.34",
-        "@jskit-ai/users-web": "0.1.39",
-        "@jskit-ai/workspaces-core": "0.1.0",
-        "@jskit-ai/workspaces-web": "0.1.0",
+        "@local/assistant": "file:packages/assistant",
+        "@jskit-ai/assistant-core": "0.1.4",
+        "@jskit-ai/database-runtime": "0.1.28",
+        "@jskit-ai/http-runtime": "0.1.27",
+        "@jskit-ai/kernel": "0.1.28",
+        "@jskit-ai/shell-web": "0.1.27",
+        "@jskit-ai/users-core": "0.1.38",
+        "@jskit-ai/users-web": "0.1.43",
         "@tanstack/vue-query": "^5.90.5",
-        "dompurify": "^3.3.3",
-        "marked": "^17.0.4",
-        "openai": "^6.22.0",
-        "typebox": "^1.0.81",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -140,33 +196,222 @@ export default Object.freeze({
     files: [
       {
         op: "install-migration",
-        from: "templates/migrations/assistant_transcripts_initial.cjs",
+        from: "templates/migrations/assistant_config_initial.cjs",
         toDir: "migrations",
         extension: ".cjs",
-        reason: "Install assistant conversation/message schema migration.",
+        reason: "Install assistant configuration schema migration.",
         category: "assistant",
-        id: "assistant-transcripts-initial-schema"
+        id: "assistant-config-initial-schema",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         op: "install-migration",
-        from: "templates/migrations/assistant_settings_initial.cjs",
+        from: "templates/migrations/assistant_transcripts_initial.cjs",
         toDir: "migrations",
         extension: ".cjs",
-        reason: "Install assistant settings schema migration.",
+        reason: "Install assistant transcript schema migration.",
         category: "assistant",
-        id: "assistant-settings-initial-schema"
+        id: "assistant-transcripts-initial-schema",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
-        from: "templates/src/pages/admin/workspace/assistant/index.vue",
-        toSurface: "${option:surfaces|lower}",
-        toSurfacePath: "workspace/assistant/index.vue",
-        reason: "Install assistant workspace page scaffold.",
+        from: "templates/src/local-package/package.json",
+        to: "packages/assistant/package.json",
+        reason: "Install app-local assistant package manifest.",
         category: "assistant",
-        id: "assistant-page-admin-workspace-assistant-index",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
+        id: "assistant-local-package-json"
+      },
+      {
+        from: "templates/src/local-package/package.descriptor.mjs",
+        to: "packages/assistant/package.descriptor.mjs",
+        reason: "Install app-local assistant package descriptor.",
+        category: "assistant",
+        id: "assistant-local-package-descriptor"
+      },
+      {
+        from: "templates/src/local-package/shared/assistantRuntimeConfig.js",
+        to: "packages/assistant/src/shared/assistantRuntimeConfig.js",
+        reason: "Install generated assistant runtime configuration.",
+        category: "assistant",
+        id: "assistant-local-runtime-config",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
         }
+      },
+      {
+        from: "templates/src/local-package/shared/index.js",
+        to: "packages/assistant/src/shared/index.js",
+        reason: "Install generated assistant shared exports.",
+        category: "assistant",
+        id: "assistant-local-shared-index"
+      },
+      {
+        from: "templates/src/local-package/client/index.js",
+        to: "packages/assistant/src/client/index.js",
+        reason: "Install generated assistant client exports.",
+        category: "assistant",
+        id: "assistant-local-client-index"
+      },
+      {
+        from: "templates/src/local-package/client/components/AssistantSurfaceClientElement.vue",
+        to: "packages/assistant/src/client/components/AssistantSurfaceClientElement.vue",
+        reason: "Install generated assistant surface page component.",
+        category: "assistant",
+        id: "assistant-local-surface-client-element",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/client/components/AssistantSettingsClientElement.vue",
+        to: "packages/assistant/src/client/components/AssistantSettingsClientElement.vue",
+        reason: "Install generated assistant settings form component.",
+        category: "assistant",
+        id: "assistant-local-settings-client-element",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/client/composables/useAssistantRuntime.js",
+        to: "packages/assistant/src/client/composables/useAssistantRuntime.js",
+        reason: "Install generated assistant runtime composable.",
+        category: "assistant",
+        id: "assistant-local-runtime-composable",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/client/providers/AssistantClientProvider.js",
+        to: "packages/assistant/src/client/providers/AssistantClientProvider.js",
+        reason: "Install generated assistant client provider.",
+        category: "assistant",
+        id: "assistant-local-client-provider"
+      },
+      {
+        from: "templates/src/local-package/server/AssistantProvider.js",
+        to: "packages/assistant/src/server/AssistantProvider.js",
+        reason: "Install generated assistant server provider.",
+        category: "assistant",
+        id: "assistant-local-server-provider",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/actionIds.js",
+        to: "packages/assistant/src/server/actionIds.js",
+        reason: "Install generated assistant action identifiers.",
+        category: "assistant",
+        id: "assistant-local-action-ids"
+      },
+      {
+        from: "templates/src/local-package/server/actions.js",
+        to: "packages/assistant/src/server/actions.js",
+        reason: "Install generated assistant action definitions.",
+        category: "assistant",
+        id: "assistant-local-actions",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/registerRoutes.js",
+        to: "packages/assistant/src/server/registerRoutes.js",
+        reason: "Install generated assistant route registration.",
+        category: "assistant",
+        id: "assistant-local-register-routes",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/repositories/assistantConfigRepository.js",
+        to: "packages/assistant/src/server/repositories/assistantConfigRepository.js",
+        reason: "Install generated assistant config repository.",
+        category: "assistant",
+        id: "assistant-local-config-repository",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/repositories/conversationsRepository.js",
+        to: "packages/assistant/src/server/repositories/conversationsRepository.js",
+        reason: "Install generated assistant conversations repository.",
+        category: "assistant",
+        id: "assistant-local-conversations-repository",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/repositories/messagesRepository.js",
+        to: "packages/assistant/src/server/repositories/messagesRepository.js",
+        reason: "Install generated assistant messages repository.",
+        category: "assistant",
+        id: "assistant-local-messages-repository",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/services/assistantConfigService.js",
+        to: "packages/assistant/src/server/services/assistantConfigService.js",
+        reason: "Install generated assistant config service.",
+        category: "assistant",
+        id: "assistant-local-config-service",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/services/chatService.js",
+        to: "packages/assistant/src/server/services/chatService.js",
+        reason: "Install generated assistant chat service.",
+        category: "assistant",
+        id: "assistant-local-chat-service",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/local-package/server/services/transcriptService.js",
+        to: "packages/assistant/src/server/services/transcriptService.js",
+        reason: "Install generated assistant transcript service.",
+        category: "assistant",
+        id: "assistant-local-transcript-service",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/pages/assistant/index.vue",
+        toSurface: "${option:runtime-surface|lower}",
+        toSurfacePath: "assistant/index.vue",
+        reason: "Install generated assistant runtime page.",
+        category: "assistant",
+        id: "assistant-page-runtime"
       }
     ],
     text: [
@@ -174,77 +419,30 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"assistant.workspace.menu\"",
+        skipIfContains: "id: \"assistant.generated.menu\"",
         value:
-          "\n(() => {\n  const assistantWorkspaceSurfaceIds = \"${option:surfaces|lower}\"\n    .split(\",\")\n    .map((entry) => String(entry || \"\").trim().toLowerCase())\n    .filter(Boolean);\n\n  addPlacement({\n    id: \"assistant.workspace.menu\",\n    host: \"shell-layout\",\n    position: \"primary-menu\",\n    surfaces: assistantWorkspaceSurfaceIds.length > 0 ? assistantWorkspaceSurfaceIds : [\"*\"],\n    order: 310,\n    componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n    props: {\n      label: \"Assistant\",\n      workspaceSuffix: \"/workspace/assistant\",\n      nonWorkspaceSuffix: \"/workspace/assistant\"\n    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n})();\n",
-        reason: "Append assistant menu placement into app-owned placement registry.",
+          "\naddPlacement({\n  id: \"assistant.generated.menu\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:runtime-surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:runtime-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append generated assistant runtime menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
         }
       },
       {
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"assistant.workspace.settings.form\"",
+        skipIfContains: "id: \"assistant.generated.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"admin-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
-        reason: "Append assistant workspace settings form into app-owned settings placements.",
+          "\naddPlacement({\n  id: \"assistant.generated.settings.form\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"forms\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append generated assistant settings form placement into app-owned settings placements.",
         category: "assistant",
-        id: "assistant-workspace-settings-form-placement",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"assistant.console.settings.form\"",
-        value:
-          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"console\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append assistant console settings form into app-owned settings placements.",
-        category: "assistant",
-        id: "assistant-console-settings-form-placement"
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/resources/consoleSettingsFields.js",
-        position: "top",
-        skipIfContains: "import { Type } from \"typebox\";",
-        value: "import { Type } from \"typebox\";\n",
-        reason: "Ensure app-owned console settings field registry has TypeBox import for assistant fields.",
-        category: "assistant",
-        id: "assistant-console-settings-fields-import-typebox"
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/resources/consoleSettingsFields.js",
-        position: "bottom",
-        skipIfContains: "key: \"workspaceSurfacePrompt\"",
-        value:
-          "\ndefineField({\n  key: \"workspaceSurfacePrompt\",\n  dbColumn: \"assistant_workspace_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"Workspace surface system prompt must be at most 12000 characters.\",\n      default: \"Workspace surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
-        reason: "Append assistant console settings field into app-owned console settings field registry.",
-        category: "assistant",
-        id: "assistant-console-settings-field-definition"
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/resources/workspaceSettingsFields.js",
-        position: "bottom",
-        skipIfContains: "key: \"appSurfacePrompt\"",
-        value:
-          "\ndefineField({\n  key: \"appSurfacePrompt\",\n  dbColumn: \"assistant_app_surface_prompt\",\n  required: true,\n  inputSchema: Type.String({\n    maxLength: 12000,\n    messages: {\n      maxLength: \"App surface system prompt must be at most 12000 characters.\",\n      default: \"App surface system prompt must be valid text.\"\n    }\n  }),\n  outputSchema: Type.String({ maxLength: 12000 }),\n  normalizeInput: (value) => String(value || \"\"),\n  normalizeOutput: (value) => String(value || \"\"),\n  resolveDefault: () => \"\"\n});\n",
-        reason: "Append assistant workspace settings field into app-owned workspace settings field registry.",
-        category: "assistant",
-        id: "assistant-workspace-settings-field-definition",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
+        id: "assistant-settings-form-placement",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
         }
       },
       {
@@ -261,7 +459,7 @@ export default Object.freeze({
         op: "upsert-env",
         key: "AI_API_KEY",
         value: "${option:ai-api-key}",
-        reason: "Configure assistant provider API key.",
+        reason: "Configure assistant AI API key.",
         category: "runtime-config",
         id: "assistant-ai-api-key"
       },
@@ -270,7 +468,7 @@ export default Object.freeze({
         op: "upsert-env",
         key: "AI_BASE_URL",
         value: "${option:ai-base-url}",
-        reason: "Configure optional assistant provider base URL.",
+        reason: "Configure assistant AI base URL override.",
         category: "runtime-config",
         id: "assistant-ai-base-url"
       },
@@ -279,7 +477,7 @@ export default Object.freeze({
         op: "upsert-env",
         key: "AI_TIMEOUT_MS",
         value: "${option:ai-timeout-ms}",
-        reason: "Configure assistant provider timeout.",
+        reason: "Configure assistant AI timeout in milliseconds.",
         category: "runtime-config",
         id: "assistant-ai-timeout-ms"
       }

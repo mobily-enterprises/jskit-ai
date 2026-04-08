@@ -11,7 +11,6 @@ import { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings
 import { registerWorkspaceRepositories } from "./registerWorkspaceRepositories.js";
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
-import { registerUsersCoreActionSurfaceSources } from "./support/workspaceActionSurfaces.js";
 
 class UsersWorkspacesServiceProvider {
   static id = "workspaces.core";
@@ -19,7 +18,6 @@ class UsersWorkspacesServiceProvider {
   static dependsOn = ["users.core"];
 
   register(app) {
-    registerUsersCoreActionSurfaceSources(app);
     registerWorkspaceRepositories(app);
     registerWorkspaceCore(app);
     registerWorkspaceBootstrap(app);

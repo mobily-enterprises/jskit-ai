@@ -14,68 +14,42 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/client/components/AssistantClientElement.vue`
+### `src/server/buildTemplateContext.js`
 Exports
-- None
+- `buildTemplateContext({ appRoot, options } = {})`
 Local functions
-- `formatConversationStartedAt(value)`
-- `normalizeConversationStatus(value)`
-- `messageAuthorLabel(message)`
-- `showAssistantTypingIndicator(message)`
-- `isAssistantChatMessage(message)`
-- `keepMessagesPanelPinnedToBottom({ behavior = "auto" } = {})`
-- `renderAssistantMarkdownSnapshot()`
-- `scheduleAssistantMarkdownRender({ immediate = false } = {})`
-- `assistantMessageHtml(message)`
-- `resolveConversationActorLabel(conversation)`
-- `conversationSubtitle(conversation)`
-- `conversationDisplayTitle(conversation)`
-- `isActiveConversation(conversation)`
-- `onSelectConversation(conversation)`
-- `selectConversationFromPicker(conversation)`
-- `onStartNewConversation()`
-- `startNewConversationFromPicker()`
-- `onLoadMoreConversations()`
-- `onSendMessage()`
-- `onConversationPickerOpen()`
-- `onHandleInputKeydown(event)`
-- `resolveComposerTextarea()`
-- `focusComposer(selectText = false)`
-- `focusComposerWithRetry(selectText = false)`
-- `requestComposerFocus({ selectText = false } = {})`
-- `onRootFocus(event)`
-- `onRootPointerDown()`
-- `normalizeScrollValue(value)`
-- `distanceFromBottom(element)`
-- `isScrolledToBottom(element)`
-- `scrollMessagesToBottom({ behavior = "auto" } = {})`
-- `handleMessagesPanelScroll()`
-- `syncViewportHeight()`
+- `normalizeConfigScope(value = "")`
+- `loadAppConfig(appRoot = "")`
+- `resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "surface")`
+- `resolveTableSuffix(surfaceId = "")`
+- `resolveMenuPlacementTarget(appRoot = "", options = {})`
 
-### `src/client/components/AssistantConsoleSettingsClientElement.vue`
+### templates
+
+### `templates/migrations/assistant_config_initial.cjs`
 Exports
 - None
 
-### `src/client/components/AssistantSettingsFormCard.vue`
+### `templates/migrations/assistant_transcripts_initial.cjs`
 Exports
 - None
 
-### `src/client/components/AssistantWorkspaceClientElement.vue`
+### `templates/src/local-package/client/components/AssistantSettingsClientElement.vue`
 Exports
 - None
 
-### `src/client/components/AssistantWorkspaceSettingsClientElement.vue`
+### `templates/src/local-package/client/components/AssistantSurfaceClientElement.vue`
 Exports
 - None
 
-### `src/client/composables/useAssistantWorkspaceRuntime.js`
+### `templates/src/local-package/client/composables/useAssistantRuntime.js`
 Exports
-- `useAssistantWorkspaceRuntime({ api = null } = {})`
+- `useAssistantRuntime({ api = null } = {})`
 Local functions
 - `toNonNegativeInteger(value, fallback = 0)`
-- `buildActiveConversationStorageKey(workspaceSlug)`
-- `readStoredActiveConversationId(workspaceSlug)`
-- `writeStoredActiveConversationId(workspaceSlug, conversationId)`
+- `buildScopeStorageKey(scope = {})`
+- `readStoredActiveConversationId(scope = {})`
+- `writeStoredActiveConversationId(scope = {}, conversationId)`
 - `buildId(prefix = "id")`
 - `normalizeToolName(value)`
 - `normalizeConversationStatus(value)`
@@ -83,195 +57,82 @@ Local functions
 - `parseToolResultPayload(value)`
 - `buildHistory(messages)`
 - `mapTranscriptEntriesToAssistantState(entries)`
-- `resolveWorkspaceScope(bootstrapData = {}, workspaceSlug = "")`
 - `resolveRuntimePolicy()`
-- `createRuntimeApi({ overrideApi = null, resolveSurfaceId = null } = {})`
+- `createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceId = null } = {})`
 
-### `src/client/index.js`
+### `templates/src/local-package/client/index.js`
 Exports
-- `AssistantClientElement`
-- `AssistantWorkspaceClientElement`
-- `AssistantConsoleSettingsClientElement`
-- `AssistantWorkspaceSettingsClientElement`
-- `useAssistantWorkspaceRuntime`
-- `assistantHttpClient`
-- `createAssistantWorkspaceApi`
-- `buildStreamEventError`
-- `AssistantWebClientProvider`
+- `AssistantSurfaceClientElement`
+- `AssistantSettingsClientElement`
+- `useAssistantRuntime`
 
-### `src/client/lib/assistantApi.js`
+### `templates/src/local-package/client/providers/AssistantClientProvider.js`
 Exports
-- `createAssistantWorkspaceApi({ request, requestStream, resolveSurfaceId = null })`
-- `buildStreamEventError(event)`
-Local functions
-- `appendQueryParam(params, key, value)`
-- `resolveWorkspaceBasePath(workspaceSlug = "")`
-- `normalizeSurfaceHeaderValue(value)`
-- `resolveAssistantRequestHeaders(resolveSurfaceId)`
+- `AssistantClientProvider`
 
-### `src/client/lib/assistantHttpClient.js`
+### `templates/src/local-package/package.descriptor.mjs`
 Exports
-- `assistantHttpClient`
+- None
 
-### `src/client/lib/markdownRenderer.js`
-Exports
-- `renderMarkdownToSafeHtml(value = "")`
-Local functions
-- `normalizeMarkdownText(value)`
-
-### `src/client/providers/AssistantWebClientProvider.js`
-Exports
-- `AssistantWebClientProvider`
-
-### `src/server/actionIds.js`
+### `templates/src/local-package/server/actionIds.js`
 Exports
 - `actionIds`
 
-### `src/server/actions.js`
+### `templates/src/local-package/server/actions.js`
 Exports
 - `assistantActions`
 
-### `src/server/AssistantServiceProvider.js`
+### `templates/src/local-package/server/AssistantProvider.js`
 Exports
-- `AssistantServiceProvider`
+- `AssistantProvider`
 Local functions
-- `normalizeInteger(value, fallback)`
 - `normalizeStringArray(value)`
 - `resolveAssistantConfig(scope)`
 
-### `src/server/lib/aiClient.js`
-Exports
-- `createAiClient(options = {})`
-- `SUPPORTED_AI_PROVIDERS`
-- `DEFAULT_AI_PROVIDER`
-
-### `src/server/lib/ndjson.js`
-Exports
-- `NDJSON_CONTENT_TYPE`
-- `setNdjsonHeaders(reply)`
-- `writeNdjson(reply, payload = {})`
-- `endNdjson(reply)`
-- `mapStreamError(error)`
-
-### `src/server/lib/providers/anthropicClient.js`
-Exports
-- `createAnthropicClient({ enabled = true, apiKey = "", baseUrl = "", model = "", timeoutMs = 120_000 } = {})`
-- `DEFAULT_ANTHROPIC_MODEL`
-- `DEFAULT_ANTHROPIC_BASE_URL`
-Local functions
-- `normalizeTemperature(value, fallback = 0.2)`
-- `normalizeToolDescriptor(tool)`
-- `toAnthropicTools(tools = [])`
-- `toAnthropicSystemAndMessages(messages = [])`
-- `mapAnthropicContentToOpenAiDelta(content = [])`
-- `createSingleChunkStream(chunk)`
-- `fetchAnthropicMessage({ apiKey, baseUrl, model, timeoutMs, system = "", messages, tools, temperature = 0.2, signal } = {})`
-
-### `src/server/lib/providers/common.js`
-Exports
-- `SUPPORTED_AI_PROVIDERS`
-- `DEFAULT_AI_PROVIDER`
-- `DEFAULT_AI_TIMEOUT_MS`
-- `normalizeProvider(provider)`
-- `normalizeTimeoutMs(value, fallback = DEFAULT_AI_TIMEOUT_MS)`
-- `normalizeModel(value, fallback = "")`
-- `normalizeOptionalHttpUrl(value, { context = "assistant baseUrl" } = {})`
-- `createDisabledClient({ provider = DEFAULT_AI_PROVIDER, model = "" } = {})`
-- `createProviderRequestError({ status = 500, code = "assistant_provider_failed", message = "" } = {})`
-- `normalizeObject`
-- `normalizeArray`
-- `normalizeContentText(content)`
-- `parseJsonObjectOrDefault(value, fallback = {})`
-
-### `src/server/lib/providers/deepSeekClient.js`
-Exports
-- `createDeepSeekClient(options = {})`
-- `DEFAULT_DEEPSEEK_MODEL`
-- `DEFAULT_DEEPSEEK_BASE_URL`
-
-### `src/server/lib/providers/openAiClient.js`
-Exports
-- `createOpenAiClient(options = {})`
-- `DEFAULT_OPENAI_MODEL`
-
-### `src/server/lib/providers/openAiCompatibleClient.js`
-Exports
-- `createOpenAiCompatibleClient({ enabled = true, apiKey = "", baseUrl = "", model = "", defaultModel = "", provider = "openai", timeoutMs = 120_000 } = {})`
-
-### `src/server/lib/resolveWorkspaceSlug.js`
-Exports
-- `resolveWorkspaceSlug(context = {}, actionInput = null)`
-
-### `src/server/lib/serviceToolCatalog.js`
-Exports
-- `createServiceToolCatalog(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
-Local functions
-- `normalizeAssistantExtension(value)`
-- `normalizeAssistantActionExtension(action = {})`
-- `normalizeBarredEntry(value)`
-- `normalizeBarredActionSet(value)`
-- `isActionBarred(barredRules, actionId)`
-- `sanitizeToolName(value)`
-- `resolveUniqueToolName(baseName, used)`
-- `parseToolPayload(argumentsText)`
-- `canInvokeMethod(permission, context)`
-- `normalizePermissionSpec(permission)`
-- `stripWorkspaceSlugFromSchema(schema, context = {})`
-- `hasAutomationChannel(action = {})`
-- `resolveActionBackedToolEntries(scope)`
-- `resolveActionToolEntries(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
-
-### `src/server/registerRoutes.js`
+### `templates/src/local-package/server/registerRoutes.js`
 Exports
 - `registerRoutes(app)`
 Local functions
-- `resolveAssistantWorkspaceRouteSurfaceConfig(app)`
-- `resolveAssistantWorkspaceRequestSurfaceId(request, workspaceRouteSurfaceConfig = {})`
+- `buildWorkspaceRouteConfig(requiresWorkspace, baseConfig = {})`
+- `readWorkspaceInput(request, requiresWorkspace)`
 
-### `src/server/repositories/assistantSettingsRepository.js`
+### `templates/src/local-package/server/repositories/assistantConfigRepository.js`
 Exports
 - `createRepository(knex)`
 Local functions
-- `mapConsoleRow(row = {})`
-- `mapWorkspaceRow(row = {})`
+- `normalizeTargetSurfaceId(value = "")`
+- `normalizeWorkspaceId(value)`
+- `buildScopeKey(targetSurfaceId, workspaceId = null)`
+- `mapConfigRow(row = {})`
+- `createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {})`
 
-### `src/server/repositories/conversationsRepository.js`
+### `templates/src/local-package/server/repositories/conversationsRepository.js`
 Exports
-- `createRepository`
-- `createConversationsRepository(knex)`
+- `createRepository(knex)`
 Local functions
+- `normalizeWorkspaceId(value)`
+- `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapConversationRow(row = {})`
 - `normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {})`
 - `createConversationBaseQuery(client)`
 
-### `src/server/repositories/messagesRepository.js`
+### `templates/src/local-package/server/repositories/messagesRepository.js`
 Exports
-- `createRepository`
-- `createMessagesRepository(knex)`
+- `createRepository(knex)`
 Local functions
+- `normalizeWorkspaceId(value)`
+- `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapMessageRow(row = {})`
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
 - `resolveNextSequence(client, conversationId)`
 
-### `src/server/repositories/repositoryPersistenceUtils.js`
+### `templates/src/local-package/server/services/assistantConfigService.js`
 Exports
-- `parseJsonObject`
-- `stringifyJsonObject(value)`
-- `toIso(value)`
-- `resolveInsertedId(insertResult)`
+- `createService({ assistantConfigRepository, consoleService = null } = {})`
 
-### `src/server/services/assistantSettingsService.js`
+### `templates/src/local-package/server/services/chatService.js`
 Exports
-- `createService({ assistantSettingsRepository, consoleService } = {})`
-- `serviceEvents`
-Local functions
-- `normalizeSurface(value)`
-- `mapConsoleResponse(record = {})`
-- `mapWorkspaceResponse(record = {})`
-
-### `src/server/services/chatService.js`
-Exports
-- `createChatService({ aiClient, transcriptService, serviceToolCatalog, assistantSettingsService } = {})`
+- `createChatService({ aiClient, transcriptService, serviceToolCatalog, assistantConfigService } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
@@ -293,126 +154,26 @@ Local functions
 - `consumeCompletionStream({ stream, streamWriter, emitDeltas = true, deltaSanitizer = null } = {})`
 - `mergeAssistantMessageText(streamedText = "", completionText = "")`
 
-### `src/server/services/transcriptService.js`
+### `templates/src/local-package/server/services/transcriptService.js`
 Exports
 - `createTranscriptService({ conversationsRepository, messagesRepository } = {})`
-- `serviceEvents`
 Local functions
-- `resolveWorkspaceId(workspace)`
+- `resolveWorkspaceId(workspace, { required = false } = {})`
 - `resolveActorUserId(user, { required = false } = {})`
 - `normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_SIZE, maxPageSize = MAX_PAGE_SIZE } = {})`
 - `normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZE, maxLimit = MAX_PAGE_SIZE } = {})`
 - `deriveConversationTitleFromMessage(contentText)`
 - `isDefaultConversationTitle(value)`
 
-### `src/shared/assistantPaths.js`
+### `templates/src/local-package/shared/assistantRuntimeConfig.js`
 Exports
-- `ASSISTANT_API_RELATIVE_PATH`
-- `ASSISTANT_WORKSPACE_API_BASE_PATH_TEMPLATE`
-- `ASSISTANT_PUBLIC_API_BASE_PATH`
-- `resolveAssistantApiBasePath({ visibility = "workspace" } = {})`
-- `resolveAssistantWorkspaceApiBasePath(workspaceSlug = "")`
-- `buildAssistantWorkspaceApiPath(workspaceSlug = "", suffix = "/")`
+- `assistantRuntimeConfig`
 
-### `src/shared/assistantResource.js`
+### `templates/src/local-package/shared/index.js`
 Exports
-- `MAX_INPUT_CHARS`
-- `MAX_HISTORY_MESSAGES`
-- `assistantResource`
-Local functions
-- `normalizePaginationValue(value, fallback, max)`
-- `normalizeChatStreamBody(payload = {})`
-- `normalizeConversationsListQuery(payload = {})`
-- `normalizeConversationMessagesQuery(payload = {})`
-- `normalizeConversationMessagesParams(payload = {})`
-- `createOptionalPositiveIntegerQuerySchema(max = null)`
-- `normalizeConversationRecord(payload = {})`
-- `normalizeConversationMessageRecord(payload = {})`
+- `assistantRuntimeConfig`
 
-### `src/shared/assistantSettingsResource.js`
-Exports
-- `MAX_SYSTEM_PROMPT_CHARS`
-- `assistantConsoleSettingsResource`
-- `assistantWorkspaceSettingsResource`
-Local functions
-- `createPromptSchema(promptLabel)`
-- `createPromptSettingsResource({ resourceId = "", fields = [], validationMessage = "Fix invalid values and try again.", saveSuccessMessage = "Saved.", saveErrorMessage = "Unable to save settings." } = {})`
-- `createFieldRegistry(scopeLabel)`
-- `assistantConsoleSettingsFields(()`
-- `assistantWorkspaceSettingsFields(()`
-
-### `src/shared/index.js`
-Exports
-- `ASSISTANT_API_RELATIVE_PATH`
-- `resolveAssistantApiBasePath`
-- `resolveAssistantWorkspaceApiBasePath`
-- `buildAssistantWorkspaceApiPath`
-- `ASSISTANT_QUERY_KEY_PREFIX`
-- `assistantRootQueryKey`
-- `assistantWorkspaceScopeQueryKey`
-- `assistantConversationsListQueryKey`
-- `assistantConversationMessagesQueryKey`
-- `ASSISTANT_STREAM_EVENT_TYPES`
-- `normalizeAssistantStreamEventType`
-- `MAX_INPUT_CHARS`
-- `MAX_HISTORY_MESSAGES`
-- `assistantResource`
-- `MAX_SYSTEM_PROMPT_CHARS`
-- `assistantConsoleSettingsResource`
-- `assistantWorkspaceSettingsResource`
-- `assistantSettingsEvents`
-- `ASSISTANT_CONVERSATION_STATUSES`
-- `normalizeConversationStatus`
-- `parseJsonObject`
-- `toPositiveInteger`
-
-### `src/shared/queryKeys.js`
-Exports
-- `ASSISTANT_QUERY_KEY_PREFIX`
-- `assistantRootQueryKey()`
-- `assistantWorkspaceScopeQueryKey(workspaceScope = {})`
-- `assistantConversationsListQueryKey(workspaceScope = {}, { limit = 20, status = "" } = {})`
-- `assistantConversationMessagesQueryKey(workspaceScope = {}, conversationId, { page = 1, pageSize = 200 } = {})`
-Local functions
-- `normalizeWorkspaceSlug(value)`
-- `normalizePositiveInteger(value, fallback)`
-- `normalizeWorkspaceScope({ workspaceSlug = "", workspaceId = 0 } = {})`
-- `normalizeStatus(value)`
-- `normalizeConversationId(value)`
-
-### `src/shared/settingsEvents.js`
-Exports
-- `assistantSettingsEvents`
-
-### `src/shared/streamEvents.js`
-Exports
-- `ASSISTANT_STREAM_EVENT_TYPES`
-- `normalizeAssistantStreamEventType(value, fallback = "")`
-
-### `src/shared/support/conversationStatus.js`
-Exports
-- `ASSISTANT_CONVERSATION_STATUSES`
-- `normalizeConversationStatus(value, { fallback = "" } = {})`
-
-### `src/shared/support/jsonObject.js`
-Exports
-- `parseJsonObject(value)`
-
-### `src/shared/support/positiveInteger.js`
-Exports
-- `toPositiveInteger(value, fallback = 0)`
-
-### templates
-
-### `templates/migrations/assistant_settings_initial.cjs`
-Exports
-- None
-
-### `templates/migrations/assistant_transcripts_initial.cjs`
-Exports
-- None
-
-### `templates/src/pages/admin/workspace/assistant/index.vue`
+### `templates/src/pages/assistant/index.vue`
 Exports
 - None
 

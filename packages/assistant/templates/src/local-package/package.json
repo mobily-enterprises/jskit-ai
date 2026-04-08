@@ -1,0 +1,11 @@
+{
+  "name": "@local/assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./shared": "./src/shared/index.js",
+    "./server/actionIds": "./src/server/actionIds.js"
+  }
+}

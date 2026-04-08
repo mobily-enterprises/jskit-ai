@@ -16,6 +16,7 @@ function createCommandHandlerDeps(deps = {}) {
     resolveInstalledPackageIdInput: deps.resolveInstalledPackageIdInput,
     resolveInstalledNodeModulePackageEntry: deps.resolveInstalledNodeModulePackageEntry,
     hydratePackageRegistryFromInstalledNodeModules: deps.hydratePackageRegistryFromInstalledNodeModules,
+    resolvePackageTemplateRoot: deps.resolvePackageTemplateRoot,
     validateInlineOptionsForPackage: deps.validateInlineOptionsForPackage,
     resolveLocalDependencyOrder: deps.resolveLocalDependencyOrder,
     validatePlannedCapabilityClosure: deps.validatePlannedCapabilityClosure,

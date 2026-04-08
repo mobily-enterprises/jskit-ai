@@ -8,6 +8,7 @@ Startup docs stay in `agents/`.
 
 ## Package Maps
 - [assistant](/agent-index/packages/assistant.md)
+- [assistant-core](/agent-index/packages/assistant-core.md)
 - [auth-core](/agent-index/packages/auth-core.md)
 - [auth-provider-supabase-core](/agent-index/packages/auth-provider-supabase-core.md)
 - [auth-web](/agent-index/packages/auth-web.md)

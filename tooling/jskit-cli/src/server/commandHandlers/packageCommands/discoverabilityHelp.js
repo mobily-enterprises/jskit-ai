@@ -95,6 +95,76 @@ function normalizeSubcommandOptionNames(rawOptionNames = []) {
   return rows;
 }
 
+function normalizeHelpExampleRows(rawRows = []) {
+  const rows = [];
+
+  for (const rawRow of ensureArray(rawRows)) {
+    if (typeof rawRow === "string") {
+      const lines = String(rawRow)
+        .split(/\r?\n/u)
+        .map((value) => value.replace(/[ \t]+$/u, ""))
+        .filter((value) => value.trim().length > 0);
+      if (lines.length < 1) {
+        continue;
+      }
+      rows.push(Object.freeze({
+        label: "",
+        lines
+      }));
+      continue;
+    }
+
+    const row = ensureObject(rawRow);
+    const label = String(row.label || "").trim();
+    const commandLines = String(row.command || "")
+      .split(/\r?\n/u)
+      .map((value) => value.replace(/[ \t]+$/u, ""))
+      .filter((value) => value.trim().length > 0);
+    const explicitLines = ensureArray(row.lines)
+      .map((value) => String(value || "").replace(/[ \t]+$/u, ""))
+      .filter((value) => value.trim().length > 0);
+    const lines = explicitLines.length > 0 ? explicitLines : commandLines;
+    if (lines.length < 1) {
+      continue;
+    }
+    rows.push(Object.freeze({
+      label,
+      lines
+    }));
+  }
+
+  return rows;
+}
+
+function appendHelpExamples(lines = [], exampleRows = []) {
+  const examples = ensureArray(exampleRows);
+  if (examples.length < 1) {
+    return;
+  }
+
+  lines.push("");
+  lines.push(`Examples (${examples.length}):`);
+  for (const example of examples) {
+    const label = String(example?.label || "").trim();
+    if (label) {
+      lines.push(`- ${label}`);
+      for (const commandLine of ensureArray(example?.lines)) {
+        lines.push(`  ${commandLine}`);
+      }
+      continue;
+    }
+
+    const commandLines = ensureArray(example?.lines);
+    if (commandLines.length < 1) {
+      continue;
+    }
+    lines.push(`- ${commandLines[0]}`);
+    for (const commandLine of commandLines.slice(1)) {
+      lines.push(`  ${commandLine}`);
+    }
+  }
+}
+
 function resolveGeneratorSubcommandMetadata(packageEntry = {}) {
   const descriptor = ensureObject(packageEntry?.descriptor);
   const metadata = ensureObject(descriptor.metadata);
@@ -126,7 +196,8 @@ function resolveGeneratorSubcommandMetadata(packageEntry = {}) {
       description: String(definition.description || "").trim(),
       positionalArgs: normalizeSubcommandPositionalArgRows(definition.positionalArgs),
       optionNames,
-      requiredOptionNames
+      requiredOptionNames,
+      examples: normalizeHelpExampleRows(definition.examples)
     }));
   }
 
@@ -359,6 +430,7 @@ function renderGeneratePackageHelp({
   const summary = resolvePackageSummary(packageEntry);
   const optionRows = buildPackageOptionRows(packageEntry);
   const generatorMetadata = resolveGeneratorSubcommandMetadata(packageEntry);
+  const primarySubcommandRow = ensureArray(generatorMetadata.subcommands).find((row) => row.primary) || null;
   const preferredId = toShortPackageId(packageId) || packageId;
   const usage = Object.freeze([
     `jskit generate ${preferredId} help`,
@@ -380,6 +452,7 @@ function renderGeneratePackageHelp({
       usage,
       primarySubcommand: generatorMetadata.primarySubcommand || "",
       subcommands: generatorMetadata.subcommands,
+      primarySubcommandExamples: ensureArray(primarySubcommandRow?.examples),
       options: optionRows
     }, null, 2)}\n`);
     return;
@@ -409,9 +482,10 @@ function renderGeneratePackageHelp({
       lines.push(`- ${subcommand.name}${primarySuffix}${descriptionSuffix}`);
     }
     lines.push("- Use subcommand help for details: jskit generate <generatorId> <subcommand> help");
-    lines.push("");
   }
 
+  appendHelpExamples(lines, primarySubcommandRow?.examples);
+  lines.push("");
   lines.push(`Options (${optionRows.length}):`);
   if (optionRows.length > 0) {
     for (const optionRow of optionRows) {
@@ -478,6 +552,7 @@ function renderGenerateSubcommandHelp({
         primary: subcommandRow.primary,
         description: effectiveDescription,
         positionalArgs,
+        examples: ensureArray(subcommandRow.examples),
         options: subcommandOptionRows
       },
       usage
@@ -520,6 +595,7 @@ function renderGenerateSubcommandHelp({
   } else {
     lines.push("- No inline options.");
   }
+  appendHelpExamples(lines, subcommandRow.examples);
   if (hasRequiredWithDefaults) {
     lines.push("");
     lines.push("Note: required options with defaults are auto-filled when omitted.");

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.23",
+  version: "0.1.27",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -77,6 +77,18 @@ export default Object.freeze({
             position: "secondary-menu",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            host: "home-settings",
+            position: "primary-menu",
+            surfaces: ["home"],
+            source: "templates/src/pages/home/settings/index.vue"
+          },
+          {
+            host: "home-settings",
+            position: "forms",
+            surfaces: ["home"],
+            source: "templates/src/pages/home/settings/index.vue"
           }
         ],
         contributions: []
@@ -87,7 +99,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.24",
+        "@jskit-ai/kernel": "0.1.28",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -145,6 +157,14 @@ export default Object.freeze({
         reason: "Install shell-driven home surface starter page.",
         category: "shell-web",
         id: "shell-web-page-home"
+      },
+      {
+        from: "templates/src/pages/home/settings/index.vue",
+        toSurface: "home",
+        toSurfacePath: "settings/index.vue",
+        reason: "Install shell-driven home settings page scaffold with surface-derived settings outlets.",
+        category: "shell-web",
+        id: "shell-web-page-home-settings"
       },
       {
         from: "templates/src/pages/console.vue",

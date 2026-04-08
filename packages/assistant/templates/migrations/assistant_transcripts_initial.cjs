@@ -1,15 +1,18 @@
 exports.up = async function up(knex) {
-  const hasConversationsTable = await knex.schema.hasTable("ai_conversations");
+  const hasConversationsTable = await knex.schema.hasTable("__ASSISTANT_CONVERSATIONS_TABLE__");
   if (!hasConversationsTable) {
-    await knex.schema.createTable("ai_conversations", (table) => {
+    await knex.schema.createTable("__ASSISTANT_CONVERSATIONS_TABLE__", (table) => {
       table.increments("id").unsigned().primary();
-      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE").index();
+      table.integer("workspace_id").unsigned().nullable();
+      if (__ASSISTANT_RUNTIME_SURFACE_REQUIRES_WORKSPACE__) {
+        table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
+      }
       table.integer("created_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL").index();
       table.string("title", 160).notNullable().defaultTo("New conversation");
       table.string("status", 32).notNullable().defaultTo("active");
       table.string("provider", 64).notNullable().defaultTo("");
       table.string("model", 128).notNullable().defaultTo("");
-      table.string("surface_sid", 32).notNullable().defaultTo("admin");
+      table.string("surface_id", 32).notNullable().defaultTo("__ASSISTANT_RUNTIME_SURFACE_ID__");
       table.integer("message_count").unsigned().notNullable().defaultTo(0);
       table.text("metadata_json").nullable();
       table.timestamp("started_at").notNullable().defaultTo(knex.fn.now());
@@ -17,17 +20,20 @@ exports.up = async function up(knex) {
       table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());
       table.timestamp("updated_at").notNullable().defaultTo(knex.fn.now());
 
-      table.index(["workspace_id", "started_at"], "idx_ai_conversations_workspace_started_at");
-      table.index(["workspace_id", "created_by_user_id"], "idx_ai_conversations_workspace_creator");
+      table.index(["workspace_id", "started_at"], "idx___ASSISTANT_CONVERSATIONS_TABLE___workspace_started_at");
+      table.index(["created_by_user_id", "started_at"], "idx___ASSISTANT_CONVERSATIONS_TABLE___creator_started_at");
     });
   }
 
-  const hasMessagesTable = await knex.schema.hasTable("ai_messages");
+  const hasMessagesTable = await knex.schema.hasTable("__ASSISTANT_MESSAGES_TABLE__");
   if (!hasMessagesTable) {
-    await knex.schema.createTable("ai_messages", (table) => {
+    await knex.schema.createTable("__ASSISTANT_MESSAGES_TABLE__", (table) => {
       table.increments("id").unsigned().primary();
-      table.integer("conversation_id").unsigned().notNullable().references("id").inTable("ai_conversations").onDelete("CASCADE");
-      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE").index();
+      table.integer("conversation_id").unsigned().notNullable().references("id").inTable("__ASSISTANT_CONVERSATIONS_TABLE__").onDelete("CASCADE");
+      table.integer("workspace_id").unsigned().nullable();
+      if (__ASSISTANT_RUNTIME_SURFACE_REQUIRES_WORKSPACE__) {
+        table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
+      }
       table.integer("seq").unsigned().notNullable();
       table.string("role", 32).notNullable();
       table.string("kind", 32).notNullable().defaultTo("chat");
@@ -37,13 +43,14 @@ exports.up = async function up(knex) {
       table.text("metadata_json").nullable();
       table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());
 
-      table.unique(["conversation_id", "seq"], "uq_ai_messages_conversation_seq");
-      table.index(["conversation_id", "created_at"], "idx_ai_messages_conversation_created_at");
+      table.unique(["conversation_id", "seq"], "uq___ASSISTANT_MESSAGES_TABLE___conversation_seq");
+      table.index(["conversation_id", "created_at"], "idx___ASSISTANT_MESSAGES_TABLE___conversation_created_at");
+      table.index(["workspace_id"], "idx___ASSISTANT_MESSAGES_TABLE___workspace");
     });
   }
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.dropTableIfExists("ai_messages");
-  await knex.schema.dropTableIfExists("ai_conversations");
+  await knex.schema.dropTableIfExists("__ASSISTANT_MESSAGES_TABLE__");
+  await knex.schema.dropTableIfExists("__ASSISTANT_CONVERSATIONS_TABLE__");
 };

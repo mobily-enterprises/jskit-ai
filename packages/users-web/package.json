@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.39",
+  "version": "0.1.43",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -21,18 +21,17 @@
     "./client/composables/useAccountSettingsRuntime": "./src/client/composables/useAccountSettingsRuntime.js",
     "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js",
-    "./client/support/menuLinkTarget": "./src/client/support/menuLinkTarget.js",
-    "./client/support/realtimeWorkspace": "./src/client/support/realtimeWorkspace.js"
+    "./client/support/menuLinkTarget": "./src/client/support/menuLinkTarget.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.23",
-    "@jskit-ai/kernel": "0.1.24",
-    "@jskit-ai/realtime": "0.1.23",
-    "@jskit-ai/shell-web": "0.1.23",
-    "@jskit-ai/uploads-image-web": "0.1.2",
-    "@jskit-ai/users-core": "0.1.34",
+    "@jskit-ai/http-runtime": "0.1.27",
+    "@jskit-ai/kernel": "0.1.28",
+    "@jskit-ai/realtime": "0.1.27",
+    "@jskit-ai/shell-web": "0.1.27",
+    "@jskit-ai/uploads-image-web": "0.1.6",
+    "@jskit-ai/users-core": "0.1.38",
     "vuetify": "^4.0.0"
   }
 }

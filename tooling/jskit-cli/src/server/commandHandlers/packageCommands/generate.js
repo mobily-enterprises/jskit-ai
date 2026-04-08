@@ -75,6 +75,7 @@ async function runPackageGenerateCommand(
     mergePackageRegistries,
     resolvePackageIdFromRegistryOrNodeModules,
     hydratePackageRegistryFromInstalledNodeModules,
+    resolvePackageTemplateRoot,
     resolvePackageKind,
     resolveGeneratorPrimarySubcommand,
     hasGeneratorSubcommandDefinition,
@@ -231,8 +232,20 @@ async function runPackageGenerateCommand(
       });
     }
 
-    return runGeneratorSubcommand({
+    const templateRoot = await resolvePackageTemplateRoot({
       packageEntry,
+      appRoot
+    });
+    const executablePackageEntry =
+      templateRoot === packageEntry.rootDir
+        ? packageEntry
+        : {
+            ...packageEntry,
+            rootDir: templateRoot
+          };
+
+    return runGeneratorSubcommand({
+      packageEntry: executablePackageEntry,
       subcommandName,
       subcommandArgs,
       inlineOptions: options.inlineOptions,
