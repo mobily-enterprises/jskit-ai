@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/ui-generator",
-  version: "0.1.11",
+  version: "0.1.12",
   kind: "generator",
   description: "Generate app-local non-CRUD UI pages and outlet elements.",
   options: {
@@ -149,7 +149,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.43"
+        "@jskit-ai/users-web": "0.1.44"
       },
       dev: {}
     },

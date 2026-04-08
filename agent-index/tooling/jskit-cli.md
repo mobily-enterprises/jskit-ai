@@ -248,8 +248,15 @@ Local functions
 ### `src/server/cliRuntime/packageTemplateResolution.js`
 Exports
 - `cleanupMaterializedPackageRoots()`
-- `resolvePackageTemplateRoot({ packageEntry, appRoot })`
+- `materializeCatalogPackageRoot({ packageEntry, appRoot, installCatalogPackage = installCatalogPackageIntoCache } = {})`
+- `resolvePackageTemplateRoot({ packageEntry, appRoot, materializeCatalogRoot = materializeCatalogPackageRoot } = {})`
 Local functions
+- `isInternalCatalogPackageEntry(packageEntry = {})`
+- `encodePackageCacheSegment(value = "")`
+- `buildMaterializedCacheKey(packageEntry = {})`
+- `buildMaterializedInstallRoot({ appRoot, packageEntry })`
+- `ensureMaterializedInstallWorkspace(installRoot)`
+- `installCatalogPackageIntoCache({ installRoot, packageEntry })`
 - `resolvePackageRootFromNodeModules({ appRoot, packageId })`
 - `loadLocalWorkspacePackageIdIndex()`
 - `resolvePackageRootFromLocalWorkspace({ packageId })`
@@ -309,6 +316,8 @@ Local functions
 - `buildPackageOptionRows(packageEntry = {})`
 - `normalizeSubcommandPositionalArgRows(rawRows = [])`
 - `normalizeSubcommandOptionNames(rawOptionNames = [])`
+- `normalizeHelpExampleRows(rawRows = [])`
+- `appendHelpExamples(lines = [], exampleRows = [])`
 - `resolveGeneratorSubcommandMetadata(packageEntry = {})`
 - `formatOptionSummary(optionRow = {})`
 - `formatPositionalArgUsageToken(arg = {})`
