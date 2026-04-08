@@ -4,7 +4,8 @@ import { createClient as createRedisClient } from "redis";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const SOCKET_IO_PATH = "/socket.io";
-const REALTIME_REDIS_URL_ENV_KEY = "REALTIME_REDIS_URL";
+const REDIS_URL_ENV_KEY = "REDIS_URL";
+const REDIS_NAMESPACE_ENV_KEY = "REDIS_NAMESPACE";
 
 function resolveHttpServer({ httpServer = null, fastify = null } = {}) {
   if (httpServer && typeof httpServer === "object") {
@@ -59,18 +60,39 @@ async function closeSocketIoServer(io) {
 
 function resolveRealtimeRedisUrl(env = {}) {
   const source = env && typeof env === "object" && !Array.isArray(env) ? env : {};
-  return normalizeText(source[REALTIME_REDIS_URL_ENV_KEY]);
+  return normalizeText(source[REDIS_URL_ENV_KEY]);
+}
+
+function resolveRealtimeRedisNamespace(env = {}) {
+  const source = env && typeof env === "object" && !Array.isArray(env) ? env : {};
+  return normalizeText(source[REDIS_NAMESPACE_ENV_KEY]);
+}
+
+function buildSocketIoRedisAdapterKey(redisNamespace = "") {
+  const normalizedRedisNamespace = normalizeText(redisNamespace).replace(/:+$/g, "");
+  if (!normalizedRedisNamespace) {
+    return "";
+  }
+  return `${normalizedRedisNamespace}:socket.io`;
 }
 
 async function configureSocketIoRedisAdapter(
   io,
-  { redisUrl = "" } = {}
+  {
+    redisUrl = "",
+    redisNamespace = "",
+    createRedisAdapter = createSocketIoRedisAdapter,
+    createRedisConnection = createRedisClient
+  } = {}
 ) {
   const normalizedRedisUrl = normalizeText(redisUrl);
+  const adapterKey = buildSocketIoRedisAdapterKey(redisNamespace);
   if (!normalizedRedisUrl) {
     return Object.freeze({
       enabled: false,
       redisUrl: "",
+      redisNamespace: "",
+      adapterKey: "",
       pubClient: null,
       subClient: null
     });
@@ -79,7 +101,7 @@ async function configureSocketIoRedisAdapter(
     throw new Error("configureSocketIoRedisAdapter requires socket.io server instance with adapter().");
   }
 
-  const pubClient = createRedisClient({
+  const pubClient = createRedisConnection({
     url: normalizedRedisUrl
   });
   const subClient = pubClient.duplicate();
@@ -87,7 +109,8 @@ async function configureSocketIoRedisAdapter(
   try {
     await pubClient.connect();
     await subClient.connect();
-    io.adapter(createSocketIoRedisAdapter(pubClient, subClient));
+    const adapterOptions = adapterKey ? { key: adapterKey } : undefined;
+    io.adapter(createRedisAdapter(pubClient, subClient, adapterOptions));
   } catch (error) {
     await closeSocketIoRedisConnections({
       pubClient,
@@ -99,6 +122,8 @@ async function configureSocketIoRedisAdapter(
   return Object.freeze({
     enabled: true,
     redisUrl: normalizedRedisUrl,
+    redisNamespace: normalizeText(redisNamespace),
+    adapterKey,
     pubClient,
     subClient
   });
@@ -127,8 +152,10 @@ async function closeSocketIoRedisConnections({ pubClient = null, subClient = nul
 export {
   createSocketIoServer,
   closeSocketIoServer,
-  REALTIME_REDIS_URL_ENV_KEY,
+  REDIS_URL_ENV_KEY,
+  REDIS_NAMESPACE_ENV_KEY,
   resolveRealtimeRedisUrl,
+  resolveRealtimeRedisNamespace,
   configureSocketIoRedisAdapter,
   closeSocketIoRedisConnections
 };

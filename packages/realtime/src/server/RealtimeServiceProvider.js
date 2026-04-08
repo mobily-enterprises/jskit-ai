@@ -8,6 +8,7 @@ import {
   createSocketIoServer,
   closeSocketIoServer,
   resolveRealtimeRedisUrl,
+  resolveRealtimeRedisNamespace,
   configureSocketIoRedisAdapter,
   closeSocketIoRedisConnections
 } from "./runtime.js";
@@ -684,8 +685,10 @@ class RealtimeServiceProvider {
 
     const env = typeof app.has === "function" && app.has("jskit.env") ? app.make("jskit.env") : {};
     const redisUrl = resolveRealtimeRedisUrl(env);
+    const redisNamespace = resolveRealtimeRedisNamespace(env);
     this.redisConnection = await configureSocketIoRedisAdapter(this.socketIoServer, {
-      redisUrl
+      redisUrl,
+      redisNamespace
     });
   }
 
