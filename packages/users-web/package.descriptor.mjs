@@ -1,9 +1,9 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.38",
+  version: "0.1.39",
   kind: "runtime",
-  description: "Users web module: workspace selector shell element plus workspace/profile/members UI elements.",
+  description: "Users web module: account/profile UI plus shared shell link components.",
   dependsOn: [
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
@@ -46,14 +46,6 @@ export default Object.freeze({
         {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
-        },
-        {
-          subpath: "./client/components/WorkspacesClientElement",
-          summary: "Exports workspace chooser client element component."
-        },
-        {
-          subpath: "./client/components/WorkspaceMembersClientElement",
-          summary: "Exports workspace members admin client element component."
         },
         {
           subpath: "./client/composables/useAddEdit",
@@ -99,16 +91,10 @@ export default Object.freeze({
       containerTokens: {
         server: [],
         client: [
-          "users.web.workspace.selector",
-          "users.web.workspace.tools.widget",
           "users.web.shell.menu-link-item",
           "users.web.shell.surface-aware-menu-link-item",
           "users.web.profile.menu.surface-switch-item",
-          "users.web.workspace-settings.menu-item",
-          "users.web.workspace-members.menu-item",
           "users.web.profile.element",
-          "users.web.members-admin.element",
-          "users.web.workspace-settings.element",
           "users.web.bootstrap-placement.runtime"
         ]
       }
@@ -117,16 +103,10 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            host: "workspace-tools",
+            host: "console-settings",
             position: "primary-menu",
-            surfaces: ["admin"],
-            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
-          },
-          {
-            host: "workspace-settings",
-            position: "forms",
-            surfaces: ["admin"],
-            source: "templates/src/pages/admin/workspace/settings/index.vue"
+            surfaces: ["console"],
+            source: "templates/src/pages/console/settings/index.vue"
           },
           {
             host: "console-settings",
@@ -136,26 +116,6 @@ export default Object.freeze({
           }
         ],
         contributions: [
-          {
-            id: "users.workspace.selector",
-            host: "shell-layout",
-            position: "top-left",
-            surfaces: ["*"],
-            order: 200,
-            componentToken: "users.web.workspace.selector",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-placement-block"
-          },
-          {
-            id: "users.account.invites.cue",
-            host: "shell-layout",
-            position: "top-right",
-            surfaces: ["*"],
-            order: 850,
-            componentToken: "local.main.account.pending-invites.cue",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-placement-block"
-          },
           {
             id: "users.profile.menu.surface-switch",
             host: "auth-profile-menu",
@@ -177,33 +137,6 @@ export default Object.freeze({
             source: "mutations.text#users-web-profile-settings-placement"
           },
           {
-            id: "users.workspace.tools.widget",
-            host: "shell-layout",
-            position: "top-right",
-            surfaces: ["admin"],
-            order: 900,
-            componentToken: "users.web.workspace.tools.widget",
-            source: "mutations.text#users-web-placement-block"
-          },
-          {
-            id: "users.workspace.menu.workspace-settings",
-            host: "workspace-tools",
-            position: "primary-menu",
-            surfaces: ["admin"],
-            order: 100,
-            componentToken: "users.web.workspace-settings.menu-item",
-            source: "mutations.text#users-web-placement-block"
-          },
-          {
-            id: "users.workspace.menu.members",
-            host: "workspace-tools",
-            position: "primary-menu",
-            surfaces: ["admin"],
-            order: 200,
-            componentToken: "users.web.workspace-members.menu-item",
-            source: "mutations.text#users-web-placement-block"
-          },
-          {
             id: "users.console.menu.settings",
             host: "shell-layout",
             position: "primary-menu",
@@ -212,15 +145,6 @@ export default Object.freeze({
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-console-settings-placement"
-          },
-          {
-            id: "users.workspace.settings.form",
-            host: "workspace-settings",
-            position: "forms",
-            surfaces: ["admin"],
-            order: 100,
-            componentToken: "users.web.workspace-settings.element",
-            source: "mutations.text#users-web-workspace-settings-form-placement"
           }
         ]
       }
@@ -236,8 +160,8 @@ export default Object.freeze({
         "@jskit-ai/kernel": "0.1.24",
         "@jskit-ai/shell-web": "0.1.23",
         "@jskit-ai/uploads-image-web": "0.1.2",
-        "@jskit-ai/users-core": "0.1.33",
-        "vuetify": "^4.0.0"
+        "@jskit-ai/users-core": "0.1.34",
+        vuetify: "^4.0.0"
       },
       dev: {}
     },
@@ -293,114 +217,13 @@ export default Object.freeze({
         id: "users-web-component-account-settings-invites"
       },
       {
-        from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
-        to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
-        reason: "Install app-owned account pending invites cue component scaffold.",
-        category: "users-web",
-        id: "users-web-main-component-account-pending-invites-cue"
-      },
-      {
-        from: "templates/src/components/WorkspaceNotFoundCard.vue",
-        to: "src/components/WorkspaceNotFoundCard.vue",
-        reason: "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
-        category: "users-web",
-        id: "users-web-component-workspace-not-found-card",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/composables/useWorkspaceNotFoundState.js",
-        to: "src/composables/useWorkspaceNotFoundState.js",
-        reason: "Install app-owned workspace bootstrap status composable for workspace-dependent surfaces.",
-        category: "users-web",
-        id: "users-web-composable-workspace-not-found-state",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/surfaces/app/root.vue",
-        toSurface: "app",
-        toSurfaceRoot: true,
-        reason: "Install workspace app surface wrapper shell for users-web.",
-        category: "users-web",
-        id: "users-web-page-app-wrapper",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/surfaces/app/index.vue",
-        toSurface: "app",
-        toSurfacePath: "index.vue",
-        reason: "Install workspace app surface starter page scaffold for users-web.",
-        category: "users-web",
-        id: "users-web-page-app-index",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/surfaces/admin/root.vue",
-        toSurface: "admin",
-        toSurfaceRoot: true,
-        reason: "Install workspace admin surface wrapper shell for users-web.",
-        category: "users-web",
-        id: "users-web-page-admin-wrapper",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/surfaces/admin/index.vue",
-        toSurface: "admin",
-        toSurfacePath: "index.vue",
-        reason: "Install workspace admin surface starter page scaffold for users-web.",
-        category: "users-web",
-        id: "users-web-page-admin-index",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/pages/admin/members/index.vue",
-        toSurface: "admin",
-        toSurfacePath: "members/index.vue",
-        reason: "Install admin members starter page scaffold for users-web members UI.",
-        category: "users-web",
-        id: "users-web-page-admin-members",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        from: "templates/src/pages/admin/workspace/settings/index.vue",
-        toSurface: "admin",
-        toSurfacePath: "workspace/settings/index.vue",
-        reason: "Install workspace settings page scaffold for users-web workspace admin UI.",
-        category: "users-web",
-        id: "users-web-page-admin-workspace-settings",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
         from: "templates/src/pages/console/settings/index.vue",
         toSurface: "console",
         toSurfacePath: "settings/index.vue",
         reason: "Install console settings page scaffold for users-web console UI.",
         category: "users-web",
         id: "users-web-page-console-settings"
-      },
+      }
     ],
     text: [
       {
@@ -413,41 +236,6 @@ export default Object.freeze({
         reason: "Register account surface definition in public surface config.",
         category: "users-web",
         id: "users-web-surface-config-account"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
-        reason: "Append users-web placement entries into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-placement-block",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";",
-        value: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";\n",
-        reason: "Bind app-owned account pending invites cue component into local main client provider imports.",
-        category: "users-web",
-        id: "users-web-main-client-provider-account-invites-import"
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);",
-        value:
-          "\nregisterMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);\n",
-        reason: "Bind app-owned account pending invites cue component token into local main client provider registry.",
-        category: "users-web",
-        id: "users-web-main-client-provider-account-invites-register"
       },
       {
         op: "append-text",
@@ -481,21 +269,6 @@ export default Object.freeze({
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.workspace.settings.form\"",
-        value:
-          "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
-        reason: "Append users-web workspace settings form placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-workspace-settings-form-placement",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
       }
     ]
   }

@@ -49,7 +49,7 @@ test("buildUiPageTemplateContext resolves placement from default app ShellOutlet
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="workspace-settings" position="forms" default />
+    <ShellOutlet host="admin-settings" position="forms" default />
   </section>
 </template>
 `
@@ -59,7 +59,7 @@ test("buildUiPageTemplateContext resolves placement from default app ShellOutlet
       appRoot,
       options: {}
     });
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "workspace-settings");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "admin-settings");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "forms");
     assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/");

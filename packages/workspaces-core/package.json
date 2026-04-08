@@ -1,0 +1,14 @@
+{
+  "name": "@jskit-ai/workspaces-core",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./server/WorkspacesCoreServiceProvider": "./src/server/WorkspacesCoreServiceProvider.js"
+  },
+  "dependencies": {
+    "@jskit-ai/users-core": "0.1.34"
+  }
+}

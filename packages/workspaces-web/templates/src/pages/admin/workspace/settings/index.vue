@@ -1,6 +1,7 @@
 <template>
   <section class="settings-page">
-    <ShellOutlet host="workspace-settings" position="forms" />
+    <ShellOutlet host="admin-settings" position="primary-menu" />
+    <ShellOutlet host="admin-settings" position="forms" />
   </section>
 </template>
 

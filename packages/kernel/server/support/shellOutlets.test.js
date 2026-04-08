@@ -41,7 +41,7 @@ test("resolveShellOutletPlacementTargetFromApp reads outlets across app Vue file
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="workspace-settings" position="forms" default />
+    <ShellOutlet host="admin-settings" position="forms" default />
   </section>
 </template>
 `
@@ -52,7 +52,7 @@ test("resolveShellOutletPlacementTargetFromApp reads outlets across app Vue file
       context: "ui-generator"
     });
 
-    assert.equal(target.host, "workspace-settings");
+    assert.equal(target.host, "admin-settings");
     assert.equal(target.position, "forms");
   });
 });
@@ -147,28 +147,28 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="workspace-settings" position="forms" default />
+    <ShellOutlet host="admin-settings" position="forms" default />
   </section>
 </template>
 `
     );
 
     const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
-    assert.equal(discovered.defaultTargetId, "workspace-settings:forms");
+    assert.equal(discovered.defaultTargetId, "admin-settings:forms");
     assert.deepEqual(discovered.targets, [
+      {
+        id: "admin-settings:forms",
+        host: "admin-settings",
+        position: "forms",
+        default: true,
+        sourcePath: "src/pages/admin/workspace/settings/index.vue"
+      },
       {
         id: "shell-layout:primary-menu",
         host: "shell-layout",
         position: "primary-menu",
         default: false,
         sourcePath: "src/components/ShellLayout.vue"
-      },
-      {
-        id: "workspace-settings:forms",
-        host: "workspace-settings",
-        position: "forms",
-        default: true,
-        sourcePath: "src/pages/admin/workspace/settings/index.vue"
       }
     ]);
   });
@@ -287,7 +287,7 @@ test("resolveShellOutletPlacementTargetFromApp throws when multiple default outl
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="workspace-settings" position="forms" default />
+    <ShellOutlet host="admin-settings" position="forms" default />
   </section>
 </template>
 `

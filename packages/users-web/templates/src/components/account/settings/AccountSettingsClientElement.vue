@@ -12,17 +12,24 @@ const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
 
-const sections = Object.freeze([
-  { title: "Profile", value: "profile" },
-  { title: "Preferences", value: "preferences" },
-  { title: "Notifications", value: "notifications" },
-  { title: "Invites", value: "invites" }
-]);
-const sectionValues = Object.freeze(sections.map((section) => section.value));
+const sections = computed(() => {
+  const nextSections = [
+    { title: "Profile", value: "profile" },
+    { title: "Preferences", value: "preferences" },
+    { title: "Notifications", value: "notifications" }
+  ];
+
+  if (runtime.invites.isAvailable.value) {
+    nextSections.push({ title: "Invites", value: "invites" });
+  }
+
+  return Object.freeze(nextSections);
+});
+const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
 
 function normalizeSection(value) {
   const source = Array.isArray(value) ? value[0] : value;
-  return normalizeOneOf(source, sectionValues, "profile");
+  return normalizeOneOf(source, sectionValues.value, "profile");
 }
 
 function readRouteSection() {
@@ -61,7 +68,7 @@ const activeTab = computed({
     <v-card class="panel-card" rounded="lg" elevation="1" border>
       <v-card-item>
         <v-card-title class="panel-title">Account settings</v-card-title>
-        <v-card-subtitle>Global profile, preferences, notifications, and invitation controls.</v-card-subtitle>
+        <v-card-subtitle>Global profile, preferences, notifications, and account controls.</v-card-subtitle>
         <template #append>
           <v-btn
             variant="text"

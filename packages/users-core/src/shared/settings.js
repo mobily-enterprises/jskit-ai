@@ -30,8 +30,7 @@ const DEFAULT_USER_SETTINGS = Object.freeze({
   accountActivity: true,
   securityAlerts: true,
   passwordSignInEnabled: true,
-  passwordSetupRequired: false,
-  lastActiveWorkspaceId: null
+  passwordSetupRequired: false
 });
 
 function normalizeWorkspaceHexColor(value) {

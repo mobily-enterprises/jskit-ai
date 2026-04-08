@@ -86,7 +86,7 @@ export default function getPlacements() {
     path.join(appRoot, "src", "pages", "admin", "workspace", "settings", "index.vue"),
     `<template>
   <section>
-    <ShellOutlet host="workspace-settings" position="forms" />
+    <ShellOutlet host="admin-settings" position="forms" />
   </section>
 </template>
 `,
@@ -279,7 +279,7 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
         "--path",
         "src/widgets",
         "--placement",
-        "workspace-settings:forms"
+        "admin-settings:forms"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -298,7 +298,7 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /host: "workspace-settings"/);
+    assert.match(placementSource, /host: "admin-settings"/);
     assert.match(placementSource, /position: "forms"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });

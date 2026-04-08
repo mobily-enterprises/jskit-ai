@@ -136,7 +136,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.38"
+        "@jskit-ai/users-web": "0.1.39"
       },
       dev: {}
     },

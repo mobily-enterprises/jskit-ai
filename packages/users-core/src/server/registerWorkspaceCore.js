@@ -3,12 +3,11 @@ import {
 } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
-import { TENANCY_MODE_WORKSPACES, resolveTenancyProfile } from "../shared/tenancyProfile.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
-import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
 import { createWorkspaceActionContextContributor } from "./common/contributors/workspaceActionContextContributor.js";
 import { createWorkspaceRouteVisibilityResolver } from "./common/contributors/workspaceRouteVisibilityResolver.js";
 import { createWorkspaceAuthPolicyContextResolver } from "./common/contributors/workspaceAuthPolicyContextResolver.js";
+import { TENANCY_MODE_WORKSPACES } from "../shared/tenancyProfile.js";
 import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
 import { resolveWorkspaceSurfaceIdsFromAppConfig } from "./support/workspaceActionSurfaces.js";
 
@@ -27,20 +26,6 @@ function registerWorkspaceCore(app) {
       workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
     });
   });
-
-  app.singleton("users.profile.sync.service", (scope) => {
-    return createAuthProfileSyncService({
-      usersRepository: scope.make("usersRepository"),
-      userSettingsRepository: scope.make("userSettingsRepository"),
-      workspaceProvisioningService: scope.make("users.workspace.service")
-    });
-  });
-
-  app.singleton("users.tenancy.profile", (scope) => {
-    const appConfig = resolveAppConfig(scope);
-    return resolveTenancyProfile(appConfig);
-  });
-
   app.singleton("users.workspace.enabled", (scope) => {
     return scope.make("users.tenancy.profile").workspace.enabled === true;
   });

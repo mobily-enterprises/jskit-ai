@@ -31,7 +31,7 @@ npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin 
 Generate an element at a specific outlet:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement workspace-settings:forms
+npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement admin-settings:forms
 ```
 
 Generate an element with custom component path:

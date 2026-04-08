@@ -15,7 +15,6 @@ function mapRow(row) {
 
   const mapped = {
     userId: Number(row.user_id),
-    lastActiveWorkspaceId: row.last_active_workspace_id == null ? null : Number(row.last_active_workspace_id),
     passwordSignInEnabled: row.password_sign_in_enabled == null ? true : Boolean(row.password_sign_in_enabled),
     passwordSetupRequired: row.password_setup_required == null ? false : Boolean(row.password_setup_required),
     createdAt: toIsoString(row.created_at),
@@ -48,7 +47,6 @@ function normalizeBoolean(value, fallback = false) {
 function createInsertPayload(userId) {
   const payload = {
     user_id: Number(userId),
-    last_active_workspace_id: null,
     password_sign_in_enabled: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
     password_setup_required: DEFAULT_USER_SETTINGS.passwordSetupRequired,
     created_at: nowDb(),
@@ -127,10 +125,6 @@ function createRepository(knex) {
     if (Object.hasOwn(source, "passwordSetupRequired")) {
       dbPatch.password_setup_required = normalizeBoolean(source.passwordSetupRequired, ensured.passwordSetupRequired);
     }
-    if (Object.hasOwn(source, "lastActiveWorkspaceId")) {
-      dbPatch.last_active_workspace_id = source.lastActiveWorkspaceId == null ? null : Number(source.lastActiveWorkspaceId);
-    }
-
     await client("user_settings").where({ user_id: Number(userId) }).update(dbPatch);
     return findByUserId(userId, { trx: client });
   }
@@ -160,10 +154,6 @@ function createRepository(knex) {
     return patchUserSettings(userId, { passwordSetupRequired: required }, options);
   }
 
-  async function updateLastActiveWorkspaceId(userId, workspaceId, options = {}) {
-    return patchUserSettings(userId, { lastActiveWorkspaceId: workspaceId }, options);
-  }
-
   return Object.freeze({
     findByUserId,
     ensureForUserId,
@@ -171,8 +161,7 @@ function createRepository(knex) {
     updatePreferences,
     updateNotifications,
     updatePasswordSignInEnabled,
-    updatePasswordSetupRequired,
-    updateLastActiveWorkspaceId
+    updatePasswordSetupRequired
   });
 }
 

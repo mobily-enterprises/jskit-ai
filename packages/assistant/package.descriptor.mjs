@@ -45,7 +45,9 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/realtime",
     "@jskit-ai/users-core",
-    "@jskit-ai/users-web"
+    "@jskit-ai/users-web",
+    "@jskit-ai/workspaces-core",
+    "@jskit-ai/workspaces-web"
   ],
   capabilities: {
     provides: ["assistant"],
@@ -55,6 +57,8 @@ export default Object.freeze({
       "auth.policy",
       "users.core",
       "users.web",
+      "workspaces.core",
+      "workspaces.web",
       "runtime.realtime.client"
     ]
   },
@@ -116,8 +120,10 @@ export default Object.freeze({
         "@jskit-ai/http-runtime": "0.1.23",
         "@jskit-ai/kernel": "0.1.24",
         "@jskit-ai/realtime": "0.1.23",
-        "@jskit-ai/users-core": "0.1.33",
-        "@jskit-ai/users-web": "0.1.38",
+        "@jskit-ai/users-core": "0.1.34",
+        "@jskit-ai/users-web": "0.1.39",
+        "@jskit-ai/workspaces-core": "0.1.0",
+        "@jskit-ai/workspaces-web": "0.1.0",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",
         "marked": "^17.0.4",
@@ -185,7 +191,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.workspace.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"workspace-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
+          "\naddPlacement({\n  id: \"assistant.workspace.settings.form\",\n  host: \"admin-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 250,\n  componentToken: \"assistant.web.workspace-settings.element\"\n});\n",
         reason: "Append assistant workspace settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-workspace-settings-form-placement",
@@ -200,7 +206,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"assistant.console.settings.form\"",
         value:
-          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"*\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"assistant.console.settings.form\",\n  host: \"console-settings\",\n  position: \"forms\",\n  surfaces: [\"console\"],\n  order: 250,\n  componentToken: \"assistant.web.console-settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append assistant console settings form into app-owned settings placements.",
         category: "assistant",
         id: "assistant-console-settings-form-placement"

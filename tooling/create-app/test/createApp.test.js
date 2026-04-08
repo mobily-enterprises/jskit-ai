@@ -480,7 +480,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
   });
 });
 
-test("users-web workspace tenancy mode installs workspace surfaces and wrappers", async () => {
+test("workspaces-web workspace tenancy mode installs workspace surfaces and wrappers", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["users-workspace-app", "--tenancy-mode", "workspaces"] });
     assert.equal(createResult.status, 0, createResult.stderr);
@@ -519,11 +519,11 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
     });
     assert.equal(addDatabaseDriverResult.status, 0, addDatabaseDriverResult.stderr);
 
-    const addUsersWebResult = runJskit({
+    const addWorkspacesWebResult = runJskit({
       cwd: appRoot,
-      args: ["add", "package", "users-web"]
+      args: ["add", "package", "workspaces-web"]
     });
-    assert.equal(addUsersWebResult.status, 0, addUsersWebResult.stderr);
+    assert.equal(addWorkspacesWebResult.status, 0, addWorkspacesWebResult.stderr);
 
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
@@ -574,6 +574,8 @@ test("users-web workspace tenancy mode installs workspace surfaces and wrappers"
       /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
     );
     assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
+    assert.match(packageJson.dependencies["@jskit-ai/workspaces-core"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/workspaces-web"], /^\d+\.x$/);
     assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");
     assert.equal(packageJson.scripts["server:app"], "SERVER_SURFACE=app node ./bin/server.js");
     assert.equal(packageJson.scripts["server:admin"], "SERVER_SURFACE=admin node ./bin/server.js");

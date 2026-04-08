@@ -1,14 +1,4 @@
 import { USERS_SHARED_API } from "../shared/index.js";
-import { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
-import { registerWorkspaceDirectory } from "./workspaceDirectory/registerWorkspaceDirectory.js";
-import {
-  registerWorkspacePendingInvitations
-} from "./workspacePendingInvitations/registerWorkspacePendingInvitations.js";
-import { bootWorkspacePendingInvitations } from "./workspacePendingInvitations/bootWorkspacePendingInvitations.js";
-import { registerWorkspaceMembers } from "./workspaceMembers/registerWorkspaceMembers.js";
-import { bootWorkspaceMembers } from "./workspaceMembers/bootWorkspaceMembers.js";
-import { registerWorkspaceSettings } from "./workspaceSettings/registerWorkspaceSettings.js";
-import { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings.js";
 import { bootAccountProfileRoutes } from "./accountProfile/bootAccountProfileRoutes.js";
 import { bootAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
 import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
@@ -16,14 +6,13 @@ import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurity
 import { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import { registerSharedApi } from "./common/registerSharedApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
-import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
-import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
+import { registerUsersCore } from "./registerUsersCore.js";
+import { registerUsersBootstrap } from "./registerUsersBootstrap.js";
 import { registerAccountPreferences } from "./accountPreferences/registerAccountPreferences.js";
 import { registerAccountNotifications } from "./accountNotifications/registerAccountNotifications.js";
 import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
 import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
-import { registerUsersCoreActionSurfaceSources } from "./support/workspaceActionSurfaces.js";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -31,15 +20,10 @@ class UsersCoreServiceProvider {
   static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider", "runtime.uploads"];
 
   register(app) {
-    registerUsersCoreActionSurfaceSources(app);
     registerSharedApi(app, USERS_SHARED_API);
     registerCommonRepositories(app);
-    registerWorkspaceCore(app);
-    registerWorkspaceBootstrap(app);
-    registerWorkspaceDirectory(app);
-    registerWorkspaceMembers(app);
-    registerWorkspaceSettings(app);
-    registerWorkspacePendingInvitations(app);
+    registerUsersCore(app);
+    registerUsersBootstrap(app);
 
     registerAccountProfile(app);
     registerAccountPreferences(app);
@@ -49,14 +33,6 @@ class UsersCoreServiceProvider {
   }
 
   async boot(app) {
-    if (app.make("users.workspace.enabled") === true) {
-      bootWorkspaceDirectoryRoutes(app);
-      if (app.make("users.workspace.invitations.enabled") === true) {
-        bootWorkspacePendingInvitations(app);
-      }
-      bootWorkspaceSettings(app);
-      bootWorkspaceMembers(app);
-    }
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);

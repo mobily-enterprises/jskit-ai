@@ -95,7 +95,9 @@ Exports
 
 ### `src/server/common/contributors/workspaceActionContextContributor.js`
 Exports
-- `createWorkspaceActionContextContributor({ workspaceService } = {})`
+- `createWorkspaceActionContextContributor({ workspaceService, workspaceSurfaceIds = [] } = {})`
+Local functions
+- `normalizeWorkspaceSurfaceIds(surfaceIds = [])`
 
 ### `src/server/common/contributors/workspaceAuthPolicyContextResolver.js`
 Exports
@@ -283,6 +285,14 @@ Local functions
 Exports
 - `registerConsoleSettings(app)`
 
+### `src/server/registerUsersBootstrap.js`
+Exports
+- `registerUsersBootstrap(app)`
+
+### `src/server/registerUsersCore.js`
+Exports
+- `registerUsersCore(app)`
+
 ### `src/server/registerWorkspaceBootstrap.js`
 Exports
 - `registerWorkspaceBootstrap(app)`
@@ -290,6 +300,10 @@ Exports
 ### `src/server/registerWorkspaceCore.js`
 Exports
 - `registerWorkspaceCore(app)`
+
+### `src/server/registerWorkspaceRepositories.js`
+Exports
+- `registerWorkspaceRepositories(app)`
 
 ### `src/server/support/resolveWorkspace.js`
 Exports
@@ -319,28 +333,38 @@ Exports
 - `readWorkspaceSlugFromRouteParams(params = {})`
 - `buildWorkspaceInputFromRouteParams(params = {})`
 
-### `src/server/UsersCoreServiceProvider.js`
+### `src/server/usersBootstrapContributor.js`
 Exports
-- `UsersCoreServiceProvider`
-
-### `src/server/workspaceBootstrapContributor.js`
-Exports
-- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, usersRepository, userSettingsRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null, authService, consoleService = null } = {})`
+- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, tenancyProfile = null, authService, consoleService = null } = {})`
 Local functions
-- `normalizePendingInvites(invites)`
 - `getOAuthProviderCatalogPayload(authService)`
 - `normalizeBoolean(value, fallback)`
-- `normalizeQueryPayload(value = {})`
-- `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
-- `normalizeRequestedWorkspaceStatus(value = "")`
-- `createRequestedWorkspacePayload(workspaceSlug = "", status = "")`
-- `resolveRequestedWorkspaceStatusFromError(error)`
-- `resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = true } = {})`
+- `resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = false } = {})`
 - `normalizeSlugPolicy(value = "")`
 - `isSupportedTenancyMode(value = "")`
 - `resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {})`
 - `createAnonymousBootstrapPayload({ appState, tenancyProfile })`
 - `mapUserSettingsBootstrap(settings = {})`
+
+### `src/server/UsersCoreServiceProvider.js`
+Exports
+- `UsersCoreServiceProvider`
+
+### `src/server/UsersWorkspacesServiceProvider.js`
+Exports
+- `UsersWorkspacesServiceProvider`
+
+### `src/server/workspaceBootstrapContributor.js`
+Exports
+- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, usersRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
+Local functions
+- `normalizePendingInvites(invites)`
+- `normalizeQueryPayload(value = {})`
+- `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
+- `normalizeRequestedWorkspaceStatus(value = "")`
+- `createRequestedWorkspacePayload(workspaceSlug = "", status = "")`
+- `resolveRequestedWorkspaceStatusFromError(error)`
+- `resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {})`
 
 ### `src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js`
 Exports
@@ -648,15 +672,11 @@ Local functions
 
 ### templates
 
-### `templates/config/roles.js`
-Exports
-- `roleCatalog`
-
 ### `templates/migrations/users_core_console_owner.cjs`
 Exports
 - None
 
-### `templates/migrations/users_core_initial.cjs`
+### `templates/migrations/users_core_generic_initial.cjs`
 Exports
 - None
 
@@ -669,21 +689,6 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `resolveUniqueUsername(baseUsername, usedUsernames)`
 
-### `templates/migrations/users_core_workspace_settings_single_name_source.cjs`
-Exports
-- None
-Local functions
-- `hasTable(knex, tableName)`
-- `hasColumn(knex, tableName, columnName)`
-
-### `templates/migrations/users_core_workspaces_drop_color.cjs`
-Exports
-- None
-Local functions
-- `hasTable(knex, tableName)`
-- `hasColumn(knex, tableName, columnName)`
-- `normalizeHexColor(value)`
-
 ### `templates/packages/main/src/shared/resources/consoleSettingsFields.js`
 Exports
 - None
@@ -693,12 +698,6 @@ Exports
 - None
 Local functions
 - `normalizePositiveInteger(value, fallback)`
-
-### `templates/packages/main/src/shared/resources/workspaceSettingsFields.js`
-Exports
-- None
-Local functions
-- `normalizeHexColor(value)`
 
 ### root
 

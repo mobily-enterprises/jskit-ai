@@ -1,5 +1,6 @@
 <template>
   <section class="settings-page">
+    <ShellOutlet host="console-settings" position="primary-menu" />
     <ShellOutlet host="console-settings" position="forms" />
   </section>
 </template>

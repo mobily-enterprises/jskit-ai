@@ -733,7 +733,7 @@ Local functions
 - `normalizeRequestActionExecutorProperty(value)`
 - `resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurfaceId = "")`
 - `applyActionContextContributionDefaults(targetContext, contribution)`
-- `enrichActionExecutionContext({ resolutionScope = null, request = null, actionId = "", version = null, input = {}, deps = {}, channel = "api", baseContext = {} } = {})`
+- `enrichActionExecutionContext({ resolutionScope = null, request = null, actionId = "", version = null, definition = null, input = {}, deps = {}, channel = "api", baseContext = {} } = {})`
 - `resolveActionExecutorScope({ app = null, request = null, requestScopeProperty = "scope" } = {})`
 - `resolveRouteVisibilityFromRequestAndPayload(request, payload = {})`
 

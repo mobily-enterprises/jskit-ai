@@ -503,6 +503,7 @@ Local functions
 ### `src/client/index.js`
 Exports
 - `UsersWebClientProvider`
+- `UsersWorkspacesClientProvider`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -626,6 +627,10 @@ Local functions
 Exports
 - `UsersWebClientProvider`
 
+### `src/client/providers/UsersWorkspacesClientProvider.js`
+Exports
+- `UsersWorkspacesClientProvider`
+
 ### `src/client/runtime/bootstrapPlacementRouteGuards.js`
 Exports
 - `createBootstrapPlacementRouteGuards({ placementRuntime, router = null, root = null, getWorkspaceBootstrapStatus = () => "" } = {})`
@@ -697,15 +702,6 @@ Exports
 
 ### templates
 
-### `templates/packages/main/src/client/components/AccountPendingInvitesCue.vue`
-Exports
-- None
-Local functions
-- `normalizePendingInvitesCount(value)`
-- `resolveReturnTo()`
-- `resolveReturnToHref()`
-- `countPendingInvites(entries = [])`
-
 ### `templates/src/components/account/settings/AccountSettingsClientElement.vue`
 Exports
 - None
@@ -729,43 +725,11 @@ Exports
 Exports
 - None
 
-### `templates/src/components/WorkspaceNotFoundCard.vue`
-Exports
-- None
-
-### `templates/src/composables/useWorkspaceNotFoundState.js`
-Exports
-- `useWorkspaceNotFoundState()`
-
 ### `templates/src/pages/account/index.vue`
 Exports
 - None
 
-### `templates/src/pages/admin/members/index.vue`
-Exports
-- None
-
-### `templates/src/pages/admin/workspace/settings/index.vue`
-Exports
-- None
-
 ### `templates/src/pages/console/settings/index.vue`
-Exports
-- None
-
-### `templates/src/surfaces/admin/index.vue`
-Exports
-- None
-
-### `templates/src/surfaces/admin/root.vue`
-Exports
-- None
-
-### `templates/src/surfaces/app/index.vue`
-Exports
-- None
-
-### `templates/src/surfaces/app/root.vue`
 Exports
 - None
 
