@@ -31,7 +31,7 @@ npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin 
 Generate an element at a specific outlet:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement admin-settings:forms
+npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement shell-layout:top-right
 ```
 
 Generate an element with custom component path:
@@ -93,6 +93,23 @@ npx jskit generate @jskit-ai/ui-generator outlet
   - `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
   - `<route>.vue` as a thin wrapper around `SectionContainerShell` + `<RouterView />`, with route meta outlet declaration at `meta.jskit.placements.outlets`
   - no shell menu placement is added unless `--placement` is explicitly provided
+- Child pages for a `container` go directly under the container route path, not under `(nestedChildren)`.
+  - Example container route: `src/pages/admin/practice.vue`
+  - Example child page path: `src/pages/admin/practice/notes/index.vue`
+  - Example URL: `/admin/practice/notes`
+- Use `(nestedChildren)` for the `page + outlet` pattern when the parent page is an existing `index.vue` route that should render child routes inside its own `RouterView`.
+
+Generate a child page inside a container:
+
+```bash
+npx jskit generate @jskit-ai/ui-generator page \
+  --name "Notes" \
+  --surface admin \
+  --directory-prefix "practice" \
+  --placement practice:sub-pages \
+  --placement-component-token local.main.ui.tab-link-item
+```
+
 - Generate CRUD pages into that container using `@jskit-ai/crud-ui-generator` with:
   - `--container <route-slug>`
   - `--route-path <resource-slug>`

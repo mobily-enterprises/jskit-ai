@@ -5,8 +5,8 @@
         <v-sheet class="pa-6 pa-sm-8" rounded="lg" border>
           <h1 class="text-h5 text-sm-h4 mb-3">Console settings</h1>
           <p class="text-body-2 text-sm-body-1 mb-0">
-            No console settings are provided by <code>@jskit-ai/users-web</code>. Install a module that contributes
-            forms to <code>console-settings:forms</code>.
+            No console settings sections are available yet. Install a module that adds a page and menu entry to
+            <code>console-settings:primary-menu</code>.
           </p>
         </v-sheet>
       </v-col>

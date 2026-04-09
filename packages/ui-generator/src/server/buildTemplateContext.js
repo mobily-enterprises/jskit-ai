@@ -113,6 +113,21 @@ function resolveMenuToPropLine(options = {}) {
   return `      to: ${JSON.stringify(placementTo)},\n`;
 }
 
+function normalizePlacementIdSegment(value = "") {
+  return wordsToKebab(splitTextIntoWords(value));
+}
+
+function resolveMenuPlacementId(options = {}) {
+  const idSegments = [
+    ...splitPathSegments(options?.["directory-prefix"]),
+    ...splitPathSegments(options?.name)
+  ]
+    .map((segment) => normalizePlacementIdSegment(segment))
+    .filter(Boolean);
+
+  return `ui-generator.page.${idSegments.join(".")}.menu`;
+}
+
 async function buildUiPageTemplateContext({ appRoot, options } = {}) {
   const placementTarget = await resolveShellOutletPlacementTargetFromApp({
     appRoot,
@@ -121,6 +136,7 @@ async function buildUiPageTemplateContext({ appRoot, options } = {}) {
   });
 
   return {
+    __JSKIT_UI_MENU_PLACEMENT_ID__: resolveMenuPlacementId(options),
     __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(placementTarget?.host),
     __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(placementTarget?.position),
     __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options),

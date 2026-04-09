@@ -24,15 +24,14 @@ function findContribution(id) {
 
 test("workspaces-web admin settings template exposes surface-derived settings outlets", async () => {
   const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),
+    path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings.vue"),
     "utf8"
   );
 
   assert.match(source, /<ShellOutlet host="admin-settings" position="primary-menu" \/>/);
-  assert.match(source, /<ShellOutlet host="admin-settings" position="forms" \/>/);
 });
 
-test("workspaces-web descriptor metadata advertises admin settings outlets and form placement on the derived host", () => {
+test("workspaces-web descriptor metadata advertises admin settings outlets and general-page placement on the derived host", () => {
   assert.deepEqual(
     readSettingsOutlets(),
     [
@@ -40,24 +39,18 @@ test("workspaces-web descriptor metadata advertises admin settings outlets and f
         host: "admin-settings",
         position: "primary-menu",
         surfaces: ["admin"],
-        source: "templates/src/pages/admin/workspace/settings/index.vue"
-      },
-      {
-        host: "admin-settings",
-        position: "forms",
-        surfaces: ["admin"],
-        source: "templates/src/pages/admin/workspace/settings/index.vue"
+        source: "templates/src/pages/admin/workspace/settings.vue"
       }
     ]
   );
 
-  assert.deepEqual(findContribution("users.workspace.settings.form"), {
-    id: "users.workspace.settings.form",
+  assert.deepEqual(findContribution("users.workspace.settings.general"), {
+    id: "users.workspace.settings.general",
     host: "admin-settings",
-    position: "forms",
+    position: "primary-menu",
     surfaces: ["admin"],
     order: 100,
-    componentToken: "users.web.workspace-settings.element",
-    source: "mutations.text#users-web-workspace-settings-form-placement"
+    componentToken: "users.web.shell.surface-aware-menu-link-item",
+    source: "mutations.text#users-web-workspace-settings-general-placement"
   });
 });

@@ -144,24 +144,24 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
     );
     await writeFileInApp(
       appRoot,
-      "src/pages/admin/workspace/settings/index.vue",
+      "src/pages/admin/toolbox/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" default />
+    <ShellOutlet host="admin-toolbox" position="widgets" default />
   </section>
 </template>
 `
     );
 
     const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
-    assert.equal(discovered.defaultTargetId, "admin-settings:forms");
+    assert.equal(discovered.defaultTargetId, "admin-toolbox:widgets");
     assert.deepEqual(discovered.targets, [
       {
-        id: "admin-settings:forms",
-        host: "admin-settings",
-        position: "forms",
+        id: "admin-toolbox:widgets",
+        host: "admin-toolbox",
+        position: "widgets",
         default: true,
-        sourcePath: "src/pages/admin/workspace/settings/index.vue"
+        sourcePath: "src/pages/admin/toolbox/index.vue"
       },
       {
         id: "shell-layout:primary-menu",

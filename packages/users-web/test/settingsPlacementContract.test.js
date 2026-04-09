@@ -16,10 +16,9 @@ function readSettingsOutlets() {
 }
 
 test("users-web console settings template exposes surface-derived settings outlets", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings", "index.vue"), "utf8");
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings.vue"), "utf8");
 
   assert.match(source, /<ShellOutlet host="console-settings" position="primary-menu" \/>/);
-  assert.match(source, /<ShellOutlet host="console-settings" position="forms" \/>/);
 });
 
 test("users-web descriptor metadata advertises console settings outlets with standard positions", () => {
@@ -31,13 +30,7 @@ test("users-web descriptor metadata advertises console settings outlets with sta
         host: "console-settings",
         position: "primary-menu",
         surfaces: ["console"],
-        source: "templates/src/pages/console/settings/index.vue"
-      },
-      {
-        host: "console-settings",
-        position: "forms",
-        surfaces: ["console"],
-        source: "templates/src/pages/console/settings/index.vue"
+        source: "templates/src/pages/console/settings.vue"
       }
     ]
   );

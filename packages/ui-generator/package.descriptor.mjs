@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/ui-generator",
-  version: "0.1.12",
+  version: "0.1.14",
   kind: "generator",
   description: "Generate app-local non-CRUD UI pages and outlet elements.",
   options: {
@@ -149,7 +149,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.44"
+        "@jskit-ai/users-web": "0.1.46"
       },
       dev: {}
     },
@@ -174,7 +174,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}",
         value:
-          "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"ui-generator.page.${option:name|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated UI page menu placement.",
         category: "ui-generator",
         id: "ui-generator-page-placement-menu-${option:name|snake}",

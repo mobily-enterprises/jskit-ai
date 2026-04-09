@@ -28,6 +28,8 @@ Local functions
 - `resolveMenuComponentToken(options = {})`
 - `resolveAutoRelativePlacementTo(options = {})`
 - `resolveMenuToPropLine(options = {})`
+- `normalizePlacementIdSegment(value = "")`
+- `resolveMenuPlacementId(options = {})`
 
 ### `src/server/subcommands/container.js`
 Exports

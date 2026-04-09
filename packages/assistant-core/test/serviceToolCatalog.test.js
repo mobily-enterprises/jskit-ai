@@ -1233,3 +1233,82 @@ test("service tool catalog executes action-backed tools with object payloads", a
     }
   });
 });
+
+test("service tool catalog hides automation actions from other surfaces", () => {
+  const app = createApp();
+  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
+  actionRuntimeProvider.register(app);
+
+  app.actions([
+    {
+      id: "demo.admin.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["automation"],
+      surfaces: ["admin"],
+      permission: {
+        require: "authenticated"
+      },
+      inputValidator: {
+        schema: Type.Object({}, { additionalProperties: false })
+      },
+      outputValidator: {
+        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.admin.list"
+      },
+      observability: {},
+      async execute() {
+        return [];
+      }
+    },
+    {
+      id: "demo.console.list",
+      domain: "demo",
+      version: 1,
+      kind: "query",
+      channels: ["automation"],
+      surfaces: ["console"],
+      permission: {
+        require: "authenticated"
+      },
+      inputValidator: {
+        schema: Type.Object({}, { additionalProperties: false })
+      },
+      outputValidator: {
+        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+      },
+      idempotency: "none",
+      audit: {
+        actionName: "demo.console.list"
+      },
+      observability: {},
+      async execute() {
+        return [];
+      }
+    }
+  ]);
+
+  const catalog = createServiceToolCatalog(app, {
+    skipActionPrefixes: []
+  });
+
+  const adminToolSet = catalog.resolveToolSet({
+    actor: { id: 1 },
+    permissions: [],
+    channel: "internal",
+    surface: "admin"
+  });
+  const consoleToolSet = catalog.resolveToolSet({
+    actor: { id: 1 },
+    permissions: [],
+    channel: "internal",
+    surface: "console"
+  });
+
+  assert.deepEqual(adminToolSet.tools.map((entry) => entry.actionId), ["demo.admin.list"]);
+  assert.deepEqual(consoleToolSet.tools.map((entry) => entry.actionId), ["demo.console.list"]);
+});

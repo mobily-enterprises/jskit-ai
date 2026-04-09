@@ -3,30 +3,38 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 
 const ASSISTANT_API_RELATIVE_PATH = "/assistant";
-const ASSISTANT_SETTINGS_API_RELATIVE_PATH = "/assistant/settings";
+const ASSISTANT_SETTINGS_API_RELATIVE_PATH = "/assistant/:surfaceId/settings";
 const ASSISTANT_WORKSPACE_API_BASE_PATH_TEMPLATE = "/api/w/:workspaceSlug/assistant";
 const ASSISTANT_PUBLIC_API_BASE_PATH = "/api/assistant";
-const ASSISTANT_WORKSPACE_SETTINGS_API_PATH_TEMPLATE = "/api/w/:workspaceSlug/assistant/settings";
-const ASSISTANT_PUBLIC_SETTINGS_API_PATH = "/api/assistant/settings";
+const ASSISTANT_WORKSPACE_SETTINGS_API_PATH_TEMPLATE = "/api/w/:workspaceSlug/assistant/:surfaceId/settings";
+const ASSISTANT_PUBLIC_SETTINGS_API_PATH = "/api/assistant/:surfaceId/settings";
 
-function materializeAssistantPath(basePath = "", workspaceSlug = "", suffix = "/") {
+function materializeAssistantPath(basePath = "", { workspaceSlug = "", surfaceId = "", suffix = "/" } = {}) {
   const normalizedBasePath = String(basePath || "").trim();
   if (!normalizedBasePath) {
     return "";
   }
 
-  const normalizedSuffix = normalizePathname(suffix);
+  let materializedBasePath = normalizedBasePath;
   if (normalizedBasePath.includes(":workspaceSlug")) {
     const normalizedWorkspaceSlug = normalizeText(workspaceSlug).toLowerCase();
     if (!normalizedWorkspaceSlug) {
       return "";
     }
 
-    const materializedBasePath = normalizedBasePath.replace(":workspaceSlug", encodeURIComponent(normalizedWorkspaceSlug));
-    return normalizedSuffix === "/" ? materializedBasePath : `${materializedBasePath}${normalizedSuffix}`;
+    materializedBasePath = normalizedBasePath.replace(":workspaceSlug", encodeURIComponent(normalizedWorkspaceSlug));
+  }
+  if (materializedBasePath.includes(":surfaceId")) {
+    const normalizedSurfaceId = normalizeText(surfaceId).toLowerCase();
+    if (!normalizedSurfaceId) {
+      return "";
+    }
+
+    materializedBasePath = materializedBasePath.replace(":surfaceId", encodeURIComponent(normalizedSurfaceId));
   }
 
-  return normalizedSuffix === "/" ? normalizedBasePath : `${normalizedBasePath}${normalizedSuffix}`;
+  const normalizedSuffix = normalizePathname(suffix);
+  return normalizedSuffix === "/" ? materializedBasePath : `${materializedBasePath}${normalizedSuffix}`;
 }
 
 function resolveAssistantApiBasePath({ requiresWorkspace = false } = {}) {
@@ -48,18 +56,23 @@ function buildAssistantApiPath({ requiresWorkspace = false, workspaceSlug = "", 
     resolveAssistantApiBasePath({
       requiresWorkspace
     }),
-    workspaceSlug,
-    suffix
+    {
+      workspaceSlug,
+      suffix
+    }
   );
 }
 
-function buildAssistantSettingsApiPath({ requiresWorkspace = false, workspaceSlug = "", suffix = "/" } = {}) {
+function buildAssistantSettingsApiPath({ requiresWorkspace = false, workspaceSlug = "", surfaceId = "", suffix = "/" } = {}) {
   return materializeAssistantPath(
     resolveAssistantSettingsApiPath({
       requiresWorkspace
     }),
-    workspaceSlug,
-    suffix
+    {
+      workspaceSlug,
+      surfaceId,
+      suffix
+    }
   );
 }
 

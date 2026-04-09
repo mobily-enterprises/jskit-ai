@@ -23,10 +23,9 @@ function findFileMutation(id) {
 }
 
 test("shell-web home settings template exposes surface-derived settings outlets", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
 
   assert.match(source, /<ShellOutlet host="home-settings" position="primary-menu" \/>/);
-  assert.match(source, /<ShellOutlet host="home-settings" position="forms" \/>/);
 });
 
 test("shell-web descriptor metadata advertises home settings outlets and installs the scaffold page", () => {
@@ -37,22 +36,25 @@ test("shell-web descriptor metadata advertises home settings outlets and install
         host: "home-settings",
         position: "primary-menu",
         surfaces: ["home"],
-        source: "templates/src/pages/home/settings/index.vue"
-      },
-      {
-        host: "home-settings",
-        position: "forms",
-        surfaces: ["home"],
-        source: "templates/src/pages/home/settings/index.vue"
+        source: "templates/src/pages/home/settings.vue"
       }
     ]
   );
+
+  assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
+    from: "templates/src/pages/home/settings.vue",
+    toSurface: "home",
+    toSurfacePath: "settings.vue",
+    reason: "Install shell-driven home settings shell route with section navigation.",
+    category: "shell-web",
+    id: "shell-web-page-home-settings-shell"
+  });
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings"), {
     from: "templates/src/pages/home/settings/index.vue",
     toSurface: "home",
     toSurfacePath: "settings/index.vue",
-    reason: "Install shell-driven home settings page scaffold with surface-derived settings outlets.",
+    reason: "Install shell-driven home settings landing page scaffold.",
     category: "shell-web",
     id: "shell-web-page-home-settings"
   });

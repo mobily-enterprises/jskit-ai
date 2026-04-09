@@ -159,7 +159,7 @@ npx jskit generate ui-generator element \
   --name "Ops Panel" \
   --surface admin \
   --path src/widgets \
-  --placement workspace-settings:forms
+  --placement shell-layout:top-right
 ```
 
 Use `path` when `src/components` is not the right home for the new element.
@@ -180,6 +180,31 @@ What it creates:
 - a `ShellOutlet` for sub-pages
 - a `RouterView`
 - shared support components such as `SectionContainerShell`
+
+### Add child pages to that container
+
+For a `container`, child pages go directly under the container route path.
+
+Example:
+
+```bash
+npx jskit generate ui-generator page \
+  --name "Notes" \
+  --surface admin \
+  --directory-prefix "practice" \
+  --placement practice:sub-pages \
+  --placement-component-token local.main.ui.tab-link-item
+```
+
+That gives you:
+
+- route file at `src/pages/.../practice/notes/index.vue`
+- URL like `/practice/notes`
+- a placement rendered into `practice:sub-pages`
+
+Do not use `(nestedChildren)` for `container` child pages.
+
+That route group belongs to the `page + outlet` pattern, where an existing folder page like `practice/index.vue` needs sibling routes reparented into its own `RouterView`.
 
 You can also give that container a shell/menu entry:
 
@@ -329,6 +354,7 @@ This matters because `outlet` is the only one here that is primarily a patch com
 - using `outlet` and expecting it to create pages
 - using `container` when a normal `page` is enough
 - forgetting that `element` is not a route
+- putting `container` child pages under `(nestedChildren)` instead of directly under the container path
 
 ## Fast Decision Guide
 

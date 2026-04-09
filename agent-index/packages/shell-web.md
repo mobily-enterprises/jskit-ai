@@ -240,6 +240,10 @@ Exports
 Exports
 - None
 
+### `templates/src/pages/home/settings.vue`
+Exports
+- None
+
 ### `templates/src/pages/home/settings/index.vue`
 Exports
 - None

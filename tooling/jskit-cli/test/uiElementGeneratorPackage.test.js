@@ -260,6 +260,66 @@ test("generate @jskit-ai/ui-generator page supports explicit placement-to overri
   });
 });
 
+test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for same-named nested pages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-placement-id-collision");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-placement-id-collision" });
+    await installUiGeneratorPackage(appRoot);
+
+    const alphaResult = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "--name",
+        "One",
+        "--surface",
+        "admin",
+        "--directory-prefix",
+        "alpha/(nestedChildren)",
+        "--placement",
+        "shell-layout:secondary-menu",
+        "--placement-component-token",
+        "local.main.ui.tab-link-item"
+      ]
+    });
+    assert.equal(alphaResult.status, 0, String(alphaResult.stderr || ""));
+
+    const betaResult = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "--name",
+        "One",
+        "--surface",
+        "admin",
+        "--directory-prefix",
+        "beta/(nestedChildren)",
+        "--placement",
+        "shell-layout:secondary-menu",
+        "--placement-component-token",
+        "local.main.ui.tab-link-item"
+      ]
+    });
+    assert.equal(betaResult.status, 0, String(betaResult.stderr || ""));
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementSource = await readFile(placementPath, "utf8");
+    const placementIds = Array.from(
+      placementSource.matchAll(/id: "([^"]+)"/g),
+      (match) => match[1]
+    );
+
+    assert.match(placementSource, /id: "ui-generator\.page\.alpha\.nested-children\.one\.menu"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.beta\.nested-children\.one\.menu"/);
+    assert.equal(placementIds.includes("ui-generator.page.one.menu"), false);
+    assert.equal(new Set(placementIds).size, placementIds.length);
+  });
+});
+
 test("generate @jskit-ai/ui-generator element scaffolds component token registration and outlet placement", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-override");
@@ -279,7 +339,7 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
         "--path",
         "src/widgets",
         "--placement",
-        "admin-settings:forms"
+        "shell-layout:top-right"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -298,8 +358,8 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /host: "admin-settings"/);
-    assert.match(placementSource, /position: "forms"/);
+    assert.match(placementSource, /host: "shell-layout"/);
+    assert.match(placementSource, /position: "top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });

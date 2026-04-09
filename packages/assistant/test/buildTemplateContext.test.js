@@ -22,7 +22,8 @@ async function withTempApp(run) {
     app: { id: "app", enabled: true, requiresWorkspace: false, accessPolicyId: "authenticated" },
     admin: { id: "admin", enabled: true, requiresWorkspace: true, accessPolicyId: "workspace_member" },
     console: { id: "console", enabled: true, requiresWorkspace: false, accessPolicyId: "console_owner" }
-  }
+  },
+  assistantSurfaces: {}
 };
 `,
       "utf8"
@@ -45,12 +46,12 @@ async function withTempApp(run) {
   }
 }
 
-test("buildTemplateContext derives runtime, settings, and table placeholders from explicit surfaces", async () => {
+test("buildTemplateContext derives per-surface placeholders from explicit surfaces", async () => {
   await withTempApp(async (appRoot) => {
     const context = await buildTemplateContext({
       appRoot,
       options: {
-        "runtime-surface": "app",
+        surface: "app",
         "settings-surface": "console",
         "config-scope": "global",
         placement: "shell-layout:primary-menu",
@@ -58,55 +59,69 @@ test("buildTemplateContext derives runtime, settings, and table placeholders fro
       }
     });
 
-    assert.equal(context.__ASSISTANT_RUNTIME_SURFACE_ID__, "app");
+    assert.equal(context.__ASSISTANT_SURFACE_ID__, "app");
     assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_ID__, "console");
-    assert.equal(context.__ASSISTANT_RUNTIME_SURFACE_REQUIRES_WORKSPACE__, "false");
-    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_REQUIRES_WORKSPACE__, "false");
-    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_REQUIRES_CONSOLE_OWNER__, "true");
     assert.equal(context.__ASSISTANT_CONFIG_SCOPE__, "global");
     assert.equal(context.__ASSISTANT_SETTINGS_HOST__, "console-settings");
-    assert.equal(context.__ASSISTANT_CONVERSATIONS_TABLE__, "assistant_app_conversations");
-    assert.equal(context.__ASSISTANT_MESSAGES_TABLE__, "assistant_app_messages");
+    assert.equal(context.__ASSISTANT_AI_CONFIG_PREFIX__, "APP_ASSISTANT");
     assert.equal(context.__ASSISTANT_MENU_PLACEMENT_HOST__, "shell-layout");
     assert.equal(context.__ASSISTANT_MENU_PLACEMENT_POSITION__, "primary-menu");
     assert.equal(context.__ASSISTANT_MENU_LABEL__, "Copilot");
+    assert.equal(context.__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__, "/settings/assistant");
+    assert.equal(context.__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__, "/settings/assistant");
   });
 });
 
-test("buildTemplateContext rejects workspace config scope for non-workspace surfaces", async () => {
+test("buildTemplateContext rejects workspace config scope for a non-workspace assistant surface", async () => {
   await withTempApp(async (appRoot) => {
     await assert.rejects(
       () =>
         buildTemplateContext({
           appRoot,
           options: {
-            "runtime-surface": "app",
+            surface: "app",
             "settings-surface": "console",
             "config-scope": "workspace",
             placement: "shell-layout:primary-menu"
           }
         }),
-      /config-scope "workspace" requires runtime surface "app" with requiresWorkspace=true/
+      /config-scope "workspace" requires surface "app" with requiresWorkspace=true/
     );
   });
 });
 
-test("buildTemplateContext accepts workspace config scope when both surfaces require workspace", async () => {
+test("buildTemplateContext rejects duplicate assistant surfaces already configured in public config", async () => {
   await withTempApp(async (appRoot) => {
-    const context = await buildTemplateContext({
-      appRoot,
-      options: {
-        "runtime-surface": "admin",
-        "settings-surface": "admin",
-        "config-scope": "workspace",
-        placement: "shell-layout:top-right"
-      }
-    });
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      `export const config = {
+  surfaceDefinitions: {
+    app: { id: "app", enabled: true, requiresWorkspace: false, accessPolicyId: "authenticated" },
+    console: { id: "console", enabled: true, requiresWorkspace: false, accessPolicyId: "console_owner" }
+  },
+  assistantSurfaces: {
+    app: {
+      settingsSurfaceId: "console",
+      configScope: "global"
+    }
+  }
+};
+`,
+      "utf8"
+    );
 
-    assert.equal(context.__ASSISTANT_RUNTIME_SURFACE_REQUIRES_WORKSPACE__, "true");
-    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_REQUIRES_WORKSPACE__, "true");
-    assert.equal(context.__ASSISTANT_SETTINGS_HOST__, "admin-settings");
-    assert.equal(context.__ASSISTANT_CONVERSATIONS_TABLE__, "assistant_admin_conversations");
-    assert.equal(context.__ASSISTANT_MESSAGES_TABLE__, "assistant_admin_messages");
+    await assert.rejects(
+      () =>
+        buildTemplateContext({
+          appRoot,
+          options: {
+            surface: "app",
+            "settings-surface": "console",
+            "config-scope": "global",
+            placement: "shell-layout:primary-menu"
+          }
+        }),
+      /already has an assistant configured/
+    );
   });
 });

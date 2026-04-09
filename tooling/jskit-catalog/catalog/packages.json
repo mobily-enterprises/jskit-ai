@@ -6,19 +6,19 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.38",
+      "version": "0.1.40",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.38",
+        "version": "0.1.40",
         "kind": "generator",
-        "description": "Generate an app-local assistant runtime and settings integration from explicit surface choices.",
+        "description": "Generate an assistant page and per-surface assistant config using the shared assistant runtime.",
         "options": {
-          "runtime-surface": {
+          "surface": {
             "required": true,
             "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Runtime surface",
+            "defaultFromConfig": "surfaceDefaultId",
+            "promptLabel": "Assistant surface",
             "promptHint": "Enabled surface id where the assistant page will run."
           },
           "settings-surface": {
@@ -26,7 +26,14 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Settings surface",
-            "promptHint": "Enabled surface id whose settings outlet will host the assistant settings form."
+            "promptHint": "Enabled surface id whose settings pages will include the assistant settings section."
+          },
+          "settings-route-path": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "assistant",
+            "promptLabel": "Settings route path",
+            "promptHint": "Route segment to use for the assistant settings section page."
           },
           "config-scope": {
             "required": true,
@@ -56,6 +63,13 @@
             "promptLabel": "Menu label",
             "promptHint": "Menu label for the assistant page entry."
           },
+          "ai-config-prefix": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "AI config prefix",
+            "promptHint": "Optional env/config prefix override. Defaults to <SURFACE>_ASSISTANT."
+          },
           "ai-provider": {
             "required": true,
             "defaultValue": "openai",
@@ -67,7 +81,7 @@
             "allowEmpty": true,
             "defaultValue": "",
             "promptLabel": "AI API key",
-            "promptHint": "Leave empty to keep assistant disabled until you add a key."
+            "promptHint": "Leave empty to keep the assistant disabled until you add a key."
           },
           "ai-base-url": {
             "required": true,
@@ -83,7 +97,9 @@
             "promptHint": "Abort AI requests after this many milliseconds."
           }
         },
-        "dependsOn": [],
+        "dependsOn": [
+          "@jskit-ai/assistant-runtime"
+        ],
         "capabilities": {
           "provides": [
             "assistant-generator"
@@ -99,78 +115,6 @@
           }
         },
         "metadata": {
-          "generatorPrimarySubcommand": "install",
-          "generatorSubcommands": {
-            "install": {
-              "description": "Generate and install an app-local assistant runtime from explicit surface choices.",
-              "examples": [
-                {
-                  "label": "App runtime, console settings, global config",
-                  "lines": [
-                    "npx jskit generate @jskit-ai/assistant install \\",
-                    "  --runtime-surface app \\",
-                    "  --settings-surface console \\",
-                    "  --config-scope global \\",
-                    "  --placement shell-layout:primary-menu \\",
-                    "  --menu-label Assistant \\",
-                    "  --ai-provider openai \\",
-                    "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-                    "  --ai-base-url \"\" \\",
-                    "  --ai-timeout-ms 120000 \\",
-                    "  --run-npm-install"
-                  ]
-                },
-                {
-                  "label": "App runtime, app settings, global config",
-                  "lines": [
-                    "npx jskit generate @jskit-ai/assistant install \\",
-                    "  --runtime-surface app \\",
-                    "  --settings-surface app \\",
-                    "  --config-scope global \\",
-                    "  --placement shell-layout:primary-menu \\",
-                    "  --menu-label Assistant \\",
-                    "  --ai-provider openai \\",
-                    "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-                    "  --ai-base-url \"\" \\",
-                    "  --ai-timeout-ms 120000 \\",
-                    "  --run-npm-install"
-                  ]
-                },
-                {
-                  "label": "Workspace runtime, console settings, global config",
-                  "lines": [
-                    "npx jskit generate @jskit-ai/assistant install \\",
-                    "  --runtime-surface admin \\",
-                    "  --settings-surface console \\",
-                    "  --config-scope global \\",
-                    "  --placement shell-layout:primary-menu \\",
-                    "  --menu-label Assistant \\",
-                    "  --ai-provider openai \\",
-                    "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-                    "  --ai-base-url \"\" \\",
-                    "  --ai-timeout-ms 120000 \\",
-                    "  --run-npm-install"
-                  ]
-                },
-                {
-                  "label": "Workspace runtime, workspace settings, workspace config",
-                  "lines": [
-                    "npx jskit generate @jskit-ai/assistant install \\",
-                    "  --runtime-surface admin \\",
-                    "  --settings-surface admin \\",
-                    "  --config-scope workspace \\",
-                    "  --placement shell-layout:primary-menu \\",
-                    "  --menu-label Assistant \\",
-                    "  --ai-provider openai \\",
-                    "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-                    "  --ai-base-url \"\" \\",
-                    "  --ai-timeout-ms 120000 \\",
-                    "  --run-npm-install"
-                  ]
-                }
-              ]
-            }
-          },
           "apiSummary": {
             "surfaces": [
               {
@@ -186,18 +130,7 @@
         },
         "mutations": {
           "dependencies": {
-            "runtime": {
-              "@local/assistant": "file:packages/assistant",
-              "@jskit-ai/assistant-core": "0.1.5",
-              "@jskit-ai/database-runtime": "0.1.29",
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/shell-web": "0.1.28",
-              "@jskit-ai/users-core": "0.1.39",
-              "@jskit-ai/users-web": "0.1.44",
-              "@tanstack/vue-query": "^5.90.5",
-              "vuetify": "^4.0.0"
-            },
+            "runtime": {},
             "dev": {}
           },
           "packageJson": {
@@ -206,223 +139,48 @@
           "procfile": {},
           "files": [
             {
-              "op": "install-migration",
-              "from": "templates/migrations/assistant_config_initial.cjs",
-              "toDir": "migrations",
-              "extension": ".cjs",
-              "reason": "Install assistant configuration schema migration.",
-              "category": "assistant",
-              "id": "assistant-config-initial-schema",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "op": "install-migration",
-              "from": "templates/migrations/assistant_transcripts_initial.cjs",
-              "toDir": "migrations",
-              "extension": ".cjs",
-              "reason": "Install assistant transcript schema migration.",
-              "category": "assistant",
-              "id": "assistant-transcripts-initial-schema",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/package.json",
-              "to": "packages/assistant/package.json",
-              "reason": "Install app-local assistant package manifest.",
-              "category": "assistant",
-              "id": "assistant-local-package-json"
-            },
-            {
-              "from": "templates/src/local-package/package.descriptor.mjs",
-              "to": "packages/assistant/package.descriptor.mjs",
-              "reason": "Install app-local assistant package descriptor.",
-              "category": "assistant",
-              "id": "assistant-local-package-descriptor"
-            },
-            {
-              "from": "templates/src/local-package/shared/assistantRuntimeConfig.js",
-              "to": "packages/assistant/src/shared/assistantRuntimeConfig.js",
-              "reason": "Install generated assistant runtime configuration.",
-              "category": "assistant",
-              "id": "assistant-local-runtime-config",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/shared/index.js",
-              "to": "packages/assistant/src/shared/index.js",
-              "reason": "Install generated assistant shared exports.",
-              "category": "assistant",
-              "id": "assistant-local-shared-index"
-            },
-            {
-              "from": "templates/src/local-package/client/index.js",
-              "to": "packages/assistant/src/client/index.js",
-              "reason": "Install generated assistant client exports.",
-              "category": "assistant",
-              "id": "assistant-local-client-index"
-            },
-            {
-              "from": "templates/src/local-package/client/components/AssistantSurfaceClientElement.vue",
-              "to": "packages/assistant/src/client/components/AssistantSurfaceClientElement.vue",
-              "reason": "Install generated assistant surface page component.",
-              "category": "assistant",
-              "id": "assistant-local-surface-client-element",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/client/components/AssistantSettingsClientElement.vue",
-              "to": "packages/assistant/src/client/components/AssistantSettingsClientElement.vue",
-              "reason": "Install generated assistant settings form component.",
-              "category": "assistant",
-              "id": "assistant-local-settings-client-element",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/client/composables/useAssistantRuntime.js",
-              "to": "packages/assistant/src/client/composables/useAssistantRuntime.js",
-              "reason": "Install generated assistant runtime composable.",
-              "category": "assistant",
-              "id": "assistant-local-runtime-composable",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/client/providers/AssistantClientProvider.js",
-              "to": "packages/assistant/src/client/providers/AssistantClientProvider.js",
-              "reason": "Install generated assistant client provider.",
-              "category": "assistant",
-              "id": "assistant-local-client-provider"
-            },
-            {
-              "from": "templates/src/local-package/server/AssistantProvider.js",
-              "to": "packages/assistant/src/server/AssistantProvider.js",
-              "reason": "Install generated assistant server provider.",
-              "category": "assistant",
-              "id": "assistant-local-server-provider",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/actionIds.js",
-              "to": "packages/assistant/src/server/actionIds.js",
-              "reason": "Install generated assistant action identifiers.",
-              "category": "assistant",
-              "id": "assistant-local-action-ids"
-            },
-            {
-              "from": "templates/src/local-package/server/actions.js",
-              "to": "packages/assistant/src/server/actions.js",
-              "reason": "Install generated assistant action definitions.",
-              "category": "assistant",
-              "id": "assistant-local-actions",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/registerRoutes.js",
-              "to": "packages/assistant/src/server/registerRoutes.js",
-              "reason": "Install generated assistant route registration.",
-              "category": "assistant",
-              "id": "assistant-local-register-routes",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/repositories/assistantConfigRepository.js",
-              "to": "packages/assistant/src/server/repositories/assistantConfigRepository.js",
-              "reason": "Install generated assistant config repository.",
-              "category": "assistant",
-              "id": "assistant-local-config-repository",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/repositories/conversationsRepository.js",
-              "to": "packages/assistant/src/server/repositories/conversationsRepository.js",
-              "reason": "Install generated assistant conversations repository.",
-              "category": "assistant",
-              "id": "assistant-local-conversations-repository",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/repositories/messagesRepository.js",
-              "to": "packages/assistant/src/server/repositories/messagesRepository.js",
-              "reason": "Install generated assistant messages repository.",
-              "category": "assistant",
-              "id": "assistant-local-messages-repository",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/services/assistantConfigService.js",
-              "to": "packages/assistant/src/server/services/assistantConfigService.js",
-              "reason": "Install generated assistant config service.",
-              "category": "assistant",
-              "id": "assistant-local-config-service",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/services/chatService.js",
-              "to": "packages/assistant/src/server/services/chatService.js",
-              "reason": "Install generated assistant chat service.",
-              "category": "assistant",
-              "id": "assistant-local-chat-service",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/services/transcriptService.js",
-              "to": "packages/assistant/src/server/services/transcriptService.js",
-              "reason": "Install generated assistant transcript service.",
-              "category": "assistant",
-              "id": "assistant-local-transcript-service",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
               "from": "templates/src/pages/assistant/index.vue",
-              "toSurface": "${option:runtime-surface|lower}",
+              "toSurface": "${option:surface|lower}",
               "toSurfacePath": "assistant/index.vue",
               "reason": "Install generated assistant runtime page.",
               "category": "assistant",
-              "id": "assistant-page-runtime"
+              "id": "assistant-page-runtime",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
+            },
+            {
+              "from": "templates/src/pages/settings/assistant/index.vue",
+              "toSurface": "${option:settings-surface|lower}",
+              "toSurfacePath": "settings/${option:settings-route-path|path}/index.vue",
+              "reason": "Install generated assistant settings section page.",
+              "category": "assistant",
+              "id": "assistant-page-settings-standard",
+              "when": {
+                "option": "settings-surface",
+                "notEquals": "admin"
+              },
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
+            },
+            {
+              "from": "templates/src/pages/settings/assistant/index.vue",
+              "toSurface": "${option:settings-surface|lower}",
+              "toSurfacePath": "workspace/settings/${option:settings-route-path|path}/index.vue",
+              "reason": "Install generated assistant settings section page.",
+              "category": "assistant",
+              "id": "assistant-page-settings-admin",
+              "when": {
+                "option": "settings-surface",
+                "equals": "admin"
+              },
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
             }
           ],
           "text": [
@@ -430,8 +188,8 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"assistant.generated.menu\"",
-              "value": "\naddPlacement({\n  id: \"assistant.generated.menu\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:runtime-surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:runtime-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "skipIfContains": "assistant.generated.menu:${option:surface|lower}",
+              "value": "\n// assistant.generated.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append generated assistant runtime menu placement into app-owned placement registry.",
               "category": "assistant",
               "id": "assistant-placement-menu",
@@ -444,51 +202,57 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"assistant.generated.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"assistant.generated.settings.form\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"forms\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append generated assistant settings form placement into app-owned settings placements.",
+              "skipIfContains": "assistant.generated.settings.menu:${option:surface|lower}",
+              "value": "\n// assistant.generated.settings.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.settings.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"__ASSISTANT_SETTINGS_MENU_LABEL__\",\n    surface: \"${option:settings-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append generated assistant settings section menu placement into app-owned settings placements.",
               "category": "assistant",
-              "id": "assistant-settings-form-placement",
+              "id": "assistant-settings-menu-placement",
               "templateContext": {
                 "entrypoint": "src/server/buildTemplateContext.js",
                 "export": "buildTemplateContext"
               }
             },
             {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "AI_PROVIDER",
-              "value": "${option:ai-provider}",
-              "reason": "Configure assistant AI provider id.",
-              "category": "runtime-config",
-              "id": "assistant-ai-provider"
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.assistantSurfaces.${option:surface|lower} = {",
+              "value": "\nconfig.assistantSurfaces.${option:surface|lower} = {\n  settingsSurfaceId: \"__ASSISTANT_SETTINGS_SURFACE_ID__\",\n  configScope: \"__ASSISTANT_CONFIG_SCOPE__\"\n};\n",
+              "reason": "Register the generated assistant surface in public app config.",
+              "category": "assistant",
+              "id": "assistant-public-surface-config",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
             },
             {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "AI_API_KEY",
-              "value": "${option:ai-api-key}",
-              "reason": "Configure assistant AI API key.",
-              "category": "runtime-config",
-              "id": "assistant-ai-api-key"
+              "op": "append-text",
+              "file": "config/server.js",
+              "position": "bottom",
+              "skipIfContains": "config.assistantServer.${option:surface|lower} = {",
+              "value": "\nconfig.assistantServer.${option:surface|lower} = {\n  aiConfigPrefix: \"__ASSISTANT_AI_CONFIG_PREFIX__\"\n};\n",
+              "reason": "Register generated assistant server config for the selected surface.",
+              "category": "assistant",
+              "id": "assistant-server-surface-config",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
             },
             {
+              "op": "append-text",
               "file": ".env",
-              "op": "upsert-env",
-              "key": "AI_BASE_URL",
-              "value": "${option:ai-base-url}",
-              "reason": "Configure assistant AI base URL override.",
+              "position": "bottom",
+              "skipIfContains": "__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=",
+              "value": "\n__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=${option:ai-provider}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_API_KEY=${option:ai-api-key}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_BASE_URL=${option:ai-base-url}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_TIMEOUT_MS=${option:ai-timeout-ms}\n",
+              "reason": "Append assistant AI env defaults for the generated surface prefix.",
               "category": "runtime-config",
-              "id": "assistant-ai-base-url"
-            },
-            {
-              "file": ".env",
-              "op": "upsert-env",
-              "key": "AI_TIMEOUT_MS",
-              "value": "${option:ai-timeout-ms}",
-              "reason": "Configure assistant AI timeout in milliseconds.",
-              "category": "runtime-config",
-              "id": "assistant-ai-timeout-ms"
+              "id": "assistant-ai-prefixed-env",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
             }
           ]
         }
@@ -496,11 +260,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.5",
+      "version": "0.1.7",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-core",
-        "version": "0.1.5",
+        "version": "0.1.7",
         "kind": "runtime",
         "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
         "dependsOn": [
@@ -546,9 +310,9 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/users-core": "0.1.39",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/users-core": "0.1.41",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "marked": "^17.0.4",
@@ -568,12 +332,154 @@
       }
     },
     {
+      "packageId": "@jskit-ai/assistant-runtime",
+      "version": "0.1.2",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/assistant-runtime",
+        "version": "0.1.2",
+        "kind": "runtime",
+        "description": "Shared assistant runtime with per-surface assistant registration.",
+        "dependsOn": [
+          "@jskit-ai/assistant-core",
+          "@jskit-ai/database-runtime",
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/shell-web",
+          "@jskit-ai/users-core",
+          "@jskit-ai/users-web"
+        ],
+        "capabilities": {
+          "provides": [
+            "assistant.runtime"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database",
+            "auth.policy",
+            "runtime.http-client",
+            "users.core",
+            "users.web"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/AssistantProvider.js",
+                "export": "AssistantProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/AssistantClientProvider.js",
+                "export": "AssistantClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports assistant runtime client elements and composables."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports assistant runtime shared config helpers."
+              },
+              {
+                "subpath": "./server/actionIds",
+                "summary": "Exports assistant runtime action identifiers."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "assistant.config.repository",
+                "assistant.conversation.repository",
+                "assistant.message.repository",
+                "assistant.ai.client.factory",
+                "assistant.service.tool-catalog"
+              ],
+              "client": [
+                "assistant.web.settings.element"
+              ]
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/assistant-core": "0.1.7",
+              "@jskit-ai/database-runtime": "0.1.31",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/shell-web": "0.1.30",
+              "@jskit-ai/users-core": "0.1.41",
+              "@jskit-ai/users-web": "0.1.46",
+              "@tanstack/vue-query": "^5.90.5",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/assistant_config_initial.cjs",
+              "toDir": "migrations",
+              "extension": ".cjs",
+              "reason": "Install assistant configuration schema migration.",
+              "category": "assistant-runtime",
+              "id": "assistant-runtime-config-initial-schema"
+            },
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/assistant_transcripts_initial.cjs",
+              "toDir": "migrations",
+              "extension": ".cjs",
+              "reason": "Install assistant transcript schema migration.",
+              "category": "assistant-runtime",
+              "id": "assistant-runtime-transcripts-initial-schema"
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "config/public.js",
+              "position": "bottom",
+              "skipIfContains": "config.assistantSurfaces ||= {};",
+              "value": "\nconfig.assistantSurfaces ||= {};\n",
+              "reason": "Initialize the shared assistant surface registry in public app config.",
+              "category": "assistant-runtime",
+              "id": "assistant-runtime-public-surface-registry-init"
+            },
+            {
+              "op": "append-text",
+              "file": "config/server.js",
+              "position": "bottom",
+              "skipIfContains": "config.assistantServer ||= {};",
+              "value": "\nconfig.assistantServer ||= {};\n",
+              "reason": "Initialize the shared assistant server config registry.",
+              "category": "assistant-runtime",
+              "id": "assistant-runtime-server-surface-registry-init"
+            }
+          ]
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/auth-core",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-core",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/value-app-config-shared"
@@ -641,7 +547,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/kernel": "0.1.31",
               "@fastify/cookie": "^11.0.2",
               "@fastify/csrf-protection": "^7.1.0",
               "@fastify/rate-limit": "^10.3.0"
@@ -659,11 +565,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-supabase-core",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "options": {
           "auth-supabase-url": {
@@ -745,8 +651,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/auth-core": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
               "dotenv": "^16.4.5",
               "@supabase/supabase-js": "^2.57.4",
               "jose": "^6.1.0"
@@ -811,11 +717,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.1.30",
+      "version": "0.1.32",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-web",
-        "version": "0.1.30",
+        "version": "0.1.32",
         "kind": "runtime",
         "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
         "dependsOn": [
@@ -1045,10 +951,10 @@
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@fastify/type-provider-typebox": "^6.1.0",
-              "@jskit-ai/auth-core": "0.1.28",
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/shell-web": "0.1.28",
+              "@jskit-ai/auth-core": "0.1.30",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/shell-web": "0.1.30",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -1118,11 +1024,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.37",
+      "version": "0.1.39",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.37",
+        "version": "0.1.39",
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
@@ -1149,7 +1055,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.37"
+              "@jskit-ai/crud-core": "0.1.39"
             },
             "dev": {}
           },
@@ -1163,11 +1069,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-server-generator",
-      "version": "0.1.37",
+      "version": "0.1.39",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-server-generator",
-        "version": "0.1.37",
+        "version": "0.1.39",
         "kind": "generator",
         "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
@@ -1302,13 +1208,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.28",
-              "@jskit-ai/crud-core": "0.1.37",
-              "@jskit-ai/database-runtime": "0.1.29",
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/realtime": "0.1.28",
-              "@jskit-ai/users-core": "0.1.39",
+              "@jskit-ai/auth-core": "0.1.30",
+              "@jskit-ai/crud-core": "0.1.39",
+              "@jskit-ai/database-runtime": "0.1.31",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/realtime": "0.1.30",
+              "@jskit-ai/users-core": "0.1.41",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
               "typebox": "^1.0.81"
             },
@@ -1432,11 +1338,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-ui-generator",
-      "version": "0.1.12",
+      "version": "0.1.14",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-ui-generator",
-        "version": "0.1.12",
+        "version": "0.1.14",
         "kind": "generator",
         "description": "Generate app-local CRUD UI scaffolds from resource validators.",
         "options": {
@@ -1570,7 +1476,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.44"
+              "@jskit-ai/users-web": "0.1.46"
             },
             "dev": {}
           },
@@ -1843,11 +1749,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.29",
+      "version": "0.1.31",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.29",
+        "version": "0.1.31",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -1904,7 +1810,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/kernel": "0.1.31",
               "dotenv": "^16.4.5",
               "knex": "^3.1.0"
             },
@@ -1939,11 +1845,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-mysql",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2033,7 +1939,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.29",
+              "@jskit-ai/database-runtime": "0.1.31",
               "mysql2": "^3.11.2"
             },
             "dev": {}
@@ -2104,11 +2010,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-postgres",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2198,7 +2104,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.29",
+              "@jskit-ai/database-runtime": "0.1.31",
               "pg": "^8.13.1"
             },
             "dev": {}
@@ -2269,11 +2175,11 @@
     },
     {
       "packageId": "@jskit-ai/http-runtime",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/http-runtime",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "dependsOn": [],
         "capabilities": {
@@ -2339,7 +2245,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/kernel": "0.1.31",
               "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
@@ -2355,11 +2261,11 @@
     },
     {
       "packageId": "@jskit-ai/realtime",
-      "version": "0.1.27",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/realtime",
-        "version": "0.1.27",
+        "version": "0.1.30",
         "kind": "runtime",
         "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
         "options": {
@@ -2455,7 +2361,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.28",
+              "@jskit-ai/kernel": "0.1.31",
               "@socket.io/redis-adapter": "^8.3.0",
               "redis": "^5.8.2",
               "socket.io": "^4.8.3",
@@ -2504,11 +2410,11 @@
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "description": "Web shell layout runtime with outlet-based placement contributions.",
         "dependsOn": [],
@@ -2599,15 +2505,7 @@
                   "surfaces": [
                     "home"
                   ],
-                  "source": "templates/src/pages/home/settings/index.vue"
-                },
-                {
-                  "host": "home-settings",
-                  "position": "forms",
-                  "surfaces": [
-                    "home"
-                  ],
-                  "source": "templates/src/pages/home/settings/index.vue"
+                  "source": "templates/src/pages/home/settings.vue"
                 }
               ],
               "contributions": []
@@ -2618,7 +2516,7 @@
           "dependencies": {
             "runtime": {
               "@tanstack/vue-query": "^5.90.5",
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/kernel": "0.1.31",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -2678,10 +2576,18 @@
               "id": "shell-web-page-home"
             },
             {
+              "from": "templates/src/pages/home/settings.vue",
+              "toSurface": "home",
+              "toSurfacePath": "settings.vue",
+              "reason": "Install shell-driven home settings shell route with section navigation.",
+              "category": "shell-web",
+              "id": "shell-web-page-home-settings-shell"
+            },
+            {
               "from": "templates/src/pages/home/settings/index.vue",
               "toSurface": "home",
               "toSurfacePath": "settings/index.vue",
-              "reason": "Install shell-driven home settings page scaffold with surface-derived settings outlets.",
+              "reason": "Install shell-driven home settings landing page scaffold.",
               "category": "shell-web",
               "id": "shell-web-page-home-settings"
             },
@@ -2707,11 +2613,11 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.28",
+      "version": "0.1.30",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/storage-runtime",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -2760,7 +2666,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.29",
+              "@jskit-ai/kernel": "0.1.31",
               "unstorage": "^1.17.3"
             },
             "dev": {}
@@ -2776,11 +2682,11 @@
     },
     {
       "packageId": "@jskit-ai/ui-generator",
-      "version": "0.1.12",
+      "version": "0.1.14",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/ui-generator",
-        "version": "0.1.12",
+        "version": "0.1.14",
         "kind": "generator",
         "description": "Generate app-local non-CRUD UI pages and outlet elements.",
         "options": {
@@ -2954,7 +2860,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.44"
+              "@jskit-ai/users-web": "0.1.46"
             },
             "dev": {}
           },
@@ -2978,7 +2884,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}",
-              "value": "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"ui-generator.page.${option:name|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+              "value": "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
               "reason": "Append generated UI page menu placement.",
               "category": "ui-generator",
               "id": "ui-generator-page-placement-menu-${option:name|snake}",
@@ -2993,11 +2899,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-image-web",
-      "version": "0.1.7",
+      "version": "0.1.9",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-image-web",
-        "version": "0.1.7",
+        "version": "0.1.9",
         "kind": "runtime",
         "description": "Reusable client-side image upload runtime with pre-upload image editing.",
         "dependsOn": [
@@ -3061,7 +2967,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/uploads-runtime": "0.1.7",
+              "@jskit-ai/uploads-runtime": "0.1.9",
               "@uppy/compressor": "^3.1.0",
               "@uppy/core": "^5.2.0",
               "@uppy/dashboard": "^5.1.1",
@@ -3081,11 +2987,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-runtime",
-      "version": "0.1.7",
+      "version": "0.1.9",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-runtime",
-        "version": "0.1.7",
+        "version": "0.1.9",
         "kind": "runtime",
         "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
         "dependsOn": [
@@ -3155,7 +3061,7 @@
           "dependencies": {
             "runtime": {
               "@fastify/multipart": "^9.4.0",
-              "@jskit-ai/kernel": "0.1.29"
+              "@jskit-ai/kernel": "0.1.31"
             },
             "dev": {}
           },
@@ -3170,11 +3076,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.39",
+      "version": "0.1.41",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.39",
+        "version": "0.1.41",
         "kind": "runtime",
         "description": "Users/account runtime plus HTTP routes for account and console features.",
         "dependsOn": [
@@ -3310,11 +3216,11 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.28",
-              "@jskit-ai/database-runtime": "0.1.29",
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/uploads-runtime": "0.1.7",
+              "@jskit-ai/auth-core": "0.1.30",
+              "@jskit-ai/database-runtime": "0.1.31",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/uploads-runtime": "0.1.9",
               "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
@@ -3425,11 +3331,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.44",
+      "version": "0.1.46",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.44",
+        "version": "0.1.46",
         "kind": "runtime",
         "description": "Users web module: account/profile UI plus shared shell link components.",
         "dependsOn": [
@@ -3474,6 +3380,14 @@
               {
                 "subpath": "./client/components/ProfileClientElement",
                 "summary": "Exports profile settings client element scaffold component."
+              },
+              {
+                "subpath": "./client/components/ConsoleSettingsClientElement",
+                "summary": "Exports console settings landing-page client element."
+              },
+              {
+                "subpath": "./client/components/WorkspaceSettingsClientElement",
+                "summary": "Exports workspace settings client element."
               },
               {
                 "subpath": "./client/composables/useAddEdit",
@@ -3532,15 +3446,7 @@
                   "surfaces": [
                     "console"
                   ],
-                  "source": "templates/src/pages/console/settings/index.vue"
-                },
-                {
-                  "host": "console-settings",
-                  "position": "forms",
-                  "surfaces": [
-                    "console"
-                  ],
-                  "source": "templates/src/pages/console/settings/index.vue"
+                  "source": "templates/src/pages/console/settings.vue"
                 }
               ],
               "contributions": [
@@ -3589,12 +3495,12 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/http-runtime": "0.1.28",
-              "@jskit-ai/realtime": "0.1.28",
-              "@jskit-ai/kernel": "0.1.29",
-              "@jskit-ai/shell-web": "0.1.28",
-              "@jskit-ai/uploads-image-web": "0.1.7",
-              "@jskit-ai/users-core": "0.1.39",
+              "@jskit-ai/http-runtime": "0.1.30",
+              "@jskit-ai/realtime": "0.1.30",
+              "@jskit-ai/kernel": "0.1.31",
+              "@jskit-ai/shell-web": "0.1.30",
+              "@jskit-ai/uploads-image-web": "0.1.9",
+              "@jskit-ai/users-core": "0.1.41",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -3651,10 +3557,18 @@
               "id": "users-web-component-account-settings-invites"
             },
             {
+              "from": "templates/src/pages/console/settings.vue",
+              "toSurface": "console",
+              "toSurfacePath": "settings.vue",
+              "reason": "Install console settings shell route scaffold for users-web console UI.",
+              "category": "users-web",
+              "id": "users-web-page-console-settings-shell"
+            },
+            {
               "from": "templates/src/pages/console/settings/index.vue",
               "toSurface": "console",
               "toSurfacePath": "settings/index.vue",
-              "reason": "Install console settings page scaffold for users-web console UI.",
+              "reason": "Install console settings landing page scaffold for users-web console UI.",
               "category": "users-web",
               "id": "users-web-page-console-settings"
             }
@@ -3706,11 +3620,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.5",
+      "version": "0.1.7",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-core",
-        "version": "0.1.5",
+        "version": "0.1.7",
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
@@ -3819,7 +3733,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-core": "0.1.39"
+              "@jskit-ai/users-core": "0.1.41"
             },
             "dev": {}
           },
@@ -4009,11 +3923,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.5",
+      "version": "0.1.7",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-web",
-        "version": "0.1.5",
+        "version": "0.1.7",
         "kind": "runtime",
         "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
         "dependsOn": [
@@ -4071,15 +3985,7 @@
                   "surfaces": [
                     "admin"
                   ],
-                  "source": "templates/src/pages/admin/workspace/settings/index.vue"
-                },
-                {
-                  "host": "admin-settings",
-                  "position": "forms",
-                  "surfaces": [
-                    "admin"
-                  ],
-                  "source": "templates/src/pages/admin/workspace/settings/index.vue"
+                  "source": "templates/src/pages/admin/workspace/settings.vue"
                 }
               ],
               "contributions": [
@@ -4141,15 +4047,15 @@
                   "source": "mutations.text#users-web-placement-block"
                 },
                 {
-                  "id": "users.workspace.settings.form",
+                  "id": "users.workspace.settings.general",
                   "host": "admin-settings",
-                  "position": "forms",
+                  "position": "primary-menu",
                   "surfaces": [
                     "admin"
                   ],
                   "order": 100,
-                  "componentToken": "users.web.workspace-settings.element",
-                  "source": "mutations.text#users-web-workspace-settings-form-placement"
+                  "componentToken": "users.web.shell.surface-aware-menu-link-item",
+                  "source": "mutations.text#users-web-workspace-settings-general-placement"
                 }
               ]
             }
@@ -4158,8 +4064,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/workspaces-core": "0.1.5",
-              "@jskit-ai/users-web": "0.1.44"
+              "@jskit-ai/workspaces-core": "0.1.7",
+              "@jskit-ai/users-web": "0.1.46"
             },
             "dev": {}
           },
@@ -4284,10 +4190,25 @@
               }
             },
             {
+              "from": "templates/src/pages/admin/workspace/settings.vue",
+              "toSurface": "admin",
+              "toSurfacePath": "workspace/settings.vue",
+              "reason": "Install workspace settings shell route scaffold for workspaces-web workspace admin UI.",
+              "category": "workspaces-web",
+              "id": "users-web-page-admin-workspace-settings-shell",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspaces"
+                ]
+              }
+            },
+            {
               "from": "templates/src/pages/admin/workspace/settings/index.vue",
               "toSurface": "admin",
               "toSurfacePath": "workspace/settings/index.vue",
-              "reason": "Install workspace settings page scaffold for workspaces-web workspace admin UI.",
+              "reason": "Install workspace settings landing page scaffold for workspaces-web workspace admin UI.",
               "category": "workspaces-web",
               "id": "users-web-page-admin-workspace-settings",
               "when": {
@@ -4341,11 +4262,11 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"users.workspace.settings.form\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  host: \"admin-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
-              "reason": "Append workspace settings form placement into app-owned placement registry.",
+              "skipIfContains": "id: \"users.workspace.settings.general\"",
+              "value": "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  host: \"admin-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append workspace settings general-page placement into app-owned placement registry.",
               "category": "workspaces-web",
-              "id": "users-web-workspace-settings-form-placement",
+              "id": "users-web-workspace-settings-general-placement",
               "when": {
                 "config": "tenancyMode",
                 "in": [

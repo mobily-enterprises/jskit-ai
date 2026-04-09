@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.28",
+  version: "0.1.30",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -82,13 +82,7 @@ export default Object.freeze({
             host: "home-settings",
             position: "primary-menu",
             surfaces: ["home"],
-            source: "templates/src/pages/home/settings/index.vue"
-          },
-          {
-            host: "home-settings",
-            position: "forms",
-            surfaces: ["home"],
-            source: "templates/src/pages/home/settings/index.vue"
+            source: "templates/src/pages/home/settings.vue"
           }
         ],
         contributions: []
@@ -99,7 +93,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.29",
+        "@jskit-ai/kernel": "0.1.31",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -159,10 +153,18 @@ export default Object.freeze({
         id: "shell-web-page-home"
       },
       {
+        from: "templates/src/pages/home/settings.vue",
+        toSurface: "home",
+        toSurfacePath: "settings.vue",
+        reason: "Install shell-driven home settings shell route with section navigation.",
+        category: "shell-web",
+        id: "shell-web-page-home-settings-shell"
+      },
+      {
         from: "templates/src/pages/home/settings/index.vue",
         toSurface: "home",
         toSurfacePath: "settings/index.vue",
-        reason: "Install shell-driven home settings page scaffold with surface-derived settings outlets.",
+        reason: "Install shell-driven home settings landing page scaffold.",
         category: "shell-web",
         id: "shell-web-page-home-settings"
       },

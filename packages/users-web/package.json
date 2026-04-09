@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.44",
+  "version": "0.1.46",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,6 +8,8 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/providers/UsersWorkspacesClientProvider": "./src/client/providers/UsersWorkspacesClientProvider.js",
+    "./client/components/ConsoleSettingsClientElement": "./src/client/components/ConsoleSettingsClientElement.vue",
+    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
@@ -26,12 +28,12 @@
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.28",
-    "@jskit-ai/kernel": "0.1.29",
-    "@jskit-ai/realtime": "0.1.28",
-    "@jskit-ai/shell-web": "0.1.28",
-    "@jskit-ai/uploads-image-web": "0.1.7",
-    "@jskit-ai/users-core": "0.1.39",
+    "@jskit-ai/http-runtime": "0.1.30",
+    "@jskit-ai/kernel": "0.1.31",
+    "@jskit-ai/realtime": "0.1.30",
+    "@jskit-ai/shell-web": "0.1.30",
+    "@jskit-ai/uploads-image-web": "0.1.9",
+    "@jskit-ai/users-core": "0.1.41",
     "vuetify": "^4.0.0"
   }
 }

@@ -1,17 +1,8 @@
 <template>
-  <section class="settings-page">
-    <ShellOutlet host="home-settings" position="primary-menu" />
-    <ShellOutlet host="home-settings" position="forms" />
-  </section>
+  <v-sheet rounded="lg" border class="pa-6">
+    <h2 class="text-h6 mb-2">Settings</h2>
+    <p class="text-body-2 text-medium-emphasis mb-0">
+      Select a settings section from the menu.
+    </p>
+  </v-sheet>
 </template>
-
-<script setup>
-import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
-</script>
-
-<style scoped>
-.settings-page {
-  display: grid;
-  gap: 1rem;
-}
-</style>
