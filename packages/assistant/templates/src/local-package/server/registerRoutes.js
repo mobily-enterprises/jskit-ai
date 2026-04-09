@@ -30,9 +30,14 @@ function buildWorkspaceRouteConfig(requiresWorkspace, baseConfig = {}) {
     return baseConfig;
   }
 
+  const baseParamsValidator = baseConfig?.paramsValidator;
+  const paramsValidator = baseParamsValidator
+    ? [workspaceSlugParamsValidator].concat(baseParamsValidator)
+    : workspaceSlugParamsValidator;
+
   return {
     ...baseConfig,
-    paramsValidator: workspaceSlugParamsValidator
+    paramsValidator
   };
 }
 
@@ -270,9 +275,7 @@ function registerRoutes(app) {
         tags: ["assistant"],
         summary: "List assistant conversation messages."
       },
-      paramsValidator: assistantRuntimeConfig.runtimeSurfaceRequiresWorkspace
-        ? [workspaceSlugParamsValidator, assistantResource.operations.conversationMessagesList.paramsValidator]
-        : assistantResource.operations.conversationMessagesList.paramsValidator,
+      paramsValidator: assistantResource.operations.conversationMessagesList.paramsValidator,
       queryValidator: assistantResource.operations.conversationMessagesList.queryValidator,
       responseValidators: withStandardErrorResponses({
         200: assistantResource.operations.conversationMessagesList.outputValidator
