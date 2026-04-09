@@ -23,13 +23,7 @@ export default defineConfig({
           text: "Manual",
           items: [
             { text: "Overview", link: "/manual/" },
-            { text: "001 Intro: Create An App", link: "/manual/001-Intro:_Create_An_App" },
-            { text: "002 App And Provider Classes", link: "/manual/002-Kernel:_Server:_App_And_Provider_Classes" },
-            { text: "003 Real Applications", link: "/manual/003-Kernel:_Server:_Real%20applications" },
-            { text: "004 Advanced Topics", link: "/manual/004-Kernel:_Server:_Advanced_Topics" },
-            { text: "005 Client Intro", link: "/manual/005-Kernel:_Client_Into" },
-            { text: "006 Client API", link: "/manual/006-Kernel:_Client_API" },
-            { text: "007 Client And Server API", link: "/manual/007-Kernel:_Client_And_Server_API" }
+            { text: "001 UI Generator", link: "/manual/001-UI_Generator" }
           ]
         }
       ]
