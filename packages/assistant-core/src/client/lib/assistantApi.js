@@ -130,6 +130,30 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
         appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
         requestHeaders ? { headers: requestHeaders } : {}
       );
+    },
+
+    getSettings() {
+      const basePath = resolveRequiredBasePath(resolveBasePath);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+
+      return request(
+        `${basePath}/settings`,
+        requestHeaders ? { headers: requestHeaders } : {}
+      );
+    },
+
+    updateSettings(payload = {}) {
+      const basePath = resolveRequiredBasePath(resolveBasePath);
+      const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
+
+      return request(
+        `${basePath}/settings`,
+        {
+          method: "PATCH",
+          ...(requestHeaders ? { headers: requestHeaders } : {}),
+          body: payload
+        }
+      );
     }
   });
 }

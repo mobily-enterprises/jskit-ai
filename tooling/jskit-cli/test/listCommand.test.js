@@ -172,10 +172,10 @@ test("list-placements discovers shell outlets from app Vue files", async () => {
     );
     await writeVueFile(
       appRoot,
-      "src/pages/admin/workspace/settings/index.vue",
+      "src/pages/admin/toolbox/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" />
+    <ShellOutlet host="admin-toolbox" position="widgets" />
   </section>
 </template>
 `
@@ -191,7 +191,7 @@ test("list-placements discovers shell outlets from app Vue files", async () => {
     assert.match(stdout, /Available placements:/);
     assert.match(stdout, /shell-layout:primary-menu \(default\) \[src\/components\/ShellLayout\.vue\]/);
     assert.match(stdout, /shell-layout:top-right \[src\/components\/ShellLayout\.vue\]/);
-    assert.match(stdout, /admin-settings:forms \[src\/pages\/admin\/workspace\/settings\/index\.vue\]/);
+    assert.match(stdout, /admin-toolbox:widgets \[src\/pages\/admin\/toolbox\/index\.vue\]/);
   });
 });
 

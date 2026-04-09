@@ -184,6 +184,8 @@ Local functions
 - `normalizePermissionSpec(permission)`
 - `stripWorkspaceSlugFromSchema(schema, context = {})`
 - `hasAutomationChannel(action = {})`
+- `normalizeSurfaceList(value)`
+- `canUseToolOnSurface(entry = {}, context = {})`
 - `resolveActionBackedToolEntries(scope)`
 - `resolveActionToolEntries(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
 
@@ -205,9 +207,9 @@ Exports
 - `resolveAssistantApiBasePath({ requiresWorkspace = false } = {})`
 - `resolveAssistantSettingsApiPath({ requiresWorkspace = false } = {})`
 - `buildAssistantApiPath({ requiresWorkspace = false, workspaceSlug = "", suffix = "/" } = {})`
-- `buildAssistantSettingsApiPath({ requiresWorkspace = false, workspaceSlug = "", suffix = "/" } = {})`
+- `buildAssistantSettingsApiPath({ requiresWorkspace = false, workspaceSlug = "", surfaceId = "", suffix = "/" } = {})`
 Local functions
-- `materializeAssistantPath(basePath = "", workspaceSlug = "", suffix = "/")`
+- `materializeAssistantPath(basePath = "", { workspaceSlug = "", surfaceId = "", suffix = "/" } = {})`
 
 ### `src/shared/assistantResource.js`
 Exports

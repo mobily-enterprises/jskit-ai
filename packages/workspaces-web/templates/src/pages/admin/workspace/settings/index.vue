@@ -1,17 +1,7 @@
-<template>
-  <section class="settings-page">
-    <ShellOutlet host="admin-settings" position="primary-menu" />
-    <ShellOutlet host="admin-settings" position="forms" />
-  </section>
-</template>
-
 <script setup>
-import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
+import WorkspaceSettingsClientElement from "@jskit-ai/users-web/client/components/WorkspaceSettingsClientElement";
 </script>
 
-<style scoped>
-.settings-page {
-  display: grid;
-  gap: 1rem;
-}
-</style>
+<template>
+  <WorkspaceSettingsClientElement />
+</template>

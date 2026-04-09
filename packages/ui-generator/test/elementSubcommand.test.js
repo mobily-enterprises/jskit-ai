@@ -86,7 +86,7 @@ test("ui-generator element subcommand creates component and outlet placement", a
       options: {
         name: "Ops Panel",
         surface: "admin",
-        placement: "admin-settings:forms"
+        placement: "shell-layout:top-right"
       }
     });
 
@@ -105,8 +105,8 @@ test("ui-generator element subcommand creates component and outlet placement", a
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /host: "admin-settings"/);
-    assert.match(placementSource, /position: "forms"/);
+    assert.match(placementSource, /host: "shell-layout"/);
+    assert.match(placementSource, /position: "top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });

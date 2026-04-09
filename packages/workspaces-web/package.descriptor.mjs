@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.5",
+  version: "0.1.7",
   kind: "runtime",
   description: "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
   dependsOn: [
@@ -57,13 +57,7 @@ export default Object.freeze({
             host: "admin-settings",
             position: "primary-menu",
             surfaces: ["admin"],
-            source: "templates/src/pages/admin/workspace/settings/index.vue"
-          },
-          {
-            host: "admin-settings",
-            position: "forms",
-            surfaces: ["admin"],
-            source: "templates/src/pages/admin/workspace/settings/index.vue"
+            source: "templates/src/pages/admin/workspace/settings.vue"
           }
         ],
         contributions: [
@@ -115,13 +109,13 @@ export default Object.freeze({
             source: "mutations.text#users-web-placement-block"
           },
           {
-            id: "users.workspace.settings.form",
+            id: "users.workspace.settings.general",
             host: "admin-settings",
-            position: "forms",
+            position: "primary-menu",
             surfaces: ["admin"],
             order: 100,
-            componentToken: "users.web.workspace-settings.element",
-            source: "mutations.text#users-web-workspace-settings-form-placement"
+            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            source: "mutations.text#users-web-workspace-settings-general-placement"
           }
         ]
       }
@@ -130,8 +124,8 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/workspaces-core": "0.1.5",
-        "@jskit-ai/users-web": "0.1.44"
+        "@jskit-ai/workspaces-core": "0.1.7",
+        "@jskit-ai/users-web": "0.1.46"
       },
       dev: {}
     },
@@ -235,10 +229,22 @@ export default Object.freeze({
         }
       },
       {
+        from: "templates/src/pages/admin/workspace/settings.vue",
+        toSurface: "admin",
+        toSurfacePath: "workspace/settings.vue",
+        reason: "Install workspace settings shell route scaffold for workspaces-web workspace admin UI.",
+        category: "workspaces-web",
+        id: "users-web-page-admin-workspace-settings-shell",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
         from: "templates/src/pages/admin/workspace/settings/index.vue",
         toSurface: "admin",
         toSurfacePath: "workspace/settings/index.vue",
-        reason: "Install workspace settings page scaffold for workspaces-web workspace admin UI.",
+        reason: "Install workspace settings landing page scaffold for workspaces-web workspace admin UI.",
         category: "workspaces-web",
         id: "users-web-page-admin-workspace-settings",
         when: {
@@ -287,12 +293,12 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"users.workspace.settings.form\"",
+        skipIfContains: "id: \"users.workspace.settings.general\"",
         value:
-          "\naddPlacement({\n  id: \"users.workspace.settings.form\",\n  host: \"admin-settings\",\n  position: \"forms\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.element\"\n});\n",
-        reason: "Append workspace settings form placement into app-owned placement registry.",
+          "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  host: \"admin-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append workspace settings general-page placement into app-owned placement registry.",
         category: "workspaces-web",
-        id: "users-web-workspace-settings-form-placement",
+        id: "users-web-workspace-settings-general-placement",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspaces"]

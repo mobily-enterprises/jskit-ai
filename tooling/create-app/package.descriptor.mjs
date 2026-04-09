@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/create-app",
-  "version": "0.1.36",
+  "version": "0.1.38",
   "dependsOn": [],
   "capabilities": {
     "provides": [

@@ -1,6 +1,7 @@
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
 import { normalizeActionDefinition } from "@jskit-ai/kernel/shared/actions";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
@@ -209,6 +210,34 @@ function hasAutomationChannel(action = {}) {
   return channels.some((channel) => normalizeText(channel).toLowerCase() === AUTOMATION_CHANNEL);
 }
 
+function normalizeSurfaceList(value) {
+  const source = Array.isArray(value) ? value : [value];
+  const resolved = [];
+
+  for (const entry of source) {
+    const normalized = normalizeSurfaceId(entry);
+    if (normalized) {
+      resolved.push(normalized);
+    }
+  }
+
+  return Object.freeze(resolved);
+}
+
+function canUseToolOnSurface(entry = {}, context = {}) {
+  const toolSurfaces = Array.isArray(entry.surfaces) ? entry.surfaces : [];
+  if (toolSurfaces.length < 1) {
+    return true;
+  }
+
+  const contextSurfaceId = normalizeSurfaceId(context?.surface);
+  if (!contextSurfaceId) {
+    return true;
+  }
+
+  return toolSurfaces.includes(contextSurfaceId);
+}
+
 function resolveActionBackedToolEntries(scope) {
   if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
     return new Map();
@@ -261,7 +290,8 @@ function resolveActionBackedToolEntries(scope) {
         description: assistantExtension.description || `Run ${actionId}.`,
         inputSchema,
         outputSchema,
-        permission: normalizePermissionSpec(normalizedAction.permission)
+        permission: normalizePermissionSpec(normalizedAction.permission),
+        surfaces: normalizeSurfaceList(normalizedAction.surfaces)
       });
       const existing = entriesByActionId.get(actionKey);
       if (!existing || actionVersion >= Number(existing.actionVersion || 0)) {
@@ -309,7 +339,8 @@ function resolveActionToolEntries(
           parameters: actionEntry.inputSchema,
           outputSchema: actionEntry.outputSchema
         }),
-        permission: actionEntry.permission
+        permission: actionEntry.permission,
+        surfaces: actionEntry.surfaces
       })
     );
   }
@@ -346,6 +377,9 @@ function createServiceToolCatalog(
     const tools = [];
     const byName = new Map();
     for (const entry of resolveOrCreateMethodEntries()) {
+      if (!canUseToolOnSurface(entry, context)) {
+        continue;
+      }
       if (!canInvokeMethod(entry.permission, context)) {
         continue;
       }

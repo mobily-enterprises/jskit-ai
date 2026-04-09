@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.44",
+  version: "0.1.46",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared shell link components.",
   dependsOn: [
@@ -46,6 +46,14 @@ export default Object.freeze({
         {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
+        },
+        {
+          subpath: "./client/components/ConsoleSettingsClientElement",
+          summary: "Exports console settings landing-page client element."
+        },
+        {
+          subpath: "./client/components/WorkspaceSettingsClientElement",
+          summary: "Exports workspace settings client element."
         },
         {
           subpath: "./client/composables/useAddEdit",
@@ -102,13 +110,7 @@ export default Object.freeze({
             host: "console-settings",
             position: "primary-menu",
             surfaces: ["console"],
-            source: "templates/src/pages/console/settings/index.vue"
-          },
-          {
-            host: "console-settings",
-            position: "forms",
-            surfaces: ["console"],
-            source: "templates/src/pages/console/settings/index.vue"
+            source: "templates/src/pages/console/settings.vue"
           }
         ],
         contributions: [
@@ -151,12 +153,12 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.28",
-        "@jskit-ai/realtime": "0.1.28",
-        "@jskit-ai/kernel": "0.1.29",
-        "@jskit-ai/shell-web": "0.1.28",
-        "@jskit-ai/uploads-image-web": "0.1.7",
-        "@jskit-ai/users-core": "0.1.39",
+        "@jskit-ai/http-runtime": "0.1.30",
+        "@jskit-ai/realtime": "0.1.30",
+        "@jskit-ai/kernel": "0.1.31",
+        "@jskit-ai/shell-web": "0.1.30",
+        "@jskit-ai/uploads-image-web": "0.1.9",
+        "@jskit-ai/users-core": "0.1.41",
         vuetify: "^4.0.0"
       },
       dev: {}
@@ -213,10 +215,18 @@ export default Object.freeze({
         id: "users-web-component-account-settings-invites"
       },
       {
+        from: "templates/src/pages/console/settings.vue",
+        toSurface: "console",
+        toSurfacePath: "settings.vue",
+        reason: "Install console settings shell route scaffold for users-web console UI.",
+        category: "users-web",
+        id: "users-web-page-console-settings-shell"
+      },
+      {
         from: "templates/src/pages/console/settings/index.vue",
         toSurface: "console",
         toSurfacePath: "settings/index.vue",
-        reason: "Install console settings page scaffold for users-web console UI.",
+        reason: "Install console settings landing page scaffold for users-web console UI.",
         category: "users-web",
         id: "users-web-page-console-settings"
       }

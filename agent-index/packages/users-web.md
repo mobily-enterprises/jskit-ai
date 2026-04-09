@@ -504,6 +504,8 @@ Local functions
 Exports
 - `UsersWebClientProvider`
 - `UsersWorkspacesClientProvider`
+- `ConsoleSettingsClientElement`
+- `WorkspaceSettingsClientElement`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -726,6 +728,10 @@ Exports
 - None
 
 ### `templates/src/pages/account/index.vue`
+Exports
+- None
+
+### `templates/src/pages/console/settings.vue`
 Exports
 - None
 

@@ -50,8 +50,32 @@ function resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "
   });
 }
 
-function resolveTableSuffix(surfaceId = "") {
-  return toSnakeCase(surfaceId) || "assistant";
+function assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "") {
+  const assistantSurfaces =
+    appConfig && typeof appConfig.assistantSurfaces === "object" && !Array.isArray(appConfig.assistantSurfaces)
+      ? appConfig.assistantSurfaces
+      : {};
+  if (assistantSurfaces[surfaceId]) {
+    throw new Error(`assistant generator surface "${surfaceId}" already has an assistant configured in config/public.js.`);
+  }
+}
+
+function resolveAiConfigPrefix(surfaceId = "", explicitPrefix = "") {
+  const normalizedExplicitPrefix = normalizeText(explicitPrefix);
+  if (normalizedExplicitPrefix) {
+    return normalizedExplicitPrefix;
+  }
+
+  const surfacePrefix = toSnakeCase(surfaceId).toUpperCase();
+  return surfacePrefix ? `${surfacePrefix}_ASSISTANT` : "ASSISTANT";
+}
+
+function normalizeSettingsRoutePath(value = "") {
+  return normalizeText(value).toLowerCase().replace(/^\/+|\/+$/g, "") || "assistant";
+}
+
+function resolveSettingsRouteBase(surfaceId = "") {
+  return normalizeSurfaceId(surfaceId) === "admin" ? "/workspace/settings" : "/settings";
 }
 
 async function resolveMenuPlacementTarget(appRoot = "", options = {}) {
@@ -64,13 +88,16 @@ async function resolveMenuPlacementTarget(appRoot = "", options = {}) {
 
 async function buildTemplateContext({ appRoot, options } = {}) {
   const appConfig = await loadAppConfig(appRoot);
-  const runtimeSurface = resolveSurfaceDefinition(appConfig, options?.["runtime-surface"], "runtime-surface");
+  const runtimeSurface = resolveSurfaceDefinition(appConfig, options?.surface, "surface");
   const settingsSurface = resolveSurfaceDefinition(appConfig, options?.["settings-surface"], "settings-surface");
   const configScope = normalizeConfigScope(options?.["config-scope"]);
+  const settingsRoutePath = normalizeSettingsRoutePath(options?.["settings-route-path"]);
+
+  assertAssistantSurfaceIsAvailable(appConfig, runtimeSurface.id);
 
   if (configScope === "workspace" && runtimeSurface.requiresWorkspace !== true) {
     throw new Error(
-      `assistant generator config-scope "workspace" requires runtime surface "${runtimeSurface.id}" with requiresWorkspace=true.`
+      `assistant generator config-scope "workspace" requires surface "${runtimeSurface.id}" with requiresWorkspace=true.`
     );
   }
   if (configScope === "workspace" && settingsSurface.requiresWorkspace !== true) {
@@ -80,27 +107,25 @@ async function buildTemplateContext({ appRoot, options } = {}) {
   }
 
   const placementTarget = await resolveMenuPlacementTarget(appRoot, options);
-  const tableSuffix = resolveTableSuffix(runtimeSurface.id);
   const menuComponentToken = normalizeText(options?.["placement-component-token"]) || DEFAULT_MENU_COMPONENT_TOKEN;
+  const settingsRouteBase = resolveSettingsRouteBase(settingsSurface.id);
+  const settingsMenuSuffix = `${settingsRouteBase}/${settingsRoutePath}`;
 
   return Object.freeze({
-    "__ASSISTANT_RUNTIME_SURFACE_ID__": runtimeSurface.id,
+    "__ASSISTANT_SURFACE_ID__": runtimeSurface.id,
     "__ASSISTANT_SETTINGS_SURFACE_ID__": settingsSurface.id,
-    "__ASSISTANT_RUNTIME_SURFACE_REQUIRES_WORKSPACE__": runtimeSurface.requiresWorkspace ? "true" : "false",
-    "__ASSISTANT_SETTINGS_SURFACE_REQUIRES_WORKSPACE__": settingsSurface.requiresWorkspace ? "true" : "false",
-    "__ASSISTANT_SETTINGS_SURFACE_REQUIRES_CONSOLE_OWNER__":
-      settingsSurface.accessPolicyId === "console_owner" ? "true" : "false",
     "__ASSISTANT_CONFIG_SCOPE__": configScope,
     "__ASSISTANT_SETTINGS_HOST__": `${settingsSurface.id}-settings`,
-    "__ASSISTANT_CONFIG_TABLE__": "assistant_config",
-    "__ASSISTANT_CONVERSATIONS_TABLE__": `assistant_${tableSuffix}_conversations`,
-    "__ASSISTANT_MESSAGES_TABLE__": `assistant_${tableSuffix}_messages`,
+    "__ASSISTANT_AI_CONFIG_PREFIX__": resolveAiConfigPrefix(runtimeSurface.id, options?.["ai-config-prefix"]),
     "__ASSISTANT_MENU_PLACEMENT_HOST__": placementTarget.host,
     "__ASSISTANT_MENU_PLACEMENT_POSITION__": placementTarget.position,
     "__ASSISTANT_MENU_COMPONENT_TOKEN__": menuComponentToken,
     "__ASSISTANT_MENU_LABEL__": normalizeText(options?.["menu-label"]) || "Assistant",
     "__ASSISTANT_MENU_WORKSPACE_SUFFIX__": "/assistant",
-    "__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__": "/assistant"
+    "__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__": "/assistant",
+    "__ASSISTANT_SETTINGS_MENU_LABEL__": normalizeText(options?.["menu-label"]) || "Assistant",
+    "__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__": settingsMenuSuffix,
+    "__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__": settingsMenuSuffix
   });
 }
 

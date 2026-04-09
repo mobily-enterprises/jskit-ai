@@ -1,7 +1,7 @@
 <template>
-  <AssistantSurfaceClientElement />
+  <AssistantSurfaceClientElement surface-id="__ASSISTANT_SURFACE_ID__" />
 </template>
 
 <script setup>
-import { AssistantSurfaceClientElement } from "@local/assistant/client";
+import { AssistantSurfaceClientElement } from "@jskit-ai/assistant-runtime/client";
 </script>

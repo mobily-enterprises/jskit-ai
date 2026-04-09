@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.12",
+  version: "0.1.14",
   kind: "generator",
   description: "Generate app-local CRUD UI scaffolds from resource validators.",
   options: {
@@ -136,7 +136,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.44"
+        "@jskit-ai/users-web": "0.1.46"
       },
       dev: {}
     },

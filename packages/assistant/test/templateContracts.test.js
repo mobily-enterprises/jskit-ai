@@ -9,14 +9,16 @@ async function readTemplateFile(relativePath) {
   return readFile(path.join(packageRoot, relativePath), "utf8");
 }
 
-test("generated assistant client index exports the descriptor-declared client provider", async () => {
-  const source = await readTemplateFile("templates/src/local-package/client/index.js");
+test("assistant page template renders the shared runtime client element with an explicit surface id", async () => {
+  const source = await readTemplateFile("templates/src/pages/assistant/index.vue");
 
-  assert.match(source, /export \{ AssistantClientProvider \} from "\.\/providers\/AssistantClientProvider\.js";/);
+  assert.match(source, /<AssistantSurfaceClientElement surface-id="__ASSISTANT_SURFACE_ID__" \/>/);
+  assert.match(source, /from "@jskit-ai\/assistant-runtime\/client"/);
 });
 
-test("generated assistant actions do not emit legacy action visibility fields", async () => {
-  const source = await readTemplateFile("templates/src/local-package/server/actions.js");
+test("assistant settings page template renders the shared runtime settings client element with the target surface id", async () => {
+  const source = await readTemplateFile("templates/src/pages/settings/assistant/index.vue");
 
-  assert.doesNotMatch(source, /\bvisibility:/);
+  assert.match(source, /<AssistantSettingsClientElement target-surface-id="__ASSISTANT_SURFACE_ID__" \/>/);
+  assert.match(source, /from "@jskit-ai\/assistant-runtime\/client"/);
 });

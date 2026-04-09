@@ -46,6 +46,10 @@ Exports
 Exports
 - None
 
+### `templates/src/pages/admin/workspace/settings.vue`
+Exports
+- None
+
 ### `templates/src/pages/admin/workspace/settings/index.vue`
 Exports
 - None

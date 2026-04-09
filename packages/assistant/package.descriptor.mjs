@@ -1,15 +1,15 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.38",
+  version: "0.1.40",
   kind: "generator",
-  description: "Generate an app-local assistant runtime and settings integration from explicit surface choices.",
+  description: "Generate an assistant page and per-surface assistant config using the shared assistant runtime.",
   options: {
-    "runtime-surface": {
+    surface: {
       required: true,
       inputType: "text",
-      defaultValue: "",
-      promptLabel: "Runtime surface",
+      defaultFromConfig: "surfaceDefaultId",
+      promptLabel: "Assistant surface",
       promptHint: "Enabled surface id where the assistant page will run."
     },
     "settings-surface": {
@@ -17,7 +17,14 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Settings surface",
-      promptHint: "Enabled surface id whose settings outlet will host the assistant settings form."
+      promptHint: "Enabled surface id whose settings pages will include the assistant settings section."
+    },
+    "settings-route-path": {
+      required: false,
+      inputType: "text",
+      defaultValue: "assistant",
+      promptLabel: "Settings route path",
+      promptHint: "Route segment to use for the assistant settings section page."
     },
     "config-scope": {
       required: true,
@@ -47,6 +54,13 @@ export default Object.freeze({
       promptLabel: "Menu label",
       promptHint: "Menu label for the assistant page entry."
     },
+    "ai-config-prefix": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "AI config prefix",
+      promptHint: "Optional env/config prefix override. Defaults to <SURFACE>_ASSISTANT."
+    },
     "ai-provider": {
       required: true,
       defaultValue: "openai",
@@ -58,7 +72,7 @@ export default Object.freeze({
       allowEmpty: true,
       defaultValue: "",
       promptLabel: "AI API key",
-      promptHint: "Leave empty to keep assistant disabled until you add a key."
+      promptHint: "Leave empty to keep the assistant disabled until you add a key."
     },
     "ai-base-url": {
       required: true,
@@ -74,7 +88,7 @@ export default Object.freeze({
       promptHint: "Abort AI requests after this many milliseconds."
     }
   },
-  dependsOn: [],
+  dependsOn: ["@jskit-ai/assistant-runtime"],
   capabilities: {
     provides: ["assistant-generator"],
     requires: []
@@ -88,78 +102,6 @@ export default Object.freeze({
     }
   },
   metadata: {
-    generatorPrimarySubcommand: "install",
-    generatorSubcommands: {
-      install: {
-        description: "Generate and install an app-local assistant runtime from explicit surface choices.",
-        examples: [
-          {
-            label: "App runtime, console settings, global config",
-            lines: [
-              "npx jskit generate @jskit-ai/assistant install \\",
-              "  --runtime-surface app \\",
-              "  --settings-surface console \\",
-              "  --config-scope global \\",
-              "  --placement shell-layout:primary-menu \\",
-              "  --menu-label Assistant \\",
-              "  --ai-provider openai \\",
-              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-              "  --ai-base-url \"\" \\",
-              "  --ai-timeout-ms 120000 \\",
-              "  --run-npm-install"
-            ]
-          },
-          {
-            label: "App runtime, app settings, global config",
-            lines: [
-              "npx jskit generate @jskit-ai/assistant install \\",
-              "  --runtime-surface app \\",
-              "  --settings-surface app \\",
-              "  --config-scope global \\",
-              "  --placement shell-layout:primary-menu \\",
-              "  --menu-label Assistant \\",
-              "  --ai-provider openai \\",
-              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-              "  --ai-base-url \"\" \\",
-              "  --ai-timeout-ms 120000 \\",
-              "  --run-npm-install"
-            ]
-          },
-          {
-            label: "Workspace runtime, console settings, global config",
-            lines: [
-              "npx jskit generate @jskit-ai/assistant install \\",
-              "  --runtime-surface admin \\",
-              "  --settings-surface console \\",
-              "  --config-scope global \\",
-              "  --placement shell-layout:primary-menu \\",
-              "  --menu-label Assistant \\",
-              "  --ai-provider openai \\",
-              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-              "  --ai-base-url \"\" \\",
-              "  --ai-timeout-ms 120000 \\",
-              "  --run-npm-install"
-            ]
-          },
-          {
-            label: "Workspace runtime, workspace settings, workspace config",
-            lines: [
-              "npx jskit generate @jskit-ai/assistant install \\",
-              "  --runtime-surface admin \\",
-              "  --settings-surface admin \\",
-              "  --config-scope workspace \\",
-              "  --placement shell-layout:primary-menu \\",
-              "  --menu-label Assistant \\",
-              "  --ai-provider openai \\",
-              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
-              "  --ai-base-url \"\" \\",
-              "  --ai-timeout-ms 120000 \\",
-              "  --run-npm-install"
-            ]
-          }
-        ]
-      }
-    },
     apiSummary: {
       surfaces: [
         {
@@ -175,18 +117,7 @@ export default Object.freeze({
   },
   mutations: {
     dependencies: {
-      runtime: {
-        "@local/assistant": "file:packages/assistant",
-        "@jskit-ai/assistant-core": "0.1.5",
-        "@jskit-ai/database-runtime": "0.1.29",
-        "@jskit-ai/http-runtime": "0.1.28",
-        "@jskit-ai/kernel": "0.1.29",
-        "@jskit-ai/shell-web": "0.1.28",
-        "@jskit-ai/users-core": "0.1.39",
-        "@jskit-ai/users-web": "0.1.44",
-        "@tanstack/vue-query": "^5.90.5",
-        "vuetify": "^4.0.0"
-      },
+      runtime: {},
       dev: {}
     },
     packageJson: {
@@ -195,223 +126,48 @@ export default Object.freeze({
     procfile: {},
     files: [
       {
-        op: "install-migration",
-        from: "templates/migrations/assistant_config_initial.cjs",
-        toDir: "migrations",
-        extension: ".cjs",
-        reason: "Install assistant configuration schema migration.",
-        category: "assistant",
-        id: "assistant-config-initial-schema",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        op: "install-migration",
-        from: "templates/migrations/assistant_transcripts_initial.cjs",
-        toDir: "migrations",
-        extension: ".cjs",
-        reason: "Install assistant transcript schema migration.",
-        category: "assistant",
-        id: "assistant-transcripts-initial-schema",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/package.json",
-        to: "packages/assistant/package.json",
-        reason: "Install app-local assistant package manifest.",
-        category: "assistant",
-        id: "assistant-local-package-json"
-      },
-      {
-        from: "templates/src/local-package/package.descriptor.mjs",
-        to: "packages/assistant/package.descriptor.mjs",
-        reason: "Install app-local assistant package descriptor.",
-        category: "assistant",
-        id: "assistant-local-package-descriptor"
-      },
-      {
-        from: "templates/src/local-package/shared/assistantRuntimeConfig.js",
-        to: "packages/assistant/src/shared/assistantRuntimeConfig.js",
-        reason: "Install generated assistant runtime configuration.",
-        category: "assistant",
-        id: "assistant-local-runtime-config",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/shared/index.js",
-        to: "packages/assistant/src/shared/index.js",
-        reason: "Install generated assistant shared exports.",
-        category: "assistant",
-        id: "assistant-local-shared-index"
-      },
-      {
-        from: "templates/src/local-package/client/index.js",
-        to: "packages/assistant/src/client/index.js",
-        reason: "Install generated assistant client exports.",
-        category: "assistant",
-        id: "assistant-local-client-index"
-      },
-      {
-        from: "templates/src/local-package/client/components/AssistantSurfaceClientElement.vue",
-        to: "packages/assistant/src/client/components/AssistantSurfaceClientElement.vue",
-        reason: "Install generated assistant surface page component.",
-        category: "assistant",
-        id: "assistant-local-surface-client-element",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/client/components/AssistantSettingsClientElement.vue",
-        to: "packages/assistant/src/client/components/AssistantSettingsClientElement.vue",
-        reason: "Install generated assistant settings form component.",
-        category: "assistant",
-        id: "assistant-local-settings-client-element",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/client/composables/useAssistantRuntime.js",
-        to: "packages/assistant/src/client/composables/useAssistantRuntime.js",
-        reason: "Install generated assistant runtime composable.",
-        category: "assistant",
-        id: "assistant-local-runtime-composable",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/client/providers/AssistantClientProvider.js",
-        to: "packages/assistant/src/client/providers/AssistantClientProvider.js",
-        reason: "Install generated assistant client provider.",
-        category: "assistant",
-        id: "assistant-local-client-provider"
-      },
-      {
-        from: "templates/src/local-package/server/AssistantProvider.js",
-        to: "packages/assistant/src/server/AssistantProvider.js",
-        reason: "Install generated assistant server provider.",
-        category: "assistant",
-        id: "assistant-local-server-provider",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/actionIds.js",
-        to: "packages/assistant/src/server/actionIds.js",
-        reason: "Install generated assistant action identifiers.",
-        category: "assistant",
-        id: "assistant-local-action-ids"
-      },
-      {
-        from: "templates/src/local-package/server/actions.js",
-        to: "packages/assistant/src/server/actions.js",
-        reason: "Install generated assistant action definitions.",
-        category: "assistant",
-        id: "assistant-local-actions",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/registerRoutes.js",
-        to: "packages/assistant/src/server/registerRoutes.js",
-        reason: "Install generated assistant route registration.",
-        category: "assistant",
-        id: "assistant-local-register-routes",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/repositories/assistantConfigRepository.js",
-        to: "packages/assistant/src/server/repositories/assistantConfigRepository.js",
-        reason: "Install generated assistant config repository.",
-        category: "assistant",
-        id: "assistant-local-config-repository",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/repositories/conversationsRepository.js",
-        to: "packages/assistant/src/server/repositories/conversationsRepository.js",
-        reason: "Install generated assistant conversations repository.",
-        category: "assistant",
-        id: "assistant-local-conversations-repository",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/repositories/messagesRepository.js",
-        to: "packages/assistant/src/server/repositories/messagesRepository.js",
-        reason: "Install generated assistant messages repository.",
-        category: "assistant",
-        id: "assistant-local-messages-repository",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/services/assistantConfigService.js",
-        to: "packages/assistant/src/server/services/assistantConfigService.js",
-        reason: "Install generated assistant config service.",
-        category: "assistant",
-        id: "assistant-local-config-service",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/services/chatService.js",
-        to: "packages/assistant/src/server/services/chatService.js",
-        reason: "Install generated assistant chat service.",
-        category: "assistant",
-        id: "assistant-local-chat-service",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/local-package/server/services/transcriptService.js",
-        to: "packages/assistant/src/server/services/transcriptService.js",
-        reason: "Install generated assistant transcript service.",
-        category: "assistant",
-        id: "assistant-local-transcript-service",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
         from: "templates/src/pages/assistant/index.vue",
-        toSurface: "${option:runtime-surface|lower}",
+        toSurface: "${option:surface|lower}",
         toSurfacePath: "assistant/index.vue",
         reason: "Install generated assistant runtime page.",
         category: "assistant",
-        id: "assistant-page-runtime"
+        id: "assistant-page-runtime",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/pages/settings/assistant/index.vue",
+        toSurface: "${option:settings-surface|lower}",
+        toSurfacePath: "settings/${option:settings-route-path|path}/index.vue",
+        reason: "Install generated assistant settings section page.",
+        category: "assistant",
+        id: "assistant-page-settings-standard",
+        when: {
+          option: "settings-surface",
+          notEquals: "admin"
+        },
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        from: "templates/src/pages/settings/assistant/index.vue",
+        toSurface: "${option:settings-surface|lower}",
+        toSurfacePath: "workspace/settings/${option:settings-route-path|path}/index.vue",
+        reason: "Install generated assistant settings section page.",
+        category: "assistant",
+        id: "assistant-page-settings-admin",
+        when: {
+          option: "settings-surface",
+          equals: "admin"
+        },
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       }
     ],
     text: [
@@ -419,9 +175,9 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"assistant.generated.menu\"",
+        skipIfContains: "assistant.generated.menu:${option:surface|lower}",
         value:
-          "\naddPlacement({\n  id: \"assistant.generated.menu\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:runtime-surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:runtime-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\n// assistant.generated.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append generated assistant runtime menu placement into app-owned placement registry.",
         category: "assistant",
         id: "assistant-placement-menu",
@@ -434,52 +190,61 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"assistant.generated.settings.form\"",
+        skipIfContains: "assistant.generated.settings.menu:${option:surface|lower}",
         value:
-          "\naddPlacement({\n  id: \"assistant.generated.settings.form\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"forms\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"assistant.web.settings.element\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append generated assistant settings form placement into app-owned settings placements.",
+          "\n// assistant.generated.settings.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.settings.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"__ASSISTANT_SETTINGS_MENU_LABEL__\",\n    surface: \"${option:settings-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append generated assistant settings section menu placement into app-owned settings placements.",
         category: "assistant",
-        id: "assistant-settings-form-placement",
+        id: "assistant-settings-menu-placement",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildTemplateContext"
         }
       },
       {
-        file: ".env",
-        op: "upsert-env",
-        key: "AI_PROVIDER",
-        value: "${option:ai-provider}",
-        reason: "Configure assistant AI provider id.",
-        category: "runtime-config",
-        id: "assistant-ai-provider"
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.assistantSurfaces.${option:surface|lower} = {",
+        value:
+          "\nconfig.assistantSurfaces.${option:surface|lower} = {\n  settingsSurfaceId: \"__ASSISTANT_SETTINGS_SURFACE_ID__\",\n  configScope: \"__ASSISTANT_CONFIG_SCOPE__\"\n};\n",
+        reason: "Register the generated assistant surface in public app config.",
+        category: "assistant",
+        id: "assistant-public-surface-config",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
-        file: ".env",
-        op: "upsert-env",
-        key: "AI_API_KEY",
-        value: "${option:ai-api-key}",
-        reason: "Configure assistant AI API key.",
-        category: "runtime-config",
-        id: "assistant-ai-api-key"
+        op: "append-text",
+        file: "config/server.js",
+        position: "bottom",
+        skipIfContains: "config.assistantServer.${option:surface|lower} = {",
+        value:
+          "\nconfig.assistantServer.${option:surface|lower} = {\n  aiConfigPrefix: \"__ASSISTANT_AI_CONFIG_PREFIX__\"\n};\n",
+        reason: "Register generated assistant server config for the selected surface.",
+        category: "assistant",
+        id: "assistant-server-surface-config",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
+        op: "append-text",
         file: ".env",
-        op: "upsert-env",
-        key: "AI_BASE_URL",
-        value: "${option:ai-base-url}",
-        reason: "Configure assistant AI base URL override.",
+        position: "bottom",
+        skipIfContains: "__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=",
+        value:
+          "\n__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=${option:ai-provider}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_API_KEY=${option:ai-api-key}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_BASE_URL=${option:ai-base-url}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_TIMEOUT_MS=${option:ai-timeout-ms}\n",
+        reason: "Append assistant AI env defaults for the generated surface prefix.",
         category: "runtime-config",
-        id: "assistant-ai-base-url"
-      },
-      {
-        file: ".env",
-        op: "upsert-env",
-        key: "AI_TIMEOUT_MS",
-        value: "${option:ai-timeout-ms}",
-        reason: "Configure assistant AI timeout in milliseconds.",
-        category: "runtime-config",
-        id: "assistant-ai-timeout-ms"
+        id: "assistant-ai-prefixed-env",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       }
     ]
   }
