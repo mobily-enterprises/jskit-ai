@@ -15,6 +15,10 @@ import {
 import { createCommandHandlers } from "./createCommandHandlers.js";
 import { parseArgs } from "./argParser.js";
 import { printUsage, shouldShowCommandHelpOnBareInvocation } from "./usageHelp.js";
+import {
+  resolveCommandDescriptor,
+  validateCommandOptions
+} from "./commandCatalog.js";
 import { createCommandHandlerDeps } from "./buildCommandDeps.js";
 import { createRunCli } from "./dispatchCli.js";
 import {
@@ -148,6 +152,8 @@ const runCli = createRunCli({
   parseArgs,
   printUsage,
   shouldShowCommandHelpOnBareInvocation,
+  validateCommandOptions,
+  resolveCommandDescriptor,
   commandHandlers,
   cleanupMaterializedPackageRoots,
   createCliError

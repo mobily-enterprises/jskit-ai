@@ -11,7 +11,7 @@ import {
 } from "./support.js";
 import {
   resolvePageTargetDetails,
-  renderPlainPageSource,
+  renderPlainPageSource
 } from "./pageSupport.js";
 
 function renderPageLinkPlacementBlock({
@@ -86,14 +86,6 @@ async function runGeneratorSubcommand({
     );
   }
 
-  if (!pageAlreadyExisted || forceOverwrite) {
-    if (dryRun !== true) {
-      await mkdir(path.dirname(pageFilePath), { recursive: true });
-      await writeFile(pageFilePath, renderPlainPageSource(pageLabel), "utf8");
-    }
-    touchedFiles.add(pageRelativePath);
-  }
-
   const placementContext = await buildUiPageTemplateContext({
     appRoot: pageTarget.appRoot,
     targetFile,
@@ -114,6 +106,15 @@ async function runGeneratorSubcommand({
       surface: pageTarget.surfaceId
     })
   );
+
+  if (!pageAlreadyExisted || forceOverwrite) {
+    if (dryRun !== true) {
+      await mkdir(path.dirname(pageFilePath), { recursive: true });
+      await writeFile(pageFilePath, renderPlainPageSource(pageLabel), "utf8");
+    }
+    touchedFiles.add(pageRelativePath);
+  }
+
   if (placementApplied.changed) {
     if (dryRun !== true) {
       await writeFile(placementPath.absolutePath, placementApplied.content, "utf8");
@@ -122,20 +123,11 @@ async function runGeneratorSubcommand({
   }
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));
-  const summaryParts = [];
-  if (!pageAlreadyExisted) {
-    summaryParts.push(`Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`);
-  } else if (forceOverwrite) {
-    summaryParts.push(`Regenerated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`);
-  } else if (placementApplied.changed) {
-    summaryParts.push(`Updated page link placement for existing UI page "${pageTarget.routeUrlSuffix}".`);
-  } else {
-    summaryParts.push(`UI page "${pageTarget.routeUrlSuffix}" is already up to date.`);
-  }
-
   return {
     touchedFiles: touchedFileList,
-    summary: summaryParts.join(" ")
+    summary: !pageAlreadyExisted
+      ? `Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`
+      : `Regenerated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`
   };
 }
 

@@ -100,8 +100,7 @@ async function runGeneratorSubcommand({
     touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
     summary: renderAssistantPageSummary(pageTarget, {
       pageAlreadyExisted,
-      pageOverwritten: pageAlreadyExisted && forceOverwrite,
-      placementChanged: placementApplied.changed
+      pageOverwritten: pageAlreadyExisted && forceOverwrite
     })
   };
 }

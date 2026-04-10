@@ -2,6 +2,8 @@ function createRunCli({
   parseArgs,
   printUsage,
   shouldShowCommandHelpOnBareInvocation,
+  validateCommandOptions,
+  resolveCommandDescriptor,
   commandHandlers,
   cleanupMaterializedPackageRoots,
   createCliError
@@ -14,6 +16,12 @@ function createRunCli({
   }
   if (typeof shouldShowCommandHelpOnBareInvocation !== "function") {
     throw new TypeError("createRunCli requires shouldShowCommandHelpOnBareInvocation.");
+  }
+  if (typeof validateCommandOptions !== "function") {
+    throw new TypeError("createRunCli requires validateCommandOptions.");
+  }
+  if (typeof resolveCommandDescriptor !== "function") {
+    throw new TypeError("createRunCli requires resolveCommandDescriptor.");
   }
   if (!commandHandlers || typeof commandHandlers !== "object") {
     throw new TypeError("createRunCli requires commandHandlers.");
@@ -33,6 +41,16 @@ function createRunCli({
 
     try {
       const { command, options, positional } = parseArgs(argv, { createCliError });
+      validateCommandOptions(
+        { command, positional, options },
+        {
+          createCliError,
+          renderUsage: () => {
+            const helpCommand = command === "help" ? String(positional[0] || "").trim() : command;
+            printUsage(stderr, { command: helpCommand });
+          }
+        }
+      );
       if (options.help || command === "help") {
         const helpCommand = command === "help" ? String(positional[0] || "").trim() : command;
         printUsage(stdout, { command: helpCommand });
@@ -44,79 +62,21 @@ function createRunCli({
         return 0;
       }
 
-      if (command === "create") {
-        return await commandHandlers.commandCreate({
+      const commandDescriptor = resolveCommandDescriptor(command);
+      const handlerName = String(commandDescriptor?.handlerName || "").trim();
+      if (handlerName) {
+        const commandHandler = commandHandlers[handlerName];
+        if (typeof commandHandler !== "function") {
+          throw createCliError(`Unhandled command: ${command}`, { showUsage: true });
+        }
+        return await commandHandler({
           positional,
           options,
           cwd,
+          stdout,
+          stderr,
           io: { stdin, stdout, stderr }
         });
-      }
-      if (command === "list") {
-        return await commandHandlers.commandList({ positional, options, cwd, stdout });
-      }
-      if (command === "list-placements") {
-        return await commandHandlers.commandListPlacements({ options, cwd, stdout });
-      }
-      if (command === "list-link-items") {
-        return await commandHandlers.commandListLinkItems({ options, cwd, stdout });
-      }
-      if (command === "show") {
-        return await commandHandlers.commandShow({ positional, options, stdout });
-      }
-      if (command === "migrations") {
-        return await commandHandlers.commandMigrations({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "add") {
-        return await commandHandlers.commandAdd({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "generate") {
-        return await commandHandlers.commandGenerate({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "position") {
-        return await commandHandlers.commandPosition({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "update") {
-        return await commandHandlers.commandUpdate({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "remove") {
-        return await commandHandlers.commandRemove({
-          positional,
-          options,
-          cwd,
-          io: { stdin, stdout, stderr }
-        });
-      }
-      if (command === "doctor") {
-        return await commandHandlers.commandDoctor({ cwd, options, stdout });
-      }
-      if (command === "lint-descriptors") {
-        return await commandHandlers.commandLintDescriptors({ options, stdout });
       }
 
       throw createCliError(`Unhandled command: ${command}`, { showUsage: true });
