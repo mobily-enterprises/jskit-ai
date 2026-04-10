@@ -1,148 +1,115 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveShellOutletPlacementTargetFromApp } from "@jskit-ai/kernel/server/support";
+import {
+  TAB_LINK_COMPONENT_TOKEN,
+  resolveNearestParentSubpagesHost,
+  resolvePageTargetDetails
+} from "./subcommands/pageSupport.js";
 
-const DEFAULT_MENU_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
-const NESTED_CHILDREN_GROUPS = new Set(["nestedchildren", "nested-children"]);
+const DEFAULT_LINK_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
 
-function splitTextIntoWords(value = "") {
-  const normalized = String(value || "")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[^A-Za-z0-9]+/g, " ")
-    .trim();
-  if (!normalized) {
-    return [];
+function normalizePlacementTargetId(target = {}) {
+  const host = normalizeText(target?.host);
+  const position = normalizeText(target?.position);
+  if (!host || !position) {
+    return "";
   }
-  return normalized
-    .split(/\s+/)
-    .map((entry) => entry.toLowerCase())
-    .filter(Boolean);
+  return `${host}:${position}`;
 }
 
-function wordsToKebab(words = []) {
-  return (Array.isArray(words) ? words : [])
-    .map((entry) => String(entry || "").toLowerCase())
-    .filter(Boolean)
-    .join("-");
-}
-
-function normalizePathValue(value = "") {
-  return String(value || "")
-    .replaceAll("\\", "/")
-    .split("/")
-    .map((segment) => {
-      const normalizedSegment = normalizeText(segment);
-      if (!normalizedSegment) {
-        return "";
-      }
-      if (/^\[[^\]]+\]$/.test(normalizedSegment)) {
-        return normalizedSegment;
-      }
-      const routeGroupMatch = /^\(([^()]+)\)$/.exec(normalizedSegment);
-      if (routeGroupMatch) {
-        const routeGroupName = wordsToKebab(splitTextIntoWords(routeGroupMatch[1]));
-        return routeGroupName ? `(${routeGroupName})` : "";
-      }
-      return wordsToKebab(splitTextIntoWords(normalizedSegment));
-    })
-    .filter(Boolean)
-    .join("/");
-}
-
-function splitPathSegments(value = "") {
-  return normalizePathValue(value)
-    .split("/")
-    .map((entry) => normalizeText(entry))
-    .filter(Boolean);
-}
-
-function isRouteGroupSegment(value = "") {
-  const source = normalizeText(value);
-  return source.startsWith("(") && source.endsWith(")");
-}
-
-function isNestedChildrenRouteGroupSegment(value = "") {
-  const source = normalizeText(value);
-  if (!isRouteGroupSegment(source)) {
-    return false;
+function resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null) {
+  const childSegments = Array.isArray(pageTarget?.visibleRouteSegments) ? pageTarget.visibleRouteSegments : [];
+  const parentSegments = Array.isArray(parentHost?.visibleRouteSegments) ? parentHost.visibleRouteSegments : [];
+  if (parentSegments.length < 1 || childSegments.length <= parentSegments.length) {
+    return "";
   }
-  const groupName = source.slice(1, -1).trim().toLowerCase();
-  return NESTED_CHILDREN_GROUPS.has(groupName);
-}
 
-function resolvePlacementUrlSuffix(options = {}) {
-  const routeSegments = [
-    ...splitPathSegments(options?.["directory-prefix"]),
-    ...splitPathSegments(options?.name)
-  ].filter((segment) => !isRouteGroupSegment(segment));
-  if (routeSegments.length < 1) {
-    return "/";
+  const relativeSegments = childSegments.slice(parentSegments.length);
+  if (relativeSegments.length < 1) {
+    return "";
   }
-  return `/${routeSegments.join("/")}`;
+  return `./${relativeSegments.join("/")}`;
 }
 
-function resolveMenuComponentToken(options = {}) {
-  const explicitToken = normalizeText(options?.["placement-component-token"]);
+function resolveLinkComponentToken(options = {}, { parentHost = null, placementTarget = null } = {}) {
+  const explicitToken = normalizeText(options?.["link-component-token"]);
   if (explicitToken) {
     return explicitToken;
   }
-  return DEFAULT_MENU_COMPONENT_TOKEN;
+  if (normalizePlacementTargetId(parentHost) && normalizePlacementTargetId(parentHost) === normalizePlacementTargetId(placementTarget)) {
+    return TAB_LINK_COMPONENT_TOKEN;
+  }
+  return DEFAULT_LINK_COMPONENT_TOKEN;
 }
 
-function resolveAutoRelativePlacementTo(options = {}) {
-  const explicitPlacementTo = normalizeText(options?.["placement-to"]);
-  if (explicitPlacementTo) {
-    return explicitPlacementTo;
+function resolveAutoRelativeLinkTo(options = {}, pageTarget = {}, { parentHost = null, placementTarget = null } = {}) {
+  const explicitLinkTo = normalizeText(options?.["link-to"]);
+  if (explicitLinkTo) {
+    return explicitLinkTo;
   }
-  const directorySegments = splitPathSegments(options?.["directory-prefix"]);
-  const hasNestedChildrenGroup = directorySegments.some((segment) => isNestedChildrenRouteGroupSegment(segment));
-  if (!hasNestedChildrenGroup) {
+  if (normalizePlacementTargetId(parentHost) && normalizePlacementTargetId(parentHost) === normalizePlacementTargetId(placementTarget)) {
+    const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
+    if (inferredLinkTo) {
+      return inferredLinkTo;
+    }
+  }
+  if (pageTarget?.containsNestedChildrenGroup !== true) {
     return "";
   }
-  const pagePath = normalizePathValue(options?.name);
-  if (!pagePath) {
+
+  const pageLeafSegment = normalizeText(pageTarget?.pageLeafSegment);
+  if (!pageLeafSegment) {
     return "";
   }
-  return `./${pagePath}`;
+  return `./${pageLeafSegment}`;
 }
 
-function resolveMenuToPropLine(options = {}) {
-  const placementTo = resolveAutoRelativePlacementTo(options);
-  if (!placementTo) {
+function resolveLinkToPropLine(options = {}, pageTarget = {}, context = {}) {
+  const linkTo = resolveAutoRelativeLinkTo(options, pageTarget, context);
+  if (!linkTo) {
     return "";
   }
-  return `      to: ${JSON.stringify(placementTo)},\n`;
+  return `      to: ${JSON.stringify(linkTo)},\n`;
 }
 
-function normalizePlacementIdSegment(value = "") {
-  return wordsToKebab(splitTextIntoWords(value));
-}
-
-function resolveMenuPlacementId(options = {}) {
-  const idSegments = [
-    ...splitPathSegments(options?.["directory-prefix"]),
-    ...splitPathSegments(options?.name)
-  ]
-    .map((segment) => normalizePlacementIdSegment(segment))
-    .filter(Boolean);
-
-  return `ui-generator.page.${idSegments.join(".")}.menu`;
-}
-
-async function buildUiPageTemplateContext({ appRoot, options } = {}) {
+async function buildUiPageTemplateContext({
+  appRoot,
+  targetFile = "",
+  options = {}
+} = {}) {
+  const pageTarget = await resolvePageTargetDetails({
+    appRoot,
+    targetFile,
+    context: "ui-generator page"
+  });
+  // Child pages inherit tab-link placement from the nearest ancestor page that was
+  // upgraded with add-subpages, regardless of whether that parent is a file route
+  // (`foo.vue`) or an index route host (`foo/index.vue` with nestedChildren pages).
+  const parentHost = await resolveNearestParentSubpagesHost({
+    appRoot,
+    pageTarget,
+    context: "ui-generator page"
+  });
   const placementTarget = await resolveShellOutletPlacementTargetFromApp({
     appRoot,
     context: "ui-generator",
-    placement: options?.placement
+    placement: options?.["link-placement"] || parentHost?.id || ""
   });
 
   return {
-    __JSKIT_UI_MENU_PLACEMENT_ID__: resolveMenuPlacementId(options),
-    __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(placementTarget?.host),
-    __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(placementTarget?.position),
-    __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options),
-    __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
-    __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
-    __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(options)
+    __JSKIT_UI_LINK_PLACEMENT_ID__: pageTarget.placementId,
+    __JSKIT_UI_LINK_PLACEMENT_HOST__: normalizeText(placementTarget?.host),
+    __JSKIT_UI_LINK_PLACEMENT_POSITION__: normalizeText(placementTarget?.position),
+    __JSKIT_UI_LINK_COMPONENT_TOKEN__: resolveLinkComponentToken(options, {
+      parentHost,
+      placementTarget
+    }),
+    __JSKIT_UI_LINK_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
+    __JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
+    __JSKIT_UI_LINK_TO_PROP_LINE__: resolveLinkToPropLine(options, pageTarget, {
+      parentHost,
+      placementTarget
+    })
   };
 }
 

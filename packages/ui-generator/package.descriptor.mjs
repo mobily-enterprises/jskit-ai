@@ -3,80 +3,73 @@ export default Object.freeze({
   packageId: "@jskit-ai/ui-generator",
   version: "0.1.14",
   kind: "generator",
-  description: "Generate app-local non-CRUD UI pages and outlet elements.",
+  description: "Generate app-local non-CRUD UI pages, placed elements, and page subpage hosts.",
   options: {
     name: {
-      required: true,
+      required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Element name",
-      promptHint: "Display name and route slug source (example: Reports Dashboard)."
+      promptLabel: "Page label",
+      promptHint: "Optional display label override. If omitted for page, it is derived from the target file path."
     },
     surface: {
-      required: true,
+      required: false,
       inputType: "text",
       defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Target surface",
-      promptHint: "Defaults to config.public.surfaceDefaultId. Must match an enabled surface id."
+      promptHint: "Used by the element subcommand. Must match an enabled surface id."
     },
     path: {
       required: false,
       inputType: "text",
       defaultValue: "src/components",
       promptLabel: "Component path",
-      promptHint: "Component directory relative to app root (used by element subcommand)."
-    },
-    "directory-prefix": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Page directory prefix",
-      promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
-    },
-    "route-path": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Route path",
-      promptHint:
-        "Optional explicit container route path (example: contact-tools or contacts/[contactId]). Defaults to --name."
+      promptHint: "Component directory relative to app root (used by element and add-subpages support scaffold)."
     },
     placement: {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Placement target",
-      promptHint: "Optional host:position target (defaults to app ShellOutlet default target)."
+      promptHint: "Optional host:position target for element placement (defaults to app ShellOutlet default target)."
     },
-    "placement-component-token": {
+    "link-placement": {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Placement component token",
+      promptLabel: "Link placement",
+      promptHint: "Optional host:position target for the generated page link placement."
+    },
+    "link-component-token": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Link component token",
       promptHint:
-        "Optional component token override for generated menu placement (example: local.main.ui.tab-link-item)."
+        "Optional component token override for the generated page link placement (example: local.main.ui.tab-link-item)."
     },
-    "placement-to": {
+    "link-to": {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Placement to",
+      promptLabel: "Link to",
       promptHint:
-        "Optional explicit props.to value for generated menu placement (example: ./notes). If omitted and directory-prefix includes a nestedChildren route group, defaults to ./<page-slug>."
+        "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for nestedChildren routes, defaults to ./<page-slug>."
     },
-    file: {
+    target: {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Target Vue file",
-      promptHint: "Vue SFC path relative to app root (used by outlet subcommand)."
+      promptLabel: "Outlet target",
+      promptHint:
+        "Optional override for add-subpages. Use host or host:position; if omitted, it is derived from the page path."
     },
     host: {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Outlet host",
-      promptHint: "ShellOutlet host value to inject into target file."
+      promptLabel: "Host",
+      promptHint: "ShellOutlet host value for generic outlets."
     },
     position: {
       required: false,
@@ -85,12 +78,19 @@ export default Object.freeze({
       promptLabel: "Outlet position",
       promptHint: "ShellOutlet position value to inject into target file."
     },
-    mode: {
+    title: {
       required: false,
       inputType: "text",
-      defaultValue: "routed",
-      promptLabel: "Outlet mode",
-      promptHint: "routed | outlet-only (routed injects RouterView when missing)."
+      defaultValue: "",
+      promptLabel: "Section title",
+      promptHint: "Optional SectionContainerShell title override for add-subpages."
+    },
+    subtitle: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Section subtitle",
+      promptHint: "Optional SectionContainerShell subtitle override for add-subpages."
     }
   },
   dependsOn: [],
@@ -110,27 +110,51 @@ export default Object.freeze({
     generatorPrimarySubcommand: "page",
     generatorSubcommands: {
       page: {
-        description: "Scaffold a non-CRUD page and add a menu placement entry.",
-        optionNames: ["name", "surface", "directory-prefix", "placement", "placement-component-token", "placement-to"]
+        entrypoint: "src/server/subcommands/page.js",
+        export: "runGeneratorSubcommand",
+        description: "Create a route page at an explicit target file and add a link placement entry for it.",
+        positionalArgs: [
+          {
+            name: "target-file",
+            required: true,
+            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+          }
+        ],
+        optionNames: ["name", "link-placement", "link-component-token", "link-to"]
       },
       element: {
         entrypoint: "src/server/subcommands/element.js",
         export: "runGeneratorSubcommand",
         description: "Scaffold a reusable UI element component and register a placement.",
-        optionNames: ["name", "surface", "path", "placement"]
+        optionNames: ["name", "surface", "path", "placement"],
+        requiredOptionNames: ["name", "surface"]
       },
-      container: {
-        entrypoint: "src/server/subcommands/container.js",
+      "add-subpages": {
+        entrypoint: "src/server/subcommands/addSubpages.js",
         export: "runGeneratorSubcommand",
-        description: "Scaffold a routed section container page with a tab outlet. Adds a menu entry only when --placement is passed.",
-        optionNames: ["name", "surface", "directory-prefix", "route-path", "path", "placement"]
+        description: "Upgrade an existing page into a routed subpage host with SectionContainerShell, ShellOutlet, and RouterView.",
+        positionalArgs: [
+          {
+            name: "target-file",
+            required: true,
+            description: "Existing Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+          }
+        ],
+        optionNames: ["target", "path", "title", "subtitle"]
       },
       outlet: {
         entrypoint: "src/server/subcommands/outlet.js",
         export: "runGeneratorSubcommand",
-        description: "Inject a ShellOutlet block into an existing Vue page/component.",
-        optionNames: ["file", "host", "position", "mode"],
-        requiredOptionNames: ["file", "host"]
+        description: "Inject a generic ShellOutlet block into an existing Vue page/component.",
+        positionalArgs: [
+          {
+            name: "target-file",
+            required: true,
+            description: "Existing Vue SFC path relative to app root."
+          }
+        ],
+        optionNames: ["host", "position"],
+        requiredOptionNames: ["host"]
       }
     },
     apiSummary: {
@@ -157,32 +181,7 @@ export default Object.freeze({
       scripts: {}
     },
     procfile: {},
-    files: [
-      {
-        from: "templates/src/pages/admin/ui-generator/Page.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:name|path}/index.vue",
-        reason: "Install generated UI page scaffold.",
-        category: "ui-generator",
-        id: "ui-generator-page-${option:name|snake}"
-      }
-    ],
-    text: [
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}",
-        value:
-          "\n// jskit:ui-generator.page.menu:${option:surface|lower}:${option:directory-prefix|path}:${option:name|path}\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:name|trim}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
-        reason: "Append generated UI page menu placement.",
-        category: "ui-generator",
-        id: "ui-generator-page-placement-menu-${option:name|snake}",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildUiPageTemplateContext"
-        }
-      }
-    ]
+    files: [],
+    text: []
   }
 });

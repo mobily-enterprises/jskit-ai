@@ -2,90 +2,21 @@ import { readFile, writeFile } from "node:fs/promises";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   requireOption,
+  requireSinglePositionalTargetFile,
+  rejectUnexpectedOptions,
   resolvePathWithinApp,
   ensureTrailingNewline,
-  insertImportIfMissing
+  insertImportIfMissing,
+  findScriptBlock,
+  parseTagAttributes,
+  indentBlock
 } from "./support.js";
 
 const DEFAULT_OUTLET_POSITION = "sub-pages";
-const MODE_ROUTED = "routed";
-const MODE_OUTLET_ONLY = "outlet-only";
 
-const SCRIPT_TAG_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
 const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_CLOSE_TAG_PATTERN = /<\/template>/gi;
-const ROUTER_VIEW_TAG_PATTERN = /<RouterView(?:\s|\/|>)/;
 const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b([^>]*)\/?>/gi;
-const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
-const SCRIPT_SETUP_ATTRIBUTE_PATTERN = /\bsetup\b/i;
-
-function resolveOutletMode(rawMode = "") {
-  const normalized = String(rawMode || "").trim().toLowerCase();
-  if (!normalized || normalized === MODE_ROUTED) {
-    return MODE_ROUTED;
-  }
-  if (normalized === MODE_OUTLET_ONLY || normalized === "outlet") {
-    return MODE_OUTLET_ONLY;
-  }
-
-  throw new Error(`ui-generator outlet received unsupported --mode value: ${rawMode}. Use routed or outlet-only.`);
-}
-
-function findScriptBlock(source = "") {
-  const sourceText = String(source || "");
-  let firstMatch = null;
-
-  for (const match of sourceText.matchAll(SCRIPT_TAG_PATTERN)) {
-    if (!firstMatch) {
-      firstMatch = match;
-    }
-
-    const attributesSource = String(match[1] || "");
-    if (SCRIPT_SETUP_ATTRIBUTE_PATTERN.test(attributesSource)) {
-      return Object.freeze({
-        index: match.index,
-        source: String(match[0] || ""),
-        attributesSource,
-        content: String(match[2] || "")
-      });
-    }
-  }
-
-  if (!firstMatch) {
-    return null;
-  }
-
-  return Object.freeze({
-    index: firstMatch.index,
-    source: String(firstMatch[0] || ""),
-    attributesSource: String(firstMatch[1] || ""),
-    content: String(firstMatch[2] || "")
-  });
-}
-
-function hasImportFromModule(source = "", modulePath = "") {
-  const normalizedModulePath = String(modulePath || "").trim();
-  if (!normalizedModulePath) {
-    return false;
-  }
-
-  const sourceText = String(source || "");
-  return sourceText.includes(`from "${normalizedModulePath}"`) || sourceText.includes(`from '${normalizedModulePath}'`);
-}
-
-function parseTagAttributes(attributesSource = "") {
-  const attributes = {};
-  const source = String(attributesSource || "");
-  for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
-    const attributeName = normalizeText(match[1]);
-    if (!attributeName) {
-      continue;
-    }
-    const hasValue = match[2] != null || match[3] != null;
-    attributes[attributeName] = hasValue ? String(match[2] ?? match[3] ?? "") : true;
-  }
-  return attributes;
-}
 
 function hasShellOutletTarget(source = "", { host = "", position = "" } = {}) {
   const normalizedHost = normalizeText(host);
@@ -106,19 +37,14 @@ function hasShellOutletTarget(source = "", { host = "", position = "" } = {}) {
   return false;
 }
 
-function applyScriptImports(source = "", { includeRouterViewImport = false } = {}) {
+function applyScriptImports(source = "") {
   const sourceText = String(source || "");
   const scriptBlock = findScriptBlock(sourceText);
 
   const shellOutletImport = "import ShellOutlet from \"@jskit-ai/shell-web/client/components/ShellOutlet\";";
-  const routerViewImport = "import { RouterView } from \"vue-router\";";
 
   if (!scriptBlock) {
-    const importLines = [shellOutletImport];
-    if (includeRouterViewImport) {
-      importLines.push(routerViewImport);
-    }
-    const scriptSetupBlock = `<script setup>\n${importLines.join("\n")}\n</script>\n`;
+    const scriptSetupBlock = `<script setup>\n${shellOutletImport}\n</script>\n`;
     let insertionIndex = 0;
     for (const match of sourceText.matchAll(ROUTE_TAG_PATTERN)) {
       insertionIndex = match.index + String(match[0] || "").length;
@@ -133,15 +59,7 @@ function applyScriptImports(source = "", { includeRouterViewImport = false } = {
   let nextScriptContent = scriptBlock.content;
   const shellImportApplied = insertImportIfMissing(nextScriptContent, shellOutletImport);
   nextScriptContent = shellImportApplied.content;
-
-  let routerImportChanged = false;
-  if (includeRouterViewImport && !hasImportFromModule(nextScriptContent, "vue-router")) {
-    const routerImportApplied = insertImportIfMissing(nextScriptContent, routerViewImport);
-    nextScriptContent = routerImportApplied.content;
-    routerImportChanged = routerImportApplied.changed;
-  }
-
-  if (!shellImportApplied.changed && !routerImportChanged) {
+  if (!shellImportApplied.changed) {
     return {
       changed: false,
       content: sourceText
@@ -157,23 +75,8 @@ function applyScriptImports(source = "", { includeRouterViewImport = false } = {
   };
 }
 
-function createOutletBlock({ host = "", position = "", includeRouterView = false } = {}) {
-  const lines = [
-    `<ShellOutlet host=\"${host}\" position=\"${position}\" />`
-  ];
-  if (includeRouterView) {
-    lines.push("<RouterView />");
-  }
-  return lines.join("\n");
-}
-
-function indentBlock(source = "", indent = "") {
-  const sourceText = String(source || "");
-  const indentation = String(indent || "");
-  return sourceText
-    .split("\n")
-    .map((line) => `${indentation}${line}`)
-    .join("\n");
+function createOutletBlock({ host = "", position = "" } = {}) {
+  return `<ShellOutlet host=\"${host}\" position=\"${position}\" />`;
 }
 
 function findLastTemplateCloseTag(source = "") {
@@ -185,9 +88,9 @@ function findLastTemplateCloseTag(source = "") {
   return lastMatch;
 }
 
-function applyOutletTemplateBlock(source = "", { host = "", position = "", includeRouterView = false } = {}) {
+function applyOutletTemplateBlock(source = "", { host = "", position = "" } = {}) {
   const sourceText = String(source || "");
-  const outletBlock = createOutletBlock({ host, position, includeRouterView });
+  const outletBlock = createOutletBlock({ host, position });
 
   const templateTagMatch = findLastTemplateCloseTag(sourceText);
   if (!templateTagMatch) {
@@ -223,14 +126,13 @@ async function runGeneratorSubcommand({
   if (normalizedSubcommand !== "outlet") {
     throw new Error(`Unsupported ui-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
-  if (Array.isArray(args) && args.length > 0) {
-    throw new Error("ui-generator outlet does not accept positional arguments.");
-  }
+  const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator outlet" });
+  rejectUnexpectedOptions(options, ["host", "position"], {
+    context: "ui-generator outlet"
+  });
 
-  const targetFile = requireOption(options, "file", { context: "ui-generator outlet" });
   const host = requireOption(options, "host", { context: "ui-generator outlet" });
   const position = normalizeText(options?.position) || DEFAULT_OUTLET_POSITION;
-  const mode = resolveOutletMode(options?.mode);
 
   const targetFilePath = resolvePathWithinApp(appRoot, targetFile, {
     context: "ui-generator outlet"
@@ -244,19 +146,13 @@ async function runGeneratorSubcommand({
   }
 
   const hasTargetOutlet = hasShellOutletTarget(source, { host, position });
-  const hasRouterView = ROUTER_VIEW_TAG_PATTERN.test(source);
-  const shouldInsertRouterView = mode === MODE_ROUTED && !hasRouterView && !hasTargetOutlet;
-
   const templateApplied = hasTargetOutlet
     ? { changed: false, content: source }
     : applyOutletTemplateBlock(source, {
       host,
-      position,
-      includeRouterView: shouldInsertRouterView
+      position
     });
-  const scriptApplied = applyScriptImports(templateApplied.content, {
-    includeRouterViewImport: shouldInsertRouterView
-  });
+  const scriptApplied = applyScriptImports(templateApplied.content);
 
   const changed = templateApplied.changed || scriptApplied.changed;
   if (changed && dryRun !== true) {

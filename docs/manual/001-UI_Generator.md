@@ -1,143 +1,168 @@
 # 001 UI Generator
 
-`ui-generator` is for app-local UI scaffolding.
+`ui-generator` is the app-local UI scaffolding generator.
 
-It is the generator you use when you want to shape the UI itself.
+It creates page files, page links, placed elements, and routed subpage hosts.
 
-The four things it does are:
+## The Model
 
-- create a route page
-- create a reusable placed element
-- create a routed container for sub-pages
-- patch an existing Vue page with an outlet
+Three of the commands now work from an explicit target file:
 
-## The Mental Model
+- `page <target-file>`
+- `add-subpages <target-file>`
+- `outlet <target-file>`
 
-Think in terms of these building blocks:
+That is the whole point of the current design.
 
-| Building block | What it is |
-| --- | --- |
-| page | A normal route page under `src/pages/...` |
-| element | A reusable component rendered into an existing outlet |
-| container | A parent route designed to host sub-pages |
-| outlet | A `ShellOutlet` inserted into an existing Vue page |
-| placement | A thing rendered into an existing outlet |
+The file path is the truth:
 
-The important separation is this:
+- `catalog/index.vue` means index-route page
+- `catalog.vue` means file-route page
+- the surface is derived from where that file lives
 
-- `outlet` creates or patches a place where UI can render
-- `placement` sends a page or element into a place that already exists
-
-If you keep those two ideas separate, `ui-generator` becomes much easier.
+There is no separate route-shape mode to remember.
 
 ## The Four Commands
 
 ```bash
 npx jskit generate ui-generator page
+npx jskit generate ui-generator add-subpages
 npx jskit generate ui-generator element
-npx jskit generate ui-generator container
 npx jskit generate ui-generator outlet
 ```
 
-If you want the CLI contract:
+Use them like this:
 
-```bash
-npx jskit generate ui-generator help
-npx jskit generate ui-generator page help
-npx jskit generate ui-generator element help
-npx jskit generate ui-generator container help
-npx jskit generate ui-generator outlet help
-```
+- `page`: create this page file
+- `add-subpages`: upgrade this page file into a routed subpage host
+- `element`: create a reusable placed component
+- `outlet`: patch this file with a plain `ShellOutlet`
 
-If you need to know where things can render:
+## Workflow 1: Create A Page
 
-```bash
-npx jskit list placements
-```
-
-## When To Use Which Command
-
-### Use `page`
-
-When you want a normal route page.
-
-Examples:
-
-- Reports
-- Notes
-- Dashboard
-- Availability page
-
-### Use `element`
-
-When you want a reusable component rendered into an existing outlet.
-
-Examples:
-
-- top-right shell widget
-- settings form panel
-- quick actions widget
-
-### Use `container`
-
-When you want a parent route that exists mainly to host sub-pages.
-
-Examples:
-
-- Practice section
-- Contact tools section
-- Workspace settings area with tabs or sub-pages
-
-### Use `outlet`
-
-When you already have a Vue page and want to patch it so it can host placed content or nested routed content.
-
-Examples:
-
-- existing contact view page
-- custom details page that should render sub-pages inline
-
-## Workflow 1: Create A Simple Page
-
-This is the most basic `ui-generator` use case.
+Create an index-route page:
 
 ```bash
 npx jskit generate ui-generator page \
-  --name "Reports Dashboard" \
-  --surface admin
+  src/pages/admin/catalog/index.vue \
+  --name "Catalog"
 ```
 
-What it does:
-
-- creates a page scaffold under the selected surface
-- gives you an app-owned Vue page to edit
-- uses the default outlet if you do not set `--placement`
-
-### Put the page in a subdirectory
+Create a file-route page:
 
 ```bash
 npx jskit generate ui-generator page \
-  --name "Reports Dashboard" \
-  --surface admin \
-  --directory-prefix ops
+  src/pages/admin/contacts/[contactId].vue \
+  --name "Contact"
 ```
 
-Use `directory-prefix` when the page should live under an existing route path segment.
+`name` is optional.
 
-### Put a menu entry somewhere specific
+If you omit it, the generator derives a label from the file path.
+
+Examples:
+
+- `catalog/index.vue` -> `Catalog`
+- `[contactId].vue` -> `Contact Id`
+
+## Page Links
+
+`page` also creates a link placement entry for that page.
+
+These options control the generated page link:
+
+- `--link-placement`: where the link renders
+- `--link-component-token`: how the link is rendered
+- `--link-to`: explicit navigation target override
+
+This is different from `element`, which still uses `--placement` because elements are arbitrary placed UI, not page links.
+
+## Workflow 2: Upgrade A Page To Host Subpages
+
+`add-subpages` patches an existing page into the standard host shape:
+
+- `SectionContainerShell`
+- a literal `<ShellOutlet host="..." position="sub-pages" />`
+- `<RouterView />`
+
+Example:
+
+```bash
+npx jskit generate ui-generator add-subpages \
+  src/pages/admin/contacts/[contactId].vue \
+  --title "Contact" \
+  --subtitle "Manage contact modules."
+```
+
+It also ensures the shared support scaffold exists:
+
+- `src/components/SectionContainerShell.vue`
+- `src/components/TabLinkItem.vue`
+- `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
+
+`--target` controls the outlet target:
+
+- if omitted, the target is derived from the page path
+- `--target contact-view` means `contact-view:sub-pages`
+- `--target contact-view:secondary-tabs` uses an explicit custom position
+
+Derived target examples:
+
+- `src/pages/admin/catalog/index.vue` -> `catalog:sub-pages`
+- `src/pages/admin/catalog.vue` -> `catalog:sub-pages`
+- `src/pages/admin/contacts/[contactId].vue` -> `contacts-contact-id:sub-pages`
+- `src/pages/admin/catalog/products/index.vue` -> `catalog-products:sub-pages`
+
+If the page already contains a `RouterView`, `add-subpages` fails instead of trying to update an existing routed host.
+
+## Where Child Pages Go
+
+This is the one routing rule you need to know.
+
+If the parent page is a file route:
+
+- parent: `src/pages/admin/catalog.vue`
+- child pages go under: `src/pages/admin/catalog/...`
+
+Example:
+
+- `src/pages/admin/catalog/products/index.vue`
+
+If the parent page is an index route:
+
+- parent: `src/pages/admin/catalog/index.vue`
+- child pages go under: `src/pages/admin/catalog/(nestedChildren)/...`
+
+Example:
+
+- `src/pages/admin/catalog/(nestedChildren)/products/index.vue`
+
+Why the difference:
+
+- file-route parents already own their direct child route tree
+- index-route parents need the app router’s `(nestedChildren)` reparenting hook so those sibling files render inside the parent page’s `RouterView`
+
+## Workflow 3: Add Child Page Links
+
+For a file-route parent:
 
 ```bash
 npx jskit generate ui-generator page \
-  --name "Reports" \
-  --surface admin \
-  --placement workspace-tools:primary-menu
+  src/pages/admin/contacts/[contactId]/notes/index.vue \
+  --name "Notes"
 ```
 
-Use `placement` when you want the generated page to appear in a specific outlet-driven menu or tool area.
+For an index-route parent:
 
-## Workflow 2: Create A Reusable Element
+```bash
+npx jskit generate ui-generator page \
+  src/pages/admin/catalog/(nestedChildren)/products/index.vue \
+  --name "Products"
+```
 
-Use `element` when the thing you want is not a route page.
+When `page` finds the nearest parent page upgraded with `add-subpages`, it reuses that parent’s real outlet target, defaults the link renderer to `local.main.ui.tab-link-item`, and derives `to` from the child route automatically.
+
+## Workflow 4: Create A Reusable Element
 
 ```bash
 npx jskit generate ui-generator element \
@@ -146,224 +171,81 @@ npx jskit generate ui-generator element \
   --placement shell-layout:top-right
 ```
 
-What it does:
+Use `element` when the thing you want is not a route page.
 
-- creates a component file
-- registers a placement
-- renders that component into an existing `ShellOutlet`
-
-### Put the component in a custom folder
-
-```bash
-npx jskit generate ui-generator element \
-  --name "Ops Panel" \
-  --surface admin \
-  --path src/widgets \
-  --placement shell-layout:top-right
-```
-
-Use `path` when `src/components` is not the right home for the new element.
-
-## Workflow 3: Create A Container For Sub-Pages
-
-Use `container` when you want a parent route whose job is to host more UI below it.
-
-```bash
-npx jskit generate ui-generator container \
-  --name "Practice" \
-  --surface admin
-```
-
-What it creates:
-
-- a routed parent page
-- a `ShellOutlet` for sub-pages
-- a `RouterView`
-- shared support components such as `SectionContainerShell`
-
-### Add child pages to that container
-
-For a `container`, child pages go directly under the container route path.
-
-Example:
-
-```bash
-npx jskit generate ui-generator page \
-  --name "Notes" \
-  --surface admin \
-  --directory-prefix "practice" \
-  --placement practice:sub-pages \
-  --placement-component-token local.main.ui.tab-link-item
-```
-
-That gives you:
-
-- route file at `src/pages/.../practice/notes/index.vue`
-- URL like `/practice/notes`
-- a placement rendered into `practice:sub-pages`
-
-Do not use `(nestedChildren)` for `container` child pages.
-
-That route group belongs to the `page + outlet` pattern, where an existing folder page like `practice/index.vue` needs sibling routes reparented into its own `RouterView`.
-
-You can also give that container a shell/menu entry:
-
-```bash
-npx jskit generate ui-generator container \
-  --name "Practice" \
-  --surface admin \
-  --placement workspace-tools:primary-menu
-```
-
-### Use an explicit route path
-
-```bash
-npx jskit generate ui-generator container \
-  --name "Contact" \
-  --surface admin \
-  --directory-prefix contacts \
-  --route-path "[contactId]"
-```
-
-Use `route-path` when the route segment should not be derived from `name`.
-
-## Workflow 4: Patch An Existing Page With An Outlet
-
-Use `outlet` when the page already exists and you want to add a rendering region to it.
+## Workflow 5: Inject A Generic Outlet
 
 ```bash
 npx jskit generate ui-generator outlet \
-  --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
+  src/components/ContactSummaryCard.vue \
   --host contact-view \
-  --position sub-pages \
-  --mode routed
+  --position summary-actions
 ```
 
-What it does:
+`outlet` is intentionally small.
 
-- patches the target Vue file
-- inserts `ShellOutlet`
-- inserts `RouterView` if needed
-- adds the imports needed for those components
+It adds:
 
-What it does not do:
+- `import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";`
+- `<ShellOutlet host="..." position="..." />`
 
-- it does not create the child pages
-- it does not automatically create placements that target the outlet
+It does not add:
 
-Think of `outlet` as structural surgery on an existing page.
+- `RouterView`
+- `SectionContainerShell`
+- tab-link support scaffold
 
-### If you only want the outlet, not routed child rendering
+If you want routed child pages inside the page, use `add-subpages`.
 
-```bash
-npx jskit generate ui-generator outlet \
-  --file src/components/ContactDetailsPanel.vue \
-  --host contact-view \
-  --position sub-pages \
-  --mode outlet-only
-```
+## The Options That Matter
 
-Use `outlet-only` when you want a placement area but you do not want `RouterView`.
-
-## A Good Practical Pattern
-
-Here is a common pattern using only `ui-generator` concepts:
-
-1. Create a parent section with `container`.
-2. Add normal route pages with `page`.
-3. Add a top-right widget or settings widget with `element`.
-4. Patch an old page with `outlet` only when needed.
-
-That keeps the model clean:
-
-- routes come from `page` or `container`
-- placed widgets come from `element`
-- structural retrofits come from `outlet`
-
-## The Options That Actually Matter
-
-Do not try to memorize every flag. Learn the ones that change the shape of the generated UI.
-
-### Core Routing Options
+### `page`
 
 | Option | Meaning |
 | --- | --- |
-| `name` | Display name and slug source |
-| `surface` | Which app surface the output belongs to |
-| `directory-prefix` | Extra path under the surface pages root |
-| `route-path` | Explicit route segment for a container |
+| `name` | Optional label override |
+| `link-placement` | Target outlet for the page link |
+| `link-component-token` | Link renderer override |
+| `link-to` | Explicit `props.to` override |
 
-### Placement And Outlet Options
-
-| Option | Meaning |
-| --- | --- |
-| `placement` | Existing target written as `host:position` |
-| `host` | Outlet namespace when patching an existing page |
-| `position` | Outlet slot key under that host |
-| `mode` | `routed` or `outlet-only` for `outlet` |
-| `placement-component-token` | Component token used to render a page placement |
-| `placement-to` | Explicit `props.to` for the generated placement |
-
-### File Location Options
+### `add-subpages`
 
 | Option | Meaning |
 | --- | --- |
-| `path` | Component directory for `element` |
-| `file` | Existing Vue file to patch for `outlet` |
+| `target` | Optional outlet target. If omitted, it is derived from the page path. `host` means `host:sub-pages`; `host:position` is fully explicit |
+| `title` | Optional `SectionContainerShell` title |
+| `subtitle` | Optional `SectionContainerShell` subtitle |
 
-## The Two Concepts People Mix Up
+### `element`
 
-### `placement` vs `outlet`
-
-These are not the same thing.
-
-- an outlet is where something may appear
-- a placement is the thing that appears there
-
-If you are asking "where should this widget or page link render?", that is `placement`.
-
-If you are asking "how do I make this page capable of hosting placed content or routed child content?", that is `outlet`.
-
-### `container` vs `outlet`
-
-These are also not the same thing.
-
-- `container` creates a new routed parent page designed for sub-pages
-- `outlet` patches an already existing page
-
-Use `container` when you are starting a new section.
-
-Use `outlet` when the page already exists and you want to retrofit it.
-
-## What Each Command Changes
-
-| Command | Main effect |
+| Option | Meaning |
 | --- | --- |
-| `page` | Creates a new route page and may add a placement |
-| `element` | Creates a new component and adds a placement |
-| `container` | Creates a new routed container page and support components |
-| `outlet` | Patches an existing Vue file |
+| `name` | Element name |
+| `surface` | Target surface |
+| `path` | Component directory |
+| `placement` | Placement target for the element |
 
-This matters because `outlet` is the only one here that is primarily a patch command.
+### `outlet`
+
+| Option | Meaning |
+| --- | --- |
+| `host` | Outlet host name |
+| `position` | Outlet slot key |
 
 ## Common Mistakes
 
-- using `outlet` when a clean new `container` would be simpler
-- guessing a `placement` target instead of running `npx jskit list placements`
-- confusing `placement` with `host` and `position`
-- using `outlet` and expecting it to create pages
-- using `container` when a normal `page` is enough
-- forgetting that `element` is not a route
-- putting `container` child pages under `(nestedChildren)` instead of directly under the container path
+- using `outlet` when you really want routed subpages
+- forgetting that `index.vue` parents need `(nestedChildren)` for child routes
+- guessing a link placement target instead of running `npx jskit list placements`
+- forgetting `--link-to` for file-route child links when you need an explicit relative tab link
+- treating `element` like a page generator
 
 ## Fast Decision Guide
 
-If you want a route page, start with `page`.
+If you want a page, create the page file with `page`.
 
-If you want a placed widget, start with `element`.
+If that page should host routed child pages, run `add-subpages` on the same file.
 
-If you want a parent route that hosts more pages, start with `container`.
+If you want a reusable placed component, use `element`.
 
-If you already have a page and need to patch in a rendering region, use `outlet`.
-
-That is the real shape of `ui-generator`.
+If you only need a generic rendering slot, use `outlet`.

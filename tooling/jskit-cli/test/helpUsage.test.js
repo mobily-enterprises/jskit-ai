@@ -58,10 +58,9 @@ test("jskit generate ui-generator outlet help prints outlet-specific usage", () 
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
-  assert.match(stdout, /--file/);
+  assert.match(stdout, /target-file/);
   assert.match(stdout, /--host/);
   assert.match(stdout, /--position/);
-  assert.match(stdout, /--mode/);
 });
 
 test("jskit generate ui-generator outlet with no options prints subcommand help", () => {
@@ -69,17 +68,30 @@ test("jskit generate ui-generator outlet with no options prints subcommand help"
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
-  assert.match(stdout, /--file/);
+  assert.match(stdout, /target-file/);
   assert.match(stdout, /--host/);
 });
 
-test("jskit generate ui-generator page help includes placement token options", () => {
+test("jskit generate ui-generator page help includes link options", () => {
   const result = runCli({ args: ["generate", "ui-generator", "page", "help"] });
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator page/);
-  assert.match(stdout, /--placement-component-token/);
-  assert.match(stdout, /--placement-to/);
+  assert.match(stdout, /target-file/);
+  assert.match(stdout, /--link-placement/);
+  assert.match(stdout, /--link-component-token/);
+  assert.match(stdout, /--link-to/);
+});
+
+test("jskit generate ui-generator add-subpages help prints subpage-host usage", () => {
+  const result = runCli({ args: ["generate", "ui-generator", "add-subpages", "help"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator add-subpages/);
+  assert.match(stdout, /target-file/);
+  assert.match(stdout, /--target/);
+  assert.match(stdout, /--title/);
+  assert.match(stdout, /--subtitle/);
 });
 
 test("jskit help list-link-items prints command help", () => {

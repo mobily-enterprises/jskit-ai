@@ -153,10 +153,9 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
         "generate",
         "@jskit-ai/ui-generator",
         "page",
+        "src/pages/admin/reports-dashboard/index.vue",
         "--name",
-        "Reports Dashboard",
-        "--surface",
-        "admin"
+        "Reports Dashboard"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -170,7 +169,7 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
     assert.match(pageSource, /Reports Dashboard/);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /id: "ui-generator\.page\.reports-dashboard\.menu"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.reports-dashboard\.link"/);
     assert.match(placementSource, /position: "primary-menu"/);
     assert.match(placementSource, /componentToken: "users\.web\.shell\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /workspaceSuffix: "\/reports-dashboard"/);
@@ -178,7 +177,40 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
   });
 });
 
-test("generate @jskit-ai/ui-generator page supports placement-component-token and auto nestedChildren placement-to", async () => {
+test("generate @jskit-ai/ui-generator page creates an explicit file-route target", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-file-page");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-file-page" });
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "src/pages/admin/contacts/[contactId].vue",
+        "--name",
+        "Contact"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
+    const placementPath = path.join(appRoot, "src", "placement.js");
+
+    assert.equal(await fileExists(pagePath), true);
+
+    const pageSource = await readFile(pagePath, "utf8");
+    assert.match(pageSource, /Contact/);
+
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.contacts\.contact-id\.link"/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page supports link-component-token and auto nestedChildren link-to", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-nested-children");
     await createMinimalApp(appRoot, { name: "ui-element-generator-nested-children" });
@@ -190,15 +222,12 @@ test("generate @jskit-ai/ui-generator page supports placement-component-token an
         "generate",
         "@jskit-ai/ui-generator",
         "page",
+        "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
         "--name",
         "Notes",
-        "--surface",
-        "admin",
-        "--directory-prefix",
-        "contacts/[contactId]/(nestedChildren)",
-        "--placement",
+        "--link-placement",
         "shell-layout:secondary-menu",
-        "--placement-component-token",
+        "--link-component-token",
         "local.main.ui.tab-link-item"
       ]
     });
@@ -211,7 +240,7 @@ test("generate @jskit-ai/ui-generator page supports placement-component-token an
       "admin",
       "contacts",
       "[contactId]",
-      "(nested-children)",
+      "(nestedChildren)",
       "notes",
       "index.vue"
     );
@@ -226,10 +255,10 @@ test("generate @jskit-ai/ui-generator page supports placement-component-token an
   });
 });
 
-test("generate @jskit-ai/ui-generator page supports explicit placement-to override", async () => {
+test("generate @jskit-ai/ui-generator page supports explicit link-to override", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-element-generator-placement-to");
-    await createMinimalApp(appRoot, { name: "ui-element-generator-placement-to" });
+    const appRoot = path.join(cwd, "ui-element-generator-link-to");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-link-to" });
     await installUiGeneratorPackage(appRoot);
 
     const result = runCli({
@@ -238,17 +267,14 @@ test("generate @jskit-ai/ui-generator page supports explicit placement-to overri
         "generate",
         "@jskit-ai/ui-generator",
         "page",
+        "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
         "--name",
         "Notes",
-        "--surface",
-        "admin",
-        "--directory-prefix",
-        "contacts/[contactId]/(nestedChildren)",
-        "--placement",
+        "--link-placement",
         "shell-layout:secondary-menu",
-        "--placement-component-token",
+        "--link-component-token",
         "local.main.ui.tab-link-item",
-        "--placement-to",
+        "--link-to",
         "./custom-notes"
       ]
     });
@@ -257,6 +283,50 @@ test("generate @jskit-ai/ui-generator page supports explicit placement-to overri
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /to: "\.\/custom-notes"/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page infers subpage link placement from the nearest parent host", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-inferred-subpage-link");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-inferred-subpage-link" });
+    await installUiGeneratorPackage(appRoot);
+
+    const parentPagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
+    await mkdir(path.dirname(parentPagePath), { recursive: true });
+    await writeFile(
+      parentPagePath,
+      `<template>
+  <SectionContainerShell>
+    <template #tabs>
+      <ShellOutlet host="contact-view" position="sub-pages" />
+    </template>
+    <RouterView />
+  </SectionContainerShell>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "src/pages/admin/contacts/[contactId]/notes/index.vue",
+        "--name",
+        "Notes"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(placementSource, /host: "contact-view"/);
+    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
 
@@ -272,15 +342,12 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "generate",
         "@jskit-ai/ui-generator",
         "page",
+        "src/pages/admin/alpha/(nestedChildren)/one/index.vue",
         "--name",
         "One",
-        "--surface",
-        "admin",
-        "--directory-prefix",
-        "alpha/(nestedChildren)",
-        "--placement",
+        "--link-placement",
         "shell-layout:secondary-menu",
-        "--placement-component-token",
+        "--link-component-token",
         "local.main.ui.tab-link-item"
       ]
     });
@@ -292,15 +359,12 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "generate",
         "@jskit-ai/ui-generator",
         "page",
+        "src/pages/admin/beta/(nestedChildren)/one/index.vue",
         "--name",
         "One",
-        "--surface",
-        "admin",
-        "--directory-prefix",
-        "beta/(nestedChildren)",
-        "--placement",
+        "--link-placement",
         "shell-layout:secondary-menu",
-        "--placement-component-token",
+        "--link-component-token",
         "local.main.ui.tab-link-item"
       ]
     });
@@ -313,9 +377,9 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
       (match) => match[1]
     );
 
-    assert.match(placementSource, /id: "ui-generator\.page\.alpha\.nested-children\.one\.menu"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.beta\.nested-children\.one\.menu"/);
-    assert.equal(placementIds.includes("ui-generator.page.one.menu"), false);
+    assert.match(placementSource, /id: "ui-generator\.page\.alpha\.one\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.beta\.one\.link"/);
+    assert.equal(placementIds.includes("ui-generator.page.one.link"), false);
     assert.equal(new Set(placementIds).size, placementIds.length);
   });
 });
@@ -364,42 +428,58 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
   });
 });
 
-test("generate @jskit-ai/ui-generator container supports explicit dynamic route-path", async () => {
+test("generate @jskit-ai/ui-generator add-subpages derives the default target for an existing file-route page", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-container-generator-dynamic-route");
-    await createMinimalApp(appRoot, { name: "ui-container-generator-dynamic-route" });
+    const appRoot = path.join(cwd, "ui-add-subpages-generator-dynamic-route");
+    await createMinimalApp(appRoot, { name: "ui-add-subpages-generator-dynamic-route" });
     await installUiGeneratorPackage(appRoot);
+
+    const pageResult = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "src/pages/admin/contacts/[contactId].vue",
+        "--name",
+        "Contact"
+      ]
+    });
+    assert.equal(pageResult.status, 0, String(pageResult.stderr || ""));
 
     const result = runCli({
       cwd: appRoot,
       args: [
         "generate",
         "@jskit-ai/ui-generator",
-        "container",
-        "--name",
+        "add-subpages",
+        "src/pages/admin/contacts/[contactId].vue",
+        "--title",
         "Contact",
-        "--surface",
-        "admin",
-        "--directory-prefix",
-        "contacts",
-        "--route-path",
-        "[contactId]"
+        "--subtitle",
+        "Manage contact modules."
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
 
-    const containerPath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
+    const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
     const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
     const tabLinkPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
 
-    assert.equal(await fileExists(containerPath), true);
+    assert.equal(await fileExists(pagePath), true);
     assert.equal(await fileExists(sectionShellPath), true);
     assert.equal(await fileExists(tabLinkPath), true);
 
-    const containerSource = await readFile(containerPath, "utf8");
-    assert.match(containerSource, /<RouterView \/>/);
-    assert.match(containerSource, /host="contact"/);
+    const pageSource = await readFile(pagePath, "utf8");
+    assert.match(pageSource, /<SectionContainerShell/);
+    assert.match(pageSource, /<template #tabs>/);
+    assert.match(pageSource, /<ShellOutlet host="contacts-contact-id" position="sub-pages" \/>/);
+    assert.match(pageSource, /<RouterView \/>/);
+
+    const sectionShellSource = await readFile(sectionShellPath, "utf8");
+    assert.match(sectionShellSource, /<slot name="tabs" \/>/);
+    assert.doesNotMatch(sectionShellSource, /ShellOutlet/);
 
     const providerSource = await readFile(providerPath, "utf8");
     assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);

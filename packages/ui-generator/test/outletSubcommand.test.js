@@ -14,7 +14,7 @@ async function withTempApp(run) {
   }
 }
 
-test("ui-generator outlet injects ShellOutlet and RouterView into existing page", async () => {
+test("ui-generator outlet injects a generic ShellOutlet into an existing page", async () => {
   await withTempApp(async (appRoot) => {
     const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue";
     const targetPath = path.join(appRoot, targetFile);
@@ -38,8 +38,8 @@ import { computed } from "vue";
     const result = await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
         host: "contact-view"
       }
     });
@@ -48,16 +48,15 @@ import { computed } from "vue";
 
     const output = await readFile(targetPath, "utf8");
     assert.match(output, /import ShellOutlet from "@jskit-ai\/shell-web\/client\/components\/ShellOutlet";/);
-    assert.match(output, /import \{ RouterView \} from "vue-router";/);
     assert.match(output, /<ShellOutlet host="contact-view" position="sub-pages" \/>/);
-    assert.equal((output.match(/<RouterView \/>/g) || []).length, 1);
+    assert.doesNotMatch(output, /RouterView/);
     assert.doesNotMatch(output, /jskit:ui-generator\.outlet:/);
 
     const rerun = await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
         host: "contact-view"
       }
     });
@@ -66,7 +65,7 @@ import { computed } from "vue";
   });
 });
 
-test("ui-generator outlet does not add second RouterView when one already exists", async () => {
+test("ui-generator outlet does not inject a second matching outlet", async () => {
   await withTempApp(async (appRoot) => {
     const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue";
     const targetPath = path.join(appRoot, targetFile);
@@ -75,12 +74,12 @@ test("ui-generator outlet does not add second RouterView when one already exists
     await writeFile(
       targetPath,
       `<script setup>
-import { RouterView } from "vue-router";
+import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 </script>
 
 <template>
   <section>
-    <RouterView />
+    <ShellOutlet host="contact-view" position="sub-pages" />
   </section>
 </template>
 `,
@@ -90,20 +89,22 @@ import { RouterView } from "vue-router";
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
         host: "contact-view"
       }
     });
 
     const output = await readFile(targetPath, "utf8");
-    assert.match(output, /<ShellOutlet host="contact-view" position="sub-pages" \/>/);
-    assert.equal((output.match(/<RouterView \/>/g) || []).length, 1);
-    assert.equal((output.match(/import \{ RouterView \} from "vue-router";/g) || []).length, 1);
+    assert.equal((output.match(/<ShellOutlet host="contact-view" position="sub-pages" \/>/g) || []).length, 1);
+    assert.equal(
+      (output.match(/import ShellOutlet from "@jskit-ai\/shell-web\/client\/components\/ShellOutlet";/g) || []).length,
+      1
+    );
   });
 });
 
-test("ui-generator outlet-only mode injects only ShellOutlet and creates script setup when missing", async () => {
+test("ui-generator outlet creates script setup when missing", async () => {
   await withTempApp(async (appRoot) => {
     const targetFile = "src/components/ContactDetailsPanel.vue";
     const targetPath = path.join(appRoot, targetFile);
@@ -121,19 +122,16 @@ test("ui-generator outlet-only mode injects only ShellOutlet and creates script 
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
-        host: "contact-view",
-        position: "sub-pages",
-        mode: "outlet-only"
+        host: "contact-view"
       }
     });
 
     const output = await readFile(targetPath, "utf8");
     assert.match(output, /<script setup>/);
     assert.match(output, /import ShellOutlet from "@jskit-ai\/shell-web\/client\/components\/ShellOutlet";/);
-    assert.doesNotMatch(output, /import \{ RouterView \} from "vue-router";/);
-    assert.doesNotMatch(output, /<RouterView \/>/);
+    assert.doesNotMatch(output, /RouterView/);
   });
 });
 
@@ -161,10 +159,9 @@ test("ui-generator outlet inserts generated script after existing route block", 
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
-        host: "contact-view",
-        mode: "outlet-only"
+        host: "contact-view"
       }
     });
 
@@ -204,16 +201,38 @@ test("ui-generator outlet keeps indentation when injected into nested template b
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
+      args: [targetFile],
       options: {
-        file: targetFile,
-        host: "contact-view",
-        mode: "routed"
+        host: "contact-view"
       }
     });
 
     const output = await readFile(targetPath, "utf8");
-    assert.match(output, /\n\s{2}<\/section>\n\s{2}<ShellOutlet host="contact-view" position="sub-pages" \/>\n\s{2}<RouterView \/>\n<\/template>/);
+    assert.match(output, /\n\s{2}<\/section>\n\s{2}<ShellOutlet host="contact-view" position="sub-pages" \/>\n<\/template>/);
     assert.match(output, /<template v-else-if="view\.isLoading">\n\s*<v-skeleton-loader type="heading, text@2, article" \/>\n\s*<\/template>/);
     assert.doesNotMatch(output, /jskit:ui-generator\.outlet:/);
+  });
+});
+
+test("ui-generator outlet rejects unsupported options", async () => {
+  await withTempApp(async (appRoot) => {
+    const targetFile = "src/components/ContactDetailsPanel.vue";
+    const targetPath = path.join(appRoot, targetFile);
+
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, "<template><div /></template>\n", "utf8");
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "outlet",
+        args: [targetFile],
+        options: {
+          host: "contact-view",
+          bogus: "routed"
+        }
+      }),
+      /ui-generator outlet received unsupported option: --bogus\./
+    );
   });
 });

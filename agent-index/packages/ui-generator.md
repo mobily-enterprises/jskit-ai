@@ -16,39 +16,20 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/buildTemplateContext.js`
 Exports
-- `buildUiPageTemplateContext({ appRoot, options } = {})`
+- `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
 Local functions
-- `splitTextIntoWords(value = "")`
-- `wordsToKebab(words = [])`
-- `normalizePathValue(value = "")`
-- `splitPathSegments(value = "")`
-- `isRouteGroupSegment(value = "")`
-- `isNestedChildrenRouteGroupSegment(value = "")`
-- `resolvePlacementUrlSuffix(options = {})`
-- `resolveMenuComponentToken(options = {})`
-- `resolveAutoRelativePlacementTo(options = {})`
-- `resolveMenuToPropLine(options = {})`
-- `normalizePlacementIdSegment(value = "")`
-- `resolveMenuPlacementId(options = {})`
+- `normalizePlacementTargetId(target = {})`
+- `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
+- `resolveLinkComponentToken(options = {}, { parentHost = null, placementTarget = null } = {})`
+- `resolveAutoRelativeLinkTo(options = {}, pageTarget = {}, { parentHost = null, placementTarget = null } = {})`
+- `resolveLinkToPropLine(options = {}, pageTarget = {}, context = {})`
 
-### `src/server/subcommands/container.js`
+### `src/server/subcommands/addSubpages.js`
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
-- `isBracketRouteParamSegment(value = "")`
-- `normalizeRoutePrefixSegment(value = "")`
-- `normalizeRoutePrefix(value = "")`
-- `resolveContainerRoutePath({ name = "", routePath = "" } = {})`
-- `parseTagAttributes(attributesSource = "")`
-- `createContainerRouteMeta({ surface = "", containerHost = "", containerPosition = CONTAINER_OUTLET_POSITION } = {})`
-- `renderContainerRouteMetaBlock(routeMeta = {})`
-- `normalizeOutletTargetId(outlet = {})`
-- `ensureContainerRouteMetaOutlets(source = "", { surface = "", containerHost = "", containerPosition = "" } = {})`
-- `loadPublicConfig(appRoot = "")`
-- `resolveSurfacePagesDirectory(appRoot = "", surfaceId = "")`
-- `renderSectionContainerShellSource()`
-- `renderTabLinkItemSource()`
-- `renderContainerPageSource({ surface = "", title = "", subtitle = "", containerHost = "", containerPosition = CONTAINER_OUTLET_POSITION, sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue" } = {})`
+- `normalizeExplicitOutletTargetId(value = "")`
+- `resolveSubpagesOutletTarget(options = {}, pageTarget = {})`
 
 ### `src/server/subcommands/element.js`
 Exports
@@ -60,16 +41,60 @@ Local functions
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
-- `resolveOutletMode(rawMode = "")`
-- `findScriptBlock(source = "")`
-- `hasImportFromModule(source = "", modulePath = "")`
-- `parseTagAttributes(attributesSource = "")`
 - `hasShellOutletTarget(source = "", { host = "", position = "" } = {})`
-- `applyScriptImports(source = "", { includeRouterViewImport = false } = {})`
-- `createOutletBlock({ host = "", position = "", includeRouterView = false } = {})`
-- `indentBlock(source = "", indent = "")`
+- `applyScriptImports(source = "")`
+- `createOutletBlock({ host = "", position = "" } = {})`
 - `findLastTemplateCloseTag(source = "")`
-- `applyOutletTemplateBlock(source = "", { host = "", position = "", includeRouterView = false } = {})`
+- `applyOutletTemplateBlock(source = "", { host = "", position = "" } = {})`
+
+### `src/server/subcommands/page.js`
+Exports
+- `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
+Local functions
+- `renderPageLinkPlacementBlock({ marker = "", context = {}, label = "", surface = "" } = {})`
+
+### `src/server/subcommands/pageSupport.js`
+Exports
+- `DEFAULT_SUBPAGES_POSITION`
+- `DEFAULT_COMPONENT_DIRECTORY`
+- `SECTION_CONTAINER_SHELL_COMPONENT`
+- `TAB_LINK_COMPONENT`
+- `TAB_LINK_COMPONENT_TOKEN`
+- `normalizeRelativeFilePath(value = "")`
+- `loadPublicConfig(appRoot = "", { context = "ui-generator" } = {})`
+- `resolvePageTargetDetails({ appRoot, targetFile = "", context = "ui-generator page" } = {})`
+- `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "ui-generator page" } = {})`
+- `deriveDefaultSubpagesHost(pageTarget = {})`
+- `renderPlainPageSource(pageTitle = "")`
+- `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
+- `applySubpagesUpgradeToPageSource(source = "", { host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
+- `upgradePageFileToSubpages({ appRoot, targetFile, host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
+Local functions
+- `splitTextIntoWords(value = "")`
+- `wordsToKebab(words = [])`
+- `toTitleCase(words = [])`
+- `isRouteGroupSegment(value = "")`
+- `isNestedChildrenRouteGroupSegment(value = "")`
+- `normalizePlacementIdSegment(value = "")`
+- `humanizePageSegment(value = "", fallback = "Page")`
+- `trimEdgeBlankLines(source = "")`
+- `validateVueTargetFile(relativePath = "", { context = "ui-generator" } = {})`
+- `listSurfacePageRoots(appRoot = "", { context = "ui-generator" } = {})`
+- `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
+- `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
+- `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
+- `buildAncestorRouteContexts(pageTarget = {})`
+- `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
+- `resolveSubpagesHostTargetFromPageSource(source = "")`
+- `renderSectionContainerShellSource()`
+- `renderTabLinkItemSource()`
+- `findTemplateBlock(source = "")`
+- `unwrapSectionContainerShell(source = "")`
+- `stripExistingSubpagesStructure(source = "")`
+- `renderSectionContainerOpenTag({ title = "", subtitle = "" } = {})`
+- `renderSubpagesTemplate({ bodyContent = "", title = "", subtitle = "", host = "", position = DEFAULT_SUBPAGES_POSITION } = {})`
+- `applySubpagesScriptImports(source = "", { sectionContainerComponentImportPath = "" } = {})`
+- `hasExistingSubpagesRouting(source = "")`
 
 ### `src/server/subcommands/support.js`
 Exports
@@ -79,17 +104,16 @@ Exports
 - `toKebabCase(value = "")`
 - `toPascalCase(value = "")`
 - `requireOption(options = {}, optionName = "", { context = "ui-generator" } = {})`
+- `requireSinglePositionalTargetFile(args = [], { context = "ui-generator" } = {})`
+- `rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "ui-generator" } = {})`
 - `resolvePathWithinApp(appRoot, targetPath, { context = "ui-generator" } = {})`
 - `ensureTrailingNewline(value = "")`
 - `appendBlockIfMarkerMissing(source = "", marker = "", block = "")`
 - `insertImportIfMissing(source = "", importLine = "")`
 - `insertBeforeClassDeclaration(source = "", line = "", { className = "", contextFile = "" } = {})`
-
-### templates
-
-### `templates/src/pages/admin/ui-generator/Page.vue`
-Exports
-- None
+- `findScriptBlock(source = "")`
+- `parseTagAttributes(attributesSource = "")`
+- `indentBlock(source = "", indent = "")`
 
 ### root
 
