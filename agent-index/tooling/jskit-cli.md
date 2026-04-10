@@ -223,12 +223,17 @@ Exports
 - `parseSurfaceIdListForMutation(value = "")`
 - `resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {})`
 - `validateInlineOptionsForPackage(packageEntry, inlineOptions)`
+- `validateInlineOptionValuesForPackage(packageEntry, inlineOptions, { appRoot = "", optionNames = null } = {})`
 Local functions
 - `resolveSurfaceVisibilityOptionPolicy(packageEntry = {})`
 - `resolveSurfaceDefinitionsForOptionPolicy(configContext = {})`
 - `normalizeResolvedOptionValue(value = "")`
+- `normalizeResolvedOptionSchemaValue({ packageEntry, optionName = "", schema = {}, value = "" } = {})`
+- `resolveSchemaValidatedOptionNames(packageEntry = {}, validationType = "", { optionNames = null } = {})`
+- `validateEnabledSurfaceOptionValues({ packageEntry, resolvedOptions = {}, optionNames = null, configContext = {} } = {})`
 - `validateSurfaceVisibilityOptionPolicy({ packageEntry, resolvedOptions = {}, policy, configContext = {} } = {})`
 - `validateResolvedOptionPolicies({ packageEntry, resolvedOptions = {}, appRoot = "", resolveConfigContext } = {})`
+- `validateOptionValuesForPackage({ packageEntry, resolvedOptions = {}, appRoot = "", optionNames = null } = {})`
 
 ### `src/server/cliRuntime/packageRegistries.js`
 Exports
@@ -313,15 +318,21 @@ Exports
 Local functions
 - `toShortPackageId(packageId = "")`
 - `resolvePackageSummary(entry = {})`
+- `resolveHelpText(rawValue = "", helpTextKey = "")`
 - `buildPackageOptionRows(packageEntry = {})`
 - `normalizeSubcommandPositionalArgRows(rawRows = [])`
 - `normalizeSubcommandOptionNames(rawOptionNames = [])`
 - `normalizeHelpExampleRows(rawRows = [])`
-- `appendHelpExamples(lines = [], exampleRows = [])`
+- `normalizeHelpNoteRows(rawRows = [])`
+- `normalizeHelpParagraphRows(rawValue = "")`
+- `appendHelpLongDescription(lines = [], rawLongDescription = "", { color = null } = {})`
+- `appendHelpExamples(lines = [], exampleRows = [], { color = null } = {})`
+- `appendHelpNotes(lines = [], rawNotes = [], { color = null } = {})`
+- `appendSeparatedBlocks(lines = [], blocks = [])`
 - `resolveGeneratorSubcommandMetadata(packageEntry = {})`
-- `formatOptionSummary(optionRow = {})`
+- `formatOptionSummary(optionRow = {}, { color = null } = {})`
 - `formatPositionalArgUsageToken(arg = {})`
-- `formatPositionalArgSummary(arg = {})`
+- `formatPositionalArgSummary(arg = {}, { color = null } = {})`
 - `findGeneratorSubcommandRow(packageEntry = {}, subcommandName = "")`
 - `buildSubcommandOptionRows(optionRows = [], subcommandRow = {})`
 
@@ -332,6 +343,7 @@ Local functions
 - `resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "")`
 - `mapDescriptorBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
 - `resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "")`
+- `collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {})`
 
 ### `src/server/commandHandlers/packageCommands/migrations.js`
 Exports
@@ -436,7 +448,8 @@ Exports
 - `printUsage(stream = process.stderr, { command = "" } = {})`
 - `shouldShowCommandHelpOnBareInvocation(command = "", positional = [])`
 Local functions
-- `writeLine(stream, line = "")`
+- `appendSeparatedBlocks(lines = [], blocks = [])`
+- `writeHelpLines(stream, lines = [])`
 - `printTopLevelHelp(stream = process.stderr)`
 - `printCommandHelp(stream = process.stderr, command = "")`
 
@@ -446,7 +459,7 @@ Exports
 
 ### `src/server/shared/cliError.js`
 Exports
-- `createCliError(message, { showUsage = false, exitCode = 1 } = {})`
+- `createCliError(message, { showUsage = false, exitCode = 1, renderUsage = null } = {})`
 
 ### `src/server/shared/collectionUtils.js`
 Exports
@@ -481,8 +494,16 @@ Local functions
 ### `src/server/shared/outputFormatting.js`
 Exports
 - `createColorFormatter(stream)`
+- `renderInlineCodeSpans(text = "", color = null)`
 - `resolveWrapWidth(stream, fallbackWidth = 80)`
+- `writeWrappedLines({ stdout, lines, wrapWidth } = {})`
 - `writeWrappedItems({ stdout, heading, items, lineIndent = " ", wrapWidth = 80 })`
+Local functions
+- `measureVisibleLength(text = "")`
+- `resolveLeadingWhitespace(text = "")`
+- `buildContinuationIndent({ prefix = "", fallbackPrefix = "" } = {})`
+- `resolveWrapPrefixes(line = "")`
+- `wrapOutputLine(line = "", { wrapWidth = 80 } = {})`
 
 ### `src/server/shared/packageIdHelpers.js`
 Exports

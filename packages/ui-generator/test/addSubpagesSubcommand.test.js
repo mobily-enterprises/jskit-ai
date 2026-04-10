@@ -67,21 +67,21 @@ export { MainClientProvider, registerMainClientComponent };
 }
 
 async function writePageFile(appRoot, targetFile, source = "<template><section /></template>\n") {
-  const targetPath = path.join(appRoot, targetFile);
+  const targetPath = path.join(appRoot, "src/pages", targetFile);
   await mkdir(path.dirname(targetPath), { recursive: true });
   await writeFile(targetPath, source, "utf8");
   return targetPath;
 }
 
 async function readPageFile(appRoot, targetFile) {
-  return readFile(path.join(appRoot, targetFile), "utf8");
+  return readFile(path.join(appRoot, "src/pages", targetFile), "utf8");
 }
 
 test("ui-generator add-subpages derives the default target from an index-route page path", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(
       appRoot,
       targetFile,
@@ -107,7 +107,7 @@ test("ui-generator add-subpages derives the default target from an index-route p
       "packages/main/src/client/providers/MainClientProvider.js",
       "src/components/SectionContainerShell.vue",
       "src/components/TabLinkItem.vue",
-      targetFile
+      `src/pages/${targetFile}`
     ]);
 
     const pageSource = await readPageFile(appRoot, targetFile);
@@ -120,7 +120,7 @@ test("ui-generator add-subpages derives the default target from a dynamic file-r
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue";
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
     await writePageFile(appRoot, targetFile);
 
     await runGeneratorSubcommand({
@@ -139,7 +139,7 @@ test("ui-generator add-subpages derives the default target from a nested route p
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/catalog/products/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/catalog/products/index.vue";
     await writePageFile(appRoot, targetFile);
 
     await runGeneratorSubcommand({
@@ -158,7 +158,7 @@ test("ui-generator add-subpages supports explicit target host shorthand", async 
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
 
     await runGeneratorSubcommand({
@@ -179,7 +179,7 @@ test("ui-generator add-subpages supports explicit target host:position", async (
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
 
     await runGeneratorSubcommand({
@@ -196,11 +196,54 @@ test("ui-generator add-subpages supports explicit target host:position", async (
   });
 });
 
+test("ui-generator add-subpages does not rewrite existing scaffold support components", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    await writePageFile(appRoot, targetFile);
+    const customSectionShellSource = `<template><section class="custom-shell"><slot /></section></template>\n`;
+    const customTabLinkSource = `<template><button class="custom-tab-link"><slot /></button></template>\n`;
+    await writeFile(
+      path.join(appRoot, "src", "components", "SectionContainerShell.vue"),
+      customSectionShellSource,
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "src", "components", "TabLinkItem.vue"),
+      customTabLinkSource,
+      "utf8"
+    );
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "add-subpages",
+      args: [targetFile],
+      options: {
+        title: "Practice"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [
+      "packages/main/src/client/providers/MainClientProvider.js",
+      `src/pages/${targetFile}`
+    ]);
+    assert.equal(
+      await readFile(path.join(appRoot, "src", "components", "SectionContainerShell.vue"), "utf8"),
+      customSectionShellSource
+    );
+    assert.equal(
+      await readFile(path.join(appRoot, "src", "components", "TabLinkItem.vue"), "utf8"),
+      customTabLinkSource
+    );
+  });
+});
+
 test("ui-generator add-subpages fails if subpages are already enabled", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
 
     await runGeneratorSubcommand({
@@ -232,10 +275,10 @@ test("ui-generator add-subpages rejects files outside src/pages", async () => {
       runGeneratorSubcommand({
         appRoot,
         subcommand: "add-subpages",
-        args: ["src/components/Panel.vue"],
+        args: ["components/Panel.vue"],
         options: {}
       }),
-      /target file must live under src\/pages\//
+      /must be relative to src\/pages\/ and resolve to a configured surface/
     );
   });
 });
@@ -244,7 +287,7 @@ test("ui-generator add-subpages validates target format", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
 
     await assert.rejects(
@@ -257,6 +300,22 @@ test("ui-generator add-subpages validates target format", async () => {
         }
       }),
       /option "target" must be "host" or "host:position"/
+    );
+  });
+});
+
+test("ui-generator add-subpages rejects target files with a src/pages prefix", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "add-subpages",
+        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
+        options: {}
+      }),
+      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
     );
   });
 });

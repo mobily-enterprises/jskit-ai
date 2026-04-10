@@ -76,17 +76,16 @@ export { MainClientProvider, registerMainClientComponent };
   );
 }
 
-test("ui-generator element subcommand creates component and outlet placement", async () => {
+test("ui-generator placed-element subcommand creates component and outlet placement", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
     const result = await runGeneratorSubcommand({
       appRoot,
-      subcommand: "element",
+      subcommand: "placed-element",
       options: {
         name: "Ops Panel",
-        surface: "admin",
-        placement: "shell-layout:top-right"
+        surface: "admin"
       }
     });
 
@@ -111,12 +110,86 @@ test("ui-generator element subcommand creates component and outlet placement", a
   });
 });
 
-test("ui-generator element subcommand requires appRoot", async () => {
+test("ui-generator placed-element subcommand supports explicit placement override", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "placed-element",
+      options: {
+        name: "Ops Panel",
+        surface: "admin",
+        placement: "shell-layout:primary-menu"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /host: "shell-layout"/);
+    assert.match(placementSource, /position: "primary-menu"/);
+  });
+});
+
+test("ui-generator placed-element subcommand refuses to overwrite an existing component without force", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+    await writeFile(
+      path.join(appRoot, "src", "components", "OpsPanelElement.vue"),
+      "<template><div>custom</div></template>\n",
+      "utf8"
+    );
+
+    await assert.rejects(
+      () =>
+        runGeneratorSubcommand({
+          appRoot,
+          subcommand: "placed-element",
+          options: {
+            name: "Ops Panel",
+            surface: "admin"
+          }
+        }),
+      /ui-generator placed-element will not overwrite existing component file src\/components\/OpsPanelElement\.vue\. Re-run with --force to overwrite it\./
+    );
+  });
+});
+
+test("ui-generator placed-element subcommand overwrites an existing component when force is enabled", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+    await writeFile(
+      path.join(appRoot, "src", "components", "OpsPanelElement.vue"),
+      "<template><div>custom</div></template>\n",
+      "utf8"
+    );
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "placed-element",
+      options: {
+        name: "Ops Panel",
+        surface: "admin",
+        force: "true"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [
+      "packages/main/src/client/providers/MainClientProvider.js",
+      "src/components/OpsPanelElement.vue",
+      "src/placement.js"
+    ]);
+
+    const componentSource = await readFile(path.join(appRoot, "src", "components", "OpsPanelElement.vue"), "utf8");
+    assert.match(componentSource, /<h2 class="text-h6 mb-2">Ops Panel<\/h2>/);
+  });
+});
+
+test("ui-generator placed-element subcommand requires appRoot", async () => {
   await assert.rejects(
     () =>
       runGeneratorSubcommand({
         appRoot: "",
-        subcommand: "element",
+        subcommand: "placed-element",
         options: {
           name: "Ops Panel",
           surface: "admin"

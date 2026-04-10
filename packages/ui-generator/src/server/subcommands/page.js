@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { buildUiPageTemplateContext } from "../buildTemplateContext.js";
 import {
   PLACEMENT_FILE,
@@ -56,7 +56,7 @@ async function runGeneratorSubcommand({
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator page" });
   rejectUnexpectedOptions(
     options,
-    ["name", "link-placement", "link-component-token", "link-to"],
+    ["name", "link-placement", "link-component-token", "link-to", "force"],
     { context: "ui-generator page" }
   );
 
@@ -66,6 +66,9 @@ async function runGeneratorSubcommand({
     context: "ui-generator page"
   });
   const pageLabel = normalizeText(options?.name) || pageTarget.defaultName;
+  const forceOverwrite = Object.prototype.hasOwnProperty.call(options, "force")
+    ? normalizeBoolean(options.force)
+    : false;
   const pageFilePath = pageTarget.targetFilePath.absolutePath;
   const pageRelativePath = pageTarget.targetFilePath.relativePath;
 
@@ -77,7 +80,13 @@ async function runGeneratorSubcommand({
     pageAlreadyExisted = false;
   }
 
-  if (!pageAlreadyExisted) {
+  if (pageAlreadyExisted && !forceOverwrite) {
+    throw new Error(
+      `ui-generator page will not overwrite existing page ${pageRelativePath}. Re-run with --force to overwrite it.`
+    );
+  }
+
+  if (!pageAlreadyExisted || forceOverwrite) {
     if (dryRun !== true) {
       await mkdir(path.dirname(pageFilePath), { recursive: true });
       await writeFile(pageFilePath, renderPlainPageSource(pageLabel), "utf8");
@@ -116,6 +125,8 @@ async function runGeneratorSubcommand({
   const summaryParts = [];
   if (!pageAlreadyExisted) {
     summaryParts.push(`Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`);
+  } else if (forceOverwrite) {
+    summaryParts.push(`Regenerated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`);
   } else if (placementApplied.changed) {
     summaryParts.push(`Updated page link placement for existing UI page "${pageTarget.routeUrlSuffix}".`);
   } else {

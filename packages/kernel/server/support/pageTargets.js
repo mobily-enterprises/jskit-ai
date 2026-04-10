@@ -37,6 +37,80 @@ function validateVueTargetFile(relativePath = "", { context = "page target" } = 
   return normalizedRelativePath;
 }
 
+function isAbsolutePathInput(value = "") {
+  const normalizedValue = normalizeRelativeFilePath(value);
+  if (!normalizedValue) {
+    return false;
+  }
+
+  if (normalizedValue.startsWith("/")) {
+    return true;
+  }
+
+  return /^[A-Za-z]:\//u.test(normalizedValue);
+}
+
+function resolvePagesRelativeAppPath(
+  value = "",
+  {
+    context = "page target",
+    label = "target path"
+  } = {}
+) {
+  const normalizedValue = normalizeRelativeFilePath(value);
+  if (!normalizedValue) {
+    throw new Error(`${context} requires ${label}.`);
+  }
+  if (isAbsolutePathInput(normalizedValue)) {
+    throw new Error(`${context} ${label} must be relative to src/pages/: ${normalizedValue}.`);
+  }
+  if (
+    normalizedValue === "src/pages" ||
+    normalizedValue.startsWith(PAGE_ROOT_PREFIX)
+  ) {
+    throw new Error(
+      `${context} ${label} must be relative to src/pages/, without the src/pages/ prefix: ${normalizedValue}.`
+    );
+  }
+  if (normalizedValue.startsWith("src/")) {
+    throw new Error(
+      `${context} ${label} must be relative to src/pages/, without a leading src/ segment: ${normalizedValue}.`
+    );
+  }
+
+  return `${PAGE_ROOT_PREFIX}${normalizedValue}`;
+}
+
+function normalizePagesRelativeTargetFile(
+  targetFile = "",
+  {
+    context = "page target",
+    label = "target file"
+  } = {}
+) {
+  return validateVueTargetFile(
+    resolvePagesRelativeAppPath(targetFile, { context, label }),
+    { context }
+  );
+}
+
+function normalizePagesRelativeTargetRoot(
+  targetRoot = "",
+  {
+    context = "page target",
+    label = "target root"
+  } = {}
+) {
+  const normalizedRelativePath = resolvePagesRelativeAppPath(targetRoot, {
+    context,
+    label
+  });
+  if (normalizedRelativePath.endsWith(".vue")) {
+    throw new Error(`${context} ${label} must be a route directory, not a .vue file: ${normalizedRelativePath}.`);
+  }
+  return normalizedRelativePath;
+}
+
 function splitTextIntoWords(value = "") {
   const normalized = String(value || "")
     .replace(/^\[|\]$/g, "")
@@ -78,13 +152,12 @@ function isRouteGroupSegment(value = "") {
   return normalizedValue.startsWith("(") && normalizedValue.endsWith(")");
 }
 
-function isNestedChildrenRouteGroupSegment(value = "") {
-  const normalizedValue = normalizeText(value);
-  if (!isRouteGroupSegment(normalizedValue)) {
-    return false;
-  }
-  const groupName = normalizedValue.slice(1, -1).trim().toLowerCase();
-  return groupName === "nestedchildren" || groupName === "nested-children";
+function isIndexRouteSegment(value = "") {
+  return normalizeText(value).toLowerCase() === "index";
+}
+
+function isPathlessRouteSegment(value = "") {
+  return isRouteGroupSegment(value) || isIndexRouteSegment(value);
 }
 
 function normalizePlacementIdSegment(value = "") {
@@ -184,6 +257,44 @@ function deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = 
     .filter(Boolean);
 }
 
+function compareSurfaceMatchSpecificity(leftMatch = {}, rightMatch = {}) {
+  const leftPagesRoot = normalizeSurfacePagesRoot(leftMatch?.pagesRoot);
+  const rightPagesRoot = normalizeSurfacePagesRoot(rightMatch?.pagesRoot);
+  const leftSegmentCount = leftPagesRoot ? leftPagesRoot.split("/").filter(Boolean).length : 0;
+  const rightSegmentCount = rightPagesRoot ? rightPagesRoot.split("/").filter(Boolean).length : 0;
+
+  if (leftSegmentCount !== rightSegmentCount) {
+    return rightSegmentCount - leftSegmentCount;
+  }
+  if (leftPagesRoot.length !== rightPagesRoot.length) {
+    return rightPagesRoot.length - leftPagesRoot.length;
+  }
+  return leftPagesRoot.localeCompare(rightPagesRoot);
+}
+
+function resolveBestSurfaceMatchFromPageFile(relativePath = "", surfacePageRoots = [], { context = "page target" } = {}) {
+  const matches = deriveSurfaceMatchesFromPageFile(relativePath, surfacePageRoots);
+  if (matches.length < 1) {
+    return null;
+  }
+
+  const sortedMatches = [...matches].sort(compareSurfaceMatchSpecificity);
+  const bestMatch = sortedMatches[0];
+  const bestPagesRoot = normalizeSurfacePagesRoot(bestMatch?.pagesRoot);
+  const conflictingMatches = sortedMatches.filter(
+    (match) => normalizeSurfacePagesRoot(match?.pagesRoot) === bestPagesRoot
+  );
+  if (conflictingMatches.length > 1) {
+    const surfaceIds = conflictingMatches.map((match) => match.surfaceId).filter(Boolean).join(", ");
+    const pagesRootLabel = bestPagesRoot || "/";
+    throw new Error(
+      `${context} target file is ambiguous because multiple surfaces share pagesRoot "${pagesRootLabel}" (${surfaceIds}): ${normalizeRelativeFilePath(relativePath)}.`
+    );
+  }
+
+  return bestMatch;
+}
+
 function deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "") {
   const normalizedRelativeFilePath = validateVueTargetFile(surfaceRelativeFilePath, {
     context: "page target"
@@ -199,7 +310,7 @@ function deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", su
     routeSegments.pop();
   }
 
-  const visibleRouteSegments = routeSegments.filter((segment) => !isRouteGroupSegment(segment));
+  const visibleRouteSegments = routeSegments.filter((segment) => !isPathlessRouteSegment(segment));
   const routeUrlSuffix = visibleRouteSegments.length > 0 ? `/${visibleRouteSegments.join("/")}` : "/";
   const surfacePlacementIdSegment = normalizePlacementIdSegment(surfaceId || "root") || "root";
   const placementIdSegments = visibleRouteSegments
@@ -216,7 +327,6 @@ function deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", su
     routeUrlSuffix,
     pageLeafSegment,
     defaultName,
-    containsNestedChildrenGroup: routeSegments.some((segment) => isNestedChildrenRouteGroupSegment(segment)),
     placementId:
       placementIdSegments.length > 0
         ? `ui-generator.page.${surfacePlacementIdSegment}.${placementIdSegments.join(".")}.link`
@@ -246,12 +356,12 @@ function buildAncestorRouteContexts(pageTarget = {}) {
 
   for (let visiblePrefixLength = visibleRouteSegments.length - 1; visiblePrefixLength >= 1; visiblePrefixLength -= 1) {
     const parentVisibleSegments = visibleRouteSegments.slice(0, visiblePrefixLength);
-    const actualRouteSegments = [];
-    let collectedVisibleSegments = 0;
+      const actualRouteSegments = [];
+      let collectedVisibleSegments = 0;
 
     for (const segment of routeSegments) {
       actualRouteSegments.push(segment);
-      if (!isRouteGroupSegment(segment)) {
+      if (!isPathlessRouteSegment(segment)) {
         collectedVisibleSegments += 1;
       }
       if (collectedVisibleSegments >= visiblePrefixLength) {
@@ -268,7 +378,7 @@ function buildAncestorRouteContexts(pageTarget = {}) {
       Object.freeze({
         visibleRouteSegments: parentVisibleSegments,
         actualRouteSegments,
-        childUsesNestedChildrenGroup: isNestedChildrenRouteGroupSegment(nextRouteSegment)
+        childUsesIndexRouteOwner: isIndexRouteSegment(nextRouteSegment)
       })
     );
   }
@@ -291,7 +401,7 @@ function buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {}) {
   const baseSegments = ["src/pages", ...surfacePagesRootSegments, ...routeSegments];
   const fileRoutePath = `${baseSegments.join("/")}.vue`;
   const indexRoutePath = [...baseSegments, "index.vue"].join("/");
-  const preferredCandidates = ancestorRoute?.childUsesNestedChildrenGroup === true
+  const preferredCandidates = ancestorRoute?.childUsesIndexRouteOwner === true
     ? [indexRoutePath, fileRoutePath]
     : [fileRoutePath, indexRoutePath];
 
@@ -335,23 +445,18 @@ async function resolvePageTargetDetails({
   context = "page target"
 } = {}) {
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, { context });
-  const normalizedRelativePath = validateVueTargetFile(normalizeRelativeFilePath(targetFile), { context });
-
-  if (!normalizedRelativePath.startsWith(PAGE_ROOT_PREFIX)) {
-    throw new Error(`${context} target file must live under src/pages/: ${normalizedRelativePath}.`);
-  }
+  const normalizedRelativePath = normalizePagesRelativeTargetFile(targetFile, {
+    context,
+    label: "target file"
+  });
 
   const surfacePageRoots = await listSurfacePageRoots(resolvedAppRoot, { context });
-  const matches = deriveSurfaceMatchesFromPageFile(normalizedRelativePath, surfacePageRoots);
-  if (matches.length < 1) {
-    throw new Error(`${context} target file does not belong to any configured surface pagesRoot: ${normalizedRelativePath}.`);
+  const surfaceMatch = resolveBestSurfaceMatchFromPageFile(normalizedRelativePath, surfacePageRoots, { context });
+  if (!surfaceMatch) {
+    throw new Error(
+      `${context} target file must be relative to src/pages/ and resolve to a configured surface: ${normalizeRelativeFilePath(targetFile)}.`
+    );
   }
-  if (matches.length > 1) {
-    const surfaceIds = matches.map((match) => match.surfaceId).filter(Boolean).join(", ");
-    throw new Error(`${context} target file matches multiple surfaces (${surfaceIds}): ${normalizedRelativePath}.`);
-  }
-
-  const surfaceMatch = matches[0];
   const routeInfo = deriveRouteInfoFromSurfaceRelativeFile(surfaceMatch.surfaceRelativeFilePath, surfaceMatch.surfaceId);
   const absolutePath = path.resolve(resolvedAppRoot, normalizedRelativePath);
 
@@ -448,6 +553,23 @@ function resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null) {
   return `./${relativeSegments.join("/")}`;
 }
 
+function resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {}) {
+  const routeSegments = Array.isArray(pageTarget?.routeSegments) ? pageTarget.routeSegments : [];
+  const deepestIndexOwnerIndex = routeSegments.findLastIndex((segment) => isIndexRouteSegment(segment));
+  if (deepestIndexOwnerIndex < 0 || deepestIndexOwnerIndex >= routeSegments.length - 1) {
+    return "";
+  }
+
+  const relativeSegments = routeSegments
+    .slice(deepestIndexOwnerIndex + 1)
+    .filter((segment) => !isPathlessRouteSegment(segment));
+  if (relativeSegments.length < 1) {
+    return "";
+  }
+
+  return `./${relativeSegments.join("/")}`;
+}
+
 function resolveInferredPageLinkTo({
   explicitLinkTo = "",
   pageTarget = {},
@@ -468,16 +590,18 @@ function resolveInferredPageLinkTo({
     }
   }
 
-  if (pageTarget?.containsNestedChildrenGroup !== true) {
-    return "";
+  if (normalizeText(parentHost?.pageShape) === "index") {
+    const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
+    if (inferredLinkTo) {
+      return inferredLinkTo;
+    }
   }
 
-  const pageLeafSegment = normalizeText(pageTarget?.pageLeafSegment);
-  if (!pageLeafSegment) {
-    return "";
+  const inferredLinkTo = resolveRelativeLinkToFromNearestIndexOwner(pageTarget);
+  if (inferredLinkTo) {
+    return inferredLinkTo;
   }
-
-  return `./${pageLeafSegment}`;
+  return "";
 }
 
 function resolveInferredPageLinkComponentToken({
@@ -551,6 +675,8 @@ async function resolvePageLinkTargetDetails({
 export {
   DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
   DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN,
+  normalizePagesRelativeTargetFile,
+  normalizePagesRelativeTargetRoot,
   resolvePageTargetDetails,
   deriveDefaultSubpagesHost,
   resolveNearestParentSubpagesHost,

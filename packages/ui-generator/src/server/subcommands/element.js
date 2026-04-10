@@ -4,7 +4,7 @@ import {
   resolveShellOutletPlacementTargetFromApp,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
@@ -18,6 +18,8 @@ import {
   insertImportIfMissing,
   insertBeforeClassDeclaration
 } from "./support.js";
+
+const DEFAULT_ELEMENT_PLACEMENT = "shell-layout:top-right";
 
 function renderElementComponentSource(elementName = "") {
   return `<template>
@@ -37,43 +39,47 @@ async function runGeneratorSubcommand({
   dryRun = false
 } = {}) {
   const normalizedSubcommand = normalizeText(subcommand).toLowerCase();
-  if (normalizedSubcommand !== "element") {
+  if (normalizedSubcommand !== "placed-element") {
     throw new Error(`Unsupported ui-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
   if (Array.isArray(args) && args.length > 0) {
-    throw new Error("ui-generator element does not accept positional arguments.");
+    throw new Error("ui-generator placed-element does not accept positional arguments.");
   }
-  rejectUnexpectedOptions(options, ["name", "surface", "path", "placement"], {
-    context: "ui-generator element"
+  rejectUnexpectedOptions(options, ["name", "surface", "path", "placement", "force"], {
+    context: "ui-generator placed-element"
   });
 
-  const name = requireOption(options, "name", { context: "ui-generator element" });
-  const surface = requireOption(options, "surface", { context: "ui-generator element" }).toLowerCase();
+  const name = requireOption(options, "name", { context: "ui-generator placed-element" });
+  const surface = requireOption(options, "surface", { context: "ui-generator placed-element" }).toLowerCase();
   const componentDirectory = normalizeText(options.path) || DEFAULT_COMPONENT_DIRECTORY;
+  const forceOverwrite = Object.prototype.hasOwnProperty.call(options, "force")
+    ? normalizeBoolean(options.force)
+    : false;
   const elementNamePascal = toPascalCase(name);
   const elementNameKebab = toKebabCase(name);
 
   if (!elementNamePascal || !elementNameKebab) {
-    throw new Error("ui-generator element requires a valid --name.");
+    throw new Error("ui-generator placed-element requires a valid --name.");
   }
 
   const componentPath = resolvePathWithinApp(appRoot, path.join(componentDirectory, `${elementNamePascal}Element.vue`), {
-    context: "ui-generator element"
+    context: "ui-generator placed-element"
   });
   const providerPath = resolvePathWithinApp(appRoot, MAIN_CLIENT_PROVIDER_FILE, {
-    context: "ui-generator element"
+    context: "ui-generator placed-element"
   });
   const placementPath = resolvePathWithinApp(appRoot, PLACEMENT_FILE, {
-    context: "ui-generator element"
+    context: "ui-generator placed-element"
   });
   const componentToken = `local.main.ui.element.${elementNameKebab}`;
   const placementTarget = await resolveShellOutletPlacementTargetFromApp({
     appRoot,
     context: "ui-generator",
-    placement: options?.placement
+    placement: options?.placement || DEFAULT_ELEMENT_PLACEMENT
   });
 
   const touchedFiles = new Set();
+  const desiredComponentSource = renderElementComponentSource(name);
 
   let componentSource = "";
   try {
@@ -81,10 +87,15 @@ async function runGeneratorSubcommand({
   } catch {
     componentSource = "";
   }
-  if (!componentSource) {
+  if (componentSource && !forceOverwrite) {
+    throw new Error(
+      `ui-generator placed-element will not overwrite existing component file ${componentPath.relativePath}. Re-run with --force to overwrite it.`
+    );
+  }
+  if (!componentSource || (forceOverwrite && componentSource !== desiredComponentSource)) {
     if (dryRun !== true) {
       await mkdir(path.dirname(componentPath.absolutePath), { recursive: true });
-      await writeFile(componentPath.absolutePath, renderElementComponentSource(name), "utf8");
+      await writeFile(componentPath.absolutePath, desiredComponentSource, "utf8");
     }
     touchedFiles.add(componentPath.relativePath);
   }
@@ -92,7 +103,7 @@ async function runGeneratorSubcommand({
   const providerSource = await readFile(providerPath.absolutePath, "utf8");
   if (!/\bregisterMainClientComponent\s*\(/.test(providerSource)) {
     throw new Error(
-      `ui-generator element could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
+      `ui-generator placed-element could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
     );
   }
 
@@ -144,8 +155,8 @@ async function runGeneratorSubcommand({
     touchedFiles: touchedFileList,
     summary:
       touchedFileList.length > 0
-        ? `Generated UI element "${elementNameKebab}" and placement token "${componentToken}".`
-        : `UI element "${elementNameKebab}" is already up to date.`
+        ? `Generated placed UI element "${elementNameKebab}" and placement token "${componentToken}".`
+        : `Placed UI element "${elementNameKebab}" is already up to date.`
   };
 }
 

@@ -1,3 +1,4 @@
+import { normalizePagesRelativeTargetRoot } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
 import {
   ensureObject,
@@ -15,6 +16,8 @@ import { loadMutationWhenConfigContext } from "./ioAndMigrations.js";
 
 const WORKSPACE_VISIBILITY_LEVELS = Object.freeze(["workspace", "workspace_user"]);
 const WORKSPACE_VISIBILITY_SET = new Set(WORKSPACE_VISIBILITY_LEVELS);
+const OPTION_VALIDATION_ENABLED_SURFACE_ID = "enabled-surface-id";
+const OPTION_NORMALIZATION_PAGES_RELATIVE_TARGET_ROOT = "pages-relative-target-root";
 
 function normalizeSurfaceIdForMutation(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -100,6 +103,95 @@ function normalizeResolvedOptionValue(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeResolvedOptionSchemaValue({
+  packageEntry,
+  optionName = "",
+  schema = {},
+  value = ""
+} = {}) {
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const normalizationType = normalizeResolvedOptionValue(schema?.normalizationType);
+  if (!normalizationType) {
+    return normalizedValue;
+  }
+
+  if (normalizationType === OPTION_NORMALIZATION_PAGES_RELATIVE_TARGET_ROOT) {
+    return normalizePagesRelativeTargetRoot(normalizedValue, {
+      context: `package ${String(packageEntry?.packageId || "unknown-package")}`,
+      label: `option "${String(optionName || "").trim() || "unknown"}"`
+    }).slice("src/pages/".length);
+  }
+
+  throw createCliError(
+    `Invalid option normalization type in package ${String(packageEntry?.packageId || "unknown-package")}: ${String(schema?.normalizationType || "").trim()}.`
+  );
+}
+
+function resolveSchemaValidatedOptionNames(packageEntry = {}, validationType = "", { optionNames = null } = {}) {
+  const normalizedValidationType = String(validationType || "").trim().toLowerCase();
+  if (!normalizedValidationType) {
+    return [];
+  }
+
+  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const candidateOptionNames = Array.isArray(optionNames) && optionNames.length > 0
+    ? optionNames
+    : Object.keys(optionSchemas);
+
+  return [
+    ...new Set(
+      candidateOptionNames.filter((optionName) => {
+        const schema = ensureObject(optionSchemas[optionName]);
+        return normalizeResolvedOptionValue(schema.validationType) === normalizedValidationType;
+      })
+    )
+  ];
+}
+
+function validateEnabledSurfaceOptionValues({
+  packageEntry,
+  resolvedOptions = {},
+  optionNames = null,
+  configContext = {}
+} = {}) {
+  const validatedOptionNames = resolveSchemaValidatedOptionNames(
+    packageEntry,
+    OPTION_VALIDATION_ENABLED_SURFACE_ID,
+    { optionNames }
+  );
+  if (validatedOptionNames.length < 1) {
+    return;
+  }
+
+  const providedSurfaceOptionNames = validatedOptionNames.filter((optionName) => {
+    return normalizeSurfaceIdForMutation(resolvedOptions?.[optionName]).length > 0;
+  });
+  if (providedSurfaceOptionNames.length < 1) {
+    return;
+  }
+
+  const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
+  const surfaceDefinitions = resolveSurfaceDefinitionsForOptionPolicy(configContext);
+  for (const optionName of providedSurfaceOptionNames) {
+    const surfaceId = normalizeSurfaceIdForMutation(resolvedOptions?.[optionName]);
+    const surfaceDefinition = surfaceDefinitions[surfaceId];
+    if (!surfaceDefinition) {
+      throw createCliError(
+        `Invalid option for package ${packageId}: --${optionName} references unknown surface "${surfaceId}" in config/public.js.`
+      );
+    }
+    if (surfaceDefinition.enabled !== true) {
+      throw createCliError(
+        `Invalid option for package ${packageId}: --${optionName} references disabled surface "${surfaceId}" in config/public.js.`
+      );
+    }
+  }
+}
+
 function validateSurfaceVisibilityOptionPolicy({
   packageEntry,
   resolvedOptions = {},
@@ -159,6 +251,34 @@ async function validateResolvedOptionPolicies({
   });
 }
 
+async function validateOptionValuesForPackage({
+  packageEntry,
+  resolvedOptions = {},
+  appRoot = "",
+  optionNames = null
+} = {}) {
+  if (!appRoot) {
+    return;
+  }
+
+  const validatedOptionNames = resolveSchemaValidatedOptionNames(
+    packageEntry,
+    OPTION_VALIDATION_ENABLED_SURFACE_ID,
+    { optionNames }
+  );
+  if (validatedOptionNames.length < 1) {
+    return;
+  }
+
+  const configContext = await loadMutationWhenConfigContext(appRoot);
+  validateEnabledSurfaceOptionValues({
+    packageEntry,
+    resolvedOptions,
+    optionNames: validatedOptionNames,
+    configContext
+  });
+}
+
 async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {}) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
   const optionNames = Object.keys(optionSchemas);
@@ -211,10 +331,23 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
   for (const optionName of optionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
     const allowEmpty = schema.allowEmpty === true;
+    const assignResolvedOption = (rawValue = "") => {
+      const normalizedOptionValue = normalizeResolvedOptionSchemaValue({
+        packageEntry,
+        optionName,
+        schema,
+        value: rawValue
+      });
+      if (normalizedOptionValue || allowEmpty) {
+        resolved[optionName] = normalizedOptionValue;
+        return true;
+      }
+      return false;
+    };
     if (hasInlineOption(optionName)) {
       const inlineValue = String(inlineOptionValues[optionName] || "").trim();
       if (inlineValue || allowEmpty) {
-        resolved[optionName] = inlineValue;
+        assignResolvedOption(inlineValue);
         continue;
       }
       if (schema.required) {
@@ -226,7 +359,7 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
     if (defaultFromConfigPath) {
       const defaultFromConfigValue = await resolveOptionDefaultFromConfig(defaultFromConfigPath);
       if (defaultFromConfigValue || allowEmpty) {
-        resolved[optionName] = defaultFromConfigValue;
+        assignResolvedOption(defaultFromConfigValue);
         continue;
       }
     }
@@ -235,30 +368,36 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
     if (defaultFromOptionTemplate) {
       const derivedOptionValue = resolveOptionDefaultFromTemplate(defaultFromOptionTemplate, optionName);
       if (derivedOptionValue || allowEmpty) {
-        resolved[optionName] = derivedOptionValue;
+        assignResolvedOption(derivedOptionValue);
         continue;
       }
     }
 
     if (typeof schema.defaultValue === "string" && schema.defaultValue.trim()) {
-      resolved[optionName] = schema.defaultValue.trim();
+      assignResolvedOption(schema.defaultValue.trim());
       continue;
     }
 
     if (schema.required) {
-      resolved[optionName] = await promptForRequiredOption({
+      assignResolvedOption(await promptForRequiredOption({
         ownerType: "package",
         ownerId: packageEntry.packageId,
         optionName,
         optionSchema: schema,
         stdin: io.stdin,
         stdout: io.stdout
-      });
+      }));
       continue;
     }
 
     resolved[optionName] = "";
   }
+
+  await validateOptionValuesForPackage({
+    packageEntry,
+    resolvedOptions: resolved,
+    appRoot
+  });
 
   await validateResolvedOptionPolicies({
     packageEntry,
@@ -291,9 +430,23 @@ function validateInlineOptionsForPackage(packageEntry, inlineOptions) {
   );
 }
 
+async function validateInlineOptionValuesForPackage(
+  packageEntry,
+  inlineOptions,
+  { appRoot = "", optionNames = null } = {}
+) {
+  await validateOptionValuesForPackage({
+    packageEntry,
+    resolvedOptions: ensureObject(inlineOptions),
+    appRoot,
+    optionNames
+  });
+}
+
 export {
   normalizeSurfaceIdForMutation,
   parseSurfaceIdListForMutation,
   resolvePackageOptions,
-  validateInlineOptionsForPackage
+  validateInlineOptionsForPackage,
+  validateInlineOptionValuesForPackage
 };

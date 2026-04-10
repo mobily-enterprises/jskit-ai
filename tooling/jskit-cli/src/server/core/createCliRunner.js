@@ -1,5 +1,6 @@
 import {
   mkdir,
+  readdir,
   rm,
   writeFile
 } from "node:fs/promises";
@@ -67,7 +68,8 @@ import {
 } from "../cliRuntime/packageIntrospection.js";
 import {
   resolvePackageOptions,
-  validateInlineOptionsForPackage
+  validateInlineOptionsForPackage,
+  validateInlineOptionValuesForPackage
 } from "../cliRuntime/packageOptions.js";
 import {
   resolvePackageTemplateRoot,
@@ -103,6 +105,7 @@ const commandHandlers = createCommandHandlers(
     hydratePackageRegistryFromInstalledNodeModules,
     resolvePackageTemplateRoot,
     validateInlineOptionsForPackage,
+    validateInlineOptionValuesForPackage,
     resolveLocalDependencyOrder,
     validatePlannedCapabilityClosure,
     resolvePackageOptions,
@@ -119,6 +122,7 @@ const commandHandlers = createCommandHandlers(
     writeJsonFile,
     writeFile,
     mkdir,
+    readdir,
     path,
     inspectPackageOfferings,
     buildFileWriteGroups,

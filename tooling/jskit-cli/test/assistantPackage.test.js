@@ -102,7 +102,7 @@ test("generate @jskit-ai/assistant page scaffolds an assistant runtime page at a
 
     const result = runCli({
       cwd: appRoot,
-      args: ["generate", "@jskit-ai/assistant", "page", "src/pages/admin/copilot/index.vue"]
+      args: ["generate", "@jskit-ai/assistant", "page", "admin/copilot/index.vue"]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
 
@@ -113,6 +113,66 @@ test("generate @jskit-ai/assistant page scaffolds an assistant runtime page at a
     assert.match(placementSource, /jskit:assistant\.page\.link:admin:\/copilot/);
     assert.match(placementSource, /label: "Copilot"/);
     assert.match(placementSource, /workspaceSuffix: "\/copilot"/);
+  });
+});
+
+test("generate @jskit-ai/assistant page refuses to overwrite an existing page without --force", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "assistant-cli-page-existing");
+    await createMinimalApp(appRoot, { name: "assistant-cli-page-existing" });
+    await installAssistantGenerator(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/copilot"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/copilot/index.vue"),
+      `<template>
+  <div>custom assistant page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@jskit-ai/assistant", "page", "admin/copilot/index.vue"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /assistant page will not overwrite existing page src\/pages\/admin\/copilot\/index\.vue\. Re-run with --force to overwrite it\./
+    );
+
+    const pageSource = await readFile(path.join(appRoot, "src/pages/admin/copilot/index.vue"), "utf8");
+    assert.match(pageSource, /custom assistant page/);
+  });
+});
+
+test("generate @jskit-ai/assistant page overwrites an existing page when --force is passed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "assistant-cli-page-force");
+    await createMinimalApp(appRoot, { name: "assistant-cli-page-force" });
+    await installAssistantGenerator(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/copilot"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/copilot/index.vue"),
+      `<template>
+  <div>custom assistant page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@jskit-ai/assistant", "page", "admin/copilot/index.vue", "--force"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /Regenerated assistant page "\/copilot"\./);
+
+    const pageSource = await readFile(path.join(appRoot, "src/pages/admin/copilot/index.vue"), "utf8");
+    assert.match(pageSource, /<AssistantSurfaceClientElement surface-id="admin" \/>/);
+    assert.doesNotMatch(pageSource, /custom assistant page/);
   });
 });
 
@@ -142,7 +202,7 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
         "generate",
         "@jskit-ai/assistant",
         "settings-page",
-        "src/pages/admin/settings/(nestedChildren)/assistant/index.vue",
+        "admin/settings/index/assistant/index.vue",
         "--surface",
         "console"
       ]
@@ -150,7 +210,7 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const pageSource = await readFile(
-      path.join(appRoot, "src/pages/admin/settings/(nestedChildren)/assistant/index.vue"),
+      path.join(appRoot, "src/pages/admin/settings/index/assistant/index.vue"),
       "utf8"
     );
     assert.match(pageSource, /<AssistantSettingsClientElement target-surface-id="console" \/>/);
@@ -159,5 +219,59 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
     assert.match(placementSource, /host: "admin-settings"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
+  });
+});
+
+test("generate @jskit-ai/assistant settings-page overwrites an existing page when --force is passed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "assistant-cli-settings-page-force");
+    await createMinimalApp(appRoot, { name: "assistant-cli-settings-page-force" });
+    await installAssistantGenerator(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/settings"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/settings/index.vue"),
+      `<template>
+  <SectionContainerShell>
+    <template #tabs>
+      <ShellOutlet host="admin-settings" position="sub-pages" />
+    </template>
+    <RouterView />
+  </SectionContainerShell>
+</template>
+`,
+      "utf8"
+    );
+    await mkdir(path.join(appRoot, "src/pages/admin/settings/index/assistant"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/settings/index/assistant/index.vue"),
+      `<template>
+  <div>custom settings page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/assistant",
+        "settings-page",
+        "admin/settings/index/assistant/index.vue",
+        "--surface",
+        "console",
+        "--force"
+      ]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /Regenerated assistant page "\/settings\/assistant"\./);
+
+    const pageSource = await readFile(
+      path.join(appRoot, "src/pages/admin/settings/index/assistant/index.vue"),
+      "utf8"
+    );
+    assert.match(pageSource, /<AssistantSettingsClientElement target-surface-id="console" \/>/);
+    assert.doesNotMatch(pageSource, /custom settings page/);
   });
 });

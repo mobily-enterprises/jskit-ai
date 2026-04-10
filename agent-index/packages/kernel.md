@@ -1169,6 +1169,8 @@ Exports
 - `toPosixPath`
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
 - `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `normalizePagesRelativeTargetFile`
+- `normalizePagesRelativeTargetRoot`
 - `resolvePageTargetDetails`
 - `deriveDefaultSubpagesHost`
 - `resolveNearestParentSubpagesHost`
@@ -1180,6 +1182,8 @@ Exports
 Exports
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
 - `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `normalizePagesRelativeTargetFile(targetFile = "", { context = "page target", label = "target file" } = {})`
+- `normalizePagesRelativeTargetRoot(targetRoot = "", { context = "page target", label = "target root" } = {})`
 - `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
 - `deriveDefaultSubpagesHost(pageTarget = {})`
 - `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
@@ -1187,16 +1191,21 @@ Exports
 Local functions
 - `normalizeRelativeFilePath(value = "")`
 - `validateVueTargetFile(relativePath = "", { context = "page target" } = {})`
+- `isAbsolutePathInput(value = "")`
+- `resolvePagesRelativeAppPath(value = "", { context = "page target", label = "target path" } = {})`
 - `splitTextIntoWords(value = "")`
 - `wordsToKebab(words = [])`
 - `toTitleCase(words = [])`
 - `isRouteGroupSegment(value = "")`
-- `isNestedChildrenRouteGroupSegment(value = "")`
+- `isIndexRouteSegment(value = "")`
+- `isPathlessRouteSegment(value = "")`
 - `normalizePlacementIdSegment(value = "")`
 - `humanizePageSegment(value = "", fallback = "Page")`
 - `loadPublicConfig(appRoot = "", { context = "page target" } = {})`
 - `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
 - `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
+- `compareSurfaceMatchSpecificity(leftMatch = {}, rightMatch = {})`
+- `resolveBestSurfaceMatchFromPageFile(relativePath = "", surfacePageRoots = [], { context = "page target" } = {})`
 - `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
 - `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
 - `buildAncestorRouteContexts(pageTarget = {})`
@@ -1204,6 +1213,7 @@ Local functions
 - `resolveSubpagesHostTargetFromPageSource(source = "")`
 - `normalizePlacementTargetId(target = {})`
 - `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
+- `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
 - `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null } = {})`
 - `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
 

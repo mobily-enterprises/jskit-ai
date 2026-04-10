@@ -43,6 +43,7 @@ test("generate subcommands resolve package template root before invoking generat
       resolvePackageKind: () => "generator",
       resolveGeneratorPrimarySubcommand: () => "",
       hasGeneratorSubcommandDefinition: () => true,
+      validateInlineOptionValuesForPackage: async () => {},
       runGeneratorSubcommand: async (payload) => {
         runCalls.push(payload);
         return 0;

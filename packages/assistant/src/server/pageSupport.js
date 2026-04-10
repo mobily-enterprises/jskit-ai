@@ -92,9 +92,15 @@ function renderAssistantPageLinkPlacementBlock({
   );
 }
 
-function renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, placementChanged = false } = {}) {
+function renderAssistantPageSummary(
+  pageTarget = {},
+  { pageAlreadyExisted = false, pageOverwritten = false, placementChanged = false } = {}
+) {
   if (!pageAlreadyExisted) {
     return `Generated assistant page "${String(pageTarget?.routeUrlSuffix || "")}".`;
+  }
+  if (pageOverwritten) {
+    return `Regenerated assistant page "${String(pageTarget?.routeUrlSuffix || "")}".`;
   }
   if (placementChanged) {
     return `Updated assistant page link placement for "${String(pageTarget?.routeUrlSuffix || "")}".`;

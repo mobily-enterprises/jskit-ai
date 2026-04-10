@@ -14,6 +14,10 @@ async function withTempApp(run) {
   }
 }
 
+function toPagePath(targetFile = "") {
+  return path.join("src/pages", targetFile);
+}
+
 async function writeAppFixture(appRoot, { configSource = "" } = {}) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
@@ -58,7 +62,7 @@ test("ui-generator page subcommand creates an index page from an explicit target
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     const result = await runGeneratorSubcommand({
       appRoot,
       subcommand: "page",
@@ -68,9 +72,9 @@ test("ui-generator page subcommand creates an index page from an explicit target
       }
     });
 
-    assert.deepEqual(result.touchedFiles, [targetFile, "src/placement.js"]);
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
 
-    const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
+    const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
@@ -84,7 +88,7 @@ test("ui-generator page subcommand creates a file route and derives label from t
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue";
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
     const result = await runGeneratorSubcommand({
       appRoot,
       subcommand: "page",
@@ -92,9 +96,9 @@ test("ui-generator page subcommand creates a file route and derives label from t
       options: {}
     });
 
-    assert.deepEqual(result.touchedFiles, [targetFile, "src/placement.js"]);
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
 
-    const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
+    const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Contact Id<\/h1>/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
@@ -108,7 +112,7 @@ test("ui-generator page subcommand supports link placement options", async () =>
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId]/index/notes/index.vue";
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "page",
@@ -132,10 +136,10 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    const parentFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue";
-    await mkdir(path.dirname(path.join(appRoot, parentFile)), { recursive: true });
+    const parentFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
+    await mkdir(path.dirname(path.join(appRoot, toPagePath(parentFile))), { recursive: true });
     await writeFile(
-      path.join(appRoot, parentFile),
+      path.join(appRoot, toPagePath(parentFile)),
       `<template>
   <SectionContainerShell>
     <template #tabs>
@@ -148,7 +152,7 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
       "utf8"
     );
 
-    const targetFile = "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/notes/index.vue";
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId]/notes/index.vue";
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "page",
@@ -164,11 +168,11 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
   });
 });
 
-test("ui-generator page subcommand prefers the nearest nestedChildren parent host", async () => {
+test("ui-generator page subcommand prefers the nearest index-route parent host", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    await mkdir(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/catalog/(nestedChildren)/products"), {
+    await mkdir(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/catalog/index/products"), {
       recursive: true
     });
     await writeFile(
@@ -185,7 +189,7 @@ test("ui-generator page subcommand prefers the nearest nestedChildren parent hos
       "utf8"
     );
     await writeFile(
-      path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/catalog/(nestedChildren)/products/index.vue"),
+      path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/catalog/index/products/index.vue"),
       `<template>
   <SectionContainerShell>
     <template #tabs>
@@ -199,7 +203,7 @@ test("ui-generator page subcommand prefers the nearest nestedChildren parent hos
     );
 
     const targetFile =
-      "src/pages/w/[workspaceSlug]/admin/catalog/(nestedChildren)/products/(nestedChildren)/variants/index.vue";
+      "w/[workspaceSlug]/admin/catalog/index/products/index/variants/index.vue";
     await runGeneratorSubcommand({
       appRoot,
       subcommand: "page",
@@ -215,7 +219,7 @@ test("ui-generator page subcommand prefers the nearest nestedChildren parent hos
   });
 });
 
-test("ui-generator page subcommand fails when the target file matches multiple surfaces", async () => {
+test("ui-generator page subcommand chooses the most specific matching surface pagesRoot", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot, {
       configSource: `export const config = {
@@ -227,15 +231,19 @@ test("ui-generator page subcommand fails when the target file matches multiple s
 `
     });
 
-    await assert.rejects(
-      runGeneratorSubcommand({
-        appRoot,
-        subcommand: "page",
-        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
-        options: {}
-      }),
-      /matches multiple surfaces/
-    );
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {}
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
+    assert.match(placementSource, /workspaceSuffix: "\/practice"/);
   });
 });
 
@@ -247,12 +255,98 @@ test("ui-generator page subcommand rejects unsupported options", async () => {
       runGeneratorSubcommand({
         appRoot,
         subcommand: "page",
-        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
+        args: ["w/[workspaceSlug]/admin/practice/index.vue"],
         options: {
           bogus: "true"
         }
       }),
       /ui-generator page received unsupported option: --bogus\./
     );
+  });
+});
+
+test("ui-generator page subcommand rejects target files with a src/pages prefix", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
+        options: {}
+      }),
+      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+    );
+  });
+});
+
+test("ui-generator page subcommand refuses to overwrite an existing page without --force", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    await mkdir(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/practice"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(appRoot, toPagePath(targetFile)),
+      `<template>
+  <div>custom practice page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: [targetFile],
+        options: {
+          name: "Practice"
+        }
+      }),
+      /ui-generator page will not overwrite existing page src\/pages\/w\/\[workspaceSlug\]\/admin\/practice\/index\.vue\. Re-run with --force to overwrite it\./
+    );
+
+    const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
+    assert.match(pageSource, /custom practice page/);
+  });
+});
+
+test("ui-generator page subcommand overwrites an existing page when --force is passed", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    await mkdir(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/practice"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(appRoot, toPagePath(targetFile)),
+      `<template>
+  <div>custom practice page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Practice",
+        force: "true"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.equal(result.summary, 'Regenerated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
+
+    const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
+    assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
+    assert.doesNotMatch(pageSource, /custom practice page/);
   });
 });

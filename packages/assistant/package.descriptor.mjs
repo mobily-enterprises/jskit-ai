@@ -8,16 +8,20 @@ export default Object.freeze({
     surface: {
       required: true,
       inputType: "text",
+      validationType: "enabled-surface-id",
       defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Assistant surface",
-      promptHint: "Runtime surface id for setup, or target assistant surface for settings-page."
+      promptHint: "Assistant runtime surface id. Used by setup, or selected assistant surface for settings-page.",
+      helpHint: "For setup, this is the runtime surface receiving assistant wiring. For settings-page, this is the assistant runtime configured by that page."
     },
     "settings-surface": {
       required: true,
       inputType: "text",
+      validationType: "enabled-surface-id",
       defaultValue: "",
       promptLabel: "Settings surface",
-      promptHint: "Enabled settings host surface id used by assistant setup."
+      promptHint: "Enabled settings host surface id used by assistant setup.",
+      helpHint: "Surface that hosts the settings UI for the selected assistant runtime."
     },
     "config-scope": {
       required: true,
@@ -31,7 +35,15 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Page label",
-      promptHint: "Optional page link label override for page and settings-page."
+      promptHint: "Optional page link label override for page and settings-page.",
+      helpLabel: "Display label"
+    },
+    force: {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Force overwrite",
+      promptHint: "Overwrite the generated page file if it already exists."
     },
     "link-placement": {
       required: false,
@@ -115,34 +127,111 @@ export default Object.freeze({
           "ai-api-key",
           "ai-base-url",
           "ai-timeout-ms"
+        ],
+        notes: [
+          "setup installs runtime/config only. It does not create assistant pages.",
+          "--surface selects the assistant runtime surface, and --settings-surface selects the surface that will host its settings UI."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate assistant setup \\",
+              "  --surface admin \\",
+              "  --settings-surface admin \\",
+              "  --config-scope workspace \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\""
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate assistant setup \\",
+              "  --surface console \\",
+              "  --settings-surface console \\",
+              "  --config-scope global \\",
+              "  --ai-config-prefix CONSOLE_ASSISTANT \\",
+              "  --ai-provider openai \\",
+              "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+              "  --ai-base-url \"http://localhost:11434/v1\" \\",
+              "  --ai-timeout-ms 60000"
+            ]
+          }
         ]
       },
       page: {
         entrypoint: "src/server/subcommands/page.js",
         export: "runGeneratorSubcommand",
-        description: "Create an assistant runtime page at an explicit target file under src/pages/.",
+        description: "Create an assistant runtime page at an explicit target file relative to src/pages/.",
         positionalArgs: [
           {
             name: "target-file",
             required: true,
-            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+            descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "link-placement", "link-component-token", "link-to"]
+        optionNames: ["name", "link-placement", "link-component-token", "link-to", "force"],
+        notes: [
+          "The target file decides where the page lives.",
+          "Page-link placement follows the same inference rules as ui-generator page.",
+          "If the target page file already exists, rerun with --force to overwrite it."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate assistant page \\",
+              "  admin/assistant/index.vue"
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate assistant page \\",
+              "  admin/ops/copilot/index.vue \\",
+              "  --name \"Copilot\" \\",
+              "  --link-placement shell-layout:top-right"
+            ]
+          }
+        ]
       },
       "settings-page": {
         entrypoint: "src/server/subcommands/settingsPage.js",
         export: "runGeneratorSubcommand",
-        description: "Create an assistant settings page at an explicit target file under src/pages/.",
+        description: "Create an assistant settings page at an explicit target file relative to src/pages/.",
         positionalArgs: [
           {
             name: "target-file",
             required: true,
-            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+            descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["surface", "name", "link-placement", "link-component-token", "link-to"],
-        requiredOptionNames: ["surface"]
+        optionNames: ["surface", "name", "link-placement", "link-component-token", "link-to", "force"],
+        requiredOptionNames: ["surface"],
+        notes: [
+          "The target file decides where the settings page lives.",
+          "--surface selects the assistant runtime being configured. It does not place the file.",
+          "If the target page file already exists, rerun with --force to overwrite it."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate assistant settings-page \\",
+              "  admin/settings/index/assistant/index.vue \\",
+              "  --surface admin"
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate assistant settings-page \\",
+              "  admin/settings/index/app-assistant/index.vue \\",
+              "  --surface app \\",
+              "  --name \"App Assistant\""
+            ]
+          }
+        ]
       }
     },
     apiSummary: {

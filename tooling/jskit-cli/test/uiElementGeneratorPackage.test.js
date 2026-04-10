@@ -153,7 +153,7 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/reports-dashboard/index.vue",
+        "admin/reports-dashboard/index.vue",
         "--name",
         "Reports Dashboard"
       ]
@@ -177,6 +177,47 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
   });
 });
 
+test("generate @jskit-ai/ui-generator with no subcommand shows generator help without mutating app deps", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-primary-help");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-primary-help" });
+    await installUiGeneratorPackage(appRoot);
+
+    const packageJsonPath = path.join(appRoot, "package.json");
+    await writeFile(
+      packageJsonPath,
+      `${JSON.stringify(
+        {
+          name: "ui-element-generator-primary-help",
+          version: "0.1.0",
+          private: true,
+          type: "module",
+          dependencies: {
+            "@jskit-ai/users-web": "0.1.46"
+          }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    const packageJsonBefore = await readFile(packageJsonPath, "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@jskit-ai/ui-generator"]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Generator help: @jskit-ai\/ui-generator/);
+
+    const packageJsonAfter = await readFile(packageJsonPath, "utf8");
+    assert.equal(packageJsonAfter, packageJsonBefore);
+    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
+  });
+});
+
 test("generate @jskit-ai/ui-generator page creates an explicit file-route target", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-file-page");
@@ -189,7 +230,7 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/contacts/[contactId].vue",
+        "admin/contacts/[contactId].vue",
         "--name",
         "Contact"
       ]
@@ -210,10 +251,84 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
   });
 });
 
-test("generate @jskit-ai/ui-generator page supports link-component-token and auto nestedChildren link-to", async () => {
+test("generate @jskit-ai/ui-generator page refuses to overwrite an existing page without --force", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-element-generator-nested-children");
-    await createMinimalApp(appRoot, { name: "ui-element-generator-nested-children" });
+    const appRoot = path.join(cwd, "ui-element-generator-page-existing");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-page-existing" });
+    await installUiGeneratorPackage(appRoot);
+    await mkdir(path.join(appRoot, "src", "pages", "admin", "reports-dashboard"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "admin", "reports-dashboard", "index.vue"),
+      `<template>
+  <div>custom reports page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@jskit-ai/ui-generator", "page", "admin/reports-dashboard/index.vue"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /ui-generator page will not overwrite existing page src\/pages\/admin\/reports-dashboard\/index\.vue\. Re-run with --force to overwrite it\./
+    );
+
+    const pageSource = await readFile(
+      path.join(appRoot, "src", "pages", "admin", "reports-dashboard", "index.vue"),
+      "utf8"
+    );
+    assert.match(pageSource, /custom reports page/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page overwrites an existing page when --force is passed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-page-force");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-page-force" });
+    await installUiGeneratorPackage(appRoot);
+    await mkdir(path.join(appRoot, "src", "pages", "admin", "reports-dashboard"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "admin", "reports-dashboard", "index.vue"),
+      `<template>
+  <div>custom reports page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "admin/reports-dashboard/index.vue",
+        "--name",
+        "Reports Dashboard",
+        "--force"
+      ]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /Regenerated UI page "\/reports-dashboard"/);
+
+    const pageSource = await readFile(
+      path.join(appRoot, "src", "pages", "admin", "reports-dashboard", "index.vue"),
+      "utf8"
+    );
+    assert.match(pageSource, /Reports Dashboard/);
+    assert.doesNotMatch(pageSource, /custom reports page/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator page supports link-component-token for index-hosted child pages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-index-children");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-index-children" });
     await installUiGeneratorPackage(appRoot);
 
     const result = runCli({
@@ -222,7 +337,7 @@ test("generate @jskit-ai/ui-generator page supports link-component-token and aut
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
+        "admin/contacts/[contactId]/index/notes/index.vue",
         "--name",
         "Notes",
         "--link-placement",
@@ -240,7 +355,7 @@ test("generate @jskit-ai/ui-generator page supports link-component-token and aut
       "admin",
       "contacts",
       "[contactId]",
-      "(nestedChildren)",
+      "index",
       "notes",
       "index.vue"
     );
@@ -267,7 +382,7 @@ test("generate @jskit-ai/ui-generator page supports explicit link-to override", 
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
+        "admin/contacts/[contactId]/index/notes/index.vue",
         "--name",
         "Notes",
         "--link-placement",
@@ -314,7 +429,7 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/contacts/[contactId]/notes/index.vue",
+        "admin/contacts/[contactId]/notes/index.vue",
         "--name",
         "Notes"
       ]
@@ -342,7 +457,7 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/alpha/(nestedChildren)/one/index.vue",
+        "admin/alpha/index/one/index.vue",
         "--name",
         "One",
         "--link-placement",
@@ -359,7 +474,7 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/beta/(nestedChildren)/one/index.vue",
+        "admin/beta/index/one/index.vue",
         "--name",
         "One",
         "--link-placement",
@@ -384,7 +499,7 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
   });
 });
 
-test("generate @jskit-ai/ui-generator element scaffolds component token registration and outlet placement", async () => {
+test("generate @jskit-ai/ui-generator placed-element scaffolds component token registration and outlet placement", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-override");
     await createMinimalApp(appRoot, { name: "ui-element-generator-override" });
@@ -395,15 +510,13 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
       args: [
         "generate",
         "@jskit-ai/ui-generator",
-        "element",
+        "placed-element",
         "--name",
         "Ops Panel",
         "--surface",
         "admin",
         "--path",
-        "src/widgets",
-        "--placement",
-        "shell-layout:top-right"
+        "src/widgets"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -428,6 +541,136 @@ test("generate @jskit-ai/ui-generator element scaffolds component token registra
   });
 });
 
+test("generate @jskit-ai/ui-generator placed-element supports explicit placement override", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-explicit-placement");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-explicit-placement" });
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "placed-element",
+        "--name",
+        "Ops Panel",
+        "--surface",
+        "admin",
+        "--placement",
+        "shell-layout:primary-menu"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(placementSource, /position: "primary-menu"/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator placed-element refuses to overwrite an existing component without force", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-existing-component");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-existing-component" });
+    await installUiGeneratorPackage(appRoot);
+    const componentPath = path.join(appRoot, "src", "components", "OpsPanelElement.vue");
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    const placementBefore = await readFile(placementPath, "utf8");
+    const providerBefore = await readFile(providerPath, "utf8");
+
+    await writeFile(componentPath, "<template><div>custom</div></template>\n", "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "placed-element",
+        "--name",
+        "Ops Panel",
+        "--surface",
+        "admin"
+      ]
+    });
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /ui-generator placed-element will not overwrite existing component file src\/components\/OpsPanelElement\.vue\. Re-run with --force to overwrite it\./
+    );
+
+    assert.equal(await readFile(componentPath, "utf8"), "<template><div>custom</div></template>\n");
+    assert.equal(await readFile(placementPath, "utf8"), placementBefore);
+    assert.equal(await readFile(providerPath, "utf8"), providerBefore);
+  });
+});
+
+test("generate @jskit-ai/ui-generator placed-element overwrites an existing component when --force is passed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-force-overwrite");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-force-overwrite" });
+    await installUiGeneratorPackage(appRoot);
+    const componentPath = path.join(appRoot, "src", "components", "OpsPanelElement.vue");
+
+    await writeFile(componentPath, "<template><div>custom</div></template>\n", "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "placed-element",
+        "--name",
+        "Ops Panel",
+        "--surface",
+        "admin",
+        "--force"
+      ]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const componentSource = await readFile(componentPath, "utf8");
+    assert.match(componentSource, /<h2 class="text-h6 mb-2">Ops Panel<\/h2>/);
+  });
+});
+
+test("generate @jskit-ai/ui-generator placed-element prints subcommand help for unsupported options", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-unknown-option-help");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-unknown-option-help" });
+    await installUiGeneratorPackage(appRoot);
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementBefore = await readFile(placementPath, "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "ui-generator",
+        "placed-element",
+        "--name",
+        "Ops Panel",
+        "--surface",
+        "admin",
+        "--i_do_not_exist"
+      ]
+    });
+    assert.equal(result.status, 1);
+
+    const stderr = String(result.stderr || "");
+    assert.match(stderr, /jskit: Unknown option for generator command ui-generator placed-element: --i_do_not_exist\./);
+    assert.match(stderr, /Generator subcommand help: @jskit-ai\/ui-generator placed-element/);
+    assert.match(stderr, /--surface/);
+    assert.doesNotMatch(stderr, /JSKit CLI/);
+
+    const componentPath = path.join(appRoot, "src", "components", "OpsPanelElement.vue");
+    assert.equal(await fileExists(componentPath), false);
+    assert.equal(await readFile(placementPath, "utf8"), placementBefore);
+  });
+});
+
 test("generate @jskit-ai/ui-generator add-subpages derives the default target for an existing file-route page", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-add-subpages-generator-dynamic-route");
@@ -440,7 +683,7 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
         "generate",
         "@jskit-ai/ui-generator",
         "page",
-        "src/pages/admin/contacts/[contactId].vue",
+        "admin/contacts/[contactId].vue",
         "--name",
         "Contact"
       ]
@@ -453,7 +696,7 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
         "generate",
         "@jskit-ai/ui-generator",
         "add-subpages",
-        "src/pages/admin/contacts/[contactId].vue",
+        "admin/contacts/[contactId].vue",
         "--title",
         "Contact",
         "--subtitle",

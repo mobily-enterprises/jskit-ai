@@ -54,7 +54,7 @@ test("buildUiPageTemplateContext resolves link placement from default app ShellO
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/reports/index.vue",
+      targetFile: "admin/reports/index.vue",
       options: {}
     });
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "shell-layout");
@@ -82,7 +82,7 @@ test("buildUiPageTemplateContext supports explicit link placement override", asy
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/reports/index.vue",
+      targetFile: "admin/reports/index.vue",
       options: {
         "link-placement": "shell-layout:top-right"
       }
@@ -144,7 +144,7 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/reports/index.vue",
+      targetFile: "admin/reports/index.vue",
       options: {
         "link-placement": "workspace-tools:primary-menu"
       }
@@ -169,7 +169,7 @@ test("buildUiPageTemplateContext supports explicit link component token and link
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
+      targetFile: "admin/contacts/[contactId]/index/notes/index.vue",
       options: {
         "link-placement": "shell-layout:top-right",
         "link-component-token": "local.main.ui.tab-link-item",
@@ -184,7 +184,7 @@ test("buildUiPageTemplateContext supports explicit link component token and link
   });
 });
 
-test("buildUiPageTemplateContext auto sets relative link-to for nestedChildren routes", async () => {
+test("buildUiPageTemplateContext derives native route suffixes for index-owned child pages", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -199,13 +199,12 @@ test("buildUiPageTemplateContext auto sets relative link-to for nestedChildren r
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
-      options: {
-        "link-placement": "shell-layout:top-right"
-      }
+      targetFile: "admin/contacts/[contactId]/index/notes/index.vue",
+      options: {}
     });
-    assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
+    assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.contacts.contact-id.notes.link");
   });
 });
 
@@ -237,7 +236,7 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/notes/index.vue",
+      targetFile: "admin/contacts/[contactId]/notes/index.vue",
       options: {}
     });
 
@@ -276,7 +275,7 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/notes/history/index.vue",
+      targetFile: "admin/contacts/[contactId]/notes/history/index.vue",
       options: {}
     });
 
@@ -315,7 +314,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/catalog/(nestedChildren)/products/index.vue",
+      targetFile: "admin/catalog/index/products/index.vue",
       options: {}
     });
 
@@ -326,7 +325,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
   });
 });
 
-test("buildUiPageTemplateContext finds the nearest nestedChildren parent host", async () => {
+test("buildUiPageTemplateContext finds the nearest index-route parent host", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -353,7 +352,7 @@ test("buildUiPageTemplateContext finds the nearest nestedChildren parent host", 
     );
     await writeFileInApp(
       appRoot,
-      "src/pages/admin/catalog/(nestedChildren)/products/index.vue",
+      "src/pages/admin/catalog/index/products/index.vue",
       `<template>
   <SectionContainerShell>
     <template #tabs>
@@ -367,7 +366,7 @@ test("buildUiPageTemplateContext finds the nearest nestedChildren parent host", 
 
     const context = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/catalog/(nestedChildren)/products/(nestedChildren)/variants/index.vue",
+      targetFile: "admin/catalog/index/products/index/variants/index.vue",
       options: {}
     });
 
@@ -375,6 +374,46 @@ test("buildUiPageTemplateContext finds the nearest nestedChildren parent host", 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./variants\",\n");
+  });
+});
+
+test("buildUiPageTemplateContext infers subpage link placement from an index route hosted record page", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/admin/customers/[customerId]/index.vue",
+      `<template>
+  <SectionContainerShell>
+    <template #tabs>
+      <ShellOutlet host="customer-view" position="sub-pages" />
+    </template>
+    <RouterView />
+  </SectionContainerShell>
+</template>
+`
+    );
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "admin/customers/[customerId]/index/pets/index.vue",
+      options: {}
+    });
+
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "customer-view");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./pets\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/customers/[customerId]/pets");
   });
 });
 
@@ -393,12 +432,12 @@ test("buildUiPageTemplateContext derives the same visible route from file and in
 
     const fileContext = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/catalog.vue",
+      targetFile: "admin/catalog.vue",
       options: {}
     });
     const indexContext = await buildUiPageTemplateContext({
       appRoot,
-      targetFile: "src/pages/admin/catalog/index.vue",
+      targetFile: "admin/catalog/index.vue",
       options: {}
     });
 
@@ -409,7 +448,7 @@ test("buildUiPageTemplateContext derives the same visible route from file and in
   });
 });
 
-test("buildUiPageTemplateContext fails when the target file is outside src/pages", async () => {
+test("buildUiPageTemplateContext rejects target files with a leading src segment", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -429,7 +468,7 @@ test("buildUiPageTemplateContext fails when the target file is outside src/pages
           targetFile: "src/components/ReportsPanel.vue",
           options: {}
         }),
-      /target file must live under src\/pages\//
+      /must be relative to src\/pages\/, without a leading src\/ segment/
     );
   });
 });
@@ -451,15 +490,15 @@ test("buildUiPageTemplateContext fails when the target file matches no surface",
       () =>
         buildUiPageTemplateContext({
           appRoot,
-          targetFile: "src/pages/reports/index.vue",
+          targetFile: "reports/index.vue",
           options: {}
         }),
-      /does not belong to any configured surface pagesRoot/
+      /must be relative to src\/pages\/ and resolve to a configured surface/
     );
   });
 });
 
-test("buildUiPageTemplateContext fails when the target file matches multiple surfaces", async () => {
+test("buildUiPageTemplateContext chooses the most specific matching surface pagesRoot", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -473,15 +512,15 @@ test("buildUiPageTemplateContext fails when the target file matches multiple sur
     );
     await writeShellLayout(appRoot);
 
-    await assert.rejects(
-      () =>
-        buildUiPageTemplateContext({
-          appRoot,
-          targetFile: "src/pages/admin/reports/index.vue",
-          options: {}
-        }),
-      /matches multiple surfaces \(app, admin\)/
-    );
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "admin/reports/index.vue",
+      options: {}
+    });
+
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.reports.link");
+    assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
+    assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/reports");
   });
 });
 
@@ -502,7 +541,7 @@ test("buildUiPageTemplateContext validates link placement format", async () => {
       () =>
         buildUiPageTemplateContext({
           appRoot,
-          targetFile: "src/pages/admin/reports/index.vue",
+          targetFile: "admin/reports/index.vue",
           options: {
             "link-placement": "invalid-placement"
           }

@@ -1,9 +1,11 @@
+import path from "node:path";
 import {
   isHelpToken,
   renderGenerateCatalogHelp,
   renderGeneratePackageHelp,
   renderGenerateSubcommandHelp
 } from "./discoverabilityHelp.js";
+import { interpolateOptionValue } from "../../shared/optionInterpolation.js";
 
 function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "") {
   const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
@@ -107,6 +109,108 @@ function resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "") 
   return false;
 }
 
+function collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {}) {
+  const subcommandDefinition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName);
+  if (!Array.isArray(subcommandDefinition?.optionNames)) {
+    return [];
+  }
+
+  const allowedOptionNameSet = new Set(
+    subcommandDefinition.optionNames
+      .map((optionName) => String(optionName || "").trim())
+      .filter(Boolean)
+  );
+  return Object.keys(inlineOptions || {})
+    .map((optionName) => String(optionName || "").trim())
+    .filter(Boolean)
+    .filter((optionName) => !allowedOptionNameSet.has(optionName))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function resolveCreateTargetPolicy(packageEntry = {}, subcommandName = "") {
+  const definition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName);
+  const createTarget = definition?.createTarget;
+  return createTarget && typeof createTarget === "object" ? createTarget : {};
+}
+
+function normalizeRelativePathWithinApp(appRoot = "", targetPath = "", createCliError) {
+  const normalizedTargetPath = String(targetPath || "").trim().replace(/\\/g, "/").replace(/^\.\/+/, "");
+  if (!normalizedTargetPath) {
+    throw createCliError("Generator create target path cannot be empty.");
+  }
+
+  const absolutePath = path.resolve(appRoot, normalizedTargetPath);
+  const relativePath = path.relative(appRoot, absolutePath);
+  if (
+    !relativePath ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw createCliError(`Generator create target must stay within app root: ${normalizedTargetPath}`);
+  }
+
+  return {
+    absolutePath,
+    relativePath: relativePath.split(path.sep).join("/")
+  };
+}
+
+async function enforceDescriptorBackedCreateTargetPolicy({
+  packageEntry,
+  subcommandName,
+  inlineOptions = {},
+  appRoot = "",
+  packageIdInput = "",
+  createCliError,
+  readdir
+} = {}) {
+  const policy = resolveCreateTargetPolicy(packageEntry, subcommandName);
+  const pathTemplate = String(policy.pathTemplate || "").trim();
+  if (!pathTemplate) {
+    return;
+  }
+
+  const forceOptionName = String(policy.forceOptionName || "force").trim() || "force";
+  const forceOverwrite = String(inlineOptions?.[forceOptionName] || "").trim().toLowerCase() === "true";
+  if (forceOverwrite) {
+    return;
+  }
+
+  const interpolatedTargetPath = interpolateOptionValue(
+    pathTemplate,
+    inlineOptions,
+    String(packageEntry?.packageId || "unknown-package"),
+    `${String(subcommandName || "generator")}.createTarget.pathTemplate`
+  );
+  const resolvedTargetPath = normalizeRelativePathWithinApp(appRoot, interpolatedTargetPath, createCliError);
+
+  try {
+    const entries = await readdir(resolvedTargetPath.absolutePath);
+    if (policy.allowExistingEmptyDirectory === true && entries.length < 1) {
+      return;
+    }
+
+    const commandLabel = `${String(packageIdInput || packageEntry?.packageId || "generator").trim()} ${String(subcommandName || "").trim()}`.trim();
+    const targetLabel = String(policy.label || "target").trim() || "target";
+    throw createCliError(
+      `${commandLabel} will not overwrite existing ${targetLabel} ${resolvedTargetPath.relativePath}. Re-run with --force to overwrite it.`
+    );
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return;
+    }
+    if (error?.code === "ENOTDIR") {
+      const commandLabel = `${String(packageIdInput || packageEntry?.packageId || "generator").trim()} ${String(subcommandName || "").trim()}`.trim();
+      const targetLabel = String(policy.label || "target").trim() || "target";
+      throw createCliError(
+        `${commandLabel} will not overwrite existing ${targetLabel} ${resolvedTargetPath.relativePath}. Re-run with --force to overwrite it.`
+      );
+    }
+    throw error;
+  }
+}
+
 async function runPackageGenerateCommand(
   ctx = {},
   { positional, options, cwd, io },
@@ -124,6 +228,8 @@ async function runPackageGenerateCommand(
     resolvePackageKind,
     resolveGeneratorPrimarySubcommand,
     hasGeneratorSubcommandDefinition,
+    readdir,
+    validateInlineOptionValuesForPackage,
     runGeneratorSubcommand
   } = ctx;
 
@@ -190,27 +296,12 @@ async function runPackageGenerateCommand(
   }
 
   if (isHelpToken(subcommandName)) {
-    const helpSubcommandName = String(subcommandArgs[0] || "").trim();
-    if (subcommandArgs.length > 1) {
-      throw createCliError("generate help accepts at most one subcommand name.");
+    if (subcommandArgs.length > 0) {
+      throw createCliError(
+        `Unknown generator usage: jskit generate ${targetId} help ${subcommandArgs.join(" ")}. Use: jskit generate ${targetId} <subcommand> help`
+      );
     }
     const { packageEntry } = await resolveGeneratorPackageEntry(targetId);
-    if (helpSubcommandName) {
-      const rendered = renderGenerateSubcommandHelp({
-        io,
-        packageEntry,
-        packageIdInput: targetId,
-        subcommandName: helpSubcommandName,
-        json: options.json
-      });
-      if (!rendered) {
-        throw createCliError(
-          `Unknown generator subcommand "${helpSubcommandName}" for ${String(packageEntry?.packageId || targetId)}.`
-        );
-      }
-      return 0;
-    }
-
     renderGeneratePackageHelp({
       io,
       packageEntry,
@@ -220,41 +311,81 @@ async function runPackageGenerateCommand(
     return 0;
   }
 
-  if (subcommandName) {
-    const {
-      appRoot,
-      packageEntry,
-      resolvedPackageId
-    } = await resolveGeneratorPackageEntry(targetId);
+  async function runResolvedGeneratorSubcommand({
+    appRoot,
+    packageEntry,
+    resolvedPackageId,
+    subcommandName: rawSubcommandName = "",
+    subcommandArgs: rawSubcommandArgs = []
+  } = {}) {
+    const normalizedSubcommandName = String(rawSubcommandName || "").trim().toLowerCase();
+    const normalizedSubcommandArgs = Array.isArray(rawSubcommandArgs)
+      ? rawSubcommandArgs
+      : [];
     const hasInlineOptions = Object.keys(options?.inlineOptions || {}).length > 0;
-    const hasSubcommandArgs = subcommandArgs.length > 0;
-    if (!hasInlineOptions && !hasSubcommandArgs && resolveSubcommandRequiresInput(packageEntry, subcommandName)) {
+    const hasSubcommandArgs = normalizedSubcommandArgs.length > 0;
+    if (!hasInlineOptions && !hasSubcommandArgs && resolveSubcommandRequiresInput(packageEntry, normalizedSubcommandName)) {
       const rendered = renderGenerateSubcommandHelp({
         io,
         packageEntry,
         packageIdInput: targetId,
-        subcommandName,
+        subcommandName: normalizedSubcommandName,
         json: options.json
       });
       if (rendered) {
         return 0;
       }
     }
-    if (subcommandArgs.length === 1 && isHelpToken(subcommandArgs[0])) {
+    if (normalizedSubcommandArgs.length === 1 && isHelpToken(normalizedSubcommandArgs[0])) {
       const rendered = renderGenerateSubcommandHelp({
         io,
         packageEntry,
         packageIdInput: targetId,
-        subcommandName,
+        subcommandName: normalizedSubcommandName,
         json: options.json
       });
       if (!rendered) {
-        throw createCliError(`Unknown generator subcommand "${subcommandName}" for ${resolvedPackageId}.`);
+        throw createCliError(`Unknown generator subcommand "${normalizedSubcommandName}" for ${resolvedPackageId}.`);
       }
       return 0;
     }
 
-    const normalizedSubcommandName = String(subcommandName || "").trim().toLowerCase();
+    const subcommandDefinition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, normalizedSubcommandName);
+    const unexpectedOptionNames = collectUnexpectedGeneratorSubcommandOptionNames(
+      packageEntry,
+      normalizedSubcommandName,
+      options.inlineOptions
+    );
+    if (unexpectedOptionNames.length > 0) {
+      const commandLabel = String(targetId || resolvedPackageId || "").trim() || resolvedPackageId;
+      throw createCliError(
+        `Unknown option${unexpectedOptionNames.length === 1 ? "" : "s"} for generator command ${commandLabel} ${normalizedSubcommandName}: ${unexpectedOptionNames.map((optionName) => `--${optionName}`).join(", ")}.`,
+        {
+          renderUsage: options.json
+            ? null
+            : () => {
+                renderGenerateSubcommandHelp({
+                  io: {
+                    ...io,
+                    stdout: io.stderr || io.stdout
+                  },
+                  packageEntry,
+                  packageIdInput: targetId,
+                  subcommandName: normalizedSubcommandName,
+                  json: false
+                });
+              }
+        }
+      );
+    }
+    const validatedOptionNames = Array.isArray(subcommandDefinition?.optionNames)
+      ? subcommandDefinition.optionNames
+      : [];
+    await validateInlineOptionValuesForPackage(packageEntry, options.inlineOptions, {
+      appRoot,
+      optionNames: validatedOptionNames
+    });
+
     const primarySubcommand = resolveGeneratorPrimarySubcommand(packageEntry);
     if (
       normalizedSubcommandName &&
@@ -264,10 +395,22 @@ async function runPackageGenerateCommand(
       const inlineOptionsForPrimarySubcommand = mapDescriptorBackedSubcommandArgsToInlineOptions(
         packageEntry,
         normalizedSubcommandName,
-        subcommandArgs,
+        normalizedSubcommandArgs,
         options.inlineOptions,
         createCliError
       );
+      await validateInlineOptionValuesForPackage(packageEntry, inlineOptionsForPrimarySubcommand, {
+        appRoot
+      });
+      await enforceDescriptorBackedCreateTargetPolicy({
+        packageEntry,
+        subcommandName: normalizedSubcommandName,
+        inlineOptions: inlineOptionsForPrimarySubcommand,
+        appRoot,
+        packageIdInput: targetId,
+        createCliError,
+        readdir
+      });
       return runCommandAdd({
         positional: ["package", resolvedPackageId],
         options: {
@@ -294,8 +437,8 @@ async function runPackageGenerateCommand(
 
     return runGeneratorSubcommand({
       packageEntry: executablePackageEntry,
-      subcommandName,
-      subcommandArgs,
+      subcommandName: normalizedSubcommandName,
+      subcommandArgs: normalizedSubcommandArgs,
       inlineOptions: options.inlineOptions,
       appRoot,
       io,
@@ -304,15 +447,23 @@ async function runPackageGenerateCommand(
     });
   }
 
-  return runCommandAdd({
-    positional: ["package", targetId],
-    options: {
-      ...options,
-      commandMode: "generate"
-    },
-    cwd,
-    io
+  if (subcommandName) {
+    const resolvedGeneratorPackage = await resolveGeneratorPackageEntry(targetId);
+    return runResolvedGeneratorSubcommand({
+      ...resolvedGeneratorPackage,
+      subcommandName,
+      subcommandArgs
+    });
+  }
+
+  const { packageEntry } = await resolveGeneratorPackageEntry(targetId);
+  renderGeneratePackageHelp({
+    io,
+    packageEntry,
+    packageIdInput: targetId,
+    json: options.json
   });
+  return 0;
 }
 
 export { runPackageGenerateCommand };

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   readAssistantPageTemplateSource,
   renderAssistantPageLinkPlacementBlock,
@@ -13,7 +13,7 @@ import {
   PLACEMENT_FILE,
   appendBlockIfMarkerMissing,
   rejectUnexpectedOptions,
-  requireManagedOrEmptyPageSource,
+  requireEmptyPageSource,
   requireSinglePositionalTargetFile,
   resolvePathWithinApp
 } from "./support.js";
@@ -31,9 +31,12 @@ async function runGeneratorSubcommand({
   }
 
   const targetFile = requireSinglePositionalTargetFile(args, { context: "assistant settings-page" });
-  rejectUnexpectedOptions(options, ["surface", "name", "link-placement", "link-component-token", "link-to"], {
+  rejectUnexpectedOptions(options, ["surface", "name", "link-placement", "link-component-token", "link-to", "force"], {
     context: "assistant settings-page"
   });
+  const forceOverwrite = Object.prototype.hasOwnProperty.call(options, "force")
+    ? normalizeBoolean(options.force)
+    : false;
 
   const appConfig = await loadAppConfig(appRoot);
   const targetSurface = resolveSurfaceDefinition(appConfig, options?.surface, "surface");
@@ -57,12 +60,13 @@ async function runGeneratorSubcommand({
     pageAlreadyExisted = false;
   }
 
-  requireManagedOrEmptyPageSource(existingPageSource, desiredPageSource, pageRelativePath, {
-    context: "assistant settings-page"
+  requireEmptyPageSource(existingPageSource, pageRelativePath, {
+    context: "assistant settings-page",
+    forceOverwrite
   });
 
   const touchedFiles = new Set();
-  if (!pageAlreadyExisted) {
+  if (!pageAlreadyExisted || forceOverwrite) {
     if (dryRun !== true) {
       await mkdir(path.dirname(pageFilePath), { recursive: true });
       await writeFile(pageFilePath, desiredPageSource, "utf8");
@@ -96,6 +100,7 @@ async function runGeneratorSubcommand({
     touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
     summary: renderAssistantPageSummary(pageTarget, {
       pageAlreadyExisted,
+      pageOverwritten: pageAlreadyExisted && forceOverwrite,
       placementChanged: placementApplied.changed
     })
   };

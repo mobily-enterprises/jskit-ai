@@ -8,44 +8,16 @@ import {
 } from "./pageSupport.js";
 import {
   requireSinglePositionalTargetFile,
+  resolveOutletTargetId,
   rejectUnexpectedOptions
 } from "./support.js";
 
-function normalizeExplicitOutletTargetId(value = "") {
-  const normalizedValue = normalizeText(value);
-  if (!normalizedValue) {
-    return "";
-  }
-
-  const separatorIndex = normalizedValue.indexOf(":");
-  if (separatorIndex <= 0 || separatorIndex >= normalizedValue.length - 1) {
-    return "";
-  }
-
-  const host = normalizeText(normalizedValue.slice(0, separatorIndex));
-  const position = normalizeText(normalizedValue.slice(separatorIndex + 1));
-  if (!host || !position) {
-    return "";
-  }
-
-  return `${host}:${position}`;
-}
-
 function resolveSubpagesOutletTarget(options = {}, pageTarget = {}) {
   const rawTarget = normalizeText(options?.target);
-  const targetInput = rawTarget || deriveDefaultSubpagesHost(pageTarget);
-  const normalizedTargetId = targetInput.includes(":")
-    ? normalizeExplicitOutletTargetId(targetInput)
-    : normalizeExplicitOutletTargetId(`${targetInput}:${DEFAULT_SUBPAGES_POSITION}`);
-  if (!normalizedTargetId) {
-    throw new Error('ui-generator add-subpages option "target" must be "host" or "host:position".');
-  }
-
-  const separatorIndex = normalizedTargetId.indexOf(":");
-  return Object.freeze({
-    id: normalizedTargetId,
-    host: normalizedTargetId.slice(0, separatorIndex),
-    position: normalizedTargetId.slice(separatorIndex + 1)
+  return resolveOutletTargetId(rawTarget || deriveDefaultSubpagesHost(pageTarget), {
+    context: "ui-generator add-subpages",
+    optionName: "target",
+    defaultPosition: DEFAULT_SUBPAGES_POSITION
   });
 }
 

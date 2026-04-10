@@ -17,16 +17,20 @@
           "surface": {
             "required": true,
             "inputType": "text",
+            "validationType": "enabled-surface-id",
             "defaultFromConfig": "surfaceDefaultId",
             "promptLabel": "Assistant surface",
-            "promptHint": "Runtime surface id for setup, or target assistant surface for settings-page."
+            "promptHint": "Assistant runtime surface id. Used by setup, or selected assistant surface for settings-page.",
+            "helpHint": "For setup, this is the runtime surface receiving assistant wiring. For settings-page, this is the assistant runtime configured by that page."
           },
           "settings-surface": {
             "required": true,
             "inputType": "text",
+            "validationType": "enabled-surface-id",
             "defaultValue": "",
             "promptLabel": "Settings surface",
-            "promptHint": "Enabled settings host surface id used by assistant setup."
+            "promptHint": "Enabled settings host surface id used by assistant setup.",
+            "helpHint": "Surface that hosts the settings UI for the selected assistant runtime."
           },
           "config-scope": {
             "required": true,
@@ -40,7 +44,15 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Page label",
-            "promptHint": "Optional page link label override for page and settings-page."
+            "promptHint": "Optional page link label override for page and settings-page.",
+            "helpLabel": "Display label"
+          },
+          "force": {
+            "required": false,
+            "inputType": "flag",
+            "defaultValue": "",
+            "promptLabel": "Force overwrite",
+            "promptHint": "Overwrite the generated page file if it already exists."
           },
           "link-placement": {
             "required": false,
@@ -128,35 +140,89 @@
                 "ai-api-key",
                 "ai-base-url",
                 "ai-timeout-ms"
+              ],
+              "notes": [
+                "setup installs runtime/config only. It does not create assistant pages.",
+                "--surface selects the assistant runtime surface, and --settings-surface selects the surface that will host its settings UI."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate assistant setup \\",
+                    "  --surface admin \\",
+                    "  --settings-surface admin \\",
+                    "  --config-scope workspace \\",
+                    "  --ai-api-key \"$OPENAI_API_KEY\""
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate assistant setup \\",
+                    "  --surface console \\",
+                    "  --settings-surface console \\",
+                    "  --config-scope global \\",
+                    "  --ai-config-prefix CONSOLE_ASSISTANT \\",
+                    "  --ai-provider openai \\",
+                    "  --ai-api-key \"$OPENAI_API_KEY\" \\",
+                    "  --ai-base-url \"http://localhost:11434/v1\" \\",
+                    "  --ai-timeout-ms 60000"
+                  ]
+                }
               ]
             },
             "page": {
               "entrypoint": "src/server/subcommands/page.js",
               "export": "runGeneratorSubcommand",
-              "description": "Create an assistant runtime page at an explicit target file under src/pages/.",
+              "description": "Create an assistant runtime page at an explicit target file relative to src/pages/.",
               "positionalArgs": [
                 {
                   "name": "target-file",
                   "required": true,
-                  "description": "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+                  "descriptionKey": "page-target-file"
                 }
               ],
               "optionNames": [
                 "name",
                 "link-placement",
                 "link-component-token",
-                "link-to"
+                "link-to",
+                "force"
+              ],
+              "notes": [
+                "The target file decides where the page lives.",
+                "Page-link placement follows the same inference rules as ui-generator page.",
+                "If the target page file already exists, rerun with --force to overwrite it."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate assistant page \\",
+                    "  admin/assistant/index.vue"
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate assistant page \\",
+                    "  admin/ops/copilot/index.vue \\",
+                    "  --name \"Copilot\" \\",
+                    "  --link-placement shell-layout:top-right"
+                  ]
+                }
               ]
             },
             "settings-page": {
               "entrypoint": "src/server/subcommands/settingsPage.js",
               "export": "runGeneratorSubcommand",
-              "description": "Create an assistant settings page at an explicit target file under src/pages/.",
+              "description": "Create an assistant settings page at an explicit target file relative to src/pages/.",
               "positionalArgs": [
                 {
                   "name": "target-file",
                   "required": true,
-                  "description": "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+                  "descriptionKey": "page-target-file"
                 }
               ],
               "optionNames": [
@@ -164,10 +230,35 @@
                 "name",
                 "link-placement",
                 "link-component-token",
-                "link-to"
+                "link-to",
+                "force"
               ],
               "requiredOptionNames": [
                 "surface"
+              ],
+              "notes": [
+                "The target file decides where the settings page lives.",
+                "--surface selects the assistant runtime being configured. It does not place the file.",
+                "If the target page file already exists, rerun with --force to overwrite it."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate assistant settings-page \\",
+                    "  admin/settings/index/assistant/index.vue \\",
+                    "  --surface admin"
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate assistant settings-page \\",
+                    "  admin/settings/index/app-assistant/index.vue \\",
+                    "  --surface app \\",
+                    "  --name \"App Assistant\""
+                  ]
+                }
               ]
             }
           },
@@ -1070,6 +1161,7 @@
           "surface": {
             "required": true,
             "inputType": "text",
+            "validationType": "enabled-surface-id",
             "promptLabel": "Target surface",
             "promptHint": "Must match an enabled surface id."
           },
@@ -1100,6 +1192,13 @@
             "defaultValue": "id",
             "promptLabel": "Id column",
             "promptHint": "Primary key column used by CRUD endpoints (default: id)."
+          },
+          "force": {
+            "required": false,
+            "inputType": "flag",
+            "defaultValue": "",
+            "promptLabel": "Force overwrite",
+            "promptHint": "Overwrite generated scaffold files if the namespace package directory already exists."
           }
         },
         "optionPolicies": {
@@ -1147,8 +1246,14 @@
                 "ownership-filter",
                 "table-name",
                 "id-column",
-                "directory-prefix"
-              ]
+                "directory-prefix",
+                "force"
+              ],
+              "createTarget": {
+                "pathTemplate": "packages/${option:namespace|kebab}",
+                "label": "package directory",
+                "allowExistingEmptyDirectory": false
+              }
             },
             "scaffold-field": {
               "entrypoint": "src/server/subcommands/addField.js",
@@ -1327,14 +1432,15 @@
         "packageId": "@jskit-ai/crud-ui-generator",
         "version": "0.1.14",
         "kind": "generator",
-        "description": "Generate CRUD route trees from resource validators at an explicit src/pages target root.",
+        "description": "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
         "options": {
           "target-root": {
             "required": true,
             "inputType": "text",
             "defaultValue": "",
+            "normalizationType": "pages-relative-target-root",
             "promptLabel": "Target route root",
-            "promptHint": "Explicit route root under src/pages/... (example: src/pages/admin/catalog/products)."
+            "promptHint": "Explicit route root relative to src/pages/ (example: admin/catalog/products)."
           },
           "resource-file": {
             "required": true,
@@ -1363,6 +1469,13 @@
             "defaultValue": "recordId",
             "promptLabel": "Route id param",
             "promptHint": "Route param used by view and edit pages (default: recordId)."
+          },
+          "force": {
+            "required": false,
+            "inputType": "flag",
+            "defaultValue": "",
+            "promptLabel": "Force overwrite",
+            "promptHint": "Overwrite generated CRUD files if the target root already exists."
           },
           "link-placement": {
             "required": false,
@@ -1398,12 +1511,16 @@
           "generatorPrimarySubcommand": "crud",
           "generatorSubcommands": {
             "crud": {
-              "description": "Create CRUD pages at an explicit route root under src/pages/.",
+              "description": "Create CRUD pages at an explicit route root relative to src/pages/.",
+              "longDescription": [
+                "CRUD generation follows the same page-placement model as `ui-generator page`.",
+                "That means the generated list page link uses the same nearest-parent-host inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed host behavior, read `jskit generate ui-generator page help`."
+              ],
               "positionalArgs": [
                 {
                   "name": "target-root",
                   "required": true,
-                  "description": "Route root directory relative to app root (example: src/pages/admin/products)."
+                  "descriptionKey": "crud-target-root"
                 }
               ],
               "optionNames": [
@@ -1412,10 +1529,42 @@
                 "display-fields",
                 "id-param",
                 "link-placement",
-                "namespace"
+                "namespace",
+                "force"
               ],
               "requiredOptionNames": [
                 "resource-file"
+              ],
+              "createTarget": {
+                "pathTemplate": "src/pages/${option:target-root|trim}",
+                "label": "target root",
+                "allowExistingEmptyDirectory": true
+              },
+              "notes": [
+                "The target root is the real route root relative to src/pages/.... JSKIT derives the surface and route from that path.",
+                "Operations default to list,view,new,edit. For list-page placement behavior, use the same mental model as ui-generator page.",
+                "If the target root already exists and is not empty, rerun with --force to overwrite generated files."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate crud-ui-generator crud \\",
+                    "  admin/catalog/index/products \\",
+                    "  --resource-file packages/products/src/shared/productResource.js"
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate crud-ui-generator crud \\",
+                    "  admin/customers/[customerId]/index/pets \\",
+                    "  --resource-file packages/pets/src/shared/petResource.js \\",
+                    "  --id-param petId \\",
+                    "  --display-fields name,breedId,sex \\",
+                    "  --force"
+                  ]
+                }
               ]
             },
             "field": {
@@ -1450,7 +1599,7 @@
           "files": [
             {
               "from": "templates/src/pages/admin/ui-generator/ListElement.vue",
-              "to": "${option:target-root|trim}/index.vue",
+              "to": "src/pages/${option:target-root|trim}/index.vue",
               "reason": "Install generated list page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-list-${option:target-root|snake}",
@@ -1467,7 +1616,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/ViewElement.vue",
-              "to": "${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
+              "to": "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
               "reason": "Install generated view page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-view-${option:target-root|snake}",
@@ -1484,7 +1633,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/NewWrapperElement.vue",
-              "to": "${option:target-root|trim}/new.vue",
+              "to": "src/pages/${option:target-root|trim}/new.vue",
               "reason": "Install generated new page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-new-${option:target-root|snake}",
@@ -1511,7 +1660,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/EditWrapperElement.vue",
-              "to": "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
+              "to": "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
               "reason": "Install generated edit page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-edit-${option:target-root|snake}",
@@ -1538,7 +1687,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/AddEditForm.vue",
-              "to": "${option:target-root|trim}/_components/CrudAddEditForm.vue",
+              "to": "src/pages/${option:target-root|trim}/_components/CrudAddEditForm.vue",
               "reason": "Install generated shared add/edit form component.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-add-edit-form-${option:target-root|snake}",
@@ -1565,7 +1714,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/AddEditFormFields.js",
-              "to": "${option:target-root|trim}/_components/CrudAddEditFormFields.js",
+              "to": "src/pages/${option:target-root|trim}/_components/CrudAddEditFormFields.js",
               "reason": "Install generated shared add/edit form field definitions.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-add-edit-form-fields-${option:target-root|snake}",
@@ -1592,7 +1741,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/NewElement.vue",
-              "to": "${option:target-root|trim}/new.vue",
+              "to": "src/pages/${option:target-root|trim}/new.vue",
               "reason": "Install generated new page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-new-standalone-${option:target-root|snake}",
@@ -1619,7 +1768,7 @@
             },
             {
               "from": "templates/src/pages/admin/ui-generator/EditElement.vue",
-              "to": "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
+              "to": "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
               "reason": "Install generated edit page.",
               "category": "crud-ui-generator",
               "id": "crud-ui-page-edit-standalone-${option:target-root|snake}",
@@ -2611,35 +2760,43 @@
         "packageId": "@jskit-ai/ui-generator",
         "version": "0.1.14",
         "kind": "generator",
-        "description": "Generate app-local non-CRUD UI pages, placed elements, and page subpage hosts.",
+        "description": "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
         "options": {
           "name": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
-            "promptLabel": "Page label",
-            "promptHint": "Optional display label override. If omitted for page, it is derived from the target file path."
+            "promptLabel": "Display label",
+            "promptHint": "Display label used for generated page links and named UI elements. For page, if omitted, it is derived from the target file path."
           },
           "surface": {
             "required": false,
             "inputType": "text",
+            "validationType": "enabled-surface-id",
             "defaultFromConfig": "surfaceDefaultId",
             "promptLabel": "Target surface",
-            "promptHint": "Used by the element subcommand. Must match an enabled surface id."
+            "promptHint": "Used by the placed-element subcommand. Must match an enabled surface id."
           },
           "path": {
             "required": false,
             "inputType": "text",
             "defaultValue": "src/components",
             "promptLabel": "Component path",
-            "promptHint": "Component directory relative to app root (used by element and add-subpages support scaffold)."
+            "promptHint": "Component directory relative to app root (used by placed-element and add-subpages support scaffold)."
+          },
+          "force": {
+            "required": false,
+            "inputType": "flag",
+            "defaultValue": "",
+            "promptLabel": "Force overwrite",
+            "promptHint": "Overwrite the generated file if it already exists."
           },
           "placement": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Placement target",
-            "promptHint": "Optional host:position target for element placement (defaults to app ShellOutlet default target)."
+            "promptHint": "Optional host:position target for placed-element placement (defaults to shell-layout:top-right)."
           },
           "link-placement": {
             "required": false,
@@ -2660,28 +2817,14 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link to",
-            "promptHint": "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for nestedChildren routes, defaults to ./<page-slug>."
+            "promptHint": "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages host, it is inferred from the page path."
           },
           "target": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Outlet target",
-            "promptHint": "Optional override for add-subpages. Use host or host:position; if omitted, it is derived from the page path."
-          },
-          "host": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Host",
-            "promptHint": "ShellOutlet host value for generic outlets."
-          },
-          "position": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "sub-pages",
-            "promptLabel": "Outlet position",
-            "promptHint": "ShellOutlet position value to inject into target file."
+            "promptHint": "Used by add-subpages and outlet. Accepts host or host:position. If only host is given, position defaults to sub-pages."
           },
           "title": {
             "required": false,
@@ -2720,33 +2863,89 @@
               "entrypoint": "src/server/subcommands/page.js",
               "export": "runGeneratorSubcommand",
               "description": "Create a route page at an explicit target file and add a link placement entry for it.",
+              "longDescription": [
+                "This command always creates one route page file. By default, its page link is placed from the page path itself.",
+                "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor as the real host. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
+                "That means the generated link normally becomes a tab or child-page link under that ancestor host, and `props.to` is inferred relative to that host. If the host page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
+              ],
               "positionalArgs": [
                 {
                   "name": "target-file",
                   "required": true,
-                  "description": "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+                  "descriptionKey": "page-target-file"
                 }
               ],
               "optionNames": [
                 "name",
                 "link-placement",
                 "link-component-token",
-                "link-to"
+                "link-to",
+                "force"
+              ],
+              "notes": [
+                "If a nearest parent subpages host is found, placement, link component token, and props.to are inferred automatically.",
+                "If the parent host page is index.vue, child pages belong under index/...",
+                "If the target page file already exists, rerun with --force to overwrite it."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate ui-generator page \\",
+                    "  admin/reports/index.vue \\",
+                    "  --name \"Reports\""
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate ui-generator page \\",
+                    "  admin/customers/[customerId]/index/notes/index.vue \\",
+                    "  --name \"Notes\" \\",
+                    "  --force"
+                  ]
+                }
               ]
             },
-            "element": {
+            "placed-element": {
               "entrypoint": "src/server/subcommands/element.js",
               "export": "runGeneratorSubcommand",
-              "description": "Scaffold a reusable UI element component and register a placement.",
+              "description": "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
               "optionNames": [
                 "name",
                 "surface",
                 "path",
-                "placement"
+                "placement",
+                "force"
               ],
               "requiredOptionNames": [
                 "name",
                 "surface"
+              ],
+              "notes": [
+                "If --placement is omitted, the placed element is added at shell-layout:top-right.",
+                "If the component file already exists, rerun with --force to overwrite it."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate ui-generator placed-element \\",
+                    "  --name \"Alerts Widget\" \\",
+                    "  --surface admin"
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate ui-generator placed-element \\",
+                    "  --name \"Ops Panel\" \\",
+                    "  --surface admin \\",
+                    "  --path src/widgets \\",
+                    "  --placement shell-layout:top-right \\",
+                    "  --force"
+                  ]
+                }
               ]
             },
             "add-subpages": {
@@ -2757,7 +2956,7 @@
                 {
                   "name": "target-file",
                   "required": true,
-                  "description": "Existing Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+                  "descriptionKey": "existing-page-target-file"
                 }
               ],
               "optionNames": [
@@ -2765,25 +2964,76 @@
                 "path",
                 "title",
                 "subtitle"
+              ],
+              "notes": [
+                "Use this when the page should render shared content plus child routes below it.",
+                "If the host page is index.vue, create child pages under index/..."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate ui-generator add-subpages \\",
+                    "  admin/customers/[customerId]/index.vue \\",
+                    "  --title \"Customer\" \\",
+                    "  --subtitle \"View and manage this customer.\""
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate ui-generator add-subpages \\",
+                    "  admin/contacts/[contactId]/index.vue \\",
+                    "  --target contact-view:summary-tabs \\",
+                    "  --path src/components/admin \\",
+                    "  --title \"Contact\" \\",
+                    "  --subtitle \"Manage contact modules.\""
+                  ]
+                }
               ]
             },
             "outlet": {
               "entrypoint": "src/server/subcommands/outlet.js",
               "export": "runGeneratorSubcommand",
               "description": "Inject a generic ShellOutlet block into an existing Vue page/component.",
+              "longDescription": [
+                "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
+                "After an outlet exists, `jskit list-placements` will discover it and show it as `host:position`. That makes the target visible to humans and to generators that need a placement destination.",
+                "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same `host:position`."
+              ],
               "positionalArgs": [
                 {
                   "name": "target-file",
                   "required": true,
-                  "description": "Existing Vue SFC path relative to app root."
+                  "descriptionKey": "existing-vue-sfc-target-file"
                 }
               ],
               "optionNames": [
-                "host",
-                "position"
+                "target"
               ],
               "requiredOptionNames": [
-                "host"
+                "target"
+              ],
+              "notes": [
+                "Use --target host or --target host:position. If only host is given, position defaults to sub-pages."
+              ],
+              "examples": [
+                {
+                  "label": "Common usage",
+                  "lines": [
+                    "npx jskit generate ui-generator outlet \\",
+                    "  src/components/ContactSummaryCard.vue \\",
+                    "  --target contact-view"
+                  ]
+                },
+                {
+                  "label": "More advanced usage",
+                  "lines": [
+                    "npx jskit generate ui-generator outlet \\",
+                    "  src/pages/admin/customers/[customerId]/index.vue \\",
+                    "  --target customer-view:summary-actions"
+                  ]
+                }
               ]
             }
           },

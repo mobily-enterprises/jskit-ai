@@ -5,6 +5,8 @@ export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 export {
   DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
   DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN,
+  normalizePagesRelativeTargetFile,
+  normalizePagesRelativeTargetRoot,
   resolvePageTargetDetails,
   deriveDefaultSubpagesHost,
   resolveNearestParentSubpagesHost,

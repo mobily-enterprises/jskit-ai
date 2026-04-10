@@ -205,7 +205,7 @@ async function fileExists(absolutePath) {
 }
 
 function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
-  const generatedRoot = path.join(appRoot, targetRoot);
+  const generatedRoot = path.join(appRoot, "src", "pages", targetRoot);
   return {
     generatedRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
@@ -220,12 +220,13 @@ function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
 async function generateCrudUiPackage(
   appRoot,
   {
-    targetRoot = "src/pages/admin/ops/customers-ui",
+    targetRoot = "admin/ops/customers-ui",
     operations = "list,view,new,edit",
     displayFields = "",
     idParam = "customerId",
     linkPlacement = "",
-    namespace = ""
+    namespace = "",
+    force = false
   } = {}
 ) {
   await installCrudUiGeneratorPackage(appRoot);
@@ -241,7 +242,8 @@ async function generateCrudUiPackage(
     ...(operations ? ["--operations", operations] : []),
     ...(displayFields ? ["--display-fields", displayFields] : []),
     ...(linkPlacement ? ["--link-placement", linkPlacement] : []),
-    ...(namespace ? ["--namespace", namespace] : [])
+    ...(namespace ? ["--namespace", namespace] : []),
+    ...(force ? ["--force"] : [])
   ];
 
   const result = runCli({
@@ -258,7 +260,7 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot);
 
-    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/ops/customers-ui");
+    const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
@@ -300,11 +302,11 @@ test("generate @jskit-ai/crud-ui-generator defaults operations to the full CRUD 
     await createMinimalApp(appRoot, { name: "crud-ui-default-operations" });
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot, {
-      targetRoot: "src/pages/admin/products",
+      targetRoot: "admin/products",
       operations: ""
     });
 
-    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/products");
+    const paths = resolveGeneratedPaths(appRoot, "admin/products");
     assert.equal(await fileExists(paths.listPagePath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
@@ -320,7 +322,7 @@ test("generate @jskit-ai/crud-ui-generator derives the CRUD api path from resour
     await createMinimalApp(appRoot, { name: "crud-ui-resource-namespace" });
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot, {
-      targetRoot: "src/pages/admin/customers"
+      targetRoot: "admin/customers"
     });
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/customers/index.vue"), "utf8");
@@ -334,7 +336,7 @@ test("generate @jskit-ai/crud-ui-generator falls back to the target-root leaf wh
     await createMinimalApp(appRoot, { name: "crud-ui-leaf-namespace" });
     await writeCustomerResource(appRoot, { includeResourceNamespace: false });
     await generateCrudUiPackage(appRoot, {
-      targetRoot: "src/pages/admin/catalog/products"
+      targetRoot: "admin/catalog/products"
     });
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/catalog/products/index.vue"), "utf8");
@@ -380,7 +382,7 @@ test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to 
     );
 
     await generateCrudUiPackage(appRoot, {
-      targetRoot: "src/pages/admin/catalog/(nestedChildren)/products"
+      targetRoot: "admin/catalog/index/products"
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
@@ -415,7 +417,7 @@ test("generate @jskit-ai/crud-ui-generator list-only scaffolds just the list pag
       operations: "list"
     });
 
-    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/ops/customers-ui");
+    const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
     assert.equal(await fileExists(paths.viewPagePath), false);
     assert.equal(await fileExists(paths.newPagePath), false);
@@ -426,7 +428,105 @@ test("generate @jskit-ai/crud-ui-generator list-only scaffolds just the list pag
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator rejects route roots outside src/pages", async () => {
+test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target root without --force", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-existing-target-root");
+    await createMinimalApp(appRoot, { name: "crud-ui-existing-target-root" });
+    await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/products"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/products/index.vue"),
+      `<template>
+  <div>custom products page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "crud",
+        "admin/products",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--operations",
+        "list"
+      ]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /crud-ui-generator crud will not overwrite existing target root src\/pages\/admin\/products\. Re-run with --force to overwrite it\./
+    );
+    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
+    assert.match(listPageSource, /custom products page/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator allows an empty existing target root without --force", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-empty-target-root");
+    await createMinimalApp(appRoot, { name: "crud-ui-empty-target-root" });
+    await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/products"), { recursive: true });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "crud",
+        "admin/products",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--operations",
+        "list"
+      ]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
+    assert.match(listPageSource, /Manage Customers\./);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator overwrites existing generated files when --force is passed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-force-overwrite");
+    await createMinimalApp(appRoot, { name: "crud-ui-force-overwrite" });
+    await writeCustomerResource(appRoot);
+    await mkdir(path.join(appRoot, "src/pages/admin/products"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src/pages/admin/products/index.vue"),
+      `<template>
+  <div>custom products page</div>
+</template>
+`,
+      "utf8"
+    );
+
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "admin/products",
+      operations: "list",
+      force: true
+    });
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
+    assert.match(listPageSource, /Manage Customers\./);
+    assert.doesNotMatch(listPageSource, /custom products page/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator rejects route roots with a src/pages prefix", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "crud-ui-invalid-target-root");
     await createMinimalApp(appRoot, { name: "crud-ui-invalid-target-root" });
@@ -439,7 +539,7 @@ test("generate @jskit-ai/crud-ui-generator rejects route roots outside src/pages
         "generate",
         "@jskit-ai/crud-ui-generator",
         "crud",
-        "packages/not-a-page",
+        "src/pages/admin/products",
         "--resource-file",
         "packages/customers/src/shared/customerResource.js",
         "--operations",
@@ -448,7 +548,7 @@ test("generate @jskit-ai/crud-ui-generator rejects route roots outside src/pages
     });
 
     assert.equal(result.status, 1);
-    assert.match(String(result.stderr || ""), /target file must live under src\/pages/);
+    assert.match(String(result.stderr || ""), /must be relative to src\/pages\/, without the src\/pages\/ prefix/);
   });
 });
 

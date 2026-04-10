@@ -122,7 +122,9 @@ function createRunCli({
       throw createCliError(`Unhandled command: ${command}`, { showUsage: true });
     } catch (error) {
       stderr.write(`jskit: ${error?.message || String(error)}\n`);
-      if (error?.showUsage) {
+      if (typeof error?.renderUsage === "function") {
+        error.renderUsage();
+      } else if (error?.showUsage) {
         printUsage(stderr);
       }
       return 1;

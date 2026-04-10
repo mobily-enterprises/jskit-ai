@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
@@ -25,6 +25,15 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
     )}\n`,
     "utf8"
   );
+}
+
+async function fileExists(absolutePath) {
+  try {
+    await access(absolutePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function createScaffolderPackage(appRoot, { kind = "runtime" } = {}) {
@@ -163,7 +172,7 @@ test("add package adopts generated app-local package dependency into lock", asyn
   });
 });
 
-test("generate does not install scaffold generator package itself", async () => {
+test("generate with no subcommand shows generator help and does not install scaffold generator package itself", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "adopt-generator-scaffolder-app");
     await createMinimalApp(appRoot, { name: "adopt-generator-scaffolder-app" });
@@ -174,14 +183,12 @@ test("generate does not install scaffold generator package itself", async () => 
       args: ["generate", "@demo/scaffolder"]
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+    assert.match(String(addResult.stdout || ""), /Generator help: @demo\/scaffolder/);
 
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
-    assert.equal(lock.installedPackages["@demo/scaffolder"], undefined);
-    assert.ok(lock.installedPackages["@demo/generated-feature"]);
-    assert.equal(lock.installedPackages["@demo/generated-feature"].source.type, "app-local-package");
+    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
 
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(appPackageJson.dependencies["@demo/scaffolder"], undefined);
-    assert.equal(appPackageJson.dependencies["@demo/generated-feature"], "file:packages/generated-feature");
+    assert.equal(appPackageJson.dependencies?.["@demo/scaffolder"], undefined);
+    assert.equal(appPackageJson.dependencies?.["@demo/generated-feature"], undefined);
   });
 });
