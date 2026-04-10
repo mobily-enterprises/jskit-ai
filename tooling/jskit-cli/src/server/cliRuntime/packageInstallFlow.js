@@ -275,7 +275,8 @@ async function applyPackageInstall({
   appPackageJson,
   lock,
   packageRegistry,
-  touchedFiles
+  touchedFiles,
+  reportTemplateFetchStatus = null
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   const existingManaged = ensureObject(existingInstall.managed);
@@ -292,7 +293,11 @@ async function applyPackageInstall({
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const fileMutations = ensureArray(mutations.files);
-  const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
+  const templateRoot = await resolvePackageTemplateRoot({
+    packageEntry,
+    appRoot,
+    reportTemplateFetchStatus
+  });
   const packageEntryForMutations =
     templateRoot === packageEntry.rootDir
       ? packageEntry
