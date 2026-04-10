@@ -324,7 +324,7 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
       options: createOptions()
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.customers.link");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "shell-layout");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "primary-menu");
     assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");

@@ -169,7 +169,7 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
     assert.match(pageSource, /Reports Dashboard/);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /id: "ui-generator\.page\.reports-dashboard\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.reports-dashboard\.link"/);
     assert.match(placementSource, /position: "primary-menu"/);
     assert.match(placementSource, /componentToken: "users\.web\.shell\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /workspaceSuffix: "\/reports-dashboard"/);
@@ -206,7 +206,7 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.contacts\.contact-id\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
   });
 });
 
@@ -377,8 +377,8 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
       (match) => match[1]
     );
 
-    assert.match(placementSource, /id: "ui-generator\.page\.alpha\.one\.link"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.beta\.one\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.alpha\.one\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.beta\.one\.link"/);
     assert.equal(placementIds.includes("ui-generator.page.one.link"), false);
     assert.equal(new Set(placementIds).size, placementIds.length);
   });

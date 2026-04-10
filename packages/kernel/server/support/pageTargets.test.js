@@ -64,9 +64,39 @@ test("resolvePageTargetDetails derives the surface and route data from an explic
     assert.equal(pageTarget.surfaceId, "admin");
     assert.equal(pageTarget.surfacePagesRoot, "w/[workspaceSlug]/admin");
     assert.equal(pageTarget.routeUrlSuffix, "/catalog/products");
-    assert.equal(pageTarget.placementId, "ui-generator.page.catalog.products.link");
+    assert.equal(pageTarget.placementId, "ui-generator.page.admin.catalog.products.link");
     assert.deepEqual(pageTarget.visibleRouteSegments, ["catalog", "products"]);
     assert.equal(deriveDefaultSubpagesHost(pageTarget), "catalog-products");
+  });
+});
+
+test("resolvePageTargetDetails includes surface in placement ids for identical routes on different surfaces", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    app: { id: "app", pagesRoot: "app", enabled: true },
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+
+    const appPageTarget = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "src/pages/app/reports/index.vue",
+      context: "page target"
+    });
+    const adminPageTarget = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "src/pages/admin/reports/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(appPageTarget.placementId, "ui-generator.page.app.reports.link");
+    assert.equal(adminPageTarget.placementId, "ui-generator.page.admin.reports.link");
+    assert.notEqual(appPageTarget.placementId, adminPageTarget.placementId);
   });
 });
 

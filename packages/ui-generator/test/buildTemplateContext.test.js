@@ -63,7 +63,7 @@ test("buildUiPageTemplateContext resolves link placement from default app ShellO
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.reports.link");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.reports.link");
   });
 });
 
@@ -180,7 +180,7 @@ test("buildUiPageTemplateContext supports explicit link component token and link
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.contacts.contact-id.notes.link");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.contacts.contact-id.notes.link");
   });
 });
 
@@ -404,8 +404,8 @@ test("buildUiPageTemplateContext derives the same visible route from file and in
 
     assert.equal(fileContext.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/catalog");
     assert.equal(indexContext.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/catalog");
-    assert.equal(fileContext.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.catalog.link");
-    assert.equal(indexContext.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.catalog.link");
+    assert.equal(fileContext.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.catalog.link");
+    assert.equal(indexContext.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.catalog.link");
   });
 });
 
