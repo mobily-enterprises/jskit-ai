@@ -2,6 +2,7 @@ import {
   requireCrudNamespace
 } from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
 import {
+  normalizePagesRelativeTargetRoot,
   resolvePageLinkTargetDetails,
   resolvePageTargetDetails
 } from "@jskit-ai/kernel/server/support";
@@ -135,10 +136,10 @@ function requireTargetRootOption(options = {}) {
   if (!normalizedTargetRoot) {
     throw new Error('crud-ui-generator requires option "target-root".');
   }
-  if (normalizedTargetRoot.endsWith(".vue")) {
-    throw new Error('crud-ui-generator option "target-root" must be a route root directory, not a .vue file.');
-  }
-  return normalizedTargetRoot;
+  return normalizePagesRelativeTargetRoot(normalizedTargetRoot, {
+    context: "crud-ui-generator",
+    label: 'option "target-root"'
+  }).slice("src/pages/".length);
 }
 
 function resolveListTargetFile(targetRoot = "") {

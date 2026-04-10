@@ -11,7 +11,9 @@ test("assistant descriptor exposes setup as the primary command and still depend
   assert.equal(descriptor.kind, "generator");
   assert.equal(descriptor.metadata?.generatorPrimarySubcommand, "setup");
   assert.equal(descriptor.options?.surface?.required, true);
+  assert.equal(descriptor.options?.surface?.validationType, "enabled-surface-id");
   assert.equal(descriptor.options?.["settings-surface"]?.required, true);
+  assert.equal(descriptor.options?.["settings-surface"]?.validationType, "enabled-surface-id");
   assert.equal(descriptor.options?.["config-scope"]?.defaultValue, "global");
   assert.equal(descriptor.options?.name?.required, false);
   assert.equal(descriptor.options?.["link-placement"]?.required, false);
@@ -27,6 +29,8 @@ test("assistant descriptor defines explicit page subcommands and setup-only muta
   assert.equal(subcommands["settings-page"]?.entrypoint, "src/server/subcommands/settingsPage.js");
   assert.equal(subcommands.page?.positionalArgs?.[0]?.name, "target-file");
   assert.equal(subcommands["settings-page"]?.requiredOptionNames?.[0], "surface");
+  assert.equal(subcommands.page?.optionNames?.includes("force"), true);
+  assert.equal(subcommands["settings-page"]?.optionNames?.includes("force"), true);
   assert.equal(fileMutations.length, 0);
 });
 

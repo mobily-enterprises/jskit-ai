@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import {
   deriveDefaultSubpagesHost,
+  normalizePagesRelativeTargetRoot,
   resolvePageLinkTargetDetails,
   resolvePageTargetDetails
 } from "./pageTargets.js";
@@ -57,7 +58,7 @@ test("resolvePageTargetDetails derives the surface and route data from an explic
 
     const pageTarget = await resolvePageTargetDetails({
       appRoot,
-      targetFile: "src/pages/w/[workspaceSlug]/admin/catalog/(nestedChildren)/products/index.vue",
+      targetFile: "w/[workspaceSlug]/admin/catalog/index/products/index.vue",
       context: "page target"
     });
 
@@ -85,12 +86,12 @@ test("resolvePageTargetDetails includes surface in placement ids for identical r
 
     const appPageTarget = await resolvePageTargetDetails({
       appRoot,
-      targetFile: "src/pages/app/reports/index.vue",
+      targetFile: "app/reports/index.vue",
       context: "page target"
     });
     const adminPageTarget = await resolvePageTargetDetails({
       appRoot,
-      targetFile: "src/pages/admin/reports/index.vue",
+      targetFile: "admin/reports/index.vue",
       context: "page target"
     });
 
@@ -98,6 +99,93 @@ test("resolvePageTargetDetails includes surface in placement ids for identical r
     assert.equal(adminPageTarget.placementId, "ui-generator.page.admin.reports.link");
     assert.notEqual(appPageTarget.placementId, adminPageTarget.placementId);
   });
+});
+
+test("resolvePageTargetDetails chooses the most specific matching surface pagesRoot", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    app: { id: "app", pagesRoot: "w/[workspaceSlug]", enabled: true },
+    admin: { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", enabled: true }
+  }
+};
+`
+    );
+
+    const pageTarget = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "w/[workspaceSlug]/admin/catalog/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(pageTarget.surfaceId, "admin");
+    assert.equal(pageTarget.surfacePagesRoot, "w/[workspaceSlug]/admin");
+    assert.equal(pageTarget.surfaceRelativeFilePath, "catalog/index.vue");
+    assert.equal(pageTarget.routeUrlSuffix, "/catalog");
+    assert.equal(pageTarget.placementId, "ui-generator.page.admin.catalog.link");
+  });
+});
+
+test("resolvePageTargetDetails rejects duplicate matching surface pagesRoot definitions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    adminA: { id: "admin-a", pagesRoot: "w/[workspaceSlug]/admin", enabled: true },
+    adminB: { id: "admin-b", pagesRoot: "w/[workspaceSlug]/admin", enabled: true }
+  }
+};
+`
+    );
+
+    await assert.rejects(
+      () =>
+        resolvePageTargetDetails({
+          appRoot,
+          targetFile: "w/[workspaceSlug]/admin/catalog/index.vue",
+          context: "page target"
+        }),
+      /multiple surfaces share pagesRoot "w\/\[workspaceSlug\]\/admin" \(admin-a, admin-b\)/
+    );
+  });
+});
+
+test("resolvePageTargetDetails rejects target files with a src/pages prefix", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+
+    await assert.rejects(
+      () =>
+        resolvePageTargetDetails({
+          appRoot,
+          targetFile: "src/pages/admin/reports/index.vue",
+          context: "page target"
+        }),
+      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+    );
+  });
+});
+
+test("normalizePagesRelativeTargetRoot rejects route roots with a src/pages prefix", () => {
+  assert.throws(
+    () =>
+      normalizePagesRelativeTargetRoot("src/pages/admin/customers", {
+        context: "crud-ui-generator",
+        label: 'option "target-root"'
+      }),
+    /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+  );
 });
 
 test("resolvePageLinkTargetDetails falls back to the app default placement target", async () => {
@@ -115,7 +203,7 @@ test("resolvePageLinkTargetDetails falls back to the app default placement targe
 
     const details = await resolvePageLinkTargetDetails({
       appRoot,
-      targetFile: "src/pages/admin/reports/index.vue",
+      targetFile: "admin/reports/index.vue",
       context: "page target"
     });
 
@@ -155,7 +243,7 @@ test("resolvePageLinkTargetDetails inherits a file-route parent subpages host", 
 
     const details = await resolvePageLinkTargetDetails({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/notes/index.vue",
+      targetFile: "admin/contacts/[contactId]/notes/index.vue",
       context: "page target"
     });
 
@@ -182,7 +270,7 @@ test("resolvePageLinkTargetDetails honors explicit placement and link overrides"
 
     const details = await resolvePageLinkTargetDetails({
       appRoot,
-      targetFile: "src/pages/admin/contacts/[contactId]/(nestedChildren)/notes/index.vue",
+      targetFile: "admin/contacts/[contactId]/index/notes/index.vue",
       placement: "shell-layout:top-right",
       componentToken: "custom.link-item",
       linkTo: "./assistant-notes",
@@ -193,5 +281,46 @@ test("resolvePageLinkTargetDetails honors explicit placement and link overrides"
     assert.equal(details.placementTarget.position, "top-right");
     assert.equal(details.componentToken, "custom.link-item");
     assert.equal(details.linkTo, "./assistant-notes");
+  });
+});
+
+test("resolvePageLinkTargetDetails inherits an index-route parent subpages host for index children", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/admin/customers/[customerId]/index.vue",
+      `<template>
+  <SectionContainerShell>
+    <template #tabs>
+      <ShellOutlet host="customer-view" position="sub-pages" />
+    </template>
+    <RouterView />
+  </SectionContainerShell>
+</template>
+`
+    );
+
+    const details = await resolvePageLinkTargetDetails({
+      appRoot,
+      targetFile: "admin/customers/[customerId]/index/pets/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.parentHost?.id, "customer-view:sub-pages");
+    assert.equal(details.parentHost?.pageFile, "src/pages/admin/customers/[customerId]/index.vue");
+    assert.equal(details.placementTarget.host, "customer-view");
+    assert.equal(details.placementTarget.position, "sub-pages");
+    assert.equal(details.componentToken, "local.main.ui.tab-link-item");
+    assert.equal(details.linkTo, "./pets");
   });
 });

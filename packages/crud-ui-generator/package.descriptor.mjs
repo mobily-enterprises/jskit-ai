@@ -3,14 +3,15 @@ export default Object.freeze({
   packageId: "@jskit-ai/crud-ui-generator",
   version: "0.1.14",
   kind: "generator",
-  description: "Generate CRUD route trees from resource validators at an explicit src/pages target root.",
+  description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
     "target-root": {
       required: true,
       inputType: "text",
       defaultValue: "",
+      normalizationType: "pages-relative-target-root",
       promptLabel: "Target route root",
-      promptHint: "Explicit route root under src/pages/... (example: src/pages/admin/catalog/products)."
+      promptHint: "Explicit route root relative to src/pages/ (example: admin/catalog/products)."
     },
     "resource-file": {
       required: true,
@@ -39,6 +40,13 @@ export default Object.freeze({
       defaultValue: "recordId",
       promptLabel: "Route id param",
       promptHint: "Route param used by view and edit pages (default: recordId)."
+    },
+    force: {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Force overwrite",
+      promptHint: "Overwrite generated CRUD files if the target root already exists."
     },
     "link-placement": {
       required: false,
@@ -72,16 +80,51 @@ export default Object.freeze({
     generatorPrimarySubcommand: "crud",
     generatorSubcommands: {
       crud: {
-        description: "Create CRUD pages at an explicit route root under src/pages/.",
+        description: "Create CRUD pages at an explicit route root relative to src/pages/.",
+        longDescription: [
+          "CRUD generation follows the same page-placement model as `ui-generator page`.",
+          "That means the generated list page link uses the same nearest-parent-host inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed host behavior, read `jskit generate ui-generator page help`."
+        ],
         positionalArgs: [
           {
             name: "target-root",
             required: true,
-            description: "Route root directory relative to app root (example: src/pages/admin/products)."
+            descriptionKey: "crud-target-root"
           }
         ],
-        optionNames: ["resource-file", "operations", "display-fields", "id-param", "link-placement", "namespace"],
-        requiredOptionNames: ["resource-file"]
+        optionNames: ["resource-file", "operations", "display-fields", "id-param", "link-placement", "namespace", "force"],
+        requiredOptionNames: ["resource-file"],
+        createTarget: {
+          pathTemplate: "src/pages/${option:target-root|trim}",
+          label: "target root",
+          allowExistingEmptyDirectory: true
+        },
+        notes: [
+          "The target root is the real route root relative to src/pages/.... JSKIT derives the surface and route from that path.",
+          "Operations default to list,view,new,edit. For list-page placement behavior, use the same mental model as ui-generator page.",
+          "If the target root already exists and is not empty, rerun with --force to overwrite generated files."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate crud-ui-generator crud \\",
+              "  admin/catalog/index/products \\",
+              "  --resource-file packages/products/src/shared/productResource.js"
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate crud-ui-generator crud \\",
+              "  admin/customers/[customerId]/index/pets \\",
+              "  --resource-file packages/pets/src/shared/petResource.js \\",
+              "  --id-param petId \\",
+              "  --display-fields name,breedId,sex \\",
+              "  --force"
+            ]
+          }
+        ]
       },
       field: {
         entrypoint: "src/server/subcommands/addField.js",
@@ -115,7 +158,7 @@ export default Object.freeze({
     files: [
       {
         from: "templates/src/pages/admin/ui-generator/ListElement.vue",
-        to: "${option:target-root|trim}/index.vue",
+        to: "src/pages/${option:target-root|trim}/index.vue",
         reason: "Install generated list page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-list-${option:target-root|snake}",
@@ -130,7 +173,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/ViewElement.vue",
-        to: "${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
+        to: "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
         reason: "Install generated view page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-view-${option:target-root|snake}",
@@ -145,7 +188,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/NewWrapperElement.vue",
-        to: "${option:target-root|trim}/new.vue",
+        to: "src/pages/${option:target-root|trim}/new.vue",
         reason: "Install generated new page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-new-${option:target-root|snake}",
@@ -168,7 +211,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/EditWrapperElement.vue",
-        to: "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
+        to: "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
         reason: "Install generated edit page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-edit-${option:target-root|snake}",
@@ -191,7 +234,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditForm.vue",
-        to: "${option:target-root|trim}/_components/CrudAddEditForm.vue",
+        to: "src/pages/${option:target-root|trim}/_components/CrudAddEditForm.vue",
         reason: "Install generated shared add/edit form component.",
         category: "crud-ui-generator",
         id: "crud-ui-page-add-edit-form-${option:target-root|snake}",
@@ -214,7 +257,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditFormFields.js",
-        to: "${option:target-root|trim}/_components/CrudAddEditFormFields.js",
+        to: "src/pages/${option:target-root|trim}/_components/CrudAddEditFormFields.js",
         reason: "Install generated shared add/edit form field definitions.",
         category: "crud-ui-generator",
         id: "crud-ui-page-add-edit-form-fields-${option:target-root|snake}",
@@ -237,7 +280,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/NewElement.vue",
-        to: "${option:target-root|trim}/new.vue",
+        to: "src/pages/${option:target-root|trim}/new.vue",
         reason: "Install generated new page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-new-standalone-${option:target-root|snake}",
@@ -260,7 +303,7 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/EditElement.vue",
-        to: "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
+        to: "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
         reason: "Install generated edit page.",
         category: "crud-ui-generator",
         id: "crud-ui-page-edit-standalone-${option:target-root|snake}",

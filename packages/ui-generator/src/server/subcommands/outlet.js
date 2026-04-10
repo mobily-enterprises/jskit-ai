@@ -1,9 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  requireOption,
   requireSinglePositionalTargetFile,
   rejectUnexpectedOptions,
+  resolveOutletTargetId,
   resolvePathWithinApp,
   ensureTrailingNewline,
   insertImportIfMissing,
@@ -127,12 +127,16 @@ async function runGeneratorSubcommand({
     throw new Error(`Unsupported ui-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator outlet" });
-  rejectUnexpectedOptions(options, ["host", "position"], {
+  rejectUnexpectedOptions(options, ["target"], {
     context: "ui-generator outlet"
   });
 
-  const host = requireOption(options, "host", { context: "ui-generator outlet" });
-  const position = normalizeText(options?.position) || DEFAULT_OUTLET_POSITION;
+  const outletTarget = resolveOutletTargetId(options?.target, {
+    context: "ui-generator outlet",
+    optionName: "target",
+    defaultPosition: DEFAULT_OUTLET_POSITION
+  });
+  const { host, position } = outletTarget;
 
   const targetFilePath = resolvePathWithinApp(appRoot, targetFile, {
     context: "ui-generator outlet"

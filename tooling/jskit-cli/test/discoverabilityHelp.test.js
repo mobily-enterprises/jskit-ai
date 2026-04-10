@@ -152,6 +152,10 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     generatorSubcommands: {
       install: {
         description: "Install the generated package.",
+        longDescription: [
+          "This command installs the runtime package into the current app.",
+          "Use it when you want the generator package to apply its managed files and option contract."
+        ],
         examples: [
           {
             label: "App runtime",
@@ -182,7 +186,7 @@ async function writeGeneratorPackageWithExamples(appRoot) {
   );
 }
 
-test("generate <generatorId> help prints generator-specific option contract", async () => {
+test("generate <generatorId> help points users to subcommand contracts", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "discoverability-generate-help-app");
     await createMinimalApp(appRoot, { name: "discoverability-generate-help-app" });
@@ -198,17 +202,12 @@ test("generate <generatorId> help prints generator-specific option contract", as
     assert.match(stdout, /Subcommands \(\d+\):/);
     assert.match(stdout, /scaffold \[primary\]/);
     assert.match(stdout, /scaffold-field/);
-    assert.match(stdout, /jskit generate <generatorId> <subcommand> help/);
-    assert.match(stdout, /--namespace <text> \[required\]/);
-    const namespaceIndex = stdout.indexOf("--namespace <text> [required]");
-    const tableNameIndex = stdout.indexOf("--table-name <text> [required]");
-    const directoryPrefixIndex = stdout.indexOf("--directory-prefix <text> [optional; default: <empty>]");
-    assert.ok(namespaceIndex > -1);
-    assert.ok(tableNameIndex > -1);
-    assert.ok(directoryPrefixIndex > -1);
-    assert.ok(namespaceIndex < directoryPrefixIndex);
-    assert.ok(tableNameIndex < directoryPrefixIndex);
-    assert.match(stdout, /required options with defaults are auto-filled when omitted/i);
+    assert.match(stdout, /Use subcommand help for positional args, options, notes, and examples:/);
+    assert.match(stdout, /\n {2}jskit generate <generatorId> <subcommand> help/);
+    assert.doesNotMatch(stdout, /- Use subcommand help for positional args, options, notes, and examples:/);
+    assert.doesNotMatch(stdout, /Examples \(\d+\):/);
+    assert.doesNotMatch(stdout, /--namespace <text> \[required\]/);
+    assert.doesNotMatch(stdout, /Options \(\d+\):/);
   });
 });
 
@@ -235,7 +234,7 @@ test("generate <generatorId> <subcommand> help prints subcommand contract", asyn
   });
 });
 
-test("generate <generatorId> help <subcommand> prints primary subcommand contract", async () => {
+test("generate <generatorId> help <subcommand> is rejected in favor of <subcommand> help", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "discoverability-generate-primary-subcommand-help-app");
     await createMinimalApp(appRoot, { name: "discoverability-generate-primary-subcommand-help-app" });
@@ -245,14 +244,10 @@ test("generate <generatorId> help <subcommand> prints primary subcommand contrac
       args: ["generate", "crud-server-generator", "help", "scaffold"]
     });
 
-    assert.equal(result.status, 0, String(result.stderr || ""));
-    const stdout = String(result.stdout || "");
-    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator scaffold/);
-    assert.match(stdout, /primary generator command/i);
-    assert.match(stdout, /Positional args \(0\):/);
-    assert.match(stdout, /No positional arguments/);
-    assert.match(stdout, /--namespace <text> \[required\]/);
-    assert.match(stdout, /--directory-prefix <text> \[optional; default: <empty>\]/);
+    assert.notEqual(result.status, 0);
+    const stderr = String(result.stderr || "");
+    assert.match(stderr, /Unknown generator usage:/);
+    assert.match(stderr, /Use: jskit generate crud-server-generator <subcommand> help/);
   });
 });
 
@@ -270,6 +265,8 @@ test("generate <generatorId> <subcommand> help prints package-provided examples"
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
     assert.match(stdout, /Generator subcommand help: @demo\/generator install/);
+    assert.match(stdout, /Long:/);
+    assert.match(stdout, /This command installs the runtime package into the current app\./);
     assert.match(stdout, /Examples \(1\):/);
     assert.match(stdout, /App runtime/);
     assert.match(stdout, /npx jskit generate @demo\/generator install \\/);

@@ -199,7 +199,7 @@ export { resource };
 
 function createOptions(overrides = {}) {
   return {
-    "target-root": "src/pages/admin/customers",
+    "target-root": "admin/customers",
     "resource-file": RESOURCE_FILE,
     operations: "list,view,new,edit",
     "id-param": "customerId",
@@ -269,7 +269,7 @@ test("buildUiTemplateContext falls back to target-root leaf for namespace when r
     const context = await buildUiTemplateContext({
       appRoot,
       options: createOptions({
-        "target-root": "src/pages/admin/catalog/products"
+        "target-root": "admin/catalog/products"
       })
     });
 
@@ -356,7 +356,7 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
     const context = await buildUiTemplateContext({
       appRoot,
       options: createOptions({
-        "target-root": "src/pages/admin/catalog/(nestedChildren)/products"
+        "target-root": "admin/catalog/index/products"
       })
     });
 
@@ -384,7 +384,7 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
   });
 });
 
-test("buildUiTemplateContext requires an explicit target-root under src/pages", async () => {
+test("buildUiTemplateContext rejects target-roots with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
 
@@ -393,10 +393,10 @@ test("buildUiTemplateContext requires an explicit target-root under src/pages", 
         buildUiTemplateContext({
           appRoot,
           options: createOptions({
-            "target-root": "packages/not-a-page"
+            "target-root": "src/pages/admin/customers"
           })
         }),
-      /target file must live under src\/pages/
+      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
     );
   });
 });

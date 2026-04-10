@@ -3,35 +3,44 @@ export default Object.freeze({
   packageId: "@jskit-ai/ui-generator",
   version: "0.1.14",
   kind: "generator",
-  description: "Generate app-local non-CRUD UI pages, placed elements, and page subpage hosts.",
+  description: "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
   options: {
     name: {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Page label",
-      promptHint: "Optional display label override. If omitted for page, it is derived from the target file path."
+      promptLabel: "Display label",
+      promptHint:
+        "Display label used for generated page links and named UI elements. For page, if omitted, it is derived from the target file path."
     },
     surface: {
       required: false,
       inputType: "text",
+      validationType: "enabled-surface-id",
       defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Target surface",
-      promptHint: "Used by the element subcommand. Must match an enabled surface id."
+      promptHint: "Used by the placed-element subcommand. Must match an enabled surface id."
     },
     path: {
       required: false,
       inputType: "text",
       defaultValue: "src/components",
       promptLabel: "Component path",
-      promptHint: "Component directory relative to app root (used by element and add-subpages support scaffold)."
+      promptHint: "Component directory relative to app root (used by placed-element and add-subpages support scaffold)."
+    },
+    force: {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Force overwrite",
+      promptHint: "Overwrite the generated file if it already exists."
     },
     placement: {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Placement target",
-      promptHint: "Optional host:position target for element placement (defaults to app ShellOutlet default target)."
+      promptHint: "Optional host:position target for placed-element placement (defaults to shell-layout:top-right)."
     },
     "link-placement": {
       required: false,
@@ -54,7 +63,7 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Link to",
       promptHint:
-        "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for nestedChildren routes, defaults to ./<page-slug>."
+        "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages host, it is inferred from the page path."
     },
     target: {
       required: false,
@@ -62,21 +71,7 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Outlet target",
       promptHint:
-        "Optional override for add-subpages. Use host or host:position; if omitted, it is derived from the page path."
-    },
-    host: {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Host",
-      promptHint: "ShellOutlet host value for generic outlets."
-    },
-    position: {
-      required: false,
-      inputType: "text",
-      defaultValue: "sub-pages",
-      promptLabel: "Outlet position",
-      promptHint: "ShellOutlet position value to inject into target file."
+        "Used by add-subpages and outlet. Accepts host or host:position. If only host is given, position defaults to sub-pages."
     },
     title: {
       required: false,
@@ -113,21 +108,75 @@ export default Object.freeze({
         entrypoint: "src/server/subcommands/page.js",
         export: "runGeneratorSubcommand",
         description: "Create a route page at an explicit target file and add a link placement entry for it.",
+        longDescription: [
+          "This command always creates one route page file. By default, its page link is placed from the page path itself.",
+          "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor as the real host. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
+          "That means the generated link normally becomes a tab or child-page link under that ancestor host, and `props.to` is inferred relative to that host. If the host page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
+        ],
         positionalArgs: [
           {
             name: "target-file",
             required: true,
-            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+            descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "link-placement", "link-component-token", "link-to"]
+        optionNames: ["name", "link-placement", "link-component-token", "link-to", "force"],
+        notes: [
+          "If a nearest parent subpages host is found, placement, link component token, and props.to are inferred automatically.",
+          "If the parent host page is index.vue, child pages belong under index/...",
+          "If the target page file already exists, rerun with --force to overwrite it."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate ui-generator page \\",
+              "  admin/reports/index.vue \\",
+              "  --name \"Reports\""
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate ui-generator page \\",
+              "  admin/customers/[customerId]/index/notes/index.vue \\",
+              "  --name \"Notes\" \\",
+              "  --force"
+            ]
+          }
+        ]
       },
-      element: {
+      "placed-element": {
         entrypoint: "src/server/subcommands/element.js",
         export: "runGeneratorSubcommand",
-        description: "Scaffold a reusable UI element component and register a placement.",
-        optionNames: ["name", "surface", "path", "placement"],
-        requiredOptionNames: ["name", "surface"]
+        description: "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
+        optionNames: ["name", "surface", "path", "placement", "force"],
+        requiredOptionNames: ["name", "surface"],
+        notes: [
+          "If --placement is omitted, the placed element is added at shell-layout:top-right.",
+          "If the component file already exists, rerun with --force to overwrite it."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate ui-generator placed-element \\",
+              "  --name \"Alerts Widget\" \\",
+              "  --surface admin"
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate ui-generator placed-element \\",
+              "  --name \"Ops Panel\" \\",
+              "  --surface admin \\",
+              "  --path src/widgets \\",
+              "  --placement shell-layout:top-right \\",
+              "  --force"
+            ]
+          }
+        ]
       },
       "add-subpages": {
         entrypoint: "src/server/subcommands/addSubpages.js",
@@ -137,24 +186,76 @@ export default Object.freeze({
           {
             name: "target-file",
             required: true,
-            description: "Existing Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+            descriptionKey: "existing-page-target-file"
           }
         ],
-        optionNames: ["target", "path", "title", "subtitle"]
+        optionNames: ["target", "path", "title", "subtitle"],
+        notes: [
+          "Use this when the page should render shared content plus child routes below it.",
+          "If the host page is index.vue, create child pages under index/..."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate ui-generator add-subpages \\",
+              "  admin/customers/[customerId]/index.vue \\",
+              "  --title \"Customer\" \\",
+              "  --subtitle \"View and manage this customer.\""
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate ui-generator add-subpages \\",
+              "  admin/contacts/[contactId]/index.vue \\",
+              "  --target contact-view:summary-tabs \\",
+              "  --path src/components/admin \\",
+              "  --title \"Contact\" \\",
+              "  --subtitle \"Manage contact modules.\""
+            ]
+          }
+        ]
       },
       outlet: {
         entrypoint: "src/server/subcommands/outlet.js",
         export: "runGeneratorSubcommand",
         description: "Inject a generic ShellOutlet block into an existing Vue page/component.",
+        longDescription: [
+          "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
+          "After an outlet exists, `jskit list-placements` will discover it and show it as `host:position`. That makes the target visible to humans and to generators that need a placement destination.",
+          "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same `host:position`."
+        ],
         positionalArgs: [
           {
             name: "target-file",
             required: true,
-            description: "Existing Vue SFC path relative to app root."
+            descriptionKey: "existing-vue-sfc-target-file"
           }
         ],
-        optionNames: ["host", "position"],
-        requiredOptionNames: ["host"]
+        optionNames: ["target"],
+        requiredOptionNames: ["target"],
+        notes: [
+          "Use --target host or --target host:position. If only host is given, position defaults to sub-pages."
+        ],
+        examples: [
+          {
+            label: "Common usage",
+            lines: [
+              "npx jskit generate ui-generator outlet \\",
+              "  src/components/ContactSummaryCard.vue \\",
+              "  --target contact-view"
+            ]
+          },
+          {
+            label: "More advanced usage",
+            lines: [
+              "npx jskit generate ui-generator outlet \\",
+              "  src/pages/admin/customers/[customerId]/index.vue \\",
+              "  --target customer-view:summary-actions"
+            ]
+          }
+        ]
       }
     },
     apiSummary: {

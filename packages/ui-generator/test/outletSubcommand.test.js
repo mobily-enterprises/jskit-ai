@@ -40,7 +40,7 @@ import { computed } from "vue";
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -57,7 +57,7 @@ import { computed } from "vue";
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -91,7 +91,7 @@ import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -124,7 +124,7 @@ test("ui-generator outlet creates script setup when missing", async () => {
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -161,7 +161,7 @@ test("ui-generator outlet inserts generated script after existing route block", 
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -203,7 +203,7 @@ test("ui-generator outlet keeps indentation when injected into nested template b
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        host: "contact-view"
+        target: "contact-view"
       }
     });
 
@@ -228,11 +228,55 @@ test("ui-generator outlet rejects unsupported options", async () => {
         subcommand: "outlet",
         args: [targetFile],
         options: {
-          host: "contact-view",
+          target: "contact-view",
           bogus: "routed"
         }
       }),
       /ui-generator outlet received unsupported option: --bogus\./
+    );
+  });
+});
+
+test("ui-generator outlet supports explicit target host:position", async () => {
+  await withTempApp(async (appRoot) => {
+    const targetFile = "src/components/ContactDetailsPanel.vue";
+    const targetPath = path.join(appRoot, targetFile);
+
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, "<template><div /></template>\n", "utf8");
+
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "outlet",
+      args: [targetFile],
+      options: {
+        target: "customer-view:summary-actions"
+      }
+    });
+
+    const output = await readFile(targetPath, "utf8");
+    assert.match(output, /<ShellOutlet host="customer-view" position="summary-actions" \/>/);
+  });
+});
+
+test("ui-generator outlet validates target format", async () => {
+  await withTempApp(async (appRoot) => {
+    const targetFile = "src/components/ContactDetailsPanel.vue";
+    const targetPath = path.join(appRoot, targetFile);
+
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, "<template><div /></template>\n", "utf8");
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "outlet",
+        args: [targetFile],
+        options: {
+          target: "customer-view:"
+        }
+      }),
+      /ui-generator outlet option "target" must be "host" or "host:position"\./
     );
   });
 });

@@ -1,4 +1,8 @@
 import { resolveCommandAlias } from "./commandCatalog.js";
+import {
+  createColorFormatter,
+  writeWrappedLines
+} from "../shared/outputFormatting.js";
 
 const COMMAND_OVERVIEW = Object.freeze([
   Object.freeze({
@@ -114,8 +118,25 @@ const COMMAND_HELP = Object.freeze({
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists available generators.",
-      "If no subcommand is provided, the generator primary command runs.",
+      "Running with only <generatorId> shows generator help.",
       "Use jskit generate <generatorId> <subcommand> help for subcommand-specific usage."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Common usage",
+        lines: Object.freeze([
+          "npx jskit generate ui-generator page \\",
+          "  admin/reports/index.vue"
+        ])
+      }),
+      Object.freeze({
+        label: "More advanced usage",
+        lines: Object.freeze([
+          "npx jskit generate crud-ui-generator crud \\",
+          "  admin/catalog/index/products \\",
+          "  --resource-file packages/products/src/shared/productResource.js"
+        ])
+      })
     ]),
     fullUse: "jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]"
   }),
@@ -297,22 +318,41 @@ const BARE_COMMAND_HELP = new Set([
   "remove"
 ]);
 
-function writeLine(stream, line = "") {
-  stream.write(`${line}\n`);
+function appendSeparatedBlocks(lines = [], blocks = []) {
+  const normalizedBlocks = Array.isArray(blocks) ? blocks : [];
+  for (const [index, block] of normalizedBlocks.entries()) {
+    if (index > 0) {
+      lines.push("");
+    }
+    const lineList = Array.isArray(block) ? block : [block];
+    for (const line of lineList) {
+      lines.push(line);
+    }
+  }
+}
+
+function writeHelpLines(stream, lines = []) {
+  writeWrappedLines({
+    stdout: stream,
+    lines
+  });
 }
 
 function printTopLevelHelp(stream = process.stderr) {
-  writeLine(stream, "JSKit CLI");
-  writeLine(stream, "");
-  writeLine(stream, "Use: jskit help <command> for command-specific usage.");
-  writeLine(stream, "");
-  writeLine(stream, "Available commands:");
+  const color = createColorFormatter(stream);
+  const lines = [];
+  lines.push(color.heading("JSKit CLI"));
+  lines.push("");
+  lines.push("Use: jskit help <command> for command-specific usage.");
+  lines.push("");
+  lines.push(color.heading("Available commands:"));
   for (const entry of COMMAND_OVERVIEW) {
-    writeLine(stream, `  ${entry.command.padEnd(16, " ")} ${entry.summary}`);
+    lines.push(`  ${color.item(entry.command.padEnd(16, " "))} ${entry.summary}`);
   }
-  writeLine(stream, "");
-  writeLine(stream, "Global flags:");
-  writeLine(stream, "  --dry-run --run-npm-install --json --verbose --help");
+  lines.push("");
+  lines.push(color.heading("Global flags:"));
+  lines.push("  --dry-run --run-npm-install --json --verbose --help");
+  writeHelpLines(stream, lines);
 }
 
 function printCommandHelp(stream = process.stderr, command = "") {
@@ -323,27 +363,54 @@ function printCommandHelp(stream = process.stderr, command = "") {
     return;
   }
 
-  writeLine(stream, `Command: ${entry.title}`);
-  writeLine(stream, "");
+  const color = createColorFormatter(stream);
+  const lines = [];
+  lines.push(`Command: ${color.emphasis(entry.title)}`);
+  lines.push("");
 
-  writeLine(stream, "1) Minimal use");
-  writeLine(stream, `   ${entry.minimalUse}`);
+  let sectionNumber = 1;
+
+  lines.push(color.heading(`${sectionNumber++}) Minimal use`));
+  lines.push(`   ${entry.minimalUse}`);
   if (entry.parameters.length > 0) {
-    writeLine(stream, "   Parameters:");
-    for (const parameter of entry.parameters) {
-      writeLine(stream, `   - ${parameter.name}: ${parameter.description}`);
-    }
+    lines.push(color.heading("   Parameters:"));
+    appendSeparatedBlocks(
+      lines,
+      entry.parameters.map((parameter) => `   - ${parameter.name}: ${parameter.description}`)
+    );
   }
-  writeLine(stream, "");
+  lines.push("");
 
-  writeLine(stream, "2) Defaults");
-  for (const defaultLine of entry.defaults) {
-    writeLine(stream, `   - ${defaultLine}`);
+  lines.push(color.heading(`${sectionNumber++}) Defaults`));
+  appendSeparatedBlocks(
+    lines,
+    entry.defaults.map((defaultLine) => `   - ${defaultLine}`)
+  );
+  lines.push("");
+
+  const examples = Array.isArray(entry.examples) ? entry.examples : [];
+  if (examples.length > 0) {
+    lines.push(color.heading(`${sectionNumber++}) Examples`));
+    appendSeparatedBlocks(
+      lines,
+      examples.map((example) => {
+        const block = [];
+        const label = String(example?.label || "").trim();
+        if (label) {
+          block.push(`   - ${color.item(label)}`);
+        }
+        for (const line of Array.isArray(example?.lines) ? example.lines : []) {
+          block.push(`     ${line}`);
+        }
+        return block;
+      })
+    );
+    lines.push("");
   }
-  writeLine(stream, "");
 
-  writeLine(stream, "3) Full use");
-  writeLine(stream, `   ${entry.fullUse}`);
+  lines.push(color.heading(`${sectionNumber++}) Full use`));
+  lines.push(`   ${entry.fullUse}`);
+  writeHelpLines(stream, lines);
 }
 
 function printUsage(stream = process.stderr, { command = "" } = {}) {

@@ -182,11 +182,6 @@ Exports
 Exports
 - None
 Local functions
-- `toPosixPath(value = "")`
-- `nodeDeclaresNestedChildrenSource(node)`
-- `collectBranchComponentNodes(node)`
-- `isNestedChildrenBranch(node)`
-- `reparentNestedChildrenToIndexOwners(rootRoute)`
 - `clientEntry(()`
 
 ### `templates/base-shell/vite.shared.mjs`

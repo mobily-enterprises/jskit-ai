@@ -4,11 +4,25 @@ Install assistant runtime/config for one surface, then scaffold assistant pages 
 
 ## Mental Model
 
-`@jskit-ai/assistant` is split into setup and page creation.
+`@jskit-ai/assistant` is the generator package.
 
-- `setup` installs runtime/config/env wiring only.
-- `page <target-file>` creates the assistant runtime page anywhere under `src/pages/...`.
-- `settings-page <target-file>` creates the assistant settings page anywhere under `src/pages/...`.
+- `setup` installs the assistant runtime/config/env wiring.
+- `page <target-file>` creates the assistant runtime page anywhere relative to `src/pages/...`.
+- `settings-page <target-file>` creates the assistant settings page anywhere relative to `src/pages/...`.
+
+There is no separate server command and no separate client command.
+
+The layering is:
+
+- `@jskit-ai/assistant`: generator package with `setup`, `page`, and `settings-page`
+- `@jskit-ai/assistant-runtime`: runtime package installed by `setup`
+- `@jskit-ai/assistant-core`: lower-level provider/client library pulled in by `assistant-runtime`
+
+So the normal flow is:
+
+- run `setup`
+- optionally create `page`
+- optionally create `settings-page`
 
 Page placement follows the same file-driven model as `@jskit-ai/ui-generator`.
 
@@ -38,13 +52,13 @@ It only registers:
 - `config.assistantSurfaces.<surface>`
 - `config.assistantServer.<surface>`
 - prefixed AI env defaults in `.env`
-- the `@jskit-ai/assistant-runtime` dependency chain
+- the `@jskit-ai/assistant-runtime` dependency chain, including `@jskit-ai/assistant-core`
 
 ## Runtime Page
 
 ```bash
 npx jskit generate @jskit-ai/assistant page \
-  src/pages/admin/ops/copilot/index.vue
+  admin/ops/copilot/index.vue
 ```
 
 The page surface id comes from the target file path.
@@ -60,7 +74,7 @@ Optional page-link overrides:
 
 ```bash
 npx jskit generate @jskit-ai/assistant settings-page \
-  src/pages/admin/settings/(nestedChildren)/assistant/index.vue \
+  admin/settings/index/assistant/index.vue \
   --surface admin
 ```
 

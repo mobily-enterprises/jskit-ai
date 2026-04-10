@@ -236,9 +236,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
 
     const viteConfig = await readFile(path.join(appRoot, "vite.config.mjs"), "utf8");
-    assert.match(viteConfig, /function reparentNestedChildrenToIndexOwners\(rootRoute\)/);
-    assert.match(viteConfig, /beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/);
-    assert.match(viteConfig, /\/\(nestedChildren\)\//);
+    assert.doesNotMatch(viteConfig, /function reparentNestedChildrenToIndexOwners\(rootRoute\)/);
+    assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
+    assert.match(viteConfig, /nestedChildren deprecated/);
 
     assert.match(result.stdout, /npx jskit add auth-base/);
   });

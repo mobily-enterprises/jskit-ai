@@ -15,6 +15,7 @@ export default Object.freeze({
     surface: {
       required: true,
       inputType: "text",
+      validationType: "enabled-surface-id",
       promptLabel: "Target surface",
       promptHint: "Must match an enabled surface id."
     },
@@ -45,6 +46,13 @@ export default Object.freeze({
       defaultValue: "id",
       promptLabel: "Id column",
       promptHint: "Primary key column used by CRUD endpoints (default: id)."
+    },
+    force: {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Force overwrite",
+      promptHint: "Overwrite generated scaffold files if the namespace package directory already exists."
     }
   },
   optionPolicies: {
@@ -90,8 +98,14 @@ export default Object.freeze({
           "ownership-filter",
           "table-name",
           "id-column",
-          "directory-prefix"
-        ]
+          "directory-prefix",
+          "force"
+        ],
+        createTarget: {
+          pathTemplate: "packages/${option:namespace|kebab}",
+          label: "package directory",
+          allowExistingEmptyDirectory: false
+        }
       },
       "scaffold-field": {
         entrypoint: "src/server/subcommands/addField.js",

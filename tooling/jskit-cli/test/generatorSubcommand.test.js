@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +8,15 @@ import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
+
+async function fileExists(absolutePath) {
+  try {
+    await access(absolutePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   await mkdir(appRoot, { recursive: true });
@@ -68,6 +77,7 @@ async function writeGeneratorPackage(appRoot) {
     }
   },
   metadata: {
+    generatorPrimarySubcommand: "ping",
     generatorSubcommands: {
       ping: {
         entrypoint: "src/server/subcommands/ping.js",
@@ -132,5 +142,22 @@ test("generate <packageId> <subcommand> runs generator subcommand without instal
 
     const output = await readFile(path.join(appRoot, "tmp", "generator-subcommand.txt"), "utf8");
     assert.equal(output, "ping:a,b");
+  });
+});
+
+test("generate <packageId> with no subcommand shows generator help instead of executing", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "generator-primary-subcommand-app");
+    await createMinimalApp(appRoot, { name: "generator-primary-subcommand-app" });
+    await writeGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@demo/generator"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /Generator help: @demo\/generator/);
+    assert.equal(await fileExists(path.join(appRoot, "tmp", "generator-subcommand.txt")), false);
   });
 });

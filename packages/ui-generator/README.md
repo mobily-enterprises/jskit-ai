@@ -14,7 +14,7 @@ Create a normal page at an explicit file:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/reports-dashboard/index.vue \
+  admin/reports-dashboard/index.vue \
   --name "Reports Dashboard"
 ```
 
@@ -22,7 +22,7 @@ Create a file-route page:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/contacts/[contactId].vue \
+  admin/contacts/[contactId].vue \
   --name "Contact"
 ```
 
@@ -30,7 +30,7 @@ Upgrade an existing page into a routed subpage host:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator add-subpages \
-  src/pages/admin/contacts/[contactId].vue \
+  admin/contacts/[contactId].vue \
   --title "Contact" \
   --subtitle "Manage contact modules."
 ```
@@ -38,10 +38,9 @@ npx jskit generate @jskit-ai/ui-generator add-subpages \
 Create a reusable placed element:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element \
+npx jskit generate @jskit-ai/ui-generator placed-element \
   --name "Alerts Widget" \
-  --surface admin \
-  --placement shell-layout:top-right
+  --surface admin
 ```
 
 Inject a plain generic outlet into an existing Vue file:
@@ -49,20 +48,22 @@ Inject a plain generic outlet into an existing Vue file:
 ```bash
 npx jskit generate @jskit-ai/ui-generator outlet \
   src/components/ContactSummaryCard.vue \
-  --host contact-view \
-  --position summary-actions
+  --target contact-view:summary-actions
 ```
 
 ## Commands
 
-- `page <target-file>`: create a route page at that exact file and add a link placement entry for it.
-- `add-subpages <target-file>`: upgrade an existing page into the standard `SectionContainerShell + ShellOutlet + RouterView` host shape.
-- `element`: create a reusable component and register a placement for it.
+- `page <target-file>`: create a route page at that exact file relative to `src/pages/` and add a link placement entry for it.
+- `add-subpages <target-file>`: upgrade an existing page relative to `src/pages/` into the standard `SectionContainerShell + ShellOutlet + RouterView` host shape.
+- `placed-element`: create a reusable component and register a placement for it.
 - `outlet <target-file>`: inject a plain `ShellOutlet` into an existing Vue SFC.
+
+For `placed-element`, the default placement target is `shell-layout:top-right`.
+Use `--placement host:position` to override it.
 
 ## The Mental Model
 
-`page`, `add-subpages`, and `outlet` all operate on explicit files.
+`page` and `add-subpages` operate on explicit page files relative to `src/pages/`. `outlet` still targets an explicit Vue file path relative to the app root.
 
 That means:
 
@@ -73,9 +74,9 @@ That means:
 
 This is the reference model for JSKIT page-producing generators.
 
-- `@jskit-ai/ui-generator page <target-file>` works from an explicit page file.
-- `@jskit-ai/crud-ui-generator crud <target-root>` works from an explicit route root.
-- `@jskit-ai/assistant page <target-file>` and `settings-page <target-file>` work from explicit page files.
+- `@jskit-ai/ui-generator page <target-file>` works from an explicit page file relative to `src/pages/`.
+- `@jskit-ai/crud-ui-generator crud <target-root>` works from an explicit route root relative to `src/pages/`.
+- `@jskit-ai/assistant page <target-file>` and `settings-page <target-file>` work from explicit page files relative to `src/pages/`.
 
 ## Page Links
 
@@ -87,7 +88,7 @@ These options control that generated page link:
 - `--link-component-token`: how the page link is rendered
 - `--link-to`: explicit `props.to` override for the page link
 
-This is intentionally separate from `element`, which still uses `--placement` because it places arbitrary UI, not a page link.
+This is intentionally separate from `placed-element`, which still uses `--placement` because it places arbitrary UI, not a page link.
 
 ## Routed Subpages
 
@@ -133,10 +134,10 @@ If the parent is a file route:
 If the parent is an index route:
 
 - parent: `src/pages/admin/catalog/index.vue`
-- child pages go under: `src/pages/admin/catalog/(nestedChildren)/...`
-- example child page: `src/pages/admin/catalog/(nestedChildren)/products/index.vue`
+- child pages go under: `src/pages/admin/catalog/index/...`
+- example child page: `src/pages/admin/catalog/index/products/index.vue`
 
-That route-group folder is how the app router reparents sibling files into the parent page’s `RouterView`.
+That `index/...` folder shape is the native file-based routing rule for nesting children under an `index.vue` page.
 
 ## Example: File Route Parent
 
@@ -144,7 +145,7 @@ Create the parent page:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/contacts/[contactId].vue \
+  admin/contacts/[contactId].vue \
   --name "Contact"
 ```
 
@@ -152,7 +153,7 @@ Upgrade it to host subpages:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator add-subpages \
-  src/pages/admin/contacts/[contactId].vue \
+  admin/contacts/[contactId].vue \
   --title "Contact" \
   --subtitle "Manage contact modules."
 ```
@@ -161,7 +162,7 @@ Generate a child page link inside that host:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/contacts/[contactId]/notes/index.vue \
+  admin/contacts/[contactId]/notes/index.vue \
   --name "Notes"
 ```
 
@@ -171,7 +172,7 @@ Create the parent page:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/catalog/index.vue \
+  admin/catalog/index.vue \
   --name "Catalog"
 ```
 
@@ -179,15 +180,17 @@ Upgrade it to host subpages:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator add-subpages \
-  src/pages/admin/catalog/index.vue \
+  admin/catalog/index.vue \
   --title "Catalog"
 ```
+
+Because the parent page is `index.vue`, nested child pages live under the matching `index/` folder.
 
 Generate a child page link inside that host:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  src/pages/admin/catalog/(nestedChildren)/products/index.vue \
+  admin/catalog/index/products/index.vue \
   --name "Products"
 ```
 

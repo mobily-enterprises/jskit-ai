@@ -217,35 +217,32 @@ async function ensureSubpagesSupportScaffold({
   );
 
   const touchedFiles = new Set();
-  const desiredSectionShellSource = renderSectionContainerShellSource();
-  const desiredTabLinkSource = renderTabLinkItemSource();
-
-  let sectionShellSource = "";
-  try {
-    sectionShellSource = await readFile(sectionContainerShellPath.absolutePath, "utf8");
-  } catch {
-    sectionShellSource = "";
-  }
-  if (sectionShellSource !== desiredSectionShellSource) {
-    if (dryRun !== true) {
-      await mkdir(path.dirname(sectionContainerShellPath.absolutePath), { recursive: true });
-      await writeFile(sectionContainerShellPath.absolutePath, desiredSectionShellSource, "utf8");
+  for (const supportFile of [
+    {
+      path: sectionContainerShellPath,
+      desiredSource: renderSectionContainerShellSource()
+    },
+    {
+      path: tabLinkPath,
+      desiredSource: renderTabLinkItemSource()
     }
-    touchedFiles.add(sectionContainerShellPath.relativePath);
-  }
-
-  let tabLinkSource = "";
-  try {
-    tabLinkSource = await readFile(tabLinkPath.absolutePath, "utf8");
-  } catch {
-    tabLinkSource = "";
-  }
-  if (tabLinkSource !== desiredTabLinkSource) {
-    if (dryRun !== true) {
-      await mkdir(path.dirname(tabLinkPath.absolutePath), { recursive: true });
-      await writeFile(tabLinkPath.absolutePath, desiredTabLinkSource, "utf8");
+  ]) {
+    let alreadyExists = true;
+    try {
+      await readFile(supportFile.path.absolutePath, "utf8");
+    } catch {
+      alreadyExists = false;
     }
-    touchedFiles.add(tabLinkPath.relativePath);
+
+    if (alreadyExists) {
+      continue;
+    }
+
+    if (dryRun !== true) {
+      await mkdir(path.dirname(supportFile.path.absolutePath), { recursive: true });
+      await writeFile(supportFile.path.absolutePath, supportFile.desiredSource, "utf8");
+    }
+    touchedFiles.add(supportFile.path.relativePath);
   }
 
   const providerSource = await readFile(providerPath.absolutePath, "utf8");

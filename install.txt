@@ -178,7 +178,7 @@ npx jskit generate @jskit-ai/assistant page \
   src/pages/w/[workspaceSlug]/admin/assistant/index.vue
 
 npx jskit generate @jskit-ai/assistant settings-page \
-  src/pages/w/[workspaceSlug]/admin/settings/(nestedChildren)/assistant/index.vue \
+  src/pages/w/[workspaceSlug]/admin/settings/index/assistant/index.vue \
   --surface admin
 ------------------------------------
 
@@ -283,7 +283,7 @@ $
 Then you can add a crud in there:
 
   npx jskit generate @jskit-ai/crud-ui-generator crud \
-    src/pages/w/[workspaceSlug]/admin/practice/(nestedChildren)/vets \
+    src/pages/w/[workspaceSlug]/admin/practice/index/vets \
     --resource-file packages/vets/src/shared/vetResource.js \
     --id-param vetId
 
@@ -291,7 +291,7 @@ Then you can add a crud in there:
 Or just a page:
 
 npx jskit generate @jskit-ai/ui-generator page \
-    src/pages/w/[workspaceSlug]/admin/practice/(nestedChildren)/availabilities/index.vue \
+    src/pages/w/[workspaceSlug]/admin/practice/index/availabilities/index.vue \
     --name "Availabilities"
 
 
@@ -299,7 +299,7 @@ npx jskit generate @jskit-ai/ui-generator page \
 ADDING A CONSOLE SETTINGS (crud)
 
  npx jskit generate @jskit-ai/crud-ui-generator crud \
-    src/pages/console/settings/(nestedChildren)/breeds \
+    src/pages/console/settings/breeds \
     --resource-file packages/breeds/src/shared/breedResource.js \
     --id-param breedId
 

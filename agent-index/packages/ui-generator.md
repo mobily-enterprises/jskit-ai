@@ -24,7 +24,6 @@ Local functions
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
-- `normalizeExplicitOutletTargetId(value = "")`
 - `resolveSubpagesOutletTarget(options = {}, pageTarget = {})`
 
 ### `src/server/subcommands/element.js`
@@ -84,6 +83,8 @@ Exports
 - `toPascalCase(value = "")`
 - `requireOption(options = {}, optionName = "", { context = "ui-generator" } = {})`
 - `requireSinglePositionalTargetFile(args = [], { context = "ui-generator" } = {})`
+- `normalizeExplicitOutletTargetId(value = "")`
+- `resolveOutletTargetId(rawTarget = "", { context = "ui-generator", optionName = "target", defaultPosition = "" } = {})`
 - `rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "ui-generator" } = {})`
 - `resolvePathWithinApp(appRoot, targetPath, { context = "ui-generator" } = {})`
 - `ensureTrailingNewline(value = "")`

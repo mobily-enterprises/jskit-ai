@@ -51,6 +51,7 @@ function parseArgs(argv, { createCliError } = {}) {
     inlineOptions: {}
   };
   const positional = [];
+  const allowLooseInlineOptionParsing = command === "generate";
 
   while (args.length > 0) {
     const token = String(args.shift() || "");
@@ -99,27 +100,45 @@ function parseArgs(argv, { createCliError } = {}) {
       options.help = true;
       continue;
     }
+    if (token === "--force") {
+      options.inlineOptions.force = "true";
+      continue;
+    }
 
     if (token.startsWith("--")) {
       const withoutPrefix = token.slice(2);
       const hasInlineValue = withoutPrefix.includes("=");
       const optionName = hasInlineValue ? withoutPrefix.slice(0, withoutPrefix.indexOf("=")) : withoutPrefix;
-      const optionValueRaw = hasInlineValue
-        ? withoutPrefix.slice(withoutPrefix.indexOf("=") + 1)
-        : args.shift();
-
-      if (!/^[a-z][a-z0-9-]*$/.test(optionName)) {
+      const optionNamePattern = allowLooseInlineOptionParsing
+        ? /^[A-Za-z][A-Za-z0-9_-]*$/
+        : /^[a-z][a-z0-9-]*$/;
+      if (!optionNamePattern.test(optionName)) {
         throw createCliError(`Unknown option: ${token}`, { showUsage: true });
       }
-      if (typeof optionValueRaw !== "string") {
-        throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
-      }
-      const optionValue = optionValueRaw.trim();
-      if (!hasInlineValue && optionValue.startsWith("-")) {
-        throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
+
+      let optionValueRaw;
+      if (hasInlineValue) {
+        optionValueRaw = withoutPrefix.slice(withoutPrefix.indexOf("=") + 1);
+      } else {
+        const nextToken = typeof args[0] === "string" ? String(args[0]) : "";
+        if (nextToken && !nextToken.startsWith("-")) {
+          optionValueRaw = args.shift();
+        }
       }
 
-      options.inlineOptions[optionName] = optionValue;
+      if (!allowLooseInlineOptionParsing && typeof optionValueRaw !== "string") {
+        throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
+      }
+      if (typeof optionValueRaw === "string") {
+        const optionValue = optionValueRaw.trim();
+        if (!hasInlineValue && optionValue.startsWith("-")) {
+          throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
+        }
+        options.inlineOptions[optionName] = optionValue;
+        continue;
+      }
+
+      options.inlineOptions[optionName] = undefined;
       continue;
     }
 

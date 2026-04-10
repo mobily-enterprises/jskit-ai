@@ -44,6 +44,54 @@ function requireSinglePositionalTargetFile(args = [], { context = "ui-generator"
   return positionalArgs[0];
 }
 
+function normalizeExplicitOutletTargetId(value = "") {
+  const normalizedValue = normalizeText(value);
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const separatorIndex = normalizedValue.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex >= normalizedValue.length - 1) {
+    return "";
+  }
+
+  const host = normalizeText(normalizedValue.slice(0, separatorIndex));
+  const position = normalizeText(normalizedValue.slice(separatorIndex + 1));
+  if (!host || !position) {
+    return "";
+  }
+
+  return `${host}:${position}`;
+}
+
+function resolveOutletTargetId(
+  rawTarget = "",
+  {
+    context = "ui-generator",
+    optionName = "target",
+    defaultPosition = ""
+  } = {}
+) {
+  const normalizedTarget = normalizeText(rawTarget);
+  if (!normalizedTarget) {
+    throw new Error(`${context} requires --${optionName}.`);
+  }
+
+  const targetId = normalizedTarget.includes(":")
+    ? normalizeExplicitOutletTargetId(normalizedTarget)
+    : normalizeExplicitOutletTargetId(`${normalizedTarget}:${normalizeText(defaultPosition)}`);
+  if (!targetId) {
+    throw new Error(`${context} option "${optionName}" must be "host" or "host:position".`);
+  }
+
+  const separatorIndex = targetId.indexOf(":");
+  return Object.freeze({
+    id: targetId,
+    host: targetId.slice(0, separatorIndex),
+    position: targetId.slice(separatorIndex + 1)
+  });
+}
+
 function rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "ui-generator" } = {}) {
   const allowedOptionNameSet = new Set(
     (Array.isArray(allowedOptionNames) ? allowedOptionNames : [])
@@ -247,6 +295,8 @@ export {
   toPascalCase,
   requireOption,
   requireSinglePositionalTargetFile,
+  normalizeExplicitOutletTargetId,
+  resolveOutletTargetId,
   rejectUnexpectedOptions,
   resolvePathWithinApp,
   ensureTrailingNewline,

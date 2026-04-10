@@ -84,17 +84,17 @@ function appendBlockIfMarkerMissing(source = "", marker = "", block = "") {
   };
 }
 
-function requireManagedOrEmptyPageSource(existingSource = "", expectedSource = "", targetRelativePath = "", { context = "assistant" } = {}) {
+function requireEmptyPageSource(existingSource = "", targetRelativePath = "", { context = "assistant", forceOverwrite = false } = {}) {
   const sourceText = String(existingSource || "");
   if (!sourceText) {
     return;
   }
-  if (sourceText === String(expectedSource || "")) {
+  if (forceOverwrite) {
     return;
   }
 
   throw new Error(
-    `${context} will not overwrite existing page ${targetRelativePath}. Move it or choose an empty target file.`
+    `${context} will not overwrite existing page ${targetRelativePath}. Re-run with --force to overwrite it.`
   );
 }
 
@@ -104,5 +104,5 @@ export {
   rejectUnexpectedOptions,
   resolvePathWithinApp,
   appendBlockIfMarkerMissing,
-  requireManagedOrEmptyPageSource
+  requireEmptyPageSource
 };
