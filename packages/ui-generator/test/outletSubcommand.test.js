@@ -259,6 +259,32 @@ test("ui-generator outlet supports explicit target host:position", async () => {
   });
 });
 
+test("ui-generator outlet rejects non-vue target files without changing them", async () => {
+  await withTempApp(async (appRoot) => {
+    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/vets/_components/VetAddEditFormFields.js";
+    const targetPath = path.join(appRoot, targetFile);
+    const originalSource = "export const fields = [];\n";
+
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, originalSource, "utf8");
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "outlet",
+        args: [targetFile],
+        options: {
+          target: "vet-view"
+        }
+      }),
+      /ui-generator outlet target file must be an existing Vue SFC \(\.vue\): src\/pages\/w\/\[workspaceSlug\]\/admin\/practice\/vets\/_components\/VetAddEditFormFields\.js\./
+    );
+
+    const output = await readFile(targetPath, "utf8");
+    assert.equal(output, originalSource);
+  });
+});
+
 test("ui-generator outlet validates target format", async () => {
   await withTempApp(async (appRoot) => {
     const targetFile = "src/components/ContactDetailsPanel.vue";

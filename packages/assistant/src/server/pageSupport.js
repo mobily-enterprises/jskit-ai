@@ -94,7 +94,7 @@ function renderAssistantPageLinkPlacementBlock({
 
 function renderAssistantPageSummary(
   pageTarget = {},
-  { pageAlreadyExisted = false, pageOverwritten = false, placementChanged = false } = {}
+  { pageAlreadyExisted = false, pageOverwritten = false } = {}
 ) {
   if (!pageAlreadyExisted) {
     return `Generated assistant page "${String(pageTarget?.routeUrlSuffix || "")}".`;
@@ -102,10 +102,7 @@ function renderAssistantPageSummary(
   if (pageOverwritten) {
     return `Regenerated assistant page "${String(pageTarget?.routeUrlSuffix || "")}".`;
   }
-  if (placementChanged) {
-    return `Updated assistant page link placement for "${String(pageTarget?.routeUrlSuffix || "")}".`;
-  }
-  return `Assistant page "${String(pageTarget?.routeUrlSuffix || "")}" is already up to date.`;
+  return `Generated assistant page "${String(pageTarget?.routeUrlSuffix || "")}".`;
 }
 
 export {

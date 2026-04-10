@@ -141,6 +141,11 @@ async function runGeneratorSubcommand({
   const targetFilePath = resolvePathWithinApp(appRoot, targetFile, {
     context: "ui-generator outlet"
   });
+  if (!targetFilePath.relativePath.toLowerCase().endsWith(".vue")) {
+    throw new Error(
+      `ui-generator outlet target file must be an existing Vue SFC (.vue): ${targetFilePath.relativePath}.`
+    );
+  }
 
   let source = "";
   try {

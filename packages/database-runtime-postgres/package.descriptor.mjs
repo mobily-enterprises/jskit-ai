@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-postgres",
-  version: "0.1.30",
+  version: "0.1.31",
   kind: "runtime",
   options: {
     "db-host": {
@@ -91,7 +91,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.31",
+        "@jskit-ai/database-runtime": "0.1.32",
         "pg": "^8.13.1"
       },
       dev: {}

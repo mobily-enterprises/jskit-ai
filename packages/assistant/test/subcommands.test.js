@@ -87,6 +87,7 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
     });
 
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.equal(result.summary, 'Generated assistant page "/ops/copilot".');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<AssistantSurfaceClientElement surface-id="admin" \/>/);
@@ -129,6 +130,7 @@ test("assistant settings-page subcommand uses the target assistant surface and i
     });
 
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.equal(result.summary, 'Generated assistant page "/settings/assistant".');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<AssistantSettingsClientElement target-surface-id="console" \/>/);

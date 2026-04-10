@@ -73,6 +73,7 @@ test("ui-generator page subcommand creates an index page from an explicit target
     });
 
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.equal(result.summary, 'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
@@ -348,5 +349,67 @@ test("ui-generator page subcommand overwrites an existing page when --force is p
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
     assert.doesNotMatch(pageSource, /custom practice page/);
+  });
+});
+
+test("ui-generator page subcommand rejects invalid link placement before creating a new page", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const originalPlacementSource = await readFile(placementPath, "utf8");
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: [targetFile],
+        options: {
+          "link-placement": "missing:target"
+        }
+      }),
+      /ui-generator page option "placement" target "missing:target" is not declared/
+    );
+
+    await assert.rejects(readFile(path.join(appRoot, toPagePath(targetFile)), "utf8"), /ENOENT/);
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.equal(placementSource, originalPlacementSource);
+  });
+});
+
+test("ui-generator page subcommand rejects invalid link placement before overwriting an existing page", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const targetPath = path.join(appRoot, toPagePath(targetFile));
+    const originalPageSource = `<template>
+  <div>custom practice page</div>
+</template>
+`;
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const originalPlacementSource = await readFile(placementPath, "utf8");
+
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, originalPageSource, "utf8");
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: [targetFile],
+        options: {
+          force: "true",
+          "link-placement": "missing:target"
+        }
+      }),
+      /ui-generator page option "placement" target "missing:target" is not declared/
+    );
+
+    const pageSource = await readFile(targetPath, "utf8");
+    assert.equal(pageSource, originalPageSource);
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.equal(placementSource, originalPlacementSource);
   });
 });
