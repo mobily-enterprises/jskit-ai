@@ -74,7 +74,7 @@ test("ui-generator page subcommand creates an index page from an explicit target
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /id: "ui-generator\.page\.practice\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
     assert.match(placementSource, /workspaceSuffix: "\/practice"/);
     assert.match(placementSource, /label: "Practice"/);
   });
@@ -99,7 +99,7 @@ test("ui-generator page subcommand creates a file route and derives label from t
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.contacts\.contact-id\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
     assert.match(placementSource, /label: "Contact Id"/);
   });
 });

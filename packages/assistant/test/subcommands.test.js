@@ -89,7 +89,7 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
 
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.page\.link:admin:\/ops\/copilot/);
-    assert.match(placementSource, /id: "ui-generator\.page\.ops\.copilot\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.copilot\.link"/);
     assert.match(placementSource, /host: "shell-layout"/);
     assert.match(placementSource, /position: "primary-menu"/);
     assert.match(placementSource, /label: "Copilot"/);

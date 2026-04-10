@@ -201,6 +201,7 @@ function deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", su
 
   const visibleRouteSegments = routeSegments.filter((segment) => !isRouteGroupSegment(segment));
   const routeUrlSuffix = visibleRouteSegments.length > 0 ? `/${visibleRouteSegments.join("/")}` : "/";
+  const surfacePlacementIdSegment = normalizePlacementIdSegment(surfaceId || "root") || "root";
   const placementIdSegments = visibleRouteSegments
     .map((segment) => normalizePlacementIdSegment(segment))
     .filter(Boolean);
@@ -218,8 +219,8 @@ function deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", su
     containsNestedChildrenGroup: routeSegments.some((segment) => isNestedChildrenRouteGroupSegment(segment)),
     placementId:
       placementIdSegments.length > 0
-        ? `ui-generator.page.${placementIdSegments.join(".")}.link`
-        : `ui-generator.page.${normalizePlacementIdSegment(surfaceId || "root") || "root"}.link`
+        ? `ui-generator.page.${surfacePlacementIdSegment}.${placementIdSegments.join(".")}.link`
+        : `ui-generator.page.${surfacePlacementIdSegment}.link`
   });
 }
 

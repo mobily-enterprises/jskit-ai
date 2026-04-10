@@ -287,7 +287,7 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
-    assert.match(placementSource, /id: "ui-generator\.page\.ops\.customers-ui\.link"/);
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.customers-ui\.link"/);
     assert.match(placementSource, /host: "shell-layout"/);
     assert.match(placementSource, /position: "primary-menu"/);
     assert.match(placementSource, /workspaceSuffix: "\/ops\/customers-ui"/);
