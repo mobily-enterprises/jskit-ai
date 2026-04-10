@@ -111,7 +111,7 @@ async function loadPublicConfig(appRoot = "", { context = "page target" } = {}) 
 
   let moduleNamespace = null;
   try {
-    moduleNamespace = await import(`${pathToFileURL(configPath).href}?t=${Date.now()}_${Math.random()}`);
+    moduleNamespace = await import(pathToFileURL(configPath).href);
   } catch (error) {
     throw new Error(
       `${context} could not load config/public.js: ${String(error?.message || error || "unknown error")}`
