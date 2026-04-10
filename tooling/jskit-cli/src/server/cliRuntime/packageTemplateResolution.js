@@ -68,7 +68,10 @@ async function ensureMaterializedInstallWorkspace(installRoot) {
   );
 }
 
-async function installCatalogPackageIntoCache({ installRoot, packageEntry }) {
+async function installCatalogPackageIntoCache({
+  installRoot,
+  packageEntry
+}) {
   const packageId = String(packageEntry?.packageId || "").trim();
   const version = String(packageEntry?.version || "").trim();
   const packageSpec = version ? `${packageId}@${version}` : packageId;
@@ -124,6 +127,7 @@ async function installCatalogPackageIntoCache({ installRoot, packageEntry }) {
 async function materializeCatalogPackageRoot({
   packageEntry,
   appRoot,
+  reportTemplateFetchStatus = null,
   installCatalogPackage = installCatalogPackageIntoCache
 } = {}) {
   if (!isInternalCatalogPackageEntry(packageEntry)) {
@@ -139,18 +143,33 @@ async function materializeCatalogPackageRoot({
   const installRoot = buildMaterializedInstallRoot({ appRoot, packageEntry });
   const candidateRoot = path.join(installRoot, "node_modules", ...packageId.split("/"));
   const descriptorPath = path.join(candidateRoot, "package.descriptor.mjs");
+  let didInstallPackage = false;
 
   if (!(await fileExists(descriptorPath))) {
+    if (typeof reportTemplateFetchStatus === "function") {
+      reportTemplateFetchStatus({
+        packageEntry,
+        state: "start"
+      });
+    }
     await installCatalogPackage({
       installRoot,
       packageEntry
     });
+    didInstallPackage = true;
   }
 
   if (!(await fileExists(descriptorPath))) {
     throw createCliError(
       `Unable to resolve template source for ${packageId} after materialization. Missing package.descriptor.mjs in cache.`
     );
+  }
+
+  if (didInstallPackage && typeof reportTemplateFetchStatus === "function") {
+    reportTemplateFetchStatus({
+      packageEntry,
+      state: "complete"
+    });
   }
 
   MATERIALIZED_PACKAGE_ROOTS.set(cacheKey, candidateRoot);
@@ -243,6 +262,7 @@ async function resolvePackageRootFromLocalWorkspace({ packageId }) {
 async function resolvePackageTemplateRoot({
   packageEntry,
   appRoot,
+  reportTemplateFetchStatus = null,
   materializeCatalogRoot = materializeCatalogPackageRoot
 } = {}) {
   const packageRoot = String(packageEntry?.rootDir || "").trim();
@@ -267,7 +287,8 @@ async function resolvePackageTemplateRoot({
 
   const materializedCatalogPackageRoot = await materializeCatalogRoot({
     packageEntry,
-    appRoot
+    appRoot,
+    reportTemplateFetchStatus
   });
   if (materializedCatalogPackageRoot) {
     return materializedCatalogPackageRoot;

@@ -230,7 +230,8 @@ async function runPackageGenerateCommand(
     hasGeneratorSubcommandDefinition,
     readdir,
     validateInlineOptionValuesForPackage,
-    runGeneratorSubcommand
+    runGeneratorSubcommand,
+    createCatalogFetchStatusReporter = () => () => {}
   } = ctx;
 
   const firstToken = String(positional[0] || "").trim();
@@ -244,6 +245,9 @@ async function runPackageGenerateCommand(
   const targetId = firstToken === "package" ? secondToken : firstToken;
   const subcommandName = firstToken === "package" ? thirdToken : secondToken;
   const subcommandArgs = firstToken === "package" ? positional.slice(3) : positional.slice(2);
+  const reportTemplateFetchStatus = createCatalogFetchStatusReporter(io, {
+    enabled: options.json !== true
+  });
 
   async function resolveGeneratorPackageEntry(packageIdInput = "") {
     const appRoot = await resolveAppRootFromCwd(cwd);
@@ -425,7 +429,8 @@ async function runPackageGenerateCommand(
 
     const templateRoot = await resolvePackageTemplateRoot({
       packageEntry,
-      appRoot
+      appRoot,
+      reportTemplateFetchStatus
     });
     const executablePackageEntry =
       templateRoot === packageEntry.rootDir

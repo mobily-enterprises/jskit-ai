@@ -39,6 +39,44 @@ function createCommandHandlerShared(ctx = {}) {
     return lines.join("\n");
   }
 
+  function createCatalogFetchStatusReporter(io = {}, { enabled = true } = {}) {
+    if (enabled !== true) {
+      return () => {};
+    }
+
+    const stdout = io?.stdout;
+    if (!stdout || typeof stdout.write !== "function") {
+      return () => {};
+    }
+
+    const activeFetchLabels = new Set();
+    return ({ packageEntry, state } = {}) => {
+      const packageId = String(packageEntry?.packageId || "").trim();
+      const version = String(packageEntry?.version || "").trim();
+      const packageLabel = version ? `${packageId}@${version}` : packageId;
+      if (!packageLabel) {
+        return;
+      }
+
+      if (state === "start") {
+        if (activeFetchLabels.has(packageLabel)) {
+          return;
+        }
+        activeFetchLabels.add(packageLabel);
+        stdout.write(`Fetching ${packageLabel}...\n`);
+        return;
+      }
+
+      if (state === "complete") {
+        if (!activeFetchLabels.has(packageLabel)) {
+          return;
+        }
+        activeFetchLabels.delete(packageLabel);
+        stdout.write(`Fetching ${packageLabel}... done!\n`);
+      }
+    };
+  }
+
   async function runNpmInstall(appRoot, stderr) {
     await new Promise((resolve, reject) => {
       const child = spawn("npm", ["install"], {
@@ -298,6 +336,7 @@ function createCommandHandlerShared(ctx = {}) {
 
   return {
     renderResolvedSummary,
+    createCatalogFetchStatusReporter,
     runNpmInstall,
     getInstalledDependents,
     resolvePackageKind,

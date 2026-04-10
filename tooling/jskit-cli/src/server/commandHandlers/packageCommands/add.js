@@ -38,7 +38,8 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     adoptAppLocalPackageDependencies,
     writeJsonFile,
     runNpmInstall,
-    renderResolvedSummary
+    renderResolvedSummary,
+    createCatalogFetchStatusReporter = () => () => {}
   } = ctx;
 
   const invocationMode = options?.commandMode === "generate" ? "generate" : "add";
@@ -242,6 +243,9 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
 
   const packagesToInstall = [];
   const resolvedOptionsByPackage = {};
+  const reportTemplateFetchStatus = createCatalogFetchStatusReporter(io, {
+    enabled: options.json !== true
+  });
   const forceReapplyTarget = options?.forceReapplyTarget === true;
   const hasInlineOptions = Object.keys(ensureObject(options.inlineOptions)).length > 0;
   for (const packageId of resolvedPackageIds) {
@@ -293,7 +297,8 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       appPackageJson: packageJson,
       lock,
       packageRegistry: combinedPackageRegistry,
-      touchedFiles
+      touchedFiles,
+      reportTemplateFetchStatus
     });
     installedPackageRecords.push(managedRecord);
   }

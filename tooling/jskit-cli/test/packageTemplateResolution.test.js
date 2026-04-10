@@ -68,6 +68,7 @@ test("resolvePackageTemplateRoot keeps failing for non-internal catalog packages
 test("materializeCatalogPackageRoot reuses cached package roots after first materialization", async () => {
   await withTempDir(async (appRoot) => {
     const calls = [];
+    const events = [];
     const expectedRoot = path.join(
       appRoot,
       ".jskit",
@@ -86,6 +87,13 @@ test("materializeCatalogPackageRoot reuses cached package roots after first mate
         packageId: "@jskit-ai/demo-package",
         version: "1.2.3",
         sourceType: "catalog"
+      },
+      reportTemplateFetchStatus: ({ packageEntry, state }) => {
+        events.push({
+          packageId: packageEntry.packageId,
+          version: packageEntry.version,
+          state
+        });
       },
       installCatalogPackage: async ({ installRoot }) => {
         calls.push(installRoot);
@@ -110,6 +118,13 @@ test("materializeCatalogPackageRoot reuses cached package roots after first mate
         version: "1.2.3",
         sourceType: "catalog"
       },
+      reportTemplateFetchStatus: ({ packageEntry, state }) => {
+        events.push({
+          packageId: packageEntry.packageId,
+          version: packageEntry.version,
+          state
+        });
+      },
       installCatalogPackage: async () => {
         calls.push("unexpected");
       }
@@ -118,5 +133,54 @@ test("materializeCatalogPackageRoot reuses cached package roots after first mate
     assert.equal(first, expectedRoot);
     assert.equal(second, expectedRoot);
     assert.equal(calls.length, 1);
+    assert.deepEqual(events, [
+      {
+        packageId: "@jskit-ai/demo-package",
+        version: "1.2.3",
+        state: "start"
+      },
+      {
+        packageId: "@jskit-ai/demo-package",
+        version: "1.2.3",
+        state: "complete"
+      }
+    ]);
+  });
+});
+
+test("materializeCatalogPackageRoot does not emit complete when install fails", async () => {
+  await withTempDir(async (appRoot) => {
+    const events = [];
+
+    await assert.rejects(
+      () =>
+        materializeCatalogPackageRoot({
+          appRoot,
+          packageEntry: {
+            packageId: "@jskit-ai/demo-package",
+            version: "1.2.3",
+            sourceType: "catalog"
+          },
+          reportTemplateFetchStatus: ({ packageEntry, state }) => {
+            events.push({
+              packageId: packageEntry.packageId,
+              version: packageEntry.version,
+              state
+            });
+          },
+          installCatalogPackage: async () => {
+            throw new Error("install failed");
+          }
+        }),
+      /install failed/
+    );
+
+    assert.deepEqual(events, [
+      {
+        packageId: "@jskit-ai/demo-package",
+        version: "1.2.3",
+        state: "start"
+      }
+    ]);
   });
 });
