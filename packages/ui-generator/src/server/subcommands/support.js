@@ -9,6 +9,9 @@ import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/string
 const DEFAULT_COMPONENT_DIRECTORY = "src/components";
 const MAIN_CLIENT_PROVIDER_FILE = "packages/main/src/client/providers/MainClientProvider.js";
 const PLACEMENT_FILE = "src/placement.js";
+const SCRIPT_TAG_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+const SCRIPT_SETUP_ATTRIBUTE_PATTERN = /\bsetup\b/i;
+const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
 
 function toKebabCase(value = "") {
   return toSnakeCase(value).replaceAll("_", "-");
@@ -30,6 +33,37 @@ function requireOption(options = {}, optionName = "", { context = "ui-generator"
   }
 
   return optionValue;
+}
+
+function requireSinglePositionalTargetFile(args = [], { context = "ui-generator" } = {}) {
+  const positionalArgs = Array.isArray(args) ? args.map((value) => normalizeText(value)).filter(Boolean) : [];
+  if (positionalArgs.length !== 1) {
+    throw new Error(`${context} requires exactly one <target-file> positional argument.`);
+  }
+
+  return positionalArgs[0];
+}
+
+function rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "ui-generator" } = {}) {
+  const allowedOptionNameSet = new Set(
+    (Array.isArray(allowedOptionNames) ? allowedOptionNames : [])
+      .map((optionName) => normalizeText(optionName))
+      .filter(Boolean)
+  );
+
+  const unexpectedOptions = Object.keys(options || {})
+    .map((optionName) => normalizeText(optionName))
+    .filter(Boolean)
+    .filter((optionName) => !allowedOptionNameSet.has(optionName))
+    .sort((left, right) => left.localeCompare(right));
+
+  if (unexpectedOptions.length < 1) {
+    return;
+  }
+
+  throw new Error(
+    `${context} received unsupported option${unexpectedOptions.length > 1 ? "s" : ""}: ${unexpectedOptions.map((optionName) => `--${optionName}`).join(", ")}.`
+  );
 }
 
 function resolvePathWithinApp(appRoot, targetPath, { context = "ui-generator" } = {}) {
@@ -150,6 +184,61 @@ function insertBeforeClassDeclaration(source = "", line = "", { className = "", 
   };
 }
 
+function findScriptBlock(source = "") {
+  const sourceText = String(source || "");
+  let firstMatch = null;
+
+  for (const match of sourceText.matchAll(SCRIPT_TAG_PATTERN)) {
+    if (!firstMatch) {
+      firstMatch = match;
+    }
+
+    const attributesSource = String(match[1] || "");
+    if (SCRIPT_SETUP_ATTRIBUTE_PATTERN.test(attributesSource)) {
+      return Object.freeze({
+        index: match.index,
+        source: String(match[0] || ""),
+        attributesSource,
+        content: String(match[2] || "")
+      });
+    }
+  }
+
+  if (!firstMatch) {
+    return null;
+  }
+
+  return Object.freeze({
+    index: firstMatch.index,
+    source: String(firstMatch[0] || ""),
+    attributesSource: String(firstMatch[1] || ""),
+    content: String(firstMatch[2] || "")
+  });
+}
+
+function parseTagAttributes(attributesSource = "") {
+  const attributes = {};
+  const source = String(attributesSource || "");
+  for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
+    const attributeName = normalizeText(match[1]);
+    if (!attributeName) {
+      continue;
+    }
+    const hasValue = match[2] != null || match[3] != null;
+    attributes[attributeName] = hasValue ? String(match[2] ?? match[3] ?? "") : true;
+  }
+  return attributes;
+}
+
+function indentBlock(source = "", indent = "") {
+  const sourceText = String(source || "");
+  const indentation = String(indent || "");
+  return sourceText
+    .split("\n")
+    .map((line) => `${indentation}${line}`)
+    .join("\n");
+}
+
 export {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
@@ -157,9 +246,14 @@ export {
   toKebabCase,
   toPascalCase,
   requireOption,
+  requireSinglePositionalTargetFile,
+  rejectUnexpectedOptions,
   resolvePathWithinApp,
   ensureTrailingNewline,
   appendBlockIfMarkerMissing,
   insertImportIfMissing,
-  insertBeforeClassDeclaration
+  insertBeforeClassDeclaration,
+  findScriptBlock,
+  parseTagAttributes,
+  indentBlock
 };

@@ -12,6 +12,7 @@ import {
   toKebabCase,
   toPascalCase,
   requireOption,
+  rejectUnexpectedOptions,
   resolvePathWithinApp,
   appendBlockIfMarkerMissing,
   insertImportIfMissing,
@@ -42,6 +43,9 @@ async function runGeneratorSubcommand({
   if (Array.isArray(args) && args.length > 0) {
     throw new Error("ui-generator element does not accept positional arguments.");
   }
+  rejectUnexpectedOptions(options, ["name", "surface", "path", "placement"], {
+    context: "ui-generator element"
+  });
 
   const name = requireOption(options, "name", { context: "ui-generator element" });
   const surface = requireOption(options, "surface", { context: "ui-generator element" }).toLowerCase();

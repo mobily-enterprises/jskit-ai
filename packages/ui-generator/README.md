@@ -1,6 +1,6 @@
 # @jskit-ai/ui-generator
 
-Generate non-CRUD UI pages and outlet elements for JSKIT apps.
+Generate app-local UI pages, page links, placed elements, and routed subpage hosts for JSKIT apps.
 
 ## Quick Start
 
@@ -10,181 +10,196 @@ List available placement targets in the current app:
 npx jskit list placements
 ```
 
-Generate a page (default placement target):
+Create a normal page at an explicit file:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin
+npx jskit generate @jskit-ai/ui-generator page \
+  src/pages/admin/reports-dashboard/index.vue \
+  --name "Reports Dashboard"
 ```
 
-Generate a page in a subdirectory:
+Create a file-route page:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports Dashboard" --surface admin --directory-prefix ops
+npx jskit generate @jskit-ai/ui-generator page \
+  src/pages/admin/contacts/[contactId].vue \
+  --name "Contact"
 ```
 
-Generate a page and place its menu entry in the workspace cog dropdown:
+Upgrade an existing page into a routed subpage host:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu
+npx jskit generate @jskit-ai/ui-generator add-subpages \
+  src/pages/admin/contacts/[contactId].vue \
+  --title "Contact" \
+  --subtitle "Manage contact modules."
 ```
 
-Generate an element at a specific outlet:
+Create a reusable placed element:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --placement shell-layout:top-right
+npx jskit generate @jskit-ai/ui-generator element \
+  --name "Alerts Widget" \
+  --surface admin \
+  --placement shell-layout:top-right
 ```
 
-Generate an element with custom component path:
+Inject a plain generic outlet into an existing Vue file:
 
 ```bash
-npx jskit generate @jskit-ai/ui-generator element --name "Alerts Widget" --surface admin --path src/widgets --placement shell-layout:top-right
-```
-
-Generate a route container page with nested outlet (for embedded sub-pages):
-
-```bash
-npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin
-```
-
-Generate a route container with explicit dynamic route path:
-
-```bash
-npx jskit generate @jskit-ai/ui-generator container --name "Contact" --surface admin --directory-prefix contacts --route-path "[contactId]"
-```
-
-Add a shell menu entry for that container (optional):
-
-```bash
-npx jskit generate @jskit-ai/ui-generator container --name "Practice" --surface admin --placement shell-layout:primary-menu
-```
-
-Inject an inline outlet into an existing Vue page/component:
-
-```bash
-npx jskit generate @jskit-ai/ui-generator outlet --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue --host contact-view
-```
-
-Show generator and subcommand help:
-
-```bash
-npx jskit generate @jskit-ai/ui-generator help
-npx jskit generate @jskit-ai/ui-generator outlet help
-npx jskit generate @jskit-ai/ui-generator outlet
+npx jskit generate @jskit-ai/ui-generator outlet \
+  src/components/ContactSummaryCard.vue \
+  --host contact-view \
+  --position summary-actions
 ```
 
 ## Commands
 
-- `page`: `--name --surface [--directory-prefix] [--placement]`
-- `element`: `--name --surface [--path] [--placement]`
-- `container`: `--name --surface [--directory-prefix] [--route-path] [--placement]`
-- `outlet`: `--file --host [--position] [--mode]`
+- `page <target-file>`: create a route page at that exact file and add a link placement entry for it.
+- `add-subpages <target-file>`: upgrade an existing page into the standard `SectionContainerShell + ShellOutlet + RouterView` host shape.
+- `element`: create a reusable component and register a placement for it.
+- `outlet <target-file>`: inject a plain `ShellOutlet` into an existing Vue SFC.
 
-`page` also supports:
+## The Mental Model
 
-- `--placement-component-token` to override the placement component token.
-- `--placement-to` to set explicit `props.to` in the generated placement block.
-- if `--placement-to` is omitted and `--directory-prefix` includes a `(nestedChildren)` route group, `props.to` is auto-set to `./<page-slug>`.
+`page`, `add-subpages`, and `outlet` all operate on explicit files.
 
-## Container Workflow
+That means:
 
-- `container` creates app-owned scaffolding:
-  - `src/components/SectionContainerShell.vue` (shared container shell with responsive tab row)
-  - `src/components/TabLinkItem.vue` (tab link item token component)
-  - `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
-  - `<route>.vue` as a thin wrapper around `SectionContainerShell` + `<RouterView />`, with route meta outlet declaration at `meta.jskit.placements.outlets`
-  - no shell menu placement is added unless `--placement` is explicitly provided
-- Child pages for a `container` go directly under the container route path, not under `(nestedChildren)`.
-  - Example container route: `src/pages/admin/practice.vue`
-  - Example child page path: `src/pages/admin/practice/notes/index.vue`
-  - Example URL: `/admin/practice/notes`
-- Use `(nestedChildren)` for the `page + outlet` pattern when the parent page is an existing `index.vue` route that should render child routes inside its own `RouterView`.
+- `catalog/index.vue` is obviously an index-route page
+- `catalog.vue` is obviously a file-route page
+- there is no extra route-shape flag to remember
+- the owning surface is derived from where the file lives
 
-Generate a child page inside a container:
+## Page Links
+
+`page` creates a page file and appends a link placement block for it.
+
+These options control that generated page link:
+
+- `--link-placement`: where the page link renders
+- `--link-component-token`: how the page link is rendered
+- `--link-to`: explicit `props.to` override for the page link
+
+This is intentionally separate from `element`, which still uses `--placement` because it places arbitrary UI, not a page link.
+
+## Routed Subpages
+
+`add-subpages` is the only routed-subpages command.
+
+It upgrades an existing page so the page itself owns:
+
+- `SectionContainerShell`
+- `ShellOutlet host="..." position="sub-pages"`
+- `RouterView`
+
+`--target` controls that outlet target:
+
+- if omitted, the target is derived from the page path
+- `--target contact-view` means `contact-view:sub-pages`
+- `--target contact-view:secondary-tabs` uses an explicit custom position
+
+Derived target examples:
+
+- `src/pages/admin/catalog/index.vue` -> `catalog:sub-pages`
+- `src/pages/admin/catalog.vue` -> `catalog:sub-pages`
+- `src/pages/admin/contacts/[contactId].vue` -> `contacts-contact-id:sub-pages`
+- `src/pages/admin/catalog/products/index.vue` -> `catalog-products:sub-pages`
+
+If the page already contains a `RouterView`, `add-subpages` fails instead of trying to update an existing routed host.
+
+It also ensures the shared support scaffold exists:
+
+- `src/components/SectionContainerShell.vue`
+- `src/components/TabLinkItem.vue`
+- `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
+
+## Child Route Placement Rule
+
+Child routes attach differently depending on the parent page file shape.
+
+If the parent is a file route:
+
+- parent: `src/pages/admin/catalog.vue`
+- child pages go under: `src/pages/admin/catalog/...`
+- example child page: `src/pages/admin/catalog/products/index.vue`
+
+If the parent is an index route:
+
+- parent: `src/pages/admin/catalog/index.vue`
+- child pages go under: `src/pages/admin/catalog/(nestedChildren)/...`
+- example child page: `src/pages/admin/catalog/(nestedChildren)/products/index.vue`
+
+That route-group folder is how the app router reparents sibling files into the parent page’s `RouterView`.
+
+## Example: File Route Parent
+
+Create the parent page:
 
 ```bash
 npx jskit generate @jskit-ai/ui-generator page \
-  --name "Notes" \
-  --surface admin \
-  --directory-prefix "practice" \
-  --placement practice:sub-pages \
-  --placement-component-token local.main.ui.tab-link-item
+  src/pages/admin/contacts/[contactId].vue \
+  --name "Contact"
 ```
 
-- Generate CRUD pages into that container using `@jskit-ai/crud-ui-generator` with:
-  - `--container <route-slug>`
-  - `--route-path <resource-slug>`
-  - optional `--placement` override (default becomes `<container>:sub-pages` for list pages)
-
-## Inline Outlet Workflow
-
-- `outlet` patches an app-owned Vue SFC by adding:
-  - `import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";`
-  - `<ShellOutlet host="<host>" position="<position>" />` in template
-  - optional `<RouterView />` (when `--mode routed`, only if one does not already exist in the file)
-- `--mode` supports:
-  - `routed` (default): insert `RouterView` if missing
-  - `outlet-only`: insert only `ShellOutlet`
-
-## End-to-End Example: Embed Pets CRUD in Contact View
-
-Goal: render pets CRUD pages inside `contacts/[contactId]/index.vue` using a routed outlet and tab-style placement links.
-
-1. Inject a routed outlet into the contact page:
+Upgrade it to host subpages:
 
 ```bash
-npx jskit generate ui-generator outlet \
-  --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
-  --host contact-view \
-  --position sub-pages \
-  --mode routed
+npx jskit generate @jskit-ai/ui-generator add-subpages \
+  src/pages/admin/contacts/[contactId].vue \
+  --title "Contact" \
+  --subtitle "Manage contact modules."
 ```
 
-What each option does:
-
-- `--file`: target Vue SFC to patch.
-- `--host`: outlet host namespace (used later by placements).
-- `--position`: outlet position key under that host.
-- `--mode routed`: ensures `<RouterView />` exists so nested pages render inline.
-
-2. Generate pets CRUD pages under the nested-children group and place a tab link into that outlet:
+Generate a child page link inside that host:
 
 ```bash
-npx jskit generate crud-ui-generator \
-  --namespace pets \
-  --surface admin \
-  --operations list,view,new,edit \
-  --resource-file packages/pets/src/shared/petResource.js \
-  --directory-prefix "contacts/[contactId]/(nestedChildren)" \
-  --placement contact-view:sub-pages \
-  --placement-component-token local.main.ui.tab-link-item \
-  --placement-to ./pets \
-  --id-param petId
+npx jskit generate @jskit-ai/ui-generator page \
+  src/pages/admin/contacts/[contactId]/notes/index.vue \
+  --name "Notes"
 ```
 
-What each option does:
+## Example: Index Route Parent
 
-- `--namespace pets`: CRUD namespace for generated UI artifacts.
-- `--surface admin`: generate pages under admin surface routes.
-- `--operations list,view,new,edit`: generate full CRUD page set.
-- `--resource-file`: resource contract used to scaffold fields/forms.
-- `--directory-prefix "contacts/[contactId]/(nestedChildren)"`: place generated routes under the contact context, in a route-group folder that does not appear in URL.
-- `--placement contact-view:sub-pages`: append a placement targeting the outlet created in step 1.
-- `--placement-component-token local.main.ui.tab-link-item`: render placement as a tab link component.
-- `--placement-to ./pets`: tab link resolves relative to current contact route (for example `/contacts/538779/pets`).
-- `--id-param petId`: dynamic route parameter for view/edit pages.
+Create the parent page:
 
-Expected result:
+```bash
+npx jskit generate @jskit-ai/ui-generator page \
+  src/pages/admin/catalog/index.vue \
+  --name "Catalog"
+```
 
-- Contact page keeps its own route and renders nested pets pages inline via `RouterView`.
-- Pets routes are generated under `contacts/[contactId]/(nestedChildren)/pets/...`.
-- URL remains clean (`(nestedChildren)` is not part of URL).
-- A placement entry is added so the pets tab appears in `contact-view:sub-pages`.
+Upgrade it to host subpages:
 
-## Placement Notes
+```bash
+npx jskit generate @jskit-ai/ui-generator add-subpages \
+  src/pages/admin/catalog/index.vue \
+  --title "Catalog"
+```
 
-- `--placement` expects `host:position`.
-- Targets come from:
-  - app-declared `<ShellOutlet host="..." position="..." />` in `src/**/*.vue`
-  - app route meta `meta.jskit.placements.outlets` declarations in `src/**/*.vue`
-  - installed package metadata `metadata.ui.placements.outlets`
-- If `--placement` is omitted, the app default outlet is used.
+Generate a child page link inside that host:
+
+```bash
+npx jskit generate @jskit-ai/ui-generator page \
+  src/pages/admin/catalog/(nestedChildren)/products/index.vue \
+  --name "Products"
+```
+
+When `page` finds the nearest parent page upgraded with `add-subpages`, it reuses that parent’s real outlet target, defaults the link renderer to `local.main.ui.tab-link-item`, and derives `to` from the child route automatically.
+
+## Generic Outlet Injection
+
+`outlet` is intentionally small.
+
+It only adds:
+
+- `import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";`
+- `<ShellOutlet host="..." position="..." />`
+
+It does not:
+
+- add `RouterView`
+- add `SectionContainerShell`
+- add routed subpage scaffolding
+
+Use `add-subpages` when the goal is routed child pages inside a page.
