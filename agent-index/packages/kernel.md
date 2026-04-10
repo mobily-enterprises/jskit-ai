@@ -1167,8 +1167,45 @@ Exports
 - `loadAppConfigFromModuleUrl`
 - `resolveRequiredAppRoot`
 - `toPosixPath`
+- `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
+- `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `resolvePageTargetDetails`
+- `deriveDefaultSubpagesHost`
+- `resolveNearestParentSubpagesHost`
+- `resolvePageLinkTargetDetails`
 - `discoverShellOutletTargetsFromApp`
 - `resolveShellOutletPlacementTargetFromApp`
+
+### `server/support/pageTargets.js`
+Exports
+- `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
+- `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
+- `deriveDefaultSubpagesHost(pageTarget = {})`
+- `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
+- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN, context = "page target" } = {})`
+Local functions
+- `normalizeRelativeFilePath(value = "")`
+- `validateVueTargetFile(relativePath = "", { context = "page target" } = {})`
+- `splitTextIntoWords(value = "")`
+- `wordsToKebab(words = [])`
+- `toTitleCase(words = [])`
+- `isRouteGroupSegment(value = "")`
+- `isNestedChildrenRouteGroupSegment(value = "")`
+- `normalizePlacementIdSegment(value = "")`
+- `humanizePageSegment(value = "", fallback = "Page")`
+- `loadPublicConfig(appRoot = "", { context = "page target" } = {})`
+- `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
+- `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
+- `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
+- `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
+- `buildAncestorRouteContexts(pageTarget = {})`
+- `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
+- `resolveSubpagesHostTargetFromPageSource(source = "")`
+- `normalizePlacementTargetId(target = {})`
+- `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
+- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null } = {})`
+- `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
 
 ### `server/support/path.js`
 Exports

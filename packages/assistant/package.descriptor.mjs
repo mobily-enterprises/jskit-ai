@@ -3,56 +3,56 @@ export default Object.freeze({
   packageId: "@jskit-ai/assistant",
   version: "0.1.40",
   kind: "generator",
-  description: "Generate an assistant page and per-surface assistant config using the shared assistant runtime.",
+  description: "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
   options: {
     surface: {
       required: true,
       inputType: "text",
       defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Assistant surface",
-      promptHint: "Enabled surface id where the assistant page will run."
+      promptHint: "Runtime surface id for setup, or target assistant surface for settings-page."
     },
     "settings-surface": {
       required: true,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Settings surface",
-      promptHint: "Enabled surface id whose settings pages will include the assistant settings section."
-    },
-    "settings-route-path": {
-      required: false,
-      inputType: "text",
-      defaultValue: "assistant",
-      promptLabel: "Settings route path",
-      promptHint: "Route segment to use for the assistant settings section page."
+      promptHint: "Enabled settings host surface id used by assistant setup."
     },
     "config-scope": {
       required: true,
       inputType: "text",
       defaultValue: "global",
       promptLabel: "Config scope",
-      promptHint: "global | workspace. Workspace scope requires both selected surfaces to requireWorkspace=true."
+      promptHint: "global | workspace. Workspace scope requires both setup surfaces to requireWorkspace=true."
     },
-    placement: {
+    name: {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Menu placement",
-      promptHint: "Optional host:position target for the assistant page menu entry."
+      promptLabel: "Page label",
+      promptHint: "Optional page link label override for page and settings-page."
     },
-    "placement-component-token": {
+    "link-placement": {
       required: false,
       inputType: "text",
-      defaultValue: "users.web.shell.surface-aware-menu-link-item",
-      promptLabel: "Placement component token",
-      promptHint: "Menu placement component token for the assistant page entry."
+      defaultValue: "",
+      promptLabel: "Link placement",
+      promptHint: "Optional host:position target for the generated page link placement."
     },
-    "menu-label": {
+    "link-component-token": {
       required: false,
       inputType: "text",
-      defaultValue: "Assistant",
-      promptLabel: "Menu label",
-      promptHint: "Menu label for the assistant page entry."
+      defaultValue: "",
+      promptLabel: "Link component token",
+      promptHint: "Optional component token override for the generated page link placement."
+    },
+    "link-to": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Link to",
+      promptHint: "Optional explicit props.to value for the generated page link placement."
     },
     "ai-config-prefix": {
       required: false,
@@ -102,11 +102,54 @@ export default Object.freeze({
     }
   },
   metadata: {
+    generatorPrimarySubcommand: "setup",
+    generatorSubcommands: {
+      setup: {
+        description: "Install assistant runtime/config for one target surface without creating pages.",
+        optionNames: [
+          "surface",
+          "settings-surface",
+          "config-scope",
+          "ai-config-prefix",
+          "ai-provider",
+          "ai-api-key",
+          "ai-base-url",
+          "ai-timeout-ms"
+        ]
+      },
+      page: {
+        entrypoint: "src/server/subcommands/page.js",
+        export: "runGeneratorSubcommand",
+        description: "Create an assistant runtime page at an explicit target file under src/pages/.",
+        positionalArgs: [
+          {
+            name: "target-file",
+            required: true,
+            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+          }
+        ],
+        optionNames: ["name", "link-placement", "link-component-token", "link-to"]
+      },
+      "settings-page": {
+        entrypoint: "src/server/subcommands/settingsPage.js",
+        export: "runGeneratorSubcommand",
+        description: "Create an assistant settings page at an explicit target file under src/pages/.",
+        positionalArgs: [
+          {
+            name: "target-file",
+            required: true,
+            description: "Vue page file relative to app root. It must live under exactly one surface pagesRoot."
+          }
+        ],
+        optionNames: ["surface", "name", "link-placement", "link-component-token", "link-to"],
+        requiredOptionNames: ["surface"]
+      }
+    },
     apiSummary: {
       surfaces: [
         {
           subpath: "./server/buildTemplateContext",
-          summary: "Builds deterministic assistant generator template context values from app surface metadata."
+          summary: "Builds deterministic assistant setup template context values from app surface metadata."
         }
       ],
       containerTokens: {
@@ -124,83 +167,8 @@ export default Object.freeze({
       scripts: {}
     },
     procfile: {},
-    files: [
-      {
-        from: "templates/src/pages/assistant/index.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "assistant/index.vue",
-        reason: "Install generated assistant runtime page.",
-        category: "assistant",
-        id: "assistant-page-runtime",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/pages/settings/assistant/index.vue",
-        toSurface: "${option:settings-surface|lower}",
-        toSurfacePath: "settings/${option:settings-route-path|path}/index.vue",
-        reason: "Install generated assistant settings section page.",
-        category: "assistant",
-        id: "assistant-page-settings-standard",
-        when: {
-          option: "settings-surface",
-          notEquals: "admin"
-        },
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        from: "templates/src/pages/settings/assistant/index.vue",
-        toSurface: "${option:settings-surface|lower}",
-        toSurfacePath: "workspace/settings/${option:settings-route-path|path}/index.vue",
-        reason: "Install generated assistant settings section page.",
-        category: "assistant",
-        id: "assistant-page-settings-admin",
-        when: {
-          option: "settings-surface",
-          equals: "admin"
-        },
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      }
-    ],
+    files: [],
     text: [
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "assistant.generated.menu:${option:surface|lower}",
-        value:
-          "\n// assistant.generated.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_MENU_PLACEMENT_HOST__\",\n  position: \"__ASSISTANT_MENU_PLACEMENT_POSITION__\",\n  surfaces: [\"${option:surface|lower}\"],\n  order: 310,\n  componentToken: \"__ASSISTANT_MENU_COMPONENT_TOKEN__\",\n  props: {\n    label: \"__ASSISTANT_MENU_LABEL__\",\n    surface: \"${option:surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append generated assistant runtime menu placement into app-owned placement registry.",
-        category: "assistant",
-        id: "assistant-placement-menu",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "assistant.generated.settings.menu:${option:surface|lower}",
-        value:
-          "\n// assistant.generated.settings.menu:${option:surface|lower}\naddPlacement({\n  id: \"assistant.generated.settings.menu.${option:surface|kebab}\",\n  host: \"__ASSISTANT_SETTINGS_HOST__\",\n  position: \"primary-menu\",\n  surfaces: [\"${option:settings-surface|lower}\"],\n  order: 250,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"__ASSISTANT_SETTINGS_MENU_LABEL__\",\n    surface: \"${option:settings-surface|lower}\",\n    workspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__\",\n    nonWorkspaceSuffix: \"__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append generated assistant settings section menu placement into app-owned settings placements.",
-        category: "assistant",
-        id: "assistant-settings-menu-placement",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
       {
         op: "append-text",
         file: "config/public.js",
@@ -208,7 +176,7 @@ export default Object.freeze({
         skipIfContains: "config.assistantSurfaces.${option:surface|lower} = {",
         value:
           "\nconfig.assistantSurfaces.${option:surface|lower} = {\n  settingsSurfaceId: \"__ASSISTANT_SETTINGS_SURFACE_ID__\",\n  configScope: \"__ASSISTANT_CONFIG_SCOPE__\"\n};\n",
-        reason: "Register the generated assistant surface in public app config.",
+        reason: "Register the assistant runtime surface in public app config.",
         category: "assistant",
         id: "assistant-public-surface-config",
         templateContext: {
@@ -223,7 +191,7 @@ export default Object.freeze({
         skipIfContains: "config.assistantServer.${option:surface|lower} = {",
         value:
           "\nconfig.assistantServer.${option:surface|lower} = {\n  aiConfigPrefix: \"__ASSISTANT_AI_CONFIG_PREFIX__\"\n};\n",
-        reason: "Register generated assistant server config for the selected surface.",
+        reason: "Register assistant server config for the selected runtime surface.",
         category: "assistant",
         id: "assistant-server-surface-config",
         templateContext: {

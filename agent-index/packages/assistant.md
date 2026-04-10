@@ -17,15 +17,44 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/buildTemplateContext.js`
 Exports
 - `buildTemplateContext({ appRoot, options } = {})`
+
+### `src/server/pageSupport.js`
+Exports
+- `readAssistantPageTemplateSource(kind = "page")`
+- `renderAssistantPageSource(templateSource = "", surfaceId = "")`
+- `resolveAssistantPageGenerationContext({ appRoot, targetFile = "", options = {}, context = "assistant page" } = {})`
+- `renderAssistantPageLinkPlacementBlock({ marker = "", pageTarget = {}, generationContext = {} } = {})`
+- `renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, placementChanged = false } = {})`
 Local functions
+- `resolveLinkToPropLine(linkTo = "")`
+- `resolveTemplateFilePath(relativePath = "")`
+
+### `src/server/subcommands/page.js`
+Exports
+- `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
+
+### `src/server/subcommands/settingsPage.js`
+Exports
+- `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
+
+### `src/server/subcommands/support.js`
+Exports
+- `PLACEMENT_FILE`
+- `requireSinglePositionalTargetFile(args = [], { context = "assistant" } = {})`
+- `rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "assistant" } = {})`
+- `resolvePathWithinApp(appRoot, targetPath, { context = "assistant" } = {})`
+- `appendBlockIfMarkerMissing(source = "", marker = "", block = "")`
+- `requireManagedOrEmptyPageSource(existingSource = "", expectedSource = "", targetRelativePath = "", { context = "assistant" } = {})`
+Local functions
+- `ensureTrailingNewline(value = "")`
+
+### `src/server/support.js`
+Exports
 - `normalizeConfigScope(value = "")`
 - `loadAppConfig(appRoot = "")`
 - `resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "surface")`
 - `assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "")`
 - `resolveAiConfigPrefix(surfaceId = "", explicitPrefix = "")`
-- `normalizeSettingsRoutePath(value = "")`
-- `resolveSettingsRouteBase(surfaceId = "")`
-- `resolveMenuPlacementTarget(appRoot = "", options = {})`
 
 ### templates
 

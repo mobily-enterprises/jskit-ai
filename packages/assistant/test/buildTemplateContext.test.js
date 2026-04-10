@@ -9,7 +9,6 @@ async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "assistant-generator-"));
   try {
     await mkdir(path.join(appRoot, "config"), { recursive: true });
-    await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
     await writeFile(
       path.join(appRoot, "package.json"),
       `${JSON.stringify({ name: "assistant-generator-test-app", private: true, type: "module" }, null, 2)}\n`,
@@ -28,17 +27,6 @@ async function withTempApp(run) {
 `,
       "utf8"
     );
-    await writeFile(
-      path.join(appRoot, "src", "components", "ShellLayout.vue"),
-      `<template>
-  <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" />
-    <ShellOutlet host="shell-layout" position="top-right" default />
-  </div>
-</template>
-`,
-      "utf8"
-    );
 
     return await run(appRoot);
   } finally {
@@ -46,7 +34,24 @@ async function withTempApp(run) {
   }
 }
 
-test("buildTemplateContext derives per-surface placeholders from explicit surfaces", async () => {
+test("buildTemplateContext derives assistant setup placeholders from explicit setup surfaces", async () => {
+  await withTempApp(async (appRoot) => {
+    const context = await buildTemplateContext({
+      appRoot,
+      options: {
+        surface: "app",
+        "settings-surface": "console",
+        "config-scope": "global"
+      }
+    });
+
+    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_ID__, "console");
+    assert.equal(context.__ASSISTANT_CONFIG_SCOPE__, "global");
+    assert.equal(context.__ASSISTANT_AI_CONFIG_PREFIX__, "APP_ASSISTANT");
+  });
+});
+
+test("buildTemplateContext honors explicit AI config prefix overrides", async () => {
   await withTempApp(async (appRoot) => {
     const context = await buildTemplateContext({
       appRoot,
@@ -54,21 +59,11 @@ test("buildTemplateContext derives per-surface placeholders from explicit surfac
         surface: "app",
         "settings-surface": "console",
         "config-scope": "global",
-        placement: "shell-layout:primary-menu",
-        "menu-label": "Copilot"
+        "ai-config-prefix": "CUSTOM_ASSISTANT"
       }
     });
 
-    assert.equal(context.__ASSISTANT_SURFACE_ID__, "app");
-    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_ID__, "console");
-    assert.equal(context.__ASSISTANT_CONFIG_SCOPE__, "global");
-    assert.equal(context.__ASSISTANT_SETTINGS_HOST__, "console-settings");
-    assert.equal(context.__ASSISTANT_AI_CONFIG_PREFIX__, "APP_ASSISTANT");
-    assert.equal(context.__ASSISTANT_MENU_PLACEMENT_HOST__, "shell-layout");
-    assert.equal(context.__ASSISTANT_MENU_PLACEMENT_POSITION__, "primary-menu");
-    assert.equal(context.__ASSISTANT_MENU_LABEL__, "Copilot");
-    assert.equal(context.__ASSISTANT_SETTINGS_MENU_WORKSPACE_SUFFIX__, "/settings/assistant");
-    assert.equal(context.__ASSISTANT_SETTINGS_MENU_NON_WORKSPACE_SUFFIX__, "/settings/assistant");
+    assert.equal(context.__ASSISTANT_AI_CONFIG_PREFIX__, "CUSTOM_ASSISTANT");
   });
 });
 
@@ -81,8 +76,7 @@ test("buildTemplateContext rejects workspace config scope for a non-workspace as
           options: {
             surface: "app",
             "settings-surface": "console",
-            "config-scope": "workspace",
-            placement: "shell-layout:primary-menu"
+            "config-scope": "workspace"
           }
         }),
       /config-scope "workspace" requires surface "app" with requiresWorkspace=true/
@@ -117,8 +111,7 @@ test("buildTemplateContext rejects duplicate assistant surfaces already configur
           options: {
             surface: "app",
             "settings-surface": "console",
-            "config-scope": "global",
-            placement: "shell-layout:primary-menu"
+            "config-scope": "global"
           }
         }),
       /already has an assistant configured/

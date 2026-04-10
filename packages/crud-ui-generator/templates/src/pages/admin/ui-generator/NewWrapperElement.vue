@@ -1,10 +1,10 @@
 <template>
-  <${option:namespace|singular|pascal|default(Record)}AddEditForm
+  <CrudAddEditForm
     mode="new"
     :form-runtime="formRuntime"
-    title="New ${option:namespace|singular|pascal|default(Record)}"
-    subtitle="Create a new ${option:namespace|singular|default(record)}."
-    save-label="Save ${option:namespace|singular|default(record)}"
+    title="New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
+    subtitle="Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
+    save-label="Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
     :cancel-to="UI_CANCEL_URL"
     :resolve-lookup-items="resolveLookupItems"
     :resolve-lookup-loading="resolveLookupLoading"
@@ -16,28 +16,28 @@
 <script setup>
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
 import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
-import { resource as uiResource } from "/${option:resource-file|trim}";
-import ${option:namespace|singular|pascal|default(Record)}AddEditForm from "./_components/${option:namespace|singular|pascal|default(Record)}AddEditForm.vue";
-import { UI_CREATE_FORM_FIELDS } from "./_components/${option:namespace|singular|pascal|default(Record)}AddEditFormFields.js";
+import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
+import CrudAddEditForm from "./_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
+import { UI_CREATE_FORM_FIELDS } from "./_components/__JSKIT_UI_FORM_FIELDS_FILE__";
 
 const UI_OPERATION_ADAPTER = null;
-const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
-const UI_CREATE_API_URL = "${option:api-path|trim}";
+const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
+const UI_CREATE_API_URL = "__JSKIT_UI_API_BASE_URL__";
 const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `../:${UI_RECORD_ID_PARAM}` : "";
 const UI_CANCEL_URL = UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
-// jskit:crud-ui-fields-target ./_components/${option:namespace|singular|pascal|default(Record)}AddEditForm.vue
-// jskit:crud-ui-form-fields-target ./_components/${option:namespace|singular|pascal|default(Record)}AddEditFormFields.js
+// jskit:crud-ui-fields-target ./_components/__JSKIT_UI_FORM_COMPONENT_FILE__
+// jskit:crud-ui-form-fields-target ./_components/__JSKIT_UI_FORM_FIELDS_FILE__
 
 const lookupFieldRuntime = createCrudLookupFieldRuntime({
   formFields: UI_CREATE_FORM_FIELDS,
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
   lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "lookup", "new"],
-  placementSourcePrefix: "ui-generator.${option:namespace|kebab}.new.lookup"
+  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "new"],
+  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.new.lookup"
 });
 const {
   resolveLookupItems,
@@ -55,12 +55,12 @@ const formRuntime = useCrudAddEdit({
     apiSuffix: UI_CREATE_API_URL,
     queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
       "ui-generator",
-      "${option:namespace|kebab}",
+      "__JSKIT_UI_RESOURCE_NAMESPACE__",
       "create",
       String(surfaceId || ""),
       String(workspaceSlug || "")
     ],
-    placementSource: "ui-generator.${option:namespace|kebab}.new",
+    placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.new",
     readEnabled: false,
     writeMethod: "POST",
     fallbackSaveError: "Unable to save record.",
@@ -74,7 +74,7 @@ const formRuntime = useCrudAddEdit({
       : null
   },
   saveSuccess: {
-    invalidateQueryKey: ["ui-generator", "${option:namespace|kebab}"],
+    invalidateQueryKey: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__"],
     listUrlTemplate: UI_LIST_URL
   }
 });

@@ -106,14 +106,21 @@ Now check all of the changes you made for slop: repeated functions, helpers that
 npx jskit generate
 # 2) Inspect package-level help
 npx jskit generate crud-server-generator help
+npx jskit generate @jskit-ai/crud-ui-generator help
+npx jskit generate @jskit-ai/ui-generator help
+npx jskit generate @jskit-ai/assistant help
 # 3) Inspect subcommand-level help
 npx jskit generate crud-server-generator scaffold help
 npx jskit generate crud-server-generator scaffold-field help
-npx jskit generate crud-ui-generator help
-npx jskit generate crud-ui-generator field help
-npx jskit generate ui-generator help
-npx jskit generate ui-generator page help
-npx jskit generate ui-generator element help
+npx jskit generate @jskit-ai/crud-ui-generator crud help
+npx jskit generate @jskit-ai/crud-ui-generator field help
+npx jskit generate @jskit-ai/ui-generator page help
+npx jskit generate @jskit-ai/ui-generator add-subpages help
+npx jskit generate @jskit-ai/ui-generator element help
+npx jskit generate @jskit-ai/ui-generator outlet help
+npx jskit generate @jskit-ai/assistant setup help
+npx jskit generate @jskit-ai/assistant page help
+npx jskit generate @jskit-ai/assistant settings-page help
 
 
 
@@ -124,51 +131,92 @@ npx jskit generate ui-generator element help
 ------------------------------
 npm run devlinks
 
+# CRUDS
+
 npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts
-npx jskit generate crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js --id-param contactId
+npx jskit generate @jskit-ai/crud-ui-generator crud \
+  src/pages/w/[workspaceSlug]/admin/contacts \
+  --resource-file packages/contacts/src/shared/contactResource.js \
+  --id-param contactId
 
 npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses
-npx jskit generate crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --route-path contacts/[contactId]/addresses --id-param addressId
+npx jskit generate @jskit-ai/crud-ui-generator crud \
+  src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/addresses \
+  --resource-file packages/addresses/src/shared/addressResource.js \
+  --id-param addressId
 
 
 npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets
-npx jskit generate crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js
+npx jskit generate @jskit-ai/crud-ui-generator crud \
+  src/pages/w/[workspaceSlug]/admin/vets \
+  --resource-file packages/vets/src/shared/vetResource.js
 
 npx jskit generate crud-server-generator scaffold --namespace contact-categories --surface admin --table-name contact_categories
-npx jskit generate crud-ui-generator --namespace contact-categories --surface admin --operations list,view,new,edit --resource-file packages/contact-categories/src/shared/contactCategoryResource.js
+npx jskit generate @jskit-ai/crud-ui-generator crud \
+  src/pages/w/[workspaceSlug]/admin/contact-categories \
+  --resource-file packages/contact-categories/src/shared/contactCategoryResource.js
 
 
 npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses
-npx jskit generate crud-ui-generator --namespace addresses --surface admin --operations list,view,new,edit --resource-file packages/addresses/src/shared/addressResource.js --route-path contacts/[contactId]/addresses --id-param addressId
+npx jskit generate @jskit-ai/crud-ui-generator crud \
+  src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/addresses \
+  --resource-file packages/addresses/src/shared/addressResource.js \
+  --id-param addressId
+
+# ASSISTANT
+
+npx jskit generate @jskit-ai/assistant setup \
+  --surface admin \
+  --settings-surface admin \
+  --config-scope global \
+  --ai-provider openai \
+  --ai-api-key "$OPENAI_API_KEY" \
+  --ai-base-url "" \
+  --ai-timeout-ms 120000
+
+npx jskit generate @jskit-ai/assistant page \
+  src/pages/w/[workspaceSlug]/admin/assistant/index.vue
+
+npx jskit generate @jskit-ai/assistant settings-page \
+  src/pages/w/[workspaceSlug]/admin/settings/(nestedChildren)/assistant/index.vue \
+  --surface admin
 ------------------------------------
 
 
 
  1. Page under subdirectory
 
-  npx jskit generate ui-generator page --name "Reports Dashboard" --surface admin --directory-prefix ops
+  npx jskit generate @jskit-ai/ui-generator page \
+    src/pages/w/[workspaceSlug]/admin/ops/reports-dashboard/index.vue \
+    --name "Reports Dashboard"
 
   2. Page with explicit menu placement
 
-  npx jskit generate ui-generator page --name "Reports" --surface admin --placement shell-layout:secondary-menu
+  npx jskit generate @jskit-ai/ui-generator page \
+    src/pages/w/[workspaceSlug]/admin/reports/index.vue \
+    --name "Reports" \
+    --link-placement shell-layout:secondary-menu
 
   3. Element with custom component folder
 
-  npx jskit generate ui-generator element --name "Ops Panel" --surface admin --path src/widgets --placement workspace-settings:forms
+  npx jskit generate @jskit-ai/ui-generator element --name "Ops Panel" --surface admin --path src/widgets --placement workspace-settings:forms
 
   4. Element targeting shell top-right
 
-  npx jskit generate ui-generator element --name "Alerts Widget" --surface admin --placement shell-layout:top-right
+  npx jskit generate @jskit-ai/ui-generator element --name "Alerts Widget" --surface admin --placement shell-layout:top-right
 
   5. Element using default outlet (omit --placement)
 
-  npx jskit generate ui-generator element --name "Quick Actions" --surface admin
+  npx jskit generate @jskit-ai/ui-generator element --name "Quick Actions" --surface admin
 
- npx jskit generate ui-generator page --name "Reports" --surface admin --placement workspace-tools:primary-menu
+ npx jskit generate @jskit-ai/ui-generator page \
+    src/pages/w/[workspaceSlug]/admin/reports/index.vue \
+    --name "Reports" \
+    --link-placement workspace-tools:primary-menu
 
   Options summary:
 
-  - page: --name --surface [--directory-prefix] [--placement]
+  - page: <target-file> [--name] [--link-placement] [--link-component-token] [--link-to]
   - element: --name --surface [--path] [--placement] is optional in all cases.
 
 
@@ -177,45 +225,32 @@ npx jskit generate crud-ui-generator --namespace addresses --surface admin --ope
 ----------------------------------------------------
 PETS WITHIN contacts, EMBEDDED
 
-  npx jskit generate ui-generator outlet \
-      --file src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
-      --host contact-view \
-      --position sub-pages \
-      --mode routed
+  npx jskit generate @jskit-ai/ui-generator add-subpages \
+      src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue \
+      --target contact-view \
+      --title "Contact" \
+      --subtitle "Manage contact modules."
 
-  npx jskit generate crud-ui-generator \
-    --namespace pets \
-    --surface admin \
-    --operations list,view,new,edit \
+  npx jskit generate @jskit-ai/crud-ui-generator crud \
+    src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/pets \
     --resource-file packages/pets/src/shared/petResource.js \
-    --directory-prefix "contacts/[contactId]/(nestedChildren)" \
-    --placement contact-view:sub-pages \
-    --placement-component-token local.main.ui.tab-link-item \
-    --placement-to ./pets \
     --id-param petId
 
 
 Then...
 
-  npx jskit generate ui-generator page \
-    --name "Notes" \
-    --surface admin \
-    --directory-prefix "contacts/[contactId]/(nestedChildren)" \
-    --placement contact-view:sub-pages \
-    --placement-component-token local.main.ui.tab-link-item
+  npx jskit generate @jskit-ai/ui-generator page \
+    src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/notes/index.vue \
+    --name "Notes"
 ------------------------------------------------------------------------------
 
 
 ----------------------------------------------------
 MULTI TAB contacts, NOT embedded
 
-  npx jskit generate crud-ui-generator \
-    --namespace pets \
-    --surface admin \
-    --operations list,view,new,edit \
+  npx jskit generate @jskit-ai/crud-ui-generator crud \
+    src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/pets \
     --resource-file packages/pets/src/shared/petResource.js \
-    --directory-prefix "contacts/[contactId]" \
-    --route-path "pets" \
     --id-param petId
 
 
@@ -225,57 +260,47 @@ MULTI TAB contacts, NOT embedded
 
 -----------------------------------------------------
 
-ADD A CONTAINER TO THE WORKSPACE SETTINGS COG
+ADD A PAGE HOST TO THE WORKSPACE SETTINGS COG
 
-  npx jskit generate @jskit-ai/ui-generator container \
+  npx jskit generate @jskit-ai/ui-generator page \
+    src/pages/w/[workspaceSlug]/admin/practice/index.vue \
     --name "Practice" \
-    --surface admin \
-    --placement workspace-tools:primary-menu
+    --link-placement workspace-tools:primary-menu
+
+  npx jskit generate @jskit-ai/ui-generator add-subpages \
+    src/pages/w/[workspaceSlug]/admin/practice/index.vue \
+    --title "Practice"
 
 
 Then you have:
 
-$ npx jskit list-placements
+$ npx jskit list placements
 Available placements:
 ...
-- practice:sub-pages [src/pages/w/[workspaceSlug]/admin/practice.vue]
+- practice:sub-pages [src/pages/w/[workspaceSlug]/admin/practice/index.vue]
 $ 
 
 Then you can add a crud in there:
 
-  npx jskit generate @jskit-ai/crud-ui-generator \
-    --namespace vets \
-    --surface admin \
+  npx jskit generate @jskit-ai/crud-ui-generator crud \
+    src/pages/w/[workspaceSlug]/admin/practice/(nestedChildren)/vets \
     --resource-file packages/vets/src/shared/vetResource.js \
-    --operations list,view,new,edit \
-    --container practice \
-    --route-path vets \
-    --id-param vetId \
-   --placement-component-token users.web.shell.surface-aware-menu-link-item
+    --id-param vetId
 
 
 Or just a page:
 
 npx jskit generate @jskit-ai/ui-generator page \
-    --name "Availabilities" \
-    --surface admin \
-    --directory-prefix practice \
-    --placement practice:sub-pages \
-    --placement-component-token users.web.shell.surface-aware-menu-link-item \
-    --placement-to ./availabilities
+    src/pages/w/[workspaceSlug]/admin/practice/(nestedChildren)/availabilities/index.vue \
+    --name "Availabilities"
 
 
 --------------------------------------------------------
 ADDING A CONSOLE SETTINGS (crud)
 
- npx jskit generate @jskit-ai/crud-ui-generator \
-    --namespace breeds \
-    --surface console \
+ npx jskit generate @jskit-ai/crud-ui-generator crud \
+    src/pages/console/settings/(nestedChildren)/breeds \
     --resource-file packages/breeds/src/shared/breedResource.js \
-    --operations list,view,new,edit \
-    --container settings \
-    --placement console-settings:sections \
-    --placement-component-token users.web.shell.surface-aware-menu-link-item \
     --id-param breedId
 
 
@@ -286,10 +311,9 @@ FIGURE OUT:
 
 Use case for this:
 
-    npx jskit generate ui-generator container \
-      --name "Contact Tools" \
-      --surface admin \
-      --directory-prefix "contacts/[contactId]"
+    npx jskit generate @jskit-ai/ui-generator add-subpages \
+      src/pages/w/[workspaceSlug]/admin/contacts/[contactId].vue \
+      --target contact-tools
 
 
 
@@ -315,10 +339,10 @@ FIELD ADDING:
 
 
   npx jskit generate crud-server-generator scaffold-field categoryId packages/contacts/src/shared/contactResource.js
-  npx jskit generate crud-ui-generator field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId edit src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/edit.vue --resource-file packages/contacts/src/shared/contactResource.js
   
   npx jskit generate crud-ui-generator field categoryId new  src/pages/w/[workspaceSlug]/admin/contacts/new.vue              --resource-file packages/contacts/src/shared/contactResource.js
-  npx jskit generate crud-ui-generator field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[recordId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js
+  npx jskit generate crud-ui-generator field categoryId view src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue --resource-file packages/contacts/src/shared/contactResource.js
   npx jskit generate crud-ui-generator field categoryId list src/pages/w/[workspaceSlug]/admin/contacts/index.vue            --resource-file packages/contacts/src/shared/contactResource.js
 
 ----------------------------------------------------------------------
@@ -328,7 +352,7 @@ FIELD ADDING:
 
 
 // ONE LINE
-npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts;npx jskit generate crud-ui-generator --namespace contacts --surface admin --operations list,view,new,edit --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets;npx jskit generate crud-ui-generator --namespace vets --surface admin --operations list,view,new,edit --resource-file packages/vets/src/shared/vetResource.js
+npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/contacts --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/vets --resource-file packages/vets/src/shared/vetResource.js
 
 npm install --verbose;npm run devlinks
 
@@ -339,7 +363,7 @@ npm install --verbose;npm run devlinks
 TODO TODAY:
 * Check that adding a field. categoryId for customer, then countryId for vets
 * Check feasibility of pattern /contacts/:contactId/addresses/:addressId/edit
-* Check if it's feasible to have a crud within a container (if not, give it up)
+* Check if it's feasible to have a crud within a subpages host (if not, give it up)
 
 Now check all of the changes you made for slop: repeated functions, helpers that are already in kernel and redeclared here, and generally speaking bad code. Focus on unstage changed
 

@@ -25,6 +25,51 @@ function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcomm
   return definition && typeof definition === "object" ? definition : {};
 }
 
+function mapDescriptorBackedSubcommandArgsToInlineOptions(
+  packageEntry = {},
+  subcommandName = "",
+  subcommandArgs = [],
+  inlineOptions = {},
+  createCliError
+) {
+  const definition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName);
+  const positionalArgs = Array.isArray(definition?.positionalArgs)
+    ? definition.positionalArgs
+    : [];
+  const providedArgs = Array.isArray(subcommandArgs) ? subcommandArgs : [];
+  if (providedArgs.length > positionalArgs.length) {
+    throw createCliError(
+      `Generator command "${subcommandName}" for ${String(packageEntry?.packageId || "unknown-package")} accepts at most ${positionalArgs.length} positional argument${positionalArgs.length === 1 ? "" : "s"}.`
+    );
+  }
+
+  const mappedInlineOptions = {
+    ...(inlineOptions && typeof inlineOptions === "object" ? inlineOptions : {})
+  };
+  for (const [index, rawValue] of providedArgs.entries()) {
+    const positionalArg = positionalArgs[index];
+    const optionName = String(positionalArg?.name || "").trim();
+    if (!optionName) {
+      throw createCliError(
+        `Generator command "${subcommandName}" for ${String(packageEntry?.packageId || "unknown-package")} defines positional arg ${index + 1} without a name.`
+      );
+    }
+
+    const value = String(rawValue || "").trim();
+    const existingValue = Object.prototype.hasOwnProperty.call(mappedInlineOptions, optionName)
+      ? String(mappedInlineOptions[optionName] || "").trim()
+      : null;
+    if (existingValue != null && existingValue !== value) {
+      throw createCliError(
+        `Generator command "${subcommandName}" for ${String(packageEntry?.packageId || "unknown-package")} received both positional "${optionName}" and --${optionName} with different values.`
+      );
+    }
+    mappedInlineOptions[optionName] = value;
+  }
+
+  return mappedInlineOptions;
+}
+
 function resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "") {
   const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
     ? packageEntry.descriptor
@@ -216,15 +261,18 @@ async function runPackageGenerateCommand(
       normalizedSubcommandName === primarySubcommand &&
       !hasGeneratorSubcommandDefinition(packageEntry, normalizedSubcommandName)
     ) {
-      if (subcommandArgs.length > 0) {
-        throw createCliError(
-          `Generator command "${primarySubcommand}" for ${resolvedPackageId} does not accept positional arguments.`
-        );
-      }
+      const inlineOptionsForPrimarySubcommand = mapDescriptorBackedSubcommandArgsToInlineOptions(
+        packageEntry,
+        normalizedSubcommandName,
+        subcommandArgs,
+        options.inlineOptions,
+        createCliError
+      );
       return runCommandAdd({
         positional: ["package", resolvedPackageId],
         options: {
           ...options,
+          inlineOptions: inlineOptionsForPrimarySubcommand,
           commandMode: "generate"
         },
         cwd,

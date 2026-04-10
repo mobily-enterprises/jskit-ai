@@ -71,6 +71,12 @@ That means:
 - there is no extra route-shape flag to remember
 - the owning surface is derived from where the file lives
 
+This is the reference model for JSKIT page-producing generators.
+
+- `@jskit-ai/ui-generator page <target-file>` works from an explicit page file.
+- `@jskit-ai/crud-ui-generator crud <target-root>` works from an explicit route root.
+- `@jskit-ai/assistant page <target-file>` and `settings-page <target-file>` work from explicit page files.
+
 ## Page Links
 
 `page` creates a page file and appends a link placement block for it.

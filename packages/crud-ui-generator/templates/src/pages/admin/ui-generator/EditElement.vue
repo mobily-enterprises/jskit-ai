@@ -4,8 +4,8 @@
       <v-card-item>
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
-            <v-card-title class="px-0">Edit ${option:namespace|singular|pascal|default(Record)}</v-card-title>
-            <v-card-subtitle class="px-0">Update the selected ${option:namespace|singular|default(record)}.</v-card-subtitle>
+            <v-card-title class="px-0">Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-card-title>
+            <v-card-subtitle class="px-0">Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn
@@ -50,11 +50,11 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
 import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
-import { resource as uiResource } from "/${option:resource-file|trim}";
+import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
-const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
-const UI_API_BASE_URL = "${option:api-path|trim}";
+const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
+const UI_API_BASE_URL = "__JSKIT_UI_API_BASE_URL__";
 const UI_EDIT_API_URL = `${UI_API_BASE_URL}/:${UI_RECORD_ID_PARAM}`;
 const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? "../.." : "";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? ".." : "";
@@ -62,7 +62,7 @@ const UI_CANCEL_URL = UI_VIEW_URL || UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 const UI_EDIT_FORM_FIELDS = [];
 
-// @jskit-contract crud.ui.form-fields.${option:namespace|snake}.edit.v1
+// @jskit-contract crud.ui.form-fields.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.v1
 void UI_EDIT_FORM_FIELDS;
 // jskit:crud-ui-form-fields:edit
 __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__
@@ -84,8 +84,8 @@ const lookupFieldRuntime = createCrudLookupFieldRuntime({
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
   lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "lookup", "edit"],
-  placementSourcePrefix: "ui-generator.${option:namespace|kebab}.edit.lookup"
+  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "edit"],
+  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.lookup"
 });
 const {
   resolveLookupItems,
@@ -103,13 +103,13 @@ const formRuntime = useCrudAddEdit({
     apiUrlTemplate: UI_EDIT_API_URL,
     queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
       "ui-generator",
-      "${option:namespace|kebab}",
+      "__JSKIT_UI_RESOURCE_NAMESPACE__",
       "edit",
       String(surfaceId || ""),
       String(workspaceSlug || ""),
       routeRecordId.value
     ],
-    placementSource: "ui-generator.${option:namespace|kebab}.edit",
+    placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit",
     writeMethod: "PATCH",
     fallbackLoadError: "Unable to load record.",
     fallbackSaveError: "Unable to save record.",
@@ -124,7 +124,7 @@ const formRuntime = useCrudAddEdit({
       : null
   },
   saveSuccess: {
-    invalidateQueryKey: ["ui-generator", "${option:namespace|kebab}"],
+    invalidateQueryKey: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__"],
     listUrlTemplate: UI_LIST_URL
   }
 });
