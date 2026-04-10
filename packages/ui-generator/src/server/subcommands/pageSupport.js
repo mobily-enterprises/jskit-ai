@@ -16,7 +16,6 @@ import {
 import {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
-  toKebabCase,
   resolvePathWithinApp,
   insertImportIfMissing,
   insertBeforeClassDeclaration,
