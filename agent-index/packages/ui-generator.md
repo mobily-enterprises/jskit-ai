@@ -18,11 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
 Local functions
-- `normalizePlacementTargetId(target = {})`
-- `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
-- `resolveLinkComponentToken(options = {}, { parentHost = null, placementTarget = null } = {})`
-- `resolveAutoRelativeLinkTo(options = {}, pageTarget = {}, { parentHost = null, placementTarget = null } = {})`
-- `resolveLinkToPropLine(options = {}, pageTarget = {}, context = {})`
+- `resolveLinkToPropLine(linkTo = "")`
 
 ### `src/server/subcommands/addSubpages.js`
 Exports
@@ -60,32 +56,15 @@ Exports
 - `SECTION_CONTAINER_SHELL_COMPONENT`
 - `TAB_LINK_COMPONENT`
 - `TAB_LINK_COMPONENT_TOKEN`
-- `normalizeRelativeFilePath(value = "")`
-- `loadPublicConfig(appRoot = "", { context = "ui-generator" } = {})`
-- `resolvePageTargetDetails({ appRoot, targetFile = "", context = "ui-generator page" } = {})`
-- `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "ui-generator page" } = {})`
-- `deriveDefaultSubpagesHost(pageTarget = {})`
+- `resolvePageTargetDetails`
+- `resolveNearestParentSubpagesHost`
+- `deriveDefaultSubpagesHost`
 - `renderPlainPageSource(pageTitle = "")`
 - `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
 - `applySubpagesUpgradeToPageSource(source = "", { host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
 - `upgradePageFileToSubpages({ appRoot, targetFile, host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
 Local functions
-- `splitTextIntoWords(value = "")`
-- `wordsToKebab(words = [])`
-- `toTitleCase(words = [])`
-- `isRouteGroupSegment(value = "")`
-- `isNestedChildrenRouteGroupSegment(value = "")`
-- `normalizePlacementIdSegment(value = "")`
-- `humanizePageSegment(value = "", fallback = "Page")`
 - `trimEdgeBlankLines(source = "")`
-- `validateVueTargetFile(relativePath = "", { context = "ui-generator" } = {})`
-- `listSurfacePageRoots(appRoot = "", { context = "ui-generator" } = {})`
-- `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
-- `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
-- `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
-- `buildAncestorRouteContexts(pageTarget = {})`
-- `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
-- `resolveSubpagesHostTargetFromPageSource(source = "")`
 - `renderSectionContainerShellSource()`
 - `renderTabLinkItemSource()`
 - `findTemplateBlock(source = "")`

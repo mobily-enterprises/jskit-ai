@@ -18,23 +18,27 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `buildUiTemplateContext({ appRoot, options } = {})`
 Local functions
-- `splitPathSegments(value = "")`
-- `isRouteGroupSegment(value = "")`
-- `joinPathSegments(segments = [])`
-- `resolveContainerOption(options = {})`
-- `resolveRoutePathWithContainer(options = {})`
-- `resolvePlacementUrlSuffix(options = {})`
-- `resolveMenuComponentToken(options = {})`
-- `resolveMenuToPropLine(options = {})`
-- `resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {})`
+- `splitTextIntoWords(value = "")`
+- `wordsToKebab(words = [])`
+- `wordsToTitle(words = [])`
+- `toSingularKebab(value = "")`
+- `toPluralKebab(value = "")`
+- `toTitleFromKebab(value = "", fallback = "")`
+- `normalizeRelativeAppPath(value = "")`
+- `requireTargetRootOption(options = {})`
+- `resolveListTargetFile(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
-- `resolveResourceNamespaceOption(options = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `filterDefaultHiddenListFields(selectedFieldKeys, fields)`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
 - `resolveViewTitleFallbackFieldKey(fields = [])`
+- `resolveResourceNamespace(resource = {}, pageTarget = {}, options = {})`
+- `resolveResourceLabels(namespace = "", pageTarget = {})`
+- `resolveTargetRootRelativeRoutePath(pageTarget = {})`
+- `resolveMenuToPropLine(linkTo = "")`
+- `resolveCrudRelativePath(namespace = "")`
 
 ### `src/server/resourceSupport.js`
 Exports

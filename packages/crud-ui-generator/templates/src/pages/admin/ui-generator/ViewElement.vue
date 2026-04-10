@@ -8,11 +8,11 @@
               {{
                 view.resolveRecordTitle(view.record, {
                   fallbackKey: UI_VIEW_TITLE_FALLBACK_FIELD_KEY,
-                  defaultValue: "${option:namespace|singular|pascal|default(Record)}"
+                  defaultValue: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
                 })
               }}
             </v-card-title>
-            <v-card-subtitle class="px-0">View and manage this ${option:namespace|singular|default(record)}.</v-card-subtitle>
+            <v-card-subtitle class="px-0">View and manage this __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn
@@ -20,7 +20,7 @@
             variant="text"
             :to="{ path: view.resolveParams(UI_LIST_URL), query: $route.query }"
           >
-            Back to ${option:namespace|plural|default(records)}
+            Back to __JSKIT_UI_RESOURCE_PLURAL_TITLE__
           </v-btn>
           <v-btn
             v-if="UI_EDIT_URL"
@@ -58,8 +58,8 @@ __JSKIT_UI_VIEW_COLUMNS__
 import { useCrudView } from "@jskit-ai/users-web/client/composables/useCrudView";
 
 const UI_OPERATION_ADAPTER = null;
-const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
-const UI_API_BASE_URL = "${option:api-path|trim}";
+const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
+const UI_API_BASE_URL = "__JSKIT_UI_API_BASE_URL__";
 const UI_VIEW_API_URL = `${UI_API_BASE_URL}/:${UI_RECORD_ID_PARAM}`;
 const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? ".." : "";
 const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? "./edit" : "";
@@ -73,12 +73,12 @@ const view = useCrudView({
   includeRecordIdInQueryKey: true,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "ui-generator",
-    "${option:namespace|kebab}",
+    "__JSKIT_UI_RESOURCE_NAMESPACE__",
     "view",
     String(surfaceId || ""),
     String(workspaceSlug || "")
   ],
-  placementSource: "ui-generator.${option:namespace|kebab}.view",
+  placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.view",
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
   listUrlTemplate: UI_LIST_URL,

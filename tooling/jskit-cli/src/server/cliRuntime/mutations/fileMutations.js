@@ -16,7 +16,8 @@ import {
   hashBuffer,
   fileExists,
   readFileBufferIfExists,
-  loadMutationWhenConfigContext
+  loadMutationWhenConfigContext,
+  resolveAppRelativePathWithinRoot
 } from "../ioAndMigrations.js";
 import {
   copyTemplateFile,
@@ -113,7 +114,7 @@ async function applyFileMutations(
           mutation,
           configContext
         })
-      : [path.join(appRoot, to)];
+      : [resolveAppRelativePathWithinRoot(appRoot, to, `${packageEntry.packageId} files mutation.to`).absolutePath];
     const hasPrecomputedTemplateContext =
       precomputedTemplateContextByMutationIndex instanceof Map &&
       precomputedTemplateContextByMutationIndex.has(mutationIndex);
@@ -224,7 +225,7 @@ async function preflightFileMutationTemplateContexts(
             mutation,
             configContext
           })
-        : [path.join(appRoot, to)]
+        : [resolveAppRelativePathWithinRoot(appRoot, to, `${packageEntry.packageId} files mutation.to`).absolutePath]
       : [path.join(appRoot, mutation.toDir || "migrations")];
     const replacements = await resolveTemplateContextReplacementsForMutation({
       packageEntry,

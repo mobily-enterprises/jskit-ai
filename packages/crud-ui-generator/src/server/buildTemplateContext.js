@@ -1,7 +1,12 @@
-import { resolveShellOutletPlacementTargetFromApp } from "@jskit-ai/kernel/server/support";
 import {
-  normalizeText,
-  requireOption,
+  requireCrudNamespace
+} from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
+import {
+  resolvePageLinkTargetDetails,
+  resolvePageTargetDetails
+} from "@jskit-ai/kernel/server/support";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
   loadResourceDefinition,
   requireOperation,
   resolveOperationRealtimeEvents,
@@ -24,116 +29,137 @@ import {
 } from "./resourceSupport.js";
 
 const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
+const DEFAULT_OPERATIONS = "list,view,new,edit";
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
-const CONTAINER_TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
-const DEFAULT_MENU_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
-const CONTAINER_MENU_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
+const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
 
-function splitPathSegments(value = "") {
-  return normalizeText(value)
-    .replaceAll("\\", "/")
-    .split("/")
-    .map((entry) => normalizeText(entry))
+function splitTextIntoWords(value = "") {
+  const normalized = String(value || "")
+    .replace(/^\[|\]$/g, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim();
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/\s+/)
+    .map((entry) => entry.toLowerCase())
     .filter(Boolean);
 }
 
-function isRouteGroupSegment(value = "") {
-  const source = normalizeText(value);
-  return source.startsWith("(") && source.endsWith(")");
+function wordsToKebab(words = []) {
+  return (Array.isArray(words) ? words : [])
+    .map((entry) => String(entry || "").toLowerCase())
+    .filter(Boolean)
+    .join("-");
 }
 
-function joinPathSegments(segments = []) {
-  return (Array.isArray(segments) ? segments : []).join("/");
+function wordsToTitle(words = []) {
+  return (Array.isArray(words) ? words : [])
+    .map((entry) => {
+      const value = String(entry || "").toLowerCase();
+      if (!value) {
+        return "";
+      }
+      return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+    })
+    .filter(Boolean)
+    .join(" ");
 }
 
-function resolveContainerOption(options = {}) {
-  const container = normalizeText(options?.container).toLowerCase();
-  if (!container) {
+function toSingularKebab(value = "") {
+  const words = splitTextIntoWords(value);
+  if (words.length < 1) {
     return "";
   }
 
-  if (!CONTAINER_TOKEN_PATTERN.test(container)) {
-    throw new Error(
-      'ui-generator option "container" must be a single host token (letters, numbers, ".", "_" or "-").'
-    );
+  const nextWords = [...words];
+  const lastIndex = nextWords.length - 1;
+  const last = nextWords[lastIndex];
+  if (last.endsWith("ies") && last.length > 3) {
+    nextWords[lastIndex] = `${last.slice(0, -3)}y`;
+  } else if (last.endsWith("sses") && last.length > 4) {
+    nextWords[lastIndex] = last.slice(0, -2);
+  } else if (last.endsWith("s") && !last.endsWith("ss") && last.length > 1) {
+    nextWords[lastIndex] = last.slice(0, -1);
   }
 
-  return container;
+  return wordsToKebab(nextWords);
 }
 
-function resolveRoutePathWithContainer(options = {}) {
-  const container = resolveContainerOption(options);
-  const routeSegments = [
-    ...splitPathSegments(options?.["directory-prefix"]),
-    ...splitPathSegments(container),
-    ...splitPathSegments(options?.["route-path"])
-  ];
-  return joinPathSegments(routeSegments);
-}
-
-function resolvePlacementUrlSuffix(options = {}) {
-  const routeSegments = splitPathSegments(resolveRoutePathWithContainer(options))
-    .filter((segment) => !isRouteGroupSegment(segment));
-  if (routeSegments.length < 1) {
-    return "/";
-  }
-  return `/${joinPathSegments(routeSegments)}`;
-}
-
-function resolveMenuComponentToken(options = {}) {
-  const explicitToken = normalizeText(options?.["placement-component-token"]);
-  if (explicitToken) {
-    return explicitToken;
-  }
-
-  const container = resolveContainerOption(options);
-  return container ? CONTAINER_MENU_COMPONENT_TOKEN : DEFAULT_MENU_COMPONENT_TOKEN;
-}
-
-function resolveMenuToPropLine(options = {}) {
-  const placementTo = normalizeText(options?.["placement-to"]);
-  if (!placementTo) {
+function toPluralKebab(value = "") {
+  const words = splitTextIntoWords(value);
+  if (words.length < 1) {
     return "";
   }
 
-  return `      to: ${JSON.stringify(placementTo)},\n`;
+  const nextWords = [...words];
+  const lastIndex = nextWords.length - 1;
+  const last = nextWords[lastIndex];
+  if (last.endsWith("s")) {
+    return wordsToKebab(nextWords);
+  }
+  if (/(x|z|ch|sh)$/i.test(last)) {
+    nextWords[lastIndex] = `${last}es`;
+  } else if (last.endsWith("y") && !/[aeiou]y$/i.test(last)) {
+    nextWords[lastIndex] = `${last.slice(0, -1)}ies`;
+  } else {
+    nextWords[lastIndex] = `${last}s`;
+  }
+
+  return wordsToKebab(nextWords);
 }
 
-async function resolveMenuPlacementTarget({ appRoot, options, hasListOperation } = {}) {
-  if (hasListOperation !== true) {
-    return null;
+function toTitleFromKebab(value = "", fallback = "") {
+  const words = splitTextIntoWords(value);
+  if (words.length < 1) {
+    return fallback;
   }
+  return wordsToTitle(words);
+}
 
-  const routePath = resolveRoutePathWithContainer(options);
-  if (!routePath) {
-    return null;
+function normalizeRelativeAppPath(value = "") {
+  return String(value || "")
+    .replaceAll("\\", "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/\/+$/, "")
+    .trim();
+}
+
+function requireTargetRootOption(options = {}) {
+  const normalizedTargetRoot = normalizeRelativeAppPath(options?.["target-root"]);
+  if (!normalizedTargetRoot) {
+    throw new Error('crud-ui-generator requires option "target-root".');
   }
+  if (normalizedTargetRoot.endsWith(".vue")) {
+    throw new Error('crud-ui-generator option "target-root" must be a route root directory, not a .vue file.');
+  }
+  return normalizedTargetRoot;
+}
 
-  const explicitPlacement = normalizeText(options?.placement);
-  const container = resolveContainerOption(options);
-  const placementTarget = explicitPlacement || (container ? `${container}:sub-pages` : "");
-
-  return resolveShellOutletPlacementTargetFromApp({
-    appRoot,
-    context: "ui-generator",
-    placement: placementTarget
-  });
+function resolveListTargetFile(targetRoot = "") {
+  return `${normalizeRelativeAppPath(targetRoot)}/index.vue`;
 }
 
 function parseOperationsOption(options) {
-  const rawValue = requireOption(options, "operations");
+  const rawValue = normalizeText(options?.operations) || DEFAULT_OPERATIONS;
+
   const operations = rawValue
     .split(",")
     .map((entry) => normalizeText(entry).toLowerCase())
     .filter(Boolean);
   if (operations.length < 1) {
-    throw new Error('ui-generator option "operations" must include at least one value: list, view, new, or edit.');
+    throw new Error('crud-ui-generator option "operations" must include at least one value: list, view, new, or edit.');
   }
 
   const unique = new Set();
   for (const operation of operations) {
     if (!ALLOWED_OPERATIONS.has(operation)) {
-      throw new Error('ui-generator option "operations" supports only: list, view, new, edit.');
+      throw new Error('crud-ui-generator option "operations" supports only: list, view, new, edit.');
     }
     unique.add(operation);
   }
@@ -152,7 +178,7 @@ function parseDisplayFieldsOption(options) {
     .map((entry) => normalizeText(entry))
     .filter(Boolean);
   if (fieldKeys.length < 1) {
-    throw new Error('ui-generator option "display-fields" must include at least one field key.');
+    throw new Error('crud-ui-generator option "display-fields" must include at least one field key.');
   }
 
   const unique = [];
@@ -169,25 +195,6 @@ function parseDisplayFieldsOption(options) {
   return Object.freeze(unique);
 }
 
-function resolveResourceNamespaceOption(options = {}) {
-  const rawApiPath = normalizeText(options?.["api-path"]);
-  const apiPathSegments = rawApiPath
-    .replace(/\\/g, "/")
-    .replace(/\/{2,}/g, "/")
-    .split("/")
-    .map((entry) => normalizeText(entry))
-    .filter(Boolean);
-
-  const apiPathNamespace = normalizeText(apiPathSegments[apiPathSegments.length - 1]);
-  const fallbackNamespace = normalizeText(options?.namespace).toLowerCase();
-  const resolvedNamespace = normalizeText(apiPathNamespace || fallbackNamespace || "crud").toLowerCase();
-  if (!resolvedNamespace) {
-    throw new Error('ui-generator could not resolve namespace from "api-path" or "namespace".');
-  }
-
-  return resolvedNamespace;
-}
-
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   if (selectedFields.length < 1) {
@@ -199,14 +206,13 @@ function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationN
       .map((field) => normalizeText(field?.key))
       .filter(Boolean)
   );
-
   const invalidFieldKeys = selectedFields.filter((fieldKey) => !availableFieldKeys.has(fieldKey));
   if (invalidFieldKeys.length < 1) {
     return;
   }
 
   throw new Error(
-    `ui-generator option "display-fields" includes unsupported field(s) for operations.${operationName}: ${invalidFieldKeys.join(", ")}.`
+    `crud-ui-generator option "display-fields" includes unsupported field(s) for operations.${operationName}: ${invalidFieldKeys.join(", ")}.`
   );
 }
 
@@ -261,36 +267,96 @@ function resolveViewTitleFallbackFieldKey(fields = []) {
   return "";
 }
 
+function resolveResourceNamespace(resource = {}, pageTarget = {}, options = {}) {
+  const explicitNamespace = normalizeText(options?.namespace).toLowerCase();
+  if (explicitNamespace) {
+    return explicitNamespace;
+  }
+
+  const resourceNamespace = normalizeText(resource?.resource).toLowerCase();
+  if (resourceNamespace) {
+    return resourceNamespace;
+  }
+
+  const pageLeafNamespace = normalizeText(pageTarget?.pageLeafSegment).toLowerCase();
+  if (pageLeafNamespace) {
+    return pageLeafNamespace;
+  }
+
+  return "crud";
+}
+
+function resolveResourceLabels(namespace = "", pageTarget = {}) {
+  const basePlural = toPluralKebab(namespace || pageTarget?.pageLeafSegment || "records") || "records";
+  const singularSlug = toSingularKebab(basePlural) || "record";
+  const pluralSlug = toPluralKebab(basePlural) || "records";
+
+  return Object.freeze({
+    singularSlug,
+    pluralSlug,
+    singularTitle: toTitleFromKebab(singularSlug, "Record"),
+    pluralTitle: toTitleFromKebab(pluralSlug, "Records")
+  });
+}
+
+function resolveTargetRootRelativeRoutePath(pageTarget = {}) {
+  const visibleRouteSegments = Array.isArray(pageTarget?.visibleRouteSegments)
+    ? pageTarget.visibleRouteSegments
+    : [];
+  return visibleRouteSegments.length > 0 ? `/${visibleRouteSegments.join("/")}` : "/";
+}
+
+function resolveMenuToPropLine(linkTo = "") {
+  if (!linkTo) {
+    return "";
+  }
+  return `      to: ${JSON.stringify(linkTo)},\n`;
+}
+
+function resolveCrudRelativePath(namespace = "") {
+  return `/${requireCrudNamespace(namespace, {
+    context: "crud-ui-generator resource namespace"
+  })}`;
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
+  const targetRoot = requireTargetRootOption(options);
+  const listTargetFile = resolveListTargetFile(targetRoot);
   const selectedOperations = parseOperationsOption(options);
   const selectedDisplayFields = parseDisplayFieldsOption(options);
-  const resourceNamespace = resolveResourceNamespaceOption(options);
+  const pageTarget = await resolvePageTargetDetails({
+    appRoot,
+    targetFile: listTargetFile,
+    context: "crud-ui-generator"
+  });
+  const resource = await loadResourceDefinition({ appRoot, options, context: "crud-ui-generator" });
+  const resourceNamespace = resolveResourceNamespace(resource, pageTarget, options);
+  const resourceLabels = resolveResourceLabels(resourceNamespace, pageTarget);
+  const apiBasePath = resolveCrudRelativePath(resourceNamespace);
+  const defaultRecordChangedEvent = resolveRecordChangedEventName(resourceNamespace);
+  const parentRouteParamKey = resolveNearestParentRouteParamKey(resolveTargetRootRelativeRoutePath(pageTarget), {
+    recordIdParam: options?.["id-param"]
+  });
+  const lookupContainerKey = resolveLookupContainerKey(resource, {
+    context: "crud-ui-generator"
+  });
+  const fieldMetaMap = buildResourceFieldMetaMap(resource);
 
   const hasListOperation = selectedOperations.has("list");
   const hasViewOperation = selectedOperations.has("view");
   const hasNewOperation = selectedOperations.has("new");
   const hasEditOperation = selectedOperations.has("edit");
 
-  const resource = await loadResourceDefinition({ appRoot, options, context: "ui-generator" });
-  const defaultRecordChangedEvent = resolveRecordChangedEventName(resourceNamespace);
-  const parentRouteParamKey = resolveNearestParentRouteParamKey(resolveRoutePathWithContainer(options), {
-    recordIdParam: options?.["id-param"]
-  });
-  const lookupContainerKey = resolveLookupContainerKey(resource, {
-    context: "ui-generator"
-  });
-  const fieldMetaMap = buildResourceFieldMetaMap(resource);
   let listRealtimeEvents = [defaultRecordChangedEvent];
-
   let listFieldsAll = [];
   if (hasListOperation) {
-    const listOperation = requireOperation(resource, "list", { context: "ui-generator" });
-    const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "ui-generator" });
+    const listOperation = requireOperation(resource, "list", { context: "crud-ui-generator" });
+    const listOutputSchema = requireOutputSchema(listOperation, "list", { context: "crud-ui-generator" });
     listRealtimeEvents = resolveOperationRealtimeEvents(listOperation, {
       defaultEvents: [defaultRecordChangedEvent],
-      context: "ui-generator operations.list.realtime"
+      context: "crud-ui-generator operations.list.realtime"
     });
-    listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "ui-generator" }), {
+    listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "crud-ui-generator" }), {
       fieldMetaMap,
       lookupContainerKey
     });
@@ -299,10 +365,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
 
   let viewFieldsAll = [];
   if (hasViewOperation) {
-    const viewOperation = requireOperation(resource, "view", { context: "ui-generator" });
-    const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "ui-generator" });
+    const viewOperation = requireOperation(resource, "view", { context: "crud-ui-generator" });
+    const viewOutputSchema = requireOutputSchema(viewOperation, "view", { context: "crud-ui-generator" });
     viewFieldsAll = createFieldDefinitions(
-      requireObjectProperties(viewOutputSchema, "operations.view output", { context: "ui-generator" }),
+      requireObjectProperties(viewOutputSchema, "operations.view output", { context: "crud-ui-generator" }),
       {
         fieldMetaMap,
         lookupContainerKey
@@ -313,10 +379,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
 
   let createFieldsAll = [];
   if (hasNewOperation) {
-    const createOperation = requireOperation(resource, "create", { context: "ui-generator" });
-    const createBodySchema = requireBodySchema(createOperation, "create", { context: "ui-generator" });
+    const createOperation = requireOperation(resource, "create", { context: "crud-ui-generator" });
+    const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator" });
     createFieldsAll = createFormFieldDefinitions(
-      requireObjectProperties(createBodySchema, "operations.create body", { context: "ui-generator" }),
+      requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator" }),
       {
         fieldMetaMap,
         lookupContainerKey,
@@ -328,10 +394,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
 
   let editFieldsAll = [];
   if (hasEditOperation) {
-    const patchOperation = requireOperation(resource, "patch", { context: "ui-generator" });
-    const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "ui-generator" });
+    const patchOperation = requireOperation(resource, "patch", { context: "crud-ui-generator" });
+    const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator" });
     editFieldsAll = createFormFieldDefinitions(
-      requireObjectProperties(patchBodySchema, "operations.patch body", { context: "ui-generator" }),
+      requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator" }),
       {
         fieldMetaMap,
         lookupContainerKey,
@@ -350,16 +416,15 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const viewFields = hasViewOperation
     ? filterDisplayFields(selectedDisplayFields, ensureFields(viewFieldsAll))
     : createFieldDefinitions({});
-  const viewTitleFallbackFieldKey = hasViewOperation
-    ? resolveViewTitleFallbackFieldKey(viewFieldsAll)
-    : "";
   const createFields = hasNewOperation
     ? filterDisplayFields(selectedDisplayFields, createFieldsAll)
     : [];
   const editFields = hasEditOperation
     ? filterDisplayFields(selectedDisplayFields, editFieldsAll)
     : [];
-
+  const viewTitleFallbackFieldKey = hasViewOperation
+    ? resolveViewTitleFallbackFieldKey(viewFieldsAll)
+    : "";
   const recordIdFields =
     listFieldsAll.length > 0
       ? listFieldsAll
@@ -368,13 +433,31 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
         : editFieldsAll.length > 0
           ? editFieldsAll
           : createFieldDefinitions({});
-  const menuPlacementTarget = await resolveMenuPlacementTarget({
-    appRoot,
-    options,
-    hasListOperation
-  });
+
+  const pageLinkTarget = hasListOperation
+    ? await resolvePageLinkTargetDetails({
+      appRoot,
+      pageTarget,
+      targetFile: listTargetFile,
+      placement: options?.["link-placement"],
+      context: "crud-ui-generator"
+    })
+    : null;
+  const menuMarker = hasListOperation
+    ? `jskit:crud-ui-generator.page.link:${pageTarget.surfaceId}:${pageTarget.routeUrlSuffix}`
+    : "";
 
   return {
+    __JSKIT_UI_RESOURCE_IMPORT_PATH__: `/${normalizeRelativeAppPath(options?.["resource-file"])}`,
+    __JSKIT_UI_RECORD_ID_PARAM__: normalizeText(options?.["id-param"]) || "recordId",
+    __JSKIT_UI_API_BASE_URL__: apiBasePath,
+    __JSKIT_UI_RESOURCE_NAMESPACE__: resourceNamespace,
+    __JSKIT_UI_RESOURCE_SINGULAR_TITLE__: resourceLabels.singularTitle,
+    __JSKIT_UI_RESOURCE_PLURAL_TITLE__: resourceLabels.pluralTitle,
+    __JSKIT_UI_ROUTE_TITLE__: pageTarget.defaultName,
+    __JSKIT_UI_FORM_COMPONENT_FILE__: DEFAULT_FORM_COMPONENT_FILE,
+    __JSKIT_UI_FORM_FIELDS_FILE__: DEFAULT_FORM_FIELDS_FILE,
+    __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
@@ -392,12 +475,15 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
     __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
-    __JSKIT_UI_MENU_PLACEMENT_HOST__: normalizeText(menuPlacementTarget?.host),
-    __JSKIT_UI_MENU_PLACEMENT_POSITION__: normalizeText(menuPlacementTarget?.position),
-    __JSKIT_UI_MENU_COMPONENT_TOKEN__: resolveMenuComponentToken(options),
-    __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
-    __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: resolvePlacementUrlSuffix(options),
-    __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(options)
+    __JSKIT_UI_MENU_MARKER__: menuMarker,
+    __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
+    __JSKIT_UI_MENU_PLACEMENT_HOST__: String(pageLinkTarget?.placementTarget?.host || ""),
+    __JSKIT_UI_MENU_PLACEMENT_POSITION__: String(pageLinkTarget?.placementTarget?.position || ""),
+    __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
+    __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
+    __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
+    __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(pageLinkTarget?.linkTo || ""),
+    __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName
   };
 }
 

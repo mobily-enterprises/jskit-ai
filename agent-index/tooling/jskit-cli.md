@@ -330,6 +330,7 @@ Exports
 - `runPackageGenerateCommand(ctx = {}, { positional, options, cwd, io }, { runCommandAdd })`
 Local functions
 - `resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "")`
+- `mapDescriptorBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
 - `resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "")`
 
 ### `src/server/commandHandlers/packageCommands/migrations.js`

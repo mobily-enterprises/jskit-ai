@@ -5,11 +5,11 @@
         <div class="d-flex align-center ga-3 flex-wrap w-100">
           <div>
             <v-card-title class="px-0">{{ listHeadingTitle }}</v-card-title>
-            <v-card-subtitle class="px-0">Manage ${option:namespace|plural|default(records)}.</v-card-subtitle>
+            <v-card-subtitle class="px-0">Manage __JSKIT_UI_RESOURCE_PLURAL_TITLE__.</v-card-subtitle>
           </div>
           <v-spacer />
           <v-btn variant="outlined" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
-          <v-btn v-if="UI_NEW_URL" color="primary" :to="records.resolveParams(UI_NEW_URL)">New ${option:namespace|singular|default(record)}</v-btn>
+          <v-btn v-if="UI_NEW_URL" color="primary" :to="records.resolveParams(UI_NEW_URL)">New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-btn>
         </div>
       </v-card-item>
       <v-divider />
@@ -85,11 +85,11 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 import { computed } from "vue";
 import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";
 import { useCrudList } from "@jskit-ai/users-web/client/composables/useCrudList";
-import { resource as uiResource } from "/${option:resource-file|trim}";
+import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
-const UI_RECORD_ID_PARAM = "${option:id-param|trim}";
-const UI_LIST_API_URL = "${option:api-path|trim}";
+const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
+const UI_LIST_API_URL = "__JSKIT_UI_API_BASE_URL__";
 const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}` : "";
 const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
 const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
@@ -102,7 +102,7 @@ const records = useCrudList({
   apiSuffix: UI_LIST_API_URL,
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
     "ui-generator",
-    "${option:namespace|kebab}",
+    "__JSKIT_UI_RESOURCE_NAMESPACE__",
     "list",
     String(surfaceId || ""),
     String(workspaceSlug || "")
@@ -118,7 +118,7 @@ const records = useCrudList({
     queryParams: true,
     queryParamBlacklist: UI_ROUTE_QUERY_BLACKLIST
   },
-  placementSource: "ui-generator.${option:namespace|kebab}.list",
+  placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.list",
   fallbackLoadError: "Unable to load records.",
   recordIdParam: UI_RECORD_ID_PARAM,
   recordIdSelector: (item = {}) => __JSKIT_UI_LIST_RECORD_ID_EXPR__,
@@ -136,8 +136,8 @@ const parentTitle = useCrudListParentTitle({
   resource: uiResource,
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
-  queryKeyPrefix: ["ui-generator", "${option:namespace|kebab}", "list", "parent-title"],
-  placementSource: "ui-generator.${option:namespace|kebab}.list.parent-title",
+  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "list", "parent-title"],
+  placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.list.parent-title",
   fallbackLoadError: "Unable to load parent record.",
   notFoundMessage: "Parent record not found."
 });
@@ -145,10 +145,10 @@ const parentTitle = useCrudListParentTitle({
 const listHeadingTitle = computed(() => {
   const resolvedParentTitle = String(parentTitle.title || "").trim();
   if (!resolvedParentTitle) {
-    return "${option:route-path|pascal}";
+    return "__JSKIT_UI_ROUTE_TITLE__";
   }
 
-  return `${option:route-path|pascal} for ${resolvedParentTitle}`;
+  return `__JSKIT_UI_ROUTE_TITLE__ for ${resolvedParentTitle}`;
 });
 </script>
 

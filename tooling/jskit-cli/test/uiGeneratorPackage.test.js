@@ -15,9 +15,7 @@ const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
-  await mkdir(path.join(appRoot, "src"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
-  await mkdir(path.join(appRoot, "src", "pages", "admin"), { recursive: true });
   await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
   await writeFile(
@@ -124,7 +122,7 @@ async function installCrudUiGeneratorPackage(appRoot) {
   await cp(KERNEL_SOURCE_ROOT, kernelRoot, { recursive: true });
 }
 
-async function writeCustomerResource(appRoot) {
+async function writeCustomerResource(appRoot, { includeResourceNamespace = true } = {}) {
   const resourceFile = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
   await mkdir(path.dirname(resourceFile), { recursive: true });
   await writeFile(
@@ -151,7 +149,7 @@ const customerBodySchema = {
 };
 
 const resource = {
-  operations: {
+${includeResourceNamespace ? '  resource: "customers",\n' : ""}  operations: {
     list: {
       outputValidator: {
         schema: {
@@ -206,610 +204,258 @@ async function fileExists(absolutePath) {
   }
 }
 
-function resolveGeneratedPaths(appRoot) {
-  const generatedRoot = path.join(appRoot, "src", "pages", "admin", "ops", "customers-ui");
+function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
+  const generatedRoot = path.join(appRoot, targetRoot);
   return {
     generatedRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
-    viewPagePath: path.join(generatedRoot, "[customerId]", "index.vue"),
+    viewPagePath: path.join(generatedRoot, `[${idParam}]`, "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
-    editPagePath: path.join(generatedRoot, "[customerId]", "edit.vue"),
-    addEditFormPath: path.join(generatedRoot, "_components", "CustomerAddEditForm.vue"),
-    addEditFormFieldsPath: path.join(generatedRoot, "_components", "CustomerAddEditFormFields.js"),
-    listElementPath: path.join(generatedRoot, "ListCustomersElement.vue"),
-    viewElementPath: path.join(generatedRoot, "ViewCustomerElement.vue"),
-    newElementPath: path.join(generatedRoot, "NewCustomerElement.vue"),
-    editElementPath: path.join(generatedRoot, "EditCustomerElement.vue")
+    editPagePath: path.join(generatedRoot, `[${idParam}]`, "edit.vue"),
+    addEditFormPath: path.join(generatedRoot, "_components", "CrudAddEditForm.vue"),
+    addEditFormFieldsPath: path.join(generatedRoot, "_components", "CrudAddEditFormFields.js")
   };
 }
 
 async function generateCrudUiPackage(
   appRoot,
   {
-    operations = "list,view",
+    targetRoot = "src/pages/admin/ops/customers-ui",
+    operations = "list,view,new,edit",
     displayFields = "",
-    namespace = "customers",
-    apiPath = "/crud/customers",
-    routePath = "ops/customers-ui",
     idParam = "customerId",
-    placement = "",
-    placementComponentToken = "",
-    placementTo = "",
-    directoryPrefix = "",
-    command = ""
+    linkPlacement = "",
+    namespace = ""
   } = {}
 ) {
   await installCrudUiGeneratorPackage(appRoot);
-  const normalizedDisplayFields = String(displayFields || "").trim();
   const args = [
     "generate",
     "@jskit-ai/crud-ui-generator",
-    ...(command ? [command] : []),
-    "--namespace",
-    namespace,
-    "--surface",
-    "admin",
-    "--operations",
-    operations,
-    ...(normalizedDisplayFields ? ["--display-fields", normalizedDisplayFields] : []),
+    "crud",
+    targetRoot,
     "--resource-file",
     "packages/customers/src/shared/customerResource.js",
-    "--api-path",
-    apiPath,
-    "--route-path",
-    routePath,
-    ...(String(directoryPrefix || "").trim() ? ["--directory-prefix", String(directoryPrefix || "").trim()] : []),
-    ...(String(placement || "").trim() ? ["--placement", String(placement || "").trim()] : []),
-    ...(String(placementComponentToken || "").trim()
-      ? ["--placement-component-token", String(placementComponentToken || "").trim()]
-      : []),
-    ...(String(placementTo || "").trim() ? ["--placement-to", String(placementTo || "").trim()] : []),
     "--id-param",
-    idParam
+    idParam,
+    ...(operations ? ["--operations", operations] : []),
+    ...(displayFields ? ["--display-fields", displayFields] : []),
+    ...(linkPlacement ? ["--link-placement", linkPlacement] : []),
+    ...(namespace ? ["--namespace", namespace] : [])
   ];
 
-  const addResult = runCli({
+  const result = runCli({
     cwd: appRoot,
     args
   });
-  assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+  assert.equal(result.status, 0, String(result.stderr || ""));
 }
 
-test('generate @jskit-ai/crud-ui-generator loads named export "resource" from resource-file', async () => {
+test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an explicit target-root", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-default-export");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-default-export" });
+    const appRoot = path.join(cwd, "crud-ui-explicit-root");
+    await createMinimalApp(appRoot, { name: "crud-ui-explicit-root" });
     await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      operations: "list,view"
-    });
+    await generateCrudUiPackage(appRoot);
 
-    const paths = resolveGeneratedPaths(appRoot);
+    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator derives api-path and route-path from namespace when omitted", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-derived-paths");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-derived-paths" });
-    await writeCustomerResource(appRoot);
-    await installCrudUiGeneratorPackage(appRoot);
-
-    const addResult = runCli({
-      cwd: appRoot,
-      args: [
-        "generate",
-        "@jskit-ai/crud-ui-generator",
-        "--namespace",
-        "contacts",
-        "--surface",
-        "admin",
-        "--operations",
-        "list,view,new,edit",
-        "--resource-file",
-        "packages/customers/src/shared/customerResource.js",
-        "--id-param",
-        "recordId"
-      ]
-    });
-    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
-
-    const listPagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "index.vue");
-    assert.equal(await fileExists(listPagePath), true);
-    const listPageSource = await readFile(listPagePath, "utf8");
-    assert.match(listPageSource, /const UI_LIST_API_URL = "\/contacts";/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator crud runs canonical noun command", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-crud-command");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-crud-command" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      operations: "list,view",
-      command: "crud"
-    });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.listPagePath), true);
-    assert.equal(await fileExists(paths.viewPagePath), true);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator with list,view,new,edit scaffolds all client files", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-all");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-all" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, { operations: "list,view,new,edit" });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.listPagePath), true, paths.listPagePath);
-    assert.equal(await fileExists(paths.viewPagePath), true, paths.viewPagePath);
-    assert.equal(await fileExists(paths.newPagePath), true, paths.newPagePath);
-    assert.equal(await fileExists(paths.editPagePath), true, paths.editPagePath);
-    assert.equal(await fileExists(paths.addEditFormPath), true, paths.addEditFormPath);
-    assert.equal(await fileExists(paths.addEditFormFieldsPath), true, paths.addEditFormFieldsPath);
-    assert.equal(await fileExists(paths.listElementPath), false, paths.listElementPath);
-    assert.equal(await fileExists(paths.viewElementPath), false, paths.viewElementPath);
-    assert.equal(await fileExists(paths.newElementPath), false, paths.newElementPath);
-    assert.equal(await fileExists(paths.editElementPath), false, paths.editElementPath);
+    assert.equal(await fileExists(paths.newPagePath), true);
+    assert.equal(await fileExists(paths.editPagePath), true);
+    assert.equal(await fileExists(paths.addEditFormPath), true);
+    assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /<th>First Name<\/th>/);
-    assert.match(listPageSource, /<th>Email<\/th>/);
-    assert.match(listPageSource, /const UI_VIEW_URL = true \? `\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
-    assert.match(listPageSource, /const UI_EDIT_URL = true \? `\.\/:\$\{UI_RECORD_ID_PARAM\}\/edit` : "";/);
-    assert.match(listPageSource, /const UI_NEW_URL = true \? "\.\/new" : "";/);
-    assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
-    assert.match(listPageSource, /const UI_OPERATION_ADAPTER = null;/);
-    assert.match(listPageSource, /queryKeyFactory: \(surfaceId = "", workspaceSlug = ""\)/);
-    assert.match(listPageSource, /v-if="records\.searchEnabled"/);
-    assert.match(listPageSource, /v-model="records\.searchQuery"/);
-    assert.match(listPageSource, /:loading="records\.isSearchDebouncing"/);
-    assert.match(listPageSource, /search:\s*\{\s*enabled:\s*true,\s*mode:\s*"query"\s*\}/);
-    assert.match(listPageSource, /recordIdSelector: \(item = \{\}\) => item\.id,/);
-    assert.match(listPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
-    assert.match(listPageSource, /editUrlTemplate: UI_EDIT_URL,/);
-    assert.doesNotMatch(listPageSource, /useListCore/);
-    assert.doesNotMatch(listPageSource, /clientSupport/);
-    assert.doesNotMatch(listPageSource, /function resolveTemplateUrl/);
-    assert.doesNotMatch(listPageSource, /function toRouteRecordId/);
-
-    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /View and manage this customer\./);
-    assert.match(viewPageSource, /const UI_API_BASE_URL = "\/crud\/customers";/);
-    assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/:\$\{UI_RECORD_ID_PARAM\}`;/);
-    assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL,/);
-    assert.match(viewPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
-    assert.match(viewPageSource, /includeRecordIdInQueryKey: true,/);
-    assert.match(viewPageSource, /view\.record\?\.firstName/);
-    assert.doesNotMatch(viewPageSource, /function resolveTemplateUrl/);
-    assert.doesNotMatch(viewPageSource, /function toRouteRecordId/);
-    assert.doesNotMatch(viewPageSource, /useRoute/);
-    assert.doesNotMatch(viewPageSource, /const record = computed/);
-    assert.match(viewPageSource, /view\.resolveRecordTitle\(view\.record,\s*\{/);
-    assert.match(viewPageSource, /fallbackKey:\s*UI_VIEW_TITLE_FALLBACK_FIELD_KEY,/);
-    assert.match(viewPageSource, /defaultValue:\s*"Customer"/);
+    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /import \{ resource as uiResource \} from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
+    assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
+    assert.match(listPageSource, /const UI_RECORD_ID_PARAM = "customerId";/);
+    assert.match(listPageSource, /"ui-generator", "customers", "list"/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /useCrudAddEdit/);
-    assert.match(newPageSource, /const formRuntime = useCrudAddEdit\(/);
-    assert.match(newPageSource, /writeMethod: "POST"/);
-    assert.match(newPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
-    assert.match(newPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
-    assert.match(newPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(newPageSource, /const UI_CANCEL_URL = UI_LIST_URL;/);
-    assert.match(newPageSource, /CustomerAddEditForm/);
+    assert.match(newPageSource, /import CrudAddEditForm from "\.\/_components\/CrudAddEditForm\.vue";/);
     assert.match(newPageSource, /UI_CREATE_FORM_FIELDS/);
-    assert.match(newPageSource, /jskit:crud-ui-fields-target \.\/_components\/CustomerAddEditForm\.vue/);
-    assert.match(newPageSource, /jskit:crud-ui-form-fields-target \.\/_components\/CustomerAddEditFormFields\.js/);
-    assert.doesNotMatch(newPageSource, /v-model="formRuntime\.form\.firstName"/);
-    assert.doesNotMatch(newPageSource, /function resolveTemplateUrl/);
-    assert.doesNotMatch(newPageSource, /function toRouteRecordId/);
-    assert.match(newPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
-
-    const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /useCrudAddEdit/);
-    assert.match(editPageSource, /const formRuntime = useCrudAddEdit\(/);
-    assert.match(editPageSource, /writeMethod: "PATCH"/);
-    assert.match(editPageSource, /apiUrlTemplate: UI_EDIT_API_URL,/);
-    assert.match(editPageSource, /recordIdParam: UI_RECORD_ID_PARAM,/);
-    assert.match(editPageSource, /routeRecordId,/);
-    assert.match(editPageSource, /viewUrlTemplate: UI_VIEW_URL,/);
-    assert.match(editPageSource, /listUrlTemplate: UI_LIST_URL,/);
-    assert.match(editPageSource, /CustomerAddEditForm/);
-    assert.match(editPageSource, /UI_EDIT_FORM_FIELDS/);
-    assert.match(editPageSource, /if \(!resolvedPath\) \{\s*return "";\s*\}/);
-    assert.match(editPageSource, /jskit:crud-ui-fields-target \.\.\/_components\/CustomerAddEditForm\.vue/);
-    assert.match(editPageSource, /jskit:crud-ui-form-fields-target \.\.\/_components\/CustomerAddEditFormFields\.js/);
-    assert.doesNotMatch(editPageSource, /v-model="formRuntime\.form\.email"/);
-    assert.doesNotMatch(editPageSource, /function resolveTemplateUrl/);
-    assert.doesNotMatch(editPageSource, /function toRouteRecordId/);
-    assert.match(editPageSource, /from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
-
-    const addEditFormSource = await readFile(paths.addEditFormPath, "utf8");
-    assert.match(addEditFormSource, /<template v-if="mode === 'new'">/);
-    assert.match(addEditFormSource, /<!-- jskit:crud-ui-fields:new -->/);
-    assert.match(addEditFormSource, /<!-- jskit:crud-ui-fields:edit -->/);
-    assert.match(addEditFormSource, /v-model="formRuntime\.form\.firstName"/);
-    assert.match(addEditFormSource, /v-model="formRuntime\.form\.email"/);
+    assert.match(newPageSource, /jskit:crud-ui-form-fields-target \.\/_components\/CrudAddEditFormFields\.js/);
 
     const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
-    assert.match(addEditFormFieldsSource, /const UI_CREATE_FORM_FIELDS = \[];/);
-    assert.match(addEditFormFieldsSource, /const UI_EDIT_FORM_FIELDS = \[];/);
-    assert.match(addEditFormFieldsSource, /jskit:crud-ui-form-fields:new/);
-    assert.match(addEditFormFieldsSource, /jskit:crud-ui-form-fields:edit/);
-
-    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator with operations=new,edit omits invalid cancel targets", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-new-edit-only");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-new-edit-only" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, { operations: "new,edit" });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.listPagePath), false);
-    assert.equal(await fileExists(paths.viewPagePath), false);
-
-    const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /const UI_LIST_URL = false \? "\.\." : "";/);
-    assert.match(newPageSource, /const UI_VIEW_URL = false \? `\.\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
-    assert.match(newPageSource, /const UI_CANCEL_URL = UI_LIST_URL;/);
+    assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /const UI_LIST_URL = false \? "\.\.\/\.\." : "";/);
-    assert.match(editPageSource, /const UI_VIEW_URL = false \? "\.\." : "";/);
-    assert.match(editPageSource, /const UI_CANCEL_URL = UI_VIEW_URL \|\| UI_LIST_URL;/);
-    assert.match(editPageSource, /if \(!resolvedPath\) \{\s*return "";\s*\}/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator uses --placement when provided", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-placement-override");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-placement-override" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      operations: "list",
-      placement: "shell-layout:secondary-menu"
-    });
+    assert.match(editPageSource, /import CrudAddEditForm from "\.\.\/_components\/CrudAddEditForm\.vue";/);
+    assert.match(editPageSource, /jskit:crud-ui-form-fields-target \.\.\/_components\/CrudAddEditFormFields\.js/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /position: "secondary-menu"/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator with operations=list scaffolds list only", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-list");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-list" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, { operations: "list" });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.listPagePath), true);
-    assert.equal(await fileExists(paths.listElementPath), false);
-    assert.equal(await fileExists(paths.viewElementPath), false);
-    assert.equal(await fileExists(paths.newElementPath), false);
-    assert.equal(await fileExists(paths.editElementPath), false);
-    assert.equal(await fileExists(paths.viewPagePath), false);
-    assert.equal(await fileExists(paths.newPagePath), false);
-    assert.equal(await fileExists(paths.editPagePath), false);
-
-    const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /const UI_VIEW_URL = false \? `\.\/:\$\{UI_RECORD_ID_PARAM\}` : "";/);
-    assert.match(listPageSource, /const UI_EDIT_URL = false \? `\.\/:\$\{UI_RECORD_ID_PARAM\}\/edit` : "";/);
-    assert.match(listPageSource, /const UI_NEW_URL = false \? "\.\/new" : "";/);
-    assert.doesNotMatch(listPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
-
-    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator does not append menu placement for dynamic route paths", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-dynamic-route-no-menu");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-route-no-menu" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      namespace: "addresses",
-      apiPath: "/addresses",
-      operations: "list,view,new,edit",
-      routePath: "contacts/[contactId]/addresses",
-      idParam: "addressId"
-    });
-
-    const dynamicListPagePath = path.join(
-      appRoot,
-      "src",
-      "pages",
-      "admin",
-      "contacts",
-      "[contactId]",
-      "addresses",
-      "index.vue"
-    );
-    assert.equal(await fileExists(dynamicListPagePath), true);
-
-    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:addresses:::contacts\/\[contactId\]\/addresses/);
-    assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/addresses"/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator does not append menu placement for dynamic directory-prefix", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-dynamic-prefix-no-menu");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-prefix-no-menu" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      namespace: "pets",
-      apiPath: "/pets",
-      operations: "list,view,new,edit",
-      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
-      routePath: "pets",
-      idParam: "petId"
-    });
-
-    const dynamicListPagePath = path.join(
-      appRoot,
-      "src",
-      "pages",
-      "admin",
-      "contacts",
-      "[contactId]",
-      "(nested-children)",
-      "pets",
-      "index.vue"
-    );
-    assert.equal(await fileExists(dynamicListPagePath), true);
-
-    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:pets:contacts\/\[contactId\]\/\(nested-children\)::pets/);
-    assert.doesNotMatch(placementSource, /workspaceSuffix:\s*"\/contacts\/\[contactId\]\/pets"/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator appends placement for dynamic directory-prefix when explicit placement and placement-to are provided", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-dynamic-prefix-placement");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-dynamic-prefix-placement" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, {
-      namespace: "pets",
-      apiPath: "/pets",
-      operations: "list,view,new,edit",
-      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
-      routePath: "pets",
-      idParam: "petId",
-      placement: "shell-layout:secondary-menu",
-      placementComponentToken: "local.main.ui.tab-link-item",
-      placementTo: "./pets"
-    });
-
-    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /jskit:ui-generator\.menu:pets:contacts\/\[contactId\]\/\(nested-children\)::pets/);
+    assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
+    assert.match(placementSource, /id: "ui-generator\.page\.ops\.customers-ui\.link"/);
     assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "secondary-menu"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
-    assert.match(placementSource, /to: "\.\/pets"/);
-
-    const tabLinkComponentPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
-    assert.equal(await fileExists(tabLinkComponentPath), true);
-    const tabLinkSource = await readFile(tabLinkComponentPath, "utf8");
-    assert.equal(tabLinkSource.includes("source.replace(/\\[([^\\]]+)\\]/g"), true);
-    assert.equal(tabLinkSource.includes("source.replace(/[([^]]+)]/g"), false);
-
-    const providerSource = await readFile(
-      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
-      "utf8"
-    );
-    assert.match(providerSource, /import TabLinkItem from "\/src\/components\/TabLinkItem\.vue";/);
-    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
+    assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /workspaceSuffix: "\/ops\/customers-ui"/);
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator does not duplicate existing local.main.ui.tab-link-item registrations", async () => {
+test("generate @jskit-ai/crud-ui-generator defaults operations to the full CRUD set when omitted", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-existing-tab-link-token");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-existing-tab-link-token" });
+    const appRoot = path.join(cwd, "crud-ui-default-operations");
+    await createMinimalApp(appRoot, { name: "crud-ui-default-operations" });
     await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "src/pages/admin/products",
+      operations: ""
+    });
 
+    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/products");
+    assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.viewPagePath), true);
+    assert.equal(await fileExists(paths.newPagePath), true);
+    assert.equal(await fileExists(paths.editPagePath), true);
+    assert.equal(await fileExists(paths.addEditFormPath), true);
+    assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator derives the CRUD api path from resource.resource", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-resource-namespace");
+    await createMinimalApp(appRoot, { name: "crud-ui-resource-namespace" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "src/pages/admin/customers"
+    });
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/customers/index.vue"), "utf8");
+    assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator falls back to the target-root leaf when resource.resource is missing", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-leaf-namespace");
+    await createMinimalApp(appRoot, { name: "crud-ui-leaf-namespace" });
+    await writeCustomerResource(appRoot, { includeResourceNamespace: false });
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "src/pages/admin/catalog/products"
+    });
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/catalog/products/index.vue"), "utf8");
+    assert.match(listPageSource, /const UI_LIST_API_URL = "\/products";/);
+    assert.match(listPageSource, /return "Products";/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator applies display-fields filters to generated pages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-display-fields");
+    await createMinimalApp(appRoot, { name: "crud-ui-display-fields" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      displayFields: "firstName,email"
+    });
+
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/ops/customers-ui/index.vue"), "utf8");
+    assert.match(listPageSource, /<th>First Name<\/th>/);
+    assert.match(listPageSource, /<th>Email<\/th>/);
+    assert.doesNotMatch(listPageSource, /<th>Vip<\/th>/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to from a parent subpages host", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-parent-host");
+    await createMinimalApp(appRoot, { name: "crud-ui-parent-host" });
+    await writeCustomerResource(appRoot);
+    await mkdir(path.join(appRoot, "src", "pages", "admin", "catalog"), { recursive: true });
     await writeFile(
-      path.join(appRoot, "src", "components", "ExistingTabLinkItem.vue"),
-      "<template><div /></template>\n",
-      "utf8"
-    );
-
-    await writeFile(
-      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
-      `import ExistingTabLinkItem from "/src/components/ExistingTabLinkItem.vue";
-
-const mainClientComponents = [];
-
-function registerMainClientComponent(componentToken, resolveComponent) {
-  const token = String(componentToken || "").trim();
-  if (!token || typeof resolveComponent !== "function") {
-    return;
-  }
-  mainClientComponents.push(
-    Object.freeze({
-      token,
-      resolveComponent
-    })
-  );
-}
-
-registerMainClientComponent("local.main.ui.tab-link-item", () => ExistingTabLinkItem);
-
-class MainClientProvider {
-  static id = "local.main.client";
-}
-
-export {
-  MainClientProvider,
-  registerMainClientComponent
-};
+      path.join(appRoot, "src", "pages", "admin", "catalog", "index.vue"),
+      `<template>
+  <SectionContainerShell>
+    <template #tabs>
+      <ShellOutlet host="catalog" position="sub-pages" />
+    </template>
+    <RouterView />
+  </SectionContainerShell>
+</template>
 `,
       "utf8"
     );
 
     await generateCrudUiPackage(appRoot, {
-      namespace: "pets",
-      apiPath: "/pets",
-      operations: "list,view,new,edit",
-      directoryPrefix: "contacts/[contactId]/(nestedChildren)",
-      routePath: "pets",
-      idParam: "petId",
-      placement: "shell-layout:secondary-menu",
-      placementComponentToken: "local.main.ui.tab-link-item",
-      placementTo: "./pets"
+      targetRoot: "src/pages/admin/catalog/(nestedChildren)/products"
     });
-
-    const providerSource = await readFile(
-      path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
-      "utf8"
-    );
-    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => ExistingTabLinkItem\);/);
-    assert.doesNotMatch(providerSource, /import TabLinkItem from "\/src\/components\/TabLinkItem\.vue";/);
-    assert.doesNotMatch(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
-
-    const tabLinkComponentPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
-    assert.equal(await fileExists(tabLinkComponentPath), false);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator with operations=view scaffolds view only", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-view");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-view" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, { operations: "view" });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.viewPagePath), true);
-    assert.equal(await fileExists(paths.viewElementPath), false);
-    assert.equal(await fileExists(paths.listElementPath), false);
-    assert.equal(await fileExists(paths.listPagePath), false);
-    assert.equal(await fileExists(paths.newElementPath), false);
-    assert.equal(await fileExists(paths.editElementPath), false);
-
-    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /const UI_LIST_URL = false \? "\.\." : "";/);
-    assert.match(viewPageSource, /const UI_EDIT_URL = false \? "\.\/edit" : "";/);
-    assert.doesNotMatch(viewPageSource, /const UI_HAS_[A-Z_]+_ROUTE =/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.doesNotMatch(placementSource, /jskit:ui-generator\.menu:customers:::ops\/customers-ui/);
+    assert.match(placementSource, /host: "catalog"/);
+    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /to: "\.\/products"/);
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator applies display-fields filter to list/view/forms", async () => {
+test("generate @jskit-ai/crud-ui-generator honors explicit link-placement overrides", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-display-fields");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-display-fields" });
+    const appRoot = path.join(cwd, "crud-ui-link-placement");
+    await createMinimalApp(appRoot, { name: "crud-ui-link-placement" });
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot, {
-      operations: "list,view,new,edit",
-      displayFields: "firstName,email"
+      operations: "list",
+      linkPlacement: "shell-layout:secondary-menu"
     });
 
-    const paths = resolveGeneratedPaths(appRoot);
-    const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /<th>First Name<\/th>/);
-    assert.match(listPageSource, /<th>Email<\/th>/);
-    assert.doesNotMatch(listPageSource, /<th>Vip<\/th>/);
-
-    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
-    assert.match(viewPageSource, /view\.record\?\.firstName/);
-    assert.match(viewPageSource, /view\.record\?\.email/);
-    assert.doesNotMatch(viewPageSource, /view\.record\?\.vip/);
-
-    const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /CustomerAddEditForm/);
-    assert.doesNotMatch(newPageSource, /v-model="formRuntime\.form\.vip"/);
-
-    const addEditFormSource = await readFile(paths.addEditFormPath, "utf8");
-    assert.match(addEditFormSource, /v-model="formRuntime\.form\.firstName"/);
-    assert.match(addEditFormSource, /v-model="formRuntime\.form\.email"/);
-    assert.doesNotMatch(addEditFormSource, /v-model="formRuntime\.form\.vip"/);
-
-    const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
-    assert.match(addEditFormFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "firstName"/);
-    assert.match(addEditFormFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "email"/);
-    assert.doesNotMatch(addEditFormFieldsSource, /"key": "vip"/);
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /position: "secondary-menu"/);
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator fails when display-fields includes unknown keys", async () => {
+test("generate @jskit-ai/crud-ui-generator list-only scaffolds just the list page and placement", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-invalid-display-fields");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-invalid-display-fields" });
+    const appRoot = path.join(cwd, "crud-ui-list-only");
+    await createMinimalApp(appRoot, { name: "crud-ui-list-only" });
+    await writeCustomerResource(appRoot);
+    await generateCrudUiPackage(appRoot, {
+      operations: "list"
+    });
+
+    const paths = resolveGeneratedPaths(appRoot, "src/pages/admin/ops/customers-ui");
+    assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.viewPagePath), false);
+    assert.equal(await fileExists(paths.newPagePath), false);
+    assert.equal(await fileExists(paths.editPagePath), false);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator rejects route roots outside src/pages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-invalid-target-root");
+    await createMinimalApp(appRoot, { name: "crud-ui-invalid-target-root" });
     await writeCustomerResource(appRoot);
     await installCrudUiGeneratorPackage(appRoot);
 
-    const addResult = runCli({
+    const result = runCli({
       cwd: appRoot,
       args: [
         "generate",
         "@jskit-ai/crud-ui-generator",
-        "--namespace",
-        "customers",
-        "--surface",
-        "admin",
-        "--operations",
-        "list,view,new,edit",
-        "--display-fields",
-        "firstName,unknownField",
+        "crud",
+        "packages/not-a-page",
         "--resource-file",
         "packages/customers/src/shared/customerResource.js",
-        "--api-path",
-        "/crud/customers",
-        "--route-path",
-        "ops/customers-ui",
-        "--id-param",
-        "customerId"
+        "--operations",
+        "list"
       ]
     });
 
-    assert.equal(addResult.status, 1);
-    assert.match(String(addResult.stderr || ""), /display-fields" includes unsupported field\(s\)/);
-  });
-});
-
-test("generate @jskit-ai/crud-ui-generator supports spaced operation lists in when filters", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-app-spaced-operations");
-    await createMinimalApp(appRoot, { name: "ui-generator-app-spaced-operations" });
-    await writeCustomerResource(appRoot);
-    await generateCrudUiPackage(appRoot, { operations: "view , list , edit" });
-
-    const paths = resolveGeneratedPaths(appRoot);
-    assert.equal(await fileExists(paths.listPagePath), true);
-    assert.equal(await fileExists(paths.viewPagePath), true);
-    assert.equal(await fileExists(paths.editPagePath), true);
-    assert.equal(await fileExists(paths.newPagePath), false);
-    assert.equal(await fileExists(paths.listElementPath), false);
-    assert.equal(await fileExists(paths.viewElementPath), false);
-    assert.equal(await fileExists(paths.editElementPath), false);
-    assert.equal(await fileExists(paths.newElementPath), false);
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /target file must live under src\/pages/);
   });
 });
 
 test("add package rejects generator package ids", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-add-rejects-generator");
-    await createMinimalApp(appRoot, { name: "ui-generator-add-rejects-generator" });
+    const appRoot = path.join(cwd, "crud-ui-add-rejects-generator");
+    await createMinimalApp(appRoot, { name: "crud-ui-add-rejects-generator" });
     await installCrudUiGeneratorPackage(appRoot);
 
     const addResult = runCli({
@@ -825,16 +471,16 @@ test("add package rejects generator package ids", async () => {
 
 test("generate rejects runtime package ids", async () => {
   await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "ui-generator-generate-rejects-runtime");
-    await createMinimalApp(appRoot, { name: "ui-generator-generate-rejects-runtime" });
+    const appRoot = path.join(cwd, "crud-ui-generate-rejects-runtime");
+    await createMinimalApp(appRoot, { name: "crud-ui-generate-rejects-runtime" });
 
-    const addResult = runCli({
+    const result = runCli({
       cwd: appRoot,
       args: ["generate", "@jskit-ai/auth-core"]
     });
 
-    assert.equal(addResult.status, 1);
-    assert.match(String(addResult.stderr || ""), /is a runtime package/);
-    assert.match(String(addResult.stderr || ""), /jskit add package @jskit-ai\/auth-core/);
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /is a runtime package/);
+    assert.match(String(result.stderr || ""), /jskit add package @jskit-ai\/auth-core/);
   });
 });

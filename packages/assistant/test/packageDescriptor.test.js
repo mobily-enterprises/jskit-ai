@@ -2,51 +2,43 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import descriptor from "../package.descriptor.mjs";
 
-function findFileMutation(id) {
-  const mutations = Array.isArray(descriptor?.mutations?.files) ? descriptor.mutations.files : [];
-  return mutations.find((entry) => String(entry?.id || "") === id) || null;
-}
-
 function findTextMutation(id) {
   const mutations = Array.isArray(descriptor?.mutations?.text) ? descriptor.mutations.text : [];
   return mutations.find((entry) => String(entry?.id || "") === id) || null;
 }
 
-test("assistant descriptor exposes per-surface generation options and depends on assistant-runtime", () => {
+test("assistant descriptor exposes setup as the primary command and still depends on assistant-runtime", () => {
   assert.equal(descriptor.kind, "generator");
+  assert.equal(descriptor.metadata?.generatorPrimarySubcommand, "setup");
   assert.equal(descriptor.options?.surface?.required, true);
   assert.equal(descriptor.options?.["settings-surface"]?.required, true);
   assert.equal(descriptor.options?.["config-scope"]?.defaultValue, "global");
-  assert.equal(descriptor.options?.["ai-config-prefix"]?.required, false);
+  assert.equal(descriptor.options?.name?.required, false);
+  assert.equal(descriptor.options?.["link-placement"]?.required, false);
   assert.deepEqual(descriptor.dependsOn, ["@jskit-ai/assistant-runtime"]);
 });
 
-test("assistant descriptor generates only assistant runtime/settings pages and no local runtime package", () => {
-  const runtimePage = findFileMutation("assistant-page-runtime");
-  const settingsPageStandard = findFileMutation("assistant-page-settings-standard");
-  const settingsPageAdmin = findFileMutation("assistant-page-settings-admin");
+test("assistant descriptor defines explicit page subcommands and setup-only mutations", () => {
+  const subcommands = descriptor.metadata?.generatorSubcommands || {};
   const fileMutations = Array.isArray(descriptor?.mutations?.files) ? descriptor.mutations.files : [];
 
-  assert.equal(runtimePage?.toSurface, "${option:surface|lower}");
-  assert.equal(runtimePage?.toSurfacePath, "assistant/index.vue");
-  assert.equal(settingsPageStandard?.toSurfacePath, "settings/${option:settings-route-path|path}/index.vue");
-  assert.equal(settingsPageAdmin?.toSurfacePath, "workspace/settings/${option:settings-route-path|path}/index.vue");
-  assert.equal(fileMutations.length, 3);
+  assert.equal(subcommands.setup?.description?.length > 0, true);
+  assert.equal(subcommands.page?.entrypoint, "src/server/subcommands/page.js");
+  assert.equal(subcommands["settings-page"]?.entrypoint, "src/server/subcommands/settingsPage.js");
+  assert.equal(subcommands.page?.positionalArgs?.[0]?.name, "target-file");
+  assert.equal(subcommands["settings-page"]?.requiredOptionNames?.[0], "surface");
+  assert.equal(fileMutations.length, 0);
 });
 
-test("assistant descriptor appends menu placement, settings menu placement, and per-surface config entries", () => {
-  const menuPlacement = findTextMutation("assistant-placement-menu");
-  const settingsPlacement = findTextMutation("assistant-settings-menu-placement");
+test("assistant descriptor appends only setup config and env entries", () => {
   const publicConfig = findTextMutation("assistant-public-surface-config");
   const serverConfig = findTextMutation("assistant-server-surface-config");
   const envBlock = findTextMutation("assistant-ai-prefixed-env");
+  const textMutations = Array.isArray(descriptor?.mutations?.text) ? descriptor.mutations.text : [];
 
-  assert.match(String(menuPlacement?.value || ""), /assistant\.generated\.menu:\$\{option:surface\|lower\}/);
-  assert.match(String(menuPlacement?.value || ""), /surfaces: \["\$\{option:surface\|lower\}"\]/);
-  assert.match(String(settingsPlacement?.value || ""), /assistant\.generated\.settings\.menu:\$\{option:surface\|lower\}/);
-  assert.match(String(settingsPlacement?.value || ""), /host: "__ASSISTANT_SETTINGS_HOST__"/);
-  assert.match(String(settingsPlacement?.value || ""), /position: "primary-menu"/);
+  assert.equal(textMutations.length, 3);
   assert.match(String(publicConfig?.value || ""), /config\.assistantSurfaces\.\$\{option:surface\|lower\} = \{/);
+  assert.match(String(publicConfig?.value || ""), /settingsSurfaceId: "__ASSISTANT_SETTINGS_SURFACE_ID__"/);
   assert.match(String(serverConfig?.value || ""), /config\.assistantServer\.\$\{option:surface\|lower\} = \{/);
   assert.match(String(serverConfig?.value || ""), /aiConfigPrefix: "__ASSISTANT_AI_CONFIG_PREFIX__"/);
   assert.match(String(envBlock?.value || ""), /__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=\$\{option:ai-provider\}/);

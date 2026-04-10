@@ -3,20 +3,14 @@ export default Object.freeze({
   packageId: "@jskit-ai/crud-ui-generator",
   version: "0.1.14",
   kind: "generator",
-  description: "Generate app-local CRUD UI scaffolds from resource validators.",
+  description: "Generate CRUD route trees from resource validators at an explicit src/pages target root.",
   options: {
-    namespace: {
+    "target-root": {
       required: true,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "UI namespace",
-      promptHint: "Required slug (example: contacts-alt, customers-ui, tickets-view)."
-    },
-    surface: {
-      required: true,
-      inputType: "text",
-      promptLabel: "Target surface",
-      promptHint: "Must match an enabled surface id."
+      promptLabel: "Target route root",
+      promptHint: "Explicit route root under src/pages/... (example: src/pages/admin/catalog/products)."
     },
     "resource-file": {
       required: true,
@@ -26,11 +20,11 @@ export default Object.freeze({
       promptHint: "Relative path from app root to the resource module."
     },
     operations: {
-      required: true,
+      required: false,
       inputType: "text",
-      defaultValue: "",
+      defaultValue: "list,view,new,edit",
       promptLabel: "Operations",
-      promptHint: "Required comma-separated values from: list, view, new, edit."
+      promptHint: "Optional comma-separated values from: list, view, new, edit. Defaults to all four."
     },
     "display-fields": {
       required: false,
@@ -39,28 +33,6 @@ export default Object.freeze({
       promptLabel: "Display fields",
       promptHint: "Optional comma-separated field keys to render (must exist in selected operation schemas)."
     },
-    "api-path": {
-      required: false,
-      inputType: "text",
-      defaultFromOptionTemplate: "/${option:namespace|kebab}",
-      promptLabel: "API path",
-      promptHint: "Base API path without trailing id (defaults to /<namespace>, example: /contacts)."
-    },
-    "route-path": {
-      required: false,
-      inputType: "text",
-      defaultFromOptionTemplate: "${option:namespace|kebab}",
-      promptLabel: "Route path",
-      promptHint: "List route path under the target surface (defaults to <namespace>, example: contacts)."
-    },
-    container: {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Container host",
-      promptHint:
-        "Optional container host slug (example: practice). Routes are generated under this prefix and list menu placement defaults to <container>:sub-pages."
-    },
     "id-param": {
       required: false,
       inputType: "text",
@@ -68,35 +40,19 @@ export default Object.freeze({
       promptLabel: "Route id param",
       promptHint: "Route param used by view and edit pages (default: recordId)."
     },
-    "directory-prefix": {
+    "link-placement": {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Page directory prefix",
-      promptHint: "Optional subpath under the selected surface pages root (example: crm or ops/team-a)."
+      promptLabel: "Link placement",
+      promptHint: "Optional host:position override for the generated list-page link placement."
     },
-    placement: {
+    namespace: {
       required: false,
       inputType: "text",
       defaultValue: "",
-      promptLabel: "Menu placement",
-      promptHint: "Optional host:position target (defaults to ShellLayout default outlet)."
-    },
-    "placement-component-token": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Placement component token",
-      promptHint:
-        "Optional component token override for generated menu placement. Use local.main.ui.tab-link-item for routed tab links (auto-provisions src/components/TabLinkItem.vue + MainClientProvider registration)."
-    },
-    "placement-to": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Placement to",
-      promptHint:
-        "Optional explicit props.to value for generated menu placement (example: ./pets). Required when adding placement for dynamic directory-prefix/route-path values."
+      promptLabel: "Namespace override",
+      promptHint: "Optional CRUD namespace override when the resource export does not expose resource.resource."
     }
   },
   dependsOn: [],
@@ -115,6 +71,18 @@ export default Object.freeze({
   metadata: {
     generatorPrimarySubcommand: "crud",
     generatorSubcommands: {
+      crud: {
+        description: "Create CRUD pages at an explicit route root under src/pages/.",
+        positionalArgs: [
+          {
+            name: "target-root",
+            required: true,
+            description: "Route root directory relative to app root (example: src/pages/admin/products)."
+          }
+        ],
+        optionNames: ["resource-file", "operations", "display-fields", "id-param", "link-placement", "namespace"],
+        requiredOptionNames: ["resource-file"]
+      },
       field: {
         entrypoint: "src/server/subcommands/addField.js",
         export: "runGeneratorSubcommand"
@@ -124,7 +92,7 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server/buildTemplateContext",
-          summary: "Builds deterministic template context values from selected resource operation validators."
+          summary: "Builds deterministic CRUD UI template context values from the explicit route root and resource validators."
         }
       ],
       containerTokens: {
@@ -147,11 +115,10 @@ export default Object.freeze({
     files: [
       {
         from: "templates/src/pages/admin/ui-generator/ListElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/index.vue",
+        to: "${option:target-root|trim}/index.vue",
         reason: "Install generated list page.",
-        category: "ui-generator",
-        id: "ui-generator-page-list-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-list-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -163,12 +130,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/ViewElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath:
-          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/index.vue",
+        to: "${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
         reason: "Install generated view page.",
-        category: "ui-generator",
-        id: "ui-generator-page-view-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-view-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -180,11 +145,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/NewWrapperElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/new.vue",
+        to: "${option:target-root|trim}/new.vue",
         reason: "Install generated new page.",
-        category: "ui-generator",
-        id: "ui-generator-page-new-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-new-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -204,12 +168,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/EditWrapperElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath:
-          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
+        to: "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
         reason: "Install generated edit page.",
-        category: "ui-generator",
-        id: "ui-generator-page-edit-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-edit-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -229,12 +191,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditForm.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath:
-          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/_components/${option:namespace|singular|pascal|default(Record)}AddEditForm.vue",
+        to: "${option:target-root|trim}/_components/CrudAddEditForm.vue",
         reason: "Install generated shared add/edit form component.",
-        category: "ui-generator",
-        id: "ui-generator-page-add-edit-form-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-add-edit-form-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -254,12 +214,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditFormFields.js",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath:
-          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/_components/${option:namespace|singular|pascal|default(Record)}AddEditFormFields.js",
+        to: "${option:target-root|trim}/_components/CrudAddEditFormFields.js",
         reason: "Install generated shared add/edit form field definitions.",
-        category: "ui-generator",
-        id: "ui-generator-page-add-edit-form-fields-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-add-edit-form-fields-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -279,11 +237,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/NewElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath: "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/new.vue",
+        to: "${option:target-root|trim}/new.vue",
         reason: "Install generated new page.",
-        category: "ui-generator",
-        id: "ui-generator-page-new-standalone-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-new-standalone-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -303,12 +260,10 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/EditElement.vue",
-        toSurface: "${option:surface|lower}",
-        toSurfacePath:
-          "${option:directory-prefix|pathprefix}${option:container|pathprefix}${option:route-path|path}/[${option:id-param|trim}]/edit.vue",
+        to: "${option:target-root|trim}/[${option:id-param|trim}]/edit.vue",
         reason: "Install generated edit page.",
-        category: "ui-generator",
-        id: "ui-generator-page-edit-standalone-${option:namespace|snake}",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-edit-standalone-${option:target-root|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
@@ -332,52 +287,19 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains:
-          "jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}",
+        skipIfContains: "__JSKIT_UI_MENU_MARKER__",
         value:
-          "\n// jskit:ui-generator.menu:${option:namespace|kebab}:${option:directory-prefix|path}:${option:container|path}:${option:route-path|path}\n{\n  addPlacement({\n    id: \"ui-generator.${option:namespace|kebab}.menu\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"${option:surface|lower}\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"${option:namespace|plural|pascal}\",\n      surface: \"${option:surface|lower}\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
-        reason: "Append generated UI menu placement.",
-        category: "ui-generator",
-        id: "ui-generator-placement-menu",
+          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+        reason: "Append generated CRUD list-page placement.",
+        category: "crud-ui-generator",
+        id: "crud-ui-placement-menu",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
         },
         when: {
-          all: [
-            {
-              option: "operations",
-              in: ["list"]
-            },
-            {
-              any: [
-                {
-                  all: [
-                    {
-                      option: "route-path",
-                      notContains: "["
-                    },
-                    {
-                      option: "directory-prefix",
-                      notContains: "["
-                    }
-                  ]
-                },
-                {
-                  all: [
-                    {
-                      option: "placement",
-                      contains: ":"
-                    },
-                    {
-                      option: "placement-to",
-                      notEquals: ""
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          option: "operations",
+          in: ["list"]
         }
       }
     ]

@@ -1,0 +1,100 @@
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  readAssistantPageTemplateSource,
+  renderAssistantPageLinkPlacementBlock,
+  renderAssistantPageSource,
+  renderAssistantPageSummary,
+  resolveAssistantPageGenerationContext
+} from "../pageSupport.js";
+import {
+  PLACEMENT_FILE,
+  appendBlockIfMarkerMissing,
+  rejectUnexpectedOptions,
+  requireManagedOrEmptyPageSource,
+  requireSinglePositionalTargetFile,
+  resolvePathWithinApp
+} from "./support.js";
+
+async function runGeneratorSubcommand({
+  appRoot,
+  subcommand = "",
+  args = [],
+  options = {},
+  dryRun = false
+} = {}) {
+  const normalizedSubcommand = normalizeText(subcommand).toLowerCase();
+  if (normalizedSubcommand !== "page") {
+    throw new Error(`Unsupported assistant subcommand: ${normalizedSubcommand || "<empty>"}.`);
+  }
+
+  const targetFile = requireSinglePositionalTargetFile(args, { context: "assistant page" });
+  rejectUnexpectedOptions(options, ["name", "link-placement", "link-component-token", "link-to"], {
+    context: "assistant page"
+  });
+
+  const generationContext = await resolveAssistantPageGenerationContext({
+    appRoot,
+    targetFile,
+    options,
+    context: "assistant page"
+  });
+  const pageTarget = generationContext.pageTarget;
+  const pageFilePath = pageTarget.targetFilePath.absolutePath;
+  const pageRelativePath = pageTarget.targetFilePath.relativePath;
+  const templateSource = await readAssistantPageTemplateSource("page");
+  const desiredPageSource = renderAssistantPageSource(templateSource, pageTarget.surfaceId);
+
+  let existingPageSource = "";
+  let pageAlreadyExisted = true;
+  try {
+    existingPageSource = await readFile(pageFilePath, "utf8");
+  } catch {
+    pageAlreadyExisted = false;
+  }
+
+  requireManagedOrEmptyPageSource(existingPageSource, desiredPageSource, pageRelativePath, {
+    context: "assistant page"
+  });
+
+  const touchedFiles = new Set();
+  if (!pageAlreadyExisted) {
+    if (dryRun !== true) {
+      await mkdir(path.dirname(pageFilePath), { recursive: true });
+      await writeFile(pageFilePath, desiredPageSource, "utf8");
+    }
+    touchedFiles.add(pageRelativePath);
+  }
+
+  const placementPath = resolvePathWithinApp(pageTarget.appRoot, PLACEMENT_FILE, {
+    context: "assistant page"
+  });
+  const placementSource = await readFile(placementPath.absolutePath, "utf8");
+  const placementMarker = `jskit:assistant.page.link:${pageTarget.surfaceId}:${pageTarget.routeUrlSuffix}`;
+  const placementApplied = appendBlockIfMarkerMissing(
+    placementSource,
+    placementMarker,
+    renderAssistantPageLinkPlacementBlock({
+      marker: placementMarker,
+      pageTarget,
+      generationContext
+    })
+  );
+  if (placementApplied.changed) {
+    if (dryRun !== true) {
+      await writeFile(placementPath.absolutePath, placementApplied.content, "utf8");
+    }
+    touchedFiles.add(placementPath.relativePath);
+  }
+
+  return {
+    touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
+    summary: renderAssistantPageSummary(pageTarget, {
+      pageAlreadyExisted,
+      placementChanged: placementApplied.changed
+    })
+  };
+}
+
+export { runGeneratorSubcommand };
