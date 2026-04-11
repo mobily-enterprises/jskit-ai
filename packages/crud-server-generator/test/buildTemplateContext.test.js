@@ -8,8 +8,8 @@ import { buildTemplateContext, __testables } from "../src/server/buildTemplateCo
 
 function createSnapshot({
   tableName = "contacts",
-  hasWorkspaceOwnerColumn = true,
-  hasUserOwnerColumn = true,
+  hasWorkspaceIdColumn = true,
+  hasUserIdColumn = true,
   hasCreatedAtColumn = true
 } = {}) {
   const createdAtColumn = hasCreatedAtColumn
@@ -37,8 +37,8 @@ function createSnapshot({
     tableName,
     idColumn: "id",
     primaryKeyColumns: Object.freeze(["id"]),
-    hasWorkspaceOwnerColumn,
-    hasUserOwnerColumn,
+    hasWorkspaceIdColumn,
+    hasUserIdColumn,
     columns: Object.freeze([
       Object.freeze({
         name: "id",
@@ -58,8 +58,8 @@ function createSnapshot({
         enumValues: Object.freeze([])
       }),
       Object.freeze({
-        name: "workspace_owner_id",
-        key: "workspaceOwnerId",
+        name: "workspace_id",
+        key: "workspaceId",
         dataType: "int",
         columnType: "int unsigned",
         typeKind: "integer",
@@ -75,8 +75,8 @@ function createSnapshot({
         enumValues: Object.freeze([])
       }),
       Object.freeze({
-        name: "user_owner_id",
-        key: "userOwnerId",
+        name: "user_id",
+        key: "userId",
         dataType: "int",
         columnType: "int unsigned",
         typeKind: "integer",
@@ -134,20 +134,20 @@ function createSnapshot({
 
 test("resolveOwnershipFilterForGeneration infers ownership filter for table introspection mode", () => {
   const snapshotBoth = createSnapshot({
-    hasWorkspaceOwnerColumn: true,
-    hasUserOwnerColumn: true
+    hasWorkspaceIdColumn: true,
+    hasUserIdColumn: true
   });
   const snapshotWorkspaceOnly = createSnapshot({
-    hasWorkspaceOwnerColumn: true,
-    hasUserOwnerColumn: false
+    hasWorkspaceIdColumn: true,
+    hasUserIdColumn: false
   });
   const snapshotUserOnly = createSnapshot({
-    hasWorkspaceOwnerColumn: false,
-    hasUserOwnerColumn: true
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: true
   });
   const snapshotPublic = createSnapshot({
-    hasWorkspaceOwnerColumn: false,
-    hasUserOwnerColumn: false
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
   });
 
   assert.equal(
@@ -178,8 +178,8 @@ test("resolveOwnershipFilterForGeneration infers ownership filter for table intr
 
 test("resolveOwnershipFilterForGeneration rejects explicit ownership filters when required columns are missing", () => {
   const snapshotPublic = createSnapshot({
-    hasWorkspaceOwnerColumn: false,
-    hasUserOwnerColumn: false
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
   });
 
   assert.throws(
@@ -187,14 +187,14 @@ test("resolveOwnershipFilterForGeneration rejects explicit ownership filters whe
       __testables.resolveOwnershipFilterForGeneration(snapshotPublic, "workspace", {
         enforceTableColumns: true
       }),
-    /requires column "workspace_owner_id"/
+    /requires column "workspace_id"/
   );
   assert.throws(
     () =>
       __testables.resolveOwnershipFilterForGeneration(snapshotPublic, "user", {
         enforceTableColumns: true
       }),
-    /requires column "user_owner_id"/
+    /requires column "user_id"/
   );
 });
 
@@ -332,8 +332,8 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
 
 test("buildReplacementsFromSnapshot renders enum field meta options as select controls", () => {
   const baseSnapshot = createSnapshot({
-    hasWorkspaceOwnerColumn: false,
-    hasUserOwnerColumn: false
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
   });
   const snapshot = {
     ...baseSnapshot,
@@ -374,7 +374,7 @@ test("buildReplacementsFromSnapshot renders enum field meta options as select co
 test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
   const line = __testables.renderMigrationColumnLine(
     {
-      name: "workspace_owner_id",
+      name: "workspace_id",
       dataType: "int",
       columnType: "int unsigned",
       typeKind: "integer",
@@ -400,8 +400,8 @@ test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
 
 test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without invalid date errors", () => {
   const snapshot = createSnapshot({
-    hasWorkspaceOwnerColumn: false,
-    hasUserOwnerColumn: false
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
   });
   const temporalColumns = [
     ...snapshot.columns.filter((column) => column.key !== "updatedAt"),

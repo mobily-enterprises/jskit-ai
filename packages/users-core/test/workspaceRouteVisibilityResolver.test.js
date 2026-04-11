@@ -27,7 +27,7 @@ test("workspace route visibility resolver contributes workspace_user scope and a
     scopeKind: "workspace_user",
     requiresActorScope: true,
     scopeOwnerId: 11,
-    userOwnerId: "user_42"
+    userId: "user_42"
   });
 });
 
@@ -78,6 +78,6 @@ test("workspace route visibility resolver still marks workspace_user as actor-sc
   assert.deepEqual(contribution, {
     scopeKind: "workspace_user",
     requiresActorScope: true,
-    userOwnerId: "user_99"
+    userId: "user_99"
   });
 });

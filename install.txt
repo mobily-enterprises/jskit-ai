@@ -40,10 +40,7 @@ export __APP=swayatlas
 npm install --verbose
 npm run devlinks
 
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url https://glpphkajclpefydvepim.supabase.co \
-  --auth-supabase-publishable-key sb_publishable_CK1yeg-yCzy17z_isXOzPg_58K33KTb
-
+npx jskit add package auth-provider-supabase-core 
 npx jskit add package shell-web
 npx jskit add package auth-web
 npx jskit add package database-runtime-mysql

@@ -63,7 +63,7 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         ordinalPosition: 1
       },
       {
-        columnName: "workspace_owner_id",
+        columnName: "workspace_id",
         dataType: "int",
         columnType: "int unsigned",
         isNullable: "YES",
@@ -76,7 +76,7 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         ordinalPosition: 2
       },
       {
-        columnName: "user_owner_id",
+        columnName: "user_id",
         dataType: "int",
         columnType: "int unsigned",
         isNullable: "YES",
@@ -158,8 +158,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
     ],
     foreignKeys: [
       {
-        constraintName: "contacts_workspace_owner_id_foreign",
-        columnName: "workspace_owner_id",
+        constraintName: "contacts_workspace_id_foreign",
+        columnName: "workspace_id",
         referencedTableName: "workspaces",
         referencedColumnName: "id",
         ordinalPosition: 1,
@@ -178,8 +178,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
   assert.equal(snapshot.tableName, "contacts");
   assert.equal(snapshot.idColumn, "id");
   assert.deepEqual(snapshot.primaryKeyColumns, ["id"]);
-  assert.equal(snapshot.hasWorkspaceOwnerColumn, true);
-  assert.equal(snapshot.hasUserOwnerColumn, true);
+  assert.equal(snapshot.hasWorkspaceIdColumn, true);
+  assert.equal(snapshot.hasUserIdColumn, true);
 
   const firstName = snapshot.columns.find((column) => column.name === "first_name");
   assert.ok(firstName);
@@ -187,9 +187,9 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
   assert.equal(firstName.typeKind, "string");
   assert.equal(firstName.maxLength, 160);
 
-  const workspaceOwnerId = snapshot.columns.find((column) => column.name === "workspace_owner_id");
-  assert.ok(workspaceOwnerId);
-  assert.equal(workspaceOwnerId.hasDefault, false);
+  const workspaceId = snapshot.columns.find((column) => column.name === "workspace_id");
+  assert.ok(workspaceId);
+  assert.equal(workspaceId.hasDefault, false);
 
   const vip = snapshot.columns.find((column) => column.name === "vip");
   assert.ok(vip);
@@ -214,13 +214,13 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
   ]);
   assert.deepEqual(snapshot.foreignKeys, [
     {
-      name: "contacts_workspace_owner_id_foreign",
+      name: "contacts_workspace_id_foreign",
       referencedTableName: "workspaces",
       updateRule: "CASCADE",
       deleteRule: "SET NULL",
       columns: [
         {
-          name: "workspace_owner_id",
+          name: "workspace_id",
           referencedName: "id"
         }
       ]

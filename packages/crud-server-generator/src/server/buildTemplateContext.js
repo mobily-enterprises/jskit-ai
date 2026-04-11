@@ -61,8 +61,8 @@ function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
 }
 
 function inferOwnershipFilterFromSnapshot(snapshot) {
-  const hasWorkspace = snapshot?.hasWorkspaceOwnerColumn === true;
-  const hasUser = snapshot?.hasUserOwnerColumn === true;
+  const hasWorkspace = snapshot?.hasWorkspaceIdColumn === true;
+  const hasUser = snapshot?.hasUserIdColumn === true;
   if (hasWorkspace && hasUser) {
     return "workspace_user";
   }
@@ -76,24 +76,24 @@ function inferOwnershipFilterFromSnapshot(snapshot) {
 }
 
 function assertOwnershipColumnsForFilter(snapshot, filter) {
-  const hasWorkspace = snapshot?.hasWorkspaceOwnerColumn === true;
-  const hasUser = snapshot?.hasUserOwnerColumn === true;
+  const hasWorkspace = snapshot?.hasWorkspaceIdColumn === true;
+  const hasUser = snapshot?.hasUserIdColumn === true;
   if (filter === "public") {
     return;
   }
   if (filter === "workspace" && !hasWorkspace) {
     throw new Error(
-      'Ownership filter "workspace" requires column "workspace_owner_id".'
+      'Ownership filter "workspace" requires column "workspace_id".'
     );
   }
   if (filter === "user" && !hasUser) {
     throw new Error(
-      'Ownership filter "user" requires column "user_owner_id".'
+      'Ownership filter "user" requires column "user_id".'
     );
   }
   if (filter === "workspace_user" && (!hasWorkspace || !hasUser)) {
     throw new Error(
-      'Ownership filter "workspace_user" requires both columns "workspace_owner_id" and "user_owner_id".'
+      'Ownership filter "workspace_user" requires both columns "workspace_id" and "user_id".'
     );
   }
 }
@@ -272,9 +272,9 @@ function resolveScaffoldColumns(snapshot) {
   const seenKeys = new Set();
 
   const columns = sourceColumns.map((column) => {
-    const isWorkspaceOwnerColumn = column.name === "workspace_owner_id";
-    const isUserOwnerColumn = column.name === "user_owner_id";
-    const isOwnerColumn = isWorkspaceOwnerColumn || isUserOwnerColumn;
+    const isWorkspaceIdColumn = column.name === "workspace_id";
+    const isUserIdColumn = column.name === "user_id";
+    const isOwnerColumn = isWorkspaceIdColumn || isUserIdColumn;
     const isIdColumn = column.name === idColumn;
     const isCreatedAtColumn = column.name === "created_at";
     const isUpdatedAtColumn = column.name === "updated_at";

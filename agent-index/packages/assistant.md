@@ -24,7 +24,7 @@ Exports
 - `renderAssistantPageSource(templateSource = "", surfaceId = "")`
 - `resolveAssistantPageGenerationContext({ appRoot, targetFile = "", options = {}, context = "assistant page" } = {})`
 - `renderAssistantPageLinkPlacementBlock({ marker = "", pageTarget = {}, generationContext = {} } = {})`
-- `renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, placementChanged = false } = {})`
+- `renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, pageOverwritten = false } = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
 - `resolveTemplateFilePath(relativePath = "")`
@@ -44,7 +44,7 @@ Exports
 - `rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "assistant" } = {})`
 - `resolvePathWithinApp(appRoot, targetPath, { context = "assistant" } = {})`
 - `appendBlockIfMarkerMissing(source = "", marker = "", block = "")`
-- `requireManagedOrEmptyPageSource(existingSource = "", expectedSource = "", targetRelativePath = "", { context = "assistant" } = {})`
+- `requireEmptyPageSource(existingSource = "", targetRelativePath = "", { context = "assistant", forceOverwrite = false } = {})`
 Local functions
 - `ensureTrailingNewline(value = "")`
 

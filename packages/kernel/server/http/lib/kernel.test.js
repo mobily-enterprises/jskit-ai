@@ -236,7 +236,7 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
       }
 
       return {
-        userOwnerId: context?.actor?.id,
+        userId: context?.actor?.id,
         requiresActorScope: true
       };
     }
@@ -281,7 +281,7 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
     scopeKind: null,
     requiresActorScope: true,
     scopeOwnerId: null,
-    userOwnerId: 23
+    userId: 23
   });
   assert.deepEqual(observed[0].context.requestMeta.visibilityContext, observed[0].context.visibilityContext);
   assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
@@ -309,7 +309,7 @@ test("registerRoutes keeps actor scope requirement for core user visibility with
       }
 
       return {
-        userOwnerId: context?.actor?.id
+        userId: context?.actor?.id
       };
     }
   }));
@@ -353,7 +353,7 @@ test("registerRoutes keeps actor scope requirement for core user visibility with
     scopeKind: null,
     requiresActorScope: true,
     scopeOwnerId: null,
-    userOwnerId: 23
+    userId: 23
   });
   assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
 });
@@ -399,7 +399,7 @@ test("registerRoutes does not infer actor scope from non-core route visibility t
     scopeKind: null,
     requiresActorScope: false,
     scopeOwnerId: null,
-    userOwnerId: null
+    userId: null
   });
   assert.equal(observed[0].context.requestMeta.routeVisibility, "workspace_user");
 });

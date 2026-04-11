@@ -43,10 +43,10 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
   const visibility = normalizeText(visibilityContext.visibility).toLowerCase();
   const scopeKind = normalizeText(visibilityContext.scopeKind || visibility).toLowerCase();
   const scopeOwnerId = normalizeOpaqueId(visibilityContext.scopeOwnerId);
-  const userOwnerId = normalizeOpaqueId(visibilityContext.userOwnerId);
+  const userId = normalizeOpaqueId(visibilityContext.userId);
   const requiresActorScope = visibilityContext.requiresActorScope === true;
 
-  if (requiresActorScope && userOwnerId == null) {
+  if (requiresActorScope && userId == null) {
     return null;
   }
 
@@ -57,7 +57,7 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
     };
     if (requiresActorScope) {
       scope.scopeId = scopeOwnerId;
-      scope.userId = userOwnerId;
+      scope.userId = userId;
     }
     return scope;
   }
@@ -72,10 +72,10 @@ function resolveVisibilityScope(visibilityContext = {}, runtimeContext = {}) {
     };
   }
 
-  if (scopeKind === "user" && userOwnerId != null) {
+  if (scopeKind === "user" && userId != null) {
     return {
       kind: "user",
-      id: userOwnerId
+      id: userId
     };
   }
 

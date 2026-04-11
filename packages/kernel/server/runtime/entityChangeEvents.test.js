@@ -133,7 +133,7 @@ test("entity change publisher supports opaque actor and scope identifiers", asyn
       visibilityContext: {
         scopeKind: "workspace_user",
         scopeOwnerId: "workspace_23",
-        userOwnerId: "user_17",
+        userId: "user_17",
         requiresActorScope: true
       }
     }

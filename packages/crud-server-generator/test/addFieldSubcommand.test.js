@@ -107,8 +107,8 @@ function createSnapshot() {
     idColumn: "id",
     columns: [
       { name: "id", key: "id", typeKind: "integer", nullable: false, unsigned: true },
-      { name: "workspace_owner_id", key: "workspaceOwnerId", typeKind: "integer", nullable: true, unsigned: true },
-      { name: "user_owner_id", key: "userOwnerId", typeKind: "integer", nullable: true, unsigned: true },
+      { name: "workspace_id", key: "workspaceId", typeKind: "integer", nullable: true, unsigned: true },
+      { name: "user_id", key: "userId", typeKind: "integer", nullable: true, unsigned: true },
       { name: "created_at", key: "createdAt", typeKind: "datetime", nullable: false },
       { name: "updated_at", key: "updatedAt", typeKind: "datetime", nullable: false },
       { name: "first_name", key: "firstName", typeKind: "string", nullable: true, maxLength: 160 },
