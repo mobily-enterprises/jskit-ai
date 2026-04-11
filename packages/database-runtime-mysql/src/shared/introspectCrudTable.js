@@ -451,8 +451,8 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     tableName: resolvedTableName,
     idColumn: resolvedIdColumn,
     primaryKeyColumns,
-    hasWorkspaceOwnerColumn: columns.some((column) => column.name === "workspace_owner_id"),
-    hasUserOwnerColumn: columns.some((column) => column.name === "user_owner_id"),
+    hasWorkspaceIdColumn: columns.some((column) => column.name === "workspace_id"),
+    hasUserIdColumn: columns.some((column) => column.name === "user_id"),
     columns,
     indexes: normalizeIndexes(indexRows),
     foreignKeys: normalizeForeignKeys(foreignKeyRows)

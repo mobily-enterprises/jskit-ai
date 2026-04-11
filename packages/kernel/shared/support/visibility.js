@@ -49,7 +49,7 @@ function normalizeVisibilityContext(value = {}) {
     scopeKind: normalizedScopeKind,
     requiresActorScope: source.requiresActorScope === true,
     scopeOwnerId: normalizeOpaqueId(source.scopeOwnerId),
-    userOwnerId: normalizeOpaqueId(source.userOwnerId)
+    userId: normalizeOpaqueId(source.userId)
   });
 }
 

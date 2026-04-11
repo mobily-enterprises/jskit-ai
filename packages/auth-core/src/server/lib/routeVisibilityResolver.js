@@ -9,13 +9,13 @@ function createAuthRouteVisibilityResolver() {
       }
 
       const actor = context?.actor || request?.user || null;
-      const userOwnerId = normalizeOpaqueId(actor?.id);
-      if (userOwnerId == null) {
+      const userId = normalizeOpaqueId(actor?.id);
+      if (userId == null) {
         return {};
       }
 
       return {
-        userOwnerId,
+        userId,
         requiresActorScope: true
       };
     }

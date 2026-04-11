@@ -529,7 +529,7 @@ function resolveLookupVisibilityContext(
     nextVisibilityContext.scopeOwnerId = parentVisibilityContext.scopeOwnerId;
   }
   if (providerOwnershipFilter === "user" || providerOwnershipFilter === "workspace_user") {
-    nextVisibilityContext.userOwnerId = parentVisibilityContext.userOwnerId;
+    nextVisibilityContext.userId = parentVisibilityContext.userId;
   }
 
   return nextVisibilityContext;

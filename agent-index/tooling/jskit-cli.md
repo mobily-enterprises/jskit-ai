@@ -163,7 +163,7 @@ Local functions
 ### `src/server/cliRuntime/packageInstallFlow.js`
 Exports
 - `adoptAppLocalPackageDependencies({ appRoot, appPackageJson, lock })`
-- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles })`
+- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null })`
 - `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
 - `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
 Local functions
@@ -253,8 +253,8 @@ Local functions
 ### `src/server/cliRuntime/packageTemplateResolution.js`
 Exports
 - `cleanupMaterializedPackageRoots()`
-- `materializeCatalogPackageRoot({ packageEntry, appRoot, installCatalogPackage = installCatalogPackageIntoCache } = {})`
-- `resolvePackageTemplateRoot({ packageEntry, appRoot, materializeCatalogRoot = materializeCatalogPackageRoot } = {})`
+- `materializeCatalogPackageRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, installCatalogPackage = installCatalogPackageIntoCache } = {})`
+- `resolvePackageTemplateRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, materializeCatalogRoot = materializeCatalogPackageRoot } = {})`
 Local functions
 - `isInternalCatalogPackageEntry(packageEntry = {})`
 - `encodePackageCacheSegment(value = "")`
@@ -344,6 +344,9 @@ Local functions
 - `mapDescriptorBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
 - `resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "")`
 - `collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {})`
+- `resolveCreateTargetPolicy(packageEntry = {}, subcommandName = "")`
+- `normalizeRelativePathWithinApp(appRoot = "", targetPath = "", createCliError)`
+- `enforceDescriptorBackedCreateTargetPolicy({ packageEntry, subcommandName, inlineOptions = {}, appRoot = "", packageIdInput = "", createCliError, readdir } = {})`
 
 ### `src/server/commandHandlers/packageCommands/migrations.js`
 Exports
@@ -427,9 +430,21 @@ Exports
 
 ### `src/server/core/commandCatalog.js`
 Exports
-- `KNOWN_COMMAND_IDS`
+- `COMMAND_IDS`
+- `OPTION_FLAG_LABELS`
 - `resolveCommandAlias(rawCommand)`
+- `resolveCommandDescriptor(rawCommand)`
 - `isKnownCommandName(rawCommand)`
+- `listOverviewCommandDescriptors()`
+- `shouldShowCommandHelpOnBareInvocation(command = "", positional = [])`
+- `validateCommandOptions({ command = "", positional = [], options = {} } = {}, { createCliError, renderUsage = null } = {})`
+Local functions
+- `isHelpToken(value = "")`
+- `canDelegateAddInlineOptions(positional = [])`
+- `canDelegateGenerateInlineOptions(positional = [])`
+- `canDelegateMigrationsInlineOptions(positional = [])`
+- `canDelegatePackageTargetInlineOptions(positional = [], expectedTargetType = "")`
+- `sortOptionLabels(labels = [])`
 
 ### `src/server/core/createCliRunner.js`
 Exports
@@ -441,12 +456,12 @@ Exports
 
 ### `src/server/core/dispatchCli.js`
 Exports
-- `createRunCli({ parseArgs, printUsage, shouldShowCommandHelpOnBareInvocation, commandHandlers, cleanupMaterializedPackageRoots, createCliError } = {})`
+- `createRunCli({ parseArgs, printUsage, shouldShowCommandHelpOnBareInvocation, validateCommandOptions, resolveCommandDescriptor, commandHandlers, cleanupMaterializedPackageRoots, createCliError } = {})`
 
 ### `src/server/core/usageHelp.js`
 Exports
 - `printUsage(stream = process.stderr, { command = "" } = {})`
-- `shouldShowCommandHelpOnBareInvocation(command = "", positional = [])`
+- `shouldShowCommandHelpOnBareInvocation`
 Local functions
 - `appendSeparatedBlocks(lines = [], blocks = [])`
 - `writeHelpLines(stream, lines = [])`

@@ -1232,7 +1232,7 @@ test("createCrudRepositoryFromResource remaps child lookup visibility for worksp
     visibilityContext: {
       visibility: "workspace_user",
       scopeOwnerId: "workspace-1",
-      userOwnerId: "user-1"
+      userId: "user-1"
     }
   });
 
@@ -1613,7 +1613,7 @@ test("createCrudRepositoryFromResource list hooks keep visibility and canonical 
   });
 
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 2));
-  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_owner_id" && call[2] === "workspace-1"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
   assert.ok(calls.some((call) => call[0] === "clearOrder"));
   assert.ok(calls.some((call) => call[0] === "clear" && call[1] === "limit"));
   assert.ok(calls.some((call) => call[0] === "orderBy" && call[1] === "contact_id" && call[2] === "asc"));
@@ -1643,7 +1643,7 @@ test("createCrudRepositoryFromResource findById hooks keep visibility and id pre
   });
 
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === 999));
-  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_owner_id" && call[2] === "workspace-1"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
   assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === 7));
 });
 
@@ -1742,7 +1742,7 @@ test("createCrudRepositoryFromResource create hooks keep write-key filtering and
       return {
         ...payload,
         unexpectedField: "blocked",
-        workspaceOwnerId: "blocked"
+        workspaceId: "blocked"
       };
     },
     modifyQuery(_dbQuery, context = {}) {
@@ -1756,8 +1756,8 @@ test("createCrudRepositoryFromResource create hooks keep write-key filtering and
   assert.deepEqual(state.insertPayloads[0].first_name, "Tony");
   assert.equal(Object.hasOwn(state.insertPayloads[0], "unexpectedField"), false);
   assert.equal(Object.hasOwn(state.insertPayloads[0], "unexpectedFieldFromQuery"), false);
-  assert.equal(Object.hasOwn(state.insertPayloads[0], "workspaceOwnerId"), false);
-  assert.equal(state.insertPayloads[0].workspace_owner_id, "workspace-1");
+  assert.equal(Object.hasOwn(state.insertPayloads[0], "workspaceId"), false);
+  assert.equal(state.insertPayloads[0].workspace_id, "workspace-1");
   assert.ok(state.insertPayloads[0].created_at);
   assert.ok(state.insertPayloads[0].updated_at);
 });
@@ -1899,7 +1899,7 @@ test("createCrudRepositoryFromResource update hooks keep write-key filtering and
   assert.equal(Object.hasOwn(state.updatePayloads[0], "unexpectedFieldFromQuery"), false);
   assert.ok(state.updatePayloads[0].updated_at);
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "vip" && call[2] === 1));
-  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_owner_id" && call[2] === "workspace-1"));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
   assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === 11));
 });
 

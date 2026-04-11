@@ -1,7 +1,7 @@
 import { normalizeOpaqueId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 
-function buildVisibilityContribution({ visibility, scopeOwnerId = 0, userOwnerId = null } = {}) {
+function buildVisibilityContribution({ visibility, scopeOwnerId = 0, userId = null } = {}) {
   const requiresActorScope = visibility === "workspace_user";
   const contribution = {
     scopeKind: requiresActorScope ? "workspace_user" : "workspace",
@@ -11,8 +11,8 @@ function buildVisibilityContribution({ visibility, scopeOwnerId = 0, userOwnerId
   if (scopeOwnerId > 0) {
     contribution.scopeOwnerId = scopeOwnerId;
   }
-  if (requiresActorScope && userOwnerId != null) {
-    contribution.userOwnerId = userOwnerId;
+  if (requiresActorScope && userId != null) {
+    contribution.userId = userId;
   }
 
   return contribution;
@@ -31,7 +31,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
       }
 
       const actor = context?.actor || request?.user || null;
-      const userOwnerId = normalizeOpaqueId(actor?.id);
+      const userId = normalizeOpaqueId(actor?.id);
       const workspace =
         context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
       const scopeOwnerId = parsePositiveInteger(workspace?.id);
@@ -42,7 +42,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
           return visibility === "workspace_user"
             ? buildVisibilityContribution({
                 visibility,
-                userOwnerId
+                userId
               })
             : {};
         }
@@ -55,7 +55,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
           return visibility === "workspace_user"
             ? buildVisibilityContribution({
                 visibility,
-                userOwnerId
+                userId
               })
             : {};
         }
@@ -63,14 +63,14 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         return buildVisibilityContribution({
           visibility,
           scopeOwnerId: resolvedWorkspaceOwnerId,
-          userOwnerId
+          userId
         });
       }
 
       return buildVisibilityContribution({
         visibility,
         scopeOwnerId,
-        userOwnerId
+        userId
       });
     }
   });

@@ -37,7 +37,7 @@ test("createRepositoryScope builds explicit scoped query helpers", () => {
     }
   });
 
-  assert.deepEqual(calls, [["table", "contacts"], ["where", "workspace_owner_id", 12]]);
+  assert.deepEqual(calls, [["table", "contacts"], ["where", "workspace_id", 12]]);
 });
 
 test("createRepositoryScope supports scopedById with custom id column", () => {
@@ -49,11 +49,11 @@ test("createRepositoryScope supports scopedById with custom id column", () => {
   scope.scopedById(33, {
     visibilityContext: {
       visibility: "user",
-      userOwnerId: 7
+      userId: 7
     }
   });
 
-  assert.deepEqual(calls, [["table", "contacts"], ["where", "user_owner_id", 7], ["where", "contact_id", 33]]);
+  assert.deepEqual(calls, [["table", "contacts"], ["where", "user_id", 7], ["where", "contact_id", 33]]);
 });
 
 test("createRepositoryScope exposes applyToQuery and owner stamping", () => {
@@ -65,11 +65,11 @@ test("createRepositoryScope exposes applyToQuery and owner stamping", () => {
     visibilityContext: {
       visibility: "workspace_user",
       scopeOwnerId: 4,
-      userOwnerId: 9
+      userId: 9
     }
   });
 
-  assert.deepEqual(calls, [["where", "workspace_owner_id", 4], ["where", "user_owner_id", 9]]);
+  assert.deepEqual(calls, [["where", "workspace_id", 4], ["where", "user_id", 9]]);
 
   assert.deepEqual(
     scope.withOwners(
@@ -80,14 +80,14 @@ test("createRepositoryScope exposes applyToQuery and owner stamping", () => {
         visibilityContext: {
           visibility: "workspace_user",
           scopeOwnerId: 4,
-          userOwnerId: 9
+          userId: 9
         }
       }
     ),
     {
       name: "Ada",
-      workspace_owner_id: 4,
-      user_owner_id: 9
+      workspace_id: 4,
+      user_id: 9
     }
   );
 

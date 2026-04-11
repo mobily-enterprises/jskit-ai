@@ -107,7 +107,7 @@ Exports
 Exports
 - `createWorkspaceRouteVisibilityResolver({ workspaceService } = {})`
 Local functions
-- `buildVisibilityContribution({ visibility, scopeOwnerId = 0, userOwnerId = null } = {})`
+- `buildVisibilityContribution({ visibility, scopeOwnerId = 0, userId = null } = {})`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports

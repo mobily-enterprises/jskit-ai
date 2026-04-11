@@ -19,20 +19,20 @@ test("normalizeRouteVisibilityToken normalizes visibility tokens for module-leve
 });
 
 test("normalizeVisibilityContext normalizes mode and owner identifiers", () => {
-  assert.deepEqual(normalizeVisibilityContext({ visibility: "user", userOwnerId: "7" }), {
+  assert.deepEqual(normalizeVisibilityContext({ visibility: "user", userId: "7" }), {
     visibility: "user",
     scopeKind: null,
     requiresActorScope: false,
     scopeOwnerId: null,
-    userOwnerId: "7"
+    userId: "7"
   });
 
-  assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace_user", scopeOwnerId: "4", userOwnerId: 9 }), {
+  assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace_user", scopeOwnerId: "4", userId: 9 }), {
     visibility: "workspace_user",
     scopeKind: null,
     requiresActorScope: false,
     scopeOwnerId: "4",
-    userOwnerId: 9
+    userId: 9
   });
 
   assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace", scopeOwnerId: "0" }), {
@@ -40,6 +40,6 @@ test("normalizeVisibilityContext normalizes mode and owner identifiers", () => {
     scopeKind: null,
     requiresActorScope: false,
     scopeOwnerId: "0",
-    userOwnerId: null
+    userId: null
   });
 });

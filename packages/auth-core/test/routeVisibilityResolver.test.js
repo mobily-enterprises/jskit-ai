@@ -15,7 +15,7 @@ test("auth route visibility resolver contributes actor scope for core user visib
       }
     }),
     {
-      userOwnerId: "user_7",
+      userId: "user_7",
       requiresActorScope: true
     }
   );
