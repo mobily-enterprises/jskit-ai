@@ -245,7 +245,7 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
       return {
         session: {
           authenticated: true,
-          userId: 7
+          userId: "7"
         },
         profile: {
           displayName: "Ada Lovelace",
@@ -260,10 +260,10 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
           }
         },
         pendingInvites: [
-          { id: 1, workspaceId: 1, token: "a" },
-          { id: 2, workspaceId: 2, token: "b" }
+          { id: "1", workspaceId: "1", token: "a" },
+          { id: "2", workspaceId: "2", token: "b" }
         ],
-        workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
         permissions: ["workspace.settings.view"]
       };
     }
@@ -280,7 +280,7 @@ test("bootstrap placement runtime writes user/workspace/permissions into placeme
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.deepEqual(context.user, {
-    id: 7,
+    id: "7",
     displayName: "Ada Lovelace",
     name: "Ada Lovelace",
     email: "ada@example.com",
@@ -305,7 +305,7 @@ test("bootstrap placement runtime resolves workspace slug from pathname when sur
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -314,7 +314,7 @@ test("bootstrap placement runtime resolves workspace slug from pathname when sur
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
         permissions: ["workspace.settings.view"]
       };
     }
@@ -348,7 +348,7 @@ test("bootstrap placement runtime does not mutate placement auth context", async
       return {
         session: {
           authenticated: true,
-          userId: 9
+          userId: "9"
         },
         profile: {
           displayName: "User",
@@ -357,7 +357,7 @@ test("bootstrap placement runtime does not mutate placement auth context", async
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: "acme", name: "Workspace" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
         permissions: []
       };
     }
@@ -387,7 +387,7 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -396,7 +396,7 @@ test("bootstrap placement runtime refetches on route changes and users.bootstrap
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
         permissions: []
       };
     }
@@ -436,7 +436,7 @@ test("bootstrap placement runtime refetches when auth context changes", async ()
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -445,7 +445,7 @@ test("bootstrap placement runtime refetches when auth context changes", async ()
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
         permissions: []
       };
     }
@@ -535,7 +535,7 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -547,7 +547,7 @@ test("bootstrap placement runtime reapplies theme when bootstrap payload changes
         userSettings: {
           theme: fetchCount === 1 ? "dark" : "light"
         },
-        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
         permissions: []
       };
     }
@@ -575,7 +575,7 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         workspaceSettings: {
           lightPrimaryColor: "#CC3344",
@@ -589,7 +589,7 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
         },
         workspaces: [
           {
-            id: 1,
+            id: "1",
             slug: "acme",
             name: "Acme Workspace"
           }
@@ -630,8 +630,8 @@ test("bootstrap placement runtime marks workspace slug as not_found and clears w
   const placementRuntime = createPlacementRuntimeStub();
   placementRuntime.setContext(
     {
-      workspace: { id: 1, slug: "acme", name: "Acme Workspace" },
-      workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+      workspace: { id: "1", slug: "acme", name: "Acme Workspace" },
+      workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
       permissions: ["workspace.settings.view"]
     },
     { source: "test.seed" }
@@ -680,7 +680,7 @@ test("bootstrap placement runtime updates status per workspace slug across route
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -689,7 +689,7 @@ test("bootstrap placement runtime updates status per workspace slug across route
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: workspaceSlug || "acme", name: "Workspace" }],
+        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
         permissions: []
       };
     }
@@ -721,7 +721,7 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
       return {
         session: {
           authenticated: true,
-          userId: 4
+          userId: "4"
         },
         profile: {
           displayName: "Chiara",
@@ -730,7 +730,7 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 3, slug: "chiaramobily", name: "Chiara Workspace" }],
+        workspaces: [{ id: "3", slug: "chiaramobily", name: "Chiara Workspace" }],
         requestedWorkspace: {
           slug: "tonymobily",
           status: "forbidden"
@@ -763,7 +763,7 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         profile: {
           displayName: "User",
@@ -772,7 +772,7 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
             effectiveUrl: ""
           }
         },
-        workspaces: [{ id: 1, slug: "acme", name: "Acme Workspace" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
         requestedWorkspace: {
           slug: "missing",
           status: "not_found"
@@ -811,9 +811,9 @@ test("bootstrap placement runtime guard wrapper preserves delegated deny outcome
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
-        workspaces: [{ id: 1, slug: "acme", name: "Acme" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Acme" }],
         permissions: []
       };
     }
@@ -854,7 +854,7 @@ test("bootstrap placement runtime guard wrapper blocks forbidden workspace route
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         workspaces: [],
         permissions: []
@@ -1032,7 +1032,7 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
         workspaces: [],
         permissions: [],
@@ -1059,9 +1059,9 @@ test("bootstrap placement runtime captures guard evaluator assignments after ini
       return {
         session: {
           authenticated: true,
-          userId: 1
+          userId: "1"
         },
-        workspaces: [{ id: 1, slug: "acme", name: "Acme" }],
+        workspaces: [{ id: "1", slug: "acme", name: "Acme" }],
         permissions: []
       };
     }

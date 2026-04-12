@@ -11,6 +11,7 @@ import {
   mapWorkspaceSummary
 } from "../formatters/workspaceFormatter.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { authenticatedUserValidator } from "../validators/authenticatedUserValidator.js";
 
 function toSlugPart(value) {
@@ -237,7 +238,9 @@ function createService({
       normalizedUser.id,
       options
     );
-    const actorOwnsWorkspace = Number(workspace.ownerUserId) === Number(normalizedUser.id);
+    const actorOwnsWorkspace =
+      normalizeRecordId(workspace.ownerUserId, { fallback: null }) ===
+      normalizeRecordId(normalizedUser.id, { fallback: null });
     const membershipIsActive = normalizeLowerText(membership?.status) === "active";
 
     if (!membershipIsActive && actorOwnsWorkspace) {

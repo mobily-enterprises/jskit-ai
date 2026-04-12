@@ -168,6 +168,7 @@
 <script setup>
 import { computed, toRefs, unref } from "vue";
 import { formatDateTime as formatKernelDateTime } from "@jskit-ai/kernel/shared/support";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireBoolean, requireFunction, requireRecord } from "../support/contractGuards.js";
 
 const props = defineProps({
@@ -188,11 +189,11 @@ const props = defineProps({
     required: true
   },
   revokeInviteId: {
-    type: Number,
+    type: String,
     required: true
   },
   removeMemberUserId: {
-    type: Number,
+    type: String,
     required: true
   },
   status: {
@@ -352,11 +353,11 @@ function isMemberRemoveLocked(member) {
 }
 
 function isRevokeInviteLoading(inviteId) {
-  return isRevokingInvite.value && revokeInviteId.value === Number(inviteId || 0);
+  return isRevokingInvite.value && revokeInviteId.value === normalizeRecordId(inviteId, { fallback: "" });
 }
 
 function isRemoveMemberLoading(memberUserId) {
-  return isRemovingMember.value && removeMemberUserId.value === Number(memberUserId || 0);
+  return isRemovingMember.value && removeMemberUserId.value === normalizeRecordId(memberUserId, { fallback: "" });
 }
 
 async function onSubmitInvite() {

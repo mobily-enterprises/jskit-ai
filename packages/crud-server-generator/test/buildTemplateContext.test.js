@@ -221,13 +221,13 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(replacements.__JSKIT_CRUD_TABLE_NAME__, "\"contacts\"");
   assert.equal(replacements.__JSKIT_CRUD_ID_COLUMN__, "\"id\"");
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
-  assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.increments\("id"\)/);
+  assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.bigIncrements\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, "");
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: Type\.String/);
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /id: Type\.Integer\(\{ minimum: 1 \}\),/
+    /id: recordIdSchema,/
   );
   assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /firstName: Type\.String/);
   assert.match(

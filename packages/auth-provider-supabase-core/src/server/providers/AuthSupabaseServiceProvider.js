@@ -1,5 +1,6 @@
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
@@ -91,15 +92,18 @@ function createInMemoryUserSettingsRepository() {
   const settingsByUserId = new Map();
 
   function ensure(userId) {
-    const numericUserId = Number(userId);
-    if (!settingsByUserId.has(numericUserId)) {
-      settingsByUserId.set(numericUserId, {
-        userId: numericUserId,
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      throw new TypeError("User settings require a valid user id.");
+    }
+    if (!settingsByUserId.has(normalizedUserId)) {
+      settingsByUserId.set(normalizedUserId, {
+        userId: normalizedUserId,
         passwordSignInEnabled: true,
         passwordSetupRequired: false
       });
     }
-    return settingsByUserId.get(numericUserId);
+    return settingsByUserId.get(normalizedUserId);
   }
 
   return Object.freeze({

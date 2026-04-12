@@ -14,10 +14,10 @@ test("assistant output schemas accept normalized paginated payloads", () => {
 
   const messagesPayload = {
     conversation: {
-      id: 1,
-      workspaceId: 10,
+      id: "1",
+      workspaceId: "10",
       title: "Conversation",
-      createdByUserId: 7,
+      createdByUserId: "7",
       status: "active",
       provider: "openai",
       model: "gpt-4.1",
@@ -40,10 +40,10 @@ test("assistant output schemas accept normalized paginated payloads", () => {
   assert.equal(Check(conversationMessagesSchema, messagesPayload), true);
 });
 
-test("assistant conversation message params accept numeric path strings and normalize to integer", () => {
+test("assistant conversation message params accept numeric path strings and normalize to record-id strings", () => {
   const paramsValidator = assistantResource.operations.conversationMessagesList.paramsValidator;
   assert.equal(Check(paramsValidator.schema, { conversationId: "2" }), true);
   assert.deepEqual(paramsValidator.normalize({ conversationId: "2" }), {
-    conversationId: 2
+    conversationId: "2"
   });
 });

@@ -28,14 +28,14 @@ test("applyVisibility appends scope filters to query builders", () => {
     visibility: "workspace",
     scopeOwnerId: 12
   });
-  assert.deepEqual(workspaceQuery.calls, [["where", "workspace_id", 12]]);
+  assert.deepEqual(workspaceQuery.calls, [["where", "workspace_id", "12"]]);
 
   const userQuery = createQueryBuilderStub();
   applyVisibility(userQuery, {
     visibility: "user",
     userId: 7
   });
-  assert.deepEqual(userQuery.calls, [["where", "user_id", 7]]);
+  assert.deepEqual(userQuery.calls, [["where", "user_id", "7"]]);
 
   const deniedQuery = createQueryBuilderStub();
   applyVisibility(deniedQuery, {
@@ -73,8 +73,8 @@ test("applyVisibilityOwners injects owner columns for write payloads", () => {
     ),
     {
       name: "Alice",
-      workspace_id: 4,
-      user_id: 9
+      workspace_id: "4",
+      user_id: "9"
     }
   );
 

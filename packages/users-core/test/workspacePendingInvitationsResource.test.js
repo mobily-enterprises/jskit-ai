@@ -9,8 +9,8 @@ test("workspacePendingInvitationsResource output normalizer shapes raw invite ro
   const result = workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
     pendingInvites: [
       {
-        id: 10,
-        workspaceId: 3,
+        id: "10",
+        workspaceId: "3",
         workspaceSlug: "tonymobily3",
         workspaceName: "",
         workspaceAvatarUrl: "",
@@ -24,8 +24,8 @@ test("workspacePendingInvitationsResource output normalizer shapes raw invite ro
 
   assert.deepEqual(result, [
     {
-      id: 10,
-      workspaceId: 3,
+      id: "10",
+      workspaceId: "3",
       workspaceSlug: "tonymobily3",
       workspaceName: "tonymobily3",
       workspaceAvatarUrl: "",

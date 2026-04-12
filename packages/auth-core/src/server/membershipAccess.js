@@ -1,3 +1,5 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+
 function resolveMembershipRoleId(membershipLike) {
   return String(membershipLike?.roleSid || "").trim();
 }
@@ -36,10 +38,10 @@ function createMembershipIndexes(memberships) {
   const bySlug = new Map();
 
   for (const membership of memberships) {
-    const workspaceId = Number(membership?.id);
+    const workspaceId = normalizeRecordId(membership?.id, { fallback: null });
     const workspaceSlug = String(membership?.slug || "").trim();
 
-    if (Number.isInteger(workspaceId) && workspaceId > 0) {
+    if (workspaceId) {
       byId.set(workspaceId, membership);
     }
     if (workspaceSlug) {

@@ -110,10 +110,10 @@ test("workspaceSettingsRepository.findByWorkspaceId maps the stored row", async 
     defaultInvitesEnabled: createDefaultWorkspaceSettings()
   });
 
-  const record = await repository.findByWorkspaceId(1);
+  const record = await repository.findByWorkspaceId("1");
 
   assert.deepEqual(record, {
-    workspaceId: 1,
+    workspaceId: "1",
     lightPrimaryColor: DEFAULT_WORKSPACE_THEME.light.color,
     lightSecondaryColor: DEFAULT_WORKSPACE_THEME.light.secondaryColor,
     lightSurfaceColor: DEFAULT_WORKSPACE_THEME.light.surfaceColor,
@@ -134,7 +134,7 @@ test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates invitesEna
     defaultInvitesEnabled: createDefaultWorkspaceSettings()
   });
 
-  const updated = await repository.updateSettingsByWorkspaceId(1, {
+  const updated = await repository.updateSettingsByWorkspaceId("1", {
     invitesEnabled: false
   });
 
@@ -149,9 +149,9 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
     defaultInvitesEnabled: false
   });
 
-  const record = await repository.ensureForWorkspaceId(5);
+  const record = await repository.ensureForWorkspaceId("5");
 
-  assert.equal(state.insertedRow.workspace_id, 5);
+  assert.equal(state.insertedRow.workspace_id, "5");
   assert.equal(state.insertedRow.light_primary_color, DEFAULT_WORKSPACE_THEME.light.color);
   assert.equal(state.insertedRow.light_secondary_color, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
   assert.equal(state.insertedRow.light_surface_color, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
@@ -176,6 +176,7 @@ test("workspaceSettingsRepository.ensureForWorkspaceId inserts the injected defa
   assert.equal(record.darkSurfaceColor, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
   assert.equal(record.darkSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor);
   assert.equal(record.invitesEnabled, false);
+  assert.equal(record.workspaceId, "5");
 });
 
 test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace settings columns", async () => {
@@ -184,7 +185,7 @@ test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace 
     defaultInvitesEnabled: true
   });
 
-  const updated = await repository.updateSettingsByWorkspaceId(1, {
+  const updated = await repository.updateSettingsByWorkspaceId("1", {
     lightPrimaryColor: "#123abc"
   });
 

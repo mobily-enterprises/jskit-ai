@@ -1,6 +1,6 @@
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveInsertedId } from "@jskit-ai/assistant-core/server";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
@@ -9,7 +9,11 @@ function normalizeTargetSurfaceId(value = "") {
 }
 
 function normalizeWorkspaceId(value) {
-  return parsePositiveInteger(value) || null;
+  return normalizeRecordId(value, { fallback: null });
+}
+
+function normalizeWorkspaceDbId(value) {
+  return normalizeDbRecordId(value, { fallback: null });
 }
 
 function buildScopeKey(targetSurfaceId, workspaceId = null) {
@@ -29,7 +33,7 @@ function mapConfigRow(row = {}) {
   return {
     targetSurfaceId: normalizeTargetSurfaceId(row.target_surface_id),
     scopeKey: normalizeText(row.scope_key),
-    workspaceId: normalizeWorkspaceId(row.workspace_id),
+    workspaceId: normalizeWorkspaceDbId(row.workspace_id),
     settings: {
       systemPrompt: String(row.system_prompt || "")
     }

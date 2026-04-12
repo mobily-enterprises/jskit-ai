@@ -18,7 +18,8 @@ export { normalizeText, normalizeDatabaseClient, toKnexClientId } from "./databa
 export {
   parseDatabaseUrl,
   resolveDatabaseClientFromEnvironment,
-  resolveDatabaseConnectionFromEnvironment
+  resolveDatabaseConnectionFromEnvironment,
+  resolveKnexConnectionFromEnvironment
 } from "./databaseConnection.js";
 export { isDuplicateEntryError } from "./duplicateEntry.js";
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";
@@ -35,6 +36,8 @@ export {
   stringifyMetadataJson,
   normalizeMetadataJsonInput,
   normalizeNullableString,
+  normalizeDbRecordId,
+  resolveInsertedRecordId,
   normalizeIdList,
   normalizeCountRow,
   parseJsonValue,

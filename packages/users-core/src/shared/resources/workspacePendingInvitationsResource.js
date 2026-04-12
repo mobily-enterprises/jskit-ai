@@ -2,20 +2,15 @@ import { Type } from "@fastify/type-provider-typebox";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { createOperationMessages } from "../operationMessages.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { normalizeObjectInput, recordIdSchema } from "@jskit-ai/kernel/shared/validators";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizePendingInvite(invite) {
-  const id = Number(invite?.id);
-  const workspaceId = Number(invite?.workspaceId);
+  const id = normalizeRecordId(invite?.id, { fallback: null });
+  const workspaceId = normalizeRecordId(invite?.workspaceId, { fallback: null });
   const tokenHash = normalizeText(invite?.tokenHash);
 
-  if (!Number.isInteger(id) || id < 1) {
-    return null;
-  }
-  if (!Number.isInteger(workspaceId) || workspaceId < 1) {
-    return null;
-  }
-  if (!tokenHash) {
+  if (!id || !workspaceId || !tokenHash) {
     return null;
   }
 
@@ -39,8 +34,8 @@ function normalizePendingInviteList(invites) {
 const pendingInviteRecordValidator = Object.freeze({
   schema: Type.Object(
     {
-      id: Type.Integer({ minimum: 1 }),
-      workspaceId: Type.Integer({ minimum: 1 }),
+      id: recordIdSchema,
+      workspaceId: recordIdSchema,
       workspaceSlug: Type.String({ minLength: 1 }),
       workspaceName: Type.String({ minLength: 1 }),
       workspaceAvatarUrl: Type.String(),

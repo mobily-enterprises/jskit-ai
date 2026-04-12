@@ -5,10 +5,12 @@ import {
 } from "@jskit-ai/database-runtime/shared";
 import {
   normalizeObjectInput,
-  createCursorListValidator
+  createCursorListValidator,
+  recordIdSchema
 } from "@jskit-ai/kernel/shared/validators";
 import {
   normalizeText,
+  normalizeRecordId,
   normalizeFiniteNumber,
   normalizeIfPresent
 } from "@jskit-ai/kernel/shared/support/normalize";
@@ -17,7 +19,7 @@ const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
 
 const recordOutputSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
+    id: recordIdSchema,
     textField: Type.String({ minLength: 1, maxLength: 160 }),
     dateField: Type.String({ minLength: 1 }),
     numberField: Type.Number(),
@@ -71,7 +73,7 @@ const recordOutputValidator = Object.freeze({
   normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
     const normalized = {
-      id: Number(source.id),
+      id: normalizeRecordId(source.id, { fallback: "" }),
       textField: normalizeText(source.textField),
       dateField: toIsoString(source.dateField),
       numberField: normalizeFiniteNumber(source.numberField),
@@ -116,7 +118,7 @@ const patchBodyValidator = Object.freeze({
 const deleteOutputValidator = Object.freeze({
   schema: Type.Object(
     {
-      id: Type.Integer({ minimum: 1 }),
+      id: recordIdSchema,
       deleted: Type.Literal(true)
     },
     { additionalProperties: false }
@@ -125,7 +127,7 @@ const deleteOutputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      id: Number(source.id),
+      id: normalizeRecordId(source.id, { fallback: "" }),
       deleted: true
     };
   }

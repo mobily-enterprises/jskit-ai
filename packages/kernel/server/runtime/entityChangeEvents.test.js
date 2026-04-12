@@ -33,9 +33,9 @@ test("entity change publisher emits normalized event payload", async () => {
   });
 
   assert.equal(payload?.operation, "created");
-  assert.equal(payload?.entityId, 5);
-  assert.deepEqual(payload?.scope, { kind: "scope", id: 23 });
-  assert.equal(payload?.actorId, 17);
+  assert.equal(payload?.entityId, "5");
+  assert.deepEqual(payload?.scope, { kind: "scope", id: "23" });
+  assert.equal(payload?.actorId, "17");
   assert.equal(payload?.commandId, "cmd-1");
   assert.equal(payload?.sourceClientId, "client-a");
   assert.equal(payload?.meta?.service?.token, "crud.customers");
@@ -111,7 +111,7 @@ test("entity change publisher infers scoped owner from service context when visi
     }
   );
 
-  assert.deepEqual(payload?.scope, { kind: "workspace", id: 23 });
+  assert.deepEqual(payload?.scope, { kind: "workspace", id: "23" });
   assert.equal(published.length, 1);
 });
 

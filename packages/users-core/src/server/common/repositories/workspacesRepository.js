@@ -1,4 +1,7 @@
+import { resolveInsertedRecordId } from "@jskit-ai/database-runtime/shared";
 import {
+  normalizeDbRecordId,
+  normalizeRecordId,
   normalizeText,
   normalizeLowerText,
   toIsoString,
@@ -13,10 +16,10 @@ function mapRow(row) {
   }
 
   return {
-    id: Number(row.id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
     slug: normalizeText(row.slug),
     name: normalizeText(row.name),
-    ownerUserId: Number(row.owner_user_id),
+    ownerUserId: normalizeDbRecordId(row.owner_user_id, { fallback: "" }),
     isPersonal: Boolean(row.is_personal),
     avatarUrl: row.avatar_url ? normalizeText(row.avatar_url) : "",
     createdAt: toIsoString(row.created_at),
@@ -61,9 +64,14 @@ function createRepository(knex) {
   }
 
   async function findById(workspaceId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     const row = await client("workspaces as w")
-      .where({ "w.id": Number(workspaceId) })
+      .where({ "w.id": normalizedWorkspaceId })
       .select(workspaceSelectColumns())
       .first();
     return mapRow(row);
@@ -84,9 +92,14 @@ function createRepository(knex) {
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     const row = await client("workspaces as w")
-      .where({ "w.owner_user_id": Number(userId), "w.is_personal": 1 })
+      .where({ "w.owner_user_id": normalizedUserId, "w.is_personal": 1 })
       .orderBy("w.id", "asc")
       .select(workspaceSelectColumns())
       .first();
@@ -96,11 +109,15 @@ function createRepository(knex) {
   async function insert(payload = {}, options = {}) {
     const client = options?.trx || knex;
     const source = payload && typeof payload === "object" ? payload : {};
+    const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
+    if (!ownerUserId) {
+      throw new TypeError("workspacesRepository.insert requires ownerUserId.");
+    }
 
     const insertPayload = {
       slug: normalizeLowerText(source.slug),
       name: normalizeText(source.name),
-      owner_user_id: Number(source.ownerUserId),
+      owner_user_id: ownerUserId,
       is_personal: source.isPersonal ? 1 : 0,
       avatar_url: normalizeText(source.avatarUrl),
       created_at: nowDb(),
@@ -110,8 +127,8 @@ function createRepository(knex) {
 
     try {
       const result = await client("workspaces").insert(insertPayload);
-      const insertedId = Array.isArray(result) ? Number(result[0]) : Number(result);
-      if (Number.isInteger(insertedId) && insertedId > 0) {
+      const insertedId = resolveInsertedRecordId(result, { fallback: null });
+      if (insertedId) {
         return findById(insertedId, { trx: client });
       }
       const bySlug = await findBySlug(insertPayload.slug, { trx: client });
@@ -129,6 +146,11 @@ function createRepository(knex) {
   }
 
   async function updateById(workspaceId, patch = {}, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     const source = patch && typeof patch === "object" ? patch : {};
     const dbPatch = {
@@ -142,15 +164,20 @@ function createRepository(knex) {
       dbPatch.avatar_url = normalizeText(source.avatarUrl);
     }
 
-    await client("workspaces").where({ id: Number(workspaceId) }).update(dbPatch);
-    return findById(workspaceId, { trx: client });
+    await client("workspaces").where({ id: normalizedWorkspaceId }).update(dbPatch);
+    return findById(normalizedWorkspaceId, { trx: client });
   }
 
   async function listForUserId(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return [];
+    }
+
     const client = options?.trx || knex;
     const rows = await client("workspace_memberships as wm")
       .join("workspaces as w", "w.id", "wm.workspace_id")
-      .where({ "wm.user_id": Number(userId) })
+      .where({ "wm.user_id": normalizedUserId })
       .whereNull("w.deleted_at")
       .orderBy("w.is_personal", "desc")
       .orderBy("w.id", "asc")

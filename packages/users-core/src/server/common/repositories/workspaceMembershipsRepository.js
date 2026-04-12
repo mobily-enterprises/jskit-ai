@@ -1,5 +1,7 @@
 import {
   normalizeLowerText,
+  normalizeRecordId,
+  normalizeDbRecordId,
   normalizeText,
   toIsoString,
   nowDb,
@@ -13,9 +15,9 @@ function mapRow(row) {
   }
 
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspace_id),
-    userId: Number(row.user_id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
+    workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" }),
+    userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
     roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "active") || "active",
     createdAt: toIsoString(row.created_at),
@@ -29,7 +31,7 @@ function mapMemberSummaryRow(row) {
   }
 
   return {
-    userId: Number(row.user_id),
+    userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
     roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "active") || "active",
     displayName: normalizeText(row.display_name),
@@ -43,33 +45,45 @@ function createRepository(knex) {
   }
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedWorkspaceId || !normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     const row = await client("workspace_memberships")
-      .where({ workspace_id: Number(workspaceId), user_id: Number(userId) })
+      .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
       .first();
     return mapRow(row);
   }
 
   async function ensureOwnerMembership(workspaceId, userId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedWorkspaceId || !normalizedUserId) {
+      throw new TypeError("workspaceMembershipsRepository.ensureOwnerMembership requires workspaceId and userId.");
+    }
+
     const client = options?.trx || knex;
-    const existing = await findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     if (existing) {
       if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
         await client("workspace_memberships")
-          .where({ workspace_id: Number(workspaceId), user_id: Number(userId) })
+          .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
           .update({
             role_sid: OWNER_ROLE_ID,
             status: "active",
             updated_at: nowDb()
           });
       }
-      return findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     }
 
     try {
       await client("workspace_memberships").insert({
-        workspace_id: Number(workspaceId),
-        user_id: Number(userId),
+        workspace_id: normalizedWorkspaceId,
+        user_id: normalizedUserId,
         role_sid: OWNER_ROLE_ID,
         status: "active",
         created_at: nowDb(),
@@ -81,43 +95,54 @@ function createRepository(knex) {
       }
     }
 
-    return findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
   }
 
   async function upsertMembership(workspaceId, userId, patch = {}, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedWorkspaceId || !normalizedUserId) {
+      throw new TypeError("workspaceMembershipsRepository.upsertMembership requires workspaceId and userId.");
+    }
+
     const client = options?.trx || knex;
-    const existing = await findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     const roleSid = normalizeLowerText(patch.roleSid || existing?.roleSid || "member") || "member";
     const status = normalizeLowerText(patch.status || existing?.status || "active") || "active";
 
     if (!existing) {
       await client("workspace_memberships").insert({
-        workspace_id: Number(workspaceId),
-        user_id: Number(userId),
+        workspace_id: normalizedWorkspaceId,
+        user_id: normalizedUserId,
         role_sid: roleSid,
         status,
         created_at: nowDb(),
         updated_at: nowDb()
       });
-      return findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     }
 
     await client("workspace_memberships")
-      .where({ workspace_id: Number(workspaceId), user_id: Number(userId) })
+      .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
       .update({
         role_sid: roleSid,
         status,
         updated_at: nowDb()
       });
 
-    return findByWorkspaceIdAndUserId(workspaceId, userId, { trx: client });
+    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
   }
 
   async function listActiveByWorkspaceId(workspaceId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return [];
+    }
+
     const client = options?.trx || knex;
     const rows = await client("workspace_memberships as wm")
       .join("users as up", "up.id", "wm.user_id")
-      .where({ "wm.workspace_id": Number(workspaceId), "wm.status": "active" })
+      .where({ "wm.workspace_id": normalizedWorkspaceId, "wm.status": "active" })
       .orderBy("up.display_name", "asc")
       .select([
         "wm.user_id",
@@ -131,18 +156,23 @@ function createRepository(knex) {
   }
 
   async function listActiveWorkspaceIdsByUserId(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return [];
+    }
+
     const client = options?.trx || knex;
     const rows = await client("workspace_memberships")
       .where({
-        user_id: Number(userId),
+        user_id: normalizedUserId,
         status: "active"
       })
       .select("workspace_id")
       .orderBy("workspace_id", "asc");
 
     return rows
-      .map((row) => Number(row.workspace_id))
-      .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0);
+      .map((row) => normalizeDbRecordId(row.workspace_id, { fallback: null }))
+      .filter(Boolean);
   }
 
   return Object.freeze({

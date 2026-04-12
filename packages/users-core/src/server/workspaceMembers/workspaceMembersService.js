@@ -1,3 +1,4 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
@@ -61,8 +62,11 @@ function createService({
   }
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
-    const memberUserId = payload.memberUserId;
+    const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     const roleSid = payload.roleSid;
+    if (!memberUserId) {
+      throw new AppError(400, "Validation failed.");
+    }
     if (!assignableRoleIds.includes(roleSid)) {
       throw new AppError(400, "Validation failed.", {
         details: {
@@ -77,7 +81,7 @@ function createService({
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleSid === OWNER_ROLE_ID) {
+    if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot change workspace owner role.");
     }
 
@@ -95,13 +99,16 @@ function createService({
   }
 
   async function removeMember(workspace, payload = {}, options = {}) {
-    const memberUserId = payload.memberUserId;
+    const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
+    if (!memberUserId) {
+      throw new AppError(400, "Validation failed.");
+    }
 
     const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || existingMembership.roleSid === OWNER_ROLE_ID) {
+    if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
       throw new AppError(409, "Cannot remove workspace owner.");
     }
 
@@ -155,13 +162,13 @@ function createService({
         roleSid,
         status: "pending",
         tokenHash,
-        invitedByUserId: Number(user?.id || 0) || null,
+        invitedByUserId: normalizeRecordId(user?.id, { fallback: null }),
         expiresAt: new Date(Date.now() + resolvedInviteExpiresInMs).toISOString()
       },
       options
     );
-    const createdInviteId = Number(createdInvite?.id);
-    if (!Number.isInteger(createdInviteId) || createdInviteId < 1) {
+    const createdInviteId = normalizeRecordId(createdInvite?.id, { fallback: null });
+    if (!createdInviteId) {
       throw new Error("workspaceMembersService.createInvite expected repository to return created invite id.");
     }
 
@@ -174,8 +181,13 @@ function createService({
   }
 
   async function revokeInvite(workspace, inviteId, options = {}) {
+    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
+    if (!normalizedInviteId) {
+      throw new AppError(400, "Validation failed.");
+    }
+
     const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-      inviteId,
+      normalizedInviteId,
       workspace.id,
       options
     );
@@ -183,9 +195,9 @@ function createService({
       throw new AppError(404, "Invite not found.");
     }
 
-    await workspaceInvitesRepository.revokeById(inviteId, options);
-    const revokedInviteId = Number(invite?.id);
-    if (!Number.isInteger(revokedInviteId) || revokedInviteId < 1) {
+    await workspaceInvitesRepository.revokeById(normalizedInviteId, options);
+    const revokedInviteId = normalizeRecordId(invite?.id, { fallback: null });
+    if (!revokedInviteId) {
       throw new Error("workspaceMembersService.revokeInvite expected repository to return pending invite id.");
     }
 

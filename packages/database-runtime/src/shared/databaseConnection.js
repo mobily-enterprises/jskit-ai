@@ -100,7 +100,6 @@ function resolveDatabaseConnectionFromEnvironment(
   const hasDbPassword = Object.prototype.hasOwnProperty.call(source, "DB_PASSWORD");
   const password = hasDbPassword ? String(source.DB_PASSWORD ?? "") : String(parsedUrl?.password || "");
 
-  // Knex may redefine connection.password as a hidden property; keep this mutable.
   return {
     host,
     port,
@@ -110,8 +109,38 @@ function resolveDatabaseConnectionFromEnvironment(
   };
 }
 
+function resolveKnexConnectionFromEnvironment(
+  env = {},
+  {
+    client = "",
+    defaultHost = "localhost",
+    defaultPort = 3306,
+    context = "database runtime"
+  } = {}
+) {
+  const resolvedClient = client
+    ? normalizeDatabaseClient(client, { allowEmpty: true })
+    : resolveDatabaseClientFromEnvironment(env, { allowEmpty: true });
+  const connection = resolveDatabaseConnectionFromEnvironment(env, {
+    defaultHost,
+    defaultPort,
+    context
+  });
+
+  if (resolvedClient === "mysql2") {
+    return {
+      ...connection,
+      supportBigNumbers: true,
+      bigNumberStrings: true
+    };
+  }
+
+  return connection;
+}
+
 export {
   parseDatabaseUrl,
   resolveDatabaseClientFromEnvironment,
-  resolveDatabaseConnectionFromEnvironment
+  resolveDatabaseConnectionFromEnvironment,
+  resolveKnexConnectionFromEnvironment
 };

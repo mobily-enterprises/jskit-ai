@@ -1,6 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createCrudRepositoryFromResource } from "../src/server/createCrudRepositoryFromResource.js";
+
+const recordIdSchema = Object.freeze({
+  type: "string",
+  pattern: RECORD_ID_PATTERN
+});
+
+const nullableRecordIdSchema = Object.freeze({
+  anyOf: [
+    recordIdSchema,
+    { type: "null" }
+  ]
+});
 
 function createListKnexDouble(
   rows = [],
@@ -185,7 +198,7 @@ function createResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" }
             }
           }
@@ -222,10 +235,10 @@ function createLookupResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" },
-              primaryVetId: { type: "integer" },
-              secondaryVetId: { type: ["integer", "null"] },
+              primaryVetId: recordIdSchema,
+              secondaryVetId: nullableRecordIdSchema,
               lookups: {
                 type: "object"
               }
@@ -239,8 +252,8 @@ function createLookupResourceFixture() {
             type: "object",
             properties: {
               firstName: { type: "string" },
-              primaryVetId: { type: "integer" },
-              secondaryVetId: { type: "integer" }
+              primaryVetId: recordIdSchema,
+              secondaryVetId: recordIdSchema
             }
           }
         }
@@ -289,10 +302,10 @@ function createLookupResourceWithCustomContainerKeyFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" },
-              primaryVetId: { type: "integer" },
-              secondaryVetId: { type: "integer" },
+              primaryVetId: recordIdSchema,
+              secondaryVetId: recordIdSchema,
               lookupData: {
                 type: "object"
               }
@@ -306,8 +319,8 @@ function createLookupResourceWithCustomContainerKeyFixture() {
             type: "object",
             properties: {
               firstName: { type: "string" },
-              primaryVetId: { type: "integer" },
-              secondaryVetId: { type: "integer" }
+              primaryVetId: recordIdSchema,
+              secondaryVetId: recordIdSchema
             }
           }
         }
@@ -351,7 +364,7 @@ function createCollectionLookupResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" },
               lookups: {
                 type: "object"
@@ -400,9 +413,9 @@ function createPetsLookupBackToContactsResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               name: { type: "string" },
-              customerId: { type: "integer" },
+              customerId: recordIdSchema,
               lookups: {
                 type: "object"
               }
@@ -450,14 +463,14 @@ function createNormalizedResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" }
             },
             required: ["id", "firstName"]
           },
           normalize(payload = {}) {
             return {
-              id: Number(payload.id),
+              id: String(payload.id || ""),
               firstName: String(payload.firstName || "").trim()
             };
           }
@@ -494,7 +507,7 @@ function createWritableHookResourceFixture() {
           schema: {
             type: "object",
             properties: {
-              id: { type: "integer" },
+              id: recordIdSchema,
               firstName: { type: "string" },
               createdAt: { type: "string" },
               updatedAt: { type: "string" }
@@ -545,7 +558,7 @@ test("createCrudRepositoryFromResource requires table metadata from resource", (
               schema: {
                 type: "object",
                 properties: {
-                  id: { type: "integer" }
+                  id: recordIdSchema
                 }
               }
             }
@@ -576,21 +589,21 @@ test("createCrudRepositoryFromResource defaults table and id columns from resour
   const repository = createRepository(knex);
 
   const result = await repository.list({
-    cursor: 2,
+    cursor: "2",
     q: "to"
   });
 
   assert.deepEqual(result, {
     items: [
       {
-        id: 3,
+        id: "3",
         firstName: "Tony"
       }
     ],
     nextCursor: null
   });
   assert.equal(calls[0][1], "contacts_table");
-  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 2));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === "2"));
 });
 
 test("createCrudRepositoryFromResource createRepository requires knex", () => {
@@ -646,8 +659,8 @@ test("createCrudRepositoryFromResource supports declarative ordered list paginat
 
   assert.deepEqual(result, {
     items: [
-      { id: 9, firstName: "Tina" },
-      { id: 7, firstName: "Tony" }
+      { id: "9", firstName: "Tina" },
+      { id: "7", firstName: "Tony" }
     ],
     nextCursor: Buffer.from(
       JSON.stringify({ values: ["2026-04-04T09:00:00.000Z", 7] }),
@@ -855,11 +868,11 @@ test("createCrudRepositoryFromResource exposes listByIds for lookup providers", 
   ]);
   const repository = createRepository(knex);
 
-  const records = await repository.listByIds([3, 3, 4]);
+  const records = await repository.listByIds(["3", "3", "4"]);
 
   assert.equal(records.length, 1);
   assert.deepEqual(records[0], {
-    id: 3,
+    id: "3",
     firstName: "Tony"
   });
   assert.ok(calls.some((call) => call[0] === "whereIn" && call[1] === "contact_id"));
@@ -879,7 +892,7 @@ test("createCrudRepositoryFromResource exposes listByForeignIds for arbitrary ou
 
   assert.equal(records.length, 1);
   assert.deepEqual(records[0], {
-    id: 3,
+    id: "3",
     firstName: "Tony"
   });
   assert.ok(calls.some((call) => call[0] === "whereIn" && call[1] === "first_name"));
@@ -913,7 +926,7 @@ test("createCrudRepositoryFromResource listByIds fails fast when valueKey is not
 
   await assert.rejects(
     () =>
-      repository.listByIds([3], {
+      repository.listByIds(["3"], {
         valueKey: "externalCustomerId"
       }),
     /valueKey "externalCustomerId" to exist in output schema/
@@ -930,10 +943,10 @@ test("createCrudRepositoryFromResource normalizes listByIds output using resourc
   ]);
   const repository = createRepository(knex);
 
-  const result = await repository.listByIds([3]);
+  const result = await repository.listByIds(["3"]);
   assert.deepEqual(result, [
     {
-      id: 3,
+      id: "3",
       firstName: "Tony"
     }
   ]);
@@ -943,14 +956,14 @@ test("createCrudRepositoryFromResource fails when mapped output violates resourc
   const createRepository = createCrudRepositoryFromResource(createResourceFixture());
   const { knex } = createListKnexDouble([
     {
-      contact_id: "3",
+      contact_id: "invalid-id",
       first_name: "Tony"
     }
   ]);
   const repository = createRepository(knex);
 
   await assert.rejects(
-    () => repository.listByIds([3]),
+    () => repository.listByIds(["3"]),
     /output validation failed/
   );
 });
@@ -983,8 +996,8 @@ test("createCrudRepositoryFromResource hydrates lookup relations by default and 
             options
           });
           return [
-            { id: 10, name: "Vet A" },
-            { id: 12, name: "Vet B" }
+            { id: "10", name: "Vet A" },
+            { id: "12", name: "Vet B" }
           ];
         }
       };
@@ -994,16 +1007,16 @@ test("createCrudRepositoryFromResource hydrates lookup relations by default and 
   const result = await repository.list({});
 
   assert.equal(lookupCalls.length, 1);
-  assert.deepEqual(lookupCalls[0].ids, [10, 12]);
+  assert.deepEqual(lookupCalls[0].ids, ["10", "12"]);
   assert.equal(lookupCalls[0].options.include, "*");
   assert.equal(lookupCalls[0].options.lookupDepth, 1);
   assert.equal(lookupCalls[0].options.lookupMaxDepth, 3);
   assert.deepEqual(result.items[0].lookups, {
-    primaryVetId: { id: 10, name: "Vet A" },
-    secondaryVetId: { id: 12, name: "Vet B" }
+    primaryVetId: { id: "10", name: "Vet A" },
+    secondaryVetId: { id: "12", name: "Vet B" }
   });
   assert.deepEqual(result.items[1].lookups, {
-    primaryVetId: { id: 10, name: "Vet A" },
+    primaryVetId: { id: "10", name: "Vet A" },
     secondaryVetId: null
   });
 });
@@ -1023,8 +1036,8 @@ test("createCrudRepositoryFromResource writes hydrated lookups into custom outpu
       return {
         async listByIds() {
           return [
-            { id: 10, name: "Vet A" },
-            { id: 12, name: "Vet B" }
+            { id: "10", name: "Vet A" },
+            { id: "12", name: "Vet B" }
           ];
         }
       };
@@ -1034,8 +1047,8 @@ test("createCrudRepositoryFromResource writes hydrated lookups into custom outpu
   const result = await repository.list({});
   assert.equal(Object.hasOwn(result.items[0], "lookups"), false);
   assert.deepEqual(result.items[0].lookupData, {
-    primaryVetId: { id: 10, name: "Vet A" },
-    secondaryVetId: { id: 12, name: "Vet B" }
+    primaryVetId: { id: "10", name: "Vet A" },
+    secondaryVetId: { id: "12", name: "Vet B" }
   });
 });
 
@@ -1113,7 +1126,7 @@ test("createCrudRepositoryFromResource forwards nested include paths to child lo
             ids,
             options
           });
-          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+          return [{ id: "10", name: "Vet A" }, { id: "12", name: "Vet B" }];
         }
       };
     }
@@ -1147,7 +1160,7 @@ test("createCrudRepositoryFromResource forwards wildcard nested include paths to
             ids,
             options
           });
-          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+          return [{ id: "10", name: "Vet A" }, { id: "12", name: "Vet B" }];
         }
       };
     }
@@ -1182,7 +1195,7 @@ test("createCrudRepositoryFromResource remaps child lookup visibility for public
             ids,
             options
           });
-          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+          return [{ id: "10", name: "Vet A" }, { id: "12", name: "Vet B" }];
         }
       };
     }
@@ -1222,7 +1235,7 @@ test("createCrudRepositoryFromResource remaps child lookup visibility for worksp
             ids,
             options
           });
-          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+          return [{ id: "10", name: "Vet A" }, { id: "12", name: "Vet B" }];
         }
       };
     }
@@ -1299,9 +1312,9 @@ test("createCrudRepositoryFromResource hydrates collection relations through lis
             options
           });
           return [
-            { id: 11, name: "Milo", customerId: 3 },
-            { id: 12, name: "Luna", customerId: 3 },
-            { id: 20, name: "Ruby", customerId: 4 }
+            { id: "11", name: "Milo", customerId: "3" },
+            { id: "12", name: "Luna", customerId: "3" },
+            { id: "20", name: "Ruby", customerId: "4" }
           ];
         }
       };
@@ -1313,7 +1326,7 @@ test("createCrudRepositoryFromResource hydrates collection relations through lis
   });
 
   assert.equal(lookupCalls.length, 1);
-  assert.deepEqual(lookupCalls[0].ids, [3, 4]);
+  assert.deepEqual(lookupCalls[0].ids, ["3", "4"]);
   assert.equal(lookupCalls[0].options.include, "none");
   assert.equal(lookupCalls[0].options.valueKey, "customerId");
   assert.deepEqual(result.items[0].lookups?.pets?.map((item) => item.name), ["Milo", "Luna"]);
@@ -1402,7 +1415,7 @@ test("createCrudRepositoryFromResource forwards configured lookup maxDepth to ch
             ids,
             options
           });
-          return [{ id: 10, name: "Vet A" }, { id: 12, name: "Vet B" }];
+          return [{ id: "10", name: "Vet A" }, { id: "12", name: "Vet B" }];
         }
       };
     }
@@ -1598,7 +1611,7 @@ test("createCrudRepositoryFromResource list hooks keep visibility and canonical 
   const repository = createRepository(knex);
 
   await repository.list({
-    cursor: 2,
+    cursor: "2",
     limit: 5
   }, {
     visibilityContext: {
@@ -1612,7 +1625,7 @@ test("createCrudRepositoryFromResource list hooks keep visibility and canonical 
     }
   });
 
-  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === 2));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === "2"));
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
   assert.ok(calls.some((call) => call[0] === "clearOrder"));
   assert.ok(calls.some((call) => call[0] === "clear" && call[1] === "limit"));
@@ -1630,7 +1643,7 @@ test("createCrudRepositoryFromResource findById hooks keep visibility and id pre
   ]);
   const repository = createRepository(knex);
 
-  await repository.findById(7, {
+  await repository.findById("7", {
     visibilityContext: {
       visibility: "workspace",
       scopeOwnerId: "workspace-1"
@@ -1644,7 +1657,7 @@ test("createCrudRepositoryFromResource findById hooks keep visibility and id pre
 
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === 999));
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
-  assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === 7));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === "7"));
 });
 
 test("createCrudRepositoryFromResource findById hooks share state between query and transformReturnedRecord", async () => {
@@ -1657,7 +1670,7 @@ test("createCrudRepositoryFromResource findById hooks share state between query 
   ]);
   const repository = createRepository(knex);
 
-  const record = await repository.findById(7, {}, {
+  const record = await repository.findById("7", {}, {
     modifyQuery(_dbQuery, context = {}) {
       context.state.recordTag = "from-state";
     },
@@ -1712,7 +1725,7 @@ test("createCrudRepositoryFromResource listByIds hooks support afterQuery/transf
     }
   });
 
-  assert.deepEqual(items.map((item) => item.id), [4, 3]);
+  assert.deepEqual(items.map((item) => item.id), ["4", "3"]);
   assert.deepEqual(items.map((item) => item.nameTag), ["SAM", "TONY"]);
 });
 
@@ -1855,7 +1868,7 @@ test("createCrudRepositoryFromResource create hooks support afterWrite and canon
   assert.equal(afterWriteCalls.length, 1);
   assert.equal(afterWriteCalls[0].operation, "create");
   assert.equal(afterWriteCalls[0].createdName, "Tony");
-  assert.equal(afterWriteCalls[0].recordId, 11);
+  assert.equal(afterWriteCalls[0].recordId, "11");
 });
 
 test("createCrudRepositoryFromResource update hooks keep write-key filtering and by-id visibility constraints", async () => {
@@ -1870,7 +1883,7 @@ test("createCrudRepositoryFromResource update hooks keep write-key filtering and
   ]);
   const repository = createRepository(knex);
 
-  await repository.updateById(11, {
+  await repository.updateById("11", {
     firstName: "Tony"
   }, {
     visibilityContext: {
@@ -1900,7 +1913,7 @@ test("createCrudRepositoryFromResource update hooks keep write-key filtering and
   assert.ok(state.updatePayloads[0].updated_at);
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "vip" && call[2] === 1));
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "workspace_id" && call[2] === "workspace-1"));
-  assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === 11));
+  assert.ok(calls.some((call) => call[0] === "where" && call[1]?.contact_id === "11"));
 });
 
 test("createCrudRepositoryFromResource update hooks reject read-phase hook keys", async () => {
@@ -1916,7 +1929,7 @@ test("createCrudRepositoryFromResource update hooks reject read-phase hook keys"
   const repository = createRepository(knex);
 
   await assert.rejects(
-    () => repository.updateById(11, {
+    () => repository.updateById("11", {
       firstName: "Tony"
     }, {}, {
       transformReturnedRecord(record = {}) {
@@ -1940,7 +1953,7 @@ test("createCrudRepositoryFromResource update hooks support afterWrite and canon
   const repository = createRepository(knex);
   const afterWriteCalls = [];
 
-  const record = await repository.updateById(11, {
+  const record = await repository.updateById("11", {
     firstName: "Tony"
   }, {}, {
     modifyPatch(patch = {}, context = {}) {
@@ -1961,7 +1974,7 @@ test("createCrudRepositoryFromResource update hooks support afterWrite and canon
   assert.equal(afterWriteCalls.length, 1);
   assert.equal(afterWriteCalls[0].operation, "update");
   assert.deepEqual(afterWriteCalls[0].patchKeys, ["firstName"]);
-  assert.equal(afterWriteCalls[0].recordId, 11);
+  assert.equal(afterWriteCalls[0].recordId, "11");
 });
 
 test("createCrudRepositoryFromResource delete hooks run through callOptions.trx client", async () => {
@@ -1980,7 +1993,7 @@ test("createCrudRepositoryFromResource delete hooks run through callOptions.trx 
   ]);
   const repository = createRepository(baseKnex.knex);
 
-  await repository.deleteById(3, {
+  await repository.deleteById("3", {
     trx: trxKnex.knex,
     visibilityContext: {
       visibility: "workspace",
@@ -2010,7 +2023,7 @@ test("createCrudRepositoryFromResource delete hooks support afterWrite", async (
   const repository = createRepository(knex);
   const afterWriteCalls = [];
 
-  const result = await repository.deleteById(3, {}, {
+  const result = await repository.deleteById("3", {}, {
     afterWrite(meta = {}, context = {}) {
       context.state.deletedId = meta?.output?.id || null;
       afterWriteCalls.push({
@@ -2023,7 +2036,7 @@ test("createCrudRepositoryFromResource delete hooks support afterWrite", async (
   assert.equal(result.deleted, true);
   assert.equal(afterWriteCalls.length, 1);
   assert.equal(afterWriteCalls[0].operation, "delete");
-  assert.equal(afterWriteCalls[0].deletedId, 3);
+  assert.equal(afterWriteCalls[0].deletedId, "3");
 });
 
 test("createCrudRepositoryFromResource delete hooks support finalizeOutput for record and null flows", async () => {
@@ -2038,7 +2051,7 @@ test("createCrudRepositoryFromResource delete hooks support finalizeOutput for r
   const presentRepository = createRepository(presentKnex.knex);
   const missingRepository = createRepository(missingKnex.knex);
 
-  const deletedOutput = await presentRepository.deleteById(3, {}, {
+  const deletedOutput = await presentRepository.deleteById("3", {}, {
     finalizeOutput(output) {
       return output
         ? { ...output, status: "deleted" }
@@ -2046,7 +2059,7 @@ test("createCrudRepositoryFromResource delete hooks support finalizeOutput for r
     }
   });
 
-  const missingOutput = await missingRepository.deleteById(3, {}, {
+  const missingOutput = await missingRepository.deleteById("3", {}, {
     finalizeOutput(output) {
       return output === null ? { deleted: false } : output;
     }

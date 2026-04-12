@@ -62,7 +62,7 @@ exports.up = async function up(knex) {
   for (const profile of profiles) {
     const nextUsername = resolveUniqueUsername(usernameBaseFromEmail(profile.email), usedUsernames);
     usedUsernames.add(nextUsername);
-    await knex("users").where({ id: Number(profile.id) }).update({
+    await knex("users").where({ id: profile.id }).update({
       username: nextUsername
     });
   }

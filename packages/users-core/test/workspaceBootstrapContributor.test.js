@@ -4,7 +4,7 @@ import { createWorkspaceBootstrapContributor } from "../src/server/workspaceBoot
 
 function createAuthenticatedProfile(overrides = {}) {
   return {
-    id: 7,
+    id: "7",
     authProvider: "local",
     authProviderUserSid: "user-7",
     username: "tester",

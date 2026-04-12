@@ -1,4 +1,4 @@
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createUploadStorageService,
   detectCommonMimeTypeFromBuffer
@@ -7,9 +7,9 @@ import {
 const AVATAR_STORAGE_PREFIX = "users/avatars";
 
 function buildAvatarStorageKey(userId) {
-  const normalizedUserId = parsePositiveInteger(userId);
+  const normalizedUserId = normalizeRecordId(userId, { fallback: null });
   if (!normalizedUserId) {
-    throw new TypeError("Avatar storage requires a positive integer user id.");
+    throw new TypeError("Avatar storage requires a valid user id.");
   }
 
   return `${AVATAR_STORAGE_PREFIX}/${normalizedUserId}/avatar`;

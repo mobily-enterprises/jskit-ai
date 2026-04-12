@@ -3,15 +3,18 @@ import assert from "node:assert/strict";
 
 import { recordIdParamsValidator } from "./recordIdParamsValidator.js";
 
-test("recordIdParamsValidator normalizes string id to positive integer", () => {
+test("recordIdParamsValidator normalizes canonical string ids", () => {
   assert.deepEqual(recordIdParamsValidator.normalize({ recordId: "42" }), {
-    recordId: 42
+    recordId: "42"
   });
 });
 
-test("recordIdParamsValidator normalizes invalid id to 0", () => {
+test("recordIdParamsValidator rejects invalid ids", () => {
   assert.deepEqual(recordIdParamsValidator.normalize({ recordId: "nope" }), {
-    recordId: 0
+    recordId: ""
+  });
+  assert.deepEqual(recordIdParamsValidator.normalize({ recordId: 42 }), {
+    recordId: ""
   });
 });
 

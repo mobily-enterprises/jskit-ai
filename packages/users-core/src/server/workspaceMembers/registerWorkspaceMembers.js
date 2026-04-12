@@ -1,4 +1,6 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembersService.js";
@@ -23,8 +25,8 @@ const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
       return [];
     }
 
-    const inviteId = Number(event?.entityId);
-    if (!Number.isInteger(inviteId) || inviteId < 1) {
+    const inviteId = normalizeRecordId(event?.entityId, { fallback: null });
+    if (!inviteId) {
       return [];
     }
 
@@ -33,8 +35,8 @@ const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
       .where("wi.id", inviteId)
       .first("up.id as user_id");
 
-    const userId = Number(row?.user_id || 0);
-    if (!Number.isInteger(userId) || userId < 1) {
+    const userId = normalizeDbRecordId(row?.user_id, { fallback: null });
+    if (!userId) {
       return [];
     }
 

@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   hasValue,
   normalizeBoolean,
+  normalizeCanonicalRecordIdText,
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   normalizeIfInSource,
   normalizeIfPresent,
   normalizeOrNull,
+  normalizeRecordId,
   normalizeOpaqueId,
   normalizePositiveInteger,
   normalizeOneOf,
@@ -172,10 +174,27 @@ test("normalizeOrNull normalizes non-nullish values and coerces nullish to null"
   );
 });
 
+test("normalizeRecordId accepts canonical string and bigint identifiers only", () => {
+  const unsafeNumericId = Number(9007199254740993n);
+  assert.equal(normalizeRecordId("  7  "), "7");
+  assert.equal(normalizeRecordId(10n), "10");
+  assert.equal(normalizeRecordId(7), null);
+  assert.equal(normalizeRecordId(unsafeNumericId), null);
+  assert.equal(normalizeRecordId(""), null);
+  assert.equal(normalizeRecordId(null), null);
+});
+
+test("normalizeCanonicalRecordIdText validates canonical positive decimal identifiers", () => {
+  assert.equal(normalizeCanonicalRecordIdText("  7  "), "7");
+  assert.equal(normalizeCanonicalRecordIdText("007"), null);
+  assert.equal(normalizeCanonicalRecordIdText("0"), null);
+  assert.equal(normalizeCanonicalRecordIdText("abc"), null);
+});
+
 test("normalizeOpaqueId preserves opaque identifiers", () => {
   assert.equal(normalizeOpaqueId("  user-123  "), "user-123");
-  assert.equal(normalizeOpaqueId(7), 7);
-  assert.equal(normalizeOpaqueId(0), 0);
+  assert.equal(normalizeOpaqueId(7), "7");
+  assert.equal(normalizeOpaqueId(0), "0");
   assert.equal(normalizeOpaqueId(10n), "10");
   assert.equal(normalizeOpaqueId(""), null);
   assert.equal(normalizeOpaqueId(null), null);

@@ -11,9 +11,8 @@ test("cursorPaginationQueryValidator normalizes numeric strings as cursor text",
 
 test("cursorPaginationQueryValidator schema rejects opaque cursor strings", () => {
   assert.equal(
-    cursorPaginationQueryValidator.schema.properties.cursor.anyOf.some(
-      (entry) => entry.type === "string" && entry.pattern === "^[1-9][0-9]*$"
-    ),
+    cursorPaginationQueryValidator.schema.properties.cursor.type === "string" &&
+      cursorPaginationQueryValidator.schema.properties.cursor.pattern === "^[1-9][0-9]*$",
     true
   );
 });

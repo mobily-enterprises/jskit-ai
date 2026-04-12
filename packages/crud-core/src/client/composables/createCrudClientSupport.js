@@ -113,7 +113,7 @@ function useCrudClientContext(source = {}) {
     return resolveCrudRecordPathTemplates(listPathTemplate, recordIdParam);
   }
 
-  function resolveRecordParams(recordIdLike = 0, { recordIdParam = defaultRecordIdParam } = {}) {
+  function resolveRecordParams(recordIdLike = "", { recordIdParam = defaultRecordIdParam } = {}) {
     return resolveCrudRecordPathParams(recordIdLike, recordIdParam);
   }
 
@@ -122,7 +122,7 @@ function useCrudClientContext(source = {}) {
     return crudListQueryKey(normalizedSurfaceId, workspaceSlugToken.value, crudConfig.namespace);
   }
 
-  function viewQueryKey(surfaceId = "", recordId = 0) {
+  function viewQueryKey(surfaceId = "", recordId = "") {
     const normalizedSurfaceId = String(surfaceId || paths.currentSurfaceId.value || "").trim();
     return crudViewQueryKey(normalizedSurfaceId, workspaceSlugToken.value, recordId, crudConfig.namespace);
   }

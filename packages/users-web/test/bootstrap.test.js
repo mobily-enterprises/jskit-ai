@@ -17,7 +17,7 @@ test("resolvePlacementUserFromBootstrapPayload maps profile fields used by place
   const user = resolvePlacementUserFromBootstrapPayload({
     session: {
       authenticated: true,
-      userId: 42
+      userId: "42"
     },
     profile: {
       displayName: "Ada Lovelace",
@@ -29,7 +29,7 @@ test("resolvePlacementUserFromBootstrapPayload maps profile fields used by place
   });
 
   assert.deepEqual(user, {
-    id: 42,
+    id: "42",
     displayName: "Ada Lovelace",
     name: "Ada Lovelace",
     email: "ada@example.com",

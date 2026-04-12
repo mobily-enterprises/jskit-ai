@@ -1,7 +1,9 @@
 import { Type } from "typebox";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
-import { toPositiveInteger } from "./support/positiveInteger.js";
+import { normalizeText, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeObjectInput,
+  nullableRecordIdSchema
+} from "@jskit-ai/kernel/shared/validators";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
 
@@ -9,7 +11,7 @@ const assistantConfigRecordSchema = Type.Object(
   {
     targetSurfaceId: Type.String({ minLength: 1, maxLength: 64 }),
     scopeKey: Type.String({ minLength: 1, maxLength: 160 }),
-    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceId: nullableRecordIdSchema,
     settings: Type.Object(
       {
         systemPrompt: Type.String({ maxLength: MAX_SYSTEM_PROMPT_CHARS })
@@ -53,7 +55,7 @@ function normalizeConfigRecord(payload = {}) {
   return {
     targetSurfaceId: normalizeText(source.targetSurfaceId).toLowerCase(),
     scopeKey: normalizeText(source.scopeKey),
-    workspaceId: toPositiveInteger(source.workspaceId, 0) || null,
+    workspaceId: normalizeRecordId(source.workspaceId, { fallback: null }),
     settings: {
       systemPrompt: String(settings.systemPrompt || "")
     }

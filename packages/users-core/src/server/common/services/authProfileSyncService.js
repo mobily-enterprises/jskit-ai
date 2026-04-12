@@ -1,3 +1,4 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeIdentity } from "../repositories/usersRepository.js";
 
@@ -46,7 +47,7 @@ function profileNeedsUpdate(existing, nextProfile) {
 }
 
 function requireSynchronizedProfile(profile) {
-  if (profile && Number.isFinite(Number(profile.id)) && String(profile.displayName || "").trim()) {
+  if (profile && normalizeRecordId(profile.id, { fallback: null }) && String(profile.displayName || "").trim()) {
     return profile;
   }
 
@@ -118,10 +119,8 @@ function createService({ usersRepository, workspaceProvisioningService = null, u
     if (options?.trx) {
       return runSync(options.trx);
     }
-    if (typeof usersRepository.withTransaction === "function") {
-      return usersRepository.withTransaction((trx) => runSync(trx));
-    }
-    return runSync();
+
+    return usersRepository.withTransaction((trx) => runSync(trx));
   }
 
   return Object.freeze({

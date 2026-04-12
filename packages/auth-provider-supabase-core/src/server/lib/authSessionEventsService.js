@@ -1,8 +1,8 @@
-import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createAuthSessionEventsService() {
   async function notifySessionChanged(options = {}) {
-    const actorId = normalizePositiveInteger(options?.context?.actor?.id);
+    const actorId = normalizeRecordId(options?.context?.actor?.id, { fallback: null });
     if (!actorId) {
       return null;
     }

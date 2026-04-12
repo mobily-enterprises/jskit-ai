@@ -1,3 +1,5 @@
+import { normalizeCanonicalRecordIdText } from "@jskit-ai/kernel/shared/support/normalize";
+
 function resolveQueryOptions(options = {}) {
   if (!options || typeof options !== "object") {
     return {
@@ -120,6 +122,44 @@ function normalizeNullableString(value, { trim = true } = {}) {
   return normalized || null;
 }
 
+function normalizeDbRecordId(value, { fallback = null } = {}) {
+  if (value == null) {
+    return fallback;
+  }
+
+  if (typeof value === "string") {
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      return fallback;
+    }
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
+  if (typeof value === "bigint") {
+    if (value < 1n) {
+      return fallback;
+    }
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
+  if (typeof value === "object" && !Array.isArray(value) && Object.hasOwn(value, "id")) {
+    return normalizeDbRecordId(value.id, { fallback });
+  }
+
+  return normalizeCanonicalRecordIdText(value, { fallback });
+}
+
+function resolveInsertedRecordId(insertResult, { fallback = null } = {}) {
+  if (Array.isArray(insertResult) && insertResult.length > 0) {
+    return normalizeDbRecordId(insertResult[0], { fallback });
+  }
+
+  return normalizeDbRecordId(insertResult, { fallback });
+}
+
 function normalizeIdList(values, { parseValue } = {}) {
   const source = Array.isArray(values) ? values : [];
   const parser = typeof parseValue === "function" ? parseValue : (value) => value;
@@ -207,6 +247,8 @@ export {
   stringifyMetadataJson,
   normalizeMetadataJsonInput,
   normalizeNullableString,
+  normalizeDbRecordId,
+  resolveInsertedRecordId,
   normalizeIdList,
   normalizeCountRow,
   parseJsonValue,

@@ -5,7 +5,7 @@ exports.up = async function up(knex) {
   const hasUsersTable = await knex.schema.hasTable("users");
   if (!hasUsersTable) {
     await knex.schema.createTable("users", (table) => {
-      table.increments("id").primary();
+      table.bigIncrements("id").primary();
       table.string("auth_provider", 64).notNullable();
       table.string("auth_provider_user_sid", 191).notNullable();
       table.string("email", 255).notNullable();
@@ -24,7 +24,7 @@ exports.up = async function up(knex) {
   const hasUserSettingsTable = await knex.schema.hasTable("user_settings");
   if (!hasUserSettingsTable) {
     await knex.schema.createTable("user_settings", (table) => {
-      table.integer("user_id").unsigned().primary().references("id").inTable("users").onDelete("CASCADE");
+      table.bigInteger("user_id").unsigned().primary().references("id").inTable("users").onDelete("CASCADE");
       table.string("theme", 32).notNullable().defaultTo("system");
       table.string("locale", 24).notNullable().defaultTo("en");
       table.string("time_zone", 64).notNullable().defaultTo("UTC");
@@ -45,8 +45,8 @@ exports.up = async function up(knex) {
   const hasConsoleSettingsTable = await knex.schema.hasTable("console_settings");
   if (!hasConsoleSettingsTable) {
     await knex.schema.createTable("console_settings", (table) => {
-      table.integer("id").primary();
-      table.integer("owner_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
+      table.bigInteger("id").primary();
+      table.bigInteger("owner_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
       table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
       table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
     });

@@ -1,7 +1,7 @@
-import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
+import { resolveInsertedRecordId, toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import { Check, Errors } from "typebox/value";
 import {
   DEFAULT_LIST_LIMIT,
@@ -28,6 +28,14 @@ const LIST_ORDER_NULLS_LAST = "last";
 const ORDERED_LIST_CURSOR_VALUE_TYPE_KEY = "__jskitCursorValueType";
 const ORDERED_LIST_CURSOR_VALUE_KEY = "value";
 const ORDERED_LIST_CURSOR_VALUE_TYPE_DATE = "date";
+
+function requireCrudRecordId(value, { context = "crudRepository" } = {}) {
+  const recordId = normalizeRecordId(value, { fallback: null });
+  if (!recordId) {
+    throw new TypeError(`${context} requires recordId.`);
+  }
+  return recordId;
+}
 
 function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}) {
   const resourceName = normalizeText(resource.resource);
@@ -757,7 +765,12 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
   const pageRows = hasMore ? rows.slice(0, normalizedLimit) : rows;
   const items = [];
   for (const row of pageRows) {
-    const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+    const mappedRecord = mapRecordRow(
+      row,
+      runtime.mapping.outputKeys,
+      runtime.mapping.columnOverrides,
+      { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+    );
     if (!mappedRecord) {
       continue;
     }
@@ -855,6 +868,7 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
 
 async function crudRepositoryFindById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
+  const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepositoryFindById" });
   const methodHooks = normalizeCrudRepositoryHooks(
     hooks,
     ["modifyQuery", "afterQuery", "transformReturnedRecord", "finalizeOutput"],
@@ -895,12 +909,17 @@ async function crudRepositoryFindById(runtime, knex, recordId, repositoryOptions
   dbQuery = dbQuery
     .where(visible)
     .where({
-      [idColumn]: Number(recordId)
+      [idColumn]: normalizedRecordId
     });
 
   const row = await dbQuery.first();
 
-  const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+  const mappedRecord = mapRecordRow(
+    row,
+    runtime.mapping.outputKeys,
+    runtime.mapping.columnOverrides,
+    { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+  );
   let records = [];
   if (mappedRecord) {
     const normalizedRecord = await normalizeRepositoryOutputRecord(runtime, mappedRecord, {
@@ -1032,7 +1051,12 @@ async function crudRepositoryListByIds(runtime, knex, ids = [], repositoryOption
 
   const records = [];
   for (const row of rows) {
-    const mappedRecord = mapRecordRow(row, runtime.mapping.outputKeys, runtime.mapping.columnOverrides);
+    const mappedRecord = mapRecordRow(
+      row,
+      runtime.mapping.outputKeys,
+      runtime.mapping.columnOverrides,
+      { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+    );
     if (!mappedRecord) {
       continue;
     }
@@ -1206,7 +1230,11 @@ async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptio
   );
   createQuery = createHookResult.queryBuilder;
 
-  const [recordId] = await createQuery.insert(withOwners);
+  const insertResult = await createQuery.insert(withOwners);
+  const recordId = resolveInsertedRecordId(insertResult, { fallback: null });
+  if (!recordId) {
+    throw new Error("crudRepositoryCreate could not resolve inserted id.");
+  }
 
   const createdRecord = await crudRepositoryFindById(runtime, knex, recordId, repositoryOptions, {
     ...callOptions,
@@ -1237,6 +1265,7 @@ async function crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptio
 
 async function crudRepositoryUpdateById(runtime, knex, recordId, patch = {}, repositoryOptions = {}, callOptions = {}, hooks = null) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
+  const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepositoryUpdateById" });
   const methodHooks = normalizeCrudRepositoryHooks(hooks, ["modifyPatch", "modifyQuery", "afterWrite"], {
     context: "crudRepositoryUpdateById"
   });
@@ -1299,7 +1328,7 @@ async function crudRepositoryUpdateById(runtime, knex, recordId, patch = {}, rep
   updateQuery = updateQuery
     .where(visible)
     .where({
-      [idColumn]: Number(recordId)
+      [idColumn]: normalizedRecordId
     });
 
   await updateQuery.update(dbPatch);
@@ -1333,6 +1362,7 @@ async function crudRepositoryUpdateById(runtime, knex, recordId, patch = {}, rep
 
 async function crudRepositoryDeleteById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null) {
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, repositoryOptions, callOptions);
+  const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepositoryDeleteById" });
   const methodHooks = normalizeCrudRepositoryHooks(hooks, ["modifyQuery", "finalizeOutput", "afterWrite"], {
     context: "crudRepositoryDeleteById"
   });
@@ -1394,7 +1424,7 @@ async function crudRepositoryDeleteById(runtime, knex, recordId, repositoryOptio
   deleteQuery = deleteQuery
     .where(visible)
     .where({
-      [idColumn]: Number(recordId)
+      [idColumn]: normalizedRecordId
     });
 
   await deleteQuery.delete();

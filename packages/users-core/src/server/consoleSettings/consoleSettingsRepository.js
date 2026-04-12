@@ -1,8 +1,9 @@
 import {
+  normalizeDbRecordId,
+  normalizeRecordId,
   nowDb,
   toIsoString
 } from "../common/repositories/repositoryUtils.js";
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { consoleSettingsFields } from "../../shared/resources/consoleSettingsFields.js";
 
@@ -26,10 +27,10 @@ function mapSingletonRow(row) {
     throw new Error("console_settings singleton row is missing.");
   }
 
-  const ownerUserId = parsePositiveInteger(row.owner_user_id);
+  const ownerUserId = normalizeDbRecordId(row.owner_user_id, { fallback: null });
   return {
-    id: Number(row.id),
-    ownerUserId: ownerUserId || null,
+    id: normalizeDbRecordId(row.id, { fallback: "1" }),
+    ownerUserId,
     settings: mapSettings(row),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
@@ -52,7 +53,7 @@ function createRepository(knex) {
 
   async function ensureOwnerUserId(userId, options = {}) {
     const client = options?.trx || knex;
-    const candidateOwnerUserId = parsePositiveInteger(userId);
+    const candidateOwnerUserId = normalizeRecordId(userId, { fallback: null });
     if (!candidateOwnerUserId) {
       throw new TypeError("consoleSettingsRepository.ensureOwnerUserId requires a positive user id.");
     }

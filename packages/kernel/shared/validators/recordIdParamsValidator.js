@@ -1,23 +1,51 @@
 import { Type } from "typebox";
 import { normalizeObjectInput } from "./inputNormalization.js";
-import { normalizePositiveInteger, normalizeText } from "../support/normalize.js";
+import { normalizePositiveInteger, normalizeRecordId } from "../support/normalize.js";
 
-function normalizeRecordId(value) {
-  return normalizePositiveInteger(normalizeText(value));
-}
+const RECORD_ID_PATTERN = "^[1-9][0-9]*$";
+
+const recordIdSchema = Type.String({
+  minLength: 1,
+  pattern: RECORD_ID_PATTERN
+});
+
+const recordIdInputSchema = recordIdSchema;
+
+const nullableRecordIdSchema = Type.Union([recordIdSchema, Type.Null()]);
+const nullableRecordIdInputSchema = Type.Union([recordIdInputSchema, Type.Null()]);
 
 const positiveIntegerValidator = Object.freeze({
   schema: Type.Union([
     Type.Integer({ minimum: 1 }),
-    Type.String({ minLength: 1, pattern: "^[1-9][0-9]*$" })
+    Type.String({ minLength: 1, pattern: RECORD_ID_PATTERN })
   ]),
-  normalize: normalizeRecordId
+  normalize(value) {
+    return normalizePositiveInteger(value);
+  }
+});
+
+const recordIdValidator = Object.freeze({
+  schema: recordIdInputSchema,
+  normalize(value) {
+    return normalizeRecordId(value, {
+      fallback: ""
+    });
+  }
+});
+
+const nullableRecordIdValidator = Object.freeze({
+  schema: nullableRecordIdInputSchema,
+  normalize(value) {
+    return normalizeRecordId(value, {
+      fallback: null
+    });
+  }
 });
 
 const recordIdParamsValidator = Object.freeze({
   schema: Type.Object(
     {
-      recordId: Type.Optional(positiveIntegerValidator.schema)
+      recordId: Type.Optional(recordIdInputSchema)
     },
     { additionalProperties: false }
   ),
@@ -26,11 +54,21 @@ const recordIdParamsValidator = Object.freeze({
     const normalized = {};
 
     if (Object.hasOwn(source, "recordId")) {
-      normalized.recordId = normalizeRecordId(source.recordId);
+      normalized.recordId = recordIdValidator.normalize(source.recordId);
     }
 
     return normalized;
   }
 });
 
-export { recordIdParamsValidator, positiveIntegerValidator };
+export {
+  RECORD_ID_PATTERN,
+  recordIdSchema,
+  recordIdInputSchema,
+  nullableRecordIdSchema,
+  nullableRecordIdInputSchema,
+  recordIdValidator,
+  nullableRecordIdValidator,
+  recordIdParamsValidator,
+  positiveIntegerValidator
+};

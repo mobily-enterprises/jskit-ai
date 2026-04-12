@@ -1,11 +1,12 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { createService } from "./workspacePendingInvitationsService.js";
 import { workspacePendingInvitationsActions } from "./workspacePendingInvitationsActions.js";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 
 function workspaceAudienceFromEntityId({ event } = {}) {
-  const workspaceId = Number(event?.entityId);
-  if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+  const workspaceId = normalizeRecordId(event?.entityId, { fallback: null });
+  if (!workspaceId) {
     return "none";
   }
   return {
@@ -14,7 +15,7 @@ function workspaceAudienceFromEntityId({ event } = {}) {
 }
 
 function actorUserEntityId({ options } = {}) {
-  return Number(options?.context?.actor?.id || 0);
+  return normalizeRecordId(options?.context?.actor?.id, { fallback: "" });
 }
 
 function createActorUserEvent({ source, entity, realtimeEvent }) {
@@ -37,7 +38,7 @@ function createWorkspaceAudienceEvent({ entity, realtimeEvent }) {
     source: "workspace",
     entity,
     operation: "updated",
-    entityId: ({ result }) => result?.workspaceId,
+    entityId: ({ result }) => normalizeRecordId(result?.workspaceId, { fallback: "" }),
     realtime: {
       event: realtimeEvent,
       audience: workspaceAudienceFromEntityId

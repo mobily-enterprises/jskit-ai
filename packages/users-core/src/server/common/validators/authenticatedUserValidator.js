@@ -1,11 +1,12 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { normalizeObjectInput, recordIdInputSchema } from "@jskit-ai/kernel/shared/validators";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeAuthenticatedUser(input = {}) {
   const source = normalizeObjectInput(input);
-  const id = Number(source.id);
-  if (!Number.isInteger(id) || id < 1) {
+  const id = normalizeRecordId(source.id, { fallback: null });
+  if (!id) {
     return null;
   }
 
@@ -25,7 +26,7 @@ function normalizeAuthenticatedUser(input = {}) {
 const authenticatedUserValidator = Object.freeze({
   schema: Type.Object(
     {
-      id: Type.Integer({ minimum: 1 }),
+      id: recordIdInputSchema,
       email: Type.String({ minLength: 1 }),
       username: Type.Optional(Type.String()),
       displayName: Type.Optional(Type.String()),

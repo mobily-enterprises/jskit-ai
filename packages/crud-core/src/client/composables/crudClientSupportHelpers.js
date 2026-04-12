@@ -1,4 +1,4 @@
-import { normalizeText, normalizeQueryToken } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeQueryToken, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRouteVisibilityToken } from "@jskit-ai/kernel/shared/support/visibility";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 import {
@@ -58,13 +58,13 @@ function crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "") {
   ]);
 }
 
-function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, namespace = "") {
+function crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = "", namespace = "") {
   return Object.freeze([
     ...crudScopeQueryKey(namespace),
     "view",
     normalizeQueryToken(surfaceId),
     normalizeQueryToken(workspaceSlug),
-    Number(recordId) || 0
+    normalizeRecordId(recordId, { fallback: "0" })
   ]);
 }
 
@@ -87,8 +87,9 @@ function toRouteRecordId(value) {
     return toRouteRecordId(value[0]);
   }
 
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+  return normalizeRecordId(value, {
+    fallback: ""
+  });
 }
 
 function normalizeCrudRouteParamName(value, { context = "normalizeCrudRouteParamName" } = {}) {
@@ -120,7 +121,7 @@ function resolveCrudRecordPathTemplates(relativePath = "", recordIdParam = "reco
   });
 }
 
-function resolveCrudRecordPathParams(recordIdLike = 0, recordIdParam = "recordId") {
+function resolveCrudRecordPathParams(recordIdLike = "", recordIdParam = "recordId") {
   const normalizedRecordIdParam = normalizeCrudRouteParamName(recordIdParam, {
     context: "resolveCrudRecordPathParams"
   });
@@ -130,7 +131,7 @@ function resolveCrudRecordPathParams(recordIdLike = 0, recordIdParam = "recordId
   }
 
   return Object.freeze({
-    [normalizedRecordIdParam]: String(normalizedRecordId)
+    [normalizedRecordIdParam]: normalizedRecordId
   });
 }
 

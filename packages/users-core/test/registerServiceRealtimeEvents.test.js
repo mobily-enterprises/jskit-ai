@@ -76,7 +76,7 @@ test("workspace register functions publish members/invites/workspace-list realti
   assert.equal(members?.metadata?.events?.removeMember?.[1]?.realtime?.event, "users.bootstrap.changed");
   assert.equal(members?.metadata?.events?.createInvite?.[0]?.realtime?.event, "workspace.invites.changed");
   assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.event, "users.bootstrap.changed");
-  assert.equal(members?.metadata?.events?.createInvite?.[1]?.entityId?.({ result: { createdInviteId: 91 } }), 91);
+  assert.equal(members?.metadata?.events?.createInvite?.[1]?.entityId?.({ result: { createdInviteId: "91" } }), "91");
   assert.equal(members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.preset, "event_scope");
   assert.equal(typeof members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery, "function");
   const createInviteAudienceQueryResult = await members?.metadata?.events?.createInvite?.[1]?.realtime?.audience?.userQuery({
@@ -87,7 +87,7 @@ test("workspace register functions publish members/invites/workspace-list realti
         },
         where(field, value) {
           assert.equal(field, "wi.id");
-          assert.equal(value, 91);
+          assert.equal(value, "91");
           return this;
         },
         async first() {
@@ -98,13 +98,13 @@ test("workspace register functions publish members/invites/workspace-list realti
       };
     },
     event: {
-      entityId: 91
+      entityId: "91"
     }
   });
-  assert.deepEqual(createInviteAudienceQueryResult, [{ userId: 55 }]);
+  assert.deepEqual(createInviteAudienceQueryResult, [{ userId: "55" }]);
   assert.equal(members?.metadata?.events?.revokeInvite?.[0]?.realtime?.event, "workspace.invites.changed");
   assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.event, "users.bootstrap.changed");
-  assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.entityId?.({ result: { revokedInviteId: 19 } }), 19);
+  assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.entityId?.({ result: { revokedInviteId: "19" } }), "19");
   assert.equal(members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.preset, "event_scope");
   assert.equal(typeof members?.metadata?.events?.revokeInvite?.[1]?.realtime?.audience?.userQuery, "function");
 
@@ -124,22 +124,22 @@ test("workspace register functions publish members/invites/workspace-list realti
   const acceptedMembersChange = acceptInviteEvents.find(
     (entry) => entry?.realtime?.event === "workspace.members.changed"
   );
-  assert.equal(acceptedMembersChange?.entityId?.({ result: { workspaceId: 9 } }), 9);
+  assert.equal(acceptedMembersChange?.entityId?.({ result: { workspaceId: "9" } }), "9");
   assert.deepEqual(
     acceptedMembersChange?.realtime?.audience?.({
       event: {
-        entityId: 9
+        entityId: "9"
       }
     }),
     {
-      workspaceId: 9
+      workspaceId: "9"
     }
   );
 
   const acceptedInvitesChange = acceptInviteEvents.find(
     (entry) => entry?.realtime?.event === "workspace.invites.changed"
   );
-  assert.equal(acceptedInvitesChange?.entityId?.({ result: { workspaceId: 9 } }), 9);
+  assert.equal(acceptedInvitesChange?.entityId?.({ result: { workspaceId: "9" } }), "9");
 
   const refuseInviteEvents = Array.isArray(pending?.metadata?.events?.refuseInviteByToken)
     ? pending.metadata.events.refuseInviteByToken

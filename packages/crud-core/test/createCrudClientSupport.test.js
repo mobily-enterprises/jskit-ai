@@ -61,7 +61,7 @@ test("crudListQueryKey and crudViewQueryKey normalize cache keys", () => {
     "view",
     "admin",
     "tonymobily3",
-    12
+    "12"
   ]);
 });
 
@@ -85,9 +85,9 @@ test("invalidateCrudQueries invalidates by CRUD namespace scope key", async () =
 });
 
 test("toRouteRecordId parses scalar and array params safely", () => {
-  assert.equal(toRouteRecordId("42"), 42);
-  assert.equal(toRouteRecordId(["7"]), 7);
-  assert.equal(toRouteRecordId("not-a-number"), 0);
+  assert.equal(toRouteRecordId("42"), "42");
+  assert.equal(toRouteRecordId(["7"]), "7");
+  assert.equal(toRouteRecordId("not-a-number"), "");
 });
 
 test("normalizeCrudRouteParamName validates route parameter names", () => {
@@ -114,7 +114,7 @@ test("resolveCrudRecordPathTemplates supports custom route parameter names", () 
 });
 
 test("resolveCrudRecordPathParams maps record ids to selected route parameter names", () => {
-  assert.deepEqual(resolveCrudRecordPathParams(42, "addressId"), { addressId: "42" });
+  assert.deepEqual(resolveCrudRecordPathParams("42", "addressId"), { addressId: "42" });
   assert.deepEqual(resolveCrudRecordPathParams("7", "recordId"), { recordId: "7" });
   assert.deepEqual(resolveCrudRecordPathParams("invalid", "addressId"), {});
 });

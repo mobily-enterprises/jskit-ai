@@ -25,7 +25,7 @@
 import { computed, reactive, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
 import { assistantConfigResource, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
@@ -65,8 +65,8 @@ const scope = computed(() => {
     targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
     workspaceSlug,
     workspaceId: settingsRequiresWorkspace
-      ? Number(placementSnapshot.value?.workspace?.id || 0) || 0
-      : 0
+      ? normalizeRecordId(placementSnapshot.value?.workspace?.id, { fallback: null })
+      : null
   };
 });
 const hasScope = computed(() =>

@@ -248,6 +248,7 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, shall
 import { createComponentInteractionEmitter } from "@jskit-ai/kernel/client";
 import {
   normalizeObject,
+  normalizeRecordId,
   normalizeText,
   normalizeOneOf
 } from "@jskit-ai/kernel/shared/support/normalize";
@@ -615,8 +616,8 @@ function resolveConversationActorLabel(conversation) {
     return email;
   }
 
-  const userId = Number(conversation?.createdByUserId);
-  if (Number.isInteger(userId) && userId > 0) {
+  const userId = normalizeRecordId(conversation?.createdByUserId, { fallback: null });
+  if (userId) {
     return `User #${userId}`;
   }
 
@@ -624,7 +625,7 @@ function resolveConversationActorLabel(conversation) {
 }
 
 function conversationSubtitle(conversation) {
-  const id = Number(conversation?.id) || 0;
+  const id = normalizeRecordId(conversation?.id, { fallback: "?" });
   const status = normalizeConversationStatus(conversation?.status);
   const startedAt = formatConversationStartedAt(conversation?.startedAt);
   const messageCount = Number(conversation?.messageCount || 0);

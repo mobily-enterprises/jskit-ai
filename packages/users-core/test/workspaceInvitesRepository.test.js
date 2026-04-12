@@ -55,12 +55,12 @@ test("workspaceInvitesRepository.insert normalizes expiresAt ISO input to databa
   const repository = createRepository(knexStub);
 
   await repository.insert({
-    workspaceId: 1,
+    workspaceId: "1",
     email: "invitee@example.com",
     roleSid: "member",
     status: "pending",
     tokenHash: "hash",
-    invitedByUserId: 1,
+    invitedByUserId: "1",
     expiresAt: "2026-03-16T00:26:35.709Z"
   });
 
@@ -106,6 +106,6 @@ test("workspaceInvitesRepository.findPendingByTokenHash reads from invites table
     token_hash: "hash-token",
     status: "pending"
   });
-  assert.equal(invite?.workspaceId, 9);
+  assert.equal(invite?.workspaceId, "9");
   assert.equal(invite?.workspaceSlug, undefined);
 });

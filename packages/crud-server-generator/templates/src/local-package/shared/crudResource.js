@@ -65,7 +65,7 @@ const patchBodyValidator = Object.freeze({
 const deleteOutputValidator = Object.freeze({
   schema: Type.Object(
     {
-      id: Type.Integer({ minimum: 1 }),
+      id: recordIdSchema,
       deleted: Type.Literal(true)
     },
     { additionalProperties: false }
@@ -74,7 +74,7 @@ const deleteOutputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      id: Number(source.id),
+      id: normalizeRecordId(source.id, { fallback: "" }),
       deleted: true
     };
   }

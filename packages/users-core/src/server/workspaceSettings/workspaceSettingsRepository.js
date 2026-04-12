@@ -1,4 +1,6 @@
 import {
+  normalizeDbRecordId,
+  normalizeRecordId,
   toIsoString,
   nowDb,
   isDuplicateEntryError
@@ -39,7 +41,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
     }
 
     const settings = {
-      workspaceId: Number(row.workspace_id)
+      workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" })
     };
     for (const field of workspaceSettingsFields) {
       const rawValue = Object.hasOwn(row, field.dbColumn)
@@ -59,24 +61,33 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
 
   async function findByWorkspaceId(workspaceId, options = {}) {
     const client = options?.trx || knex;
-    const row = await client("workspace_settings").where({ workspace_id: Number(workspaceId) }).first();
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return null;
+    }
+
+    const row = await client("workspace_settings").where({ workspace_id: normalizedWorkspaceId }).first();
     return mapRow(row);
   }
 
   async function ensureForWorkspaceId(workspaceId, options = {}) {
     const client = options?.trx || knex;
-    const numericWorkspaceId = Number(workspaceId);
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      throw new TypeError("workspaceSettingsRepository.ensureForWorkspaceId requires a valid workspace id.");
+    }
+
     const seed = resolveWorkspaceSettingsSeed(options?.workspace, {
       defaultInvitesEnabled
     });
-    const existing = await findByWorkspaceId(numericWorkspaceId, { trx: client });
+    const existing = await findByWorkspaceId(normalizedWorkspaceId, { trx: client });
     if (existing) {
       return existing;
     }
 
     try {
       const insertPayload = {
-        workspace_id: numericWorkspaceId,
+        workspace_id: normalizedWorkspaceId,
         created_at: nowDb(),
         updated_at: nowDb()
       };
@@ -90,12 +101,17 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
       }
     }
 
-    return findByWorkspaceId(numericWorkspaceId, { trx: client });
+    return findByWorkspaceId(normalizedWorkspaceId, { trx: client });
   }
 
   async function updateSettingsByWorkspaceId(workspaceId, patch = {}, options = {}) {
     const client = options?.trx || knex;
-    const ensured = await ensureForWorkspaceId(workspaceId, {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      throw new TypeError("workspaceSettingsRepository.updateSettingsByWorkspaceId requires a valid workspace id.");
+    }
+
+    const ensured = await ensureForWorkspaceId(normalizedWorkspaceId, {
       trx: client,
       workspace: options?.workspace
     });
@@ -119,10 +135,10 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
       });
     }
 
-    await client("workspace_settings").where({ workspace_id: Number(workspaceId) }).update({
+    await client("workspace_settings").where({ workspace_id: normalizedWorkspaceId }).update({
       ...dbPatch
     });
-    return findByWorkspaceId(workspaceId, { trx: client });
+    return findByWorkspaceId(normalizedWorkspaceId, { trx: client });
   }
 
   return Object.freeze({

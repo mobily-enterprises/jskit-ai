@@ -32,7 +32,7 @@ test("normalizeVisibilityContext normalizes mode and owner identifiers", () => {
     scopeKind: null,
     requiresActorScope: false,
     scopeOwnerId: "4",
-    userId: 9
+    userId: "9"
   });
 
   assert.deepEqual(normalizeVisibilityContext({ visibility: "workspace", scopeOwnerId: "0" }), {

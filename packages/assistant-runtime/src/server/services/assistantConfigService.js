@@ -1,5 +1,5 @@
-import { AppError, parsePositiveInteger, requireAuth } from "@jskit-ai/kernel/server/runtime";
-import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
+import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "@jskit-ai/users-core/server/support/resolveWorkspace";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 
@@ -64,7 +64,7 @@ function createService({ assistantConfigRepository, consoleService = null, appCo
     }
 
     const resolvedWorkspace = workspace || resolveWorkspace(context, input);
-    const workspaceId = parsePositiveInteger(resolvedWorkspace?.id);
+    const workspaceId = normalizeRecordId(resolvedWorkspace?.id, { fallback: null });
     if (!workspaceId) {
       throw new AppError(409, "Workspace selection required.");
     }

@@ -180,6 +180,34 @@ function normalizePositiveInteger(value, { fallback = 0 } = {}) {
   return numeric;
 }
 
+function normalizeCanonicalRecordIdText(value, { fallback = null } = {}) {
+  if (value == null) {
+    return fallback;
+  }
+
+  const normalized = String(value).trim();
+  return /^[1-9][0-9]*$/.test(normalized) ? normalized : fallback;
+}
+
+function normalizeRecordId(value, { fallback = null } = {}) {
+  if (value == null) {
+    return fallback;
+  }
+
+  if (typeof value === "string") {
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
+  if (typeof value === "bigint") {
+    if (value < 1n) {
+      return fallback;
+    }
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
+  return fallback;
+}
+
 function normalizeOpaqueId(value, { fallback = null } = {}) {
   if (value == null) {
     return fallback;
@@ -191,7 +219,7 @@ function normalizeOpaqueId(value, { fallback = null } = {}) {
   }
 
   if (typeof value === "number") {
-    return Number.isFinite(value) ? value : fallback;
+    return Number.isFinite(value) ? String(value) : fallback;
   }
 
   if (typeof value === "bigint") {
@@ -244,6 +272,8 @@ export {
   normalizeUniqueTextList,
   normalizeInteger,
   normalizePositiveInteger,
+  normalizeCanonicalRecordIdText,
+  normalizeRecordId,
   normalizeOpaqueId,
   normalizeOneOf,
   ensureNonEmptyText
