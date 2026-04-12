@@ -96,6 +96,7 @@ Exports
 Local functions
 - `normalizeTargetSurfaceId(value = "")`
 - `normalizeWorkspaceId(value)`
+- `normalizeWorkspaceDbId(value)`
 - `buildScopeKey(targetSurfaceId, workspaceId = null)`
 - `mapConfigRow(row = {})`
 - `createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {})`
@@ -105,6 +106,8 @@ Exports
 - `createRepository(knex)`
 Local functions
 - `normalizeWorkspaceId(value)`
+- `normalizeDbWorkspaceId(value)`
+- `normalizeInputRecordId(value)`
 - `normalizeRequiredSurfaceId(value)`
 - `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapConversationRow(row = {})`
@@ -116,6 +119,8 @@ Exports
 - `createRepository(knex)`
 Local functions
 - `normalizeWorkspaceId(value)`
+- `normalizeDbWorkspaceId(value)`
+- `normalizeInputRecordId(value)`
 - `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapMessageRow(row = {})`
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
