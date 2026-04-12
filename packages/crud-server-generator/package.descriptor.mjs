@@ -208,7 +208,11 @@ export default Object.freeze({
         to: "packages/${option:namespace|kebab}/src/server/actions.js",
         reason: "Install app-local CRUD action definitions.",
         category: "crud",
-        id: "crud-local-package-server-actions-${option:namespace|snake}"
+        id: "crud-local-package-server-actions-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/actionIds.js",
@@ -278,11 +282,14 @@ export default Object.freeze({
         file: "config/roles.js",
         position: "bottom",
         skipIfContains: "\"crud.${option:namespace|snake}.list\"",
-        value:
-          "\nroleCatalog.roles.member.permissions.push(\n  \"crud.${option:namespace|snake}.list\",\n  \"crud.${option:namespace|snake}.view\",\n  \"crud.${option:namespace|snake}.create\",\n  \"crud.${option:namespace|snake}.update\",\n  \"crud.${option:namespace|snake}.delete\"\n);\n",
+        value: "__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__",
         reason: "Grant generated CRUD action permissions to the default member role in the app-owned role catalog.",
         category: "crud",
-        id: "crud-role-catalog-permissions-${option:namespace|snake}"
+        id: "crud-role-catalog-permissions-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       }
     ]
   }

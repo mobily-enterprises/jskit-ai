@@ -24,3 +24,22 @@ test("crud-server-generator installs listConfig alongside server templates", () 
     export: "buildTemplateContext"
   });
 });
+
+test("crud-server-generator wires action and role mutations through template context", () => {
+  const files = descriptor.mutations?.files || [];
+  const actionsTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/actions.js");
+  const roleGrantMutation = (descriptor.mutations?.text || []).find((entry) => entry.file === "config/roles.js");
+
+  assert.ok(actionsTemplate);
+  assert.deepEqual(actionsTemplate.templateContext, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "buildTemplateContext"
+  });
+
+  assert.ok(roleGrantMutation);
+  assert.equal(roleGrantMutation.value, "__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__");
+  assert.deepEqual(roleGrantMutation.templateContext, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "buildTemplateContext"
+  });
+});
