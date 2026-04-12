@@ -16,3 +16,4 @@ data/
 .jscpd/*
 !.jscpd/baseline.json
 .vitepress**
+.aider*

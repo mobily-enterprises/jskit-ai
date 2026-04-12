@@ -1,7 +1,0 @@
-# Finding 002
-- Severity: Medium
-- Pattern type: AI slop; Repeated action boilerplate
-- File + line(s): `packages/chat/chat-core/src/shared/actions/chat.contributor.js:125-210`, `packages/workspace/workspace-console-service-core/src/shared/actions/consoleCore.contributor.js:111-184`, `packages/workspace/workspace-service-core/src/shared/actions/workspace.contributor.js:121-180`
-- Why it can drift/fail: Many action definitions repeat identical metadata fields (channels, surfaces, visibility, inputSchema, permission, audit, observability) with only `id`, `audit.actionName`, and `execute` differing. This copy-paste pattern makes it easy to miss changes and hard to apply global policy updates consistently.
-- Concrete impact: Inconsistent action policy defaults and subtle drift (e.g., idempotency or permission differences) across domains; higher maintenance cost when requirements change.
-- Exact remediation: Introduce a `defineAction({ ... })` helper that sets defaults and enforces required fields, then refactor contributors to use it. Keep per-action overrides explicit while centralizing common boilerplate.

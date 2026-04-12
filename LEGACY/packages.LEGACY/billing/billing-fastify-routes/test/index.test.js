@@ -1,9 +1,0 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-import { createController, buildRoutes, schema } from "../src/server/lib/index.js";
-
-test("billing fastify adapter exports controller/routes/schema", () => {
-  assert.equal(typeof createController, "function");
-  assert.equal(typeof buildRoutes, "function");
-  assert.ok(schema.response.planState);
-});
