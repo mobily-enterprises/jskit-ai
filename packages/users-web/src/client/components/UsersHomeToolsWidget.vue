@@ -4,8 +4,8 @@ import ShellOutletMenuWidget from "@jskit-ai/shell-web/client/components/ShellOu
 
 <template>
   <ShellOutletMenuWidget
-    host="workspace-tools"
+    host="home-tools"
     position="primary-menu"
-    aria-label="Workspace tools"
+    aria-label="Home tools"
   />
 </template>
