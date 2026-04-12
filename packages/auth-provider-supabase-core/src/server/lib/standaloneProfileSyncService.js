@@ -48,7 +48,7 @@ function createEmailConflictError() {
 function createStandaloneProfileSyncService() {
   const profilesByIdentityKey = new Map();
   const identityKeyByEmail = new Map();
-  let nextId = 1;
+  let nextId = 1n;
 
   async function findByIdentity(identityLike) {
     const identity = normalizeIdentity(identityLike);
@@ -65,8 +65,13 @@ function createStandaloneProfileSyncService() {
       throw createEmailConflictError();
     }
 
+    const nextIdValue = existing?.id ? String(existing.id) : String(nextId);
+    if (!existing?.id) {
+      nextId += 1n;
+    }
+
     const next = {
-      id: Number(existing?.id || nextId++),
+      id: nextIdValue,
       authProvider: normalizedProfile.authProvider,
       authProviderUserSid: normalizedProfile.authProviderUserSid,
       email: normalizedProfile.email,

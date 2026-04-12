@@ -4,7 +4,7 @@ import {
   normalizeText,
   toKnexClientId,
   resolveDatabaseClientFromEnvironment,
-  resolveDatabaseConnectionFromEnvironment
+  resolveKnexConnectionFromEnvironment
 } from "@jskit-ai/database-runtime/shared";
 
 const appRoot = process.cwd();
@@ -20,7 +20,8 @@ const migrationsDirectory = path.resolve(appRoot, normalizeText(process.env.DB_M
 
 export default {
   client,
-  connection: resolveDatabaseConnectionFromEnvironment(process.env, {
+  connection: resolveKnexConnectionFromEnvironment(process.env, {
+    client: dialectId,
     defaultPort,
     context: "knex migrations"
   }),

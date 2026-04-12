@@ -37,11 +37,11 @@ Exports
 - `crudScopeQueryKey(namespace = "")`
 - `invalidateCrudQueries(queryClient, namespace = "")`
 - `crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "")`
-- `crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = 0, namespace = "")`
+- `crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = "", namespace = "")`
 - `toRouteRecordId(value)`
 - `normalizeCrudRouteParamName(value, { context = "normalizeCrudRouteParamName" } = {})`
 - `resolveCrudRecordPathTemplates(relativePath = "", recordIdParam = "recordId")`
-- `resolveCrudRecordPathParams(recordIdLike = 0, recordIdParam = "recordId")`
+- `resolveCrudRecordPathParams(recordIdLike = "", recordIdParam = "recordId")`
 Local functions
 - `normalizeRelativePath(value, { context = "resolveCrudClientConfig" } = {})`
 
@@ -194,6 +194,7 @@ Exports
 - `crudRepositoryUpdateById(runtime, knex, recordId, patch = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
 - `crudRepositoryDeleteById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null)`
 Local functions
+- `requireCrudRecordId(value, { context = "crudRepository" } = {})`
 - `resolveRepositoryDefaults(resource = {}, repositoryMapping = {})`
 - `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
 - `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
@@ -234,7 +235,7 @@ Exports
 - `normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {})`
 - `requireCrudTableName(tableName, { context = "crudRepository" } = {})`
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
-- `applyCrudListQueryFilters(query, { idColumn = "id", cursor = 0, applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
+- `applyCrudListQueryFilters(query, { idColumn = "id", cursor = "", applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
 - `mapRecordRow(row, fieldKeys = [], overrides = {})`
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {})`
 - `resolveColumnName(fieldKey, overrides = {})`

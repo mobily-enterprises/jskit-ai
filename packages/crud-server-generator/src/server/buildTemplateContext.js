@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import {
   normalizeText,
   resolveDatabaseClientFromEnvironment,
-  resolveDatabaseConnectionFromEnvironment,
+  resolveKnexConnectionFromEnvironment,
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
 import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
@@ -221,7 +221,8 @@ async function resolveMysqlSnapshotFromDatabase({
     );
   }
 
-  const connection = resolveDatabaseConnectionFromEnvironment(env, {
+  const connection = resolveKnexConnectionFromEnvironment(env, {
+    client: dbClient,
     defaultPort: 3306,
     context: "crud table introspection"
   });
@@ -269,6 +270,12 @@ function resolveColumnKey(column, idColumn) {
 function resolveScaffoldColumns(snapshot) {
   const idColumn = String(snapshot.idColumn || DEFAULT_ID_COLUMN);
   const sourceColumns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
+  const foreignKeyColumnNames = new Set(
+    (Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [])
+      .flatMap((foreignKey) => Array.isArray(foreignKey?.columns) ? foreignKey.columns : [])
+      .map((entry) => String(entry?.name || "").trim())
+      .filter(Boolean)
+  );
   const seenKeys = new Set();
 
   const columns = sourceColumns.map((column) => {
@@ -276,9 +283,11 @@ function resolveScaffoldColumns(snapshot) {
     const isUserIdColumn = column.name === "user_id";
     const isOwnerColumn = isWorkspaceIdColumn || isUserIdColumn;
     const isIdColumn = column.name === idColumn;
+    const isForeignIdColumn = foreignKeyColumnNames.has(column.name) || /_id$/i.test(String(column.name || ""));
     const isCreatedAtColumn = column.name === "created_at";
     const isUpdatedAtColumn = column.name === "updated_at";
     const key = resolveColumnKey(column, idColumn);
+    const isRecordIdColumn = isIdColumn || isOwnerColumn || isForeignIdColumn || /Id$/.test(String(key || ""));
     if (!key) {
       throw new Error(`Could not derive API field key for column "${column.name}".`);
     }
@@ -297,6 +306,8 @@ function resolveScaffoldColumns(snapshot) {
       key,
       isOwnerColumn,
       isIdColumn,
+      isForeignIdColumn,
+      isRecordIdColumn,
       isCreatedAtColumn,
       isUpdatedAtColumn,
       writable: !isOwnerColumn && !isIdColumn && !isCreatedAtColumn && !isUpdatedAtColumn
@@ -327,9 +338,7 @@ function renderPropertyAccess(sourceName, key) {
 
 function renderIntegerSchema(column) {
   const options = [];
-  if (column.isIdColumn === true) {
-    options.push("minimum: 1");
-  } else if (column.unsigned === true) {
+  if (column.unsigned === true) {
     options.push("minimum: 0");
   }
   if (options.length > 0) {
@@ -359,6 +368,11 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   if (typeKind === "string") {
     schemaExpression = renderStringSchema(column, { forOutput });
   } else if (typeKind === "integer") {
+    if (column?.isRecordIdColumn === true) {
+      return forOutput
+        ? (column.nullable === true ? "nullableRecordIdSchema" : "recordIdSchema")
+        : (column.nullable === true ? "nullableRecordIdInputSchema" : "recordIdInputSchema");
+    }
     schemaExpression = renderIntegerSchema(column);
   } else if (typeKind === "number") {
     schemaExpression = "Type.Number()";
@@ -382,11 +396,14 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   return schemaExpression;
 }
 
-function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false } = {}) {
+function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, needsRecordIdSchemas = false } = {}) {
   const imports = [
     "normalizeObjectInput",
     "createCursorListValidator"
   ];
+  if (needsRecordIdSchemas) {
+    imports.push("recordIdSchema", "recordIdInputSchema", "nullableRecordIdSchema", "nullableRecordIdInputSchema");
+  }
   if (needsHtmlTimeSchemas) {
     imports.push("HTML_TIME_STRING_SCHEMA", "NULLABLE_HTML_TIME_STRING_SCHEMA");
   }
@@ -406,6 +423,12 @@ function renderInputNormalizer(column) {
     return "normalizeText";
   }
   if (typeKind === "integer") {
+    if (column?.isRecordIdColumn === true) {
+      if (nullable) {
+        return "(value) => normalizeRecordId(value, { fallback: null })";
+      }
+      return "normalizeRecordId";
+    }
     return "normalizeFiniteInteger";
   }
   if (typeKind === "number") {
@@ -434,10 +457,17 @@ function renderInputNormalizer(column) {
 
 function renderOutputNormalizerExpression(column) {
   const typeKind = String(column.typeKind || "");
+  const nullable = column?.nullable === true;
   if (typeKind === "string" || typeKind === "time") {
     return "normalizeText";
   }
   if (typeKind === "integer") {
+    if (column?.isRecordIdColumn === true) {
+      if (nullable) {
+        return "(value) => normalizeRecordId(value, { fallback: null })";
+      }
+      return "normalizeRecordId";
+    }
     return "normalizeFiniteInteger";
   }
   if (typeKind === "number") {
@@ -522,6 +552,7 @@ function renderResourceNormalizeSupportImport({
   needsNormalizeBoolean = false,
   needsNormalizeFiniteNumber = false,
   needsNormalizeFiniteInteger = false,
+  needsNormalizeRecordId = false,
   needsNormalizeIfInSource = false,
   needsNormalizeIfPresent = false,
   needsNormalizeOrNull = false
@@ -538,6 +569,9 @@ function renderResourceNormalizeSupportImport({
   }
   if (needsNormalizeFiniteInteger) {
     imports.push("normalizeFiniteInteger");
+  }
+  if (needsNormalizeRecordId) {
+    imports.push("normalizeRecordId");
   }
   if (needsNormalizeIfInSource) {
     imports.push("normalizeIfInSource");
@@ -599,12 +633,13 @@ function renderMigrationDefaultClause(column) {
   return `.defaultTo(${JSON.stringify(rawDefault)})`;
 }
 
-function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [] } = {}) {
+function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [], foreignKeyColumnNames = new Set() } = {}) {
   const isPrimary = Array.isArray(primaryKeyColumns) && primaryKeyColumns.includes(column.name);
   const isIdColumn = column.name === idColumn;
+  const isRecordIdColumn = isIdColumn || column.name === "workspace_id" || column.name === "user_id" || foreignKeyColumnNames.has(column.name) || /_id$/i.test(String(column.name || ""));
 
   if (isIdColumn && column.autoIncrement) {
-    let line = `table.increments(${JSON.stringify(column.name)})`;
+    let line = `table.bigIncrements(${JSON.stringify(column.name)})`;
     if (column.unsigned) {
       line += ".unsigned()";
     }
@@ -633,7 +668,7 @@ function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, prima
   } else if (column.typeKind === "boolean") {
     line = `table.boolean(${nameLiteral})`;
   } else if (dataType === "int" || dataType === "integer") {
-    line = `table.integer(${nameLiteral})`;
+    line = isRecordIdColumn ? `table.bigInteger(${nameLiteral})` : `table.integer(${nameLiteral})`;
   } else if (dataType === "smallint") {
     line = `table.smallint(${nameLiteral})`;
   } else if (dataType === "bigint") {
@@ -682,10 +717,17 @@ function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, prima
 
 function renderMigrationColumnLines(snapshot) {
   const columns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
+  const foreignKeyColumnNames = new Set(
+    (Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [])
+      .flatMap((foreignKey) => Array.isArray(foreignKey?.columns) ? foreignKey.columns : [])
+      .map((entry) => String(entry?.name || "").trim())
+      .filter(Boolean)
+  );
   const lines = columns.map((column) =>
     `    ${renderMigrationColumnLine(column, {
       idColumn: snapshot.idColumn,
-      primaryKeyColumns: snapshot.primaryKeyColumns
+      primaryKeyColumns: snapshot.primaryKeyColumns,
+      foreignKeyColumnNames
     })}`
   );
   return lines.join("\n");
@@ -1116,7 +1158,8 @@ function buildReplacementsFromSnapshot({
     writableColumns,
     snapshot
   });
-  const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer");
+  const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer" && column.isRecordIdColumn !== true);
+  const needsRecordIdSchemas = resourceColumns.some((column) => column.typeKind === "integer" && column.isRecordIdColumn === true);
   const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
   const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
   const needsDateTimeInput = writableColumns.some((column) => column.typeKind === "datetime");
@@ -1145,7 +1188,8 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
-      needsHtmlTimeSchemas
+      needsHtmlTimeSchemas,
+      needsRecordIdSchemas
     }),
     __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
       needsToIsoString: needsDateTimeOutput || needsDate,
@@ -1156,6 +1200,7 @@ function buildReplacementsFromSnapshot({
       needsNormalizeBoolean,
       needsNormalizeFiniteNumber: needsFiniteNumber,
       needsNormalizeFiniteInteger: needsFiniteInteger,
+      needsNormalizeRecordId: needsRecordIdSchemas,
       needsNormalizeIfInSource,
       needsNormalizeIfPresent,
       needsNormalizeOrNull

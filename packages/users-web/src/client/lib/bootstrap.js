@@ -1,3 +1,5 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+
 function buildBootstrapApiPath(workspaceSlug = "") {
   const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
   if (!normalizedWorkspaceSlug) {
@@ -15,9 +17,9 @@ function normalizeWorkspaceEntry(entry) {
     return null;
   }
 
-  const id = Number(entry.id);
+  const id = normalizeRecordId(entry.id, { fallback: null });
   const slug = String(entry.slug || "").trim();
-  if (!Number.isInteger(id) || id < 1 || !slug) {
+  if (!id || !slug) {
     return null;
   }
 
@@ -69,8 +71,8 @@ function resolvePlacementUserFromBootstrapPayload(payload = {}, currentUser = nu
   const fallbackUser = currentUser && typeof currentUser === "object" ? currentUser : {};
   const nextUser = {};
 
-  const userId = Number(session.userId || fallbackUser.id || 0);
-  if (Number.isInteger(userId) && userId > 0) {
+  const userId = normalizeRecordId(session.userId || fallbackUser.id, { fallback: null });
+  if (userId) {
     nextUser.id = userId;
   }
 

@@ -1,5 +1,7 @@
+import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
@@ -13,24 +15,24 @@ const MAX_LIST_LIMIT = 100;
 
 function normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {}) {
   if (cursor === undefined || cursor === null) {
-    return allowEmpty === true ? 0 : null;
+    return allowEmpty === true ? "" : null;
   }
 
   const normalizedCursor = typeof cursor === "string"
     ? cursor.trim()
     : cursor;
   if (normalizedCursor === "" || normalizedCursor === 0 || normalizedCursor === "0") {
-    return allowEmpty === true ? 0 : null;
+    return allowEmpty === true ? "" : null;
   }
 
-  const numericCursor = Number(normalizedCursor);
-  if (!Number.isInteger(numericCursor) || numericCursor < 1) {
+  const recordId = normalizeRecordId(normalizedCursor, { fallback: null });
+  if (!recordId) {
     throw new AppError(400, "Invalid cursor.", {
       code: "INVALID_CURSOR"
     });
   }
 
-  return numericCursor;
+  return recordId;
 }
 
 function normalizeCrudListLimit(value, { fallback = DEFAULT_LIST_LIMIT, max = MAX_LIST_LIMIT } = {}) {
@@ -152,6 +154,29 @@ function schemaIncludesStringType(schema = {}) {
   return variants.some((entry) => schemaIncludesStringType(entry));
 }
 
+function schemaIncludesRecordIdType(schema = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return false;
+  }
+
+  const type = Array.isArray(schema.type)
+    ? schema.type.map((entry) => normalizeText(entry).toLowerCase()).filter(Boolean)
+    : normalizeText(schema.type).toLowerCase();
+  const hasStringType = Array.isArray(type)
+    ? type.includes("string")
+    : type === "string";
+  if (hasStringType && normalizeText(schema.pattern) === RECORD_ID_PATTERN) {
+    return true;
+  }
+
+  const variants = Array.isArray(schema.anyOf)
+    ? schema.anyOf
+    : Array.isArray(schema.oneOf)
+      ? schema.oneOf
+      : [];
+  return variants.some((entry) => schemaIncludesRecordIdType(entry));
+}
+
 function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError(`${context} requires resource object.`);
@@ -214,20 +239,33 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     parentFilterColumns[key] = columnName;
   }
 
+  const outputRecordIdKeys = [];
+  for (const [key, schema] of Object.entries(outputProperties)) {
+    if (schemaIncludesRecordIdType(schema)) {
+      outputRecordIdKeys.push(key);
+    }
+  }
+
   return Object.freeze({
     outputKeys,
     writeKeys,
     columnOverrides: Object.freeze(columnOverrides),
     listSearchColumns: Object.freeze(listSearchColumns),
-    parentFilterColumns: Object.freeze(parentFilterColumns)
+    parentFilterColumns: Object.freeze(parentFilterColumns),
+    outputRecordIdKeys: Object.freeze(outputRecordIdKeys)
   });
 }
 
-function mapRecordRow(row, fieldKeys = [], overrides = {}) {
+function mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {}) {
   if (!row) {
     return null;
   }
 
+  const recordIdKeySet = new Set(
+    (Array.isArray(recordIdKeys) ? recordIdKeys : [])
+      .map((key) => String(key || "").trim())
+      .filter(Boolean)
+  );
   const mapped = {};
   for (const key of fieldKeys) {
     const normalizedKey = String(key || "").trim();
@@ -235,7 +273,15 @@ function mapRecordRow(row, fieldKeys = [], overrides = {}) {
     if (!normalizedKey || !columnName) {
       continue;
     }
-    mapped[normalizedKey] = row[columnName];
+
+    const rawValue = row[columnName];
+    if (recordIdKeySet.has(normalizedKey)) {
+      const normalizedIdValue = normalizeDbRecordId(rawValue, { fallback: null });
+      mapped[normalizedKey] = normalizedIdValue || rawValue;
+      continue;
+    }
+
+    mapped[normalizedKey] = rawValue;
   }
   return mapped;
 }
@@ -244,7 +290,7 @@ function applyCrudListQueryFilters(
   query,
   {
     idColumn = "id",
-    cursor = 0,
+    cursor = "",
     applyCursor = true,
     q = "",
     searchColumns = [],
@@ -307,7 +353,7 @@ function applyCrudListQueryFilters(
   const normalizedIdColumn = String(idColumn || "").trim() || "id";
   if (applyCursor !== false) {
     const normalizedCursor = normalizeCrudListCursor(cursor);
-    if (normalizedCursor > 0) {
+    if (normalizedCursor) {
       nextQuery = nextQuery.where(normalizedIdColumn, ">", normalizedCursor);
     }
   }

@@ -24,7 +24,7 @@ test("requireAuth accepts actor context", () => {
     }
   });
 
-  assert.equal(actor.id, 7);
+  assert.equal(actor.id, "7");
 });
 
 test("requireAuth accepts non-numeric actor ids", () => {

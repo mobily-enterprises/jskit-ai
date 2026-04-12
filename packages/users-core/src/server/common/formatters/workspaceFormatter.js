@@ -1,9 +1,10 @@
 import { resolveWorkspaceThemePalettes } from "../../../shared/settings.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function mapWorkspaceSummary(workspace, membership) {
   return {
-    id: Number(workspace.id),
+    id: normalizeRecordId(workspace.id, { fallback: "" }),
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name),
     avatarUrl: normalizeText(workspace.avatarUrl),
@@ -39,7 +40,7 @@ function mapMembershipSummary(membership, workspace) {
   }
 
   return {
-    workspaceId: Number(workspace?.id || membership.workspaceId),
+    workspaceId: normalizeRecordId(workspace?.id || membership.workspaceId, { fallback: "" }),
     roleSid: normalizeLowerText(membership.roleSid || "member") || "member",
     status: normalizeLowerText(membership.status || "active") || "active"
   };

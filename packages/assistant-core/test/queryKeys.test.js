@@ -28,7 +28,10 @@ test("assistant query keys normalize scope and paging", () => {
   ]);
 
   assert.deepEqual(
-    assistantConversationsListQueryKey({ targetSurfaceId: "admin", workspaceId: 9 }, { limit: 10, status: "ACTIVE" }),
+    assistantConversationsListQueryKey(
+      { targetSurfaceId: "admin", workspaceId: "9" },
+      { limit: 10, status: "ACTIVE" }
+    ),
     ["assistant", "admin:workspace:9", "conversations", "list", 10, "active"]
   );
 

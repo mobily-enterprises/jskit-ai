@@ -471,7 +471,7 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
   assert.equal(emitted[0].payload?.entity, "settings");
   assert.equal(emitted[0].payload?.operation, "updated");
   assert.equal(emitted[0].payload?.scope?.kind, "workspace");
-  assert.equal(emitted[0].payload?.scope?.id, 11);
+  assert.equal(emitted[0].payload?.scope?.id, "11");
 });
 
 test("RealtimeServiceProvider emits only the matching dispatcher event for each service method event", async () => {

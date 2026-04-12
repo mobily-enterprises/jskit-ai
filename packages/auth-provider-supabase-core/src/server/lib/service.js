@@ -6,6 +6,7 @@ import {
   buildOAuthMethodId
 } from "@jskit-ai/auth-core/shared/authMethods";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { validators } from "@jskit-ai/auth-core/server/validators";
 import {
   isTransientAuthMessage,
@@ -387,7 +388,7 @@ function createService(options) {
   }
 
   function requireSynchronizedProfile(profile) {
-    if (profile && Number.isFinite(Number(profile.id)) && String(profile.displayName || "").trim()) {
+    if (profile && normalizeRecordId(profile.id, { fallback: null }) && String(profile.displayName || "").trim()) {
       return profile;
     }
 

@@ -1,6 +1,11 @@
-import { toInsertDateTime, toNullableDateTime, toIsoString } from "@jskit-ai/database-runtime/shared";
+import {
+  normalizeDbRecordId,
+  toInsertDateTime,
+  toNullableDateTime,
+  toIsoString
+} from "@jskit-ai/database-runtime/shared";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
-import { normalizeText, normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function nowDb() {
   return toInsertDateTime();
@@ -42,6 +47,8 @@ export {
   isDuplicateEntryError,
   normalizeText,
   normalizeLowerText,
+  normalizeRecordId,
+  normalizeDbRecordId,
   nowDb,
   toNullableIso,
   uniqueSorted,

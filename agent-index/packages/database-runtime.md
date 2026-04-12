@@ -42,6 +42,7 @@ Exports
 - `parseDatabaseUrl(databaseUrl, { context = "DATABASE_URL", allowEmpty = false } = {})`
 - `resolveDatabaseClientFromEnvironment(env = {}, { allowEmpty = false } = {})`
 - `resolveDatabaseConnectionFromEnvironment(env = {}, { defaultHost = "localhost", defaultPort = 3306, context = "database runtime" } = {})`
+- `resolveKnexConnectionFromEnvironment(env = {}, { client = "", defaultHost = "localhost", defaultPort = 3306, context = "database runtime" } = {})`
 Local functions
 - `toPositiveInteger(value, fallback)`
 
@@ -91,6 +92,7 @@ Exports
 - `parseDatabaseUrl`
 - `resolveDatabaseClientFromEnvironment`
 - `resolveDatabaseConnectionFromEnvironment`
+- `resolveKnexConnectionFromEnvironment`
 - `isDuplicateEntryError`
 - `normalizePath`
 - `jsonTextExpression`
@@ -109,6 +111,8 @@ Exports
 - `stringifyMetadataJson`
 - `normalizeMetadataJsonInput`
 - `normalizeNullableString`
+- `normalizeDbRecordId`
+- `resolveInsertedRecordId`
 - `normalizeIdList`
 - `normalizeCountRow`
 - `parseJsonValue`
@@ -144,6 +148,8 @@ Exports
 - `stringifyMetadataJson(metadata, fallback = "{}")`
 - `normalizeMetadataJsonInput(value, fallback = null)`
 - `normalizeNullableString(value, { trim = true } = {})`
+- `normalizeDbRecordId(value, { fallback = null } = {})`
+- `resolveInsertedRecordId(insertResult, { fallback = null } = {})`
 - `normalizeIdList(values, { parseValue } = {})`
 - `normalizeCountRow(row)`
 - `parseJsonValue(value, fallback = null, options = {})`

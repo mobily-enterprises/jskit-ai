@@ -2,8 +2,11 @@ import { Type } from "typebox";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   normalizeObjectInput,
-  createCursorListValidator
+  createCursorListValidator,
+  recordIdSchema,
+  recordIdInputSchema
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeWorkspaceAvatarUrl(value) {
   const avatarUrl = normalizeText(value);
@@ -31,7 +34,7 @@ function normalizeWorkspaceInput(payload = {}) {
     normalized.name = normalizeText(source.name);
   }
   if (Object.hasOwn(source, "ownerUserId")) {
-    normalized.ownerUserId = Number(source.ownerUserId);
+    normalized.ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: "" });
   }
   if (Object.hasOwn(source, "avatarUrl")) {
     normalized.avatarUrl = normalizeWorkspaceAvatarUrl(source.avatarUrl);
@@ -47,10 +50,10 @@ function normalizeWorkspaceOutput(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
-    id: Number(source.id),
+    id: normalizeRecordId(source.id, { fallback: "" }),
     slug: normalizeLowerText(source.slug),
     name: normalizeText(source.name),
-    ownerUserId: Number(source.ownerUserId),
+    ownerUserId: normalizeRecordId(source.ownerUserId, { fallback: "" }),
     avatarUrl: normalizeText(source.avatarUrl)
   };
 }
@@ -59,7 +62,7 @@ function normalizeWorkspaceListItemOutput(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
-    id: Number(source.id),
+    id: normalizeRecordId(source.id, { fallback: "" }),
     slug: normalizeLowerText(source.slug),
     name: normalizeText(source.name),
     avatarUrl: normalizeText(source.avatarUrl),
@@ -70,10 +73,10 @@ function normalizeWorkspaceListItemOutput(payload = {}) {
 
 const responseRecordSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
+    id: recordIdSchema,
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    ownerUserId: Type.Integer({ minimum: 1 }),
+    ownerUserId: recordIdSchema,
     avatarUrl: Type.String()
   },
   { additionalProperties: false }
@@ -81,7 +84,7 @@ const responseRecordSchema = Type.Object(
 
 const listItemSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
+    id: recordIdSchema,
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
     avatarUrl: Type.String(),
@@ -94,7 +97,8 @@ const listItemSchema = Type.Object(
 const createRequestBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    slug: Type.Optional(Type.String({ minLength: 1, maxLength: 120 }))
+    slug: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    ownerUserId: Type.Optional(recordIdInputSchema)
   },
   { additionalProperties: false }
 );

@@ -3,8 +3,10 @@ import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization
 import {
   normalizeObjectInput,
   createCursorListValidator,
-  normalizeSettingsFieldInput
+  normalizeSettingsFieldInput,
+  recordIdSchema
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
 import { createWorkspaceRoleCatalog } from "../roles.js";
 
@@ -39,9 +41,9 @@ function buildResponseRecordSchema() {
     {
       workspace: Type.Object(
         {
-          id: Type.Integer({ minimum: 1 }),
+          id: recordIdSchema,
           slug: Type.String({ minLength: 1 }),
-          ownerUserId: Type.Integer({ minimum: 1 })
+          ownerUserId: recordIdSchema
         },
         { additionalProperties: false }
       ),
@@ -98,9 +100,9 @@ function normalizeOutput(payload = {}) {
 
   return {
     workspace: {
-      id: Number(workspace.id),
+      id: normalizeRecordId(workspace.id, { fallback: "" }),
       slug: normalizeText(workspace.slug),
-      ownerUserId: Number(workspace.ownerUserId)
+      ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" })
     },
     settings: normalizedSettings,
     roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()

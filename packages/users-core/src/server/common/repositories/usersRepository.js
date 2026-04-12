@@ -1,6 +1,8 @@
 import {
   isDuplicateEntryError,
   normalizeLowerText,
+  normalizeDbRecordId,
+  normalizeRecordId,
   normalizeText,
   toIsoString,
   toNullableDateTime,
@@ -55,7 +57,7 @@ function mapProfileRow(row) {
     return null;
   }
   return {
-    id: Number(row.id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
     authProvider: normalizeLowerText(row.auth_provider),
     authProviderUserSid: normalizeText(row.auth_provider_user_sid),
     email: normalizeLowerText(row.email),
@@ -90,11 +92,13 @@ function createDuplicateEmailConflictError() {
   return error;
 }
 
-async function resolveUniqueUsername(client, baseUsername, { excludeUserId = 0 } = {}) {
+async function resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {}) {
+  const normalizedExcludeUserId = normalizeDbRecordId(excludeUserId, { fallback: null });
   for (let suffix = 0; suffix < 1000; suffix += 1) {
     const candidate = buildUsernameCandidate(baseUsername, suffix);
     const existing = await client("users").where({ username: candidate }).first();
-    if (!existing || Number(existing.id) === Number(excludeUserId || 0)) {
+    const existingId = normalizeDbRecordId(existing?.id, { fallback: null });
+    if (!existing || existingId === normalizedExcludeUserId) {
       return candidate;
     }
   }
@@ -108,8 +112,13 @@ function createRepository(knex) {
   }
 
   async function findById(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
-    const row = await client("users").where({ id: userId }).first();
+    const row = await client("users").where({ id: normalizedUserId }).first();
     return mapProfileRow(row);
   }
 
@@ -130,42 +139,56 @@ function createRepository(knex) {
   }
 
   async function updateDisplayNameById(userId, displayName, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     await client("users")
-      .where({ id: userId })
+      .where({ id: normalizedUserId })
       .update({
         display_name: normalizeText(displayName)
       });
-    return findById(userId, { trx: client });
+    return findById(normalizedUserId, { trx: client });
   }
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     await client("users")
-      .where({ id: userId })
+      .where({ id: normalizedUserId })
       .update({
         avatar_storage_key: avatar.avatarStorageKey || null,
         avatar_version: avatar.avatarVersion == null ? null : String(avatar.avatarVersion),
         avatar_updated_at: toNullableDateTime(avatar.avatarUpdatedAt) || nowDb()
       });
 
-    return findById(userId, { trx: client });
+    return findById(normalizedUserId, { trx: client });
   }
 
   async function clearAvatarById(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     await client("users")
-      .where({ id: userId })
+      .where({ id: normalizedUserId })
       .update({
         avatar_storage_key: null,
         avatar_version: null,
         avatar_updated_at: null
       });
-    return findById(userId, { trx: client });
+    return findById(normalizedUserId, { trx: client });
   }
 
   async function upsert(profileLike = {}, options = {}) {
-    const client = options?.trx || knex;
     const identity = normalizeIdentity(profileLike);
     if (!identity) {
       throw new TypeError("upsert requires provider/authProvider and providerUserId/authProviderUserSid.");
@@ -191,7 +214,7 @@ function createRepository(knex) {
           const username = existingUsername || (await resolveUniqueUsername(trx, requestedUsername || usernameBaseFromEmail(email), {
             excludeUserId: existing.id
           }));
-          await trx("users").where({ id: existing.id }).update({
+          await trx("users").where({ id: normalizeDbRecordId(existing.id, { fallback: null }) }).update({
             email,
             display_name: displayName,
             username
@@ -218,23 +241,15 @@ function createRepository(knex) {
         }
       }
 
-      const reloaded = await trx("users").where(where).first();
-      return mapProfileRow(reloaded);
+      const resolved = await trx("users").where(where).first();
+      return mapProfileRow(resolved);
     };
 
     if (options?.trx) {
-      return executeUpsert(client);
+      return executeUpsert(options.trx);
     }
 
     return knex.transaction(executeUpsert);
-  }
-
-  async function withTransaction(work) {
-    if (typeof work !== "function") {
-      throw new TypeError("withTransaction requires a callback.");
-    }
-
-    return knex.transaction((trx) => work(trx));
   }
 
   return Object.freeze({
@@ -243,9 +258,8 @@ function createRepository(knex) {
     updateDisplayNameById,
     updateAvatarById,
     clearAvatarById,
-    upsert,
-    withTransaction
+    upsert
   });
 }
 
-export { createRepository, normalizeIdentity, mapProfileRow };
+export { createRepository, mapProfileRow, normalizeIdentity };

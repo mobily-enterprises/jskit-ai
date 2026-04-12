@@ -1,3 +1,4 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import {
@@ -33,9 +34,9 @@ function createService({
 
     return {
       workspace: {
-        id: Number(workspace.id),
+        id: normalizeRecordId(workspace.id, { fallback: "" }),
         slug: String(workspace.slug || ""),
-        ownerUserId: Number(workspace.ownerUserId)
+        ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" })
       },
       settings,
       roleCatalog: cloneWorkspaceRoleCatalog(resolvedRoleCatalog)

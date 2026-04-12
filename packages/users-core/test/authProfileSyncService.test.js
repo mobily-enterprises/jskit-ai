@@ -15,7 +15,7 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
       async upsert(payload, options = {}) {
         calls.push({ step: "upsert", trx: options.trx || null });
         return {
-          id: 13,
+          id: "13",
           authProvider: payload.authProvider,
           authProviderUserSid: payload.authProviderUserSid,
           email: payload.email,
@@ -67,7 +67,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
     usersRepository: {
       async findByIdentity() {
         return {
-          id: 7,
+          id: "7",
           authProvider: "supabase",
           authProviderUserSid: "abc-7",
           email: "tony@example.com",
@@ -84,7 +84,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
     },
     userSettingsRepository: {
       async ensureForUserId() {
-        return { userId: 7 };
+        return { userId: "7" };
       }
     },
     workspaceProvisioningService: {
@@ -120,7 +120,7 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
     },
     userSettingsRepository: {
       async ensureForUserId() {
-        return { userId: 1 };
+        return { userId: "1" };
       }
     }
   });

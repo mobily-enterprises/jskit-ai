@@ -66,8 +66,8 @@ exports.down = async function down(knex) {
   );
 
   for (const row of workspaceSettingsRows) {
-    const workspaceId = Number(row?.workspace_id || 0);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+    const workspaceId = row?.workspace_id == null ? "" : String(row.workspace_id).trim();
+    if (!workspaceId) {
       continue;
     }
 

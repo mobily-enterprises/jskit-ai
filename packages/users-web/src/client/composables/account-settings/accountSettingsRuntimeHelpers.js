@@ -3,6 +3,7 @@ import {
   normalizeReturnToPath as normalizeSharedReturnToPath,
   resolveAllowedOriginsFromPlacementContext
 } from "@jskit-ai/kernel/shared/support";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecord } from "../../support/runtimeNormalization.js";
 
 function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {}) {
@@ -27,9 +28,9 @@ function normalizePendingInvite(entry) {
     return null;
   }
 
-  const id = Number(entry.id);
-  const workspaceId = Number(entry.workspaceId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(workspaceId) || workspaceId < 1) {
+  const id = normalizeRecordId(entry.id, { fallback: null });
+  const workspaceId = normalizeRecordId(entry.workspaceId, { fallback: null });
+  if (!id || !workspaceId) {
     return null;
   }
 

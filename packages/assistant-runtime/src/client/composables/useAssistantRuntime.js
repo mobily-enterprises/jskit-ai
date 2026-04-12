@@ -1,7 +1,7 @@
 import { computed, ref, watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
   ASSISTANT_STREAM_EVENT_TYPES,
@@ -47,13 +47,13 @@ function buildScopeStorageKey(scope = {}) {
 
 function readStoredActiveConversationId(scope = {}) {
   if (typeof window === "undefined" || !window.sessionStorage) {
-    return 0;
+    return "";
   }
 
   try {
-    return toPositiveInteger(window.sessionStorage.getItem(buildScopeStorageKey(scope)), 0);
+    return normalizeRecordId(window.sessionStorage.getItem(buildScopeStorageKey(scope)), { fallback: "" });
   } catch {
-    return 0;
+    return "";
   }
 }
 
@@ -62,11 +62,11 @@ function writeStoredActiveConversationId(scope = {}, conversationId) {
     return;
   }
 
-  const normalizedConversationId = toPositiveInteger(conversationId, 0);
+  const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
   const storageKey = buildScopeStorageKey(scope);
   try {
-    if (normalizedConversationId > 0) {
-      window.sessionStorage.setItem(storageKey, String(normalizedConversationId));
+    if (normalizedConversationId) {
+      window.sessionStorage.setItem(storageKey, normalizedConversationId);
       return;
     }
 
@@ -164,7 +164,8 @@ function mapTranscriptEntriesToAssistantState(entries) {
     const role = normalizeText(entry?.role).toLowerCase();
     const kind = normalizeText(entry?.kind).toLowerCase();
     const metadata = normalizeObject(entry?.metadata);
-    const messageId = Number(entry?.id) > 0 ? `transcript_${entry.id}` : buildId("transcript");
+    const transcriptId = normalizeRecordId(entry?.id, { fallback: null });
+    const messageId = transcriptId ? `transcript_${transcriptId}` : buildId("transcript");
 
     if (kind === "chat" && (role === "user" || role === "assistant")) {
       messages.push({
@@ -258,8 +259,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
       workspaceSlug,
       workspaceId: assistantSurface.value?.runtimeSurfaceRequiresWorkspace
-        ? toPositiveInteger(placementSnapshot.value?.workspace?.id, 0)
-        : 0
+        ? normalizeRecordId(placementSnapshot.value?.workspace?.id, { fallback: null })
+        : null
     };
   });
   const hasRuntimeScope = computed(() =>
@@ -278,7 +279,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     resolveSurfaceId: () => normalizeText(currentSurfaceId.value).toLowerCase()
   });
 
-  const activeConversationId = computed(() => normalizeText(conversationId.value));
+  const activeConversationId = computed(() => normalizeRecordId(conversationId.value, { fallback: "" }));
   const isAdminSurface = computed(() => normalizeText(currentSurfaceId.value).toLowerCase() === "admin");
   const canSend = computed(() => {
     return Boolean(
@@ -320,8 +321,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       }),
     initialPageParam: null,
     dedupeBy(entry) {
-      const conversationNumericId = toPositiveInteger(entry?.id, 0);
-      return conversationNumericId > 0 ? String(conversationNumericId) : normalizeText(entry?.id);
+      return normalizeRecordId(entry?.id, { fallback: normalizeText(entry?.id) });
     },
     enabled: computed(() => hasRuntimeScope.value),
     queryOptions: {
@@ -345,15 +345,15 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       return;
     }
 
-    const nextConversationNumericId = toPositiveInteger(nextConversationId, 0);
-    if (nextConversationNumericId > 0) {
-      writeStoredActiveConversationId(runtimeScope.value, nextConversationNumericId);
+    const nextConversationIdKey = normalizeRecordId(nextConversationId, { fallback: null });
+    if (nextConversationIdKey) {
+      writeStoredActiveConversationId(runtimeScope.value, nextConversationIdKey);
       return;
     }
 
-    const previousConversationNumericId = toPositiveInteger(previousConversationId, 0);
-    if (previousConversationNumericId > 0) {
-      writeStoredActiveConversationId(runtimeScope.value, 0);
+    const previousConversationIdKey = normalizeRecordId(previousConversationId, { fallback: null });
+    if (previousConversationIdKey) {
+      writeStoredActiveConversationId(runtimeScope.value, "");
     }
   });
 
@@ -378,8 +378,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         return;
       }
 
-      const activeConversationNumericId = toPositiveInteger(nextConversationId, 0);
-      if (activeConversationNumericId > 0) {
+      const activeConversationIdKey = normalizeRecordId(nextConversationId, { fallback: null });
+      if (activeConversationIdKey) {
         return;
       }
 
@@ -394,10 +394,10 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       }
 
       const hasStoredConversation = sourceEntries.some(
-        (entry) => toPositiveInteger(entry?.id, 0) === storedConversationId
+        (entry) => normalizeRecordId(entry?.id, { fallback: null }) === storedConversationId
       );
       if (!hasStoredConversation) {
-        writeStoredActiveConversationId(nextRuntimeScope, 0);
+        writeStoredActiveConversationId(nextRuntimeScope, "");
         return;
       }
 
@@ -458,13 +458,13 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       return;
     }
 
-    const parsedConversationId = toPositiveInteger(normalizedConversationId, 0);
+    const parsedConversationId = normalizeRecordId(normalizedConversationId, { fallback: null });
     if (!parsedConversationId) {
       return;
     }
 
     const previousConversationId = conversationId.value;
-    conversationId.value = String(parsedConversationId);
+    conversationId.value = parsedConversationId;
     isRestoringConversation.value = true;
     setRuntimeError("");
 
@@ -507,7 +507,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     input.value = "";
     setRuntimeError("");
     conversationId.value = null;
-    writeStoredActiveConversationId(runtimeScope.value, 0);
+    writeStoredActiveConversationId(runtimeScope.value, "");
     isStreaming.value = false;
     isRestoringConversation.value = false;
     abortController.value = null;
@@ -546,7 +546,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     const messageId = buildId("message");
     const assistantMessageId = buildId("assistant");
     const history = buildHistory(messages.value);
-    const parsedConversationId = toPositiveInteger(conversationId.value, 0);
+    const parsedConversationId = normalizeRecordId(conversationId.value, { fallback: null });
 
     appendMessage({
       id: buildId("user"),
@@ -581,7 +581,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       await runtimeApi.streamChat(
         {
           messageId,
-          ...(parsedConversationId > 0 ? { conversationId: parsedConversationId } : {}),
+          ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
           input: normalizedInput,
           history
         },
@@ -591,7 +591,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
             const eventType = normalizeAssistantStreamEventType(event?.type, "");
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.META && Object.hasOwn(event || {}, "conversationId")) {
-              conversationId.value = event?.conversationId ? String(event.conversationId) : null;
+              conversationId.value = normalizeRecordId(event?.conversationId, { fallback: null });
               return;
             }
 

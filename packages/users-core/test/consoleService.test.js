@@ -10,7 +10,7 @@ function createFixture(initialOwnerUserId = null) {
   const service = createService({
     consoleSettingsRepository: {
       async ensureOwnerUserId(userId) {
-        const normalizedUserId = Number(userId);
+        const normalizedUserId = String(userId || "");
         if (!state.ownerUserId) {
           state.ownerUserId = normalizedUserId;
         }
@@ -25,22 +25,22 @@ function createFixture(initialOwnerUserId = null) {
 test("consoleService seeds the first authenticated user as console owner", async () => {
   const { service, state } = createFixture();
 
-  const firstOwner = await service.ensureInitialConsoleMember(7);
-  const secondAttempt = await service.ensureInitialConsoleMember(9);
+  const firstOwner = await service.ensureInitialConsoleMember("7");
+  const secondAttempt = await service.ensureInitialConsoleMember("9");
 
-  assert.equal(firstOwner, 7);
-  assert.equal(secondAttempt, 7);
-  assert.equal(state.ownerUserId, 7);
+  assert.equal(firstOwner, "7");
+  assert.equal(secondAttempt, "7");
+  assert.equal(state.ownerUserId, "7");
 });
 
 test("consoleService.requireConsoleOwner denies authenticated non-owners", async () => {
-  const { service } = createFixture(7);
+  const { service } = createFixture("7");
 
   await assert.rejects(
     () =>
       service.requireConsoleOwner({
         actor: {
-          id: 9
+          id: "9"
         }
       }),
     (error) => error?.status === 403
@@ -48,7 +48,7 @@ test("consoleService.requireConsoleOwner denies authenticated non-owners", async
 });
 
 test("consoleService.requireConsoleOwner requires authentication", async () => {
-  const { service } = createFixture(7);
+  const { service } = createFixture("7");
 
   await assert.rejects(
     () => service.requireConsoleOwner({}),

@@ -18,7 +18,7 @@ test("workspace route visibility resolver contributes workspace_user scope and a
         id: "user_42"
       },
       workspace: {
-        id: 11
+        id: "11"
       }
     }
   });
@@ -26,7 +26,7 @@ test("workspace route visibility resolver contributes workspace_user scope and a
   assert.deepEqual(contribution, {
     scopeKind: "workspace_user",
     requiresActorScope: true,
-    scopeOwnerId: 11,
+    scopeOwnerId: "11",
     userId: "user_42"
   });
 });
@@ -44,7 +44,7 @@ test("workspace route visibility resolver keeps workspace-only visibility actor-
     visibility: "workspace",
     context: {
       workspace: {
-        id: 11
+        id: "11"
       }
     }
   });
@@ -52,7 +52,7 @@ test("workspace route visibility resolver keeps workspace-only visibility actor-
   assert.deepEqual(contribution, {
     scopeKind: "workspace",
     requiresActorScope: false,
-    scopeOwnerId: 11
+    scopeOwnerId: "11"
   });
 });
 

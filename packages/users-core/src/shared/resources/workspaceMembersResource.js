@@ -1,16 +1,21 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeObjectInput,
+  recordIdSchema,
+  recordIdInputSchema,
+  nullableRecordIdSchema
+} from "@jskit-ai/kernel/shared/validators";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { createOperationMessages } from "../operationMessages.js";
 import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../roles.js";
 
 const workspaceSummaryOutputSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
+    id: recordIdSchema,
     slug: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1 }),
-    ownerUserId: Type.Integer({ minimum: 1 }),
+    ownerUserId: recordIdSchema,
     avatarUrl: Type.String()
   },
   { additionalProperties: false }
@@ -18,7 +23,7 @@ const workspaceSummaryOutputSchema = Type.Object(
 
 const memberSummaryOutputSchema = Type.Object(
   {
-    userId: Type.Integer({ minimum: 1 }),
+    userId: recordIdSchema,
     roleSid: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     displayName: Type.String(),
@@ -30,12 +35,12 @@ const memberSummaryOutputSchema = Type.Object(
 
 const inviteSummaryOutputSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
+    id: recordIdSchema,
     email: Type.String({ minLength: 3, format: "email" }),
     roleSid: Type.String({ minLength: 1 }),
     status: Type.String({ minLength: 1 }),
     expiresAt: Type.String({ minLength: 1 }),
-    invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+    invitedByUserId: nullableRecordIdSchema
   },
   { additionalProperties: false }
 );
@@ -44,26 +49,25 @@ function normalizeWorkspaceAdminSummary(workspace) {
   const source = normalizeObjectInput(workspace);
 
   return {
-    id: Number(source.id),
+    id: normalizeRecordId(source.id, { fallback: "" }),
     slug: normalizeText(source.slug),
     name: normalizeText(source.name),
-    ownerUserId: Number(source.ownerUserId),
+    ownerUserId: normalizeRecordId(source.ownerUserId, { fallback: "" }),
     avatarUrl: normalizeText(source.avatarUrl)
   };
 }
 
 function normalizeMemberSummary(member, workspace) {
   const source = normalizeObjectInput(member);
+  const userId = normalizeRecordId(source.userId, { fallback: "" });
 
   return {
-    userId: Number(source.userId),
+    userId,
     roleSid: normalizeLowerText(source.roleSid || "member") || "member",
     status: normalizeLowerText(source.status || "active") || "active",
     displayName: normalizeText(source.displayName),
     email: normalizeLowerText(source.email),
-    isOwner:
-      Number(source.userId) === Number(workspace.ownerUserId) ||
-      normalizeLowerText(source.roleSid) === OWNER_ROLE_ID
+    isOwner: userId === workspace.ownerUserId || normalizeLowerText(source.roleSid) === OWNER_ROLE_ID
   };
 }
 
@@ -71,12 +75,12 @@ function normalizeInviteSummary(invite) {
   const source = normalizeObjectInput(invite);
 
   return {
-    id: Number(source.id),
+    id: normalizeRecordId(source.id, { fallback: "" }),
     email: normalizeLowerText(source.email),
     roleSid: normalizeLowerText(source.roleSid || "member") || "member",
     status: normalizeLowerText(source.status || "pending") || "pending",
     expiresAt: source.expiresAt,
-    invitedByUserId: source.invitedByUserId == null ? null : Number(source.invitedByUserId)
+    invitedByUserId: source.invitedByUserId == null ? null : normalizeRecordId(source.invitedByUserId, { fallback: null })
   };
 }
 
@@ -176,7 +180,7 @@ const updateMemberRoleBodyValidator = Object.freeze({
 const updateMemberRoleInputValidator = Object.freeze({
   schema: Type.Object(
     {
-      memberUserId: Type.Integer({ minimum: 1 }),
+      memberUserId: recordIdInputSchema,
       roleSid: Type.String({ minLength: 1 })
     },
     { additionalProperties: false }
@@ -185,7 +189,7 @@ const updateMemberRoleInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      memberUserId: normalizePositiveInteger(source.memberUserId),
+      memberUserId: normalizeRecordId(source.memberUserId, { fallback: "" }),
       roleSid: normalizeLowerText(source.roleSid)
     };
   }
@@ -194,7 +198,7 @@ const updateMemberRoleInputValidator = Object.freeze({
 const removeMemberInputValidator = Object.freeze({
   schema: Type.Object(
     {
-      memberUserId: Type.Integer({ minimum: 1 })
+      memberUserId: recordIdInputSchema
     },
     { additionalProperties: false }
   ),
@@ -202,7 +206,7 @@ const removeMemberInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      memberUserId: normalizePositiveInteger(source.memberUserId)
+      memberUserId: normalizeRecordId(source.memberUserId, { fallback: "" })
     };
   }
 });
@@ -228,7 +232,7 @@ const createInviteBodyValidator = Object.freeze({
 const revokeInviteInputValidator = Object.freeze({
   schema: Type.Object(
     {
-      inviteId: Type.Integer({ minimum: 1 })
+      inviteId: recordIdInputSchema
     },
     { additionalProperties: false }
   ),
@@ -236,7 +240,7 @@ const revokeInviteInputValidator = Object.freeze({
     const source = normalizeObjectInput(payload);
 
     return {
-      inviteId: normalizePositiveInteger(source.inviteId)
+      inviteId: normalizeRecordId(source.inviteId, { fallback: "" })
     };
   }
 });

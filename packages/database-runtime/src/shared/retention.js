@@ -1,4 +1,5 @@
 import { toDatabaseDateTimeUtc } from "./dateUtils.js";
+import { normalizeDbRecordId } from "./repositoryOptions.js";
 
 function normalizeBatchSize(value, { fallback = 1000, max = 10_000 } = {}) {
   const parsed = Number(value);
@@ -40,12 +41,12 @@ async function deleteRowsOlderThan({ client, tableName, dateColumn, cutoffDate, 
     return 0;
   }
 
-  const numericIds = ids.map((entry) => Number(entry.id)).filter((id) => Number.isInteger(id) && id > 0);
-  if (numericIds.length < 1) {
+  const recordIds = ids.map((entry) => normalizeDbRecordId(entry?.id)).filter(Boolean);
+  if (recordIds.length < 1) {
     return 0;
   }
 
-  const deleted = await client(tableName).whereIn("id", numericIds).del();
+  const deleted = await client(tableName).whereIn("id", recordIds).del();
   return normalizeDeletedRowCount(deleted);
 }
 

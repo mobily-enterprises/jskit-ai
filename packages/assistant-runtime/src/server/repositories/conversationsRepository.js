@@ -1,7 +1,6 @@
-import { runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   parseJsonObject,
   resolveInsertedId,
@@ -11,7 +10,15 @@ import {
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeWorkspaceId(value) {
-  return parsePositiveInteger(value) || null;
+  return normalizeRecordId(value, { fallback: null });
+}
+
+function normalizeDbWorkspaceId(value) {
+  return normalizeDbRecordId(value, { fallback: null });
+}
+
+function normalizeInputRecordId(value) {
+  return normalizeRecordId(value, { fallback: null });
 }
 
 function normalizeRequiredSurfaceId(value) {
@@ -34,10 +41,10 @@ function applyWorkspaceScope(query, columnName, workspaceId) {
 
 function mapConversationRow(row = {}) {
   return {
-    id: Number(row.id),
-    workspaceId: normalizeWorkspaceId(row.workspace_id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
+    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
     title: String(row.title || "New conversation"),
-    createdByUserId: row.created_by_user_id == null ? null : Number(row.created_by_user_id),
+    createdByUserId: row.created_by_user_id == null ? null : normalizeDbRecordId(row.created_by_user_id, { fallback: null }),
     status: String(row.status || "active"),
     provider: String(row.provider || ""),
     model: String(row.model || ""),
@@ -52,8 +59,11 @@ function mapConversationRow(row = {}) {
 }
 
 function normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {}) {
-  const cursor = parsePositiveInteger(pagination.cursor) || 0;
-  const limit = Math.max(1, Math.min(maxLimit, parsePositiveInteger(pagination.limit) || defaultLimit));
+  const cursor = normalizeInputRecordId(pagination.cursor) || "";
+  const parsedLimit = Number(pagination.limit);
+  const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
+    ? Math.max(1, Math.min(maxLimit, parsedLimit))
+    : defaultLimit;
 
   return {
     cursor,
@@ -71,14 +81,14 @@ function createRepository(knex) {
   }
 
   async function findById(conversationId, options = {}) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) {
       return null;
     }
 
     const client = options?.trx || knex;
     const row = await createConversationBaseQuery(client)
-      .where("c.id", numericConversationId)
+      .where("c.id", normalizedConversationId)
       .first();
 
     return row ? mapConversationRow(row) : null;
@@ -89,17 +99,17 @@ function createRepository(knex) {
     { workspaceId = null, actorUserId = null, surfaceId = "" } = {},
     options = {}
   ) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    const numericActorUserId = parsePositiveInteger(actorUserId);
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    const normalizedActorUserId = normalizeInputRecordId(actorUserId);
     const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
-    if (!numericConversationId || !numericActorUserId || !normalizedSurfaceId) {
+    if (!normalizedConversationId || !normalizedActorUserId || !normalizedSurfaceId) {
       return null;
     }
 
     const client = options?.trx || knex;
     const query = createConversationBaseQuery(client)
-      .where("c.id", numericConversationId)
-      .where("c.created_by_user_id", numericActorUserId)
+      .where("c.id", normalizedConversationId)
+      .where("c.created_by_user_id", normalizedActorUserId)
       .where("c.surface_id", normalizedSurfaceId);
     applyWorkspaceScope(query, "c.workspace_id", workspaceId);
     const row = await query.first();
@@ -113,13 +123,13 @@ function createRepository(knex) {
     const surfaceId = normalizeRequiredSurfaceId(payload.surfaceId);
     const insertResult = await client(assistantRuntimeConfig.conversationsTable).insert({
       workspace_id: normalizeWorkspaceId(payload.workspaceId),
-      created_by_user_id: parsePositiveInteger(payload.createdByUserId) || null,
+      created_by_user_id: normalizeInputRecordId(payload.createdByUserId),
       title: normalizeText(payload.title) || "New conversation",
       status: normalizeText(payload.status).toLowerCase() || "active",
       provider: normalizeText(payload.provider),
       model: normalizeText(payload.model),
       surface_id: surfaceId,
-      message_count: parsePositiveInteger(payload.messageCount) || 0,
+      message_count: Math.max(0, Number(payload.messageCount || 0)),
       metadata_json: stringifyJsonObject(payload.metadata),
       started_at: payload.startedAt ? new Date(payload.startedAt) : now,
       ended_at: payload.endedAt ? new Date(payload.endedAt) : null,
@@ -137,8 +147,8 @@ function createRepository(knex) {
   }
 
   async function updateById(conversationId, patch = {}, options = {}) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) {
       return null;
     }
 
@@ -173,31 +183,31 @@ function createRepository(knex) {
     if (Object.keys(updatePatch).length > 0) {
       updatePatch.updated_at = new Date();
       await client(assistantRuntimeConfig.conversationsTable)
-        .where({ id: numericConversationId })
+        .where({ id: normalizedConversationId })
         .update(updatePatch);
     }
 
-    return findById(numericConversationId, {
+    return findById(normalizedConversationId, {
       trx: client
     });
   }
 
   async function incrementMessageCount(conversationId, delta = 1, options = {}) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) {
       return null;
     }
 
     const client = options?.trx || knex;
     const incrementBy = Number.isInteger(Number(delta)) ? Number(delta) : 1;
     await client(assistantRuntimeConfig.conversationsTable)
-      .where({ id: numericConversationId })
+      .where({ id: normalizedConversationId })
       .update({
         message_count: client.raw("GREATEST(0, message_count + ?)", [incrementBy]),
         updated_at: new Date()
       });
 
-    return findById(numericConversationId, {
+    return findById(normalizedConversationId, {
       trx: client
     });
   }
@@ -206,9 +216,9 @@ function createRepository(knex) {
     { workspaceId = null, actorUserId = null, surfaceId = "", pagination = {}, filters = {} } = {},
     options = {}
   ) {
-    const numericActorUserId = parsePositiveInteger(actorUserId);
+    const normalizedActorUserId = normalizeInputRecordId(actorUserId);
     const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
-    if (!numericActorUserId || !normalizedSurfaceId) {
+    if (!normalizedActorUserId || !normalizedSurfaceId) {
       return {
         items: [],
         nextCursor: null
@@ -218,7 +228,7 @@ function createRepository(knex) {
     const client = options?.trx || knex;
     const { cursor, limit } = normalizeCursorPagination(pagination);
     let query = createConversationBaseQuery(client)
-      .where("c.created_by_user_id", numericActorUserId)
+      .where("c.created_by_user_id", normalizedActorUserId)
       .where("c.surface_id", normalizedSurfaceId);
     query = applyWorkspaceScope(query, "c.workspace_id", workspaceId);
 
@@ -226,7 +236,7 @@ function createRepository(knex) {
     if (normalizedStatus) {
       query = query.where("c.status", normalizedStatus);
     }
-    if (cursor > 0) {
+    if (cursor) {
       query = query.where("c.id", "<", cursor);
     }
 
@@ -237,7 +247,9 @@ function createRepository(knex) {
     const hasMore = rows.length > limit;
     const pageRows = hasMore ? rows.slice(0, limit) : rows;
     const items = pageRows.map(mapConversationRow);
-    const nextCursor = hasMore && pageRows.length > 0 ? String(pageRows[pageRows.length - 1].id) : null;
+    const nextCursor = hasMore && pageRows.length > 0
+      ? normalizeDbRecordId(pageRows[pageRows.length - 1].id, { fallback: null })
+      : null;
 
     return {
       items,

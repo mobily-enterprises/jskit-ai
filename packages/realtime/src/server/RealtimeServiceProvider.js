@@ -1,4 +1,4 @@
-import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import {
   registerDomainEventListener,
@@ -41,15 +41,15 @@ function normalizeArray(value) {
 }
 
 function roomForUser(userId) {
-  return `user:${Number(userId)}`;
+  return `user:${String(userId || "").trim()}`;
 }
 
 function roomForWorkspace(workspaceId) {
-  return `workspace:${Number(workspaceId)}`;
+  return `workspace:${String(workspaceId || "").trim()}`;
 }
 
 function roomForWorkspaceUser(workspaceId, userId) {
-  return `workspace:${Number(workspaceId)}:user:${Number(userId)}`;
+  return `workspace:${String(workspaceId || "").trim()}:user:${String(userId || "").trim()}`;
 }
 
 function parseCookieHeader(value = "") {
@@ -186,23 +186,23 @@ function mergeRealtimePayload(event, payloadPatch) {
 function resolveScopeWorkspaceId(scope = {}) {
   const source = scope && typeof scope === "object" && !Array.isArray(scope) ? scope : {};
   if (String(source.kind || "").trim().toLowerCase() === "workspace") {
-    return normalizePositiveInteger(source.id);
+    return normalizeRecordId(source.id, { fallback: null });
   }
   if (String(source.kind || "").trim().toLowerCase() === "workspace_user") {
-    return normalizePositiveInteger(source.workspaceId || source.id);
+    return normalizeRecordId(source.workspaceId || source.id, { fallback: null });
   }
-  return normalizePositiveInteger(source.workspaceId);
+  return normalizeRecordId(source.workspaceId, { fallback: null });
 }
 
 function resolveScopeUserId(scope = {}) {
   const source = scope && typeof scope === "object" && !Array.isArray(scope) ? scope : {};
   if (String(source.kind || "").trim().toLowerCase() === "user") {
-    return normalizePositiveInteger(source.id);
+    return normalizeRecordId(source.id, { fallback: null });
   }
   if (String(source.kind || "").trim().toLowerCase() === "workspace_user") {
-    return normalizePositiveInteger(source.userId);
+    return normalizeRecordId(source.userId, { fallback: null });
   }
-  return normalizePositiveInteger(source.userId);
+  return normalizeRecordId(source.userId, { fallback: null });
 }
 
 function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
@@ -222,8 +222,8 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
   }
 
   if (normalizedPreset === "actor_user") {
-    const actorId = normalizePositiveInteger(event?.actorId);
-    if (actorId > 0) {
+    const actorId = normalizeRecordId(event?.actorId, { fallback: null });
+    if (actorId) {
       rooms.add(roomForUser(actorId));
     }
     return;
@@ -231,7 +231,7 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
 
   if (normalizedPreset === "all_workspace_users") {
     const workspaceId = resolveScopeWorkspaceId(event?.scope);
-    if (workspaceId > 0) {
+    if (workspaceId) {
       rooms.add(roomForWorkspace(workspaceId));
       return;
     }
@@ -249,7 +249,7 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
     const scopeKind = normalizeText(event?.scope?.kind).toLowerCase();
     if (scopeKind === "workspace") {
       const workspaceId = resolveScopeWorkspaceId(event?.scope);
-      if (workspaceId > 0) {
+      if (workspaceId) {
         rooms.add(roomForWorkspace(workspaceId));
       }
       return;
@@ -257,14 +257,14 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger } = {}) {
     if (scopeKind === "workspace_user") {
       const workspaceId = resolveScopeWorkspaceId(event?.scope);
       const userId = resolveScopeUserId(event?.scope);
-      if (workspaceId > 0 && userId > 0) {
+      if (workspaceId && userId) {
         rooms.add(roomForWorkspaceUser(workspaceId, userId));
       }
       return;
     }
     if (scopeKind === "user") {
       const userId = resolveScopeUserId(event?.scope);
-      if (userId > 0) {
+      if (userId) {
         rooms.add(roomForUser(userId));
       }
       return;
@@ -309,33 +309,33 @@ function addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } =
     }
   }
 
-  const userId = normalizePositiveInteger(selection.userId);
-  if (userId > 0) {
+  const userId = normalizeRecordId(selection.userId, { fallback: null });
+  if (userId) {
     rooms.add(roomForUser(userId));
   }
   for (const entry of normalizeArray(selection.userIds)) {
-    const normalizedUserId = normalizePositiveInteger(entry);
-    if (normalizedUserId > 0) {
+    const normalizedUserId = normalizeRecordId(entry, { fallback: null });
+    if (normalizedUserId) {
       rooms.add(roomForUser(normalizedUserId));
     }
   }
 
-  const workspaceId = normalizePositiveInteger(selection.workspaceId);
-  if (workspaceId > 0) {
+  const workspaceId = normalizeRecordId(selection.workspaceId, { fallback: null });
+  if (workspaceId) {
     rooms.add(roomForWorkspace(workspaceId));
   }
   for (const entry of normalizeArray(selection.workspaceIds)) {
-    const normalizedWorkspaceId = normalizePositiveInteger(entry);
-    if (normalizedWorkspaceId > 0) {
+    const normalizedWorkspaceId = normalizeRecordId(entry, { fallback: null });
+    if (normalizedWorkspaceId) {
       rooms.add(roomForWorkspace(normalizedWorkspaceId));
     }
   }
 
   const workspaceUser = selection.workspaceUser;
   if (workspaceUser && typeof workspaceUser === "object") {
-    const targetWorkspaceId = normalizePositiveInteger(workspaceUser.workspaceId);
-    const targetUserId = normalizePositiveInteger(workspaceUser.userId);
-    if (targetWorkspaceId > 0 && targetUserId > 0) {
+    const targetWorkspaceId = normalizeRecordId(workspaceUser.workspaceId, { fallback: null });
+    const targetUserId = normalizeRecordId(workspaceUser.userId, { fallback: null });
+    if (targetWorkspaceId && targetUserId) {
       rooms.add(roomForWorkspaceUser(targetWorkspaceId, targetUserId));
     }
   }
@@ -344,9 +344,9 @@ function addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } =
     if (!entry || typeof entry !== "object") {
       continue;
     }
-    const targetWorkspaceId = normalizePositiveInteger(entry.workspaceId);
-    const targetUserId = normalizePositiveInteger(entry.userId);
-    if (targetWorkspaceId > 0 && targetUserId > 0) {
+    const targetWorkspaceId = normalizeRecordId(entry.workspaceId, { fallback: null });
+    const targetUserId = normalizeRecordId(entry.userId, { fallback: null });
+    if (targetWorkspaceId && targetUserId) {
       rooms.add(roomForWorkspaceUser(targetWorkspaceId, targetUserId));
     }
   }
@@ -356,8 +356,8 @@ function collectUserIdsFromQueryRows(rows = []) {
   const result = new Set();
   for (const row of normalizeArray(rows)) {
     if (typeof row === "number") {
-      const directId = normalizePositiveInteger(row);
-      if (directId > 0) {
+      const directId = normalizeRecordId(row, { fallback: null });
+      if (directId) {
         result.add(directId);
       }
       continue;
@@ -365,8 +365,8 @@ function collectUserIdsFromQueryRows(rows = []) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       continue;
     }
-    const userId = normalizePositiveInteger(row.userId || row.user_id || row.id);
-    if (userId > 0) {
+    const userId = normalizeRecordId(row.userId || row.user_id || row.id, { fallback: null });
+    if (userId) {
       result.add(userId);
     }
   }
@@ -447,7 +447,7 @@ async function resolveAudienceTargets(dispatcher, event, { scope, logger } = {})
 
 async function resolveSocketActorId(authService, socket) {
   if (!authService || typeof authService.authenticateRequest !== "function") {
-    return 0;
+    return null;
   }
 
   const cookies = parseCookieHeader(socket?.request?.headers?.cookie);
@@ -455,9 +455,9 @@ async function resolveSocketActorId(authService, socket) {
     cookies
   });
   if (!authResult || authResult.authenticated !== true) {
-    return 0;
+    return null;
   }
-  return normalizePositiveInteger(authResult?.profile?.id);
+  return normalizeRecordId(authResult?.profile?.id, { fallback: null });
 }
 
 async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId) {
@@ -467,8 +467,8 @@ async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId)
 
   const workspaceIds = await workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId(actorId);
   return normalizeArray(workspaceIds)
-    .map((entry) => normalizePositiveInteger(entry))
-    .filter((entry) => entry > 0);
+    .map((entry) => normalizeRecordId(entry, { fallback: null }))
+    .filter(Boolean);
 }
 
 function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
@@ -496,7 +496,7 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
       );
 
       const actorId = await resolveSocketActorId(authService, socket);
-      if (actorId < 1) {
+      if (!actorId) {
         logger.debug(
           {
             listenerId: "runtime.realtime.domain-event-bridge",

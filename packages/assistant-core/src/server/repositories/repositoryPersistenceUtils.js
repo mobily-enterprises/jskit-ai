@@ -1,3 +1,4 @@
+import { resolveInsertedRecordId } from "@jskit-ai/database-runtime/shared";
 import { parseJsonObject } from "../../shared/support/jsonObject.js";
 
 function stringifyJsonObject(value) {
@@ -22,27 +23,7 @@ function toIso(value) {
 }
 
 function resolveInsertedId(insertResult) {
-  if (Array.isArray(insertResult) && insertResult.length > 0) {
-    const first = insertResult[0];
-    if (first && typeof first === "object" && !Array.isArray(first)) {
-      const objectId = Number(first.id);
-      if (Number.isInteger(objectId) && objectId > 0) {
-        return objectId;
-      }
-    }
-
-    const scalarId = Number(first);
-    if (Number.isInteger(scalarId) && scalarId > 0) {
-      return scalarId;
-    }
-  }
-
-  const directId = Number(insertResult);
-  if (Number.isInteger(directId) && directId > 0) {
-    return directId;
-  }
-
-  return 0;
+  return resolveInsertedRecordId(insertResult, { fallback: "" }) || "";
 }
 
 export { parseJsonObject, stringifyJsonObject, toIso, resolveInsertedId };

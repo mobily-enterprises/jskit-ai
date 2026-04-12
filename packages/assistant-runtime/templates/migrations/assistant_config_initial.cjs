@@ -4,10 +4,10 @@ exports.up = async function up(knex) {
     const hasWorkspacesTable = await knex.schema.hasTable("workspaces");
 
     await knex.schema.createTable("assistant_config", (table) => {
-      table.increments("id").unsigned().primary();
+      table.bigIncrements("id").primary();
       table.string("target_surface_id", 64).notNullable();
       table.string("scope_key", 160).notNullable();
-      table.integer("workspace_id").unsigned().nullable();
+      table.bigInteger("workspace_id").unsigned().nullable();
       if (hasWorkspacesTable) {
         table.foreign("workspace_id").references("id").inTable("workspaces").onDelete("CASCADE");
       }

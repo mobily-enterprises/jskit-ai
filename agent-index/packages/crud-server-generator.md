@@ -43,15 +43,15 @@ Local functions
 - `renderObjectPropertyKey(value)`
 - `renderIntegerSchema(column)`
 - `renderStringSchema(column, { forOutput = false } = {})`
-- `renderResourceValidatorsImport({ needsHtmlTimeSchemas = false } = {})`
+- `renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, needsRecordIdSchemas = false } = {})`
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false } = {})`
 - `renderResourceInputNormalizationLines(columns)`
 - `renderResourceOutputNormalizationLines(columns)`
 - `renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {})`
 - `renderResourceJsonImport({ needsJson = false } = {})`
-- `renderResourceNormalizeSupportImport({ needsNormalizeText = false, needsNormalizeBoolean = false, needsNormalizeFiniteNumber = false, needsNormalizeFiniteInteger = false, needsNormalizeIfInSource = false, needsNormalizeIfPresent = false, needsNormalizeOrNull = false } = {})`
+- `renderResourceNormalizeSupportImport({ needsNormalizeText = false, needsNormalizeBoolean = false, needsNormalizeFiniteNumber = false, needsNormalizeFiniteInteger = false, needsNormalizeRecordId = false, needsNormalizeIfInSource = false, needsNormalizeIfPresent = false, needsNormalizeOrNull = false } = {})`
 - `renderMigrationDefaultClause(column)`
-- `renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [] } = {})`
+- `renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [], foreignKeyColumnNames = new Set() } = {})`
 - `renderMigrationColumnLines(snapshot)`
 - `renderMigrationIndexLine(index)`
 - `renderMigrationIndexLines(snapshot)`

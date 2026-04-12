@@ -145,15 +145,21 @@ test("scaffold-field patches CRUD resource file using DB snapshot metadata", asy
     assert.deepEqual(result.touchedFiles, [resourceFile]);
 
     const content = await readFile(path.join(appRoot, resourceFile), "utf8");
-    assert.match(content, /categoryId: Type\.Union\(\[Type\.Integer\(\{ minimum: 0 \}\), Type\.Null\(\)\]\)/);
-    assert.match(content, /normalizeIfInSource\(source, normalized, "categoryId", normalizeFiniteInteger\);/);
-    assert.match(content, /categoryId: normalizeOrNull\(source\.categoryId, normalizeFiniteInteger\)/);
+    assert.match(content, /categoryId: nullableRecordIdSchema/);
+    assert.match(
+      content,
+      /normalizeIfInSource\(source, normalized, "categoryId", \(value\) => normalizeRecordId\(value, \{ fallback: null \}\)\);/
+    );
+    assert.match(
+      content,
+      /categoryId: normalizeOrNull\(source\.categoryId, \(value\) => normalizeRecordId\(value, \{ fallback: null \}\)\)/
+    );
     assert.match(content, /RESOURCE_FIELD_META\.push\(\{/);
     assert.match(content, /key: "categoryId"/);
     assert.match(content, /namespace: "customer-categories"/);
     assert.match(content, /valueKey: "id"/);
     assert.match(content, /formControl: "autocomplete" \/\/ or "select"/);
-    assert.match(content, /normalizeFiniteInteger/);
+    assert.match(content, /normalizeRecordId/);
 
     const secondRun = await runGeneratorSubcommand({
       appRoot,

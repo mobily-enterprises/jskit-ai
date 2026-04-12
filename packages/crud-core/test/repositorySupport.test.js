@@ -89,8 +89,8 @@ test("normalizeCrudListLimit enforces fallback and max", () => {
 });
 
 test("normalizeCrudListCursor rejects malformed id cursors", () => {
-  assert.equal(normalizeCrudListCursor("7"), 7);
-  assert.equal(normalizeCrudListCursor(""), 0);
+  assert.equal(normalizeCrudListCursor("7"), "7");
+  assert.equal(normalizeCrudListCursor(""), "");
   assert.throws(
     () => normalizeCrudListCursor("abc"),
     /Invalid cursor/
@@ -147,7 +147,7 @@ test("applyCrudListQueryFilters applies search and cursor filters", () => {
     ["whereGroup"],
     ["innerWhere", "first_name", "like", "%ani%"],
     ["innerOrWhere", "last_name", "like", "%ani%"],
-    ["where", "id", ">", 3]
+    ["where", "id", ">", "3"]
   ]);
 });
 

@@ -281,7 +281,7 @@ test("registerRoutes attaches visibilityContext from route visibility resolvers"
     scopeKind: null,
     requiresActorScope: true,
     scopeOwnerId: null,
-    userId: 23
+    userId: "23"
   });
   assert.deepEqual(observed[0].context.requestMeta.visibilityContext, observed[0].context.visibilityContext);
   assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
@@ -353,7 +353,7 @@ test("registerRoutes keeps actor scope requirement for core user visibility with
     scopeKind: null,
     requiresActorScope: true,
     scopeOwnerId: null,
-    userId: 23
+    userId: "23"
   });
   assert.equal(observed[0].context.requestMeta.routeVisibility, "user");
 });

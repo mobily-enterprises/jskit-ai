@@ -1,14 +1,13 @@
-import { normalizeOpaqueId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeOpaqueId, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
-function buildVisibilityContribution({ visibility, scopeOwnerId = 0, userId = null } = {}) {
+function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {}) {
   const requiresActorScope = visibility === "workspace_user";
   const contribution = {
     scopeKind: requiresActorScope ? "workspace_user" : "workspace",
     requiresActorScope
   };
 
-  if (scopeOwnerId > 0) {
+  if (scopeOwnerId) {
     contribution.scopeOwnerId = scopeOwnerId;
   }
   if (requiresActorScope && userId != null) {
@@ -34,7 +33,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
       const userId = normalizeOpaqueId(actor?.id);
       const workspace =
         context?.workspace || context?.requestMeta?.resolvedWorkspaceContext?.workspace || request?.workspace || null;
-      const scopeOwnerId = parsePositiveInteger(workspace?.id);
+      const scopeOwnerId = normalizeRecordId(workspace?.id, { fallback: null });
       if (!scopeOwnerId) {
         const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
 
@@ -50,7 +49,7 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
         const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, {
           request
         });
-        const resolvedWorkspaceOwnerId = parsePositiveInteger(resolvedWorkspaceContext?.workspace?.id);
+        const resolvedWorkspaceOwnerId = normalizeRecordId(resolvedWorkspaceContext?.workspace?.id, { fallback: null });
         if (!resolvedWorkspaceOwnerId) {
           return visibility === "workspace_user"
             ? buildVisibilityContribution({

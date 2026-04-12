@@ -1,5 +1,5 @@
-import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "@jskit-ai/users-core/server/support/resolveWorkspace";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import {
@@ -12,8 +12,7 @@ const MAX_INPUT_CHARS = 8000;
 const MAX_TOOL_ROUNDS = 4;
 
 function normalizeConversationId(value) {
-  const parsed = parsePositiveInteger(value);
-  return parsed > 0 ? parsed : null;
+  return normalizeRecordId(value, { fallback: null });
 }
 
 function normalizeHistory(history = []) {

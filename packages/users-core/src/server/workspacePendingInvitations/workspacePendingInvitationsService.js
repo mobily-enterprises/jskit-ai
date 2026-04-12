@@ -1,6 +1,7 @@
 import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { authenticatedUserValidator } from "../common/validators/authenticatedUserValidator.js";
 
 function createService({
@@ -70,8 +71,8 @@ function createService({
   }
 
   function requireWorkspaceIdFromInvite(invite, methodName = "workspacePendingInvitationsService") {
-    const workspaceId = Number(invite?.workspaceId);
-    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+    const workspaceId = normalizeRecordId(invite?.workspaceId, { fallback: null });
+    if (!workspaceId) {
       throw new Error(`${methodName} expected invite workspace id.`);
     }
     return workspaceId;

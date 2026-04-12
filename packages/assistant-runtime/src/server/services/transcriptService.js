@@ -1,6 +1,6 @@
 import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeConversationStatus } from "@jskit-ai/assistant-core/shared";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -11,21 +11,21 @@ const DEFAULT_CONVERSATION_TITLE = "New conversation";
 const MAX_CONVERSATION_TITLE_LENGTH = 80;
 
 function resolveWorkspaceId(workspace, { required = false } = {}) {
-  const workspaceId = parsePositiveInteger(workspace?.id || workspace);
+  const workspaceId = normalizeRecordId(workspace?.id || workspace, { fallback: null });
   if (!workspaceId && required) {
     throw new AppError(409, "Workspace selection required.");
   }
 
-  return workspaceId || null;
+  return workspaceId;
 }
 
 function resolveActorUserId(user, { required = false } = {}) {
-  const actorUserId = parsePositiveInteger(user?.id);
+  const actorUserId = normalizeRecordId(user?.id, { fallback: null });
   if (!actorUserId && required) {
     throw new AppError(401, "Authentication required.");
   }
 
-  return actorUserId || null;
+  return actorUserId;
 }
 
 function normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_SIZE, maxPageSize = MAX_PAGE_SIZE } = {}) {
@@ -39,7 +39,7 @@ function normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_S
 }
 
 function normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZE, maxLimit = MAX_PAGE_SIZE } = {}) {
-  const cursor = parsePositiveInteger(query.cursor) || 0;
+  const cursor = normalizeRecordId(query.cursor, { fallback: null });
   const limit = Math.max(1, Math.min(maxLimit, parsePositiveInteger(query.limit) || defaultLimit));
 
   return {
@@ -92,7 +92,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       required: true
     });
     const source = normalizeObject(options);
-    const conversationId = parsePositiveInteger(source.conversationId);
+    const conversationId = normalizeRecordId(source.conversationId, { fallback: null });
 
     if (conversationId) {
       const existing = await conversationsRepository.findByIdForActorScope(conversationId, {
@@ -143,16 +143,16 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
 
   async function appendMessage(assistantSurface, conversationId, payload = {}, options = {}) {
     const resolvedAssistantSurface = requireAssistantSurface(assistantSurface);
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
+    if (!normalizedConversationId) {
       throw new TypeError("appendMessage requires conversationId.");
     }
 
     const source = normalizeObject(payload);
     const context = normalizeObject(options.context);
-    const actorUserId = parsePositiveInteger(source.actorUserId) || resolveActorUserId(context.actor);
+    const actorUserId = normalizeRecordId(source.actorUserId, { fallback: null }) || resolveActorUserId(context.actor);
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    const conversation = await conversationsRepository.findByIdForActorScope(numericConversationId, {
+    const conversation = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
       workspaceId,
       actorUserId,
       surfaceId: resolvedAssistantSurface.targetSurfaceId
@@ -162,7 +162,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     }
 
     const createdMessage = await messagesRepository.create({
-      conversationId: numericConversationId,
+      conversationId: normalizedConversationId,
       workspaceId: conversation.workspaceId,
       role: normalizeText(source.role).toLowerCase(),
       kind: normalizeText(source.kind).toLowerCase() || "chat",
@@ -172,29 +172,29 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       metadata: normalizeObject(source.metadata)
     });
 
-    await conversationsRepository.incrementMessageCount(numericConversationId, 1);
+    await conversationsRepository.incrementMessageCount(normalizedConversationId, 1);
 
     const messageRole = normalizeText(source.role).toLowerCase();
     const messageKind = normalizeText(source.kind).toLowerCase() || "chat";
     if (messageRole === "user" && messageKind === "chat" && isDefaultConversationTitle(conversation.title)) {
       const derivedTitle = deriveConversationTitleFromMessage(source.contentText);
       if (derivedTitle) {
-        await conversationsRepository.updateById(numericConversationId, {
+        await conversationsRepository.updateById(normalizedConversationId, {
           title: derivedTitle
         });
       }
     }
 
     return {
-      conversationId: numericConversationId,
+      conversationId: normalizedConversationId,
       message: createdMessage
     };
   }
 
   async function completeConversation(assistantSurface, conversationId, payload = {}, options = {}) {
     const resolvedAssistantSurface = requireAssistantSurface(assistantSurface);
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
+    if (!normalizedConversationId) {
       throw new TypeError("completeConversation requires conversationId.");
     }
 
@@ -204,7 +204,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       required: true
     });
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    const existing = await conversationsRepository.findByIdForActorScope(numericConversationId, {
+    const existing = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
       workspaceId,
       actorUserId,
       surfaceId: resolvedAssistantSurface.targetSurfaceId
@@ -213,7 +213,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       throw new AppError(404, "Conversation not found.");
     }
 
-    return conversationsRepository.updateById(numericConversationId, {
+    return conversationsRepository.updateById(normalizedConversationId, {
       status: normalizeConversationStatus(source.status, {
         fallback: "completed"
       }),
@@ -243,18 +243,16 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       ...(status ? { status } : {})
     };
 
-    return conversationsRepository.listForActorScope(
-      {
-        workspaceId,
-        actorUserId,
-        surfaceId: resolvedAssistantSurface.targetSurfaceId,
-        pagination: {
-          cursor: pagination.cursor,
-          limit: pagination.limit
-        },
-        filters
-      }
-    );
+    return conversationsRepository.listForActorScope({
+      workspaceId,
+      actorUserId,
+      surfaceId: resolvedAssistantSurface.targetSurfaceId,
+      pagination: {
+        cursor: pagination.cursor,
+        limit: pagination.limit
+      },
+      filters
+    });
   }
 
   async function getConversationMessagesForUser(assistantSurface, workspace, user, conversationId, query = {}) {
@@ -263,19 +261,19 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     const actorUserId = resolveActorUserId(user, {
       required: true
     });
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
+    if (!normalizedConversationId) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            conversationId: "conversationId must be a positive integer."
+            conversationId: "conversationId must be a valid record id."
           }
         }
       });
     }
 
     const conversation = await conversationsRepository.findByIdForActorScope(
-      numericConversationId,
+      normalizedConversationId,
       {
         workspaceId,
         actorUserId,
@@ -291,7 +289,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       maxPageSize: MAX_MESSAGES_PAGE_SIZE
     });
     const total = await messagesRepository.countByConversationScope(
-      numericConversationId,
+      normalizedConversationId,
       {
         workspaceId
       }
@@ -299,7 +297,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
     const page = Math.min(pagination.page, totalPages);
     const entries = await messagesRepository.listByConversationScope(
-      numericConversationId,
+      normalizedConversationId,
       {
         workspaceId
       },

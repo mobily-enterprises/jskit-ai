@@ -10,10 +10,10 @@ exports.up = async function up(knex) {
   const hasWorkspacesTable = await knex.schema.hasTable("workspaces");
   if (!hasWorkspacesTable) {
     await knex.schema.createTable("workspaces", (table) => {
-      table.increments("id").primary();
+      table.bigIncrements("id").primary();
       table.string("slug", 120).notNullable().unique();
       table.string("name", 160).notNullable();
-      table.integer("owner_user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
+      table.bigInteger("owner_user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
       table.boolean("is_personal").notNullable().defaultTo(true);
       table.string("avatar_url", 512).notNullable().defaultTo("");
       table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
@@ -25,9 +25,9 @@ exports.up = async function up(knex) {
   const hasWorkspaceMembershipsTable = await knex.schema.hasTable("workspace_memberships");
   if (!hasWorkspaceMembershipsTable) {
     await knex.schema.createTable("workspace_memberships", (table) => {
-      table.increments("id").primary();
-      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
-      table.integer("user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
+      table.bigIncrements("id").primary();
+      table.bigInteger("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
+      table.bigInteger("user_id").unsigned().notNullable().references("id").inTable("users").onDelete("CASCADE");
       table.string("role_sid", 64).notNullable().defaultTo("member");
       table.string("status", 32).notNullable().defaultTo("active");
       table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
@@ -39,7 +39,7 @@ exports.up = async function up(knex) {
   const hasWorkspaceSettingsTable = await knex.schema.hasTable("workspace_settings");
   if (!hasWorkspaceSettingsTable) {
     await knex.schema.createTable("workspace_settings", (table) => {
-      table.integer("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
+      table.bigInteger("workspace_id").unsigned().primary().references("id").inTable("workspaces").onDelete("CASCADE");
       table.string("light_primary_color", 7).notNullable().defaultTo("#1867C0");
       table.string("light_secondary_color", 7).notNullable().defaultTo("#48A9A6");
       table.string("light_surface_color", 7).notNullable().defaultTo("#FFFFFF");
@@ -57,13 +57,13 @@ exports.up = async function up(knex) {
   const hasWorkspaceInvitesTable = await knex.schema.hasTable("workspace_invites");
   if (!hasWorkspaceInvitesTable) {
     await knex.schema.createTable("workspace_invites", (table) => {
-      table.increments("id").primary();
-      table.integer("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
+      table.bigIncrements("id").primary();
+      table.bigInteger("workspace_id").unsigned().notNullable().references("id").inTable("workspaces").onDelete("CASCADE");
       table.string("email", 255).notNullable();
       table.string("role_sid", 64).notNullable().defaultTo("member");
       table.string("status", 32).notNullable().defaultTo("pending");
       table.string("token_hash", 191).notNullable();
-      table.integer("invited_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
+      table.bigInteger("invited_by_user_id").unsigned().nullable().references("id").inTable("users").onDelete("SET NULL");
       table.timestamp("expires_at", { useTz: false }).nullable();
       table.timestamp("accepted_at", { useTz: false }).nullable();
       table.timestamp("revoked_at", { useTz: false }).nullable();

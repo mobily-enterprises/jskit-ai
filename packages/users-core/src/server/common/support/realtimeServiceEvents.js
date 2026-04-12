@@ -1,7 +1,8 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { deepFreeze } from "./deepFreeze.js";
 
 function resolveActorScopedEntityId({ options } = {}) {
-  return Number(options?.context?.actor?.id || 0);
+  return normalizeRecordId(options?.context?.actor?.id, { fallback: "" });
 }
 
 function resolveWorkspaceSlugPayload({ args } = {}) {
@@ -66,7 +67,7 @@ function createWorkspaceEntityAndBootstrapEvents({
       source: "workspace",
       entity: normalizedWorkspaceEntity,
       operation: normalizedWorkspaceOperation,
-      entityId: workspaceEntityId,
+      entityId: (payload = {}) => normalizeRecordId(workspaceEntityId(payload), { fallback: "" }),
       realtime: {
         event: normalizedWorkspaceRealtimeEvent,
         payload: resolveWorkspaceSlugPayload,
@@ -78,7 +79,7 @@ function createWorkspaceEntityAndBootstrapEvents({
       source: "users",
       entity: "bootstrap",
       operation: "updated",
-      entityId: bootstrapEntityId,
+      entityId: (payload = {}) => normalizeRecordId(bootstrapEntityId(payload), { fallback: "" }),
       realtime: {
         event: "users.bootstrap.changed",
         audience: bootstrapAudience

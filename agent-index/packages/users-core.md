@@ -107,7 +107,7 @@ Exports
 Exports
 - `createWorkspaceRouteVisibilityResolver({ workspaceService } = {})`
 Local functions
-- `buildVisibilityContribution({ visibility, scopeOwnerId = 0, userId = null } = {})`
+- `buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {})`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
@@ -151,6 +151,7 @@ Exports
 - `isDuplicateEntryError`
 - `normalizeText`
 - `normalizeLowerText`
+- `normalizeRecordId`
 - `nowDb()`
 - `toNullableIso(value)`
 - `uniqueSorted(values)`
@@ -168,8 +169,8 @@ Local functions
 ### `src/server/common/repositories/usersRepository.js`
 Exports
 - `createRepository(knex)`
-- `normalizeIdentity(identityLike)`
 - `mapProfileRow(row)`
+- `normalizeIdentity(identityLike)`
 Local functions
 - `normalizeUsername(value)`
 - `usernameBaseFromEmail(email)`
@@ -177,7 +178,7 @@ Local functions
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
 - `createDuplicateEmailConflictError()`
-- `resolveUniqueUsername(client, baseUsername, { excludeUserId = 0 } = {})`
+- `resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {})`
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports

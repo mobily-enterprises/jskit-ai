@@ -1,14 +1,13 @@
 import { Type } from "typebox";
-import { normalizeText } from "../support/normalize.js";
 import { normalizeObjectInput } from "./inputNormalization.js";
-import { positiveIntegerValidator } from "./recordIdParamsValidator.js";
+import { positiveIntegerValidator, recordIdInputSchema, recordIdValidator } from "./recordIdParamsValidator.js";
 
 function normalizeCursorPaginationQuery(input = {}) {
   const source = normalizeObjectInput(input);
   const normalized = {};
 
   if (Object.hasOwn(source, "cursor")) {
-    normalized.cursor = normalizeText(source.cursor);
+    normalized.cursor = recordIdValidator.normalize(source.cursor);
   }
 
   if (Object.hasOwn(source, "limit")) {
@@ -21,7 +20,7 @@ function normalizeCursorPaginationQuery(input = {}) {
 const cursorPaginationQueryValidator = Object.freeze({
   schema: Type.Object(
     {
-      cursor: Type.Optional(positiveIntegerValidator.schema),
+      cursor: Type.Optional(recordIdInputSchema),
       limit: Type.Optional(positiveIntegerValidator.schema)
     },
     { additionalProperties: false }

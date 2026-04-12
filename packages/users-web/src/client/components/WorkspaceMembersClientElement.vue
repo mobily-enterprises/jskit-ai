@@ -21,6 +21,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
 import { useCommand } from "../composables/useCommand.js";
 import { useList } from "../composables/records/useList.js";
@@ -61,8 +62,8 @@ const collections = reactive({
 const inviteFeedback = useUiFeedback();
 const membersFeedback = useUiFeedback();
 const teamFeedback = useUiFeedback();
-const revokeInviteId = ref(0);
-const removeMemberUserId = ref(0);
+const revokeInviteId = ref("");
+const removeMemberUserId = ref("");
 
 const { route, currentSurfaceId, workspaceSlugFromRoute, mergePlacementContext } =
   useWorkspaceRouteContext();
@@ -83,7 +84,8 @@ const workspaceInvitesApiPath = computed(() =>
 );
 
 function workspaceMembersPath(memberId) {
-  return `${workspaceMembersApiPath.value}/${Number(memberId || 0)}`;
+  const normalizedMemberId = encodeURIComponent(String(memberId || "").trim());
+  return `${workspaceMembersApiPath.value}/${normalizedMemberId}`;
 }
 
 function workspaceInvitePath(inviteId) {
@@ -145,8 +147,8 @@ function resetViewState() {
   collections.members = [];
   collections.invites = [];
   clearRoleOptions();
-  revokeInviteId.value = 0;
-  removeMemberUserId.value = 0;
+  revokeInviteId.value = "";
+  removeMemberUserId.value = "";
 }
 
 function toRoleTitle(roleSid) {
@@ -223,7 +225,7 @@ function normalizeMembers(entries) {
   return source.map((entry) => {
     const value = entry && typeof entry === "object" ? entry : {};
     return {
-      userId: Number(value.userId || 0),
+      userId: normalizeRecordId(value.userId, { fallback: "" }),
       roleSid: String(value.roleSid || "").trim().toLowerCase(),
       status: String(value.status || "").trim().toLowerCase(),
       displayName: String(value.displayName || "").trim(),
@@ -238,12 +240,12 @@ function normalizeInvites(entries) {
   return source.map((entry) => {
     const value = entry && typeof entry === "object" ? entry : {};
     return {
-      id: Number(value.id || 0),
+      id: normalizeRecordId(value.id, { fallback: "" }),
       email: String(value.email || "").trim().toLowerCase(),
       roleSid: String(value.roleSid || "").trim().toLowerCase(),
       status: String(value.status || "").trim().toLowerCase(),
       expiresAt: value.expiresAt || "",
-      invitedByUserId: value.invitedByUserId == null ? null : Number(value.invitedByUserId)
+      invitedByUserId: normalizeRecordId(value.invitedByUserId, { fallback: null })
     };
   });
 }
@@ -576,7 +578,7 @@ async function submitRevokeInvite(inviteId) {
     return;
   }
 
-  revokeInviteId.value = Number(inviteId || 0);
+  revokeInviteId.value = normalizeRecordId(inviteId, { fallback: "" });
   teamFeedback.clear();
 
   try {
@@ -591,7 +593,7 @@ async function submitRevokeInvite(inviteId) {
   } catch (error) {
     teamFeedback.error(error, "Unable to revoke invite.");
   } finally {
-    revokeInviteId.value = 0;
+    revokeInviteId.value = "";
   }
 }
 
@@ -603,8 +605,8 @@ async function submitMemberRoleUpdate(member, roleSid) {
   membersFeedback.clear();
 
   try {
-    const memberUserId = Number(member?.userId || 0);
-    if (!Number.isInteger(memberUserId) || memberUserId < 1) {
+    const memberUserId = normalizeRecordId(member?.userId, { fallback: null });
+    if (!memberUserId) {
       throw new Error("Member user id is invalid.");
     }
 
@@ -630,12 +632,12 @@ async function submitRemoveMember(member) {
   membersFeedback.clear();
 
   try {
-    const memberUserId = Number(member?.userId || 0);
-    if (!Number.isInteger(memberUserId) || memberUserId < 1) {
+    const memberUserId = normalizeRecordId(member?.userId, { fallback: null });
+    if (!memberUserId) {
       throw new Error("Member user id is invalid.");
     }
 
-    removeMemberUserId.value = memberUserId;
+    removeMemberUserId.value = normalizeRecordId(memberUserId, { fallback: "" });
     await memberRemoveCommand.run({
       memberUserId
     });
@@ -647,7 +649,7 @@ async function submitRemoveMember(member) {
   } catch (error) {
     membersFeedback.error(error, "Unable to remove member.");
   } finally {
-    removeMemberUserId.value = 0;
+    removeMemberUserId.value = "";
   }
 }
 </script>

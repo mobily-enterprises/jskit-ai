@@ -1,3 +1,5 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+
 const ASSISTANT_QUERY_KEY_PREFIX = Object.freeze(["assistant"]);
 
 function normalizeSurfaceId(value) {
@@ -17,10 +19,10 @@ function normalizePositiveInteger(value, fallback) {
   return parsed;
 }
 
-function normalizeScopeKey({ targetSurfaceId = "", workspaceSlug = "", workspaceId = 0 } = {}) {
-  const normalizedWorkspaceId = normalizePositiveInteger(workspaceId, 0);
+function normalizeScopeKey({ targetSurfaceId = "", workspaceSlug = "", workspaceId = null } = {}) {
+  const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
   const normalizedSurfaceId = normalizeSurfaceId(targetSurfaceId);
-  if (normalizedWorkspaceId > 0) {
+  if (normalizedWorkspaceId) {
     return `${normalizedSurfaceId}:workspace:${normalizedWorkspaceId}`;
   }
 
@@ -38,7 +40,7 @@ function normalizeStatus(value) {
 }
 
 function normalizeConversationId(value) {
-  return String(normalizePositiveInteger(value, 0) || "none");
+  return normalizeRecordId(value, { fallback: "none" });
 }
 
 function assistantRootQueryKey() {

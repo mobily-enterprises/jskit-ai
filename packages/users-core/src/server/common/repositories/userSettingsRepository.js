@@ -1,4 +1,6 @@
 import {
+  normalizeDbRecordId,
+  normalizeRecordId,
   toIsoString,
   nowDb,
   isDuplicateEntryError
@@ -14,7 +16,7 @@ function mapRow(row) {
   }
 
   const mapped = {
-    userId: Number(row.user_id),
+    userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
     passwordSignInEnabled: row.password_sign_in_enabled == null ? true : Boolean(row.password_sign_in_enabled),
     passwordSetupRequired: row.password_setup_required == null ? false : Boolean(row.password_setup_required),
     createdAt: toIsoString(row.created_at),
@@ -45,8 +47,13 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 function createInsertPayload(userId) {
+  const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+  if (!normalizedUserId) {
+    throw new TypeError("userSettingsRepository requires a valid user id.");
+  }
+
   const payload = {
-    user_id: Number(userId),
+    user_id: normalizedUserId,
     password_sign_in_enabled: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
     password_setup_required: DEFAULT_USER_SETTINGS.passwordSetupRequired,
     created_at: nowDb(),
@@ -77,32 +84,46 @@ function createRepository(knex) {
 
   async function findByUserId(userId, options = {}) {
     const client = options?.trx || knex;
-    const row = await client("user_settings").where({ user_id: Number(userId) }).first();
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return null;
+    }
+
+    const row = await client("user_settings").where({ user_id: normalizedUserId }).first();
     return mapRow(row);
   }
 
   async function ensureForUserId(userId, options = {}) {
     const client = options?.trx || knex;
-    const numericUserId = Number(userId);
-    const existing = await findByUserId(numericUserId, { trx: client });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      throw new TypeError("userSettingsRepository.ensureForUserId requires a valid user id.");
+    }
+
+    const existing = await findByUserId(normalizedUserId, { trx: client });
     if (existing) {
       return existing;
     }
 
     try {
-      await client("user_settings").insert(createInsertPayload(numericUserId));
+      await client("user_settings").insert(createInsertPayload(normalizedUserId));
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
     }
 
-    return findByUserId(numericUserId, { trx: client });
+    return findByUserId(normalizedUserId, { trx: client });
   }
 
   async function patchUserSettings(userId, patch = {}, options = {}) {
     const client = options?.trx || knex;
-    const ensured = await ensureForUserId(userId, { trx: client });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      throw new TypeError("userSettingsRepository.patchUserSettings requires a valid user id.");
+    }
+
+    const ensured = await ensureForUserId(normalizedUserId, { trx: client });
     const source = patch && typeof patch === "object" ? patch : {};
 
     const dbPatch = {
@@ -125,8 +146,8 @@ function createRepository(knex) {
     if (Object.hasOwn(source, "passwordSetupRequired")) {
       dbPatch.password_setup_required = normalizeBoolean(source.passwordSetupRequired, ensured.passwordSetupRequired);
     }
-    await client("user_settings").where({ user_id: Number(userId) }).update(dbPatch);
-    return findByUserId(userId, { trx: client });
+    await client("user_settings").where({ user_id: normalizedUserId }).update(dbPatch);
+    return findByUserId(normalizedUserId, { trx: client });
   }
 
   async function updatePreferences(userId, patch = {}, options = {}) {

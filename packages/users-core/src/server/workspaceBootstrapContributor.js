@@ -1,4 +1,5 @@
 import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
   TENANCY_MODE_NONE,
@@ -129,7 +130,10 @@ function createWorkspaceBootstrapContributor({
   return Object.freeze({
     contributorId,
     async contribute({ request = null, query = {}, payload = {} } = {}) {
-      const normalizedUserId = Number(payload?.session?.authenticated === true ? payload?.session?.userId : 0);
+      const normalizedUserId = normalizeRecordId(
+        payload?.session?.authenticated === true ? payload?.session?.userId : null,
+        { fallback: null }
+      );
       const normalizedWorkspaceSlug = resolveBootstrapWorkspaceSlug({ query, request });
       if (!normalizedUserId) {
         if (!normalizedWorkspaceSlug || resolvedTenancyProfile.mode === TENANCY_MODE_NONE) {

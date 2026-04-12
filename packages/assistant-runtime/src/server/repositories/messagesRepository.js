@@ -1,6 +1,5 @@
-import { runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   parseJsonObject,
   resolveInsertedId,
@@ -10,7 +9,15 @@ import {
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeWorkspaceId(value) {
-  return parsePositiveInteger(value) || null;
+  return normalizeRecordId(value, { fallback: null });
+}
+
+function normalizeDbWorkspaceId(value) {
+  return normalizeDbRecordId(value, { fallback: null });
+}
+
+function normalizeInputRecordId(value) {
+  return normalizeRecordId(value, { fallback: null });
 }
 
 function applyWorkspaceScope(query, columnName, workspaceId) {
@@ -24,14 +31,14 @@ function applyWorkspaceScope(query, columnName, workspaceId) {
 
 function mapMessageRow(row = {}) {
   return {
-    id: Number(row.id),
-    conversationId: Number(row.conversation_id),
-    workspaceId: normalizeWorkspaceId(row.workspace_id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
+    conversationId: normalizeDbRecordId(row.conversation_id, { fallback: "" }),
+    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
     seq: Number(row.seq),
     role: String(row.role || ""),
     kind: String(row.kind || "chat"),
     clientMessageSid: String(row.client_message_sid || ""),
-    actorUserId: row.actor_user_id == null ? null : Number(row.actor_user_id),
+    actorUserId: row.actor_user_id == null ? null : normalizeDbRecordId(row.actor_user_id, { fallback: null }),
     contentText: row.content_text == null ? null : String(row.content_text),
     metadata: parseJsonObject(row.metadata_json),
     createdAt: toIso(row.created_at)
@@ -39,8 +46,12 @@ function mapMessageRow(row = {}) {
 }
 
 function normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {}) {
-  const page = Math.max(1, parsePositiveInteger(pagination.page) || defaultPage);
-  const pageSize = Math.max(1, Math.min(maxPageSize, parsePositiveInteger(pagination.pageSize) || defaultPageSize));
+  const rawPage = Number(pagination.page);
+  const rawPageSize = Number(pagination.pageSize);
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : defaultPage;
+  const pageSize = Number.isInteger(rawPageSize) && rawPageSize > 0
+    ? Math.max(1, Math.min(maxPageSize, rawPageSize))
+    : defaultPageSize;
 
   return {
     page,
@@ -67,14 +78,14 @@ function createRepository(knex) {
   }
 
   async function findById(messageId, options = {}) {
-    const numericMessageId = parsePositiveInteger(messageId);
-    if (!numericMessageId) {
+    const normalizedMessageId = normalizeInputRecordId(messageId);
+    if (!normalizedMessageId) {
       return null;
     }
 
     const client = options?.trx || knex;
     const row = await client(assistantRuntimeConfig.messagesTable)
-      .where({ id: numericMessageId })
+      .where({ id: normalizedMessageId })
       .first();
 
     return row ? mapMessageRow(row) : null;
@@ -82,12 +93,13 @@ function createRepository(knex) {
 
   async function create(payload = {}, options = {}) {
     const client = options?.trx || knex;
-    const conversationId = parsePositiveInteger(payload.conversationId);
+    const conversationId = normalizeInputRecordId(payload.conversationId);
     if (!conversationId) {
       throw new TypeError("messagesRepository.create requires conversationId.");
     }
 
-    const seq = parsePositiveInteger(payload.seq) || (await resolveNextSequence(client, conversationId));
+    const providedSeq = Number(payload.seq);
+    const seq = Number.isInteger(providedSeq) && providedSeq > 0 ? providedSeq : (await resolveNextSequence(client, conversationId));
     const insertResult = await client(assistantRuntimeConfig.messagesTable).insert({
       conversation_id: conversationId,
       workspace_id: normalizeWorkspaceId(payload.workspaceId),
@@ -95,7 +107,7 @@ function createRepository(knex) {
       role: normalizeText(payload.role).toLowerCase(),
       kind: normalizeText(payload.kind).toLowerCase() || "chat",
       client_message_sid: normalizeText(payload.clientMessageSid),
-      actor_user_id: parsePositiveInteger(payload.actorUserId) || null,
+      actor_user_id: normalizeInputRecordId(payload.actorUserId),
       content_text: payload.contentText == null ? null : String(payload.contentText),
       metadata_json: stringifyJsonObject(payload.metadata),
       created_at: payload.createdAt ? new Date(payload.createdAt) : new Date()
@@ -111,14 +123,14 @@ function createRepository(knex) {
   }
 
   async function countByConversationScope(conversationId, { workspaceId = null } = {}, options = {}) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) {
       return 0;
     }
 
     const client = options?.trx || knex;
     const query = client(assistantRuntimeConfig.messagesTable).where({
-      conversation_id: numericConversationId
+      conversation_id: normalizedConversationId
     });
     applyWorkspaceScope(query, "workspace_id", workspaceId);
     const row = await query.count({ total: "*" }).first();
@@ -128,8 +140,8 @@ function createRepository(knex) {
   }
 
   async function listByConversationScope(conversationId, { workspaceId = null } = {}, pagination = {}, options = {}) {
-    const numericConversationId = parsePositiveInteger(conversationId);
-    if (!numericConversationId) {
+    const normalizedConversationId = normalizeInputRecordId(conversationId);
+    if (!normalizedConversationId) {
       return [];
     }
 
@@ -138,7 +150,7 @@ function createRepository(knex) {
     const offset = (page - 1) * pageSize;
 
     const query = client(assistantRuntimeConfig.messagesTable).where({
-      conversation_id: numericConversationId
+      conversation_id: normalizedConversationId
     });
     applyWorkspaceScope(query, "workspace_id", workspaceId);
     const rows = await query

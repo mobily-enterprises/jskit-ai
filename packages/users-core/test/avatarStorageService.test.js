@@ -18,8 +18,8 @@ function createStorageDouble() {
 }
 
 test("avatarStorageService builds stable storage key by user id", () => {
-  assert.equal(__testables.buildAvatarStorageKey(7), "users/avatars/7/avatar");
-  assert.throws(() => __testables.buildAvatarStorageKey(0), /positive integer user id/);
+  assert.equal(__testables.buildAvatarStorageKey("7"), "users/avatars/7/avatar");
+  assert.throws(() => __testables.buildAvatarStorageKey("0"), /valid user id/);
 });
 
 test("avatarStorageService detects common avatar mime types", () => {
@@ -45,7 +45,7 @@ test("avatarStorageService saves, reads, and deletes avatar bytes", async () => 
   const payload = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   const saved = await avatarStorageService.saveAvatar({
-    userId: 42,
+    userId: "42",
     buffer: payload
   });
   assert.equal(saved.storageKey, "users/avatars/42/avatar");

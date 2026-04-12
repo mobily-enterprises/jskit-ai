@@ -13,6 +13,7 @@ import {
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function getOAuthProviderCatalogPayload(authService) {
   if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
@@ -194,12 +195,15 @@ function createUsersBootstrapContributor({
         const latestProfile = (await usersRepository.findById(normalizedUser.id)) || normalizedUser;
         const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
 
-        let seededConsoleOwnerUserId = 0;
+        let seededConsoleOwnerUserId = null;
         if (
           consoleService &&
           typeof consoleService.ensureInitialConsoleMember === "function"
         ) {
-          seededConsoleOwnerUserId = Number(await consoleService.ensureInitialConsoleMember(latestProfile.id));
+          seededConsoleOwnerUserId = normalizeRecordId(
+            await consoleService.ensureInitialConsoleMember(latestProfile.id),
+            { fallback: null }
+          );
         }
 
         payload = {
@@ -221,7 +225,7 @@ function createUsersBootstrapContributor({
           requestedWorkspace: null,
           permissions: [],
           surfaceAccess: {
-            consoleowner: seededConsoleOwnerUserId > 0 && seededConsoleOwnerUserId === Number(latestProfile.id)
+            consoleowner: Boolean(seededConsoleOwnerUserId) && seededConsoleOwnerUserId === String(latestProfile.id)
           },
           workspaceSettings: null,
           userSettings: mapUserSettingsBootstrap(userSettings),

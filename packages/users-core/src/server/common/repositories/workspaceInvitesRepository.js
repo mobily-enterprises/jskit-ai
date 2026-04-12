@@ -1,5 +1,8 @@
+import { resolveInsertedRecordId } from "@jskit-ai/database-runtime/shared";
 import {
   normalizeLowerText,
+  normalizeDbRecordId,
+  normalizeRecordId,
   normalizeText,
   toIsoString,
   toNullableIso,
@@ -14,13 +17,13 @@ function mapRow(row) {
   }
 
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspace_id),
+    id: normalizeDbRecordId(row.id, { fallback: "" }),
+    workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" }),
     email: normalizeLowerText(row.email),
     roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "pending") || "pending",
     tokenHash: normalizeText(row.token_hash),
-    invitedByUserId: row.invited_by_user_id == null ? null : Number(row.invited_by_user_id),
+    invitedByUserId: row.invited_by_user_id == null ? null : normalizeDbRecordId(row.invited_by_user_id, { fallback: null }),
     expiresAt: toNullableIso(row.expires_at),
     acceptedAt: toNullableIso(row.accepted_at),
     revokedAt: toNullableIso(row.revoked_at),
@@ -69,10 +72,15 @@ function createRepository(knex) {
   }
 
   async function listPendingByWorkspaceIdWithWorkspace(workspaceId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return [];
+    }
+
     const client = options?.trx || knex;
     const rows = await client("workspace_invites as wi")
       .join("workspaces as w", "w.id", "wi.workspace_id")
-      .where({ "wi.workspace_id": Number(workspaceId), "wi.status": "pending" })
+      .where({ "wi.workspace_id": normalizedWorkspaceId, "wi.status": "pending" })
       .orderBy("wi.created_at", "desc")
       .select(WORKSPACE_INVITE_WITH_WORKSPACE_SELECT);
 
@@ -82,14 +90,18 @@ function createRepository(knex) {
   async function insert(payload = {}, options = {}) {
     const client = options?.trx || knex;
     const source = payload && typeof payload === "object" ? payload : {};
+    const workspaceId = normalizeRecordId(source.workspaceId, { fallback: null });
+    if (!workspaceId) {
+      throw new TypeError("workspaceInvitesRepository.insert requires workspaceId.");
+    }
 
     const insertPayload = {
-      workspace_id: Number(source.workspaceId),
+      workspace_id: workspaceId,
       email: normalizeLowerText(source.email),
       role_sid: normalizeLowerText(source.roleSid || "member") || "member",
       status: normalizeLowerText(source.status || "pending") || "pending",
       token_hash: normalizeText(source.tokenHash),
-      invited_by_user_id: source.invitedByUserId == null ? null : Number(source.invitedByUserId),
+      invited_by_user_id: source.invitedByUserId == null ? null : normalizeRecordId(source.invitedByUserId, { fallback: null }),
       expires_at: toNullableDateTime(source.expiresAt),
       accepted_at: null,
       revoked_at: null,
@@ -99,8 +111,8 @@ function createRepository(knex) {
 
     try {
       const result = await client("workspace_invites").insert(insertPayload);
-      const insertedId = Array.isArray(result) ? Number(result[0]) : Number(result);
-      if (Number.isInteger(insertedId) && insertedId > 0) {
+      const insertedId = resolveInsertedRecordId(result, { fallback: null });
+      if (insertedId) {
         const row = await client("workspace_invites").where({ id: insertedId }).first();
         return mapRow(row);
       }
@@ -118,9 +130,14 @@ function createRepository(knex) {
   }
 
   async function expirePendingByWorkspaceIdAndEmail(workspaceId, email, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return;
+    }
+
     const client = options?.trx || knex;
     await client("workspace_invites")
-      .where({ workspace_id: Number(workspaceId), email: normalizeLowerText(email), status: "pending" })
+      .where({ workspace_id: normalizedWorkspaceId, email: normalizeLowerText(email), status: "pending" })
       .update({
         status: "expired",
         updated_at: nowDb()
@@ -128,9 +145,14 @@ function createRepository(knex) {
   }
 
   async function markAcceptedById(inviteId, options = {}) {
+    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
+    if (!normalizedInviteId) {
+      return;
+    }
+
     const client = options?.trx || knex;
     await client("workspace_invites")
-      .where({ id: Number(inviteId) })
+      .where({ id: normalizedInviteId })
       .update({
         status: "accepted",
         accepted_at: nowDb(),
@@ -139,9 +161,14 @@ function createRepository(knex) {
   }
 
   async function revokeById(inviteId, options = {}) {
+    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
+    if (!normalizedInviteId) {
+      return;
+    }
+
     const client = options?.trx || knex;
     await client("workspace_invites")
-      .where({ id: Number(inviteId) })
+      .where({ id: normalizedInviteId })
       .update({
         status: "revoked",
         revoked_at: nowDb(),
@@ -150,9 +177,15 @@ function createRepository(knex) {
   }
 
   async function findPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {
+    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedInviteId || !normalizedWorkspaceId) {
+      return null;
+    }
+
     const client = options?.trx || knex;
     const row = await client("workspace_invites")
-      .where({ id: Number(inviteId), workspace_id: Number(workspaceId), status: "pending" })
+      .where({ id: normalizedInviteId, workspace_id: normalizedWorkspaceId, status: "pending" })
       .first();
     return mapRow(row);
   }

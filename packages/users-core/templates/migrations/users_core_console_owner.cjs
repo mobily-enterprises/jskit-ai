@@ -13,7 +13,7 @@ exports.up = async function up(knex) {
   }
 
   await knex.schema.alterTable("console_settings", (table) => {
-    table.integer("owner_user_id").unsigned().nullable();
+    table.bigInteger("owner_user_id").unsigned().nullable();
   });
 };
 

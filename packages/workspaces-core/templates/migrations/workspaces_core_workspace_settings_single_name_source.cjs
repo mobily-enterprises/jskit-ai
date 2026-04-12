@@ -62,7 +62,7 @@ exports.down = async function down(knex) {
     const normalizedName = String(workspaceRow?.name || "").trim() || "Workspace";
     const normalizedAvatarUrl = String(workspaceRow?.avatar_url || "").trim();
     await knex(WORKSPACE_SETTINGS_TABLE)
-      .where({ workspace_id: Number(workspaceRow.id) })
+      .where({ workspace_id: workspaceRow.id })
       .update({
         name: normalizedName,
         avatar_url: normalizedAvatarUrl

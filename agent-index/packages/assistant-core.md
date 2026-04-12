@@ -277,7 +277,7 @@ Local functions
 - `normalizeSurfaceId(value)`
 - `normalizeWorkspaceSlug(value)`
 - `normalizePositiveInteger(value, fallback)`
-- `normalizeScopeKey({ targetSurfaceId = "", workspaceSlug = "", workspaceId = 0 } = {})`
+- `normalizeScopeKey({ targetSurfaceId = "", workspaceSlug = "", workspaceId = null } = {})`
 - `normalizeStatus(value)`
 - `normalizeConversationId(value)`
 

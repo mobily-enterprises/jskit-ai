@@ -7,7 +7,7 @@ function authorizedOptions(permissions = []) {
   return {
     context: {
       actor: {
-        id: 1
+        id: "1"
       },
       permissions
     }
@@ -40,10 +40,10 @@ function createRoleCatalog() {
 
 function createFixture() {
   const workspace = {
-    id: 7,
+    id: "7",
     slug: "tonymobily3",
     name: "TonyMobily3",
-    ownerUserId: 9,
+    ownerUserId: "9",
     avatarUrl: ""
   };
 
@@ -53,7 +53,7 @@ function createFixture() {
         assert.equal(Number(workspaceId), 7);
         return [
           {
-            userId: 11,
+            userId: "11",
             roleSid: "member",
             status: "active",
             displayName: "Alice",
@@ -65,8 +65,8 @@ function createFixture() {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
         return {
-          workspaceId: 7,
-          userId: 11,
+          workspaceId: "7",
+          userId: "11",
           roleSid: "member",
           status: "active"
         };
@@ -112,7 +112,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       async insert(payload) {
         expiresAtValues.push(payload.expiresAt);
         return {
-          id: 31
+          id: "31"
         };
       },
       async listPendingByWorkspaceIdWithWorkspace() {
@@ -130,10 +130,10 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   const before = Date.now();
   const response = await service.createInvite(
     {
-      id: 7,
-      ownerUserId: 9
+      id: "7",
+      ownerUserId: "9"
     },
-    { id: 11 },
+    { id: "11" },
     {
       email: "alice@example.com",
       roleSid: "member"
@@ -146,7 +146,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   const expiresAt = new Date(expiresAtValues[0]).getTime();
   assert.ok(expiresAt >= before + 30 * 60 * 1000);
   assert.ok(expiresAt <= after + 30 * 60 * 1000);
-  assert.equal(response.createdInviteId, 31);
+  assert.equal(response.createdInviteId, "31");
 });
 
 test("workspaceMembersService.revokeInvite returns the revoked invite id", async () => {
@@ -164,15 +164,15 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert() {
         return {
-          id: 1
+          id: "1"
         };
       },
       async findPendingByIdForWorkspace(inviteId, workspaceId) {
         assert.equal(Number(inviteId), 47);
         assert.equal(Number(workspaceId), 7);
         return {
-          id: 47,
-          workspaceId: 7,
+          id: "47",
+          workspaceId: "7",
           status: "pending"
         };
       },
@@ -186,15 +186,15 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
 
   const response = await service.revokeInvite(
     {
-      id: 7,
-      ownerUserId: 9
+      id: "7",
+      ownerUserId: "9"
     },
-    47,
+    "47",
     authorizedOptions(["workspace.invites.revoke"])
   );
 
   assert.equal(revokedInviteId, 47);
-  assert.equal(response.revokedInviteId, 47);
+  assert.equal(response.revokedInviteId, "47");
 });
 
 test("workspaceMembersService rejects invite operations when invitations are disabled", async () => {
@@ -230,8 +230,8 @@ test("workspaceMembersService rejects invite operations when invitations are dis
     () =>
       service.listInvites(
         {
-          id: 7,
-          ownerUserId: 9
+          id: "7",
+          ownerUserId: "9"
         },
         authorizedOptions(["workspace.members.view"])
       ),
@@ -245,10 +245,10 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
   const response = await service.listMembers(workspace, authorizedOptions(["workspace.members.view"]));
 
   assert.deepEqual(response.workspace, {
-    id: 7,
+    id: "7",
     slug: "tonymobily3",
     name: "TonyMobily3",
-    ownerUserId: 9,
+    ownerUserId: "9",
     avatarUrl: ""
   });
   assert.equal(response.members.length, 1);
@@ -261,7 +261,7 @@ test("workspaceMembersService.updateMemberRole returns the refreshed member list
   const response = await service.updateMemberRole(
     workspace,
     {
-      memberUserId: 11,
+      memberUserId: "11",
       roleSid: "admin"
     },
     authorizedOptions(["workspace.members.manage"])
@@ -274,10 +274,10 @@ test("workspaceMembersService.updateMemberRole returns the refreshed member list
 test("workspaceMembersService.removeMember marks membership revoked and returns refreshed members", async () => {
   let removed = false;
   const workspace = {
-    id: 7,
+    id: "7",
     slug: "tonymobily3",
     name: "TonyMobily3",
-    ownerUserId: 9,
+    ownerUserId: "9",
     avatarUrl: ""
   };
   const service = createService({
@@ -288,7 +288,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
           ? []
           : [
               {
-                userId: 11,
+                userId: "11",
                 roleSid: "member",
                 status: "active",
                 displayName: "Alice",
@@ -300,8 +300,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
         return {
-          workspaceId: 7,
-          userId: 11,
+          workspaceId: "7",
+          userId: "11",
           roleSid: "member",
           status: "active"
         };
@@ -334,7 +334,7 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
   const response = await service.removeMember(
     workspace,
     {
-      memberUserId: 11
+      memberUserId: "11"
     },
     authorizedOptions(["workspace.members.manage"])
   );
@@ -344,10 +344,10 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
 
 test("workspaceMembersService.removeMember rejects removing the owner", async () => {
   const workspace = {
-    id: 7,
+    id: "7",
     slug: "tonymobily3",
     name: "TonyMobily3",
-    ownerUserId: 9,
+    ownerUserId: "9",
     avatarUrl: ""
   };
   const service = createService({
@@ -359,8 +359,8 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 9);
         return {
-          workspaceId: 7,
-          userId: 9,
+          workspaceId: "7",
+          userId: "9",
           roleSid: "owner",
           status: "active"
         };
@@ -389,7 +389,7 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       service.removeMember(
         workspace,
         {
-          memberUserId: 9
+          memberUserId: "9"
         },
         authorizedOptions(["workspace.members.manage"])
       ),

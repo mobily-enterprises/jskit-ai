@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createService({ consoleSettingsRepository } = {}) {
   if (!consoleSettingsRepository || typeof consoleSettingsRepository.ensureOwnerUserId !== "function") {
@@ -7,7 +7,7 @@ function createService({ consoleSettingsRepository } = {}) {
   }
 
   async function ensureInitialConsoleMember(userId, options = {}) {
-    const normalizedUserId = parsePositiveInteger(userId);
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(400, "Invalid console user.");
     }
@@ -16,7 +16,7 @@ function createService({ consoleSettingsRepository } = {}) {
   }
 
   async function requireConsoleOwner(context = {}, options = {}) {
-    const actorUserId = parsePositiveInteger(context?.actor?.id);
+    const actorUserId = normalizeRecordId(context?.actor?.id, { fallback: null });
     if (!actorUserId) {
       throw new AppError(401, "Authentication required.");
     }

@@ -31,7 +31,7 @@ test("crudResource normalizes list output", () => {
     nextCursor: " 8 "
   });
 
-  assert.equal(normalized.items[0].id, 7);
+  assert.equal(normalized.items[0].id, "7");
   assert.equal(normalized.items[0].textField, "Example text");
   assert.equal(normalized.items[0].dateField, "2026-03-10T00:00:00.000Z");
   assert.equal(normalized.items[0].numberField, 99);

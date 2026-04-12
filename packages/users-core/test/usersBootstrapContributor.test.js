@@ -8,7 +8,7 @@ import {
 
 function createAuthenticatedProfile(overrides = {}) {
   return {
-    id: 7,
+    id: "7",
     authProvider: "local",
     authProviderUserSid: "user-7",
     username: "tester",
@@ -34,7 +34,7 @@ function createUserSettings() {
 }
 
 test("users bootstrap contributor seeds the initial console owner and exposes generic app payload", async () => {
-  const profile = createAuthenticatedProfile({ id: 12 });
+  const profile = createAuthenticatedProfile({ id: "12" });
   const consoleOwnerSeeds = [];
   const writtenSessions = [];
   const contributor = createUsersBootstrapContributor({
@@ -64,7 +64,7 @@ test("users bootstrap contributor seeds the initial console owner and exposes ge
     consoleService: {
       async ensureInitialConsoleMember(userId) {
         consoleOwnerSeeds.push(Number(userId));
-        return Number(userId);
+        return String(userId || "");
       }
     }
   });
@@ -92,7 +92,7 @@ test("users bootstrap contributor seeds the initial console owner and exposes ge
     csrfToken: "csrf-1"
   });
   assert.equal(payload.session.authenticated, true);
-  assert.equal(payload.session.userId, 12);
+  assert.equal(payload.session.userId, "12");
   assert.equal(payload.surfaceAccess.consoleowner, true);
   assert.equal(payload.app.features.workspaceSwitching, false);
   assert.deepEqual(payload.session.oauthProviders, [

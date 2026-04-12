@@ -95,6 +95,7 @@ Exports
 - `normalizeUniqueTextList(value, { acceptSingle = false } = {})`
 - `normalizeInteger(value, { fallback = 0, min = null, max = null } = {})`
 - `normalizePositiveInteger(value, { fallback = 0 } = {})`
+- `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
 - `ensureNonEmptyText(value, label = "value")`
@@ -271,6 +272,13 @@ Exports
 - `mergeObjectSchemas`
 - `mergeValidators`
 - `nestValidator`
+- `RECORD_ID_PATTERN`
+- `recordIdSchema`
+- `recordIdInputSchema`
+- `nullableRecordIdSchema`
+- `nullableRecordIdInputSchema`
+- `recordIdValidator`
+- `nullableRecordIdValidator`
 - `recordIdParamsValidator`
 - `positiveIntegerValidator`
 - `normalizeSettingsFieldInput`
@@ -302,10 +310,15 @@ Local functions
 
 ### `validators/recordIdParamsValidator.js`
 Exports
+- `RECORD_ID_PATTERN`
+- `recordIdSchema`
+- `recordIdInputSchema`
+- `nullableRecordIdSchema`
+- `nullableRecordIdInputSchema`
+- `recordIdValidator`
+- `nullableRecordIdValidator`
 - `recordIdParamsValidator`
 - `positiveIntegerValidator`
-Local functions
-- `normalizeRecordId(value)`
 
 ### `validators/resourceRequiredMetadata.js`
 Exports

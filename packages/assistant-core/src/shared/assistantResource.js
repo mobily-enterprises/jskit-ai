@@ -1,9 +1,12 @@
 import { Type } from "typebox";
 import {
   normalizeObjectInput,
-  createCursorListValidator
+  createCursorListValidator,
+  recordIdSchema,
+  recordIdInputSchema,
+  nullableRecordIdSchema
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeConversationStatus } from "./support/conversationStatus.js";
 import { toPositiveInteger } from "./support/positiveInteger.js";
 
@@ -24,8 +27,8 @@ function normalizeChatStreamBody(payload = {}) {
     input: normalizeText(source.input)
   };
 
-  const conversationId = toPositiveInteger(source.conversationId, 0);
-  if (conversationId > 0) {
+  const conversationId = normalizeRecordId(source.conversationId, { fallback: null });
+  if (conversationId) {
     normalized.conversationId = conversationId;
   }
 
@@ -70,7 +73,7 @@ function normalizeConversationsListQuery(payload = {}) {
   const normalized = {};
 
   if (Object.hasOwn(source, "cursor")) {
-    normalized.cursor = toPositiveInteger(source.cursor, 0);
+    normalized.cursor = normalizeRecordId(source.cursor, { fallback: "" });
   }
   if (Object.hasOwn(source, "limit")) {
     normalized.limit = toPositiveInteger(source.limit, 0);
@@ -94,7 +97,7 @@ function normalizeConversationMessagesQuery(payload = {}) {
 function normalizeConversationMessagesParams(payload = {}) {
   const source = normalizeObjectInput(payload);
   return {
-    conversationId: toPositiveInteger(source.conversationId, 0)
+    conversationId: normalizeRecordId(source.conversationId, { fallback: "" })
   };
 }
 
@@ -115,10 +118,10 @@ function normalizeConversationRecord(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
-    id: toPositiveInteger(source.id, 0),
-    workspaceId: toPositiveInteger(source.workspaceId, 0) || null,
+    id: normalizeRecordId(source.id, { fallback: "" }),
+    workspaceId: normalizeRecordId(source.workspaceId, { fallback: null }),
     title: normalizeText(source.title),
-    createdByUserId: toPositiveInteger(source.createdByUserId, 0) || null,
+    createdByUserId: normalizeRecordId(source.createdByUserId, { fallback: null }),
     status: normalizeText(source.status),
     provider: normalizeText(source.provider),
     model: normalizeText(source.model),
@@ -136,14 +139,14 @@ function normalizeConversationMessageRecord(payload = {}) {
   const source = normalizeObjectInput(payload);
 
   return {
-    id: toPositiveInteger(source.id, 0),
-    conversationId: toPositiveInteger(source.conversationId, 0),
-    workspaceId: toPositiveInteger(source.workspaceId, 0) || null,
+    id: normalizeRecordId(source.id, { fallback: "" }),
+    conversationId: normalizeRecordId(source.conversationId, { fallback: "" }),
+    workspaceId: normalizeRecordId(source.workspaceId, { fallback: null }),
     seq: toPositiveInteger(source.seq, 0),
     role: normalizeText(source.role),
     kind: normalizeText(source.kind),
     clientMessageSid: normalizeText(source.clientMessageSid),
-    actorUserId: toPositiveInteger(source.actorUserId, 0) || null,
+    actorUserId: normalizeRecordId(source.actorUserId, { fallback: null }),
     contentText: source.contentText == null ? null : String(source.contentText),
     metadata: normalizeObjectInput(source.metadata),
     createdAt: normalizeText(source.createdAt)
@@ -161,7 +164,7 @@ const historyMessageSchema = Type.Object(
 const chatStreamBodySchema = Type.Object(
   {
     messageId: Type.String({ minLength: 1, maxLength: 128 }),
-    conversationId: Type.Optional(Type.Integer({ minimum: 1 })),
+    conversationId: Type.Optional(recordIdInputSchema),
     input: Type.String({ minLength: 1, maxLength: MAX_INPUT_CHARS }),
     history: Type.Optional(Type.Array(historyMessageSchema, { maxItems: MAX_HISTORY_MESSAGES })),
     clientContext: Type.Optional(
@@ -181,10 +184,10 @@ const chatStreamBodySchema = Type.Object(
 
 const conversationRecordSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
-    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    id: recordIdSchema,
+    workspaceId: nullableRecordIdSchema,
     title: Type.String(),
-    createdByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    createdByUserId: nullableRecordIdSchema,
     status: Type.String(),
     provider: Type.String(),
     model: Type.String(),
@@ -206,14 +209,14 @@ const conversationRecordValidator = Object.freeze({
 
 const messageRecordSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
-    conversationId: Type.Integer({ minimum: 1 }),
-    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    id: recordIdSchema,
+    conversationId: recordIdSchema,
+    workspaceId: nullableRecordIdSchema,
     seq: Type.Integer({ minimum: 1 }),
     role: Type.String({ minLength: 1 }),
     kind: Type.String({ minLength: 1 }),
     clientMessageSid: Type.String(),
-    actorUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    actorUserId: nullableRecordIdSchema,
     contentText: Type.Union([Type.String(), Type.Null()]),
     metadata: Type.Record(Type.String(), Type.Unknown()),
     createdAt: Type.String({ minLength: 1 })
@@ -243,7 +246,7 @@ const assistantResource = Object.freeze({
       queryValidator: Object.freeze({
         schema: Type.Object(
           {
-            cursor: createOptionalPositiveIntegerQuerySchema(),
+            cursor: Type.Optional(recordIdInputSchema),
             limit: createOptionalPositiveIntegerQuerySchema(MAX_PAGE_SIZE),
             status: Type.Optional(Type.String({ minLength: 1, maxLength: 32 }))
           },
@@ -258,10 +261,7 @@ const assistantResource = Object.freeze({
       paramsValidator: Object.freeze({
         schema: Type.Object(
           {
-            conversationId: Type.Union([
-              Type.Integer({ minimum: 1 }),
-              Type.String({ pattern: "^[1-9][0-9]*$" })
-            ])
+            conversationId: recordIdInputSchema
           },
           { additionalProperties: false }
         ),

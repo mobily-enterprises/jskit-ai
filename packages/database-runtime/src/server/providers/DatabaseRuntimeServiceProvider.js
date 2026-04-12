@@ -5,7 +5,7 @@ import {
   normalizeDatabaseClient,
   toKnexClientId
 } from "../../shared/databaseClient.js";
-import { resolveDatabaseConnectionFromEnvironment } from "../../shared/databaseConnection.js";
+import { resolveKnexConnectionFromEnvironment } from "../../shared/databaseConnection.js";
 
 const DATABASE_RUNTIME_SERVER_API = Object.freeze({
   ...databaseRuntime
@@ -120,7 +120,8 @@ function createKnexConfig(scope) {
 
   const client = toKnexClientId(dialectId);
   const defaultPort = dialectId === "pg" ? 5432 : 3306;
-  const connection = resolveDatabaseConnectionFromEnvironment(env, {
+  const connection = resolveKnexConnectionFromEnvironment(env, {
+    client: dialectId,
     defaultPort,
     context: "database runtime"
   });

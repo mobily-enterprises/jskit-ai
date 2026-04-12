@@ -118,9 +118,9 @@ test("workspace settings output normalizes raw service payloads", () => {
 
   assert.deepEqual(normalized, {
     workspace: {
-      id: 7,
+      id: "7",
       slug: "mercury",
-      ownerUserId: 9
+      ownerUserId: "9"
     },
     settings: {
       lightPrimaryColor: "#0F6B54",
