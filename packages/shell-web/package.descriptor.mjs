@@ -30,7 +30,7 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./client",
-          summary: "Exports shell layout/outlet/error-host components and ShellWebClientProvider."
+          summary: "Exports shell layout/outlet/outlet-menu/error-host components and ShellWebClientProvider."
         },
         {
           subpath: "./client/placement",
@@ -92,6 +92,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@mdi/js": "^7.4.47",
         "@tanstack/vue-query": "^5.90.5",
         "@jskit-ai/kernel": "0.1.33",
         "vuetify": "^4.0.0"

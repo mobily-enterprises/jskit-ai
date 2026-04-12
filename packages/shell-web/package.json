@@ -12,11 +12,13 @@
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
+    "./client/components/ShellOutletMenuWidget": "./src/client/components/ShellOutletMenuWidget.vue",
     "./client/components/ShellErrorHost": "./src/client/components/ShellErrorHost.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js"
   },
   "dependencies": {
+    "@mdi/js": "^7.4.47",
     "@tanstack/vue-query": "^5.90.5",
     "@jskit-ai/kernel": "0.1.33",
     "vuetify": "^4.0.0"

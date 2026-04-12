@@ -41,6 +41,10 @@ Local functions
 - `onAvatarReplace()`
 - `onAvatarRemove()`
 
+### `src/client/components/UsersHomeToolsWidget.vue`
+Exports
+- None
+
 ### `src/client/components/UsersProfileSurfaceSwitchMenuItem.vue`
 Exports
 - None

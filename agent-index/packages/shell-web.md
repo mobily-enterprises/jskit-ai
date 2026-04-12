@@ -33,6 +33,10 @@ Exports
 Exports
 - None
 
+### `src/client/components/ShellOutletMenuWidget.vue`
+Exports
+- None
+
 ### `src/client/composables/useShellLayoutState.js`
 Exports
 - `useShellLayoutState(props = {})`
@@ -98,6 +102,7 @@ Exports
 - `ShellWebClientProvider`
 - `ShellLayout`
 - `ShellOutlet`
+- `ShellOutletMenuWidget`
 - `ShellErrorHost`
 - `useShellLayoutState`
 - `clientProviders`

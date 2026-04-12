@@ -98,6 +98,7 @@ export default Object.freeze({
           "users.web.shell.menu-link-item",
           "users.web.shell.surface-aware-menu-link-item",
           "users.web.profile.menu.surface-switch-item",
+          "users.web.home.tools.widget",
           "users.web.profile.element",
           "users.web.bootstrap-placement.runtime"
         ]
@@ -106,6 +107,12 @@ export default Object.freeze({
     ui: {
       placements: {
         outlets: [
+          {
+            host: "home-tools",
+            position: "primary-menu",
+            surfaces: ["home"],
+            source: "src/client/components/UsersHomeToolsWidget.vue"
+          },
           {
             host: "console-settings",
             position: "primary-menu",
@@ -135,6 +142,16 @@ export default Object.freeze({
             source: "mutations.text#users-web-profile-settings-placement"
           },
           {
+            id: "users.home.menu.home",
+            host: "shell-layout",
+            position: "primary-menu",
+            surfaces: ["*"],
+            order: 50,
+            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-home-shell-menu-placement"
+          },
+          {
             id: "users.console.menu.settings",
             host: "shell-layout",
             position: "primary-menu",
@@ -143,6 +160,36 @@ export default Object.freeze({
             componentToken: "users.web.shell.menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-console-settings-placement"
+          },
+          {
+            id: "users.home.tools.widget",
+            host: "shell-layout",
+            position: "top-right",
+            surfaces: ["home"],
+            order: 900,
+            componentToken: "users.web.home.tools.widget",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-home-tools-placement"
+          },
+          {
+            id: "users.home.menu.settings",
+            host: "home-tools",
+            position: "primary-menu",
+            surfaces: ["home"],
+            order: 100,
+            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-home-tools-placement"
+          },
+          {
+            id: "users.home.settings.general",
+            host: "home-settings",
+            position: "primary-menu",
+            surfaces: ["home"],
+            order: 100,
+            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#users-web-home-settings-general-placement"
           }
         ]
       }
@@ -269,12 +316,45 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
+        skipIfContains: "id: \"users.home.menu.home\"",
+        value:
+          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web home shell menu placement into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-home-shell-menu-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
         skipIfContains: "id: \"users.console.menu.settings\"",
         value:
           "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.home.tools.widget\"",
+        value:
+          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  host: \"home-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-home-tools-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.home.settings.general\"",
+        value:
+          "\naddPlacement({\n  id: \"users.home.settings.general\",\n  host: \"home-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+        reason: "Append users-web home settings general-page placement into app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-home-settings-general-placement"
       }
     ]
   }
