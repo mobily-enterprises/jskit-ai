@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.41",
+  version: "0.1.42",
   kind: "generator",
   description: "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
   options: {
@@ -19,8 +19,7 @@ export default Object.freeze({
       inputType: "text",
       validationType: "enabled-surface-id",
       defaultValue: "",
-      promptLabel: "Settings surface",
-      promptHint: "Enabled settings host surface id used by assistant setup.",
+      promptLabel: "Which enabled surface should host the assistant settings UI?",
       helpHint: "Surface that hosts the settings UI for the selected assistant runtime."
     },
     "config-scope": {
@@ -69,7 +68,7 @@ export default Object.freeze({
     "ai-config-prefix": {
       required: false,
       inputType: "text",
-      defaultValue: "",
+      defaultFromOptionTemplate: "${option:surface|snake|upper}_ASSISTANT",
       promptLabel: "AI config prefix",
       promptHint: "Optional env/config prefix override. Defaults to <SURFACE>_ASSISTANT."
     },
@@ -87,8 +86,7 @@ export default Object.freeze({
       promptHint: "Leave empty to keep the assistant disabled until you add a key."
     },
     "ai-base-url": {
-      required: true,
-      allowEmpty: true,
+      required: false,
       defaultValue: "",
       promptLabel: "AI base URL",
       promptHint: "Optional provider-compatible base URL override."
@@ -289,19 +287,40 @@ export default Object.freeze({
         }
       },
       {
-        op: "append-text",
         file: ".env",
-        position: "bottom",
-        skipIfContains: "__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=",
-        value:
-          "\n__ASSISTANT_AI_CONFIG_PREFIX___AI_PROVIDER=${option:ai-provider}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_API_KEY=${option:ai-api-key}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_BASE_URL=${option:ai-base-url}\n__ASSISTANT_AI_CONFIG_PREFIX___AI_TIMEOUT_MS=${option:ai-timeout-ms}\n",
-        reason: "Append assistant AI env defaults for the generated surface prefix.",
+        op: "upsert-env",
+        key: "${option:ai-config-prefix}_AI_PROVIDER",
+        value: "${option:ai-provider}",
+        reason: "Configure the assistant AI provider for the selected surface.",
         category: "runtime-config",
-        id: "assistant-ai-prefixed-env",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
+        id: "assistant-ai-provider"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "${option:ai-config-prefix}_AI_API_KEY",
+        value: "${option:ai-api-key}",
+        reason: "Configure the assistant AI API key for the selected surface.",
+        category: "runtime-config",
+        id: "assistant-ai-api-key"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "${option:ai-config-prefix}_AI_BASE_URL",
+        value: "${option:ai-base-url}",
+        reason: "Configure the optional assistant AI base URL override for the selected surface.",
+        category: "runtime-config",
+        id: "assistant-ai-base-url"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "${option:ai-config-prefix}_AI_TIMEOUT_MS",
+        value: "${option:ai-timeout-ms}",
+        reason: "Configure the assistant AI timeout for the selected surface.",
+        category: "runtime-config",
+        id: "assistant-ai-timeout-ms"
       }
     ]
   }

@@ -7,7 +7,8 @@ import {
   toIsoString,
   toNullableDateTime,
   toNullableIso,
-  nowDb
+  nowDb,
+  createWithTransaction
 } from "./repositoryUtils.js";
 
 const USERNAME_MAX_LENGTH = 120;
@@ -110,6 +111,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("usersRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findById(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
@@ -253,6 +255,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findById,
     findByIdentity,
     updateDisplayNameById,

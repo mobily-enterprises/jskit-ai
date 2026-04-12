@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.40",
+  version: "0.1.41",
   kind: "generator",
   description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
@@ -148,13 +148,13 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.31",
-        "@jskit-ai/crud-core": "0.1.40",
-        "@jskit-ai/database-runtime": "0.1.32",
-        "@jskit-ai/http-runtime": "0.1.31",
-        "@jskit-ai/kernel": "0.1.32",
-        "@jskit-ai/realtime": "0.1.31",
-        "@jskit-ai/users-core": "0.1.42",
+        "@jskit-ai/auth-core": "0.1.32",
+        "@jskit-ai/crud-core": "0.1.41",
+        "@jskit-ai/database-runtime": "0.1.33",
+        "@jskit-ai/http-runtime": "0.1.32",
+        "@jskit-ai/kernel": "0.1.33",
+        "@jskit-ai/realtime": "0.1.32",
+        "@jskit-ai/users-core": "0.1.43",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
         "typebox": "^1.0.81"
       },
@@ -216,6 +216,17 @@ export default Object.freeze({
         reason: "Install app-local CRUD action IDs.",
         category: "crud",
         id: "crud-local-package-server-action-ids-${option:namespace|snake}"
+      },
+      {
+        from: "templates/src/local-package/server/listConfig.js",
+        to: "packages/${option:namespace|kebab}/src/server/listConfig.js",
+        reason: "Install app-local CRUD list configuration.",
+        category: "crud",
+        id: "crud-local-package-server-list-config-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/registerRoutes.js",

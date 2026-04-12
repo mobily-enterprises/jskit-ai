@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.47",
+  version: "0.1.48",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared shell link components.",
   dependsOn: [
@@ -153,12 +153,12 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.31",
-        "@jskit-ai/realtime": "0.1.31",
-        "@jskit-ai/kernel": "0.1.32",
-        "@jskit-ai/shell-web": "0.1.31",
-        "@jskit-ai/uploads-image-web": "0.1.10",
-        "@jskit-ai/users-core": "0.1.42",
+        "@jskit-ai/http-runtime": "0.1.32",
+        "@jskit-ai/realtime": "0.1.32",
+        "@jskit-ai/kernel": "0.1.33",
+        "@jskit-ai/shell-web": "0.1.32",
+        "@jskit-ai/uploads-image-web": "0.1.11",
+        "@jskit-ai/users-core": "0.1.43",
         vuetify: "^4.0.0"
       },
       dev: {}

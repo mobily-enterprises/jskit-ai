@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,6 +9,6 @@
     "./server/WorkspacesCoreServiceProvider": "./src/server/WorkspacesCoreServiceProvider.js"
   },
   "dependencies": {
-    "@jskit-ai/users-core": "0.1.42"
+    "@jskit-ai/users-core": "0.1.43"
   }
 }

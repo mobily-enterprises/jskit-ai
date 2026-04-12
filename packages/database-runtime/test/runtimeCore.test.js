@@ -5,7 +5,8 @@ import {
   BaseRepository,
   buildPaginationMeta,
   createTransactionManager,
-  registerDatabaseRuntime
+  createWithTransaction,
+  registerDatabaseRuntime,
 } from "../src/shared/index.js";
 
 function createKnexStub() {
@@ -71,6 +72,15 @@ test("base repository withTransaction delegates to transaction manager", async (
   const repo = new BaseRepository({ knex, transactionManager });
 
   const result = await repo.withTransaction(async (trx) => ({ id: trx.trxId }));
+  assert.deepEqual(result, { id: "trx-1" });
+});
+
+test("createWithTransaction creates a reusable withTransaction function", async () => {
+  const knex = Object.assign(() => {
+    throw new Error("query execution not expected");
+  }, createKnexStub());
+  const withTransaction = createWithTransaction(knex);
+  const result = await withTransaction(async (trx) => ({ id: trx.trxId }));
   assert.deepEqual(result, { id: "trx-1" });
 });
 

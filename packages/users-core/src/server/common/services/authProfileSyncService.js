@@ -61,6 +61,9 @@ function createService({ usersRepository, workspaceProvisioningService = null, u
   if (typeof usersRepository.upsert !== "function") {
     throw new Error("authProfileSyncService requires usersRepository.upsert().");
   }
+  if (typeof usersRepository.withTransaction !== "function") {
+    throw new Error("authProfileSyncService requires usersRepository.withTransaction().");
+  }
   if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
     throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
   }

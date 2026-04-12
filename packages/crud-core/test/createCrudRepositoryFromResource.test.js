@@ -614,6 +614,22 @@ test("createCrudRepositoryFromResource createRepository requires knex", () => {
   );
 });
 
+test("createCrudRepositoryFromResource adds withTransaction to repository instances", async () => {
+  const createRepository = createCrudRepositoryFromResource(createResourceFixture());
+  const knex = Object.assign(() => {
+    throw new Error("query execution not expected");
+  }, {
+    async transaction(work) {
+      return work({ trxId: "trx-1" });
+    }
+  });
+
+  const repository = createRepository(knex);
+  assert.equal(typeof repository.withTransaction, "function");
+  const result = await repository.withTransaction(async (trx) => ({ id: trx.trxId }));
+  assert.deepEqual(result, { id: "trx-1" });
+});
+
 test("createCrudRepositoryFromResource allows list tuning through list config", async () => {
   const createRepository = createCrudRepositoryFromResource(createResourceFixture(), {
     list: {

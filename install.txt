@@ -26,10 +26,10 @@ drop table  users                 ;
 
 # WORKSPACE APP
 
-export __APP=swayatlas
 
 // npx @jskit-ai/create-app "$__APP" --title "$__APP" --target . --tenancy-mode personal --force
 
+export __APP=beepollen
 ../jskit-ai/tooling/create-app/bin/jskit-create-app.js \
   "$__APP" \
   --tenancy-mode personal \

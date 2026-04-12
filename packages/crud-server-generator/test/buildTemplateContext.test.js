@@ -29,12 +29,16 @@ function createSnapshot({
           maxLength: null,
           numericPrecision: null,
           numericScale: null,
+          datetimePrecision: null,
+          characterSetName: "",
+          collationName: "",
           enumValues: Object.freeze([])
         })
       ]
     : [];
   return Object.freeze({
     tableName,
+    tableCollation: "utf8mb4_general_ci",
     idColumn: "id",
     primaryKeyColumns: Object.freeze(["id"]),
     hasWorkspaceIdColumn,
@@ -55,6 +59,9 @@ function createSnapshot({
         maxLength: null,
         numericPrecision: 10,
         numericScale: 0,
+        datetimePrecision: null,
+        characterSetName: "",
+        collationName: "",
         enumValues: Object.freeze([])
       }),
       Object.freeze({
@@ -72,6 +79,9 @@ function createSnapshot({
         maxLength: null,
         numericPrecision: 10,
         numericScale: 0,
+        datetimePrecision: null,
+        characterSetName: "",
+        collationName: "",
         enumValues: Object.freeze([])
       }),
       Object.freeze({
@@ -89,6 +99,9 @@ function createSnapshot({
         maxLength: null,
         numericPrecision: 10,
         numericScale: 0,
+        datetimePrecision: null,
+        characterSetName: "",
+        collationName: "",
         enumValues: Object.freeze([])
       }),
       Object.freeze({
@@ -106,6 +119,9 @@ function createSnapshot({
         maxLength: 160,
         numericPrecision: null,
         numericScale: null,
+        datetimePrecision: null,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_general_ci",
         enumValues: Object.freeze([])
       }),
       ...createdAtColumn,
@@ -124,11 +140,15 @@ function createSnapshot({
         maxLength: null,
         numericPrecision: null,
         numericScale: null,
+        datetimePrecision: null,
+        characterSetName: "",
+        collationName: "",
         enumValues: Object.freeze([])
       })
     ]),
     indexes: Object.freeze([]),
-    foreignKeys: Object.freeze([])
+    foreignKeys: Object.freeze([]),
+    checkConstraints: Object.freeze([])
   });
 }
 
@@ -396,6 +416,140 @@ test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
   );
 
   assert.equal(line.includes(".defaultTo("), false);
+});
+
+test("renderMigrationColumnLine unwraps quoted string defaults", () => {
+  const stringLine = __testables.renderMigrationColumnLine({
+    name: "name",
+    dataType: "varchar",
+    columnType: "varchar(255)",
+    typeKind: "string",
+    nullable: false,
+    hasDefault: true,
+    defaultValue: "''",
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: 255,
+    numericPrecision: null,
+    numericScale: null,
+    datetimePrecision: null,
+    characterSetName: "utf8mb4",
+    collationName: "utf8mb4_general_ci",
+    enumValues: []
+  });
+  const enumLine = __testables.renderMigrationColumnLine({
+    name: "temperament",
+    dataType: "enum",
+    columnType: "enum('friendly','unknown')",
+    typeKind: "string",
+    nullable: false,
+    hasDefault: true,
+    defaultValue: "'unknown'",
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null,
+    datetimePrecision: null,
+    characterSetName: "utf8mb4",
+    collationName: "utf8mb4_general_ci",
+    enumValues: ["friendly", "unknown"]
+  });
+
+  assert.match(stringLine, /\.defaultTo\(""\)/);
+  assert.match(enumLine, /\.defaultTo\("unknown"\)/);
+});
+
+test("renderMigrationColumnLine preserves datetime precision", () => {
+  const line = __testables.renderMigrationColumnLine({
+    name: "deleted_at",
+    dataType: "datetime",
+    columnType: "datetime(3)",
+    typeKind: "datetime",
+    nullable: true,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null,
+    datetimePrecision: 3,
+    characterSetName: "",
+    collationName: "",
+    enumValues: []
+  });
+
+  assert.match(line, /table\.dateTime\("deleted_at", \{ precision: 3 \}\)/);
+});
+
+test("buildReplacementsFromSnapshot preserves custom collations, hash unique indexes, and check constraints", () => {
+  const snapshot = createSnapshot({
+    tableName: "services",
+    hasWorkspaceIdColumn: true,
+    hasUserIdColumn: false
+  });
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    snapshot: {
+      ...snapshot,
+      columns: Object.freeze([
+        snapshot.columns[0],
+        snapshot.columns[1],
+        Object.freeze({
+          name: "settings_json",
+          key: "settingsJson",
+          dataType: "longtext",
+          columnType: "longtext",
+          typeKind: "string",
+          nullable: true,
+          hasDefault: false,
+          defaultValue: null,
+          autoIncrement: false,
+          unsigned: false,
+          extra: "",
+          maxLength: null,
+          numericPrecision: null,
+          numericScale: null,
+          datetimePrecision: null,
+          characterSetName: "utf8mb4",
+          collationName: "utf8mb4_bin",
+          enumValues: Object.freeze([])
+        })
+      ]),
+      indexes: Object.freeze([
+        Object.freeze({
+          name: "uq_services_workspace_settings",
+          unique: true,
+          indexType: "HASH",
+          columns: Object.freeze(["workspace_id", "settings_json"])
+        })
+      ]),
+      foreignKeys: Object.freeze([]),
+      checkConstraints: Object.freeze([
+        Object.freeze({
+          name: "settings_json",
+          clause: "json_valid(`settings_json`)"
+        })
+      ])
+    },
+    resolvedOwnershipFilter: "workspace"
+  });
+
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__,
+    /table\.specificType\("settings_json", "longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin"\)/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_INDEX_LINES__,
+    /storageEngineIndexType: "hash"/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_CHECK_CONSTRAINT_LINES__,
+    /ALTER TABLE `services` ADD CONSTRAINT `settings_json` CHECK \(json_valid\(`settings_json`\)\)/
+  );
 });
 
 test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without invalid date errors", () => {

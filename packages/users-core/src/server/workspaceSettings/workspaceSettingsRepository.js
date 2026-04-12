@@ -3,7 +3,8 @@ import {
   normalizeRecordId,
   toIsoString,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  createWithTransaction
 } from "../common/repositories/repositoryUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
@@ -34,6 +35,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
   if (typeof knex !== "function") {
     throw new TypeError("workspaceSettingsRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   function mapRow(row) {
     if (!row) {
@@ -142,6 +144,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
   }
 
   return Object.freeze({
+    withTransaction,
     findByWorkspaceId,
     ensureForWorkspaceId,
     updateSettingsByWorkspaceId

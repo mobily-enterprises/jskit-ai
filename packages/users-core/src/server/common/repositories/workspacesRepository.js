@@ -7,7 +7,8 @@ import {
   toIsoString,
   toNullableIso,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  createWithTransaction
 } from "./repositoryUtils.js";
 
 function mapRow(row) {
@@ -44,6 +45,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspacesRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   function workspaceSelectColumns({ includeMembership = false } = {}) {
     const columns = [
@@ -187,6 +189,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findById,
     findBySlug,
     findPersonalByOwnerUserId,

@@ -116,6 +116,9 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
       },
       async upsert() {
         return null;
+      },
+      async withTransaction(work) {
+        return work({ trxId: "tx-3" });
       }
     },
     userSettingsRepository: {

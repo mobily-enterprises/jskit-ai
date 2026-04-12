@@ -3,7 +3,8 @@ import {
   normalizeRecordId,
   toIsoString,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  createWithTransaction
 } from "./repositoryUtils.js";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 import {
@@ -81,6 +82,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("userSettingsRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findByUserId(userId, options = {}) {
     const client = options?.trx || knex;
@@ -176,6 +178,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findByUserId,
     ensureForUserId,
     patchUserSettings,

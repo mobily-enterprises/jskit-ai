@@ -2,7 +2,8 @@ import {
   normalizeDbRecordId,
   toInsertDateTime,
   toNullableDateTime,
-  toIsoString
+  toIsoString,
+  createWithTransaction
 } from "@jskit-ai/database-runtime/shared";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -53,5 +54,6 @@ export {
   toNullableIso,
   uniqueSorted,
   parseJson,
-  toDbJson
+  toDbJson,
+  createWithTransaction
 };

@@ -113,6 +113,81 @@ test("add package accepts explicit empty value for required allowEmpty option", 
   });
 });
 
+test("add package accepts shell-style empty-string token for required allowEmpty option", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "allow-empty-required-token");
+    await createMinimalApp(appRoot, { name: "allow-empty-required-token" });
+    await createMinimalPackage({
+      appRoot,
+      packageId: "@demo/allow-empty-required-token",
+      optionsSource: `{
+    "redis-url": {
+      required: true,
+      allowEmpty: true,
+      defaultValue: ""
+    }
+  }`
+    });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/allow-empty-required-token", "--redis-url", ""]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const envSource = await readFile(path.join(appRoot, ".env"), "utf8");
+    assert.match(envSource, /^REDIS_URL=$/m);
+  });
+});
+
+test("add package interpolates upsert-env keys before writing .env", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "interpolated-upsert-env-key");
+    await createMinimalApp(appRoot, { name: "interpolated-upsert-env-key" });
+    await createMinimalPackage({
+      appRoot,
+      packageId: "@demo/interpolated-upsert-env-key",
+      optionsSource: `{
+    "env-prefix": {
+      required: true,
+      defaultValue: "HOME_ASSISTANT"
+    },
+    "redis-url": {
+      required: true,
+      allowEmpty: true,
+      defaultValue: ""
+    }
+  }`
+    });
+
+    const descriptorPath = path.join(appRoot, 'packages', 'interpolated-upsert-env-key', 'package.descriptor.mjs');
+    const descriptorSource = await readFile(descriptorPath, 'utf8');
+    await writeFile(
+      descriptorPath,
+      descriptorSource.replace('key: "REDIS_URL"', 'key: "${option:env-prefix}_REDIS_URL"'),
+      'utf8'
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        'add',
+        'package',
+        '@demo/interpolated-upsert-env-key',
+        '--env-prefix',
+        'HOME_ASSISTANT',
+        '--redis-url',
+        ''
+      ]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ''));
+
+    const envSource = await readFile(path.join(appRoot, '.env'), 'utf8');
+    assert.match(envSource, /^HOME_ASSISTANT_REDIS_URL=$/m);
+    assert.doesNotMatch(envSource, /\$\{option:env-prefix\}_REDIS_URL=/);
+  });
+});
+
 test("add package rejects explicit empty value for required non-empty option", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "required-non-empty");

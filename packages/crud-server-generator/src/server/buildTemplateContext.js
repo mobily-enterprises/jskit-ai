@@ -630,10 +630,51 @@ function renderMigrationDefaultClause(column) {
     }
   }
 
+  if (column.typeKind === "string" && normalized.startsWith("'") && normalized.endsWith("'")) {
+    const unquoted = normalized
+      .slice(1, -1)
+      .replace(/\\'/g, "'")
+      .replace(/''/g, "'");
+    return `.defaultTo(${JSON.stringify(unquoted)})`;
+  }
+
   return `.defaultTo(${JSON.stringify(rawDefault)})`;
 }
 
-function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [], foreignKeyColumnNames = new Set() } = {}) {
+function renderMigrationSpecificStringType(column, { tableCollation = "" } = {}) {
+  const baseType = normalizeText(column?.columnType);
+  if (!baseType) {
+    return "";
+  }
+
+  const characterSetName = normalizeText(column?.characterSetName);
+  const collationName = normalizeText(column?.collationName);
+  const normalizedTableCollation = normalizeText(tableCollation);
+  if (!collationName || collationName === normalizedTableCollation) {
+    return "";
+  }
+
+  const parts = [baseType];
+  if (characterSetName) {
+    parts.push(`CHARACTER SET ${characterSetName}`);
+  }
+  parts.push(`COLLATE ${collationName}`);
+  return parts.join(" ");
+}
+
+function renderTemporalColumnBuilder(column, methodName) {
+  if (Number.isFinite(column?.datetimePrecision) && column.datetimePrecision > 0) {
+    return `table.${methodName}(${JSON.stringify(column.name)}, { precision: ${column.datetimePrecision} })`;
+  }
+  return `table.${methodName}(${JSON.stringify(column.name)})`;
+}
+
+function renderMigrationColumnLine(column, {
+  idColumn = DEFAULT_ID_COLUMN,
+  primaryKeyColumns = [],
+  foreignKeyColumnNames = new Set(),
+  tableCollation = ""
+} = {}) {
   const isPrimary = Array.isArray(primaryKeyColumns) && primaryKeyColumns.includes(column.name);
   const isIdColumn = column.name === idColumn;
   const isRecordIdColumn = isIdColumn || column.name === "workspace_id" || column.name === "user_id" || foreignKeyColumnNames.has(column.name) || /_id$/i.test(String(column.name || ""));
@@ -650,21 +691,36 @@ function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, prima
   let line = "";
   const nameLiteral = JSON.stringify(column.name);
   const dataType = String(column.dataType || "").toLowerCase();
+  const specificStringType = renderMigrationSpecificStringType(column, {
+    tableCollation
+  });
 
   if (dataType === "varchar") {
-    const maxLength = Number.isFinite(column.maxLength) ? column.maxLength : 255;
-    line = `table.string(${nameLiteral}, ${maxLength})`;
+    if (specificStringType) {
+      line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType)})`;
+    } else {
+      const maxLength = Number.isFinite(column.maxLength) ? column.maxLength : 255;
+      line = `table.string(${nameLiteral}, ${maxLength})`;
+    }
   } else if (dataType === "char") {
-    line = `table.specificType(${nameLiteral}, ${JSON.stringify(column.columnType || "char(255)")})`;
+    line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType || column.columnType || "char(255)")})`;
   } else if (dataType === "text") {
-    line = `table.text(${nameLiteral})`;
+    if (specificStringType) {
+      line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType)})`;
+    } else {
+      line = `table.text(${nameLiteral})`;
+    }
   } else if (dataType === "tinytext" || dataType === "mediumtext" || dataType === "longtext") {
-    line = `table.text(${nameLiteral}, ${JSON.stringify(dataType)})`;
+    if (specificStringType) {
+      line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType)})`;
+    } else {
+      line = `table.text(${nameLiteral}, ${JSON.stringify(dataType)})`;
+    }
   } else if (dataType === "enum") {
     const enumValues = Array.isArray(column.enumValues) ? column.enumValues : [];
     line = `table.enu(${nameLiteral}, ${JSON.stringify(enumValues)})`;
   } else if (dataType === "set") {
-    line = `table.specificType(${nameLiteral}, ${JSON.stringify(column.columnType || "set")})`;
+    line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType || column.columnType || "set")})`;
   } else if (column.typeKind === "boolean") {
     line = `table.boolean(${nameLiteral})`;
   } else if (dataType === "int" || dataType === "integer") {
@@ -692,11 +748,11 @@ function renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, prima
   } else if (dataType === "date") {
     line = `table.date(${nameLiteral})`;
   } else if (dataType === "time") {
-    line = `table.time(${nameLiteral})`;
+    line = renderTemporalColumnBuilder(column, "time");
   } else if (dataType === "datetime") {
-    line = `table.dateTime(${nameLiteral})`;
+    line = renderTemporalColumnBuilder(column, "dateTime");
   } else if (dataType === "timestamp") {
-    line = `table.timestamp(${nameLiteral})`;
+    line = renderTemporalColumnBuilder(column, "timestamp");
   } else {
     throw new Error(
       `Unsupported MySQL type "${dataType}" in migration renderer for column "${column.name}".`
@@ -727,7 +783,8 @@ function renderMigrationColumnLines(snapshot) {
     `    ${renderMigrationColumnLine(column, {
       idColumn: snapshot.idColumn,
       primaryKeyColumns: snapshot.primaryKeyColumns,
-      foreignKeyColumnNames
+      foreignKeyColumnNames,
+      tableCollation: snapshot.tableCollation
     })}`
   );
   return lines.join("\n");
@@ -741,13 +798,23 @@ function renderMigrationIndexLine(index) {
 
   const columnsLiteral = JSON.stringify(columns);
   const indexName = normalizeText(index?.name);
+  const normalizedIndexType = normalizeText(index?.indexType).toUpperCase();
+  const storageEngineIndexType = normalizedIndexType && normalizedIndexType !== "BTREE"
+    ? normalizedIndexType.toLowerCase()
+    : "";
   if (index?.unique === true) {
+    if (indexName && storageEngineIndexType) {
+      return `    table.unique(${columnsLiteral}, { indexName: ${JSON.stringify(indexName)}, storageEngineIndexType: ${JSON.stringify(storageEngineIndexType)} });`;
+    }
     if (indexName) {
       return `    table.unique(${columnsLiteral}, ${JSON.stringify(indexName)});`;
     }
     return `    table.unique(${columnsLiteral});`;
   }
 
+  if (indexName && normalizedIndexType && normalizedIndexType !== "BTREE") {
+    return `    table.index(${columnsLiteral}, ${JSON.stringify(indexName)}, ${JSON.stringify(normalizedIndexType)});`;
+  }
   if (indexName) {
     return `    table.index(${columnsLiteral}, ${JSON.stringify(indexName)});`;
   }
@@ -804,6 +871,28 @@ function renderMigrationForeignKeyLines(snapshot) {
     .map((foreignKey) => renderMigrationForeignKeyLine(foreignKey))
     .filter(Boolean);
   return lines.join("\n");
+}
+
+function renderMigrationCheckConstraintLines(snapshot) {
+  const tableName = normalizeText(snapshot?.tableName);
+  const checkConstraints = Array.isArray(snapshot?.checkConstraints) ? snapshot.checkConstraints : [];
+  if (!tableName || checkConstraints.length < 1) {
+    return "";
+  }
+
+  return checkConstraints
+    .map((constraint) => {
+      const name = normalizeText(constraint?.name);
+      const clause = normalizeText(constraint?.clause);
+      if (!name || !clause) {
+        return "";
+      }
+
+      const sql = `ALTER TABLE \`${tableName}\` ADD CONSTRAINT \`${name}\` CHECK (${clause})`;
+      return `  await knex.raw(${JSON.stringify(sql)});`;
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 function mergeFieldMetaEntries(...entryGroups) {
@@ -1221,7 +1310,8 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_LIST_CONFIG_LINES__: renderRepositoryListConfigLines(snapshot),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
-    __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot)
+    __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot),
+    __JSKIT_CRUD_MIGRATION_CHECK_CONSTRAINT_LINES__: renderMigrationCheckConstraintLines(snapshot)
   });
 
   return replacements;
@@ -1311,6 +1401,7 @@ const __testables = Object.freeze({
   buildReplacementsFromSnapshot,
   parseDotEnvLine,
   renderMigrationColumnLine,
+  renderMigrationCheckConstraintLines,
   renderMigrationForeignKeyLine,
   resolveScaffoldColumns,
   renderPropertyAccess,

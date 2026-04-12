@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/uploads-image-web",
-  version: "0.1.10",
+  version: "0.1.11",
   kind: "runtime",
   description: "Reusable client-side image upload runtime with pre-upload image editing.",
   dependsOn: [
@@ -65,7 +65,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/uploads-runtime": "0.1.10",
+        "@jskit-ai/uploads-runtime": "0.1.11",
         "@uppy/compressor": "^3.1.0",
         "@uppy/core": "^5.2.0",
         "@uppy/dashboard": "^5.1.1",

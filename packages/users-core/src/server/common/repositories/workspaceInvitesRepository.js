@@ -8,7 +8,8 @@ import {
   toNullableIso,
   toNullableDateTime,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  createWithTransaction
 } from "./repositoryUtils.js";
 
 function mapRow(row) {
@@ -46,6 +47,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspaceInvitesRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findPendingByTokenHash(tokenHash, options = {}) {
     const client = options?.trx || knex;
@@ -191,6 +193,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findPendingByTokenHash,
     listPendingByEmail,
     listPendingByWorkspaceIdWithWorkspace,
