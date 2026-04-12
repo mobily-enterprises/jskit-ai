@@ -1,2 +1,0 @@
-You are auditing this repo for duplicate/parallel sources of truth. Find any place where data is reconstructed, hardcoded, mirrored, cached, or redefined just to serve display/CLI/UI instead of being derived from the authoritative model/store.
-Output: a list of findings with (a) file/lines, (b) what the source of truth should be, (c) what shadow copy exists, (d) why it’s risky, (e) suggested refactor to make derivation explicit.
