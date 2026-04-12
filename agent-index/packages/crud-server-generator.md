@@ -36,6 +36,7 @@ Local functions
 - `loadEnvFromApp(appRoot)`
 - `createAppRequire(appRoot)`
 - `importModuleFromApp(appRequire, moduleId, contextLabel)`
+- `resolveCrudPermissionGenerationConfig({ appRoot, options } = {})`
 - `resolveKnexFactory(moduleNamespace)`
 - `resolveMysqlSnapshotFromDatabase({ appRoot, tableName, idColumn } = {})`
 - `resolveColumnKey(column, idColumn)`
@@ -51,12 +52,15 @@ Local functions
 - `renderResourceJsonImport({ needsJson = false } = {})`
 - `renderResourceNormalizeSupportImport({ needsNormalizeText = false, needsNormalizeBoolean = false, needsNormalizeFiniteNumber = false, needsNormalizeFiniteInteger = false, needsNormalizeRecordId = false, needsNormalizeIfInSource = false, needsNormalizeIfPresent = false, needsNormalizeOrNull = false } = {})`
 - `renderMigrationDefaultClause(column)`
-- `renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [], foreignKeyColumnNames = new Set() } = {})`
+- `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
+- `renderTemporalColumnBuilder(column, methodName)`
+- `renderMigrationColumnLine(column, { idColumn = DEFAULT_ID_COLUMN, primaryKeyColumns = [], foreignKeyColumnNames = new Set(), tableCollation = "" } = {})`
 - `renderMigrationColumnLines(snapshot)`
 - `renderMigrationIndexLine(index)`
 - `renderMigrationIndexLines(snapshot)`
 - `renderMigrationForeignKeyLine(foreignKey = {})`
 - `renderMigrationForeignKeyLines(snapshot)`
+- `renderMigrationCheckConstraintLines(snapshot)`
 - `mergeFieldMetaEntries(...entryGroups)`
 - `resolveLookupNamespaceFromTableName(tableName = "")`
 - `toFieldLabel(key = "")`
@@ -68,7 +72,11 @@ Local functions
 - `renderFieldMetaEntryLines(entry = {})`
 - `renderResourceFieldMetaPushLines(entries = [])`
 - `renderRepositoryListConfigLines(snapshot = {})`
-- `buildReplacementsFromSnapshot({ snapshot, resolvedOwnershipFilter })`
+- `buildCrudPermissionIds(namespace = "")`
+- `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {})`
+- `renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {})`
+- `renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {})`
+- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, requiresNamedPermissions = true })`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`
 

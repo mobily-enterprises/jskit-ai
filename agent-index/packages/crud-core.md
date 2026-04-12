@@ -236,7 +236,7 @@ Exports
 - `requireCrudTableName(tableName, { context = "crudRepository" } = {})`
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
 - `applyCrudListQueryFilters(query, { idColumn = "id", cursor = "", applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
-- `mapRecordRow(row, fieldKeys = [], overrides = {})`
+- `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {})`
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {})`
 - `resolveColumnName(fieldKey, overrides = {})`
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`
@@ -245,6 +245,7 @@ Local functions
 - `requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {})`
 - `normalizeResourceFieldMetaEntries(fieldMeta = [])`
 - `schemaIncludesStringType(schema = {})`
+- `schemaIncludesRecordIdType(schema = {})`
 
 ### `src/server/serviceEvents.js`
 Exports

@@ -118,6 +118,7 @@ Exports
 - `parseJsonValue`
 - `toDbJson`
 - `runInTransaction`
+- `createWithTransaction`
 - `normalizeBatchSize`
 - `normalizeCutoffDateOrThrow`
 - `normalizeDeletedRowCount`
@@ -155,6 +156,7 @@ Exports
 - `parseJsonValue(value, fallback = null, options = {})`
 - `toDbJson(value)`
 - `runInTransaction(knex, callback)`
+- `createWithTransaction(knex)`
 
 ### `src/shared/repositoryScope.js`
 Exports

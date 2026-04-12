@@ -233,6 +233,7 @@ Local functions
 - `validateEnabledSurfaceOptionValues({ packageEntry, resolvedOptions = {}, optionNames = null, configContext = {} } = {})`
 - `validateSurfaceVisibilityOptionPolicy({ packageEntry, resolvedOptions = {}, policy, configContext = {} } = {})`
 - `validateResolvedOptionPolicies({ packageEntry, resolvedOptions = {}, appRoot = "", resolveConfigContext } = {})`
+- `resolvePromptChoicesForOption({ schema = {}, configContext = {} } = {})`
 - `validateOptionValuesForPackage({ packageEntry, resolvedOptions = {}, appRoot = "", optionNames = null } = {})`
 
 ### `src/server/cliRuntime/packageRegistries.js`
@@ -488,7 +489,7 @@ Exports
 - `escapeRegExp(value)`
 - `interpolateOptionValue(rawValue, options, ownerId, key)`
 - `normalizeSkipChecks(value)`
-- `promptForRequiredOption({ ownerType, ownerId, optionName, optionSchema, stdin = process.stdin, stdout = process.stdout })`
+- `promptForRequiredOption({ ownerType, ownerId, optionName, optionSchema, promptChoices = [], stdin = process.stdin, stdout = process.stdout })`
 Local functions
 - `normalizeSnippet(value)`
 - `splitTextIntoWords(value)`
@@ -500,6 +501,9 @@ Local functions
 - `toSingularForm(value)`
 - `toPluralForm(value)`
 - `normalizePathValue(value)`
+- `normalizePromptChoices(rawChoices = [])`
+- `findPromptChoice(promptChoices = [], answer = "")`
+- `promptForChoice({ promptText = "", promptChoices = [], stdin, stdout, required = false, defaultValue = "" })`
 - `parseTransformSpec(transform)`
 - `applyOptionTransform(value, transform, ownerId, key, optionName)`
 - `applyOptionTransformPipeline(rawValue, rawPipeline, ownerId, key, optionName)`

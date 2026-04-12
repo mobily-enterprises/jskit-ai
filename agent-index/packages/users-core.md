@@ -152,11 +152,13 @@ Exports
 - `normalizeText`
 - `normalizeLowerText`
 - `normalizeRecordId`
+- `normalizeDbRecordId`
 - `nowDb()`
 - `toNullableIso(value)`
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
+- `createWithTransaction`
 
 ### `src/server/common/repositories/userSettingsRepository.js`
 Exports

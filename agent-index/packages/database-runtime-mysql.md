@@ -50,6 +50,7 @@ Local functions
 - `normalizePrimaryKeyColumns(rows = [])`
 - `normalizeIndexes(rows = [])`
 - `normalizeForeignKeys(rows = [])`
+- `normalizeCheckConstraints(rows = [])`
 - `requireIdColumn(columns, idColumn)`
 - `requirePrimaryKeyContainsId(primaryKeyColumns, idColumn)`
 
