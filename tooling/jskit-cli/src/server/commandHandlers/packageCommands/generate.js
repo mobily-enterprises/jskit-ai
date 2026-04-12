@@ -73,40 +73,11 @@ function mapDescriptorBackedSubcommandArgsToInlineOptions(
 }
 
 function resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "") {
-  const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
-    ? packageEntry.descriptor
-    : {};
-  const optionSchemas = descriptor?.options && typeof descriptor.options === "object"
-    ? descriptor.options
-    : {};
   const subcommandDefinition = resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName);
   const positionalArgs = Array.isArray(subcommandDefinition?.positionalArgs)
     ? subcommandDefinition.positionalArgs
     : [];
-  if (positionalArgs.length > 0) {
-    return true;
-  }
-  const requiredOptionNames = Array.isArray(subcommandDefinition?.requiredOptionNames)
-    ? subcommandDefinition.requiredOptionNames
-    : [];
-  if (requiredOptionNames.some((optionName) => String(optionName || "").trim().length > 0)) {
-    return true;
-  }
-
-  const optionNames = Array.isArray(subcommandDefinition?.optionNames) && subcommandDefinition.optionNames.length > 0
-    ? subcommandDefinition.optionNames
-    : Object.keys(optionSchemas);
-  for (const optionName of optionNames) {
-    const normalizedOptionName = String(optionName || "").trim();
-    if (!normalizedOptionName) {
-      continue;
-    }
-    const schema = optionSchemas[normalizedOptionName];
-    if (schema && typeof schema === "object" && schema.required === true) {
-      return true;
-    }
-  }
-  return false;
+  return positionalArgs.some((arg) => arg && typeof arg === "object" && arg.required !== false);
 }
 
 function collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {}) {

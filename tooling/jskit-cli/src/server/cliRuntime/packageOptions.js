@@ -91,6 +91,7 @@ function resolveSurfaceDefinitionsForOptionPolicy(configContext = {}) {
 
     normalizedDefinitions[definitionId] = Object.freeze({
       id: definitionId,
+      label: String(definition.label || "").trim(),
       enabled: definition.enabled !== false,
       requiresWorkspace: definition.requiresWorkspace === true
     });
@@ -251,6 +252,23 @@ async function validateResolvedOptionPolicies({
   });
 }
 
+function resolvePromptChoicesForOption({ schema = {}, configContext = {} } = {}) {
+  const validationType = normalizeResolvedOptionValue(schema.validationType);
+  if (validationType !== OPTION_VALIDATION_ENABLED_SURFACE_ID) {
+    return [];
+  }
+
+  const surfaceDefinitions = resolveSurfaceDefinitionsForOptionPolicy(configContext);
+  return Object.values(surfaceDefinitions)
+    .filter((entry) => entry.enabled === true)
+    .map((entry) => Object.freeze({
+      value: entry.id,
+      label: entry.label && entry.label.toLowerCase() !== entry.id.toLowerCase()
+        ? `${entry.id} (${entry.label})`
+        : entry.id
+    }));
+}
+
 async function validateOptionValuesForPackage({
   packageEntry,
   resolvedOptions = {},
@@ -379,11 +397,13 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
     }
 
     if (schema.required) {
+      const promptConfigContext = appRoot ? await loadConfigContext() : {};
       assignResolvedOption(await promptForRequiredOption({
         ownerType: "package",
         ownerId: packageEntry.packageId,
         optionName,
         optionSchema: schema,
+        promptChoices: resolvePromptChoicesForOption({ schema, configContext: promptConfigContext }),
         stdin: io.stdin,
         stdout: io.stdout
       }));

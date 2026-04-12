@@ -5,10 +5,12 @@ import { introspectCrudTableSnapshot } from "../src/shared/introspectCrudTable.j
 
 function createKnexRawDouble({
   schemaName = "appdb",
+  tableCollation = "utf8mb4_general_ci",
   columns = [],
   primaryKeyColumns = [],
   indexes = [],
-  foreignKeys = []
+  foreignKeys = [],
+  checkConstraints = []
 } = {}) {
   const calls = [];
 
@@ -23,8 +25,14 @@ function createKnexRawDouble({
       if (normalizedSql.includes("select database() as schemaname")) {
         return [[{ schemaName }], []];
       }
+      if (normalizedSql.includes("from information_schema.tables")) {
+        return [[{ tableCollation }], []];
+      }
       if (normalizedSql.includes("from information_schema.columns")) {
         return [[...columns], []];
+      }
+      if (normalizedSql.includes("information_schema.check_constraints")) {
+        return [[...checkConstraints], []];
       }
       if (normalizedSql.includes("from information_schema.table_constraints")) {
         return [[...primaryKeyColumns], []];
@@ -57,6 +65,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: null,
         extra: "auto_increment",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 10,
         numericScale: 0,
         datetimePrecision: null,
@@ -70,6 +80,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: "NULL",
         extra: "",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 10,
         numericScale: 0,
         datetimePrecision: null,
@@ -83,6 +95,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: "NULL",
         extra: "",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 10,
         numericScale: 0,
         datetimePrecision: null,
@@ -96,6 +110,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: null,
         extra: "",
         characterMaximumLength: 160,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_general_ci",
         numericPrecision: null,
         numericScale: null,
         datetimePrecision: null,
@@ -109,6 +125,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: "0",
         extra: "",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 3,
         numericScale: 0,
         datetimePrecision: null,
@@ -122,6 +140,8 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: "VIP",
         extra: "",
         characterMaximumLength: null,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_general_ci",
         numericPrecision: null,
         numericScale: null,
         datetimePrecision: null,
@@ -135,10 +155,27 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         columnDefault: "CURRENT_TIMESTAMP",
         extra: "",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: null,
         numericScale: null,
         datetimePrecision: 0,
         ordinalPosition: 7
+      },
+      {
+        columnName: "settings_json",
+        dataType: "longtext",
+        columnType: "longtext",
+        isNullable: "YES",
+        columnDefault: null,
+        extra: "",
+        characterMaximumLength: null,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_bin",
+        numericPrecision: null,
+        numericScale: null,
+        datetimePrecision: null,
+        ordinalPosition: 8
       }
     ],
     primaryKeyColumns: [{ columnName: "id" }],
@@ -166,6 +203,12 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         updateRule: "CASCADE",
         deleteRule: "SET NULL"
       }
+    ],
+    checkConstraints: [
+      {
+        constraintName: "settings_json",
+        checkClause: "json_valid(`settings_json`)"
+      }
     ]
   });
 
@@ -176,6 +219,7 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
 
   assert.equal(snapshot.dialect, "mysql2");
   assert.equal(snapshot.tableName, "contacts");
+  assert.equal(snapshot.tableCollation, "utf8mb4_general_ci");
   assert.equal(snapshot.idColumn, "id");
   assert.deepEqual(snapshot.primaryKeyColumns, ["id"]);
   assert.equal(snapshot.hasWorkspaceIdColumn, true);
@@ -200,15 +244,22 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
   assert.ok(contactTier);
   assert.deepEqual(contactTier.enumValues, ["VIP", "New"]);
 
+  const settingsJson = snapshot.columns.find((column) => column.name === "settings_json");
+  assert.ok(settingsJson);
+  assert.equal(settingsJson.characterSetName, "utf8mb4");
+  assert.equal(settingsJson.collationName, "utf8mb4_bin");
+
   assert.deepEqual(snapshot.indexes, [
     {
       name: "idx_contacts_first_name",
       unique: false,
+      indexType: "",
       columns: ["first_name"]
     },
     {
       name: "uq_contacts_vip",
       unique: true,
+      indexType: "",
       columns: ["vip"]
     }
   ]);
@@ -226,6 +277,12 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
       ]
     }
   ]);
+  assert.deepEqual(snapshot.checkConstraints, [
+    {
+      name: "settings_json",
+      clause: "json_valid(`settings_json`)"
+    }
+  ]);
 });
 
 test("introspectCrudTableSnapshot rejects unsupported column types", async () => {
@@ -239,6 +296,8 @@ test("introspectCrudTableSnapshot rejects unsupported column types", async () =>
         columnDefault: null,
         extra: "auto_increment",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 10,
         numericScale: 0,
         datetimePrecision: null,
@@ -252,6 +311,8 @@ test("introspectCrudTableSnapshot rejects unsupported column types", async () =>
         columnDefault: null,
         extra: "",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: null,
         numericScale: null,
         datetimePrecision: null,
@@ -278,6 +339,8 @@ test("introspectCrudTableSnapshot rejects when primary key does not include id c
         columnDefault: null,
         extra: "auto_increment",
         characterMaximumLength: null,
+        characterSetName: null,
+        collationName: null,
         numericPrecision: 10,
         numericScale: 0,
         datetimePrecision: null,

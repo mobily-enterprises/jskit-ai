@@ -201,6 +201,8 @@ function normalizeColumn(row = {}) {
     numericPrecision: toNullableNumber(row.numericPrecision ?? row.numeric_precision),
     numericScale: toNullableNumber(row.numericScale ?? row.numeric_scale),
     datetimePrecision: toNullableNumber(row.datetimePrecision ?? row.datetime_precision),
+    characterSetName: normalizeText(row.characterSetName ?? row.character_set_name),
+    collationName: normalizeText(row.collationName ?? row.collation_name),
     ordinalPosition: toNullableNumber(row.ordinalPosition ?? row.ordinal_position),
     enumValues
   });
@@ -228,9 +230,11 @@ function normalizeIndexes(rows = []) {
 
     const seqInIndex = toNullableNumber(row.seqInIndex ?? row.seq_in_index) || 0;
     const nonUnique = toBoolean(row.nonUnique ?? row.non_unique);
+    const indexType = normalizeText(row.indexType || row.index_type).toUpperCase();
     const existing = byName.get(indexName) || {
       name: indexName,
       unique: !nonUnique,
+      indexType,
       columns: []
     };
     existing.columns.push({
@@ -246,6 +250,7 @@ function normalizeIndexes(rows = []) {
         Object.freeze({
           name: index.name,
           unique: index.unique,
+          indexType: index.indexType,
           columns: Object.freeze(
             index.columns
               .sort((left, right) => left.order - right.order)
@@ -312,6 +317,26 @@ function normalizeForeignKeys(rows = []) {
   );
 }
 
+function normalizeCheckConstraints(rows = []) {
+  return Object.freeze(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => {
+        const name = normalizeText(row.constraintName || row.constraint_name);
+        const clause = normalizeText(row.checkClause || row.check_clause);
+        if (!name || !clause) {
+          return null;
+        }
+
+        return Object.freeze({
+          name,
+          clause
+        });
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.name.localeCompare(right.name))
+  );
+}
+
 function requireIdColumn(columns, idColumn) {
   const normalizedIdColumn = normalizeText(idColumn) || "id";
   const idSpec = columns.find((column) => column.name === normalizedIdColumn) || null;
@@ -351,6 +376,20 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
   const schemaRows = normalizeRows(await knex.raw("SELECT DATABASE() AS schemaName"));
   const schemaName = normalizeDbSchemaName(schemaRows);
 
+  const tableRows = normalizeRows(
+    await knex.raw(
+      `
+        SELECT
+          t.table_collation AS tableCollation
+        FROM information_schema.tables t
+        WHERE t.table_schema = ?
+          AND t.table_name = ?
+        LIMIT 1
+      `,
+      [schemaName, resolvedTableName]
+    )
+  );
+
   const columnRows = normalizeRows(
     await knex.raw(
       `
@@ -362,6 +401,8 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
           c.column_default AS columnDefault,
           c.extra AS extra,
           c.character_maximum_length AS characterMaximumLength,
+          c.character_set_name AS characterSetName,
+          c.collation_name AS collationName,
           c.numeric_precision AS numericPrecision,
           c.numeric_scale AS numericScale,
           c.datetime_precision AS datetimePrecision,
@@ -404,6 +445,7 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
         SELECT
           s.index_name AS indexName,
           s.non_unique AS nonUnique,
+          s.index_type AS indexType,
           s.column_name AS columnName,
           s.seq_in_index AS seqInIndex
         FROM information_schema.statistics s
@@ -440,22 +482,44 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     )
   );
 
+  const checkConstraintRows = normalizeRows(
+    await knex.raw(
+      `
+        SELECT
+          tc.constraint_name AS constraintName,
+          cc.check_clause AS checkClause
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.check_constraints cc
+          ON cc.constraint_schema = tc.constraint_schema
+         AND cc.constraint_name = tc.constraint_name
+        WHERE tc.table_schema = ?
+          AND tc.table_name = ?
+          AND tc.constraint_type = 'CHECK'
+        ORDER BY tc.constraint_name ASC
+      `,
+      [schemaName, resolvedTableName]
+    )
+  );
+
   const columns = Object.freeze(columnRows.map((row) => normalizeColumn(row)));
   const resolvedIdColumn = requireIdColumn(columns, idColumn);
   const primaryKeyColumns = normalizePrimaryKeyColumns(primaryRows);
   requirePrimaryKeyContainsId(primaryKeyColumns, resolvedIdColumn);
+  const firstTableRow = Array.isArray(tableRows) ? tableRows[0] : null;
 
   const snapshot = Object.freeze({
     dialect: "mysql2",
     schemaName,
     tableName: resolvedTableName,
+    tableCollation: normalizeText(firstTableRow?.tableCollation || firstTableRow?.table_collation),
     idColumn: resolvedIdColumn,
     primaryKeyColumns,
     hasWorkspaceIdColumn: columns.some((column) => column.name === "workspace_id"),
     hasUserIdColumn: columns.some((column) => column.name === "user_id"),
     columns,
     indexes: normalizeIndexes(indexRows),
-    foreignKeys: normalizeForeignKeys(foreignKeyRows)
+    foreignKeys: normalizeForeignKeys(foreignKeyRows),
+    checkConstraints: normalizeCheckConstraints(checkConstraintRows)
   });
 
   return snapshot;

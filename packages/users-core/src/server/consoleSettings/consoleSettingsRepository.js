@@ -2,7 +2,8 @@ import {
   normalizeDbRecordId,
   normalizeRecordId,
   nowDb,
-  toIsoString
+  toIsoString,
+  createWithTransaction
 } from "../common/repositories/repositoryUtils.js";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { consoleSettingsFields } from "../../shared/resources/consoleSettingsFields.js";
@@ -41,6 +42,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("consoleSettingsRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function readSingleton(client) {
     return client("console_settings").where({ id: 1 }).first();
@@ -103,6 +105,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     getSingleton,
     ensureOwnerUserId,
     updateSingleton

@@ -5,7 +5,8 @@ import {
   normalizeText,
   toIsoString,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  createWithTransaction
 } from "./repositoryUtils.js";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
@@ -43,6 +44,7 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspaceMembershipsRepository requires knex.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
@@ -176,6 +178,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findByWorkspaceIdAndUserId,
     ensureOwnerMembership,
     upsertMembership,

@@ -209,6 +209,80 @@ function normalizePathValue(value) {
     .join("/");
 }
 
+function normalizePromptChoices(rawChoices = []) {
+  return ensureArray(rawChoices)
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const value = String(entry.value || "").trim();
+      const label = String(entry.label || value).trim();
+      if (!value || !label) {
+        return null;
+      }
+      return Object.freeze({ value, label });
+    })
+    .filter(Boolean);
+}
+
+function findPromptChoice(promptChoices = [], answer = "") {
+  const normalizedAnswer = String(answer || "").trim();
+  if (!normalizedAnswer) {
+    return null;
+  }
+
+  if (/^\d+$/.test(normalizedAnswer)) {
+    const index = Number.parseInt(normalizedAnswer, 10) - 1;
+    if (index >= 0 && index < promptChoices.length) {
+      return promptChoices[index];
+    }
+  }
+
+  return promptChoices.find((entry) => {
+    return entry.value === normalizedAnswer || entry.label === normalizedAnswer;
+  }) || null;
+}
+
+async function promptForChoice({
+  promptText = "",
+  promptChoices = [],
+  stdin,
+  stdout,
+  required = false,
+  defaultValue = ""
+}) {
+  const rl = createInterface({
+    input: stdin,
+    output: stdout
+  });
+
+  try {
+    while (true) {
+      const answer = String(await rl.question(promptText)).trim();
+      if (!answer && defaultValue) {
+        return defaultValue;
+      }
+      if (!answer && !required) {
+        return "";
+      }
+      if (!answer && required) {
+        throw createCliError("A selection is required.");
+      }
+
+      const matchedChoice = findPromptChoice(promptChoices, answer);
+      if (matchedChoice) {
+        return matchedChoice.value;
+      }
+
+      const values = promptChoices.map((entry) => entry.value).join(", ");
+      stdout.write(`Invalid selection. Enter a number or one of: ${values}.
+`);
+    }
+  } finally {
+    rl.close();
+  }
+}
+
 function parseTransformSpec(transform) {
   const normalized = String(transform || "").trim();
   if (!normalized) {
@@ -359,6 +433,7 @@ async function promptForRequiredOption({
   ownerId,
   optionName,
   optionSchema,
+  promptChoices = [],
   stdin = process.stdin,
   stdout = process.stdout
 }) {
@@ -387,6 +462,24 @@ async function promptForRequiredOption({
   const defaultHint = defaultValue ? ` [default: ${defaultValue}]` : "";
   const hintSuffix = promptHint ? ` ${promptHint}` : "";
   const promptText = `${label}${defaultHint}${hintSuffix}: `;
+  const normalizedPromptChoices = normalizePromptChoices(promptChoices);
+
+  if (normalizedPromptChoices.length > 0) {
+    stdout.write(`${label}${defaultHint}${hintSuffix}
+`);
+    normalizedPromptChoices.forEach((entry, index) => {
+      stdout.write(`  ${index + 1}) ${entry.label}
+`);
+    });
+    return promptForChoice({
+      promptText: "Select a surface by number or id: ",
+      promptChoices: normalizedPromptChoices,
+      stdin,
+      stdout,
+      required,
+      defaultValue
+    });
+  }
 
   let answer = "";
 

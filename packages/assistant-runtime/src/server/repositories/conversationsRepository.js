@@ -1,4 +1,4 @@
-import { normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
+import { createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -79,6 +79,7 @@ function createRepository(knex) {
   if (!knex || typeof knex !== "function") {
     throw new Error("createConversationsRepository requires knex client.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findById(conversationId, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
@@ -262,6 +263,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     findById,
     findByIdForActorScope,
     create,

@@ -118,25 +118,30 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
     const operation = String(mutation?.op || "").trim();
     if (operation === "upsert-env") {
       const relativeFile = String(mutation?.file || "").trim();
-      const key = String(mutation?.key || "").trim();
-      if (!relativeFile || !key) {
+      const rawKey = String(mutation?.key || "").trim();
+      if (!relativeFile || !rawKey) {
         throw createCliError(`Invalid upsert-env mutation in ${packageEntry.packageId}: "file" and "key" are required.`);
+      }
+
+      const resolvedKey = interpolateOptionValue(rawKey, options, packageEntry.packageId, `${rawKey}.key`).trim();
+      if (!resolvedKey) {
+        throw createCliError(`Invalid upsert-env mutation in ${packageEntry.packageId}: resolved key is empty.`);
       }
 
       const absoluteFile = path.join(appRoot, relativeFile);
       const previous = await readFileBufferIfExists(absoluteFile);
       const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
-      const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, key);
-      const upserted = upsertEnvValue(previousContent, key, resolvedValue);
+      const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, resolvedKey);
+      const upserted = upsertEnvValue(previousContent, resolvedKey, resolvedValue);
 
       await mkdir(path.dirname(absoluteFile), { recursive: true });
       await writeFile(absoluteFile, upserted.content, "utf8");
 
-      const recordKey = `${relativeFile}::${String(mutation?.id || key)}`;
+      const recordKey = `${relativeFile}::${String(mutation?.id || resolvedKey)}`;
       managedText[recordKey] = {
         file: relativeFile,
         op: "upsert-env",
-        key,
+        key: resolvedKey,
         value: resolvedValue,
         hadPrevious: upserted.hadPrevious,
         previousValue: upserted.previousValue,

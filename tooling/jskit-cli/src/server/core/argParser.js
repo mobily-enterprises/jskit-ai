@@ -120,8 +120,9 @@ function parseArgs(argv, { createCliError } = {}) {
       if (hasInlineValue) {
         optionValueRaw = withoutPrefix.slice(withoutPrefix.indexOf("=") + 1);
       } else {
-        const nextToken = typeof args[0] === "string" ? String(args[0]) : "";
-        if (nextToken && !nextToken.startsWith("-")) {
+        const hasNextStringToken = typeof args[0] === "string";
+        const nextToken = hasNextStringToken ? String(args[0]) : "";
+        if (hasNextStringToken && !nextToken.startsWith("-")) {
           optionValueRaw = args.shift();
         }
       }

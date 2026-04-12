@@ -381,6 +381,28 @@ test("generate primary install-style commands reject disabled surface ids before
   });
 });
 
+test("generate primary install-style commands with required options do not show help on bare invocation", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "generator-primary-missing-option");
+    await createMinimalApp(appRoot, { name: "generator-primary-missing-option" });
+    await writePrimaryGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@demo/primary-generator", "setup"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /package @demo\/primary-generator requires option surface\. Non-interactive mode requires --surface <value>\./i
+    );
+    assert.doesNotMatch(String(result.stdout || ""), /Generator subcommand help:/);
+    assert.equal(await fileExists(path.join(appRoot, "tmp", "primary-generator.txt")), false);
+    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
+  });
+});
+
 test("generate primary install-style commands reject existing create targets unless --force is passed", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "generator-create-target-policy");

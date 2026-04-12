@@ -8,6 +8,7 @@ import {
   crudRepositoryUpdateById,
   crudRepositoryDeleteById
 } from "./repositoryMethods.js";
+import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 
 function createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {} } = {}) {
   const runtime = createCrudRepositoryRuntime(resource, {
@@ -19,6 +20,7 @@ function createCrudRepositoryFromResource(resource = {}, { context = "crudReposi
     if (typeof knex !== "function") {
       throw new TypeError("crudRepository requires knex.");
     }
+    const withTransaction = createWithTransaction(knex);
 
     async function listRecords(query = {}, callOptions = {}, hooks = null) {
       return crudRepositoryList(runtime, knex, query, options, callOptions, hooks);
@@ -49,6 +51,7 @@ function createCrudRepositoryFromResource(resource = {}, { context = "crudReposi
     }
 
     return Object.freeze({
+      withTransaction,
       list: listRecords,
       findById,
       listByIds,

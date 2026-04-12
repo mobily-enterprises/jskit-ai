@@ -1,4 +1,4 @@
-import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
+import { normalizeDbRecordId, createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveInsertedId } from "@jskit-ai/assistant-core/server";
@@ -61,6 +61,7 @@ function createRepository(knex) {
   if (!knex || typeof knex !== "function") {
     throw new Error("createAssistantConfigRepository requires knex client.");
   }
+  const withTransaction = createWithTransaction(knex);
 
   async function findByScope({ targetSurfaceId = "", workspaceId = null } = {}, options = {}) {
     const client = options?.trx || knex;
@@ -143,6 +144,7 @@ function createRepository(knex) {
   }
 
   return Object.freeze({
+    withTransaction,
     createDefaultRecord,
     findByScope,
     upsertByScope

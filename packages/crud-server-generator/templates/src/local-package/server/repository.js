@@ -7,6 +7,7 @@ import {
   crudRepositoryUpdateById,
   crudRepositoryDeleteById
 } from "@jskit-ai/crud-core/server/repositoryMethods";
+import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
@@ -16,6 +17,8 @@ const repositoryRuntime = createCrudRepositoryRuntime(resource, {
 });
 
 function createRepository(knex, options = {}) {
+  const withTransaction = createWithTransaction(knex);
+
   async function list(query = {}, callOptions = {}) {
     return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions);
   }
@@ -41,6 +44,7 @@ function createRepository(knex, options = {}) {
   }
 
   return Object.freeze({
+    withTransaction,
     list,
     findById,
     listByIds,

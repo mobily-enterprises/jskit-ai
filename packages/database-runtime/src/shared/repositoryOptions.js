@@ -236,6 +236,12 @@ async function runInTransaction(knex, callback) {
   return knex.transaction(callback);
 }
 
+function createWithTransaction(knex) {
+  return function withTransaction(work) {
+    return runInTransaction(knex, work);
+  };
+}
+
 export {
   resolveQueryOptions,
   resolveRepoClient,
@@ -253,5 +259,6 @@ export {
   normalizeCountRow,
   parseJsonValue,
   toDbJson,
-  runInTransaction
+  runInTransaction,
+  createWithTransaction
 };

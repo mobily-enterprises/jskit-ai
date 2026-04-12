@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/realtime",
-  version: "0.1.31",
+  version: "0.1.32",
   kind: "runtime",
   description: "Thin, generic realtime runtime wrappers for socket.io server and client.",
   options: {
@@ -95,7 +95,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.32",
+        "@jskit-ai/kernel": "0.1.33",
         "@socket.io/redis-adapter": "^8.3.0",
         "redis": "^5.8.2",
         "socket.io": "^4.8.3",
