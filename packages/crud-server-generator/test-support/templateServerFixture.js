@@ -20,6 +20,23 @@ const TEMPLATE_REPLACEMENTS = Object.freeze([
   ["${option:namespace|pascal}", CRUD_NAMESPACE.pascal],
   ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")],
   [
+    "__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__",
+    [
+      "const actionPermissions = Object.freeze({",
+      '  list: "crud.customers.list",',
+      '  view: "crud.customers.view",',
+      '  create: "crud.customers.create",',
+      '  update: "crud.customers.update",',
+      '  delete: "crud.customers.delete"',
+      "});"
+    ].join("\n")
+  ],
+  ["__JSKIT_CRUD_LIST_ACTION_PERMISSION__", '{ require: "all", permissions: [actionPermissions.list] }'],
+  ["__JSKIT_CRUD_VIEW_ACTION_PERMISSION__", '{ require: "all", permissions: [actionPermissions.view] }'],
+  ["__JSKIT_CRUD_CREATE_ACTION_PERMISSION__", '{ require: "all", permissions: [actionPermissions.create] }'],
+  ["__JSKIT_CRUD_UPDATE_ACTION_PERMISSION__", '{ require: "all", permissions: [actionPermissions.update] }'],
+  ["__JSKIT_CRUD_DELETE_ACTION_PERMISSION__", '{ require: "all", permissions: [actionPermissions.delete] }'],
+  [
     "__JSKIT_CRUD_LIST_CONFIG_LINES__",
     [
       "  // defaultLimit: 20,",

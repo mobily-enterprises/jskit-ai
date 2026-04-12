@@ -14,13 +14,7 @@ import { LIST_CONFIG } from "./listConfig.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
-const actionPermissions = Object.freeze({
-  list: "crud.${option:namespace|snake}.list",
-  view: "crud.${option:namespace|snake}.view",
-  create: "crud.${option:namespace|snake}.create",
-  update: "crud.${option:namespace|snake}.update",
-  delete: "crud.${option:namespace|snake}.delete"
-});
+__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__
 
 function requireActionSurface(surface = "") {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
@@ -41,10 +35,7 @@ function createActions({ surface = "" } = {}) {
       kind: "query",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      permission: {
-        require: "all",
-        permissions: [actionPermissions.list]
-      },
+      permission: __JSKIT_CRUD_LIST_ACTION_PERMISSION__,
       inputValidator: [
         workspaceSlugParamsValidator,
         listCursorPaginationQueryValidator,
@@ -71,10 +62,7 @@ function createActions({ surface = "" } = {}) {
       kind: "query",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      permission: {
-        require: "all",
-        permissions: [actionPermissions.view]
-      },
+      permission: __JSKIT_CRUD_VIEW_ACTION_PERMISSION__,
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, lookupIncludeQueryValidator],
       outputValidator: resource.operations.view.outputValidator,
       idempotency: "none",
@@ -96,10 +84,7 @@ function createActions({ surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      permission: {
-        require: "all",
-        permissions: [actionPermissions.create]
-      },
+      permission: __JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
       inputValidator: [
         workspaceSlugParamsValidator,
         {
@@ -125,10 +110,7 @@ function createActions({ surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      permission: {
-        require: "all",
-        permissions: [actionPermissions.update]
-      },
+      permission: __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__,
       inputValidator: [
         workspaceSlugParamsValidator,
         recordIdParamsValidator,
@@ -155,10 +137,7 @@ function createActions({ surface = "" } = {}) {
       kind: "command",
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
-      permission: {
-        require: "all",
-        permissions: [actionPermissions.delete]
-      },
+      permission: __JSKIT_CRUD_DELETE_ACTION_PERMISSION__,
       inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
       outputValidator: resource.operations.delete.outputValidator,
       idempotency: "optional",

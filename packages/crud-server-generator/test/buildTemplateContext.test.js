@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -152,6 +153,22 @@ function createSnapshot({
   });
 }
 
+async function withTempApp(run, publicConfigSource) {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "crud-server-generator-"));
+  try {
+    await mkdir(path.join(appRoot, "config"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "package.json"),
+      `${JSON.stringify({ name: "crud-server-generator-test-app", private: true, type: "module" }, null, 2)}\n`,
+      "utf8"
+    );
+    await writeFile(path.join(appRoot, "config", "public.js"), publicConfigSource, "utf8");
+    return await run(appRoot);
+  } finally {
+    await rm(appRoot, { recursive: true, force: true });
+  }
+}
+
 test("resolveOwnershipFilterForGeneration infers ownership filter for table introspection mode", () => {
   const snapshotBoth = createSnapshot({
     hasWorkspaceIdColumn: true,
@@ -241,6 +258,26 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(replacements.__JSKIT_CRUD_TABLE_NAME__, "\"contacts\"");
   assert.equal(replacements.__JSKIT_CRUD_ID_COLUMN__, "\"id\"");
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
+    /const actionPermissions = Object\.freeze\(\{/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
+    /"crud\.contacts\.delete"/
+  );
+  assert.equal(
+    replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__,
+    '{ require: "all", permissions: [actionPermissions.list] }'
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
+    /roleCatalog\.roles\.member\.permissions\.push\(/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
+    /"crud\.contacts\.delete"/
+  );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.bigIncrements\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, "");
@@ -280,6 +317,63 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   );
   assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
+});
+
+test("buildReplacementsFromSnapshot omits named permissions and role grants when disabled", () => {
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
+    snapshot: createSnapshot({
+      hasWorkspaceIdColumn: false,
+      hasUserIdColumn: false
+    }),
+    resolvedOwnershipFilter: "public",
+    requiresNamedPermissions: false
+  });
+
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
+    /const authenticatedPermission = Object\.freeze\(\{/
+  );
+  assert.equal(replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__, "authenticatedPermission");
+  assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_PERMISSION__, "authenticatedPermission");
+  assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
+});
+
+test("resolveCrudPermissionGenerationConfig follows surface workspace requirements from app config", async () => {
+  await withTempApp(
+    async (appRoot) => {
+      assert.equal(
+        await __testables.resolveCrudPermissionGenerationConfig({
+          appRoot,
+          options: {
+            namespace: "contacts",
+            surface: "home",
+            "ownership-filter": "auto"
+          }
+        }),
+        false
+      );
+
+      assert.equal(
+        await __testables.resolveCrudPermissionGenerationConfig({
+          appRoot,
+          options: {
+            namespace: "contacts",
+            surface: "admin",
+            "ownership-filter": "auto"
+          }
+        }),
+        true
+      );
+    },
+    `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", enabled: true, requiresAuth: true, requiresWorkspace: false },
+    admin: { id: "admin", enabled: true, requiresAuth: true, requiresWorkspace: true }
+  }
+};
+`
+  );
 });
 
 test("buildReplacementsFromSnapshot omits default list ordering when created_at is absent", () => {
@@ -336,6 +430,7 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
   };
 
   const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
     snapshot,
     resolvedOwnershipFilter: "workspace_user"
   });
@@ -380,6 +475,7 @@ test("buildReplacementsFromSnapshot renders enum field meta options as select co
   };
 
   const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
     snapshot,
     resolvedOwnershipFilter: "public"
   });
@@ -493,6 +589,7 @@ test("buildReplacementsFromSnapshot preserves custom collations, hash unique ind
     hasUserIdColumn: false
   });
   const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "services",
     snapshot: {
       ...snapshot,
       columns: Object.freeze([
@@ -668,6 +765,10 @@ test("crud actions and routes templates share LIST_CONFIG for cursor validation"
   assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
   assert.match(actionsTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
   assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(actionsTemplateSource, /__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__/);
+  assert.match(actionsTemplateSource, /__JSKIT_CRUD_LIST_ACTION_PERMISSION__/);
+  assert.doesNotMatch(actionsTemplateSource, /ACTIONS_REQUIRE_NAMED_PERMISSIONS/);
+  assert.doesNotMatch(actionsTemplateSource, /createActionPermission/);
   assert.match(registerRoutesTemplateSource, /createCrudCursorPaginationQueryValidator/);
   assert.match(registerRoutesTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
   assert.match(registerRoutesTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
@@ -738,6 +839,7 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
     enumValues: Object.freeze([])
   });
   const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "opening-hours",
     snapshot: {
       ...snapshot,
       columns: Object.freeze([...snapshot.columns, timeColumn])

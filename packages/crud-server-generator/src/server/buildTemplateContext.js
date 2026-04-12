@@ -8,7 +8,9 @@ import {
   resolveKnexConnectionFromEnvironment,
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
+import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
 import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+import { loadAppConfigFromModuleUrl, resolveRequiredAppRoot } from "@jskit-ai/kernel/server/support";
 import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
@@ -22,6 +24,7 @@ const OWNERSHIP_FILTER_VALUES = new Set([
   "workspace_user"
 ]);
 const MYSQL_CLIENT_ID = "mysql2";
+const CRUD_PERMISSION_OPERATIONS = Object.freeze(["list", "view", "create", "update", "delete"]);
 
 function resolveGlobalScaffoldCache() {
   const globalObject = globalThis;
@@ -193,6 +196,40 @@ async function importModuleFromApp(appRequire, moduleId, contextLabel) {
       `${contextLabel} failed loading "${moduleId}": ${String(error?.message || error || "unknown error")}`
     );
   }
+}
+
+async function resolveCrudPermissionGenerationConfig({
+  appRoot,
+  options
+} = {}) {
+  const namespace = normalizeText(options?.namespace);
+  const surface = normalizeText(options?.surface);
+  if (!namespace) {
+    throw new Error('crud template context requires option "namespace".');
+  }
+  if (!surface) {
+    throw new Error('crud template context requires option "surface".');
+  }
+
+  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
+    context: "crud template context"
+  });
+  const appConfig = await loadAppConfigFromModuleUrl({
+    moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
+  });
+  const crudPolicy = resolveCrudSurfacePolicyFromAppConfig(
+    {
+      namespace,
+      surface,
+      ownershipFilter: options?.["ownership-filter"]
+    },
+    appConfig,
+    {
+      context: "crud template context"
+    }
+  );
+
+  return crudPolicy?.surfaceDefinition?.requiresWorkspace === true;
 }
 
 function resolveKnexFactory(moduleNamespace) {
@@ -1231,9 +1268,79 @@ function renderRepositoryListConfigLines(snapshot = {}) {
   ].join("\n");
 }
 
+function buildCrudPermissionIds(namespace = "") {
+  const permissionNamespace = toSnakeCase(namespace);
+  if (!permissionNamespace) {
+    return null;
+  }
+
+  return Object.freeze(
+    Object.fromEntries(
+      CRUD_PERMISSION_OPERATIONS.map((operation) => [operation, `crud.${permissionNamespace}.${operation}`])
+    )
+  );
+}
+
+function renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {}) {
+  const permissionIds = buildCrudPermissionIds(namespace);
+  if (!requiresNamedPermissions || !permissionIds) {
+    return "";
+  }
+
+  return [
+    "roleCatalog.roles.member.permissions.push(",
+    `  ${JSON.stringify(permissionIds.list)},`,
+    `  ${JSON.stringify(permissionIds.view)},`,
+    `  ${JSON.stringify(permissionIds.create)},`,
+    `  ${JSON.stringify(permissionIds.update)},`,
+    `  ${JSON.stringify(permissionIds.delete)}`,
+    ");"
+  ].join("\n");
+}
+
+function renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {}) {
+  if (!requiresNamedPermissions) {
+    return [
+      "const authenticatedPermission = Object.freeze({",
+      '  require: "authenticated"',
+      "});"
+    ].join("\n");
+  }
+
+  const permissionIds = buildCrudPermissionIds(namespace);
+  if (!permissionIds) {
+    return "";
+  }
+
+  return [
+    "const actionPermissions = Object.freeze({",
+    `  list: ${JSON.stringify(permissionIds.list)},`,
+    `  view: ${JSON.stringify(permissionIds.view)},`,
+    `  create: ${JSON.stringify(permissionIds.create)},`,
+    `  update: ${JSON.stringify(permissionIds.update)},`,
+    `  delete: ${JSON.stringify(permissionIds.delete)}`,
+    "});"
+  ].join("\n");
+}
+
+function renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {}) {
+  const normalizedOperation = normalizeText(operation).toLowerCase();
+  if (!CRUD_PERMISSION_OPERATIONS.includes(normalizedOperation)) {
+    throw new Error(`Unknown CRUD permission operation "${normalizedOperation || String(operation || "")}".`);
+  }
+
+  if (!requiresNamedPermissions) {
+    return "authenticatedPermission";
+  }
+
+  return `{ require: "all", permissions: [actionPermissions.${normalizedOperation}] }`;
+}
+
 function buildReplacementsFromSnapshot({
+  namespace = "",
   snapshot,
-  resolvedOwnershipFilter
+  resolvedOwnershipFilter,
+  requiresNamedPermissions = true
 }) {
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
   const outputColumns = scaffoldColumns.filter((column) => !column.isOwnerColumn);
@@ -1276,6 +1383,27 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
+    __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__: renderActionPermissionSupport(namespace, {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_LIST_ACTION_PERMISSION__: renderActionPermissionExpression("list", {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_VIEW_ACTION_PERMISSION__: renderActionPermissionExpression("view", {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_CREATE_ACTION_PERMISSION__: renderActionPermissionExpression("create", {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__: renderActionPermissionExpression("update", {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_DELETE_ACTION_PERMISSION__: renderActionPermissionExpression("delete", {
+      requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__: renderRoleCatalogPermissionGrants(namespace, {
+      requiresNamedPermissions
+    }),
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
       needsHtmlTimeSchemas,
       needsRecordIdSchemas
@@ -1339,6 +1467,7 @@ function createCacheKey({ appRoot, options }) {
     appRoot: path.resolve(String(appRoot || "")),
     options: {
       namespace: normalizeText(options?.namespace),
+      surface: normalizeText(options?.surface),
       ownershipFilter: normalizeText(options?.["ownership-filter"]),
       tableName: normalizeText(options?.["table-name"]),
       idColumn: normalizeText(options?.["id-column"])
@@ -1373,10 +1502,16 @@ async function buildCrudTemplateContext(input = {}) {
       enforceTableColumns: true
     }
   );
+  const requiresNamedPermissions = await resolveCrudPermissionGenerationConfig({
+    appRoot,
+    options
+  });
 
   return buildReplacementsFromSnapshot({
+    namespace,
     snapshot,
-    resolvedOwnershipFilter
+    resolvedOwnershipFilter,
+    requiresNamedPermissions
   });
 }
 
@@ -1409,7 +1544,12 @@ const __testables = Object.freeze({
   renderInputNormalizer,
   renderOutputNormalizerExpression,
   resolveGenerationSnapshot,
-  buildFieldMetaEntries
+  buildFieldMetaEntries,
+  resolveCrudPermissionGenerationConfig,
+  buildCrudPermissionIds,
+  renderRoleCatalogPermissionGrants,
+  renderActionPermissionSupport,
+  renderActionPermissionExpression
 });
 
 export {
